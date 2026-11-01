@@ -69,7 +69,7 @@ test.beforeEach(async () => {
         section: "Övrigt",
         location: "Skafferi",
       })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id");
   if (ingredients.error) throw ingredients.error;

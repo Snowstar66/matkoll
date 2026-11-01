@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planOfferFetches, type StoreRow } from "../../scripts/fetch-offers/plan.ts";
+import { planOfferFetches, signerOf, type StoreRow } from "../../scripts/fetch-offers/plan.ts";
 
 // Story 17.11: which pages the scheduled fetch asks for, and for which stores.
 
@@ -57,5 +57,25 @@ describe("planOfferFetches", () => {
   it("lists a store once even if its row comes twice", () => {
     const store = row();
     expect(planOfferFetches([store, store]).pages[0].stores).toHaveLength(1);
+  });
+});
+
+describe("signerOf (Story 21.2a)", () => {
+  const member = (user_id: string, role = "member", joined_at = "2026-11-01T10:00:00Z", household_id = "h1") => ({ household_id, user_id, role, joined_at });
+  const members = [member("maker"), member("owner", "owner", "2026-11-02T10:00:00Z"), member("early", "member", "2026-10-01T10:00:00Z"), member("other-house", "owner", "2026-01-01T00:00:00Z", "h2")];
+
+  it("signs in as the store's maker while they are in the household", () => {
+    expect(signerOf("h1", "maker", members)).toBe("maker");
+  });
+
+  it("falls back to the owner when the maker is gone or unknown, never to another household", () => {
+    expect(signerOf("h1", null, members)).toBe("owner");
+    expect(signerOf("h1", "left-the-household", members)).toBe("owner");
+    expect(signerOf("h1", "other-house", members)).toBe("owner");
+  });
+
+  it("takes the longest-standing member without an owner, and none for an empty household", () => {
+    expect(signerOf("h1", null, members.filter((row) => row.role !== "owner"))).toBe("early");
+    expect(signerOf("h3", null, members)).toBeNull();
   });
 });

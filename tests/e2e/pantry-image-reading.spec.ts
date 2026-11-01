@@ -33,7 +33,7 @@ test.beforeEach(async () => {
       { user_id: userId, name: "Apelsinjuice", normalized_name: "apelsinjuice", section: "Dryck", location: "Kyl", default_unit: "förp" },
       { user_id: userId, name: "Senap", normalized_name: "senap", section: "Skafferi", location: "Kyl", default_unit: "förp" },
     ],
-    { onConflict: "user_id,normalized_name" },
+    { onConflict: "household_id,normalized_name" },
   );
   if (catalog.error) throw catalog.error;
 });

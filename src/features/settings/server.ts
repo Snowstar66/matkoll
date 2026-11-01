@@ -92,7 +92,7 @@ export async function getAiSettingsView(): Promise<AiSettingsView | null> {
   const user = await sessionUser(db);
   if (!user) return null;
   if (!aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.email, allowed: env.AI_SETTINGS_EMAILS })) return null;
-  return aiSettingsViewFor(env, await loadAiSettingIn(db, user.id));
+  return aiSettingsViewFor(env, await loadAiSettingIn(db));
 }
 
 /**
@@ -111,7 +111,7 @@ export async function getAiChoice(): Promise<AiSetting | null> {
     const user = await sessionUser(db);
     const visible =
       user !== null && aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.email, allowed: env.AI_SETTINGS_EMAILS });
-    return aiChoiceFor(env, visible ? await loadAiSettingIn(db, user.id) : null);
+    return aiChoiceFor(env, visible ? await loadAiSettingIn(db) : null);
   } catch (error) {
     console.error("ai_setting_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return aiChoiceFor(env, null);

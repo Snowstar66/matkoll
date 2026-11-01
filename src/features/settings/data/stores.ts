@@ -10,7 +10,7 @@ import { toStore } from "./queries";
 // in v1.
 
 /** The table's unique key on chain and store id; Postgres names it in its error message. */
-const duplicateStoreConstraint = "store_user_id_chain_external_store_id_key";
+const duplicateStoreConstraint = "store_household_id_chain_external_store_id_key";
 /** The primary key: an id another user has taken. */
 const primaryKey = "store_pkey";
 

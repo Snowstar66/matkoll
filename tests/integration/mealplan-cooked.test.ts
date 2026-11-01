@@ -149,7 +149,7 @@ describe("mark_dish_cooked and undo_dish_cooked", () => {
   it("a stale undo after unmarking fails and leaves the pantry alone", async () => {
     const { user, site, dishId, cream } = await scenario("cooked-undo-stale");
     await markDishCookedIn(user.db, dishId, site, [{ ingredientId: cream, unit: "dl", amount: 2 }]);
-    await unmarkDishCookedIn(user.db, user.id, dishId);
+    await unmarkDishCookedIn(user.db, dishId);
     await expect(undoDishCookedIn(user.db, dishId)).rejects.toMatchObject({ detail: "cooked_undo_failed MK418" });
     expect(await amount(user, cream)).toBe(3);
   });
@@ -196,10 +196,10 @@ describe("mark_dish_cooked and undo_dish_cooked", () => {
   it("unmarking takes the mark off and leaves the pantry as it is", async () => {
     const { user, site, dishId, cream } = await scenario("cooked-unmark");
     await markDishCookedIn(user.db, dishId, site, [{ ingredientId: cream, unit: "dl", amount: 2 }]);
-    expect(await unmarkDishCookedIn(user.db, user.id, dishId)).toBe(true);
+    expect(await unmarkDishCookedIn(user.db, dishId)).toBe(true);
     expect(await cookedAt(user, dishId)).toBeNull();
     expect(await amount(user, cream)).toBe(3);
-    expect(await unmarkDishCookedIn(user.db, user.id, randomUUID())).toBe(false);
+    expect(await unmarkDishCookedIn(user.db, randomUUID())).toBe(false);
   });
 
   it("marks a dish without any deduction", async () => {

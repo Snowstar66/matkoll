@@ -23,17 +23,16 @@ function fakeDb(answer: { data: unknown[] | null; error: { code: string } | null
 }
 
 describe("removePantryItemIn", () => {
-  it("returns the deleted row, deleting by id and user", async () => {
+  it("returns the deleted row, deleting by id (RLS limits it to the household)", async () => {
     const { db, filters } = fakeDb({
       data: [{ id: rowId, ingredient_id: mjolk, location: "Kyl", amount: "1.5", unit: "l" }],
       error: null,
     });
-    expect(await removePantryItemIn(db, "user", rowId)).toEqual({
+    expect(await removePantryItemIn(db, rowId)).toEqual({
       row: { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" },
     });
     expect(filters).toEqual([
       ["id", rowId],
-      ["user_id", "user"],
     ]);
   });
 
@@ -43,12 +42,12 @@ describe("removePantryItemIn", () => {
       data: [{ id: rowId, ingredient_id: mjolk, location: "Garage", amount: 1, unit: "l" }],
       error: null,
     });
-    expect(await removePantryItemIn(db, "user", rowId)).toEqual({ row: null });
+    expect(await removePantryItemIn(db, rowId)).toEqual({ row: null });
   });
 
   it("gives null when nothing was deleted, and throws when Postgres refuses", async () => {
-    expect(await removePantryItemIn(fakeDb({ data: [], error: null }).db, "user", rowId)).toBeNull();
-    await expect(removePantryItemIn(fakeDb({ data: null, error: { code: "08006" } }).db, "user", rowId)).rejects.toThrow(
+    expect(await removePantryItemIn(fakeDb({ data: [], error: null }).db, rowId)).toBeNull();
+    await expect(removePantryItemIn(fakeDb({ data: null, error: { code: "08006" } }).db, rowId)).rejects.toThrow(
       new PantryDataError("remove_failed 08006"),
     );
   });
@@ -168,7 +167,7 @@ describe("the label and time on a removed and restored row (Story 11.2)", () => 
     const select = vi.fn(async () => ({ data: [dbRow(rowId, { label: "Arla", created_at: added })], error: null }));
     const query = { delete: () => query, eq: () => query, select };
     const db = { from: () => query } as unknown as PantryDb;
-    expect(await removePantryItemIn(db, "user", rowId)).toEqual({
+    expect(await removePantryItemIn(db, rowId)).toEqual({
       row: { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp", label: "Arla", createdAt: added },
     });
     expect(select).toHaveBeenCalledWith("id, site_id, ingredient_id, location, amount, unit, label, created_at");

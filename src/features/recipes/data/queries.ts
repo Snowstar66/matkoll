@@ -164,8 +164,8 @@ async function allPages<Row>(page: (from: number, to: number) => Page<Row>): Pro
 export type ListOptions = { favoritesOnly?: boolean };
 
 /**
- * The signed-in user's recipes as library rows with their lines, newest first
- * (the index recipe (user_id, created_at desc)); only favourites with
+ * The signed-in user's household's recipes as library rows with their lines, newest first
+ * (the index recipe (household_id, created_at desc)); only favourites with
  * `favoritesOnly`.
  * No paging for the caller in v1 (one user); the rows are fetched in pages of
  * the API's row limit. Throws RecipeDataError.

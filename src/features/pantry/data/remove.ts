@@ -57,22 +57,22 @@ export type RemovedPantryRow = { row: PantryRow | null };
 
 /**
  * removePantryItem (AD-19) for the signed-in user: deletes the row for good
- * (AD-20) and returns it as it was, for "Ångra". The delete names the user as
- * well as relying on RLS, so another user's row is never touched. Returns
- * null when the user has no row with the id (another user's, or gone already).
+ * (AD-20) and returns it as it was, for "Ångra". RLS limits the delete to the
+ * user's household (Story 21.2a), so another household's row is never
+ * touched. Returns null when the household has no row with the id (another
+ * household's, or gone already).
  * The delete has happened before the row is read back, so a row that does
  * not parse never throws: it gives `{ row: null }`.
  *
  * Throws PantryDataError: `invalid_id` before anything is deleted, or
  * `remove_failed <code>` when Postgres refuses.
  */
-export async function removePantryItemIn(db: PantryDb, userId: string, id: string): Promise<RemovedPantryRow | null> {
+export async function removePantryItemIn(db: PantryDb, id: string): Promise<RemovedPantryRow | null> {
   if (!idSchema.safeParse(id).success) throw new PantryDataError("invalid_id");
   const { data, error } = await db
     .from("pantry_item")
     .delete()
     .eq("id", id)
-    .eq("user_id", userId)
     .select("id, site_id, ingredient_id, location, amount, unit, label, created_at");
   if (error) throw new PantryDataError(`remove_failed ${error.code}`);
   const [row] = data;

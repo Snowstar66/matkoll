@@ -191,7 +191,7 @@ test("Töm kylen and Ångra leave the photo of the fridge", async ({ page }) => 
     .from("ingredient")
     .upsert(
       [{ user_id: userId, name: "mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" }],
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id");
   if (catalog.error) throw catalog.error;

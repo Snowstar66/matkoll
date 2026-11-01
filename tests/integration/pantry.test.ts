@@ -494,7 +494,7 @@ describe("removePantryItem and restorePantryItem", () => {
     // Story 11.2: with the time it was added, which "Ångra" puts back.
     const removed = [];
     for (const row of [inFrys, unlimited]) {
-      const gone = await removePantryItemIn(user.db, user.id, row.id);
+      const gone = await removePantryItemIn(user.db, row.id);
       expect(gone).toEqual({ row: { ...row, siteId: expect.any(String), createdAt: expect.any(String) } });
       removed.push(gone!.row!);
     }
@@ -510,16 +510,16 @@ describe("removePantryItem and restorePantryItem", () => {
     const user = await createTestUser("pantry-remove-gone");
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
-    await removePantryItemIn(user.db, user.id, row.id);
-    expect(await removePantryItemIn(user.db, user.id, row.id)).toBeNull();
-    expect(await removePantryItemIn(user.db, user.id, madeUpId)).toBeNull();
+    await removePantryItemIn(user.db, row.id);
+    expect(await removePantryItemIn(user.db, row.id)).toBeNull();
+    expect(await removePantryItemIn(user.db, madeUpId)).toBeNull();
   });
 
   it("refuses to restore when the location has the item again, and keeps the new row", async () => {
     const user = await createTestUser("pantry-restore-taken");
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
 
     // The same key: Mjölk in l in Kyl.
     const [again] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 3, unit: "l" }]);
@@ -531,11 +531,11 @@ describe("removePantryItem and restorePantryItem", () => {
     const user = await createTestUser("pantry-restore-kind");
     const salt = await addIngredient(user.db, uniqueName("Salt"), "Skafferi");
     const [amount] = await setPantryItemsIn(user.db, [{ ingredientId: salt, location: "Skafferi", amount: 1, unit: "kg" }]);
-    await removePantryItemIn(user.db, user.id, amount.id);
+    await removePantryItemIn(user.db, amount.id);
     const [unlimited] = await setPantryItemsIn(user.db, [{ ingredientId: salt, location: "Skafferi", amount: null, unit: null }]);
     await expect(restorePantryItemIn(user.db, amount)).rejects.toThrow(new PantryDataError("restore_failed 23505"));
 
-    await removePantryItemIn(user.db, user.id, unlimited.id);
+    await removePantryItemIn(user.db, unlimited.id);
     const [inGram] = await setPantryItemsIn(user.db, [{ ingredientId: salt, location: "Skafferi", amount: 500, unit: "g" }]);
     await expect(restorePantryItemIn(user.db, unlimited)).rejects.toThrow(new PantryDataError("restore_failed 23505"));
     expect(await rowsOf(user.id)).toEqual([{ id: inGram.id, ingredient_id: salt, location: "Skafferi", amount: 500, unit: "g" }]);
@@ -545,7 +545,7 @@ describe("removePantryItem and restorePantryItem", () => {
     const user = await createTestUser("pantry-restore-other");
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     await setPantryItemsIn(user.db, [
       { ingredientId: mjolk, location: "Kyl", amount: 5, unit: "dl" },
       { ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" },
@@ -558,7 +558,7 @@ describe("removePantryItem and restorePantryItem", () => {
   it("refuses an invalid id or row before calling the database", async () => {
     const user = await createTestUser("pantry-remove-invalid");
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
-    await expect(removePantryItemIn(user.db, user.id, "rad-1")).rejects.toThrow(new PantryDataError("invalid_id"));
+    await expect(removePantryItemIn(user.db, "rad-1")).rejects.toThrow(new PantryDataError("invalid_id"));
     await expect(
       restorePantryItemIn(user.db, { id: "rad-1", ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }),
     ).rejects.toThrow(new PantryDataError("invalid_row"));
@@ -580,15 +580,14 @@ describe("removePantryItem and restorePantryItem", () => {
     ]);
 
     // The other user's delete, by their own user id or the owner's, reaches nothing (RLS).
-    expect(await removePantryItemIn(other.db, other.id, row.id)).toBeNull();
-    expect(await removePantryItemIn(other.db, owner.id, row.id)).toBeNull();
+    expect(await removePantryItemIn(other.db, row.id)).toBeNull();
     const direct = await other.db.from("pantry_item").delete().eq("id", row.id).select("id");
     expect(direct.data).toEqual([]);
     expect(await rowsOf(owner.id)).toHaveLength(2);
 
     // Restoring the owner's removed row as another user: the place is not theirs (MK410), and
     // without the place the ingredient is not in their catalog.
-    await removePantryItemIn(owner.db, owner.id, row.id);
+    await removePantryItemIn(owner.db, row.id);
     await expect(restorePantryItemIn(other.db, row)).rejects.toThrow(new PantryDataError("site_gone"));
     await expect(restorePantryItemIn(other.db, { ...row, siteId: undefined })).rejects.toThrow(
       new PantryDataError("restore_failed 23503"),

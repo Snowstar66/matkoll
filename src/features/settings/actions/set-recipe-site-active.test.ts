@@ -26,18 +26,18 @@ describe("setRecipeSiteActive", () => {
     expect(await setRecipeSiteActive({ domain: "koket.se", isActive: false })).toEqual(
       ok({ domain: "koket.se", isActive: false, changed: true }),
     );
-    expect(setRecipeSiteActiveIn).toHaveBeenCalledWith(db, "user", "koket.se", false);
+    expect(setRecipeSiteActiveIn).toHaveBeenCalledWith(db, "koket.se", false);
     expect(revalidateFor).toHaveBeenCalledWith("recipe_site");
 
     expect(await setRecipeSiteActive({ domain: "koket.se", isActive: true })).toEqual(
       ok({ domain: "koket.se", isActive: true, changed: true }),
     );
-    expect(setRecipeSiteActiveIn).toHaveBeenLastCalledWith(db, "user", "koket.se", true);
+    expect(setRecipeSiteActiveIn).toHaveBeenLastCalledWith(db, "koket.se", true);
   });
 
   it("normalises the domain", async () => {
     await setRecipeSiteActive({ domain: "www.Koket.se", isActive: false });
-    expect(setRecipeSiteActiveIn).toHaveBeenCalledWith(db, "user", "koket.se", false);
+    expect(setRecipeSiteActiveIn).toHaveBeenCalledWith(db, "koket.se", false);
   });
 
   it("returns unauthorized without an allowed user, and changes nothing", async () => {

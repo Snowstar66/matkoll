@@ -88,7 +88,7 @@ async function reset(places: string[], items: Seed[]): Promise<{ sites: Record<s
         location: "Kyl",
         default_unit: item.unit ?? "st",
       })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (catalog.error) throw catalog.error;

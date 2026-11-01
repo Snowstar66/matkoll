@@ -78,7 +78,7 @@ test.beforeEach(async () => {
       location,
       default_unit: unit,
     })),
-    { onConflict: "user_id,normalized_name" },
+    { onConflict: "household_id,normalized_name" },
   );
   if (catalog.error) throw catalog.error;
 });

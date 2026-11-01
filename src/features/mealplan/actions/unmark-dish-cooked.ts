@@ -22,7 +22,7 @@ export async function unmarkDishCooked(id: string): Promise<Result<null>> {
   if (!parsed.success) return fail("validation");
 
   try {
-    const done = await unmarkDishCookedIn(await createClient(), user.data.id, parsed.data);
+    const done = await unmarkDishCookedIn(await createClient(), parsed.data);
     revalidateFor("meal_plan_recipe");
     if (!done) return fail("mealplan_uncook_failed");
     return ok(null);

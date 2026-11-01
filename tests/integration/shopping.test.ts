@@ -199,7 +199,7 @@ describe("loadShoppingList", () => {
   });
 
   it("is counted again from what is stored now: servings and pantry", async () => {
-    await setServingsIn(user.db, user.id, gryta, 4);
+    await setServingsIn(user.db, gryta, 4);
     await setPantry(user.db, [
       { ingredientId: ids.salt, amount: null, unit: null },
       { ingredientId: ids.gradde, amount: 1, unit: "dl", location: "Frys" },
@@ -323,7 +323,7 @@ describe("shopping_check", () => {
       [key, 2, true],
     ]);
     // Grädde 2 dl becomes 3 dl: the same key, still checked.
-    await setServingsIn(user.db, user.id, dishId, 6);
+    await setServingsIn(user.db, dishId, 6);
     expect((await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.amount, line.checked])).toEqual([
       [key, 3, true],
     ]);
@@ -568,7 +568,7 @@ describe("shopping_custom_item", () => {
     const disk = item(planId);
     await addCustomItemIn(user.db, disk);
 
-    await setServingsIn(user.db, user.id, dishId, 8);
+    await setServingsIn(user.db, dishId, 8);
     await setPantry(user.db, [{ ingredientId: gradde, amount: 1, unit: "l" }, { ingredientId: gradde, amount: 6, unit: "dl" }]);
     expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.key)).toEqual([`c:${disk.id}`]);
 
@@ -902,7 +902,7 @@ describe("shopping_line_override", () => {
       [textKey, null, null],
     ]);
     // 2 dl becomes 3 dl: the correction stays.
-    await setServingsIn(user.db, user.id, dishId, 6);
+    await setServingsIn(user.db, dishId, 6);
     expect((await shown(user.db))[0]).toEqual([key, 1.5, 3]);
     // Saving again is one row.
     expect(await setLineAmountIn(user.db, planId, key, 1)).toBe("saved");
@@ -954,7 +954,7 @@ describe("shopping_line_override", () => {
     const user = await createTestUser("shopping-override-recount");
     const { planId, dishId, gradde, key } = await planWithLines(user);
     await hideLineIn(user.db, planId, key);
-    await setServingsIn(user.db, user.id, dishId, 8);
+    await setServingsIn(user.db, dishId, 8);
     expect((await shown(user.db)).map(([one]) => one)).not.toContain(key);
     const recipeId = await addRecipe(user.db, "Paj", 4, [{ text: "100 g grädde", ingredientId: gradde, amount: 100, unit: "g" }]);
     await addDish(user.db, recipeId, "Paj", 4);
@@ -1129,7 +1129,7 @@ describe("shopping_line_override", () => {
     let line = (await loadShoppingList(sources(user.db))).lines[0];
     expect(line).toMatchObject({ amount: 1.5, computedAmount: 2 });
     expect(line).not.toHaveProperty("computedChanged");
-    await setServingsIn(user.db, user.id, dishId, 6);
+    await setServingsIn(user.db, dishId, 6);
     line = (await loadShoppingList(sources(user.db))).lines[0];
     expect(line).toMatchObject({ amount: 1.5, computedAmount: 3, computedChanged: true });
     // Back to the counted amount: the base goes with it.
@@ -1614,7 +1614,7 @@ describe("product_choice", () => {
     expect((await user.db.from("product_choice").insert(row)).error).toBeNull();
     const again = await user.db.from("product_choice").insert({ ...row, product_name: "Garant" });
     expect(again.error?.code).toBe("23505");
-    expect(again.error?.message).toContain("product_choice_user_id_ingredient_id_store_id_key");
+    expect(again.error?.message).toContain("product_choice_household_id_ingredient_id_store_id_key");
   });
 
   it("refuses another user's ingredient or store (23503), and the save gives target_gone", async () => {

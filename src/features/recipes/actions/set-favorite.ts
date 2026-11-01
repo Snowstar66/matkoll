@@ -22,7 +22,7 @@ export async function setFavorite(change: FavoriteChange): Promise<Result<Favori
   const { id, isFavorite } = parsed.data;
 
   try {
-    const found = await setFavoriteIn(await createClient(), user.data.id, id, isFavorite);
+    const found = await setFavoriteIn(await createClient(), id, isFavorite);
     if (!found) {
       console.error("recipe_favorite_failed", { reason: "not_found" });
       return fail("recipe_favorite_failed");

@@ -199,7 +199,7 @@ describe("Ångra keeps the label and created_at (AD-20)", () => {
     const graddfil = await addIngredient(user.db, uniqueName("Gräddfil"));
     const [row] = await setPantryItemsIn(user.db, [kyl(graddfil, 2, "förp", "Arla")]);
     const added = await age(user.db, row.id, 6);
-    const removed = await removePantryItemIn(user.db, user.id, row.id);
+    const removed = await removePantryItemIn(user.db, row.id);
     expect(removed?.row).toMatchObject({ id: row.id, label: "Arla" });
     sameTime(removed!.row!.createdAt!, added);
 
@@ -213,7 +213,7 @@ describe("Ångra keeps the label and created_at (AD-20)", () => {
   it("makes a time in the future now, and a row without label or time comes back with null and now", async () => {
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla")]);
-    const removed = (await removePantryItemIn(user.db, user.id, row.id))!.row!;
+    const removed = (await removePantryItemIn(user.db, row.id))!.row!;
     const inAnHour = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const before = Date.now();
     await restorePantryItemIn(user.db, { ...removed, createdAt: inAnHour });
@@ -221,7 +221,7 @@ describe("Ångra keeps the label and created_at (AD-20)", () => {
     expect(new Date(forged.created_at).getTime()).toBeLessThanOrEqual(Date.now() + 1_000);
     expect(new Date(forged.created_at).getTime()).toBeGreaterThanOrEqual(before - 5_000);
 
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     // As a row from before the story: no label, no time.
     await restorePantryItemIn(user.db, { ...removed, label: undefined, createdAt: undefined });
     expect(await rowOf(user.db, row.id)).toMatchObject({ label: null });
@@ -253,7 +253,7 @@ describe("Ångra keeps the label and created_at (AD-20)", () => {
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla")]);
     const { site_id: siteId } = (await user.db.from("pantry_item").select("site_id").eq("id", row.id).single()).data!;
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     const operation = randomUUID();
     // As empty_pantry_place stored it before the migration: no label, no created_at.
     const { error } = await user.db.from("pantry_removal").insert({
@@ -469,7 +469,7 @@ describe("after review: Ångra is robust", () => {
     const smor = await addIngredient(user.db, uniqueName("Smör"));
     const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla")]);
     const siteId = await siteOf(user.db, row.id);
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     const good = { id: row.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla" };
     const operation = await storeRemoval(user.db, [
       { ...good, id: "inte-ett-id", ingredient_id: smor },
@@ -489,7 +489,7 @@ describe("after review: Ångra is robust", () => {
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l")]);
     const siteId = await siteOf(user.db, row.id);
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     const operation = await storeRemoval(user.db, [
       { id: row.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: " Arla" },
     ]);
@@ -502,8 +502,8 @@ describe("after review: Ångra is robust", () => {
     const smor = await addIngredient(user.db, uniqueName("Smör"));
     const [a, b] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l"), kyl(smor, 1, "förp")]);
     const siteId = await siteOf(user.db, a.id);
-    await removePantryItemIn(user.db, user.id, a.id);
-    await removePantryItemIn(user.db, user.id, b.id);
+    await removePantryItemIn(user.db, a.id);
+    await removePantryItemIn(user.db, b.id);
     const inAYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     const operation = await storeRemoval(user.db, [
       { id: a.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", created_at: inAYear },
@@ -520,7 +520,7 @@ describe("after review: Ångra is robust", () => {
   it("refuses a time that is not finite in restore_pantry_item", async () => {
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
     const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l")]);
-    await removePantryItemIn(user.db, user.id, row.id);
+    await removePantryItemIn(user.db, row.id);
     for (const time of ["infinity", "-infinity"]) {
       const { error } = await user.db.rpc("restore_pantry_item", {
         item: { id: row.id, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", created_at: time },

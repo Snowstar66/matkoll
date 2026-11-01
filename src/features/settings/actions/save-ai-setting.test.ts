@@ -33,15 +33,15 @@ beforeEach(() => {
 describe("saveAiSetting", () => {
   it("saves a Claude choice and revalidates Inställningar", async () => {
     expect(await saveAiSetting(sonnet)).toEqual(ok(sonnet));
-    expect(saveAiSettingIn).toHaveBeenCalledWith(db, "user", { provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" });
+    expect(saveAiSettingIn).toHaveBeenCalledWith(db, { provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" });
     expect(revalidateFor).toHaveBeenCalledWith("ai_setting");
   });
 
   it("saves Qwen with the model from the environment, and clears for default", async () => {
     await saveAiSetting({ provider: "lmstudio" });
-    expect(saveAiSettingIn).toHaveBeenCalledWith(db, "user", { provider: "lmstudio", model: "qwen/test", effort: "medium" });
+    expect(saveAiSettingIn).toHaveBeenCalledWith(db, { provider: "lmstudio", model: "qwen/test", effort: "medium" });
     await saveAiSetting({ provider: "default" });
-    expect(clearAiSettingIn).toHaveBeenCalledWith(db, "user");
+    expect(clearAiSettingIn).toHaveBeenCalledWith(db);
   });
 
   it("refuses Claude without a key, and Qwen without a URL, without writing", async () => {

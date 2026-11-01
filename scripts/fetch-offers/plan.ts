@@ -5,8 +5,26 @@
 
 import { parseOffersLink, type StoreChain } from "@/features/settings";
 
-/** A store row as the job reads it with the service role. */
+/** A store row as the job reads it with the service role; `user_id` is the member the job signs in as (signerOf). */
 export type StoreRow = { id: string; user_id: string; chain: string; offers_url: string | null };
+
+/** A member of a household, as the job reads them with the service role. */
+export type HouseholdMemberRow = { household_id: string; user_id: string; role: string; joined_at: string };
+
+/**
+ * Story 21.2a: who the job signs in as for a store of `householdId`: the
+ * member who made it (`makerId`) while they are still in the household, or
+ * else the household's owner, or else its longest-standing member. `null`
+ * when the household has no member (it is about to go).
+ */
+export function signerOf(householdId: string, makerId: string | null, members: readonly HouseholdMemberRow[]): string | null {
+  const own = members.filter((member) => member.household_id === householdId);
+  if (makerId && own.some((member) => member.user_id === makerId)) return makerId;
+  const sorted = [...own].sort(
+    (a, b) => Number(b.role === "owner") - Number(a.role === "owner") || a.joined_at.localeCompare(b.joined_at) || a.user_id.localeCompare(b.user_id),
+  );
+  return sorted[0]?.user_id ?? null;
+}
 
 /** One page to fetch, the offer site's host, and every store that has its link. */
 export type PagePlan = { url: string; host: string; stores: { storeId: string; userId: string }[] };

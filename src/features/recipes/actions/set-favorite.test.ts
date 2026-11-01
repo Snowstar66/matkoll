@@ -26,11 +26,11 @@ beforeEach(() => {
 describe("setFavorite", () => {
   it("sets the favourite and revalidates the recipe routes", async () => {
     expect(await setFavorite({ id, isFavorite: true })).toEqual(ok({ id, isFavorite: true }));
-    expect(setFavoriteIn).toHaveBeenCalledWith(db, "user", id, true);
+    expect(setFavoriteIn).toHaveBeenCalledWith(db, id, true);
     expect(revalidateFor).toHaveBeenCalledWith("recipe");
 
     expect(await setFavorite({ id, isFavorite: false })).toEqual(ok({ id, isFavorite: false }));
-    expect(setFavoriteIn).toHaveBeenLastCalledWith(db, "user", id, false);
+    expect(setFavoriteIn).toHaveBeenLastCalledWith(db, id, false);
   });
 
   it("returns unauthorized without an allowed user, and changes nothing", async () => {

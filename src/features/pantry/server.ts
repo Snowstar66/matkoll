@@ -411,7 +411,7 @@ export async function movePantryAmount(
   if (!plan) return false;
   const [first, ...rest] = plan.sets;
   if (first) await setPantryItemsIn(db, [first], plan.replaceId, place);
-  else if (plan.replaceId) await removePantryItemIn(db, userId, plan.replaceId);
+  else if (plan.replaceId) await removePantryItemIn(db, plan.replaceId);
   for (const set of rest) await setPantryItemsIn(db, [set], null, place);
   return true;
 }

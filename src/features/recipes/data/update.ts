@@ -60,14 +60,14 @@ export async function updateRecipeIn(
 }
 
 /**
- * Deletes the recipe `id` of the user `userId`, with its steps and lines (on
- * delete cascade). The delete filters on both, and RLS limits it to the
- * signed-in user's rows too. Returns false when the user has no recipe with
- * that id (another user's, or already deleted), and then nothing changes.
+ * Deletes the recipe `id`, with its steps and lines (on delete cascade). RLS
+ * limits it to the signed-in user's household (Story 21.2a: any member's
+ * recipe). Returns false when the household has no recipe with that id
+ * (another household's, or already deleted), and then nothing changes.
  * Throws RecipeDataError.
  */
-export async function deleteRecipeIn(db: RecipesDb, userId: string, id: string): Promise<boolean> {
-  const { data, error } = await db.from("recipe").delete().eq("id", id).eq("user_id", userId).select("id");
+export async function deleteRecipeIn(db: RecipesDb, id: string): Promise<boolean> {
+  const { data, error } = await db.from("recipe").delete().eq("id", id).select("id");
   if (error) throw new RecipeDataError(`delete_failed ${error.code}`);
   return data.length > 0;
 }

@@ -33,7 +33,7 @@ test.beforeEach(async () => {
     .from("ingredient")
     .upsert(
       { user_id: userId, name: "Mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" },
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id")
     .single();

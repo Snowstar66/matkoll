@@ -58,6 +58,8 @@ describe("the photo migration", () => {
     expect(types.split(",")).toEqual([...placePhotoMediaTypes]);
   });
 
+  // The bucket's first policies. Story 21.2a (20261102130000_household.sql) replaces them with the
+  // household's rule, tried against real files in tests/integration/household-isolation.test.ts.
   it("gives every policy the bucket and the user's own folder, for select, insert and delete only", () => {
     const sql = photoSql();
     const policies = [...sql.matchAll(/create policy (\w+) on storage\.objects\s+for (\w+) to (\w+)\s+(using|with check) \(([^;]+)\);/g)];

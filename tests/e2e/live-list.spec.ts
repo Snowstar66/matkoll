@@ -31,7 +31,7 @@ async function seedIngredients(): Promise<Map<string, string>> {
         section,
         location: "Kyl",
       })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (error) throw error;

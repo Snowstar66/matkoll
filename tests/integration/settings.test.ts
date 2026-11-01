@@ -158,8 +158,8 @@ describe("managing sites in Inställningar", () => {
   it("turns a site off without deleting it, and it stays off after the next sign-in", async () => {
     const user = await createTestUser("sites-off");
     await insertUserDefaults(user.db);
-    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false)).toBe("changed");
-    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false)).toBe("unchanged");
+    expect(await setRecipeSiteActiveIn(user.db, "koket.se", false)).toBe("changed");
+    expect(await setRecipeSiteActiveIn(user.db, "koket.se", false)).toBe("unchanged");
     expect(await loadActiveRecipeDomains(user.db)).toEqual(["arla.se", "ica.se", "tasteline.com"]);
     expect(await sitesOf(user.id)).toContainEqual({ domain: "koket.se", is_active: false });
 
@@ -171,12 +171,12 @@ describe("managing sites in Inställningar", () => {
   it("turns an off site on again, by Ångra or by adding it again", async () => {
     const user = await createTestUser("sites-on");
     await insertUserDefaults(user.db);
-    await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false);
-    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", true)).toBe("changed");
-    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", true)).toBe("unchanged");
+    await setRecipeSiteActiveIn(user.db, "koket.se", false);
+    expect(await setRecipeSiteActiveIn(user.db, "koket.se", true)).toBe("changed");
+    expect(await setRecipeSiteActiveIn(user.db, "koket.se", true)).toBe("unchanged");
     expect(await loadActiveRecipeDomains(user.db)).toContain("koket.se");
 
-    await setRecipeSiteActiveIn(user.db, user.id, "arla.se", false);
+    await setRecipeSiteActiveIn(user.db, "arla.se", false);
     expect(await addRecipeSiteIn(user.db, user.id, "arla.se")).toBe("reactivated");
     expect(await sitesOf(user.id)).toEqual([
       { domain: "arla.se", is_active: true },
@@ -188,20 +188,19 @@ describe("managing sites in Inställningar", () => {
 
   it("reports a site the user does not have", async () => {
     const user = await createTestUser("sites-missing");
-    expect(await setRecipeSiteActiveIn(user.db, user.id, uniqueDomain(), false)).toBe("missing");
+    expect(await setRecipeSiteActiveIn(user.db, uniqueDomain(), false)).toBe("missing");
   });
 
   it("never changes another user's sites", async () => {
     const owner = await createTestUser("sites-owner");
     const other = await createTestUser("sites-intruder");
     await insertUserDefaults(owner.db);
-    await setRecipeSiteActiveIn(owner.db, owner.id, "ica.se", false);
+    await setRecipeSiteActiveIn(owner.db, "ica.se", false);
     const before = await sitesOf(owner.id);
 
-    // With the owner's id too: RLS hides the rows from the other user.
-    expect(await setRecipeSiteActiveIn(other.db, owner.id, "koket.se", false)).toBe("missing");
-    expect(await setRecipeSiteActiveIn(other.db, owner.id, "ica.se", true)).toBe("missing");
-    expect(await setRecipeSiteActiveIn(other.db, other.id, "koket.se", false)).toBe("missing");
+    // RLS hides the owner's household's rows from the other user.
+    expect(await setRecipeSiteActiveIn(other.db, "koket.se", false)).toBe("missing");
+    expect(await setRecipeSiteActiveIn(other.db, "ica.se", true)).toBe("missing");
     // An insert for the owner is refused by RLS (42501), and the reactivation finds nothing.
     await expect(addRecipeSiteIn(other.db, owner.id, "ica.se")).rejects.toThrow(SettingsDataError);
     await expect(addRecipeSiteIn(other.db, owner.id, uniqueDomain())).rejects.toThrow(SettingsDataError);
@@ -614,14 +613,14 @@ describe("ai_setting (Story 17.5)", () => {
 
   it("keeps one row per user: saves, replaces, reads and clears the choice", async () => {
     const user = await createTestUser("ai-setting");
-    expect(await loadAiSettingIn(user.db, user.id)).toBeNull();
-    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
-    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
-    expect(await loadAiSettingIn(user.db, user.id)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+    expect(await loadAiSettingIn(user.db)).toBeNull();
+    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
+    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+    expect(await loadAiSettingIn(user.db)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
     const { data } = await adminClient().from("ai_setting").select("id").eq("user_id", user.id);
     expect(data).toHaveLength(1);
-    await clearAiSettingIn(user.db, user.id);
-    expect(await loadAiSettingIn(user.db, user.id)).toBeNull();
+    await clearAiSettingIn(user.db);
+    expect(await loadAiSettingIn(user.db)).toBeNull();
   });
 
   it("refuses a provider, a level or a model length the table does not allow", async () => {

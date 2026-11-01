@@ -49,7 +49,7 @@ async function seed({ old }: { old: boolean }) {
         section: "Övrigt",
         location: "Kyl",
       })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, normalized_name");
   if (upsert.error) throw upsert.error;

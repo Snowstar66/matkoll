@@ -23,7 +23,7 @@ async function ingredientIds(): Promise<Record<"Mjölk" | "Smör", string>> {
         { user_id: userId, name: "Mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "l" },
         { user_id: userId, name: "Smör", normalized_name: "smör", section: "Mejeri", location: "Kyl", default_unit: "g" },
       ],
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (error) throw error;

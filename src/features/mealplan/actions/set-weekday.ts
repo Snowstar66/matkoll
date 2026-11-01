@@ -25,7 +25,7 @@ export async function setWeekday(change: WeekdayChange): Promise<Result<WeekdayC
   const { id, weekday } = parsed.data;
 
   try {
-    const found = await setWeekdayIn(await createClient(), user.data.id, id, weekday);
+    const found = await setWeekdayIn(await createClient(), id, weekday);
     revalidateFor("meal_plan_recipe");
     if (!found) {
       console.error("mealplan_weekday_failed", { reason: "not_found" });

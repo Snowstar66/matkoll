@@ -23,8 +23,8 @@ type SynonymRow = { normalized: string; ingredient_id: string } | { normalized: 
  * order given (`null` for "unmatched"), so lines with the same text can point
  * at different ingredients ("salt och peppar" → salt, svartpeppar).
  *
- * - New ingredients are created with `insert … on conflict (user_id,
- *   normalized_name) do update … returning id`: concurrent commits of a name
+ * - New ingredients are created with `insert … on conflict (household_id,
+ *   normalized_name) do update … returning id` (Story 21.2a: the household's catalog): concurrent commits of a name
  *   get one row and the same id, and an existing ingredient is never changed.
  * - A "chosen" ingredient (Pontus picked another than the suggestion) saves the
  *   normalised original text as a synonym for it, pointing an existing synonym

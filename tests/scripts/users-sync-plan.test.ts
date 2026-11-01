@@ -67,7 +67,7 @@ describe("planUserSync", () => {
  * The service role's client as pruneExtraUsers and removeDeletedUsersFiles
  * use it, with a bucket in memory and every call recorded in `steps`.
  */
-function fakeAdmin(paths: string[], existing: string[] = []) {
+function fakeAdmin(paths: string[], existing: string[] = [], households: Record<string, string> = {}) {
   const steps: string[] = [];
   const memory = memoryBucket(paths);
   const users = new Set(existing);
@@ -100,8 +100,21 @@ function fakeAdmin(paths: string[], existing: string[] = []) {
     steps.push(`rows ${column}=${value}`);
     return { error: null as unknown };
   });
+  // household_member (Story 21.2a): `households` maps a user to their household.
+  const members = (column: string, value: string) =>
+    Object.entries(households)
+      .filter(([user, household]) => (column === "user_id" ? user === value : household === value))
+      .map(([user, household]) => ({ user_id: user, household_id: household }));
   const from = vi.fn((table: string) => ({
     delete: () => ({ eq: (column: string, value: string) => (steps.push(`from ${table}`), rowsDeleted(column, value)) }),
+    select: () => ({
+      eq: (column: string, value: string) => {
+        const data = members(column, value);
+        return Object.assign(Promise.resolve({ data, error: null as unknown }), {
+          maybeSingle: async () => ({ data: data[0] ?? null, error: null as unknown }),
+        });
+      },
+    }),
   }));
   return { client: { auth, storage: { from: () => bucket }, from }, steps, files: memory.files, bucket, auth, rowsDeleted };
 }
@@ -118,6 +131,14 @@ describe("pruneExtraUsers (Story 10.3)", () => {
     expect(result).toEqual({ ok: true, lines: [{ level: "info", text: `deleted  ${old} and 3 photo file(s)` }] });
     expect(admin.steps).toEqual([`ban ${old} ${pruneBanDuration}`, "remove 3", `delete ${old}`]);
     expect([...admin.files]).toEqual(["33333333-3333-4333-8333-333333333333/s/kyl/x.jpg"]);
+  });
+
+  it("keeps the photo files of a user whose household has other members, and deletes only the user (Story 21.2a)", async () => {
+    const admin = fakeAdmin(filesOf(old), [old], { [old]: "h1", [older]: "h1" });
+    const result = await pruneExtraUsers(plan(old), admin.client as never);
+    expect(result).toEqual({ ok: true, lines: [{ level: "info", text: `deleted  ${old}; its photo files stay with its household` }] });
+    expect(admin.steps).toEqual([`ban ${old} ${pruneBanDuration}`, `delete ${old}`]);
+    expect(admin.files.size).toBe(3);
   });
 
   it("removes a file that came in after the files went, once the user is deleted", async () => {

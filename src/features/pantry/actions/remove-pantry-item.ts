@@ -30,7 +30,7 @@ export async function removePantryItem(id: string): Promise<Result<PantryRow | n
   if (!parsed.success) return fail("validation");
 
   try {
-    const removed = await removePantryItemIn(await createClient(), user.data.id, parsed.data);
+    const removed = await removePantryItemIn(await createClient(), parsed.data);
     revalidateFor("pantry_item");
     if (!removed) {
       console.error("pantry_remove_failed", { reason: "not_found" });
