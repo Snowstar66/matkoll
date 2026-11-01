@@ -714,6 +714,9 @@ isOneToOne: false
 "relink_thing_items":
 { Args: { "links": Json }; Returns: number
                            },
+"remember_thing":
+{ Args: { "place": string,"replaces"?: string,"thing_category": string,"thing_name": string }; Returns: string
+                           },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {
               "amount": number | null,
@@ -731,9 +734,6 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
-"remember_thing":
-{ Args: { "place": string,"replaces"?: string,"thing_category": string,"thing_name": string }; Returns: string
-                           },
 "remove_thing_place":
 { Args: { "place": string }; Returns: Json
                            },
@@ -859,7 +859,7 @@ isOneToOne: false
                            },
 "search_things":
 { Args: { "max_hits"?: number,"terms": (string)[] }; Returns: {
-              "category": string,"id": string,"kind": string,"name": string,"part": string,"photo_id": string,"place_id": string,"room": string,"room_key": string,"score": number,"seen_on": number,"site_id": string,"site_name": string,"source": string,"taken_at": string,"where_hint": string,"noted": boolean
+              "category": string,"id": string,"kind": string,"name": string,"noted": boolean,"part": string,"photo_id": string,"place_id": string,"room": string,"room_key": string,"score": number,"seen_on": number,"site_id": string,"site_name": string,"source": string,"taken_at": string,"where_hint": string
             }[]
                            },
 "select_pantry_site":
@@ -958,7 +958,7 @@ isOneToOne: false
                            },
 "thing_room_things":
 { Args: { "in_room": string,"site": string,"wanted": string }; Returns: {
-              "category": string,"confidence": string,"id": string,"kind": string,"name": string,"part": string,"seen_on": number,"where_hint": string,"noted": boolean,"noted_at": string | null
+              "category": string,"confidence": string,"id": string,"kind": string,"name": string,"noted": boolean,"noted_at": string,"part": string,"seen_on": number,"where_hint": string
             }[]
                            },
 "thing_room_written":
