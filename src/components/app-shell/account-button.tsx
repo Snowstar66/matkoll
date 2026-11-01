@@ -40,7 +40,7 @@ function AccountSheetButton({ tab }: { tab?: HeaderTab }) {
   const close = () => setOpen(false);
   const title: ReactNode = (
     <span className="flex items-center gap-3">
-      <Avatar initial={account.initial} size={40} />
+      <Avatar initial={account.initial} size={40} tone={account.tone} />
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{account.name}</span>
         <span className="truncate text-meta font-normal text-ink-2">{account.email}</span>
@@ -56,7 +56,7 @@ function AccountSheetButton({ tab }: { tab?: HeaderTab }) {
         onClick={() => setOpen(true)}
         className="flex size-tap shrink-0 items-center justify-center rounded-full"
       >
-        <Avatar initial={account.initial} />
+        <Avatar initial={account.initial} tone={account.tone} />
       </button>
       <Sheet open={open} onClose={close} title={title} initialFocus="title">
         <ul className="mt-1 flex flex-col divide-y divide-hairline overflow-hidden rounded-[14px] bg-fill" role="list">

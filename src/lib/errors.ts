@@ -52,6 +52,18 @@ export const errorMessages = {
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
   // Välkomstturen (Story 20.1): closing it could not be saved, so it may show again at the next start. Logged, never shown.
   welcome_tour_save_failed: "Det gick inte att spara att du sett rundturen.",
+  // Hushållet (Story 21.2b): members, invitations and joining.
+  household_unavailable: "Det gick inte att läsa hushållet. Försök igen.",
+  household_failed: "Det gick inte att spara. Försök igen.",
+  household_invite_gone: "Inbjudan gäller inte längre. Be om en ny.",
+  household_invite_locked: "För många fel koder. Vänta en timme och försök igen.",
+  household_too_many_invites: "Det finns redan 10 öppna inbjudningar. Ta bort någon först.",
+  household_has_data: `Du har redan egna recept, varor eller ${thingNoun.plural} i ${appName}. Det går bara att gå med i ett annat hushåll från ett konto utan egen data.`,
+  household_account_exists: "Det finns redan ett konto med adressen. Logga in i stället.",
+  household_join_failed: "Det gick inte att gå med. Försök igen.",
+  household_not_owner: "Bara hushållets ägare kan göra det.",
+  household_member_gone: "Personen är inte med i hushållet längre.",
+  household_alone: "Du är ensam i hushållet, så det finns inget att lämna.",
   pantry_unavailable: "Det gick inte att läsa matvarorna. Försök igen.",
   pantry_save_failed: "Det gick inte att spara varan. Försök igen.",
   // Removing an item (Story 2.3). After a failed remove the row is back in

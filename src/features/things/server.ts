@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "./data/client";
-import { downloadCardFile, loadCardIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
+import { downloadCardFile, formerMembersFiles, loadCardIn, loadMemberIdsIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
 import { loadPlaceIn, loadPlacesIn } from "./data/places";
 import { loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, type RoomPlace } from "./data/rooms";
 import type { ThingCategory } from "./domain/thing";
@@ -123,9 +123,18 @@ export async function hasCardImage(id: string): Promise<boolean> {
  * is logged (`things_photo_remove_failed`, a reason only) and none are given:
  * the sweep takes them later, once they have no row.
  */
-export async function loadSiteCardFiles(siteId: string, userId: string): Promise<string[]> {
+export async function loadSiteCardFiles(siteId: string): Promise<string[]> {
   try {
-    return await loadSiteCardFilesIn(await createClient(), userId, siteId);
+    const db = await createClient();
+    const members = await loadMemberIdsIn(db);
+    const files = await loadSiteCardFilesIn(db, members, siteId);
+    // Story 21.2b: the files of members who have left are the household's only while the boende is, so they go now.
+    const former = formerMembersFiles(files, members);
+    if (former.length > 0) {
+      const { failed } = await removeCardFiles(db, former);
+      if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
+    }
+    return files.filter((path) => !former.includes(path));
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_photo_remove_failed", { reason: error.detail });

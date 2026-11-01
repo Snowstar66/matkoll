@@ -98,7 +98,7 @@ test.describe("the owner's inbox", () => {
     await adminClient().from("app_owner").delete().eq("user_id", userId);
   });
 
-  test("Ägare shows Inkorg with the count of new; the inbox shows the average, filters and marks read", async ({ page }) => {
+  test("Appens ägare shows Inkorg with the count of new; the inbox shows the average, filters and marks read", async ({ page }) => {
     const minute = 60_000;
     await adminClient()
       .from("feedback")
@@ -111,7 +111,7 @@ test.describe("the owner's inbox", () => {
     // The owner sees everyone's messages, so the counts are those in the database, not only this user's.
     const unread = await adminClient().from("feedback").select("id", { count: "exact", head: true }).is("read_at", null);
     await page.goto("/installningar");
-    const owner = page.getByRole("list", { name: "Ägare" }).filter({ visible: true });
+    const owner = page.getByRole("list", { name: "Appens ägare" }).filter({ visible: true });
     await expect(owner.getByRole("link", { name: /Inkorg/ })).toContainText(`${unread.count} ${unread.count === 1 ? "ny" : "nya"}`);
     await owner.getByRole("link", { name: /Inkorg/ }).click();
     await expect(page).toHaveURL(/\/installningar\/inkorg$/);
@@ -139,10 +139,10 @@ test.describe("the owner's inbox", () => {
 test.describe("anyone else", () => {
   test.use({ storageState: settingsStorageState });
 
-  test("sees no Ägare group and no inbox", async ({ page }) => {
+  test("sees no Appens ägare group and no inbox", async ({ page }) => {
     await page.goto("/installningar");
     await expect(page.getByRole("heading", { name: "Hushåll" }).filter({ visible: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Ägare" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Appens ägare" })).toHaveCount(0);
     // The page streams, so the answer is the not-found page rather than a 404 status.
     await page.goto("/installningar/inkorg");
     await expect(page.getByRole("heading", { name: "Sidan finns inte" }).filter({ visible: true })).toBeVisible();

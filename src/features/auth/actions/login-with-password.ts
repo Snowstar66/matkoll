@@ -17,13 +17,14 @@ import { passwordAttempts } from "./password-attempt-limit";
  *
  * 1. The app's limit: after 5 failures for the address and the browser's IP
  *    within 15 minutes, `auth_password_rate_limited` without asking Supabase.
- * 2. The input must be valid and the address in ALLOWED_EMAILS; otherwise
- *    `auth_password_invalid` without asking Supabase.
+ * 2. The input must be valid; otherwise `auth_password_invalid` without
+ *    asking Supabase.
  * 3. Supabase checks the password. A wrong password and an unknown address both
  *    give `auth_password_invalid`, so a sign-in never says which addresses
  *    have an account; Supabase's own limit gives `auth_password_rate_limited`.
- * 4. The address is checked against ALLOWED_EMAILS again, as for the link; a
- *    refused session is signed out at once.
+ * 4. The address must be in ALLOWED_EMAILS, or (Story 21.2b) the person a
+ *    member of a household with someone on that list; otherwise the session
+ *    is signed out at once and the answer is `auth_password_invalid`.
  *
  * Every `auth_password_invalid` counts towards the limit, whatever the reason.
  * The session lasts until sign-out (see sessionMaxAgeSeconds). Neither the
@@ -51,13 +52,11 @@ export async function loginWithPassword(input: PasswordLoginInput): Promise<Resu
 
   const { password, next } = parsed.data;
   const email = normalizeEmail(parsed.data.email);
-  const allowed = (address: string | null | undefined) => isAllowedEmail(address, env.ALLOWED_EMAILS ?? []);
-  if (!allowed(email)) {
-    console.warn("auth_password_not_allowed", { ip: ipTag });
-    return refuse();
-  }
+  const allowedList = env.ALLOWED_EMAILS ?? [];
+  const allowed = (address: string | null | undefined) => isAllowedEmail(address, allowedList);
 
-  const outcome = await signInWithPassword(email, password, { forwardedFor: ip });
+  // Story 21.2b: an address outside the list may still be an invited member, which only the session can tell.
+  const outcome = await signInWithPassword(email, password, { forwardedFor: ip, household: allowed(email) ? undefined : allowedList });
   if (outcome.result === "rate_limited") {
     console.warn("auth_password_rate_limited", { by: "supabase", ip: ipTag });
     return fail("auth_password_rate_limited");
@@ -66,7 +65,7 @@ export async function loginWithPassword(input: PasswordLoginInput): Promise<Resu
     console.info("auth_password_refused", outcome.code);
     return refuse();
   }
-  if (!allowed(outcome.email)) {
+  if (!allowed(outcome.email) && !outcome.viaHousehold) {
     await dropCurrentSession("auth_password_signout_failed");
     console.warn("auth_password_not_allowed", { ip: ipTag, after: "sign-in" });
     return refuse();

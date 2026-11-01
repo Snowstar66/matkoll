@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Avatar } from "@/components/app-shell/avatar";
+import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon } from "@/components/icons";
+import { BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
@@ -20,6 +20,7 @@ export const settingsIcons = {
   mic: MicIcon,
   info: InfoIcon,
   inbox: InboxIcon,
+  users: UsersIcon,
 } as const;
 
 export type SettingsIconName = keyof typeof settingsIcons;
@@ -53,7 +54,7 @@ export type SettingsGroupData = {
 };
 
 /** The account as a card at the top (Story 19.7): avatar, name and e-mail; opens the account page. */
-export type SettingsAccountData = { href: string; name: string; email: string; initial: string };
+export type SettingsAccountData = { href: string; name: string; email: string; initial: string; tone?: AvatarTone };
 
 const rowClasses = "flex min-h-[52px] items-center gap-3 px-4 py-1.5 focus-visible:-outline-offset-2";
 
@@ -109,7 +110,7 @@ function AccountCard({ account, current }: { account: SettingsAccountData; curre
           className={cx("flex min-h-16 items-center gap-3 px-4 py-2 focus-visible:-outline-offset-2", current && "bg-mint")}
           data-testid="settings-row"
         >
-          <Avatar initial={account.initial} size={40} />
+          <Avatar initial={account.initial} size={40} tone={account.tone} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-row-title text-ink">{account.name}</span>
             <span className="truncate text-meta text-ink-2">{account.email}</span>

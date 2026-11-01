@@ -176,8 +176,10 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 60
 # Allow/disallow new user signups to your project.
-# Matkoll: off; users are created only by `pnpm users:sync` (AD-3).
-enable_signup = false
+# Matkoll: on since Story 21.2b, but only an invited person gets through: the
+# Before User Created hook below (household_signup_hook) refuses every sign-up
+# without an open invitation code (users:sync uses the admin API, which skips it).
+enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
@@ -224,8 +226,8 @@ web3 = 30
 [auth.email]
 # Allow/disallow new user signups via email to your project.
 # Matkoll: must stay true. The CLI maps this to GOTRUE_EXTERNAL_EMAIL_ENABLED, so false
-# turns off e-mail login (and magic links) entirely. Sign-up is already off through
-# [auth] enable_signup = false (GOTRUE_DISABLE_SIGNUP), which also covers e-mail.
+# turns off e-mail login (and magic links) entirely. Who may sign up is decided by
+# the Before User Created hook ([auth.hook.before_user_created], Story 21.2b).
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
@@ -299,9 +301,10 @@ max_frequency = "5s"
 inactivity_timeout = "2160h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+# Story 21.2b: a sign-up goes through only with an open invitation code (docs/molnet.md).
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/household_signup_hook"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

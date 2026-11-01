@@ -162,7 +162,7 @@ describe("the files of a deleted boende and the sweep", () => {
     const stray = thingPhotoPath(a.id, place, randomUUID(), "image/png");
     await uploadCardFile(a.db, stray, png, "image/png");
     files.push(stray);
-    const found = await loadSiteCardFilesIn(a.db, a.id, site);
+    const found = await loadSiteCardFilesIn(a.db, [a.id], site);
     expect([...found].sort()).toEqual([card.path, stray].sort());
     expect((await a.db.from("pantry_site").delete().eq("id", site)).error).toBeNull();
     // The rows went with the boende; the files are still there until they are removed.
@@ -170,7 +170,7 @@ describe("the files of a deleted boende and the sweep", () => {
     expect(await removeCardFiles(a.db, found)).toEqual({ failed: null });
     expect(await exists(card.path)).toBe(false);
     expect(await exists(stray)).toBe(false);
-    expect(await loadSiteCardFilesIn(a.db, a.id, site)).toEqual([]);
+    expect(await loadSiteCardFilesIn(a.db, [a.id], site)).toEqual([]);
   });
 
   it("sweeps a file without a row, never one with a row or one that is too new, and never another user's", async () => {
@@ -913,7 +913,7 @@ describe("rätta och rensa (Story 18.15)", () => {
     expect(await loadClearCountsIn(k.db, site)).toEqual({ things: 7, cards: 4, boxes: 1 });
 
     // The stray file has no row; it is found by its folder, before the rows go, as the action does.
-    const listed = await loadSiteCardFilesIn(k.db, k.id, site, "skräpförrådet");
+    const listed = await loadSiteCardFilesIn(k.db, [k.id], site, "skräpförrådet");
     expect([...listed].sort()).toEqual([first.path, second.path, boxCard.path, stray].sort());
     const cleared = await clearThingsIn(k.db, site, "skräpförrådet");
     if (cleared.kind !== "cleared") throw new Error("not cleared");

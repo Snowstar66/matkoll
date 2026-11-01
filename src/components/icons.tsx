@@ -425,3 +425,34 @@ export function LockIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** Two people (Story 21.2b): Medlemmar. */
+export function UsersIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <path d="M15.5 5.6a3 3 0 0 1 0 5.8M17 13.8a5.2 5.2 0 0 1 3.5 5.2" />
+    </Icon>
+  );
+}
+
+/** A chain link (Story 21.2b): an invitation waiting to be used. */
+export function LinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </Icon>
+  );
+}
+
+/** Out of a box (Story 21.2b): "Dela inbjudan". */
+export function ShareIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5v11M8 7.5l4-4 4 4" />
+      <path d="M8.5 10.5H7A1.5 1.5 0 0 0 5.5 12v7A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1.5" />
+    </Icon>
+  );
+}

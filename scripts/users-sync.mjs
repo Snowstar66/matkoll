@@ -21,7 +21,7 @@
 // role, which is allowed only in scripts/ and tests/ (AD-4).
 
 import { createClient } from "@supabase/supabase-js";
-import { parseAllowedEmails, planUserSync, pruneExtraUsers, removeDeletedUsersFiles } from "./users-sync-plan.mjs";
+import { householdMembersLetIn, parseAllowedEmails, planUserSync, pruneExtraUsers, removeDeletedUsersFiles } from "./users-sync-plan.mjs";
 
 const prune = process.argv.slice(2).includes("--prune");
 
@@ -59,7 +59,11 @@ async function listAllUsers() {
   }
 }
 
-const plan = planUserSync(allowed, await listAllUsers(), { prune });
+// Story 21.2b: the members of a household with someone on the list (invited) are kept.
+const existing = await listAllUsers();
+const { data: memberships, error: membershipsError } = await supabase.from("household_member").select("household_id, user_id");
+if (membershipsError) fail(`could not list household members (${membershipsError.code ?? "error"})`);
+const plan = planUserSync(allowed, existing, { prune, members: householdMembersLetIn(allowed, existing, memberships) });
 
 for (const email of plan.create) {
   const { error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
@@ -67,6 +71,7 @@ for (const email of plan.create) {
   console.log(`created  ${email}`);
 }
 for (const user of plan.keep) console.log(`exists   ${user.email}`);
+for (const user of plan.household) console.log(`member   ${user.email ?? user.id} (invited to a household)`);
 if (!prune) {
   for (const user of plan.extra) {
     console.warn(`warning: ${user.email ?? user.id} is not in ALLOWED_EMAILS (kept; --prune deletes it)`);

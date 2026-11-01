@@ -53,6 +53,8 @@ import {
   thingsStorageState,
   feedbackEmail,
   feedbackStorageState,
+  householdEmail,
+  householdStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
@@ -183,6 +185,7 @@ export default async function globalSetup(config: FullConfig) {
       [liveListEmail, liveListStorageState],
       [offlineListEmail, offlineListStorageState],
       [feedbackEmail, feedbackStorageState],
+      [householdEmail, householdStorageState],
       [welcomeEmail, welcomeStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
