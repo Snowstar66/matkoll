@@ -29,4 +29,13 @@ describe("PageHeader", () => {
     expect(back).toHaveClass("-mt-1");
     expect(back.className).not.toMatch(/-mt-tap\b/);
   });
+
+  it("on a long page under a tab, has the slim bar with the title, and the back link that moves into it", () => {
+    render(<PageHeader title="Hjälp och tips" backHref="/hemma" backLabel="Matvaror" collapsing />);
+    const back = screen.getByRole("link", { name: "Matvaror" });
+    expect(back).toHaveAttribute("href", "/hemma");
+    expect(screen.getByTestId("collapsed-bar")).toHaveTextContent("Hjälp och tips");
+    expect(screen.getByTestId("collapsed-bar")).not.toHaveAttribute("data-shown");
+    expect(screen.getByRole("heading", { level: 1, name: "Hjälp och tips" })).toBeInTheDocument();
+  });
 });

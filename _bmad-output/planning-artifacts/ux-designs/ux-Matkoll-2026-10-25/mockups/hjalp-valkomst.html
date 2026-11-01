@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Välkomsttur och hjälp</title>
+<style>
+/* ---------- document chrome (same as premium-look.html) ---------- */
+:root { --pbg:#E8ECE9; --pcard:#FFFFFF; --pink:#1B2420; --pink2:#56635D; --pacc:#3E7C62; --pline:#D9DFDB; --ptag:#F1ECE2; --ptagink:#6E5B3E;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; color-scheme:light dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; } }
+:root[data-theme="dark"] { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; }
+* { box-sizing:border-box; }
+html, body { overflow-x:hidden; }
+body { margin:0; background:var(--pbg); color:var(--pink); -webkit-font-smoothing:antialiased; }
+.wrap { max-width:1440px; margin:0 auto; padding:32px 16px 80px; }
+.wrap > h1 { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0 0 8px; }
+h2.part { font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.3px; margin:64px 0 4px; padding-top:16px; border-top:1px solid var(--pline); }
+h3.sec { font-size:19px; line-height:24px; font-weight:600; margin:40px 0 6px; }
+p.lead, p.note { color:var(--pink2); line-height:1.55; max-width:860px; margin:0 0 12px; font-size:16px; }
+ul.spec { margin:8px 0 16px; padding-left:20px; line-height:1.55; max-width:980px; font-size:15px; }
+ul.spec li { margin:3px 0; }
+.tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:1px 7px; border-radius:99px; background:var(--ptag); color:var(--ptagink); vertical-align:1px; }
+.pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:12px; }
+.col { display:flex; flex-direction:column; gap:8px; min-width:0; max-width:100%; }
+.lbl { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--pink2); }
+.lbl.new { color:var(--pacc); }
+.cap { font-size:14px; line-height:20px; color:var(--pink2); max-width:390px; min-height:40px; }
+.box { background:var(--pcard); border-radius:16px; padding:20px 22px; max-width:980px; margin-top:12px; }
+.box h4 { margin:0 0 8px; font-size:17px; font-weight:600; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; background:rgba(127,140,133,.14); padding:1px 5px; border-radius:6px; overflow-wrap:anywhere; }
+.toc { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; }
+.toc a, .themes button { font-size:14px; color:var(--pacc); text-decoration:none; background:var(--pcard); padding:6px 12px; border-radius:99px; border:0; font-family:inherit; cursor:pointer; }
+.themes { display:flex; gap:6px; align-items:center; margin-top:12px; font-size:14px; color:var(--pink2); flex-wrap:wrap; }
+.themes button[aria-pressed="true"] { background:var(--pacc); color:#fff; }
+.stories { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; margin-top:12px; max-width:1200px; }
+.stories > div { background:var(--pcard); border-radius:16px; padding:16px 18px; }
+.stories b { display:block; font-size:17px; font-weight:600; margin-bottom:2px; }
+.stories i { font-style:normal; color:var(--pacc); font-weight:600; font-size:13px; display:block; margin-bottom:4px; }
+.stories ul { margin:8px 0 0; padding-left:18px; font-size:14.5px; line-height:1.5; }
+.stories small { display:block; color:var(--pink2); font-size:14px; line-height:1.45; }
+ol.beslut { max-width:980px; line-height:1.6; font-size:15px; padding-left:22px; }
+ol.beslut li { margin:6px 0; }
+
+/* ---------- mock app: tokens (globals.css) ---------- */
+.t-light { --bg:#F5F7F4; --surface:#FFFFFF; --surface-2:#FFFFFF; --fill:#EAEDEB; --ink:#1B2420; --ink-2:#56635D; --ink-3:#6B7872; --hairline:#E8ECE9; --border:#DCE2DE; --accent:#3E7C62; --on-accent:#FFFFFF; --mint:#DDEFE5; --mint-ink:#2C5E48; --sky:#DCE9F6; --sky-ink:#2E5A85; --sand:#F1ECE2; --sand-ink:#6E5B3E; --lilac:#E6E1F2; --scrim:rgba(27,36,32,.4); --bar:rgba(255,255,255,.84); --shadow-float:0 12px 32px rgba(27,36,32,.14),0 0 0 .5px rgba(27,36,32,.08); --seg-on:#FFFFFF; --seg-track:#E9ECEA;
+  /* NEW: the one warm accent of the two-tone line art and the stars (decoration, never text). */
+  --warm:#D9963F; --illus-bg:#EEF4F0; --tour-bg:#FFFFFF; }
+.t-dark { --bg:#0F1311; --surface:#181D1A; --surface-2:#202622; --fill:#242927; --ink:#E6EBE8; --ink-2:#A3AFA9; --ink-3:#86928C; --hairline:#262D29; --border:#313934; --accent:#6FB394; --on-accent:#0F1A15; --mint:#1F3A2D; --mint-ink:#A8D9BF; --sky:#1E3247; --sky-ink:#A9C9EA; --sand:#3A3326; --sand-ink:#DCC9A6; --lilac:#2C2840; --scrim:rgba(0,0,0,.6); --bar:rgba(24,29,26,.82); --shadow-float:0 0 0 .5px rgba(255,255,255,.09); --seg-on:#2C3430; --seg-track:#1A1F1C;
+  --warm:#E9B872; --illus-bg:#16211B; --tour-bg:#0F1311; }
+
+.ic { flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; display:block; }
+.duo { color:var(--accent); }
+.phone { position:relative; width:390px; height:844px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:16px; box-shadow:0 4px 18px rgba(27,36,32,.18); font-size:16px; line-height:24px; flex:none; }
+.phone.short { height:auto; }
+.scroll { position:absolute; inset:0; overflow-y:auto; scrollbar-width:none; }
+.scroll::-webkit-scrollbar { display:none; }
+.scr { padding:16px 20px 96px; }
+.tap { width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
+.av { border-radius:50%; background:var(--mint); color:var(--mint-ink); display:inline-flex; align-items:center; justify-content:center; font-weight:600; flex:none; }
+.backrow { display:inline-flex; align-items:center; gap:2px; color:var(--accent); font-size:16px; line-height:24px; height:44px; margin:-4px 0 4px -8px; padding:0 8px; }
+.lt { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0; color:var(--ink); }
+.search { display:flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-radius:12px; background:var(--surface); color:var(--ink-3); font-size:16px; margin-top:12px; }
+.search input { all:unset; flex:1; min-width:0; color:var(--ink); font-size:16px; }
+.search input::placeholder { color:var(--ink-3); }
+.search input::-webkit-search-cancel-button { display:none; }
+.chips { display:flex; gap:8px; margin:6px -20px 0; padding:6px 20px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+.chips::-webkit-scrollbar { display:none; }
+.chip { flex:none; height:32px; display:inline-flex; align-items:center; gap:4px; padding:0 12px; border-radius:999px; background:var(--surface); border:1px solid var(--border); color:var(--ink-2); font-size:15px; line-height:20px; font-weight:500; font-family:inherit; cursor:pointer; }
+.chip.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+.chip .n { font-weight:400; opacity:.8; }
+.sec { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); margin:24px 4px 8px; }
+.grp { background:var(--surface); border-radius:16px; overflow:hidden; }
+.tabbar { position:absolute; left:0; right:0; bottom:0; height:56px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-top:.5px solid var(--border); z-index:3; }
+.tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-3); font-size:11px; line-height:13px; font-weight:500; }
+.cbar { position:absolute; left:0; right:0; top:0; height:52px; display:flex; align-items:center; background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-bottom:.5px solid var(--border); z-index:3; opacity:0; transition:opacity 150ms; pointer-events:none; }
+.cbar.show { opacity:1; }
+.cbar .ttl { position:absolute; left:0; right:0; text-align:center; font-size:17px; line-height:22px; font-weight:600; }
+.cbar .bk { display:flex; align-items:center; color:var(--accent); font-size:16px; padding-left:8px; }
+.btn { height:52px; border-radius:12px; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; gap:8px; font-size:17px; font-weight:600; border:0; width:100%; font-family:inherit; cursor:pointer; }
+.btn.off { opacity:.4; }
+.tbtn { display:inline-flex; align-items:center; gap:2px; color:var(--accent); font-size:15px; font-weight:500; min-height:44px; }
+
+/* ---------- today's help (replica of help-view.tsx) ---------- */
+.old-nav { margin:16px -20px 4px; padding:6px 20px; background:var(--bar); }
+.old-nav .chips { margin:-6px -20px; }
+.old-h2 { font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.2px; margin:20px 0 0; }
+.old-list { margin-top:8px; background:var(--surface); border-radius:16px; overflow:hidden; }
+.old-tip { padding:12px 16px; display:flex; flex-direction:column; gap:2px; }
+.old-tip + .old-tip { border-top:1px solid var(--hairline); }
+.old-tip b { font-size:17px; line-height:22px; font-weight:500; }
+.old-tip span { font-size:14px; line-height:20px; color:var(--ink-2); }
+
+/* ---------- welcome tour ---------- */
+.tour { position:absolute; inset:0; background:var(--tour-bg); overflow:hidden; }
+.skip { position:absolute; top:6px; right:8px; height:44px; padding:0 12px; display:flex; align-items:center; color:var(--ink-2); font-size:15px; font-weight:500; z-index:2; cursor:pointer; transition:opacity 200ms; }
+.skip.gone { opacity:0; pointer-events:none; }
+.track { position:absolute; inset:0; display:flex; width:600%; transition:transform 460ms cubic-bezier(.22,.8,.24,1); touch-action:pan-y; }
+.tp { position:relative; width:390px; height:100%; flex:none; padding:56px 28px 150px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.track .tp { width:16.6667%; }
+.ill { width:300px; height:236px; display:block; overflow:visible; transition:transform 460ms cubic-bezier(.22,.8,.24,1), opacity 460ms; }
+.ill .g { stroke:var(--accent); }
+.ill .w { stroke:var(--warm); }
+.ill * { fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+.ill .bgc { fill:var(--illus-bg); stroke:none; }
+.ill .paper { fill:var(--tour-bg); }
+.ill .dash { stroke-dasharray:2 7; }
+.tp.small .ill { width:220px; height:173px; }
+.tx { transition:opacity 420ms 80ms, transform 420ms 80ms cubic-bezier(.22,.8,.24,1); }
+.th { font-size:32px; line-height:38px; font-weight:500; letter-spacing:-.6px; margin:28px 0 0; color:var(--ink); text-wrap:balance; }
+.tpp { font-size:17px; line-height:25px; color:var(--ink-2); margin:12px auto 0; max-width:310px; text-wrap:pretty; }
+.trio { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:32px; width:100%; }
+.trio div { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.trio .ic { margin-bottom:6px; }
+.trio b { font-size:15px; line-height:20px; font-weight:600; }
+.trio span { font-size:13px; line-height:18px; color:var(--ink-2); }
+.choices { display:flex; flex-direction:column; gap:10px; width:100%; margin-top:32px; text-align:left; }
+.choice { display:flex; align-items:center; gap:14px; min-height:72px; padding:12px 12px 12px 14px; border-radius:16px; background:var(--surface); border:1px solid var(--hairline); cursor:pointer; }
+.t-dark .choice { border-color:transparent; }
+.choice .ct { flex:1; min-width:0; }
+.choice b { display:block; font-size:17px; line-height:22px; font-weight:500; }
+.choice small { display:block; font-size:14px; line-height:20px; color:var(--ink-3); }
+.choice .chev { color:var(--ink-3); }
+.tile40 { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:var(--illus-bg); flex:none; }
+.tbot { position:absolute; left:20px; right:20px; bottom:34px; z-index:2; }
+.dots { display:flex; justify-content:center; gap:8px; height:20px; align-items:center; margin-bottom:18px; }
+.dots i { width:7px; height:7px; border-radius:99px; background:var(--border); transition:width 300ms, background 300ms; cursor:pointer; }
+.dots i.on { width:22px; background:var(--accent); }
+.tbot .btn { transition:opacity 200ms; }
+.tbot .btn.gone { opacity:0; pointer-events:none; }
+/* Motion only in the live phone, and only without "Minska rörelse". */
+@media (prefers-reduced-motion: no-preference) {
+  .live .tp:not(.on) .tx { opacity:0; transform:translateY(12px); }
+  .live .tp.before .ill { transform:translateX(-60px) scale(.94); opacity:.2; }
+  .live .tp.after .ill { transform:translateX(60px) scale(.94); opacity:.2; }
+  .live .ill .d { stroke-dasharray:1; stroke-dashoffset:1; }
+  .live .tp.on .ill .d { stroke-dashoffset:0; transition:stroke-dashoffset 1100ms 120ms cubic-bezier(.5,0,.2,1); }
+}
+@media (prefers-reduced-motion: reduce) { .track { transition:none; } }
+
+/* ---------- help hub ---------- */
+.hero { display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 12px 14px 14px; background:var(--surface); border-radius:16px; cursor:pointer; }
+.hero .hi { width:64px; height:64px; border-radius:14px; background:var(--illus-bg); display:flex; align-items:center; justify-content:center; flex:none; }
+.hero .ht { flex:1; min-width:0; }
+.hero b { display:block; font-size:17px; line-height:22px; font-weight:600; }
+.hero small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); margin-top:2px; }
+.hero .play { width:36px; height:36px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; flex:none; }
+.step { display:flex; gap:14px; padding:14px 16px 14px 14px; position:relative; align-items:flex-start; }
+.step + .step::before, .faq + .faq::before, .row + .row::before, .res + .res::before, .msg + .msg::before { content:''; position:absolute; top:0; right:0; left:var(--inset,16px); border-top:1px solid var(--hairline); }
+.step { --inset:56px; }
+.step .ic { margin-top:1px; }
+.step .st { flex:1; min-width:0; }
+.step b { display:block; font-size:17px; line-height:22px; font-weight:500; }
+.step span { display:block; font-size:15px; line-height:21px; color:var(--ink-2); margin-top:2px; }
+.trio-d { display:grid; grid-template-columns:repeat(3,1fr); gap:0; }
+.trio-d .step { flex-direction:column; align-items:center; text-align:center; padding:24px 20px 22px; gap:10px; }
+.trio-d .step::before { display:none; }
+.trio-d .step + .step { border-left:1px solid var(--hairline); }
+.faq { position:relative; cursor:pointer; }
+.faq .q { display:flex; align-items:center; gap:12px; min-height:56px; padding:10px 12px 10px 16px; }
+.faq .q b { flex:1; font-size:17px; line-height:22px; font-weight:500; }
+.pm { width:28px; height:28px; flex:none; color:var(--accent); }
+.faq .a { display:none; padding:0 56px 14px 16px; margin-top:-4px; font-size:15px; line-height:22px; color:var(--ink-2); }
+.faq.open .a { display:block; }
+.pm .v { transition:opacity 200ms; }
+.faq.open .pm .v { opacity:0; }
+.row { display:flex; align-items:center; gap:12px; min-height:52px; padding:0 8px 0 14px; position:relative; --inset:56px; font-size:17px; line-height:22px; cursor:pointer; }
+.row .grow { flex:1; min-width:0; }
+.row .v { color:var(--ink-3); font-size:15px; }
+.row .chev { color:var(--ink-3); width:28px; display:flex; justify-content:center; }
+.tile2 { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--mint); color:var(--mint-ink); flex:none; }
+.tile2.sky { background:var(--sky); color:var(--sky-ink); } .tile2.sand { background:var(--sand); color:var(--sand-ink); } .tile2.lilac { background:var(--lilac); color:var(--ink-2); }
+.res { display:block; padding:12px 16px; position:relative; }
+.res small { display:block; font-size:13px; line-height:18px; color:var(--ink-3); font-weight:500; }
+.res b { display:block; font-size:17px; line-height:22px; font-weight:500; margin-top:2px; }
+.res span { display:block; font-size:15px; line-height:21px; color:var(--ink-2); margin-top:2px; }
+mark { background:none; color:inherit; font-weight:600; text-decoration:underline; text-decoration-color:var(--warm); text-decoration-thickness:2px; text-underline-offset:3px; }
+.miss { text-align:center; padding:20px 16px 8px; font-size:15px; line-height:22px; color:var(--ink-2); }
+.miss .tbtn { margin-top:2px; }
+.foot { text-align:center; font-size:13px; line-height:18px; color:var(--ink-3); margin-top:24px; }
+
+/* ---------- sheets ---------- */
+.dim { position:absolute; inset:0; background:var(--scrim); z-index:4; }
+.sheet { position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--surface-2); color:var(--ink); border-radius:24px 24px 0 0; padding:0 20px 34px; }
+.t-light .sheet { background:var(--surface); }
+.grab { width:36px; height:5px; border-radius:99px; background:var(--border); margin:8px auto 4px; }
+.shead { display:flex; align-items:center; justify-content:space-between; min-height:52px; gap:12px; }
+.stitle { font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.2px; }
+.cancel { color:var(--accent); font-size:17px; font-weight:500; min-height:44px; display:flex; align-items:center; padding:0 12px; margin-right:-12px; }
+.field { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.flabel { font-size:15px; line-height:20px; font-weight:500; } .opt { font-weight:400; color:var(--ink-2); }
+.ta { min-height:120px; border:1px solid var(--border); border-radius:12px; padding:12px 14px; font-size:17px; line-height:24px; color:var(--ink); background:var(--surface); }
+.t-dark .ta { background:var(--fill); border-color:transparent; }
+.ta.ph { color:var(--ink-3); }
+.ta.focus { border:2px solid var(--accent); padding:11px 13px; }
+.ta .caret { display:inline-block; width:2px; height:20px; background:var(--accent); vertical-align:-4px; margin-left:1px; }
+.hint { font-size:14px; line-height:20px; color:var(--ink-2); margin:12px 0 0; }
+.chiprow { display:flex; flex-wrap:wrap; gap:8px; }
+.sfoot { margin-top:20px; }
+.stars { display:flex; justify-content:center; gap:4px; margin-top:4px; }
+.stars span { width:52px; height:52px; display:flex; align-items:center; justify-content:center; }
+.star { width:38px; height:38px; fill:none; stroke:var(--ink-3); stroke-width:1.6; stroke-linejoin:round; }
+.star.on { fill:var(--warm); stroke:var(--warm); }
+.slabel { text-align:center; font-size:15px; line-height:20px; color:var(--ink-2); min-height:20px; margin-top:2px; }
+.sq { text-align:center; font-size:17px; line-height:22px; margin:8px 0 0; }
+.done { display:flex; flex-direction:column; align-items:center; text-align:center; padding:20px 8px 12px; }
+.done h3 { font-size:22px; line-height:28px; font-weight:600; letter-spacing:-.3px; margin:20px 0 0; }
+.done p { font-size:16px; line-height:24px; color:var(--ink-2); margin:6px 0 0; max-width:290px; }
+
+/* ---------- inbox ---------- */
+.sum { display:flex; align-items:center; gap:14px; padding:14px 16px; background:var(--surface); border-radius:16px; margin-top:12px; }
+.sum .big { font-size:28px; line-height:32px; font-weight:600; letter-spacing:-.4px; }
+.sum small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.mstars { display:inline-flex; gap:1px; vertical-align:-2px; }
+.mstars svg { width:14px; height:14px; }
+.mstars .star { stroke-width:2; }
+.msg { display:flex; gap:12px; padding:12px 16px 12px 12px; position:relative; --inset:60px; }
+.msg .av { width:36px; height:36px; font-size:15px; margin-top:2px; }
+.msg .mt { flex:1; min-width:0; }
+.msg .top { display:flex; align-items:baseline; gap:8px; }
+.msg .top b { font-size:17px; line-height:22px; font-weight:500; flex:1; min-width:0; }
+.msg .top time { font-size:14px; color:var(--ink-3); white-space:nowrap; }
+.msg .kind { display:block; font-size:14px; line-height:20px; color:var(--ink-3); }
+.msg p { margin:2px 0 0; font-size:15px; line-height:21px; color:var(--ink); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.msg.read p { color:var(--ink-2); }
+.udot { width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; margin-right:6px; vertical-align:2px; }
+.acct { display:flex; align-items:center; gap:12px; padding:12px 8px 12px 16px; background:var(--surface); border-radius:16px; margin-top:12px; }
+.acct b { display:block; font-size:17px; line-height:22px; font-weight:500; } .acct small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.newpill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:99px; background:var(--accent); color:var(--on-accent); font-size:13px; font-weight:600; }
+
+/* ---------- desktop frame ---------- */
+.scaler { width:690px; height:431px; overflow:hidden; border-radius:14px; box-shadow:0 4px 18px rgba(27,36,32,.18); flex:none; max-width:100%; }
+.frame { width:1280px; height:800px; zoom:.5390625; position:relative; overflow:hidden; background:var(--bg); color:var(--ink); font-size:16px; line-height:24px; }
+.side { position:absolute; left:0; top:0; bottom:0; width:240px; background:var(--surface); border-right:1px solid var(--hairline); padding:24px 12px 20px; display:flex; flex-direction:column; }
+.brand { display:flex; align-items:center; gap:10px; padding:0 12px; font-size:17px; font-weight:500; }
+.site { display:flex; align-items:center; gap:10px; color:var(--ink-2); padding:0 12px; height:44px; margin-top:12px; font-size:16px; }
+.nvs { margin-top:20px; display:flex; flex-direction:column; gap:2px; }
+.nv { display:flex; align-items:center; gap:12px; height:46px; padding:0 12px; border-radius:10px; color:var(--ink-2); font-size:16px; }
+.nv.on { background:var(--mint); color:var(--mint-ink); font-weight:500; }
+.nvb { margin-top:auto; border-top:1px solid var(--hairline); padding-top:10px; display:flex; flex-direction:column; gap:2px; }
+.who { display:flex; align-items:center; gap:10px; padding:6px 12px 8px; }
+.who b { display:block; font-size:15px; line-height:20px; font-weight:500; } .who small { display:block; font-size:12px; line-height:16px; color:var(--ink-3); }
+.dmain { position:absolute; left:240px; right:0; top:0; bottom:0; overflow:hidden; }
+.dmain > .in { width:720px; margin:0 auto; padding:40px 0 0; }
+.dmain .chips { margin:6px 0 0; padding:6px 0; }
+.dmain .old-nav { margin:16px 0 4px; padding:6px 0; }
+.dmain .old-nav .chips { margin:-6px 0; }
+.dlg { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:560px; height:680px; border-radius:24px; background:var(--tour-bg); box-shadow:var(--shadow-float); overflow:hidden; z-index:5; }
+.dlg .tour { border-radius:24px; }
+.dlg .tp { width:560px; padding-bottom:140px; }
+.ghost { background:var(--surface); border-radius:16px; height:220px; }
+
+@media (max-width: 760px) { .scaler { width:346px; height:216px; } .frame { zoom:.27; } }
+@media (max-width: 430px) { .phone { zoom:.9; } .wrap { padding:24px 16px 64px; } }
+</style>
+</head>
+<body>
+<!-- Icons: the app's own line icons (src/components/icons.tsx); the d-* ones are the new two-tone family: green stroke plus one warm detail. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></symbol>
+  <symbol id="i-carrot" viewBox="0 0 24 24"><path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z"/><path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-width="2" d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.5"/><path stroke-width="2.6" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.28 5.28l2.12 2.12M16.6 16.6l2.12 2.12M5.28 18.72l2.12-2.12M16.6 7.4l2.12-2.12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke-width="2"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 5.5l6.5 6.5-6.5 6.5" stroke-width="2"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z" fill="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-tray" viewBox="0 0 24 24"><path d="M4 13l2.5-7.5h11L20 13v5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></symbol>
+  <!-- two-tone -->
+  <symbol id="d-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path style="stroke:var(--warm)" d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="d-pot" viewBox="0 0 24 24"><path d="M5 11h14v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4zM3 11h18"/><path style="stroke:var(--warm)" d="M9.5 3.5c-.8 1.2.8 2.3 0 3.5M14.5 3.5c-.8 1.2.8 2.3 0 3.5"/></symbol>
+  <symbol id="d-steps" viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h6"/><path style="stroke:var(--warm)" stroke-width="2.8" d="M5 6.5h.01M5 12h.01M5 17.5h.01"/></symbol>
+  <symbol id="d-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/><path style="stroke:var(--warm)" d="M9.5 15l2 2 3.5-3.5"/></symbol>
+  <symbol id="d-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M12 8.5v7M8.5 12h7"/></symbol>
+  <symbol id="d-house" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path style="stroke:var(--warm)" d="M9 14.5l2 2 4-4"/></symbol>
+  <symbol id="d-list" viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path style="stroke:var(--warm)" d="M3.5 6.5l1.2 1.2L7 5.4M3.5 12l1.2 1.2L7 10.9M3.5 17.5l1.2 1.2L7 16.4"/></symbol>
+  <symbol id="d-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M8.5 12.3l2.3 2.3 4.7-4.9"/></symbol>
+  <symbol id="d-bag" viewBox="0 0 24 24"><path d="M5.5 8.5h13l-1 11.5h-11z"/><path style="stroke:var(--warm)" d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/></symbol>
+  <symbol id="d-fridge" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M6 10h12"/><path style="stroke:var(--warm)" d="M9 6v2M9 13v3"/></symbol>
+  <symbol id="d-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle style="stroke:var(--warm)" cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="d-undo" viewBox="0 0 24 24"><path d="M4.5 9.5h10a5.5 5.5 0 0 1 0 11H11"/><path style="stroke:var(--warm)" d="M8.5 5.5l-4 4 4 4"/></symbol>
+  <symbol id="d-door" viewBox="0 0 24 24"><path d="M6.5 20V4.5h11V20M3.5 20h17"/><path style="stroke:var(--warm)" stroke-width="2.8" d="M14.5 12.5h.01"/></symbol>
+  <symbol id="d-shelf" viewBox="0 0 24 24"><path d="M3.5 10.5h17M3.5 19.5h17M4 4v16M20 4v16"/><path style="stroke:var(--warm)" d="M7 10.5V7h5v3.5M12.5 19.5V15h4.5v4.5"/></symbol>
+  <symbol id="d-ask" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/><path style="stroke:var(--warm)" d="M9.3 9.2a1.8 1.8 0 1 1 2.6 1.6c-.5.2-.9.6-.9 1.2v.2M11 14.4h.01"/></symbol>
+  <symbol id="d-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle style="stroke:var(--warm)" cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="d-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path style="stroke:var(--warm)" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/></symbol>
+  <symbol id="d-phone" viewBox="0 0 24 24"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path style="stroke:var(--warm)" d="M12 9v5M9.5 11.5h5"/></symbol>
+  <symbol id="d-bookmark" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path style="stroke:var(--warm)" d="M10 4v6l2-1.5 2 1.5V4"/></symbol>
+  <symbol id="d-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path style="stroke:var(--warm)" d="M10 13h4"/></symbol>
+  <symbol id="d-bulb" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1v1h6v-1c0-.4.2-.8.5-1.1A6 6 0 0 0 12 3z"/><path style="stroke:var(--warm)" d="M9.5 19h5M10.5 21.5h3"/></symbol>
+  <symbol id="d-star" viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4-3.9 5.6-.8z"/><path style="stroke:var(--warm)" d="M12 8.6v2.8"/></symbol>
+  <symbol id="d-bubble" viewBox="0 0 24 24"><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v9a1.5 1.5 0 0 1-1.5 1.5h-7l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z"/><path style="stroke:var(--warm)" d="M12 7.8v3.6M12 13.6h.01"/></symbol>
+  <symbol id="d-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+  <symbol id="star" viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.3 5.8.9-4.2 4.1 1 5.8L12 16.6l-5.2 2.7 1-5.8-4.2-4.1 5.8-.9z"/></symbol>
+</svg>
+
+<div class="wrap">
+<h1>Livskoll – välkomsttur och hjälp</h1>
+<p class="lead">Förslag på hur en ny användare kommer igång, hur hjälpen ser ut när man väl är inne, och hur man säger vad man tycker. Inget är byggt än. Allt följer Epic 19:s premiumutseende: samma typsnitt, ytor, chips och ark. Det enda nya i systemet är <b>linjebilder i två toner</b>: appens gröna plus en varm ton (ny token <code>--warm</code>, bara dekor och stjärnor, aldrig text).</p>
+<p class="note"><b>Idag</b> = HTML-kopia av dagens <code>/hjalp</code>, byggd från <code>help-view.tsx</code> och <code>help-content.ts</code> och jämförd med skärmdumpar av appen på main (103cc2d) i 390 och 1280 px. Infobannern “Den som driver Livskoll …” är bortklickad. <b>Nytt</b> = modell. Rundturen och hjälpen nedan går att trycka i: svep, Fortsätt, chips, frågorna och sökfältet. Namn och meddelanden i Inkorgen är <span class="tag">illustrativt</span>.</p>
+<div class="themes"><span>Visa telefonerna i</span><button data-t="auto" aria-pressed="true">Systemets läge</button><button data-t="light" aria-pressed="false">Ljust</button><button data-t="dark" aria-pressed="false">Mörkt</button></div>
+<div class="toc"><a href="#idag">Idag</a><a href="#tur">Välkomsttur</a><a href="#hjalp">Hjälpnav</a><a href="#foresla">Föreslå</a><a href="#betyg">Betygsätt</a><a href="#inkorg">Inkorg</a><a href="#stories">Stories</a><a href="#beslut">Beslut</a></div>
+
+<!-- ============ TODAY ============ -->
+<h2 class="part" id="idag">Idag: Hjälp och tips</h2>
+<p class="lead">Nås från <b>P</b> → “Hjälp och tips · Om Recept ›” (på dator längst ned i sidomenyn) och öppnar på avsnittet för fliken du kom från. En lång sida: chips överst som hoppar till avsnitten, sedan 26 tips som rubrik och stycke.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag – 390 px, från Recept</span><div class="phone t-light" id="old-phone"></div></div>
+  <div class="col"><span class="lbl">Idag – 1280 px</span><div class="scaler"><div class="frame t-light" id="old-desk"></div></div></div>
+</div>
+<ul class="spec">
+  <li>Det som fungerar och behålls: öppnar på rätt flik, chipsen från Story 19.3, “‹ Recept” tillbaka, texterna säger vad appen gör idag.</li>
+  <li>Det som saknas: <b>ingen sökning</b>, <b>ingen start för nya</b> (första inloggningen landar rakt på en tom Recept-sida), <b>inget sätt att säga vad man tycker</b>, och varje tips är ett stycke på 2–4 rader, så sidan blir en textvägg (cirka 3 skärmar per flik på telefon).</li>
+  <li>Siri och Boenden har inget chip och hamnar längst ned, där få hittar dem.</li>
+</ul>
+
+<!-- ============ TOUR ============ -->
+<h2 class="part" id="tur">1. Välkomsttur vid första inloggningen</h2>
+<p class="lead">Sex helskärmssidor med lugn keynote-känsla: en stor linjebild, en lätt rubrik, en mening. Visas en gång per användare (sparas på servern, så en ny telefon visar den inte igen) och kan spelas upp igen från Hjälp.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – tryck och svep</span><div class="phone t-light live" id="tour-live"></div><div class="cap" id="tour-cap">Sida 1 av 6. Svep åt sidan, tryck Fortsätt, prickarna eller piltangenterna.</div></div>
+  <div class="col"><span class="lbl new">Nytt – på dator (dialog, 560 px)</span><div class="scaler"><div class="frame t-light" id="tour-desk"></div></div>
+    <ul class="spec" style="max-width:690px">
+      <li>På dator ligger rundturen som en dialog i mitten (samma 560 px och skugga som arken på dator i Epic 19) över den tonade appen. Piltangenterna byter sida, Esc = Hoppa över.</li>
+      <li>Bakom: Recept, förenklat i modellen.</li>
+    </ul>
+  </div>
+</div>
+<h3 class="sec">Alla sex sidorna</h3>
+<div class="pair" id="tour-strip"></div>
+<ul class="spec">
+  <li><b>Layout:</b> helskärm utan flikfält, bakgrund <code>--surface</code> i ljust läge (rent vitt, mer keynote än appens grå) och <code>--bg</code> i mörkt. Bilden överst (300 × 236 px, mindre på första sidan för att ge plats åt trion), rubriken 32/38 · <b>500</b> med −0,6 px spärr, centrerad, och en mening 17/25 i <code>--ink-2</code>, högst 310 px bred.</li>
+  <li><b>Linjebilderna</b> är inline-SVG, 2,4 px linje med rundade ändar, i <code>--accent</code> plus en detalj i <code>--warm</code> (länken, kameralinsen, bocken, passet). En mjuk rund platta i <code>--illus-bg</code> bakom. Inga foton, inga emoji.</li>
+  <li><b>Sida 1</b> har trion från inspirationen: ikon + kort titel + en rad (Recept och matsedel · Matvaror · Förråd).</li>
+  <li><b>Nederkant:</b> sex prickar (den aktiva en 22 px grön kapsel), under dem <b>Fortsätt</b> (huvudknappen, 52 px). <b>Hoppa över</b> uppe till höger i <code>--ink-2</code>, tyst. På sista sidan försvinner både Fortsätt och Hoppa över: valen är handlingen.</li>
+  <li><b>Sista sidan, “Var vill du börja?”:</b> tre kort med › som leder någonstans. Lägg till ett recept → Recept med Lägg till-arket öppet. Fotografera kylen → Matvaror, Kyl, med kameran. Titta runt själv → Recept. Alla tre stänger rundturen.</li>
+  <li><b>Rörelse:</b> sidorna glider 460 ms med mjuk inbromsning, bilden ritas fram (linjerna dras ut, 1,1 s), rubrik och mening tonar upp 12 px med 80 ms fördröjning. Med “Minska rörelse”: bara toning, inga linjer som ritas.</li>
+  <li><b>Svep</b> åt vänster och höger byter sida; första sidan går inte att svepa bakåt. Prickarna går att trycka på. Skärmläsare: dialog med rubriken som namn, “Sida 2 av 6” läses upp vid byte.</li>
+  <li><b>Visas en gång:</b> en tidsstämpel <code>tour_seen_at</code> per användare i databasen, satt när rundturen stängs på något sätt (Hoppa över, ett val, Esc). Tom = visa vid nästa start. Inte localStorage (samma regel som valt boende, AD-24).</li>
+</ul>
+
+<!-- ============ HUB ============ -->
+<h2 class="part" id="hjalp">2. Hjälp och tips, omgjort</h2>
+<p class="lead">Samma ingång (P → Hjälp och tips, på avsnittet för fliken du kom från), men kortare och lättare att hitta i: sök överst, rundturen som kort, ett område i taget med tre steg och frågor, och Tyck till sist.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag</span><div class="phone t-light" id="old-phone-2"></div></div>
+  <div class="col"><span class="lbl new">Nytt – överst (tryck i den)</span><div class="phone t-light" id="hub-1"></div></div>
+  <div class="col"><span class="lbl new">Nytt – längre ned</span><div class="phone t-light" id="hub-2"></div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – sökning, “kyl”</span><div class="phone t-light" id="hub-3"></div></div>
+  <div class="col"><span class="lbl new">Nytt – 1280 px</span><div class="scaler"><div class="frame t-light" id="hub-desk"></div></div>
+    <ul class="spec" style="max-width:690px">
+      <li>På dator står de tre stegen bredvid varandra som trion i inspirationen: ikon, titel och en rad, centrerat, med hårfina linjer emellan.</li>
+      <li>Allt annat som på telefon, i 720 px-kolumnen.</li>
+    </ul>
+  </div>
+</div>
+<ul class="spec">
+  <li><b>Ordningen uppifrån:</b> “‹ Recept” (fliken du kom från, som idag) → rubriken “Hjälp och tips” → <b>Sök i hjälpen</b> → kortet <b>Så funkar Livskoll</b> → områdeschips → <b>Så gör du</b> (tre steg) → <b>Vanliga frågor</b> → <b>Tyck till</b>.</li>
+  <li><b>Sök i hjälpen</b>: samma fält som på Recept (44 px, <code>--surface</code>, hörn 12, förstoringsglas). Söker i alla områdens steg och frågor medan du skriver, utan att bry sig om å/ä/ö och stor bokstav. Träffar visas som rader med området överst i liten grå text och ordet understruket i <code>--warm</code>. Chips, steg och frågor göms under tiden. Inga träffar: “Hittar du inte svaret? <b>Berätta vad du letar efter</b>”, som öppnar Föreslå-arket med sökordet ifyllt.</li>
+  <li><b>Så funkar Livskoll</b>: ett kort (<code>--surface</code>, hörn 16) med en liten linjebild av huset, “Så funkar Livskoll” 17 · 600 och “Rundturen igen, sex bilder, en minut.” En rund grön spelknapp till höger. Trycket startar rundturen; att stänga den tar dig tillbaka hit, inte till Recept.</li>
+  <li><b>Områdeschips</b>: Recept · Matsedel · Inköpslista · Matvaror · Förråd · <b>Konto</b> (nytt: Boenden, Siri och snabbtillägg, och vem som ser din data, som idag ligger utan chip längst ned). Chipet för fliken du kom från är valt. <b>Nytt beteende:</b> chipsen filtrerar, ett område visas i taget (idag hoppar de i en lång sida). Raden heter som flikarna, så “Inköpslista”, inte “Lista” (regel 6, samma sak heter samma sak).</li>
+  <li><b>Så gör du</b>: tre steg per område i en grupp (<code>--surface</code>, hörn 16). Varje steg: tvåtonsikon 28 px, titel 17 · 500, en rad 15/21 i <code>--ink-2</code>. Högst en rad text på dator, två på telefon. Ersätter de långa tipsen; det som inte ryms flyttar till frågorna.</li>
+  <li><b>Vanliga frågor</b>: dragspel. Frågan 17 · 500, och till höger en ring 28 px i <code>--accent</code> med + (⊕). Öppen: ringen visar − (⊖) och svaret 15/22 i <code>--ink-2</code> under. Flera kan vara öppna samtidigt. Hela raden är tryckytan (minst 56 px). Byggs med <code>&lt;details&gt;</code> så det fungerar för skärmläsare utan extra kod.</li>
+  <li><b>Tyck till</b>: en grupp som i Inställningar med tonade 30 px-plattor: Föreslå en funktion (sand), Betygsätt Livskoll (mint), Något som inte funkar? (syren). Varje rad öppnar sitt ark.</li>
+  <li>När rubriken scrollat bort tonar den smala listen in med “Hjälp och tips” i mitten och “‹ Recept” till vänster, som på undersidorna i Epic 19.</li>
+  <li><b>Bort:</b> den sticky chipraden som följer med vid scroll, och de 26 långa tipsen (texten finns kvar, kortad, som steg och svar).</li>
+</ul>
+
+<!-- ============ SUGGEST ============ -->
+<h2 class="part" id="foresla">3. Föreslå en funktion</h2>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – ifyllt, från Inköpslista</span><div class="phone t-light" id="sug-1"></div></div>
+  <div class="col"><span class="lbl new">Nytt – skickat</span><div class="phone t-light" id="sug-2"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Något som inte funkar?</span><div class="phone t-light" id="sug-3"></div></div>
+</div>
+<ul class="spec">
+  <li>Arkregeln från Epic 19: rubriken är saken, “Föreslå en funktion”, och <b>Avbryt</b> uppe till höger (text kan gå förlorad). Huvudknappen <b>Skicka</b> sist, nedtonad tills det står något i fältet.</li>
+  <li>Ett fält: “Vad skulle göra Livskoll bättre för dig?”, flera rader, växer med texten. Inga namn-, e-post- eller telefonfält: vi vet vem som är inloggad.</li>
+  <li><b>Gäller (valfritt)</b>: områdeschipsen, med området du kom ifrån redan valt (här Inköpslista). Ett i taget; tryck igen för att välja bort.</li>
+  <li>En rad under talar om vad som skickas: “Pontus ser texten, ditt namn och sidan du var på.” Namnet är ägarens namn, inte hårdkodat.</li>
+  <li><b>Skickat:</b> arket byter innehåll till en bock i två toner, “Tack! Det hamnar hos Pontus.” och en rad under. Uppe till höger står nu <b>Klar</b>. Inget utropstecken till.</li>
+  <li><b>Något som inte funkar?</b> är samma ark med andra ord: rubriken “Något som inte funkar?”, fältet “Vad hände? Vad hade du väntat dig?”, och sidan och appversionen skickas med automatiskt.</li>
+  <li>På dator: dialog i mitten, 560 px, som alla ark i Epic 19.</li>
+</ul>
+
+<!-- ============ RATE ============ -->
+<h2 class="part" id="betyg">4. Betygsätt Livskoll</h2>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – fyra stjärnor</span><div class="phone t-light" id="rate-1"></div></div>
+  <div class="col"><span class="lbl new">Nytt – två stjärnor</span><div class="phone t-light" id="rate-2"></div></div>
+  <div class="col"><span class="lbl new">Nytt – skickat</span><div class="phone t-light" id="rate-3"></div></div>
+</div>
+<ul class="spec">
+  <li>Rubriken “Betygsätt Livskoll”, <b>Avbryt</b> uppe till höger. Frågan “Hur tycker du att Livskoll fungerar?”, sedan fem stjärnor (38 px i 52 px tryckytor).</li>
+  <li>Vald stjärna är fylld i <code>--warm</code>, ovald är en grå kontur, så valet syns även utan färg. Ett ord under: Dåligt · Sådär · Okej · Bra · Toppen.</li>
+  <li>Fältet under byter fråga efter betyget: 4–5 stjärnor “Något mer du vill säga? (valfritt)”, 1–3 stjärnor “Vad kan bli bättre? (valfritt)”.</li>
+  <li><b>Skicka</b> är nedtonad tills en stjärna är vald. Skickat: “Tack för ditt betyg.” med betyget i små stjärnor, och <b>Klar</b>.</li>
+  <li>Ett nytt betyg ersätter inte det gamla; Inkorgen visar alla, och snittet räknas på varje persons senaste.</li>
+  <li><b>Inga automatiska frågor.</b> Betygsätt finns bara i Hjälp, aldrig som popup. Se beslut 3.</li>
+</ul>
+
+<!-- ============ INBOX ============ -->
+<h2 class="part" id="inkorg">5. Var det hamnar: Inkorg</h2>
+<p class="lead">Allt som skickas sparas i databasen. Ägaren (Pontus) får en rad <b>Inkorg</b> överst i Inställningar; ingen annan ser den. Behövs på riktigt när vänner börjar använda molnversionen; innan dess är det Pontus och hushållet.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Inställningar, bara för ägaren</span><div class="phone t-light short" id="inbox-row" style="height:430px"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Inkorg</span><div class="phone t-light" id="inbox"></div></div>
+</div>
+<ul class="spec">
+  <li><b>Inställningar</b>: en ny grupp “Ägare” direkt under kontokortet, med raden Inkorg (plattan i sky, brevlåda) och “3 nya” som grön kapsel till höger. Gruppen finns inte alls för andra användare, inte ens gömd.</li>
+  <li><b>Inkorg</b>: undersida med “‹ Inställningar”. Överst snittbetyget (stort tal, stjärnor, antal betyg de senaste 30 dagarna). Chips Förslag · Betyg · Fel med antal; inget valt = allt (som Recept efter Epic 19).</li>
+  <li>Grupper <b>Nya</b> och <b>Tidigare</b>. En rad: avatar med initial, namn, tid (“21:14”, “i går”, “28 okt”), sorten och området i grått (“Förslag · Inköpslista”, eller stjärnorna), texten på högst två rader. Oläst har en grön prick och texten i <code>--ink</code>; läst i <code>--ink-2</code>.</li>
+  <li>Tryck på en rad: hela texten, sidan den skickades från och appversionen. Raden blir läst. Ingen svarsfunktion i första versionen (beslut 9).</li>
+</ul>
+
+<!-- ============ STORIES ============ -->
+<h2 class="part" id="stories">Förslag på stories: Epic 20 “Kom igång och tyck till”</h2>
+<div class="stories">
+  <div><i>20.1</i><b>Välkomsttur</b><small>Sex sidor vid första inloggningen, kan spelas upp från Hjälp.</small>
+    <ul>
+      <li>En ny användare ser rundturen en gång, efter inloggning, före Recept; <code>tour_seen_at</code> sparas per användare (egen rad, RLS: bara sin egen) när den stängs på något sätt.</li>
+      <li>Fortsätt, svep, prickar och piltangenter byter sida; Hoppa över och Esc stänger; sista sidans tre val leder till Recept med Lägg till-arket, Matvaror Kyl med kameran, respektive Recept.</li>
+      <li>Rörelse enligt modellen; med “Minska rörelse” bara toning. Dialog på dator (560 px). Skärmläsaren får dialogens namn och “Sida N av 6”.</li>
+      <li>Befintliga användare markeras som sedda i migrationen (beslut 8). Linjebilderna är inline-SVG med <code>--accent</code> och nya <code>--warm</code> (lägg till i globals.css och DESIGN.md, kontrasttestet täcker inte dekor).</li>
+    </ul></div>
+  <div><i>20.2</i><b>Hjälpnav</b><small>Hjälp och tips med sök, rundturskort, områden, steg och frågor.</small>
+    <ul>
+      <li><code>help-content.ts</code> får formen område → <code>steps[3]</code> + <code>faq[]</code>; sex områden, Konto tar över Siri och Boenden. Testet håller områdenas id i takt med flikarnas <code>helpId</code>.</li>
+      <li>Öppnad från en flik (<code>/hjalp#matvaror</code>) är det områdets chip valt; chipsen filtrerar till ett område.</li>
+      <li>Sök i hjälpen filtrerar steg och frågor i alla områden medan man skriver (utan hänsyn till å/ä/ö och versaler); tomt resultat visar länken som öppnar Föreslå med sökordet.</li>
+      <li>Frågorna är <code>&lt;details&gt;</code> med ⊕/⊖; kortet Så funkar Livskoll startar rundturen och återvänder hit. Tyck till-raderna finns (öppnar arken från 20.3, eller är dolda tills 20.3 är klar).</li>
+    </ul></div>
+  <div><i>20.3</i><b>Tyck till och Inkorg</b><small>Föreslå, Betygsätt, Något som inte funkar, och ägarens inkorg. Migration och integritet: 2–3 granskare.</small>
+    <ul>
+      <li>Tabell <code>feedback</code> (användare, sort förslag/betyg/fel, stjärnor 1–5, text, område, sida, appversion, skapad, läst). RLS: alla får lägga till sin egen; bara ägaren får läsa och markera läst.</li>
+      <li>Ägaren = en ny miljövariabel <code>OWNER_EMAIL</code> (inte service role i appen, AD-4); en funktion <code>is_app_owner()</code> används av både RLS och Inställningar.</li>
+      <li>Arken enligt modellen: Skicka nedtonad tills text/stjärna finns, frågan byter vid 1–3 stjärnor, tackläge med Klar. Inga automatiska betygsfrågor någonstans.</li>
+      <li>Inställningar visar gruppen Ägare och Inkorg (med antal olästa) bara för ägaren; Inkorgen listar Nya/Tidigare, filtrerar på sort och visar snittbetyget. Användaren kan inte se andras inskick.</li>
+    </ul></div>
+</div>
+
+<!-- ============ DECISIONS ============ -->
+<h2 class="part" id="beslut">Beslut för Pontus, med det som byggs om du inte säger något</h2>
+<ol class="beslut">
+  <li><b>Sex sidor i rundturen</b> (förval), eller fyra: Matvaror och Förråd på en sida, och ingen valsida.</li>
+  <li><b>Stjärnor</b> (förval: alla förstår dem, och de syns utan färg), eller fem ansikten från surt till glatt.</li>
+  <li><b>Aldrig någon automatisk betygsfråga</b> (förval: Betygsätt finns bara i Hjälp), eller en enda gång efter 14 dagar och fem lagade recept, som aldrig kommer igen.</li>
+  <li><b>Sista sidan “Var vill du börja?” med tre val</b> (förval), eller att sista sidan bara har knappen “Kom igång” som leder till Recept.</li>
+  <li><b>Inkorgen bara för ägaren</b> (förval, via <code>OWNER_EMAIL</code>), eller att varje användare också ser sina egna inskick under Hjälp.</li>
+  <li><b>Integritetsraden</b> “Den som driver Livskoll kan tekniskt se kontots data” visas som idag men först efter rundturen, inte under den (förval), eller flyttar in som liten text på rundturens första sida.</li>
+  <li><b>Områden som chips som filtrerar</b> (förval: sex områden ryms inte i ett segment på 390 px), eller ett segment med bara de fem flikarna och Konto som rad längst ned.</li>
+  <li><b>Rundturen bara för nya användare</b> (förval: du och hushållet markeras som sedda vid släppet, och hittar den i Hjälp), eller att alla ser den en gång efter släppet.</li>
+  <li><b>Ingen svarsfunktion i Inkorgen</b> i första versionen (förval: du svarar utanför appen), eller ett enkelt svar som syns för avsändaren i Hjälp.</li>
+  <li><b>Rundturens rubrik 32 px · 500</b> (förval: lättare, mer keynote), eller 30 px · 600 som sidrubrikerna.</li>
+</ol>
+</div>
+
+<script>
+// ---------- helpers ----------
+const I = (id, s = 24, cls = '') => `<svg class="ic ${cls}" width="${s}" height="${s}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const D = (id, s = 28) => I(id, s, 'duo');
+const OWNER = 'Pontus';
+
+const tabbar = () => `<nav class="tabbar">${[['i-book','Recept'],['i-cal','Matsedel'],['i-cart','Inköpslista'],['i-carrot','Matvaror'],['i-box','Förråd']].map(([i,l]) => `<span class="tab">${I(i,24)}<span>${l}</span></span>`).join('')}</nav>`;
+const logo = (s = 28) => `<svg width="${s}" height="${s}" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#3E7C62"/><path d="M256 112 L406 236 V384 c0 18-14 32-32 32 H138 c-18 0-32-14-32-32 V236 Z" fill="#F6F1E4"/><path d="M196 300l44 44 84-96" fill="none" stroke="#3E7C62" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const side = (active) => `<aside class="side"><div class="brand">${logo()}<span>Livskoll</span></div><div class="site">${I('i-pin',22)}<span style="flex:1">Hemma</span>${I('i-chev-d',18)}</div><nav class="nvs">${[['i-book','Recept'],['i-cal','Matsedel'],['i-cart','Inköpslista'],['i-carrot','Matvaror'],['i-box','Förråd']].map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</nav><div class="nvb"><div class="who"><span class="av" style="width:28px;height:28px;font-size:13px">P</span><span><b>Pontus</b><small>pontus@matkoll.local</small></span></div>${[['i-help','Hjälp och tips'],['i-gear','Inställningar'],['i-logout','Logga ut']].map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</div></aside>`;
+const back = (l) => `<span class="backrow">${I('i-chev-l',22)}${l}</span>`;
+const AREAS = [['recept','Recept'],['matsedel','Matsedel'],['inkopslista','Inköpslista'],['matvaror','Matvaror'],['forrad','Förråd'],['konto','Konto']];
+const chips = (on, attr = '') => `<div class="chips">${AREAS.map(([id,l]) => `<button class="chip${on===id?' on':''}" data-area="${id}" ${attr}>${l}</button>`).join('')}</div>`;
+
+// ---------- today's help (texts from help-content.ts, Recept section) ----------
+const OLD_RECEPT = [
+  ['Spara ett recept','Tryck på + och klistra in en länk, skriv eller klistra in texten, eller fota receptet. Livskoll läser in ingredienser och steg och sparar det som alla andra recept.'],
+  ['Spara direkt från webbläsaren','Med Spara i Livskoll skickar du ett recept från en receptsajt utan att kopiera länken. Hur du slår på det står under Inställningar.'],
+  ['Vad kan jag laga nu?','Kan lagas nu visar recepten med det du har hemma, de som saknar minst överst. Märket på varje recept säger vad som saknas. Hjärtat sparar ett recept som favorit.'],
+  ['Laga steg för steg','Öppna ett recept och tryck Laga nu: då visas ett steg i taget och skärmen hålls tänd. Du kan ändra portionerna först, så räknas mängderna om.'],
+  ['Lägg på matsedeln','Från ett recept väljer du en dag och lägger det på matsedeln.'],
+];
+const oldChips = `<div class="old-nav"><div class="chips">${['Recept','Matsedel','Inköpslista','Matvaror','Förråd'].map((l,i) => `<span class="chip${i===0?' on':''}">${l}</span>`).join('')}</div></div>`;
+const oldBody = `${back('Recept')}<h1 class="lt">Hjälp och tips</h1>${oldChips}<h2 class="old-h2">Recept</h2><div class="old-list">${OLD_RECEPT.map(([t,x]) => `<div class="old-tip"><b>${t}</b><span>${x}</span></div>`).join('')}</div><h2 class="old-h2">Matsedel</h2><div class="old-list"><div class="old-tip"><b>Planera tre veckor framåt</b><span>Välj denna vecka eller någon av de två nästa. Tryck + eller Lägg till rätt, välj recept och dag.</span></div></div>`;
+for (const id of ['old-phone','old-phone-2']) document.getElementById(id).innerHTML = `<div class="scroll"><div class="scr">${oldBody}</div></div>${tabbar()}`;
+document.getElementById('old-desk').innerHTML = `${side('Hjälp och tips')}<main class="dmain"><div class="in">${oldBody}</div></main>`;
+
+// ---------- illustrations (viewBox 280 x 220); .d paths are drawn in on the live phone ----------
+const ILL = {
+  home: `<circle class="bgc" cx="140" cy="112" r="96"/>
+    <path class="g d" d="M64 118 L140 56 L216 118"/><path class="g d" d="M80 106 V178 a8 8 0 0 0 8 8 H192 a8 8 0 0 0 8-8 V106"/>
+    <path class="g d" d="M176 76 V58 h14 v30"/>
+    <path class="w d" style="stroke-width:4" d="M114 146 l18 18 34-38"/>
+    <path class="g d" d="M30 186 H250"/>
+    <path class="w d" d="M226 44 v16 M218 52 h16"/>`,
+  recipe: `<circle class="bgc" cx="148" cy="112" r="96"/>
+    <rect class="g d paper" x="100" y="40" width="100" height="140" rx="12"/><rect class="g d" x="112" y="52" width="76" height="44" rx="6"/>
+    <path class="g d" d="M112 112h60 M112 126h76 M112 140h50 M112 154h66"/>
+    <path class="w d" d="M200 22 l4.5 11 11 4.5 -11 4.5 -4.5 11 -4.5-11 -11-4.5 11-4.5z"/>
+    <rect class="g d paper" x="16" y="52" width="34" height="18" rx="9"/><rect class="w d" x="38" y="52" width="34" height="18" rx="9"/>
+    <path class="w dash" d="M78 62 C88 62 92 66 98 72"/>
+    <path class="g d paper" d="M18 136 h10 l5-8 h16 l5 8 h10 v38 H18z"/><circle class="w d" cx="41" cy="155" r="9"/>
+    <path class="w dash" d="M68 150 C82 150 88 144 98 138"/>
+    <rect class="g d paper" x="216" y="98" width="50" height="44" rx="8"/><path class="g d" d="M226 112h30 M226 126h20"/>
+    <path class="w dash" d="M214 120 C208 120 206 118 202 116"/>`,
+  plan: `<circle class="bgc" cx="140" cy="112" r="96"/>
+    <rect class="g d paper" x="22" y="50" width="112" height="120" rx="12"/><path class="g d" d="M22 80h112 M52 38v22 M104 38v22"/>
+    <rect class="g d" x="36" y="94" width="24" height="18" rx="4"/><rect class="w d" x="66" y="94" width="24" height="18" rx="4"/><rect class="g d" x="96" y="94" width="24" height="18" rx="4"/>
+    <rect class="w d" x="36" y="122" width="24" height="18" rx="4"/><rect class="g d" x="66" y="122" width="24" height="18" rx="4"/><rect class="g d" x="96" y="122" width="24" height="18" rx="4"/>
+    <path class="w d" d="M146 110 h30 M168 101 l9 9 -9 9"/>
+    <rect class="g d paper" x="188" y="42" width="72" height="136" rx="10"/>
+    <circle class="w d" cx="206" cy="74" r="7"/><path class="w d" d="M202.5 74 l2.5 2.5 4.5-5"/><path class="g d" d="M220 74h28"/>
+    <circle class="w d" cx="206" cy="106" r="7"/><path class="w d" d="M202.5 106 l2.5 2.5 4.5-5"/><path class="g d" d="M220 106h22"/>
+    <circle class="g d" cx="206" cy="138" r="7"/><path class="g d" d="M220 138h26"/>`,
+  fridge: `<circle class="bgc" cx="140" cy="114" r="96"/>
+    <path class="w d" d="M66 30 h-22 v22 M214 30 h22 v22 M66 200 h-22 v-22 M214 200 h22 v-22"/>
+    <rect class="g d paper" x="92" y="40" width="104" height="150" rx="12"/><path class="g d" d="M92 86h104"/>
+    <path class="g d paper" d="M92 46 L66 60 V176 L92 186"/>
+    <path class="g d" d="M100 122h88 M100 156h88 M100 68h88"/>
+    <rect class="w d" x="106" y="96" width="12" height="26" rx="4"/><circle class="g d" cx="140" cy="111" r="10"/><path class="g d" d="M140 101 c2-5 6-6 9-5"/>
+    <rect class="g d" x="162" y="102" width="20" height="20" rx="4"/>
+    <circle class="g d" cx="114" cy="148" r="7"/><circle class="g d" cx="132" cy="148" r="7"/><rect class="g d" x="156" y="134" width="22" height="22" rx="5"/>
+    <path class="g d" d="M106 60 h20 M150 52 v12"/>`,
+  shelf: `<circle class="bgc" cx="130" cy="116" r="96"/>
+    <path class="g d" d="M26 40v152 M182 40v152 M26 90h156 M26 142h156 M26 192h156"/>
+    <rect class="g d" x="38" y="58" width="46" height="32" rx="4"/><rect class="g d" x="92" y="66" width="38" height="24" rx="4"/>
+    <rect class="g d" x="40" y="110" width="56" height="32" rx="4"/><path class="g d" d="M58 124h20"/>
+    <rect class="w d" x="114" y="114" width="20" height="28" rx="3"/><circle class="w d" cx="124" cy="126" r="5"/>
+    <circle class="w dash" cx="124" cy="128" r="24"/>
+    <rect class="g d" x="110" y="160" width="50" height="32" rx="4"/><rect class="g d" x="40" y="168" width="30" height="24" rx="4"/>
+    <path class="w d paper" d="M170 22 h84 a10 10 0 0 1 10 10 v30 a10 10 0 0 1-10 10 h-46 l-14 13 v-13 h-24 a10 10 0 0 1-10-10 v-30 a10 10 0 0 1 10-10z"/>
+    <path class="g d" d="M178 40h62 M178 54h40"/>`,
+};
+const illSvg = (k) => `<svg class="ill" viewBox="0 0 280 220" aria-hidden="true">${ILL[k]}</svg>`;
+
+const PAGES = [
+  { ill:'home', small:true, h:'Välkommen till Livskoll', p:'Maten och sakerna hemma, på ett ställe.',
+    extra:`<div class="trio"><div>${D('d-bookmark',40)}<b>Recept och matsedel</b><span>Spara, planera, handla.</span></div><div>${D('d-fridge',40)}<b>Matvaror</b><span>Vet vad som finns hemma.</span></div><div>${D('d-box',40)}<b>Förråd</b><span>Hitta sakerna igen.</span></div></div>` },
+  { ill:'recipe', h:'Spara recept var du än hittar dem', p:'Klistra in en länk, fota en kokbok eller skriv av. Livskoll läser in ingredienser och steg.' },
+  { ill:'plan', h:'Planera veckan. Listan skriver sig själv.', p:'Lägg rätter på matsedeln, så räknas inköpslistan fram. Det du redan har dras av.' },
+  { ill:'fridge', h:'Vet vad som finns hemma', p:'Fota kylen, så föreslår Livskoll varorna. Kan lagas nu visar vad du kan laga direkt.' },
+  { ill:'shelf', h:'Hitta sakerna igen', p:'Fota en hylla eller en låda. Sedan frågar du bara: var är passen?' },
+  { final:true, h:'Var vill du börja?', p:'Rundturen finns kvar under Hjälp och tips.',
+    extra:`<div class="choices">${[['d-bookmark','Lägg till ett recept','Från en länk, ett foto eller text'],['d-camera','Fotografera kylen','Livskoll föreslår varorna'],['d-compass','Titta runt själv','Börja på Recept']].map(([i,t,s]) => `<div class="choice"><span class="tile40">${D(i,26)}</span><span class="ct"><b>${t}</b><small>${s}</small></span><span class="chev">${I('i-chev-r',20)}</span></div>`).join('')}</div>` },
+];
+const tourPage = (pg, i) => `<section class="tp${pg.small?' small':''}" data-i="${i}" aria-label="Sida ${i+1} av 6">${pg.final ? `<span class="tile40" style="width:72px;height:72px;border-radius:20px">${D('d-house',40)}</span>` : illSvg(pg.ill)}<div class="tx"><h2 class="th">${pg.h}</h2><p class="tpp">${pg.p}</p>${pg.extra||''}</div></section>`;
+const tourChrome = (i) => `<span class="skip${i===5?' gone':''}">Hoppa över</span><div class="tbot"><div class="dots">${PAGES.map((_,k) => `<i class="${k===i?'on':''}" data-k="${k}"></i>`).join('')}</div><button class="btn${i===5?' gone':''}">Fortsätt</button></div>`;
+
+// Static strip: one phone per page.
+document.getElementById('tour-strip').innerHTML = PAGES.map((pg,i) => `<div class="col"><span class="lbl new">${i+1}. ${['Välkommen','Recept','Matsedel + Inköpslista','Matvaror','Förråd','Var vill du börja?'][i]}</span><div class="phone t-light"><div class="tour">${tourPage(pg,i).replace('class="tp','class="tp on')}${tourChrome(i)}</div></div></div>`).join('');
+
+// Desktop: page 2 as a dialog over a simplified Recept.
+document.getElementById('tour-desk').innerHTML = `${side('Recept')}<main class="dmain"><div class="in"><h1 class="lt" style="margin-top:4px">Recept</h1><div class="search">${I('i-search',18)}Sök på titel eller ingrediens</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px">${'<div class="ghost"></div>'.repeat(6)}</div></div></main><div class="dim"></div><div class="dlg"><div class="tour">${tourPage(PAGES[1],1)}${tourChrome(1)}</div></div>`;
+
+// Live tour with swipe, dots, keys and the motion.
+(function () {
+  const ph = document.getElementById('tour-live');
+  ph.innerHTML = `<div class="tour"><div class="track">${PAGES.map(tourPage).join('')}</div>${tourChrome(0)}</div>`;
+  const track = ph.querySelector('.track'), cap = document.getElementById('tour-cap');
+  const pages = [...ph.querySelectorAll('.tp')];
+  ph.querySelectorAll('.ill .d').forEach((el) => el.setAttribute('pathLength', '1'));
+  let i = 0;
+  function go(n, note) {
+    i = Math.max(0, Math.min(5, n));
+    track.style.transform = `translateX(${-i * 100 / 6}%)`;
+    pages.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('before', k < i); p.classList.toggle('after', k > i); });
+    ph.querySelectorAll('.dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+    ph.querySelector('.tbot .btn').classList.toggle('gone', i === 5);
+    ph.querySelector('.skip').classList.toggle('gone', i === 5);
+    cap.textContent = note || (i === 5 ? 'Sida 6 av 6. Valen stänger rundturen och öppnar Recept, Matvaror eller Lägg till recept.' : `Sida ${i + 1} av 6. Svep åt sidan, tryck Fortsätt, prickarna eller piltangenterna.`);
+  }
+  pages.forEach((p) => p.classList.add('after'));
+  requestAnimationFrame(() => requestAnimationFrame(() => go(0)));
+  ph.querySelector('.tbot .btn').onclick = () => go(i + 1);
+  ph.querySelectorAll('.dots i').forEach((d) => d.onclick = () => go(+d.dataset.k));
+  ph.querySelector('.skip').onclick = () => go(0, 'Hoppa över stänger rundturen och visar Recept; den räknas som sedd. (Modellen börjar om.)');
+  ph.querySelectorAll('.choice').forEach((c) => c.onclick = () => go(0, `“${c.querySelector('b').textContent}” stänger rundturen och leder dit. (Modellen börjar om.)`));
+  let x0 = null;
+  track.addEventListener('pointerdown', (e) => { x0 = e.clientX; });
+  window.addEventListener('pointerup', (e) => { if (x0 === null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1)); });
+  document.addEventListener('keydown', (e) => { const r = ph.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return; if (e.key === 'ArrowRight') go(i + 1); if (e.key === 'ArrowLeft') go(i - 1); });
+})();
+
+// ---------- help hub ----------
+const HELP = {
+  recept: { steps:[['d-link','Spara ett recept','Tryck + och klistra in en länk, fota eller skriv. Livskoll läser in resten.'],['d-pot','Hitta något att laga','Kan lagas nu visar det du har hemma, minst saknat överst.'],['d-steps','Laga steg för steg','Laga nu visar ett steg i taget och håller skärmen tänd.']],
+    faq:[['Kan jag spara direkt från webbläsaren?','Ja, med Spara i Livskoll skickar du receptet utan att kopiera länken. Hur du slår på det står under Inställningar.'],['Vad betyder märket på receptet?','Hur många varor som saknas hemma. Kan lagas nu betyder att allt finns.'],['Kan jag ändra antal portioner?','Ja, innan du trycker Laga nu. Mängderna räknas om.'],['Hur lägger jag ett recept på matsedeln?','Öppna receptet, välj en dag och lägg till.']] },
+  matsedel: { steps:[['d-cal','Välj vecka','Denna vecka eller någon av de två nästa.'],['d-plus','Lägg till rätt','Tryck +, välj recept och dag.'],['d-house','Se vad som finns','Varje rätt visar hur mycket du redan har hemma.']],
+    faq:[['Var hittar jag tidigare veckor?','Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen.'],['Måste jag skriva inköpslistan själv?','Nej, Inköpslistan räknas fram från veckans matsedel.'],['Är matsedeln samma i alla boenden?','Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet.']] },
+  inkopslista: { steps:[['d-list','Listan räknas fram','Från matsedeln, minus det du redan har, sorterad efter avdelning.'],['d-check','Bocka av','Tryck på cirkeln. Det fungerar även utan nät.'],['d-bag','Lägg i Matvaror','När du handlat, så vet Livskoll vad som finns hemma.']],
+    faq:[['Hur lägger jag till kaffe eller diskmedel?','Tryck Lägg till egen vara, eller säg det till Siri.'],['Var kommer erbjudandena ifrån?','Från dina butiker. Tryck Hämta veckans erbjudanden; butikerna väljer du i Inställningar.'],['Kan jag fylla varukorgen på nätet?','Tryck Kopiera till varukorgen och klistra in listan i Claude in Chrome på butikens sida. Du granskar och beställer själv.']] },
+  matvaror: { steps:[['d-fridge','Välj plats','Kyl, Frys eller Skafferi högst upp. Tryck + för en vara.'],['d-camera','Fota kylen','Livskoll föreslår varorna. Inget sparas förrän du bekräftar.'],['d-undo','Ta bort och ångra','Svep en rad åt vänster. Ångra finns kvar en stund.']],
+    faq:[['Varför spelar Matvaror roll?','Det avgör vad som står som Kan lagas nu och vad som dras av på inköpslistan.'],['Hur tömmer jag kylen?','Töm kylen längst ned tar bort allt på platsen, efter en fråga.'],['Kan jag ändra ett förslag från bilden?','Ja. Ändra eller avvisa varje förslag innan du sparar.']] },
+  forrad: { steps:[['d-door','Börja med ett rum','Tryck + Nytt rum, till exempel Förrådet eller Garaget.'],['d-shelf','Fota en hylla','Livskoll listar föremålen på bilden.'],['d-ask','Sök eller fråga','Skriv överst, eller tryck ↑ och fråga: var är passen?']],
+    faq:[['Ska maten in här?','Nej, maten bor i Matvaror. Förråd är för föremål som verktyg och sånt i lådor.'],['Något har flyttats. Vad gör jag?','Ta ett nytt foto av platsen, så uppdateras listan.'],['Söker den i alla boenden?','Ja, sökningen går igenom föremålen i alla dina boenden.']] },
+  konto: { steps:[['d-pin','Boenden','Hemma och stugan: byt med nålmärket under rubriken.'],['d-mic','Siri','Säg ”Hej Siri, Livskoll” och vad du vill lägga till.'],['d-phone','Snabbtillägg','Lägg Lägg till vara som genväg på hemskärmen.']],
+    faq:[['Vad hör till ett boende?','Matvaror och föremål. Recept och matsedel är gemensamma för alla boenden.'],['Hur sätter jag upp Siri?','Skapa en personlig nyckel under Inställningar, Siri och genvägar, och följ stegen i appen Genvägar.'],['Vem kan se min data?','Den som driver Livskoll kan tekniskt se kontots data.']] },
+};
+const LABEL = Object.fromEntries(AREAS);
+const fold = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function hl(text, q) { if (!q) return text; const f = fold(text), k = f.indexOf(fold(q)); return k < 0 ? text : text.slice(0, k) + '<mark>' + text.slice(k, k + q.length) + '</mark>' + text.slice(k + q.length); }
+function searchHits(q) {
+  const out = [];
+  for (const [id, a] of Object.entries(HELP)) {
+    for (const [, t, x] of a.steps) if (fold(t + ' ' + x).includes(fold(q))) out.push([LABEL[id] + ' · Så gör du', t, x]);
+    for (const [t, x] of a.faq) if (fold(t + ' ' + x).includes(fold(q))) out.push([LABEL[id] + ' · Fråga', t, x]);
+  }
+  return out;
+}
+// Inline (not <use>) so the open state can hide the vertical bar: ⊕ becomes ⊖.
+const pmIcon = `<svg class="ic pm" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12"/><path d="M9 14h10"/><path class="v" d="M14 9v10"/></svg>`;
+function areaBody(area, open = []) {
+  const a = HELP[area];
+  return `<div class="sec">Så gör du</div><div class="grp">${a.steps.map(([i,t,x]) => `<div class="step">${D(i,28)}<span class="st"><b>${t}</b><span>${x}</span></span></div>`).join('')}</div>
+    <div class="sec">Vanliga frågor</div><div class="grp">${a.faq.map(([q,ans],k) => `<div class="faq${open.includes(k)?' open':''}"><div class="q"><b>${q}</b>${pmIcon}</div><div class="a">${ans}</div></div>`).join('')}</div>`;
+}
+function searchBody(q) {
+  const hits = searchHits(q);
+  return `<div class="sec">${hits.length} ${hits.length === 1 ? 'träff' : 'träffar'}</div>${hits.length ? `<div class="grp">${hits.map(([w,t,x]) => `<div class="res"><small>${w}</small><b>${hl(t,q)}</b><span>${hl(x,q)}</span></div>`).join('')}</div>` : ''}<div class="miss">Hittar du inte svaret?<br><span class="tbtn">Berätta vad du letar efter</span></div>`;
+}
+const feedbackGroup = `<div class="sec">Tyck till</div><div class="grp">${[['sand','d-bulb','Föreslå en funktion','#foresla'],['','d-star','Betygsätt Livskoll','#betyg'],['lilac','d-bubble','Något som inte funkar?','#foresla']].map(([c,i,t,h]) => `<a class="row" href="${h}" style="color:inherit;text-decoration:none"><span class="tile2 ${c}">${I(i,20)}</span><span class="grow">${t}</span><span class="chev">${I('i-chev-r',18)}</span></a>`).join('')}</div><p class="foot">Livskoll 0.1 · uppdaterad 1 nov</p>`;
+const hero = `<a class="hero" href="#tur" style="color:inherit;text-decoration:none"><span class="hi">${D('d-house',40)}</span><span class="ht"><b>Så funkar Livskoll</b><small>Rundturen igen, sex bilder, en minut.</small></span><span class="play">${I('i-play',20)}</span></a>`;
+function hubInner({ area = 'recept', open = [], q = '', live = false } = {}) {
+  const input = live ? `<input type="search" placeholder="Sök i hjälpen" value="${q}" aria-label="Sök i hjälpen">` : (q ? `<span style="color:var(--ink)">${q}</span>` : '<span>Sök i hjälpen</span>');
+  return `${back('Recept')}<h1 class="lt">Hjälp och tips</h1><label class="search">${I('i-search',18)}${input}</label><div class="hub-dyn">${q ? searchBody(q) : `${hero}<div style="margin-top:12px">${chips(area)}</div>${areaBody(area, open)}${feedbackGroup}`}</div>`;
+}
+function hubPhone(el, opts = {}) {
+  el.innerHTML = `<div class="scroll"><div class="scr">${hubInner(opts)}</div></div><div class="cbar"><span class="bk">${I('i-chev-l',22)}Recept</span><span class="ttl">Hjälp och tips</span></div>${tabbar()}`;
+  const sc = el.querySelector('.scroll'), bar = el.querySelector('.cbar');
+  sc.addEventListener('scroll', () => bar.classList.toggle('show', sc.scrollTop > 96));
+  if (opts.scrollTo) requestAnimationFrame(() => { sc.scrollTop = opts.scrollTo; bar.classList.add('show'); });
+  if (!opts.live) return;
+  let state = { area: opts.area || 'recept', open: opts.open || [] };
+  const dyn = el.querySelector('.hub-dyn'), input = el.querySelector('input');
+  function render() {
+    dyn.innerHTML = input.value.trim() ? searchBody(input.value.trim()) : `${hero}<div style="margin-top:12px">${chips(state.area)}</div>${areaBody(state.area, state.open)}${feedbackGroup}`;
+    // Like help-view.tsx: the chosen chip is brought into the row when it is off to the side.
+    const row = dyn.querySelector('.chips'), on = row && row.querySelector('.chip.on');
+    if (on && on.offsetLeft + on.offsetWidth > row.clientWidth) row.scrollLeft = on.offsetLeft + on.offsetWidth - row.clientWidth + 20;
+  }
+  input.addEventListener('input', render);
+  dyn.addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (c) { state = { area: c.dataset.area, open: [] }; render(); return; }
+    const f = e.target.closest('.faq'); if (f) f.classList.toggle('open');
+  });
+}
+hubPhone(document.getElementById('hub-1'), { area: 'recept', open: [1], live: true });
+hubPhone(document.getElementById('hub-2'), { area: 'recept', open: [1], scrollTo: 520 });
+hubPhone(document.getElementById('hub-3'), { q: 'kyl' });
+document.getElementById('hub-desk').innerHTML = `${side('Hjälp och tips')}<main class="dmain"><div class="in">${hubInner({ area: 'recept', open: [1] }).replace('<div class="grp"><div class="step">', '<div class="grp trio-d"><div class="step">')}</div></main>`;
+
+// ---------- sheets ----------
+const staticHub = (area = 'recept') => `<div class="scroll" style="overflow:hidden"><div class="scr">${hubInner({ area })}</div></div>${tabbar()}`;
+const areaChips = (on) => `<div class="chiprow">${AREAS.map(([id,l]) => `<span class="chip${on===id?' on':''}">${l}</span>`).join('')}</div>`;
+const sheet = (title, right, body) => `<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle">${title}</span><span class="cancel">${right}</span></div>${body}</div>`;
+const doneBlock = (h, p, top = '') => `<div class="done">${top || `<span class="tile40" style="width:76px;height:76px;border-radius:22px">${D('d-check',44)}</span>`}<h3>${h}</h3><p>${p}</p></div>`;
+document.getElementById('sug-1').innerHTML = staticHub('inkopslista') + sheet('Föreslå en funktion', 'Avbryt', `
+  <div class="field"><label class="flabel">Vad skulle göra Livskoll bättre för dig?</label><div class="ta focus">Att kunna dela inköpslistan med Anna, så att vi handlar från samma lista.<i class="caret"></i></div></div>
+  <div class="field"><span class="flabel">Gäller <span class="opt">(valfritt)</span></span>${areaChips('inkopslista')}</div>
+  <p class="hint">${OWNER} ser texten, ditt namn och sidan du var på.</p>
+  <div class="sfoot"><button class="btn">Skicka</button></div>`);
+document.getElementById('sug-2').innerHTML = staticHub('inkopslista') + sheet('Föreslå en funktion', 'Klar', doneBlock(`Tack! Det hamnar hos ${OWNER}.`, 'Allt som skickas läses. Du kan föreslå något nytt när du vill.') + '<div style="height:24px"></div>');
+document.getElementById('sug-3').innerHTML = staticHub('matvaror') + sheet('Något som inte funkar?', 'Avbryt', `
+  <div class="field"><label class="flabel">Vad hände? Vad hade du väntat dig?</label><div class="ta ph">Skriv här</div></div>
+  <div class="field"><span class="flabel">Gäller <span class="opt">(valfritt)</span></span>${areaChips('matvaror')}</div>
+  <p class="hint">Sidan du var på och appversionen skickas med, så ${OWNER} kan se vad som hände.</p>
+  <div class="sfoot"><button class="btn off">Skicka</button></div>`);
+
+const starsRow = (n, size) => [1,2,3,4,5].map((k) => `<svg class="star${k<=n?' on':''}" viewBox="0 0 24 24" ${size?`style="width:${size}px;height:${size}px"`:''} aria-hidden="true"><use href="#star"/></svg>`).join('');
+const WORD = ['', 'Dåligt', 'Sådär', 'Okej', 'Bra', 'Toppen'];
+const rateBody = (n, label, text) => `<p class="sq">Hur tycker du att Livskoll fungerar?</p><div class="stars">${[1,2,3,4,5].map((k) => `<span><svg class="star${k<=n?' on':''}" viewBox="0 0 24 24" aria-hidden="true"><use href="#star"/></svg></span>`).join('')}</div><div class="slabel">${WORD[n]}</div>
+  <div class="field"><label class="flabel">${label} <span class="opt">(valfritt)</span></label><div class="ta${text?'':' ph'}" style="min-height:96px">${text || 'Skriv här'}</div></div>
+  <div class="sfoot"><button class="btn">Skicka</button></div>`;
+document.getElementById('rate-1').innerHTML = staticHub() + sheet('Betygsätt Livskoll', 'Avbryt', rateBody(4, 'Något mer du vill säga?', ''));
+document.getElementById('rate-2').innerHTML = staticHub() + sheet('Betygsätt Livskoll', 'Avbryt', rateBody(2, 'Vad kan bli bättre?', 'Det tar lång tid innan förslagen kommer när jag fotar kylen.'));
+document.getElementById('rate-3').innerHTML = staticHub() + sheet('Betygsätt Livskoll', 'Klar', doneBlock('Tack för ditt betyg.', `Det hamnar hos ${OWNER}.`, `<div class="mstars" style="gap:4px">${starsRow(4, 30)}</div>`) + '<div style="height:24px"></div>');
+
+// ---------- inbox ----------
+const srow = (tile, icon, t, v, extra = '') => `<div class="row"><span class="tile2 ${tile}">${I(icon,20)}</span><span class="grow">${t}</span>${extra}${v ? `<span class="v">${v}</span>` : ''}<span class="chev">${I('i-chev-r',18)}</span></div>`;
+document.getElementById('inbox-row').innerHTML = `<div class="scr">${back('Recept')}<h1 class="lt">Inställningar</h1>
+  <div class="acct"><span class="av" style="width:44px;height:44px;font-size:18px">P</span><span class="grow" style="flex:1"><b>Pontus</b><small>pontus@matkoll.local</small></span><span class="chev" style="color:var(--ink-3)">${I('i-chev-r',18)}</span></div>
+  <div class="sec">Ägare</div><div class="grp">${srow('sky','i-tray','Inkorg','', '<span class="newpill">3 nya</span>')}</div>
+  <div class="sec">Hushåll</div><div class="grp">${srow('','i-pin','Boenden','Hemma, Duved, N…')}${srow('sky','i-box','Butiker','Maxi ICA Stormark…')}</div></div>`;
+const MSGS = [
+  { n:'Anna', t:'21:14', k:'Förslag · Inköpslista', x:'Att kunna dela inköpslistan med Pontus, så att vi handlar från samma lista.', u:true },
+  { n:'Erik', t:'18:02', k:'stars:3', x:'Det tar lång tid innan förslagen kommer när jag fotar kylen.', u:true },
+  { n:'Sara', t:'i går', k:'Fel · Matvaror', x:'Ångra försvann innan jag hann trycka. Sidan: /matvaror?plats=kyl', u:true },
+  { n:'Anna', t:'28 okt', k:'stars:5', x:'Matsedeln och listan tillsammans är precis vad vi behövde.', u:false },
+  { n:'Erik', t:'26 okt', k:'Förslag · Recept', x:'Kunna sortera recept efter tid.', u:false },
+];
+const msgRow = (m) => `<div class="msg${m.u?'':' read'}"><span class="av">${m.n[0]}</span><div class="mt"><div class="top"><b>${m.u?'<i class="udot"></i>':''}${m.n}</b><time>${m.t}</time></div><span class="kind">${m.k.startsWith('stars:') ? `Betyg <span class="mstars">${starsRow(+m.k.slice(6))}</span>` : m.k}</span><p>${m.x}</p></div></div>`;
+document.getElementById('inbox').innerHTML = `<div class="scroll"><div class="scr">${back('Inställningar')}<h1 class="lt">Inkorg</h1>
+  <div class="sum"><span class="big">4,0</span><span><span class="mstars">${starsRow(4)}</span><small>Snittbetyg, 2 betyg senaste 30 dagarna</small></span></div>
+  <div style="margin-top:6px"><div class="chips"><span class="chip">Förslag <span class="n">2</span></span><span class="chip">Betyg <span class="n">2</span></span><span class="chip">Fel <span class="n">1</span></span></div></div>
+  <div class="sec">Nya</div><div class="grp">${MSGS.filter((m) => m.u).map(msgRow).join('')}</div>
+  <div class="sec">Tidigare</div><div class="grp">${MSGS.filter((m) => !m.u).map(msgRow).join('')}</div></div></div>${tabbar()}`;
+
+// ---------- theme switch: the phones follow the system, or a forced mode ----------
+(function () {
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  let mode = 'auto';
+  function apply() {
+    const dark = mode === 'dark' || (mode === 'auto' && mq.matches);
+    document.querySelectorAll('.phone, .frame').forEach((p) => { p.classList.toggle('t-dark', dark); p.classList.toggle('t-light', !dark); });
+    if (mode === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', mode);
+    document.querySelectorAll('.themes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === mode)));
+  }
+  document.querySelectorAll('.themes button').forEach((b) => b.onclick = () => { mode = b.dataset.t; apply(); });
+  mq.addEventListener('change', apply);
+  const forced = new URLSearchParams(location.search).get('theme');
+  if (forced === 'dark' || forced === 'light') mode = forced;
+  apply();
+})();
+</script>
+</body>
+</html>
