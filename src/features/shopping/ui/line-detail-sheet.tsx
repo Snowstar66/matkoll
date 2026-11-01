@@ -57,6 +57,8 @@ export type LineDetailSheetProps = {
    * ändringarna?" when the detail has changes).
    */
   onProductChoice: (line: ShoppingLine) => void;
+  /** Story 21.3: under the name, who else checked it off or added it ("Martina bockade av · 17:42"). */
+  byLine?: string;
 };
 
 /** Listpostdetalj for `line`: an own item's form, or a recipe line's amount, origin and "Ta bort". */
@@ -71,6 +73,7 @@ export function LineDetailSheet(props: LineDetailSheetProps) {
         session={props.session}
         searchIngredients={props.searchIngredients}
         title={line.label}
+        subtitle={props.byLine}
         item={{
           id: parsed.id,
           // The text as stored, not the list's name for it (never empty, single spaces).
@@ -131,6 +134,7 @@ function RecipeLineDetail({
   onChange,
   productChoices,
   onProductChoice,
+  byLine,
 }: LineDetailSheetProps) {
   const router = useRouter();
   const [formSession, setFormSession] = useState(session);
@@ -256,6 +260,7 @@ function RecipeLineDetail({
       open={open}
       onClose={onClose}
       title={line.label}
+      subtitle={byLine}
       closeLabel={correctable ? "Avbryt" : "Klar"}
       isDirty={dirty}
       preventClose={saving}

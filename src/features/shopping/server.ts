@@ -2,6 +2,7 @@ import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { currentWeekStart } from "@/features/mealplan";
+import { getOthers } from "@/features/household/server";
 import { getCurrentPlan, getPlanForWeek, MealPlanDataError } from "@/features/mealplan/server";
 import type { SelectedSite } from "@/features/pantry";
 import { findPantryAdditions, getPantryForStatus, PantryDataError } from "@/features/pantry/server";
@@ -20,6 +21,9 @@ import { receiptedChecks } from "./data/put-in-pantry";
 import { loadShoppingList, type ShoppingList as CountedList } from "./data/queries";
 import { keyedItemId } from "./data/keyed-item-id";
 import { splitQuickText } from "./domain/quick-add";
+import type { CustomListItem } from "./domain/custom-item";
+import { customLineKey } from "./domain/line-key";
+import { lineMarksOf, type LineMarks } from "./domain/line-marks";
 import type { ProductChoiceContext } from "./domain/product-choice";
 import type { CheckRow } from "./domain/put-in-pantry";
 
@@ -48,7 +52,10 @@ import type { CheckRow } from "./domain/put-in-pantry";
  * place the list showed (FR-33). The place never changes a line's key, a
  * check, an override, an own item, a product choice or the export.
  */
-export type ShoppingList = CountedList & { pendingClear: number } & ProductChoiceContext & { site: SelectedSite | null };
+export type ShoppingList = CountedList & { pendingClear: number } & ProductChoiceContext & { site: SelectedSite | null } & {
+  /** Story 21.3: the lines someone else in the household checked off or added (lineMarksOf). */
+  marks?: LineMarks;
+};
 
 /**
  * The selected store (settings.getSelectedStore) and then its product
@@ -145,11 +152,12 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
   const user = await requireUser();
   if (!user.ok) return fail("unauthorized");
   let checks: CheckRow[] | null = null;
+  let customItems: CustomListItem[] = [];
   // The place and its pantry, read once; the list takes the pantry from it.
   const forStatus = getPantryForStatus();
   // The store and its choices are read alongside the list; all settle
   // before any is used, so none is left running unobserved.
-  const [counted, choices, status] = await Promise.allSettled([
+  const [counted, choices, status, others] = await Promise.allSettled([
     loadShoppingList({
       currentPlan: weekStart && weekStart !== currentWeekStart() ? () => getPlanForWeek(weekStart) : getCurrentPlan,
       recipesByIds: getRecipesByIds,
@@ -161,19 +169,27 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
         return checks && checks.map((check) => check.key);
       },
       // The household's own items, whichever week is shown (Story 17.10); one checked in an earlier week is left out.
-      customItems: async () => listCustomItemsIn(await createClient(), weekStart ?? currentWeekStart()),
+      customItems: async () => (customItems = await listCustomItemsIn(await createClient(), weekStart ?? currentWeekStart())),
       overrides: async (planId) => listOverridesIn(await createClient(), planId),
     }),
     storeAndChoices(),
     forStatus,
+    // Who else is in the household, for the marks (Story 21.3); empty when it cannot be read.
+    getOthers(),
   ]);
+  if (others.status === "rejected") throw others.reason;
   // storeAndChoices and getPantryForStatus handle every expected error: what they throw is a bug.
   if (choices.status === "rejected") throw choices.reason;
   if (status.status === "rejected") throw status.reason;
   try {
     if (counted.status === "rejected") throw counted.reason;
     const list = counted.value;
-    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value, site: status.value.site });
+    const marks = lineMarksOf(
+      checks ?? [],
+      customItems.map((item) => ({ key: customLineKey(item.id), by: item.by, at: item.at })),
+      others.value,
+    );
+    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value, site: status.value.site, marks });
   } catch (error) {
     if (error instanceof MealPlanDataError || error instanceof RecipeDataError || error instanceof ShoppingDataError) {
       console.error("shopping_unavailable", { reason: error.detail });

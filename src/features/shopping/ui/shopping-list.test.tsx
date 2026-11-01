@@ -93,6 +93,31 @@ const rowText = (row: HTMLElement) => (row.querySelector('[data-testid="swipe-ro
 const pastGuard = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, doubleTapGuardMs + 20)));
 
 describe("ShoppingList", () => {
+  it("gives what someone else checked off or added their initial, said by the screen reader, and nothing for mine (Story 21.3)", async () => {
+    const at = "2026-11-04T16:42:00Z";
+    render(
+      <ShoppingList
+        plan={plan}
+        lines={[
+          line({ key: "r:mjolk:l", label: "Mjölk", section: "Mejeri", amount: 1, unit: "l", checked: true }),
+          line({ key: "r:smor:st", label: "Smör", section: "Mejeri", amount: 1, unit: "st", checked: true }),
+          line({ key: "c:citron", label: "Citron", section: "Frukt och grönt", isCustom: true, origins: [] }),
+        ]}
+        pantryUnavailable={false}
+        marks={{ "r:mjolk:l": { checkedBy: { name: "Martina", tone: "sky", at } }, "c:citron": { addedBy: { name: "Martina", tone: "sky", at } } }}
+      />,
+    );
+    const show = screen.queryByRole("button", { name: /^Visa I korgen/ });
+    if (show) await userEvent.click(show);
+    const marks = screen.getAllByTestId("line-mark");
+    expect(marks).toHaveLength(2);
+    expect(marks.every((mark) => mark.textContent === "M")).toBe(true);
+    const row = (key: string) => document.querySelector(`[data-line-key="${key}"]`) as HTMLElement;
+    expect(within(row("r:mjolk:l")).getByText("i korgen, bockad av Martina")).toBeInTheDocument();
+    expect(within(row("c:citron")).getByText("tillagd av Martina")).toBeInTheDocument();
+    expect(within(row("r:smor:st")).queryByTestId("line-mark")).toBeNull();
+  });
+
   it("shows the summary, the progress row and the lines per category in the store's order", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 0 av 6 i korgen");

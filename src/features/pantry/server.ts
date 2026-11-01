@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientDefaults, getIngredientSummaries } from "@/features/catalog/server";
+import { getOthers } from "@/features/household/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { placePhotosNeedSweepIn } from "./actions/photo-sweep";
@@ -99,7 +100,9 @@ async function placeToRead(siteId: string | undefined): Promise<string | null> {
 }
 
 const listPantryOn = cache(async (location: Location, siteId: string): Promise<PantryItem[]> => {
-  return listPantryIn(await createClient(), location, getIngredientSummaries, siteId);
+  // Story 21.3: who else last added or changed each item (getOthers is empty when the members cannot be read).
+  const [db, others] = await Promise.all([createClient(), getOthers()]);
+  return listPantryIn(db, location, getIngredientSummaries, siteId, others);
 });
 
 const countPantryOn = cache(async (siteId: string): Promise<Record<Location, number>> => {

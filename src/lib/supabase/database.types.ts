@@ -295,14 +295,14 @@ isOneToOne: false
                   ]
                 },"pantry_item": {
                   Row: {
-                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string,"label": string | null,"location": string,"site_id": string,"unit": string | null,"user_id": string | null
+                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string,"label": string | null,"location": string,"site_id": string,"unit": string | null,"updated_at": string | null,"updated_by": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id": string,"label"?: string | null,"location": string,"site_id"?: string,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id": string,"label"?: string | null,"location": string,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string,"label"?: string | null,"location"?: string,"site_id"?: string,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string,"label"?: string | null,"location"?: string,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -691,14 +691,14 @@ isOneToOne: false
                   ]
                 },"thing_item": {
                   Row: {
-                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"household_id": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"quantity": number | null,"same_as": string | null,"source": string,"user_id": string | null,"where_hint": string | null
+                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"household_id": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"quantity": number | null,"same_as": string | null,"source": string,"updated_at": string | null,"updated_by": string | null,"user_id": string | null,"where_hint": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"household_id"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"user_id"?: string | null,"where_hint"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"household_id"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null
                   }
                   Update: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"household_id"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"user_id"?: string | null,"where_hint"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"household_id"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null
                   }
                   Relationships: [
                     {
@@ -1082,6 +1082,9 @@ isOneToOne: false
 "photo_folder_in_my_household":
 { Args: { "bucket": string,"object_name": string }; Returns: boolean
                            },
+"put_thing_changes":
+{ Args: { "changes": Json,"item": string }; Returns: undefined
+                           },
 "relink_thing_items":
 { Args: { "links": Json }; Returns: number
                            },
@@ -1135,6 +1138,8 @@ isOneToOne: false
 "location": string,
 "site_id": string,
 "unit": string | null,
+"updated_at": string | null,
+"updated_by": string | null,
 "user_id": string | null
             }
                           SetofOptions: {
@@ -1306,6 +1311,8 @@ isOneToOne: false
 "location": string,
 "site_id": string,
 "unit": string | null,
+"updated_at": string | null,
+"updated_by": string | null,
 "user_id": string | null
             }[]
                           SetofOptions: {

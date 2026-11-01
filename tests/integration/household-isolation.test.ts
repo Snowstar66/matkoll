@@ -982,6 +982,8 @@ describe("household isolation", () => {
         ["save_thing_card", { photo: photoId, things: [], note: null, hidden_count: 0 }],
         ["save_thing_reading", { photo: photoId, things: [], note: null, hidden_count: 0 }],
         ["merge_thing_items", { photo: photoId, pairs: [] }],
+        // Story 21.3: a history with a maker of A's household is refused on A's föremål.
+        ["put_thing_changes", { item: aSeed.thingItemId, changes: [{ kind: "set", quantity_after: 1, user_id: a.id }] }],
         ["relink_thing_items", { links: [{ item: aSeed.thingItemId, same_as: null }] }],
         ["thing_room_categories", { site, in_room: "skräpförrådet" }],
         ["thing_room_stats", { site }],

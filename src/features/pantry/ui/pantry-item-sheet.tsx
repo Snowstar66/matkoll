@@ -38,6 +38,7 @@ import {
   type Section,
   type Unit,
 } from "@/features/catalog";
+import { lastChangeText } from "@/features/household";
 import { fail, type Result } from "@/lib/errors";
 import { searchPantryIngredients, type PantryIngredientHit } from "../actions/search-ingredients";
 import { savePantryItem } from "../actions/set-pantry-item";
@@ -491,6 +492,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
           : (ingredient?.name ?? "Lägg till vara"))
       }
       heading={heading}
+      // Story 21.3: under the name, who else last added or changed the item ("Martina ändrade · 1 nov").
+      subtitle={target.kind === "edit" && target.item.lastChange && !step && !picking ? lastChangeText(target.item.lastChange) : undefined}
       onBack={
         step
           ? () => setStep(null)

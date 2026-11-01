@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { doerOf, noOthers, type Doer, type LastChange, type Others } from "@/features/household";
 import { shortDateText } from "./thing-photo";
 
 // Ta och fyll på (Story 18.23): a count on the föremål where it matters
@@ -23,13 +24,21 @@ export type ThingChange = {
   cleared: number | null;
   /** When (ISO). */
   at: string;
+  /** Story 21.3: someone else in the household made it; null (or absent) when I did, or it is not known. */
+  who?: Doer | null;
 };
 
 /** What a change gave: the new count, and the change's id for Ångra. */
 export type Changed = { changeId: string; quantity: number };
 
 /** A föremål's count as its sheet shows it: the föremål that holds the count (itself, or the one it was merged into), the count (null: not counted) and its history, newest first. */
-export type ThingCount = { itemId: string; quantity: number | null; changes: ThingChange[] };
+export type ThingCount = {
+  itemId: string;
+  quantity: number | null;
+  changes: ThingChange[];
+  /** Story 21.3: who else last added or changed the föremål, and when; null when that was me. */
+  lastChange?: LastChange | null;
+};
 
 /** A thing_change row, checked. */
 export const changeRowSchema = z.object({
@@ -40,10 +49,19 @@ export const changeRowSchema = z.object({
   quantity_after: z.number().int(),
   cleared: z.number().int().nullable(),
   created_at: z.string(),
+  user_id: z.uuid().nullable().optional(),
 });
 
-export function toChange(row: z.output<typeof changeRowSchema>): ThingChange {
-  return { id: row.id, kind: row.kind, delta: row.delta, quantityAfter: row.quantity_after, cleared: row.cleared, at: new Date(row.created_at).toISOString() };
+export function toChange(row: z.output<typeof changeRowSchema>, others: Others = noOthers): ThingChange {
+  return {
+    id: row.id,
+    kind: row.kind,
+    delta: row.delta,
+    quantityAfter: row.quantity_after,
+    cleared: row.cleared,
+    at: new Date(row.created_at).toISOString(),
+    who: doerOf(others, row.user_id),
+  };
 }
 
 /** Newest first, the id breaking a tie. */
@@ -224,6 +242,8 @@ export const countSnapshotSchema = z.object({
         quantity_after: z.number().int().min(0).max(maxCount),
         cleared: z.number().int().nullable(),
         created_at: z.string(),
+        // Story 21.3: who made it, so Ångra keeps them (put_thing_changes checks it).
+        user_id: z.uuid().nullable().optional(),
       }),
     )
     .max(50),
