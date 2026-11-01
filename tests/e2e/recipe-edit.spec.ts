@@ -210,20 +210,22 @@ test("Story 13.2: the soptunna on the recipe page asks, then deletes; the librar
   const fromLibrary = uniqueTitle("Soptunna listan");
   await saveRecipe(page, fromPage);
 
-  // On the recipe page (Story 19.4): Ta bort recept is last in the ⋯ menu, in muted red, not a bin beside the heart.
+  // On the recipe page (Stories 19.4 and 19.6): Ta bort is last in the ⋯ menu, in muted red, not a bin beside the heart.
   const openBin = async () => {
     await page.getByRole("button", { name: "Fler val", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Ta bort recept" }).click();
+    await page.getByRole("menuitem", { name: "Ta bort" }).click();
   };
   await page.getByRole("button", { name: "Fler val", exact: true }).click();
   const items = page.getByRole("menuitem");
-  await expect(items.last()).toHaveText("Ta bort recept");
+  await expect(items.last()).toHaveText("Ta bort");
   await page.keyboard.press("Escape");
   await openBin();
   const confirm = page.getByRole("dialog", { name: `Ta bort ${fromPage}?` });
   await expect(confirm.getByText("Det går inte att ångra.")).toBeVisible();
   await confirm.getByRole("button", { name: "Avbryt" }).click();
   await expect(page.getByRole("heading", { level: 1, name: fromPage })).toBeVisible();
+  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
+  await page.waitForTimeout(500);
   await openBin();
   await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(page).toHaveURL(/\/recept$/);

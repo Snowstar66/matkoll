@@ -72,6 +72,12 @@ export function RecipeMenu({
     setEditing(true);
   }
 
+  function remove() {
+    // Focus on ⋯ first, so the confirmation gives it back when it closes.
+    closeMenu();
+    ask({ id: recipe.id, title: recipe.title, onMenu });
+  }
+
   return (
     <div ref={root} className={className ? `relative flex ${className}` : "relative flex"}>
       {dialog}
@@ -83,9 +89,11 @@ export function RecipeMenu({
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? menuId : undefined}
         onClick={() => setMenuOpen((open) => !open)}
-        className="flex size-tap items-center justify-center rounded-full text-ink-2"
+        className="flex size-tap items-center justify-center rounded-full text-ink"
       >
-        <MoreIcon size={24} />
+        <span className="flex size-10 items-center justify-center rounded-full bg-glass backdrop-blur-md">
+          <MoreIcon size={22} />
+        </span>
       </button>
       {menuOpen ? (
         <div
@@ -108,13 +116,10 @@ export function RecipeMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => {
-              closeMenu();
-              ask({ id: recipe.id, title: recipe.title, onMenu });
-            }}
+            onClick={remove}
             className="min-h-tap px-4 text-left text-body text-danger"
           >
-            Ta bort recept
+            Ta bort
           </button>
         </div>
       ) : null}

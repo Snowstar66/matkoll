@@ -42,6 +42,8 @@ export type FixedActionProps = {
    * also when the two would stand one above the other.
    */
   reserve?: number;
+  /** On the same glass as the tab bar, flush above it (Story 19.6: the recipe view). */
+  glass?: boolean;
 };
 
 /**
@@ -60,7 +62,7 @@ export type FixedActionProps = {
  * take more than a quarter of the viewport, it stands at the end of the page
  * instead.
  */
-export function FixedAction({ children, reserve = 1 }: FixedActionProps) {
+export function FixedAction({ children, reserve = 1, glass = false }: FixedActionProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout>({ height: null, stacked: false, inline: false, extra: 0 });
   const items = Children.toArray(children);
@@ -146,7 +148,12 @@ export function FixedAction({ children, reserve = 1 }: FixedActionProps) {
         className={
           layout.inline
             ? "mt-2"
-            : "fixed inset-x-0 bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap))] z-20 px-page desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap))] desktop:left-side-menu"
+            : cx(
+                "fixed inset-x-0 z-20 px-page desktop:left-side-menu",
+                glass
+                  ? "bottom-[var(--tab-bar-height)] border-t-[0.5px] border-border bg-bar py-2 backdrop-blur-[20px] backdrop-saturate-150 desktop:bottom-0"
+                  : "bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap))] desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap))]",
+              )
         }
       >
         {bar}

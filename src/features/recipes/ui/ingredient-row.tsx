@@ -99,11 +99,8 @@ export function IngredientRow({ line, coverage, factor = 1, anchorId }: Ingredie
   const short = coverage !== null && coverage.kind !== "unlinked" && isShort(coverage);
   const atHome = coverage?.kind === "partial" || coverage?.kind === "other-unit" ? coverage.amounts : null;
   // Story 4.3: a calm word under the name; the ring in front already says it to screen readers.
-  const tag = short ? (
-    <span aria-hidden="true" className="text-meta text-ink-2">
-      Saknas
-    </span>
-  ) : null;
+  // Story 19.6: no extra word; the ring in front and the blue amount say it.
+  const tag = null;
   const multiplier =!withAmount && !line.isVague && line.amount !== null && factor !== 1 ? factorText(factor) : null;
   return (
     <li
@@ -116,12 +113,12 @@ export function IngredientRow({ line, coverage, factor = 1, anchorId }: Ingredie
       {withAmount ? (
         <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
           <span className="flex min-w-0 flex-col">
-            <span className="text-body text-ink">{name ?? line.originalText}</span>
+            <span className="text-item text-ink">{name ?? line.originalText}</span>
             {showOriginal ? <span className="text-meta text-ink-2">{line.originalText}</span> : null}
             {tag}
           </span>
           <span className="flex shrink-0 flex-col items-end">
-            <span className={cx("text-body", short ? "text-sky-ink" : "text-ink-2")}>
+            <span className={cx("text-item", short ? "text-sky-ink" : "text-ink-2")}>
               {formatQuantity(line.amount, line.unit)}
             </span>
             {atHome ? <span className="text-meta text-ink-2">{atHomeText(atHome)}</span> : null}
@@ -130,14 +127,14 @@ export function IngredientRow({ line, coverage, factor = 1, anchorId }: Ingredie
       ) : multiplier ? (
         <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
           <span className="flex min-w-0 flex-col">
-            <span className="text-body text-ink">{line.originalText}</span>
+            <span className="text-item text-ink">{line.originalText}</span>
             {tag}
           </span>
-          <span className="shrink-0 text-body text-ink-2">{multiplier}</span>
+          <span className="shrink-0 text-item text-ink-2">{multiplier}</span>
         </span>
       ) : (
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-body text-ink">{line.originalText}</span>
+          <span className="text-item text-ink">{line.originalText}</span>
           {tag}
         </span>
       )}

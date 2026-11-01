@@ -776,6 +776,8 @@ test("the bin removes at once, without a question, and offers Ångra", async ({ 
   await expect(toast(page)).toContainText("Tog bort Diskmedel.");
   await expect(toast(page).getByRole("button", { name: "Ångra" })).toBeVisible();
 
+  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
+  await page.waitForTimeout(500);
   await actionsAnswered(page, 1, () => bin("tvättmedel").click());
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bin("tvättmedel")).toHaveCount(0);

@@ -92,6 +92,17 @@ beforeEach(() => {
 });
 
 describe("RecipeMenu", () => {
+  it("has Ändra and, last, Ta bort, which asks first (Story 19.6)", async () => {
+    render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(items).toEqual(["Ändra", "Ta bort"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ta bort" }));
+    const question = await screen.findByRole("dialog", { name: "Ta bort Linssoppa?" });
+    expect(question).toHaveTextContent("Det går inte att ångra.");
+    expect(within(question).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
+  });
+
   it("opens the menu with Ändra, and closes it with Esc", () => {
     render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     const toggle = screen.getByRole("button", { name: "Fler val" });
@@ -102,18 +113,6 @@ describe("RecipeMenu", () => {
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(toggle).toHaveFocus();
-  });
-
-  it("has Ta bort recept last in the menu (Story 19.4), which asks with the question as the title", () => {
-    render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
-    expect(screen.queryByRole("button", { name: "Ta bort recept" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
-    const items = screen.getAllByRole("menuitem");
-    expect(items.map((item) => item.textContent)).toEqual(["Ändra", "Ta bort recept"]);
-    fireEvent.click(items[1]);
-    const question = screen.getByRole("dialog", { name: "Ta bort Linssoppa?" });
-    expect(question).toHaveTextContent("Det går inte att ångra.");
-    expect(within(question).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
   });
 
   it("opens Ändra recept with the saved recipe filled in", () => {

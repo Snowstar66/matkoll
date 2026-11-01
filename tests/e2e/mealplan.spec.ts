@@ -154,7 +154,7 @@ async function dishCount(): Promise<number> {
 test("an empty meal plan says so and offers Lägg till rätt", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  await expect(page.getByText("Ingen rätt på matsedeln än.")).toBeVisible();
+  await expect(page.getByText("Den här veckan är tom.")).toBeVisible();
   await expect(emptyStateAdd(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -257,7 +257,7 @@ test("a row opens the recipe and ⋯ opens the sheet with the seldom used button
   expect(box.height).toBeGreaterThanOrEqual(44);
   // No big buttons under the list; the quiet shopping row is above it.
   await expect(page.getByRole("link", { name: "Visa inköpslistan" })).toHaveCount(0);
-  await expect(page.getByTestId("shopping-row").filter({ visible: true })).toHaveText(/^🛒Inköpslista för vecka \d{1,2}›$/);
+  await expect(page.getByTestId("shopping-row").filter({ visible: true })).toHaveText(/^Inköpslista för vecka \d{1,2}›$/);
 
   const sheet = await openMore(page, row, soppa);
   await expect(sheet.getByRole("link", { name: "Öppna receptet ›" })).toHaveAttribute("href", `/recept/${recipeIds[soppa]}`);

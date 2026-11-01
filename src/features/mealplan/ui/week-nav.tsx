@@ -36,7 +36,7 @@ export function WeekNav({
   return (
     <nav aria-label="Vecka" data-testid="week-nav" className="flex flex-col gap-2.5">
       <ul
-        className="grid gap-[3px] rounded-md bg-seg-track p-[3px]"
+        className="grid gap-[3px] rounded-md bg-seg-track p-[3px] desktop:max-w-[480px]"
         style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
       >
         {weeks.map((week) => {
@@ -55,13 +55,13 @@ export function WeekNav({
                   selected ? "border border-border bg-seg-on" : "border border-transparent"
                 }`}
               >
-                <span aria-hidden="true" className={`text-body ${selected ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>
+                <span aria-hidden="true" className={`text-control ${selected ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>
                   {weekTileLabel(offset)}
                 </span>
                 <span
                   aria-hidden="true"
                   data-testid="week-count"
-                  className={`text-[13px] ${selected ? "font-semibold text-accent dark:text-ink" : "text-ink-2"}`}
+                  className={`text-badge ${selected ? "text-accent dark:text-ink" : "text-ink-2"}`}
                 >
                   {weekFillText(count)}
                 </span>
@@ -71,10 +71,7 @@ export function WeekNav({
         })}
       </ul>
       <div className="flex items-center justify-between gap-3 px-1">
-        <p data-testid="week-range" className="flex min-w-0 items-center gap-2 text-meta text-ink-2">
-          <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-[8px] bg-mint text-[13px] leading-none">
-            {"\u{1F4C5}"}
-          </span>
+        <p data-testid="week-range" className="flex min-w-0 items-center text-meta text-ink-2">
           <span className="min-w-0">
             v. {weekNumber(weekStart)} {"\u00B7"} {weekRangeText(weekStart)}
           </span>
@@ -83,7 +80,7 @@ export function WeekNav({
           <Link
             href="/matsedel/tidigare"
             aria-label="Tidigare veckor"
-            className="flex min-h-tap shrink-0 items-center text-meta font-medium text-accent"
+            className="flex min-h-tap shrink-0 items-center text-control text-accent"
           >
             Tidigare {"\u203A"}
           </Link>

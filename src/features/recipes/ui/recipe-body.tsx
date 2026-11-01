@@ -1,7 +1,8 @@
 "use client";
 
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
+import { cx } from "@/components/cx";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { clampServings, maxServings, type PlanningTarget } from "@/features/mealplan";
@@ -19,6 +20,22 @@ import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
 import { CookMode } from "./cook-mode";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
 import { MissingChip, RecipeStatusBadge } from "./recipe-status-badge";
+
+const wideQuery = "(min-width: 1024px)";
+
+/** A desktop window (Story 19.6): the buttons stand in the column instead of pinned to the bottom. */
+function useWideScreen(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      if (typeof window.matchMedia !== "function") return () => {};
+      const list = window.matchMedia(wideQuery);
+      list.addEventListener?.("change", notify);
+      return () => list.removeEventListener?.("change", notify);
+    },
+    () => typeof window.matchMedia === "function" && window.matchMedia(wideQuery).matches,
+    () => false,
+  );
+}
 
 export type RecipeBodyProps = {
   recipe: SavedRecipe;
@@ -104,58 +121,97 @@ export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, p
   // over an effect (react-hooks/set-state-in-effect).
   if (cooking && !canCook) setCooking(false);
 
+  const wide = useWideScreen();
+  const hasActions = Boolean(addToPlan) || canCook;
+  const actions = (
+    <>
+      {addToPlan ? (
+        <AddToPlanButton
+          recipeId={recipe.id}
+          addToPlan={addToPlan}
+          servings={servings}
+          fullWidth={wide}
+          className={wide ? undefined : "grow-[999] basis-auto"}
+          onPendingChange={setAdding}
+          planning={planning}
+        />
+      ) : null}
+      {canCook ? (
+        <Button
+          ref={cookButtonRef}
+          variant="secondary"
+          disabled={adding}
+          onClick={() => setCooking(true)}
+          className={cx("bg-mint! text-mint-ink!", wide ? "w-full" : "grow basis-auto")}
+        >
+          Laga nu
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Stepper value={servings} onChange={setServings} min={1} max={maxServings} />
-          {status ? (
-            <div aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {status.missingCount > 0 ? (
-                <MissingChip
-                  missingCount={status.missingCount}
-                  missingNames={missing.names}
-                  onPress={showMissing}
-                />
-              ) : (
-                <RecipeStatusBadge missingCount={0} />
-              )}
-              {status.ingredientCount > 0 ? (
-                <p className="text-meta text-ink-2" data-testid="recipe-at-home">
+      {/* Mobile: ingredients above the steps. Desktop: portions, buttons and ingredients in the left column, the steps beside it. */}
+      <div className="flex flex-col gap-5 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start desktop:gap-6">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <Stepper
+                value={servings}
+                onChange={setServings}
+                min={1}
+                max={maxServings}
+                className="h-10 min-h-10 w-[11rem]! [&>button]:h-11"
+              />
+              {status && status.ingredientCount > 0 ? (
+                <p aria-live="polite" aria-atomic="true" className="text-meta text-ink-2" data-testid="recipe-at-home">
                   {atHomeSummaryText(status.atHomeCount, status.ingredientCount, siteName)}
                 </p>
               ) : null}
             </div>
-          ) : null}
-        </div>
-      </div>
+            {status ? (
+              <div aria-live="polite" aria-atomic="true">
+                {status.missingCount > 0 ? (
+                  <MissingChip
+                    missingCount={status.missingCount}
+                    missingNames={missing.names}
+                    onPress={showMissing}
+                  />
+                ) : (
+                  <RecipeStatusBadge missingCount={0} />
+                )}
+              </div>
+            ) : null}
+          </div>
 
-      {/* Mobile: ingredients above the steps. Desktop: side by side. */}
-      <div className="flex flex-col gap-6 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start">
-        <section
-          ref={ingredientsRef}
-          aria-labelledby="ingredienser"
-          className="flex scroll-mt-4 flex-col gap-1 rounded-lg bg-surface px-4 py-3"
-        >
-          <h2 id="ingredienser" className="text-section-label text-ink-2">
-            Ingredienser
-          </h2>
-          {lines.length > 0 ? (
-            <ul className="flex flex-col">
-              {lines.map((line) => (
-                <IngredientRow
-                  key={line.id}
-                  line={line}
-                  coverage={status ? lineCoverage(status, line.id) : null}
-                  factor={factor}
-                  anchorId={`recipe-line-${line.id}`}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="py-2 text-body text-ink-2">Receptet har inga ingredienser.</p>
-          )}
-        </section>
+          {wide && hasActions ? <div className="flex flex-col gap-2">{actions}</div> : null}
+
+          <section
+            ref={ingredientsRef}
+            aria-labelledby="ingredienser"
+            className="flex scroll-mt-4 flex-col gap-1 rounded-lg bg-surface px-4 py-3"
+          >
+            <h2 id="ingredienser" className="text-section-label text-ink-2">
+              Ingredienser
+            </h2>
+            {lines.length > 0 ? (
+              <ul className="flex flex-col">
+                {lines.map((line) => (
+                  <IngredientRow
+                    key={line.id}
+                    line={line}
+                    coverage={status ? lineCoverage(status, line.id) : null}
+                    factor={factor}
+                    anchorId={`recipe-line-${line.id}`}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="py-2 text-body text-ink-2">Receptet har inga ingredienser.</p>
+            )}
+          </section>
+        </div>
 
         <section aria-labelledby="steg" className="flex flex-col gap-3">
           <h2 id="steg" className="text-section-label text-ink-2">
@@ -178,34 +234,7 @@ export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, p
         </section>
       </div>
 
-      {addToPlan || canCook ? (
-        <FixedAction>
-          <div className="flex flex-wrap gap-2">
-            {addToPlan ? (
-              <AddToPlanButton
-                recipeId={recipe.id}
-                addToPlan={addToPlan}
-                servings={servings}
-                fullWidth={false}
-                className="grow-[999] basis-auto"
-                onPendingChange={setAdding}
-                planning={planning}
-              />
-            ) : null}
-            {canCook ? (
-              <Button
-                ref={cookButtonRef}
-                variant="secondary"
-                disabled={adding}
-                onClick={() => setCooking(true)}
-                className="grow basis-auto"
-              >
-                Laga nu
-              </Button>
-            ) : null}
-          </div>
-        </FixedAction>
-      ) : null}
+      {!wide && hasActions ? <FixedAction glass>{actions}</FixedAction> : null}
 
       {cooking && canCook ? (
         <CookMode

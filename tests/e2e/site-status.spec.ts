@@ -227,7 +227,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
 
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*[^,+]+$/ })).toBeVisible();
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText("1 av 2 hemma i Stugan");
   // The boende is part of the at-home text (Story 19.2), with no line of its own on the recipe.
   await expect(view(page).getByText(/^Boende: /)).toHaveCount(0);
@@ -264,7 +264,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   const errors = watchErrors(page);
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*[^,+]+$/ })).toBeVisible();
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Stugan$/);
   // Set once; a reload would clear it.
   await page.evaluate(() => Object.assign(window, { siteStatusNoReload: true }));
