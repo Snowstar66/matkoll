@@ -1,4 +1,6 @@
+import type { ComponentType } from "react";
 import type { AiJobKind } from "@/lib/ai-job-shape";
+import { BoxIcon, CarrotIcon, CartIcon, HelpIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 
 export type Destination = {
   href: string;
@@ -8,28 +10,38 @@ export type Destination = {
    * narrow (a 375 px phone at 200 % zoom). Joined, the parts are `label`.
    */
   labelParts?: readonly string[];
-  /** The sketch's coloured emoji (Story 14.4); grey and dimmed when the destination is not the current one. */
-  emoji: string;
+  /** The destination's line icon (premium look): grey, and green with a soft fill when it is the current one. */
+  Icon: ComponentType<IconProps>;
   /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
   aiKinds?: readonly AiJobKind[];
+  /** The anchor of this surface's section in Hjälp och tips (Story 19.2): `/hjalp#recept`. */
+  helpId?: string;
 };
 
 /** The five main surfaces, in tab order (EXPERIENCE.md, Information Architecture). */
 export const mainDestinations: readonly Destination[] = [
-  { href: "/recept", label: "Recept", emoji: "\u{1F4D6}", aiKinds: ["suggest", "import"] },
+  { href: "/recept", helpId: "recept", label: "Recept", Icon: RecipesIcon, aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
-  { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], emoji: "\u{1F4C5}" },
+  { href: "/matsedel", helpId: "matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
   // Story 10.4: "Inköpslista" (was "Lista") and "Matvaror" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
-  // Story 11.1: Story 14.4: the sketch's emoji replace the line icons.
-  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], emoji: "\u{1F6D2}" },
-  { href: "/hemma", label: "Matvaror", labelParts: ["Mat", "varor"], emoji: "\u{1F955}", aiKinds: ["analyze"] },
+  { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
+  { href: "/hemma", helpId: "matvaror", label: "Matvaror", labelParts: ["Mat", "varor"], Icon: CarrotIcon, aiKinds: ["analyze"] },
   // Epic 18: the things of the home (tools, the storage room), kept apart from the food.
-  { href: "/prylar", label: "Förråd", emoji: "\u{1F9F0}", aiKinds: ["things"] },
+  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, aiKinds: ["things"] },
 ];
 
-/** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */
-export const settingsDestination: Destination = { href: "/installningar", label: "Inställningar", emoji: "\u2699\uFE0F" };
+/** Settings: reached from the P button on a phone (Story 19.2), the bottom of the side menu on desktop. */
+export const settingsDestination: Destination = { href: "/installningar", label: "Inställningar", Icon: SettingsIcon };
+
+/** Hjälp och tips (Story 19.2): not a tab, so none is marked while it shows. */
+export const helpDestination: Destination = { href: "/hjalp", label: "Hjälp och tips", Icon: HelpIcon };
+
+/** The address of Hjälp och tips on the section for the tab `pathname` is on, or the top of the page. */
+export function helpHref(pathname: string | null): string {
+  const tab = mainDestinations.find((destination) => currentState(pathname, destination.href) !== undefined);
+  return tab?.helpId ? `${helpDestination.href}#${tab.helpId}` : helpDestination.href;
+}
 
 /** Paths whose scroll position is kept when switching between them. */
 export const shellPaths: readonly string[] = [...mainDestinations, settingsDestination].map((d) => d.href);

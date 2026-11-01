@@ -12,7 +12,8 @@ export type SheetProps = {
   open: boolean;
   /** Called when the sheet should close; the caller sets `open` to false. */
   onClose: () => void;
-  title: string;
+  /** A name; the account sheet (Story 19.2) puts the avatar, the name and the address here. */
+  title: ReactNode;
   /** A line under the title, e.g. the store a product choice is for; it also describes the dialog. */
   subtitle?: string;
   children: ReactNode;
@@ -229,8 +230,9 @@ export function Sheet({
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby={heading === undefined ? titleId : undefined}
-      aria-label={heading === undefined ? undefined : title}
+      // With a `heading`, a string `title` names the dialog (Story 16.17); a node title (Story 19.2) names it from the header.
+      aria-labelledby={heading === undefined || typeof title !== "string" ? titleId : undefined}
+      aria-label={heading !== undefined && typeof title === "string" ? title : undefined}
       aria-describedby={subtitle ? subtitleId : undefined}
       onKeyDown={(event) => {
         // Handled here rather than only in `cancel`, so a dirty sheet can always ask first.
@@ -270,9 +272,9 @@ export function Sheet({
         pointerDownOnBackdrop.current = false;
       }}
       className={cx(
-        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface p-0 text-ink",
+        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface-2 p-0 text-ink",
         "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:starting:open:translate-y-full",
-        "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl",
+        "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl desktop:shadow-float",
         "desktop:motion-safe:starting:open:translate-y-4 desktop:motion-safe:starting:open:opacity-0 desktop:motion-safe:transition-[transform,opacity]",
       )}
     >

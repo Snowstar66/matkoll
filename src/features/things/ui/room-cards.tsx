@@ -92,7 +92,7 @@ export function RoomCards({
           )}
           <div className="flex flex-col px-2.5 py-2">
             <div className="-my-1 flex items-start justify-between gap-1">
-              <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{card.label}</p>
+              <p className="py-1 text-meta font-medium wrap-break-word text-ink">{card.label}</p>
               {menuFor?.(card.placeId)}
             </div>
             {card.status === "reading" ? (
@@ -129,7 +129,7 @@ export function RoomCards({
           </div>
           <div className="flex flex-col px-2.5 py-2">
             <div className="-my-1 flex items-start justify-between gap-1">
-              <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{`Låda: ${box.part}`}</p>
+              <p className="py-1 text-meta font-medium wrap-break-word text-ink">{`Låda: ${box.part}`}</p>
               {menuFor?.(box.placeId)}
             </div>
             <p className="text-meta text-ink-3">{writtenMeta(box)}</p>
@@ -137,7 +137,7 @@ export function RoomCards({
           <div className="mt-auto flex flex-wrap items-center gap-x-1 px-1 pb-1">
             <Link
               href={`/prylar/lada/${box.placeId}`}
-              className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-semibold text-accent"
+              className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-medium text-accent"
               data-testid="edit-written"
             >
               {writtenEditText}

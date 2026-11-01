@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
 import { cardDateText } from "./thing-photo";
 import { hitHref, searchKey, type ThingHit } from "./thing-search";
+import { notedSubText } from "./thing-noted";
 
 // "Fråga om ditt förråd" as a chat (Stories 18.4 and 18.14): the question, the
 // latest turns of the conversation, and the hits the answer is built from,
@@ -28,6 +29,8 @@ export type ChatTurn = { question: string; answer: string };
 /** What a chat turn needs: the question and the latest turns before it (more are cut to the latest maxHistoryTurns). */
 export const chatInputSchema = z.object({
   question: questionSchema,
+  /** Story 18.19: the boende the page shows, whose rooms a thing to remember is matched against. */
+  siteId: z.uuid().optional(),
   history: z
     .array(z.object({ question: z.string().max(maxQuestionChars * 2), answer: z.string().max(maxHistoryAnswerChars * 4) }))
     .max(100)
@@ -48,7 +51,7 @@ export const askLabel = "Sök eller fråga";
 export const askPlaceholder = "Sök eller fråga …";
 export const askButtonText = "Skicka";
 export const newQuestionText = "Ny fråga";
-export const askHintText = "Skriv för att söka – tryck ↑ för att fråga";
+export const askHintText = "Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger";
 
 /** A reference in an answer: a card (or the box a thing was written into) to tap. */
 export type ChatRef = {
@@ -57,8 +60,10 @@ export type ChatRef = {
   photoId: string | null;
   /** "Skräpförrådet · väggen". */
   title: string;
-  /** "Kort från 31 okt", "Låda · Skrivet 31 okt". */
+  /** "Kort från 31 okt", "Låda · Skrivet 31 okt", "Du skrev in det 31 okt". */
   sub: string;
+  /** Story 18.19: things Pontus wrote in himself, shown with a note instead of a thumbnail. */
+  noted?: boolean;
 };
 
 /** The hits of one card, or of one box's written things: what the model reads as one place. */
@@ -71,7 +76,8 @@ export type HitGroup = {
 export function groupHits(hits: readonly ThingHit[]): HitGroup[] {
   const groups = new Map<string, HitGroup>();
   for (const hit of hits) {
-    const key = hit.photoId ?? `box:${hit.placeId}`;
+    // A noted thing (Story 18.19) has no card either: its place is the group, apart from a box's written things.
+    const key = hit.photoId ?? `${hit.noted ? "noted" : "box"}:${hit.placeId}`;
     const group = groups.get(key);
     if (group) group.hits.push(hit);
     else groups.set(key, { key, hits: [hit] });
@@ -84,12 +90,13 @@ export function refOfGroup(group: HitGroup): ChatRef {
   const [hit] = group.hits;
   const date = new Date(hit.takenAt);
   const where = hit.part ? `${hit.room} · ${hit.part}` : hit.room;
+  if (hit.noted) return { href: hitHref(hit), photoId: null, title: where, sub: notedSubText(date), noted: true };
   const from = hit.written ? `Skrivet ${cardDateText(date).replace("Kort från ", "")}` : cardDateText(date);
   return { href: hitHref(hit), photoId: hit.photoId, title: where, sub: hit.isBox ? `Låda · ${from}` : from };
 }
 
 /** Small words that say nothing about what is asked for. */
-const stopWords = new Set(["har", "vi", "ni", "jag", "du", "att", "med", "och", "det", "den", "ett", "som", "var", "finns", "något", "någon", "några", "ligger", "kan", "till", "för", "inte", "min", "mina", "våra", "vår", "sett", "då", "hur", "vad"]);
+const stopWords = new Set(["har", "vi", "ni", "jag", "du", "att", "med", "och", "det", "den", "ett", "som", "var", "finns", "något", "någon", "några", "ligger", "kan", "till", "för", "inte", "min", "mina", "våra", "vår", "sett", "då", "hur", "vad", "är"]);
 
 /** The words of a question worth looking for in names, when the AI gives no search terms: two letters or more, and not a small word. */
 export function questionWords(question: string): string[] {

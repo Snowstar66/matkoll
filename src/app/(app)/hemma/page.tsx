@@ -41,7 +41,7 @@ export default function HomePage({ searchParams }: PageProps<"/hemma">) {
         fallback={
           <>
             {/* The size of "+", so the header does not move when it arrives. */}
-            <PageHeader title="Matvaror" action={<span aria-hidden="true" inert className="size-tap" />} />
+            <PageHeader title="Matvaror" tab="/hemma" action={<span aria-hidden="true" inert className="size-tap" />} />
             <Skeleton rows={3} />
           </>
         }

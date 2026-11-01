@@ -98,7 +98,7 @@ const cardsOf = async () => (await adminClient().from("thing_photo").select("id,
 test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page }) => {
   await page.goto("/prylar");
   const links = nav(page).getByRole("link");
-  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "🥕Matvaror", "🧰Förråd"]);
+  await expect(links).toHaveText(["Recept", "Matsedel", "Inköpslista", "Matvaror", "Förråd"]);
   await expect(nav(page).getByRole("link", { name: "Förråd" })).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveTitle(/Förråd/);
 });
@@ -478,12 +478,12 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(page.getByTestId("thing-hits")).toHaveCount(0);
   await expect(rooms(page)).toBeVisible();
   await search.fill("hamm");
-  await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet, väggen · Hemma · 31 okt/]);
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet · väggen$/]);
   await expect(rooms(page)).toBeHidden();
   await search.fill("kratta");
-  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan$/]);
   await search.fill("kratha");
-  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan$/]);
   await search.fill("inget");
   await expect(page.getByText('Inga föremål matchar "inget".')).toBeVisible();
   await search.fill("");
@@ -562,7 +562,7 @@ test("a box is added from the line about closed boxes, and its things are 'i Kar
   await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 föremål");
   await page.goto("/prylar");
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("julgran");
-  await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet · i Kartong jul$/]);
 });
 
 test("the same things on two cards of one room are counted once and say 'syns på 2 kort'", async ({ page }) => {
@@ -706,7 +706,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   await page.goto("/prylar");
   await expect(rooms(page)).toHaveText([/Skräpförrådet\s*5 föremål · 1 kort/]);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("skarvsladd");
-  await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet, i Black box · Hemma · skrivet/]);
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet · i Black box · skrivet/]);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("");
   const chat = page.getByTestId("chat");
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Var ligger skarvsladdar?");
@@ -1202,4 +1202,149 @@ test("a search hit and a chat reference open the card big with the föremål mar
   await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare");
   await page.getByRole("link", { name: "Tillbaka" }).click();
   await expect(page).toHaveURL(/\/prylar$/);
+});
+
+test("Kom ihåg: a statement in the one field is proposed with room and part, saved on one tap without a card, found, answered with its day, edited and removed (Story 18.19)", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (message) => message.type() === "error" && !message.location().url.includes("/api/things/photo/") && problems.push(message.text()));
+  page.on("pageerror", (error) => problems.push(error.message));
+  await seedPlace(hemma, "Sovrummet", [{ name: "Sänglampa", category: "Elektronik" }], { part: "Garderoben" });
+  const today = shortDateText(new Date());
+  const usage = async () => (await adminClient().from("ai_usage").select("id").eq("user_id", userId)).data?.length ?? 0;
+  await page.goto("/prylar");
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  const chat = page.getByTestId("chat");
+  await expect(page.getByText("Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger")).toBeVisible();
+
+  // While typing only the database is asked: nothing matches, and the line says what ↑ does.
+  await field.fill("Passen ligger i översta byrålådan i sovrummet");
+  await expect(page.getByText("Tryck ↑ för att fråga, eller för att spara var det ligger.")).toBeVisible();
+  expect(await usage()).toBe(0);
+  await field.press("Enter");
+  // One AI call (the terms call says it is something to remember); nothing is saved before the tap.
+  await expect(chat.getByText("Ska jag komma ihåg var det ligger?")).toBeVisible();
+  await expect(page.getByTestId("proposal-name")).toHaveText("Passen");
+  await expect(page.getByTestId("proposal-where")).toHaveText("Sovrummet · Översta byrålådan");
+  expect(await usage()).toBe(1);
+  const noted = () => adminClient().from("thing_item").select("id, name, source, photo_id, place_id").eq("user_id", userId).eq("source", "noted");
+  expect((await noted()).data).toEqual([]);
+
+  await chat.getByRole("button", { name: "Kom ihåg" }).click();
+  await expect(chat.getByText("Klart. Passen ligger i Sovrummet · Översta byrålådan.")).toBeVisible();
+  const ref = chat.getByTestId("chat-ref");
+  await expect(ref).toContainText("Sovrummet · Översta byrålådan");
+  await expect(ref).toContainText(`Du skrev in det ${today}`);
+  const saved = (await noted()).data ?? [];
+  expect(saved).toMatchObject([{ name: "Passen", source: "noted", photo_id: null }]);
+  // The room counts it, without a card.
+  await expect(rooms(page)).toHaveText([/Sovrummet\s*2 föremål · 1 kort/]);
+
+  // A plain search is answered by the database, with no AI call: the answer first, the hit with its place.
+  await chat.getByRole("button", { name: "Ny fråga" }).click();
+  await field.fill("passen");
+  await expect(page.getByTestId("thing-hit")).toHaveText([new RegExp(`Passen\\s*Sovrummet · Översta byrålådan · skrivet ${today}`)]);
+  await field.press("Enter");
+  await expect(chat.getByTestId("chat-answer")).toContainText("Passen finns i Sovrummet · Översta byrålådan.");
+  await expect(chat.getByTestId("thing-hit")).toHaveCount(1);
+  expect(await usage()).toBe(1);
+
+  // A question goes to the AI, which says where and that Pontus wrote it in, with the day.
+  await field.fill("var är passen?");
+  await field.press("Enter");
+  await expect(chat.getByTestId("chat-answer").nth(1)).toContainText(`Det skrev du in själv ${today}.`);
+  await expect(chat.getByTestId("chat-ref").last()).toContainText(`Du skrev in det ${today}`);
+  await expect(chat.getByTestId("chat-ref").last().locator("img")).toHaveCount(0);
+  expect(await usage()).toBe(3);
+
+  // In the room: under its category with its part and day; its sheet says so, has no "Var på bilden", and removes it with Ångra.
+  await chat.getByTestId("chat-ref").last().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sovrummet");
+  await expect(page.getByTestId("room-part")).toHaveText([/Garderoben/, /Översta byrålådan\s*1 föremål/]);
+  await page.getByRole("button", { name: /Övrigt/ }).click();
+  const row = page.getByTestId("thing").filter({ hasText: "Passen" });
+  await expect(row).toContainText(`Översta byrålådan · skrivet ${today}`);
+  await row.getByTestId("thing-press").click();
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
+  await expect(sheet).toContainText(`Du skrev in det ${today} · Översta byrålådan`);
+  await expect(sheet.getByLabel("Var på bilden")).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Ta bort föremål" }).click();
+  await expect(page.getByText("Tog bort Passen.").first()).toBeVisible();
+  expect((await noted()).data).toEqual([]);
+  await page.getByRole("button", { name: "Ångra" }).click();
+  await expect.poll(async () => (await noted()).data?.map((thing) => thing.id)).toEqual([saved[0].id]);
+  expect(problems).toEqual([]);
+});
+
+test("a plain search answers from the database: the name that holds it first, the close ones as Liknande; only zero hits ask the AI (Story 18.19)", async ({ page }) => {
+  await seedPlace(hemma, "Boden", [
+    { name: "Coca-Cola", category: "Hushåll", where: "nedersta hyllan" },
+    { name: "Cocosbollar", category: "Hushåll" },
+  ]);
+  const usage = async () => (await adminClient().from("ai_usage").select("id").eq("user_id", userId)).data?.length ?? 0;
+  await page.goto("/prylar");
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  const chat = page.getByTestId("chat");
+  await field.fill("coca-cola");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Coca-Cola\s*Boden · nedersta hyllan/]);
+  await field.press("Enter");
+  await expect(chat.getByTestId("chat-answer")).toContainText("Coca-Cola finns i Boden · nedersta hyllan.");
+  await expect(chat.getByTestId("thing-hit")).toHaveCount(1);
+  await expect(chat.getByTestId("thing-hit").first().locator("xpath=ancestor::li").locator("img")).toHaveAttribute("src", /\/api\/things\/photo\//);
+  // A typo finds only close names: they are Liknande, with no AI call.
+  await field.fill("coca-colla");
+  await field.press("Enter");
+  await expect(chat.getByTestId("chat-answer").nth(1)).toContainText('Ingen "coca-colla" hittad. Liknande:');
+  await expect(chat.getByTestId("similar-hits").last()).toContainText("Coca-Cola");
+  expect(await usage()).toBe(0);
+  // Nothing at all: the AI gets it.
+  await field.fill("skruvdragare");
+  await field.press("Enter");
+  await expect(chat.getByTestId("chat-answer").nth(2)).toContainText("Jag hittar inget som passar");
+  expect(await usage()).toBe(2);
+});
+
+test("Kom ihåg fits 375 px in dark mode with 200 % text, and its targets are at least 44 px (Story 18.19)", async ({ page }) => {
+  await seedPlace(hemma, "Sovrummet", [{ name: "Sänglampa", category: "Elektronik" }]);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/prylar");
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await field.fill("Laddaren ligger i nattduksbordet i sovrummet");
+  await field.press("Enter");
+  const chat = page.getByTestId("chat");
+  await expect(page.getByTestId("chat-proposal")).toBeVisible();
+  for (const target of [chat.getByRole("button", { name: "Kom ihåg" }), chat.getByRole("button", { name: "Ändra" })]) {
+    const box = await target.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  await chat.getByRole("button", { name: "Ändra" }).click();
+  const sheet = page.getByRole("dialog", { name: "Laddaren" });
+  await expect(sheet.getByLabel("Del av rummet (valfritt)")).toHaveValue("Nattduksbordet");
+  for (const target of [sheet.getByRole("button", { name: "Sovrummet" }), sheet.getByRole("button", { name: "Kom ihåg" })]) {
+    const box = await target.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("the field is there in a boende with rooms but no föremål, and Kom ihåg makes the first föremål (Story 18.19)", async ({ page }) => {
+  await page.goto("/prylar");
+  await expect(page.getByRole("textbox", { name: "Sök eller fråga" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Nytt rum" }).click();
+  await page.getByRole("dialog", { name: "Nytt rum" }).getByLabel("Namn på rummet").fill("Sovrummet");
+  await page.getByRole("button", { name: "Skapa rum" }).click();
+  await page.waitForURL(/\/prylar\/rum\//);
+  await page.goto("/prylar");
+  await expect(rooms(page)).toHaveText([/Sovrummet\s*Inget kort än/]);
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await expect(field).toBeVisible();
+  await field.fill("Passen ligger i byrån i sovrummet");
+  await field.press("Enter");
+  const chat = page.getByTestId("chat");
+  await expect(page.getByTestId("proposal-where")).toHaveText("Sovrummet · Byrån");
+  await chat.getByRole("button", { name: "Kom ihåg" }).click();
+  await expect(chat.getByText("Klart. Passen ligger i Sovrummet · Byrån.")).toBeVisible();
+  await expect(rooms(page)).toHaveText([/Sovrummet\s*1 föremål/]);
 });

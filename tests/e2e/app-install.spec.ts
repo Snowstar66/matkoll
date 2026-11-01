@@ -139,7 +139,7 @@ test.describe("<head>", () => {
       .evaluateAll((metas) => metas.map((meta) => [meta.getAttribute("media"), meta.getAttribute("content")]));
     expect(themeColors).toEqual([
       ["(prefers-color-scheme: light)", "rgb(245 247 244)"],
-      ["(prefers-color-scheme: dark)", "rgb(18 23 20)"],
+      ["(prefers-color-scheme: dark)", "rgb(15 19 17)"],
     ]);
   });
 });
@@ -245,7 +245,11 @@ test.describe("Tillbaka on every page under a tab", () => {
   });
 
   async function goBack(page: Page) {
-    const back = page.getByRole("main").getByRole("link", { name: "Tillbaka" }).filter({ visible: true });
+    // "Tillbaka", or the name of the page above ("‹ Recept", Story 19.2).
+    const back = page
+      .getByRole("main")
+      .getByRole("link", { name: /^(Tillbaka|Recept|Matsedel|Inköpslista|Matvaror|Förråd|Inställningar)$/ })
+      .filter({ visible: true });
     await expect(back).toBeVisible();
     const box = await back.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
@@ -254,13 +258,13 @@ test.describe("Tillbaka on every page under a tab", () => {
   }
 
   test("the recipe view leads back to Recept with the filter kept", async ({ page }) => {
-    await page.getByRole("radio", { name: "Favoriter" }).click();
-    await expect(page.getByRole("radio", { name: "Favoriter" })).toBeChecked();
+    await page.getByRole("button", { name: "Favoriter" }).filter({ visible: true }).click();
+    await expect(page.getByRole("button", { name: "Favoriter" }).filter({ visible: true })).toHaveAttribute("aria-pressed", "true");
     await page.getByTestId("recipe-card").filter({ hasText: title }).getByRole("link").click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
     await goBack(page);
     await expect(page).toHaveURL(/\/recept$/);
-    await expect(page.getByRole("radio", { name: "Favoriter" }).filter({ visible: true })).toBeChecked();
+    await expect(page.getByRole("button", { name: "Favoriter" }).filter({ visible: true })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("a recipe opened from Matsedel leads back to Matsedel", async ({ page }) => {

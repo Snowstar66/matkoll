@@ -2,28 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Button } from "@/components/button";
-import { CheckIcon } from "@/components/icons";
+import { ChevronDownIcon, PinIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { errorMessages, type Result } from "@/lib/errors";
 import { selectPantrySite } from "../actions/select-pantry-site";
-import {
-  listCountedAgainstText,
-  type PantrySite,
-  type SelectedSite,
-  siteLineText,
-  switchListButtonLabel,
-  switchListButtonText,
-  switchListTitle,
-} from "../domain/site";
+import { type BoendeCounts, boendeSheetTitle } from "../domain/boende-counts";
+import { listCountedAgainstText, type PantrySite, type SelectedSite, shownSiteName } from "../domain/site";
+import { BoendeList } from "./boende-val";
 import { useHydrated } from "./site-switching";
 
-// The line "Boende: Hemma" and "Byt" in Inköpslista (FR-32, Story 8.5,
-// EXPERIENCE.md, Flöde 6): with more than one place, under the page title,
-// the place the list is counted against and the text button "Byt", which
-// opens the sheet Byt boende ("Räkna listan mot"). A tap on a place there
+// The boende button in Inköpslista (FR-32, Story 8.5, EXPERIENCE.md, Flöde 6;
+// Story 19.2: the same "📍 Hemma ⌄" under the title and the same sheet "Boende"
+// as everywhere): with more than one place, under the page title, the place
+// the list is counted against; the button opens the sheet. A tap on a place there
 // selects it with selectPantrySite, the same selection as the pills in Hemma
 // (AD-24): the list has no place of its own, and the choice holds for the
 // whole app until Pontus switches again. The page renders this beside
@@ -70,6 +63,8 @@ export type ListSiteLineProps = {
    * keeps the list's recount announcement silent for that place.
    */
   onSwitching?: (siteId: string | null) => void;
+  /** What each boende holds, read when the sheet opens (a Server Action); `null` when it cannot be read. */
+  loadCounts?: () => Promise<Record<string, BoendeCounts> | null>;
 };
 
 type Selected = Result<{ site: { id: string; name: string } }>;
@@ -100,8 +95,8 @@ function focusPageHeading() {
 
 const failedText = errorMessages.pantry_site_failed;
 
-/** "Boende: Stugan" and "Byt", and the sheet Byt boende; nothing with one place. See the comment at the top. */
-export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSiteLineProps) {
+/** The boende button and its sheet; nothing with one place. See the comment at the top. */
+export function ListSiteLine({ site, sites, busy = false, onSwitching, loadCounts }: ListSiteLineProps) {
   const router = useRouter();
   const hydrated = useHydrated();
   const { showToast } = useToast();
@@ -139,7 +134,7 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSit
   const shown: SelectedSite | null = site
     ? { id: site.id, name: site.name, siteCount: sites.length }
     : selectedInSites && { id: selectedInSites.id, name: selectedInSites.name, siteCount: sites.length };
-  const line = siteLineText(shown);
+  const line = shownSiteName(shown);
   const shownId = shown?.id ?? null;
   const disagree = site !== null && selectedInSites !== null && selectedInSites.id !== site.id;
 
@@ -220,6 +215,21 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSit
 
   const saving = savingId !== null || uncertain !== null;
 
+  // What each boende holds, read each time the sheet opens, so it is never older than the tap.
+  const [counts, setCounts] = useState<Record<string, BoendeCounts> | null>(null);
+  useEffect(() => {
+    if (!sheetOpen || !loadCounts) return;
+    let current = true;
+    loadCounts()
+      .then((loaded) => {
+        if (current && loaded) setCounts(loaded);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [sheetOpen, loadCounts]);
+
   if (line === null) return null;
 
   function open() {
@@ -289,72 +299,47 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSit
   }
 
   return (
-    <>
-      {/* A calm meta line under the week tiles: "Boende: Hemma · Byt"; metadata, never announced (Story 3.10). */}
-      <div className="mb-2 flex flex-wrap items-center">
-        <p data-testid="site-line" className="min-w-0 text-meta break-words text-ink-2">
-          {line}
-        </p>
-        <span aria-hidden="true" className="px-1 text-meta text-ink-3">
-          {"\u00B7"}
-        </span>
-        {/* A tap before hydration would do nothing, and a switch waits for what the list is saving. */}
-        <Button
-          variant="compact"
-          className="-mx-1"
-          aria-label={switchListButtonLabel}
-          aria-haspopup="dialog"
-          disabled={!hydrated || busy || saving}
-          onClick={open}
-        >
-          {switchListButtonText}
-        </Button>
-      </div>
-      <Sheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={switchListTitle}
-        closeLabel="Avbryt"
-        preventClose={saving}
+    <div data-testid="boende-page" className="desktop:hidden">
+      {/* Story 19.2: the same "📍 Hemma ⌄" as under the other titles, and the same sheet "Boende". A tap before hydration would do nothing, and a switch waits for what the list is saving. */}
+      <button
+        type="button"
+        aria-label={`Boende: ${shown?.name ?? ""}`}
+        aria-haspopup="dialog"
+        disabled={!hydrated || busy || saving}
+        onClick={open}
+        className="-ml-1.5 mb-2 flex min-h-tap items-center gap-1 rounded-md px-1.5 text-meta text-ink-2"
       >
-        <div className="flex flex-col gap-4">
+        <PinIcon size={14} />
+        <span className="min-w-0 break-words">{shown?.name}</span>
+        <ChevronDownIcon size={14} />
+      </button>
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={boendeSheetTitle} preventClose={saving}>
+        <div className="flex flex-col gap-4" aria-busy={saving || undefined}>
           {error ? (
             <Notice key={error.id} role="alert">
               {error.text}
             </Notice>
           ) : null}
           {/* A choice saves and closes the sheet, so the rows are buttons, not radios. */}
-          <ul aria-label={switchListTitle} aria-busy={saving || undefined} className="flex flex-col rounded-lg bg-surface">
-            {sites.map((place) => {
-              const current = place.id === shownId;
-              const isSaving = place.id === (savingId ?? uncertain?.id);
-              return (
-                <li key={place.id} className="border-t border-hairline first:border-t-0">
-                  <button
-                    ref={(element) => {
-                      if (element) rows.current.set(place.id, element);
-                      else rows.current.delete(place.id);
-                    }}
-                    type="button"
-                    aria-current={current ? "true" : undefined}
-                    disabled={saving}
-                    data-testid="list-site-row"
-                    onClick={() => choose(place)}
-                    className="flex min-h-tap w-full items-center justify-between gap-3 px-4 py-2 text-left disabled:opacity-60"
-                  >
-                    <span className="min-w-0 text-body break-words text-ink">{place.name}</span>
-                    {isSaving ? (
-                      <span className="shrink-0 text-meta text-ink-2">Sparar …</span>
-                    ) : current ? (
-                      <CheckIcon size={20} className="shrink-0 text-accent" />
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <BoendeList
+            sites={sites}
+            shownId={shownId ?? ""}
+            counts={counts}
+            onChoose={(id) => {
+              const place = sites.find((candidate) => candidate.id === id);
+              if (place) choose(place);
+            }}
+            onManage={() => setSheetOpen(false)}
+            role="plain"
+            disabled={saving}
+            savingId={savingId ?? uncertain?.id ?? null}
+            rowRef={(id, element) => {
+              if (element) rows.current.set(id, element);
+              else rows.current.delete(id);
+            }}
+          />
         </div>
       </Sheet>
-    </>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, magicLinkPath, openMagicLink, settingsEmail, settingsStorageState } from "./support";
+import { adminClient, e2eUserId, magicLinkPath, openMagicLink, openSettingsViaAvatar, settingsEmail, settingsStorageState } from "./support";
 
 // Story 1.12: Inställningar with the approved recipe sites and "Logga ut".
 // The specs use a user of their own (settingsEmail): turning koket.se off and
@@ -89,7 +89,7 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   expect(off.error).toBeNull();
 
   await page.goto("/recept");
-  await page.getByRole("main").getByRole("link", { name: "Inställningar" }).click();
+  await openSettingsViaAvatar(page);
   await expect(page).toHaveURL(/\/installningar$/);
   await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
   for (const group of ["Konto", "Hushåll", "Recept", "AI", "Appen"]) {
@@ -133,14 +133,14 @@ test("the side menu leads to Inställningar on desktop, with the start page besi
   await page.goto("/recept");
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Inställningar" }).click();
   await expect(page).toHaveURL(/\/installningar$/);
-  await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  await expect(page.getByTestId("settings-menu").getByRole("button", { name: "Logga ut" })).toBeVisible();
   await page.getByTestId("settings-row").filter({ hasText: "Receptsajter" }).click();
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await expectSites(page, startSites);
   // Both columns show: the list on the left, the page beside it.
   await expect(page.getByTestId("settings-menu")).toBeVisible();
   await expect(page.getByTestId("settings-page")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  await expect(page.getByTestId("settings-menu").getByRole("button", { name: "Logga ut" })).toBeVisible();
   const menu = await page.getByTestId("settings-menu").boundingBox();
   const content = await page.getByTestId("settings-page").boundingBox();
   expect(content!.x).toBeGreaterThan(menu!.x + menu!.width - 1);

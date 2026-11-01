@@ -24,16 +24,10 @@ import {
   siteNameTooLongText,
   siteSuffix,
   listCountedAgainstText,
-  switchListButtonLabel,
-  switchListButtonText,
-  switchListTitle,
 } from "./site";
 
 describe("the texts of Story 8.5", () => {
-  it("names the sheet, the button and the confirmation as EXPERIENCE.md has them", () => {
-    expect(switchListTitle).toBe("Räkna listan mot");
-    expect(switchListButtonText).toBe("Byt");
-    expect(switchListButtonLabel).toBe("Byt boende för listan");
+  it("words the confirmation as EXPERIENCE.md has it", () => {
     expect(listCountedAgainstText("Stugan")).toBe("Listan räknas nu mot Stugan.");
     expect(listCountedAgainstText("Hemma")).toBe("Listan räknas nu mot Hemma.");
   });

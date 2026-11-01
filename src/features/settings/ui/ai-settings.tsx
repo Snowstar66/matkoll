@@ -1,7 +1,8 @@
 "use client";
 
 import { type KeyboardEvent, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { FilterPills, type FilterOption } from "@/components/filter-pills";
+import type { FilterOption } from "@/components/filter-pills";
+import { Segment } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
@@ -111,14 +112,13 @@ export function AiSettings({ view }: AiSettingsProps) {
       {error ? <Notice role="alert">{error}</Notice> : null}
       <div className="flex flex-col gap-2">
         <p className="px-1 desktop:px-0 text-section-label text-ink-2">Leverantör</p>
-        <FilterPills
-          segmented
+        <Segment
           label="Leverantör"
           options={providerOptions}
           value={provider}
           disabled={busy}
           onChange={(value) => save({ provider: value, model, level })}
-          className="h-9 w-full [&>button]:flex-1"
+          className="w-full"
         />
         {!view.claudeAvailable ? (
           <p data-testid="ai-claude-missing" className="px-1 desktop:px-0 text-meta text-ink-3">
@@ -148,14 +148,13 @@ export function AiSettings({ view }: AiSettingsProps) {
 
       <div className="flex flex-col gap-2">
         <p className="px-1 desktop:px-0 text-section-label text-ink-2">Nivå</p>
-        <FilterPills
-          segmented
+        <Segment
           label="Nivå"
           options={levelOptions}
           value={level}
           disabled={busy || !claude}
           onChange={(value) => save({ provider, model, level: value })}
-          className="h-9 w-full [&>button]:flex-1"
+          className="w-full"
         />
         <p id={noteId} className="px-1 desktop:px-0 text-meta text-ink-3">
           {claude ? "Högre nivå tänker längre: bättre svar men långsammare och lite dyrare." : levelOffForQwenText}

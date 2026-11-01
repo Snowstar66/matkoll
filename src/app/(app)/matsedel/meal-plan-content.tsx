@@ -84,7 +84,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     console.error("mealplan_unavailable", { reason: error.detail });
     return (
       <>
-        <PageHeader title="Matsedel" />
+        <PageHeader title="Matsedel" tab="/matsedel" />
         <WeekNav weekStart={weekStart} now={now} />
         <Notice role="alert">{errorMessages.mealplan_unavailable}</Notice>
       </>
@@ -100,8 +100,15 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     >
       <PageHeader
         title="Matsedel"
+        tab="/matsedel"
         action={<AddDishButton variant="icon" />}
       />
+      {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}
+      {sites && sites.length > 1 ? (
+        <div className="-mt-2 mb-3 desktop:hidden">
+          <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
+        </div>
+      ) : null}
       <WeekNav weekStart={weekStart} counts={counts} now={now} />
       <MealPlanList
         key={weekStart}
@@ -112,14 +119,6 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         dishes={view.dishes}
         snapshot={view.snapshot}
         names={view.names ?? {}}
-        // A phone has no side menu: the boende is under the week line, where "Boende: Stugan" was (Story 16.14).
-        siteSlot={
-          sites && sites.length > 1 ? (
-            <div className="desktop:hidden">
-              <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
-            </div>
-          ) : null
-        }
         siteId={view.site?.id ?? null}
       />
     </AddDishProvider>

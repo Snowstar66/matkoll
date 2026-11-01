@@ -8,7 +8,7 @@ import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { SiteSwitch } from "@/features/pantry/ui/site-switch";
-import { thingsEmptyText, type RoomSummary } from "@/features/things";
+import { showsFinder, thingsEmptyText, type RoomSummary } from "@/features/things";
 import { listRooms, ThingsDataError } from "@/features/things/server";
 import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { RoomsList } from "@/features/things/ui/rooms-list";
@@ -39,7 +39,7 @@ export async function PrylarContent() {
     if (sites) console.error("things_unavailable", { reason: "no_selected_site" });
     return (
       <>
-        <PageHeader title="Förråd" />
+        <PageHeader title="Förråd" tab="/prylar" />
         <Notice role="alert">{errorMessages.things_unavailable}</Notice>
       </>
     );
@@ -55,7 +55,7 @@ export async function PrylarContent() {
   );
   return (
     <>
-      <PageHeader title="Förråd" />
+      <PageHeader title="Förråd" tab="/prylar" />
       {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
       <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
         <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
@@ -94,5 +94,12 @@ async function Rooms({ site }: { site: SelectedSite }) {
       <NewRoom siteId={site.id} />
     </div>
   );
-  return rooms.some((room) => room.things > 0) ? <ThingFinder>{list}</ThingFinder> : list;
+  // Story 18.19: the field is there as soon as the boende has a room, so a thing can be written in before any photo.
+  return showsFinder(rooms) ? (
+    <ThingFinder siteId={site.id} rooms={rooms.map((room) => room.room)}>
+      {list}
+    </ThingFinder>
+  ) : (
+    list
+  );
 }

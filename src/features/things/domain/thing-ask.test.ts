@@ -18,6 +18,7 @@ const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
   photoId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a04",
   takenAt: "2026-10-31T10:00:00Z",
   written: false,
+  noted: false,
   score: 1,
   ...extra,
 });

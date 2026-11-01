@@ -250,24 +250,20 @@ describe("RecipeView", () => {
     expect(screen.queryAllByRole("img")).toHaveLength(0);
   });
 
-  it("says which place the status is counted against under X av Y hemma, outside the live region", () => {
+  it("names the boende in the at-home text itself, \"X av Y hemma i Stugan\" (Story 19.2), with no line of its own", () => {
     const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
     render(<RecipeView recipe={recipe} snapshot={allHome} site={stugan} />);
-    const siteLine = screen.getByText("Boende: Stugan");
-    expect(siteLine.tagName).toBe("P");
-    expect(siteLine).toHaveClass("text-meta", "text-ink-2");
-    expect(siteLine.closest("[aria-live]")).toBeNull();
-    // After the status in the reading order.
-    expect(atHome()!.compareDocumentPosition(siteLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(atHome()).toHaveTextContent(/ hemma i Stugan$/);
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
-  it("has no line with one place, or without a status", () => {
+  it("names no boende with one place, or without a status", () => {
     const hemma = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 1 };
     const { unmount } = render(<RecipeView recipe={recipe} snapshot={allHome} site={hemma} />);
-    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
+    expect(atHome()).not.toHaveTextContent(/ i Hemma/);
     unmount();
     render(<RecipeView recipe={recipe} snapshot={null} site={{ ...hemma, name: "Stugan", siteCount: 2 }} />);
-    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stugan/)).not.toBeInTheDocument();
   });
 
   it("numbers the steps", () => {

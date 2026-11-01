@@ -493,7 +493,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
               <button
                 type="button"
                 onClick={() => setPicking(true)}
-                className="min-h-tap font-semibold text-accent underline underline-offset-[3px]"
+                className="min-h-tap font-medium text-accent underline underline-offset-[3px]"
               >
                 Byt vara
               </button>
@@ -520,7 +520,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
           ) : null}
 
           <div className="flex flex-col gap-2">
-            <span className="text-body font-semibold text-ink">
+            <span className="text-body font-medium text-ink">
               Mängd och enhet
             </span>
             <div className="flex flex-wrap gap-3">
@@ -545,7 +545,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
                   onChange={(event) => update({ amount: event.target.value })}
                   onBlur={() => setAmountTouched(true)}
                   {...(amountError ? { "aria-invalid": true, "aria-describedby": `${ids}-amount-error` } : {})}
-                  className="w-[72px] min-w-0 border-x border-border bg-surface text-center text-step font-semibold text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky"
+                  className="w-[72px] min-w-0 border-x border-border bg-surface text-center text-step font-medium tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky"
                 />
                 <button
                   type="button"
@@ -585,7 +585,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
           {choosePlace ? (
             <div className="flex flex-col gap-2">
               {/* The pills are a radio group named "Plats"; this is its visible label. */}
-              <span aria-hidden="true" className="text-body font-semibold text-ink">
+              <span aria-hidden="true" className="text-body font-medium text-ink">
                 Plats
               </span>
               <FilterPills
@@ -608,9 +608,9 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
                 className="flex min-h-12 items-center gap-1.5 border-y border-hairline text-left text-body text-ink-2"
               >
                 <span>
-                  Ligger i <span className="font-semibold text-ink">{values.location}</span> ·{" "}
+                  Ligger i <span className="font-medium text-ink">{values.location}</span> ·{" "}
                 </span>
-                <span className="flex items-center gap-0.5 font-semibold text-accent">
+                <span className="flex items-center gap-0.5 font-medium text-accent">
                   Flytta
                   <ChevronDownIcon size={16} className={placeOpen ? "" : "-rotate-90"} />
                 </span>

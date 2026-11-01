@@ -478,6 +478,18 @@ test("on a desktop the boende is in the side menu: a popover with what is in eac
   await expect(page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("button", { name: "Boende: Hemma" })).toBeVisible();
   await expect(page.getByTestId("boende-page")).toBeHidden();
   await expect(page.getByRole("radiogroup", { name: "Boende" })).toHaveCount(0);
+  // A full-width row, left-aligned with the icon column of the menu items (Story 19.2), not indented under the logo.
+  const pin = await button.locator("svg").first().boundingBox();
+  const tabIcon = await page
+    .getByRole("navigation", { name: "Huvudmeny" })
+    .getByRole("link", { name: "Recept" })
+    .filter({ visible: true })
+    .locator("svg")
+    .first()
+    .boundingBox();
+  expect(Math.abs(pin!.x - tabIcon!.x)).toBeLessThanOrEqual(1);
+  const row = await button.boundingBox();
+  expect(row!.width).toBeGreaterThanOrEqual(200);
 
   await button.click();
   const options = page.getByTestId("boende-option").filter({ visible: true });
@@ -500,6 +512,7 @@ test("on a phone the boende button is under the title and opens a bottom sheet, 
     ["/hemma", "Matvaror"],
     ["/prylar", "Förråd"],
     ["/matsedel", "Matsedel"],
+    ["/lista", "Inköpslista"],
   ] as const) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
@@ -512,12 +525,10 @@ test("on a phone the boende button is under the title and opens a bottom sheet, 
   await expect(dialog.getByRole("link", { name: /Hantera boenden/ })).toBeVisible();
   await noHorizontalScroll(page);
 
-  // Recept and Inköpslista show nothing.
-  for (const path of ["/recept", "/lista"]) {
-    await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(boendeButton(page)).toHaveCount(0);
-  }
+  // Recept shows nothing (a recipe names the boende in its at-home text).
+  await page.goto("/recept");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(boendeButton(page)).toHaveCount(0);
 });
 
 test("with one boende there is no boende button anywhere, on a phone or a desktop", async ({ page }) => {

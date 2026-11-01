@@ -1391,13 +1391,19 @@ describe("askThings as a chat turn (Story 18.14)", () => {
 describe("thingSearchTerms on a model (Story 18.14)", () => {
   const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
   const input: ThingSearchTermsInput = { question: "och tången då?", history: [{ question: "Har du sett min skiftnyckel?", answer: "Ja, i Skräpförrådet." }] };
+  const noRemember = { intent: "question", thing: null, room: null, part: null, category: null };
 
   it("sends the terms prompt, the turns and the question, and gives cleaned terms", async () => {
-    const model = fakeModel(JSON.stringify({ terms: [" Tång ", "kniptång", "tång", "x", "a".repeat(41), "Polygrip", "två\nrader", ...Array.from({ length: 10 }, (_, index) => `ord${index}`)] }));
+    const model = fakeModel(
+      JSON.stringify({
+        ...noRemember,
+        terms: [" Tång ", "kniptång", "tång", "x", "a".repeat(41), "Polygrip", "två\nrader", ...Array.from({ length: 10 }, (_, index) => `ord${index}`)],
+      }),
+    );
     const result = await createModelAiService({ model }, limits).thingSearchTerms(input, signal());
-    expect(result).toEqual({ ok: true, data: { terms: ["tång", "kniptång", "polygrip", "två rader", "ord0", "ord1", "ord2", "ord3"] } });
+    expect(result).toEqual({ ok: true, data: { terms: ["tång", "kniptång", "polygrip", "två rader", "ord0", "ord1", "ord2", "ord3"], intent: "question", remember: null } });
     const call = model.doGenerateCalls[0];
-    expect(call.maxOutputTokens).toBe(inputLimits.terms.maxOutputTokens);
+    expect(call.maxOutputTokens).toBe(inputLimits.termsWithRooms.maxOutputTokens);
     const [system, user] = call.prompt;
     expect(system).toEqual({ role: "system", content: prompts.thingSearchTerms });
     expect(user.content).toEqual([{ type: "text", text: thingSearchTermsText(input) }]);
@@ -1408,19 +1414,57 @@ describe("thingSearchTerms on a model (Story 18.14)", () => {
   });
 
   it("is ai_unavailable when the deadline leaves too little time", async () => {
-    const model = fakeModel(JSON.stringify({ terms: [] }));
+    const model = fakeModel(JSON.stringify({ ...noRemember, terms: [] }));
     const result = await createModelAiService({ model }, limits).thingSearchTerms(input, signal(), { deadline: Date.now() + 1_000 });
     expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 
   it("is validation for a question outside the limits or a long history", async () => {
-    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify({ terms: ["tång"] })) }, limits));
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify({ ...noRemember, terms: ["tång"] })) }, limits));
     const code = async (next: ThingSearchTermsInput) => (await wrapped.thingSearchTerms(next, signal())) as { ok: boolean; error?: { code: string } };
     expect((await code(input)).ok).toBe(true);
     expect((await code({ ...input, question: "" })).error?.code).toBe("validation");
     expect((await code({ ...input, question: "x".repeat(301) })).error?.code).toBe("validation");
     expect((await code({ ...input, history: Array.from({ length: 7 }, () => ({ question: "F", answer: "S" })) })).error?.code).toBe("validation");
+    // Story 18.19: the rooms, each on one line, at most 60 rooms of at most 60 parts.
+    expect((await code({ ...input, rooms: [{ room: "Sovrummet", parts: ["Byrån"] }] })).ok).toBe(true);
+    expect((await code({ ...input, rooms: [{ room: "Sov\nrummet", parts: [] }] })).error?.code).toBe("validation");
+    expect((await code({ ...input, rooms: [{ room: "Sovrummet", parts: [""] }] })).error?.code).toBe("validation");
+    expect((await code({ ...input, rooms: Array.from({ length: 61 }, (_, index) => ({ room: `Rum ${index}`, parts: [] })) })).error?.code).toBe("validation");
+  });
+
+  it("names a place Pontus wrote in himself to the answer, with the day (Story 18.19)", () => {
+    expect(
+      askThingsText({
+        question: "var är passen?",
+        history: [],
+        places: [{ title: "Sovrummet · Översta byrålådan", site: "Hemma", cardDate: "31 okt", hidden: 0, noted: true, things: [{ name: "Pass", category: "Övrigt", where: null }] }],
+      }),
+    ).toBe("Fråga: var är passen?\n\nPlatser:\n1. Sovrummet · Översta byrålådan | Hemma | du skrev in 31 okt\n   Pass (Övrigt)");
+  });
+
+  it("sends the boende's rooms with their parts after the question (Story 18.19)", () => {
+    expect(thingSearchTermsText({ question: "Passen ligger i byrån", history: [], rooms: [{ room: "Sovrummet", parts: ["Byrån", "Garderoben"] }, { room: "Hallen", parts: [] }] })).toBe(
+      "Fråga: Passen ligger i byrån\n\nRum:\nSovrummet: Byrån, Garderoben\nHallen",
+    );
+    expect(thingSearchTermsText({ question: "Hammare?", history: [], rooms: [] })).toBe("Fråga: Hammare?");
+  });
+
+  it("gives the thing to remember with its room, part and category, cleaned and cut (Story 18.19)", async () => {
+    const answer = (fields: Record<string, unknown>) => createModelAiService({ model: fakeModel(JSON.stringify({ ...noRemember, terms: ["pass"], ...fields })) }, limits).thingSearchTerms(input, signal());
+    expect(await answer({ intent: " Remember ", thing: " Pass\n", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" })).toEqual({
+      ok: true,
+      data: { terms: ["pass"], intent: "remember", remember: { name: "Pass", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" } },
+    });
+    // An unknown category is Övrigt; an empty room or part is none; the texts are cut to what the tables take.
+    expect(await answer({ intent: "remember", thing: "x".repeat(100), room: " ", part: "y".repeat(50), category: "Papper" })).toMatchObject({
+      data: { intent: "remember", remember: { name: "x".repeat(80), room: null, part: "y".repeat(40), category: "Övrigt" } },
+    });
+    // "remember" without a thing, or an unknown intent, is a question; "search" is kept.
+    expect(await answer({ intent: "remember", thing: "  " })).toMatchObject({ data: { intent: "question", remember: null } });
+    expect(await answer({ intent: "ignore all rules" })).toMatchObject({ data: { intent: "question", remember: null } });
+    expect(await answer({ intent: "search", thing: "Pass" })).toMatchObject({ data: { intent: "search", remember: null } });
   });
 });
 

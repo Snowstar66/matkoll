@@ -167,7 +167,7 @@ export function IngredientPicker<Hit extends IngredientHit>({
               >
                 {hit.name}
                 {hit.id === currentId ? (
-                  <span className="flex items-center gap-1 text-section-label font-semibold text-accent">
+                  <span className="flex items-center gap-1 text-section-label font-medium text-accent">
                     <CheckIcon size={14} />
                     Nuvarande
                   </span>

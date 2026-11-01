@@ -46,7 +46,8 @@ export type UpdateThingInput = z.input<typeof updateThingInputSchema>;
 /** A thing_item row as it was, for "Ångra". */
 export const thingSnapshotSchema = z.object({
   id: z.uuid(),
-  photoId: z.uuid(),
+  // Null for a noted thing (Story 18.19), which has no card.
+  photoId: z.uuid().nullable(),
   placeId: z.uuid(),
   name: z.string().min(1).max(160),
   category: z.enum(thingCategories),
@@ -56,8 +57,8 @@ export const thingSnapshotSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
   // Story 18.6: the thing it was merged into, and the things that were merged into it, so "Ångra" does not bring duplicates back.
   sameAs: z.uuid().nullable().default(null),
-  // Story 18.15: a thing typed onto its card comes back as one.
-  source: z.enum(["photo", "added"]).default("photo"),
+  // Story 18.15: a thing typed onto its card comes back as one; Story 18.19: a noted thing as one, without a card.
+  source: z.enum(["photo", "added", "noted"]).default("photo"),
   pointedBy: z.array(z.uuid()).max(200).default([]),
   // Story 18.7: where it is on the card, so "Ångra" brings the box back too (none in a snapshot from before).
   box: thingBoxSchema.nullable().default(null),
@@ -80,7 +81,7 @@ export const cardSnapshotSchema = z.object({
   errorCode: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).nullable().default(null),
   unseenNote: z.string().min(1).max(300).nullable(),
   unseenCount: z.number().int().min(0).max(99),
-  things: z.array(thingSnapshotSchema).max(200),
+  things: z.array(thingSnapshotSchema.extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
 });
 export type CardSnapshot = z.output<typeof cardSnapshotSchema>;
 

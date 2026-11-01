@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { userStorageState } from "./support";
+import { openSettingsViaAvatar, userStorageState } from "./support";
 
 // Story 1.3: the app shell on mobile and desktop, signed in.
 
@@ -53,9 +53,9 @@ test.describe("mobile, 390 × 844", () => {
     await expect(mainMenu(page)).toHaveCount(1);
     await expect(mainMenu(page).getByRole("link")).toHaveText(mainLabels.map(endsWith));
 
-    // The tab bar sits at the bottom of the screen and is 84 px high.
+    // The tab bar sits at the bottom of the screen and is 56 px high (no safe area in a browser tab, Story 19.1).
     const box = await mainMenu(page).boundingBox();
-    expect(box?.height).toBe(84);
+    expect(box?.height).toBe(56);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBe(mobile.height);
 
     // The active tab is in the accent colour, the others in ink-3 (light mode values).
@@ -72,22 +72,72 @@ test.describe("mobile, 390 × 844", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the gear in the Recept header opens Inställningar", async ({ page }) => {
+  test("the P button at the right of every tab's header opens a sheet with Inställningar, Hjälp och tips and Logga ut (Story 19.2)", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/recept");
+    // The gear is gone; Inställningar is not a tab and not a link in the header.
     await expect(mainMenu(page).getByRole("link", { name: "Inställningar" })).toHaveCount(0);
-    const gear = page.getByRole("main").getByRole("link", { name: "Inställningar" });
-    const box = await gear.boundingBox();
-    expect(box?.width).toBeGreaterThanOrEqual(44);
-    expect(box?.height).toBeGreaterThanOrEqual(44);
-    await gear.click();
+    await expect(page.getByRole("main").getByRole("link", { name: "Inställningar" })).toHaveCount(0);
+
+    // The same place, size and way on all five tabs.
+    const boxes = [];
+    for (const surface of surfaces) {
+      await mainMenu(page).getByRole("link", { name: surface.tab }).click();
+      await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
+      const button = page.getByRole("button", { name: "Konto" }).filter({ visible: true });
+      await expect(button).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+      boxes.push(box);
+    }
+    expect(new Set(boxes.map((box) => Math.round(box!.x))).size).toBe(1);
+
+    await mainMenu(page).getByRole("link", { name: "Recept" }).click();
+    await expect(page).toHaveURL(/\/recept$/);
+    await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
+    const sheet = page.getByRole("dialog").filter({ visible: true });
+    await expect(sheet.getByRole("link", { name: "Inställningar" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: /Hjälp och tips/ })).toContainText("Om Recept");
+    await expect(sheet.getByRole("button", { name: "Logga ut" })).toBeVisible();
+    await sheet.getByRole("link", { name: "Inställningar" }).click();
     await expect(page).toHaveURL(/\/installningar$/);
     await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
 
-    // No tab for Inställningar on mobile, so the header has a way back.
-    await page.getByRole("main").getByRole("link", { name: "Tillbaka" }).click();
+    // No tab for Inställningar on mobile, so the header has a way back, named for the page above.
+    await page.getByRole("main").getByRole("link", { name: "Recept", exact: true }).click();
     await expect(page).toHaveURL(/\/recept$/);
     expect(errors).toEqual([]);
+  });
+
+  test("Hjälp och tips opens on the section of the tab the P button was opened from, with its chip chosen", async ({ page }) => {
+    await page.goto("/matsedel");
+    await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
+    await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: /Hjälp och tips/ }).click();
+    await expect(page).toHaveURL(/\/hjalp#matsedel$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Hjälp och tips" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Matsedel", exact: true })).toHaveAttribute("aria-current", "true");
+    await expect(page.getByRole("heading", { level: 2, name: "Matsedel" })).toBeInViewport();
+    await expect(page.getByRole("main").getByRole("link", { name: "Matsedel" })).toBeVisible();
+    for (const tab of mainLabels) await expect(mainMenu(page).getByRole("link", { name: tab })).not.toHaveAttribute("aria-current", /.*/);
+  });
+
+  test("the large title gives way to a slim bar with the title centred when it scrolls out of sight", async ({ page }) => {
+    await page.goto("/recept");
+    await page.evaluate(() => {
+      document.documentElement.style.minHeight = "3000px";
+    });
+    const bar = page.getByTestId("collapsed-bar").filter({ visible: true });
+    await expect(bar).toHaveCSS("opacity", "0");
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(bar).toHaveCSS("opacity", "1");
+    const box = await bar.boundingBox();
+    expect(box).toMatchObject({ x: 0, y: 0, height: 52 });
+    // The P button is the same one, now on the bar.
+    const p = await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).boundingBox();
+    expect(p!.y).toBeLessThan(52);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(bar).toHaveCSS("opacity", "0");
   });
 
   test("switching tabs keeps each surface's scroll position", async ({ page }) => {
@@ -122,12 +172,15 @@ test.describe("desktop, 1280 × 800", () => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     await expect(mainMenu(page)).toHaveCount(1);
-    await expect(mainMenu(page).getByRole("link")).toHaveText([...mainLabels, "Inställningar"].map(endsWith));
+    await expect(mainMenu(page).getByRole("link")).toHaveText([...mainLabels, "Hjälp och tips", "Inställningar"].map(endsWith));
+    // Under a hairline at the bottom: who is signed in, and Logga ut (Story 19.2).
+    await expect(mainMenu(page).getByTestId("side-account")).toBeVisible();
+    await expect(mainMenu(page).getByRole("button", { name: "Logga ut" })).toBeVisible();
 
     const menu = await mainMenu(page).boundingBox();
     expect(menu).toMatchObject({ x: 0, y: 0, width: 240, height: desktop.height });
-    // No gear in the header on desktop.
-    await expect(page.getByRole("main").getByRole("link", { name: "Inställningar" })).toBeHidden();
+    // No P button in the header on desktop: the account is at the bottom of the side menu.
+    await expect(page.getByRole("main").getByRole("button", { name: "Konto" })).toBeHidden();
 
     // Content is at most 720 px wide, to the right of the menu.
     const heading = await page.getByRole("heading", { level: 1 }).boundingBox();
@@ -174,7 +227,7 @@ test.describe("desktop, 1280 × 800", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     const dark = await background();
     expect(light).toBe("rgb(245, 247, 244)");
-    expect(dark).toBe("rgb(18, 23, 20)");
+    expect(dark).toBe("rgb(15, 19, 17)");
   });
 });
 
@@ -188,7 +241,7 @@ test.describe("dark mode from the start", () => {
     const title = await page.getByRole("heading", { level: 1 }).evaluate((el) => getComputedStyle(el).color);
     // The visible main menu: the tab bar at this width.
     const tabBar = await mainMenu(page).evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect({ body, title, tabBar }).toEqual({ body: "rgb(18, 23, 20)", title: "rgb(232, 237, 234)", tabBar: "rgb(27, 33, 30)" });
+    expect({ body, title, tabBar }).toEqual({ body: "rgb(15, 19, 17)", title: "rgb(230, 235, 232)", tabBar: "color(srgb 0.0941176 0.113725 0.101961 / 0.82)" });
   });
 });
 
@@ -262,6 +315,6 @@ test.describe("tab labels (Story 10.4)", () => {
     );
     // The tab bar itself never scrolls sideways, and keeps its height while everything fits.
     expect(await mainMenu(page).evaluate((nav) => nav.scrollWidth <= nav.clientWidth)).toBe(true);
-    expect((await mainMenu(page).boundingBox())?.height).toBe(84);
+    expect((await mainMenu(page).boundingBox())?.height).toBe(56);
   });
 });

@@ -5,30 +5,31 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { AppLogo } from "../app-logo";
 import { cx } from "../cx";
-import { currentState, type Destination, mainDestinations, settingsDestination } from "./destinations";
-import { NavEmoji } from "./nav-emoji";
+import { useAccount, useHasAccount, useSignOutSlots } from "./account";
+import { Avatar } from "./avatar";
+import { currentState, type Destination, helpDestination, helpHref, mainDestinations, settingsDestination } from "./destinations";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 import { appName } from "@/app/app-info";
 
-function MenuLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
-  const { href, label, emoji } = destination;
+function MenuLink({ destination, pathname, to }: { destination: Destination; pathname: string | null; /** Where the link goes when that is not `destination.href` (Hjälp och tips opens on a section). */ to?: string }) {
+  const { href, label, Icon } = destination;
   const current = currentState(pathname, href);
   // Story 12.4: finished AI results that Pontus has not seen, never on the surface he is on.
   const badge = useAiBadgeCount(destination, current !== undefined);
   return (
     <Link
-      href={href}
+      href={to ?? href}
       scroll={false}
       aria-current={current}
       aria-label={badge > 0 ? badgeName(label, badge) : undefined}
       className={cx(
         "flex min-h-tap items-center gap-3 rounded-md px-3 text-body focus-visible:-outline-offset-2",
-        // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4); the emoji keeps its colour.
-        current ? "bg-mint font-semibold text-mint-ink" : "text-ink-2",
+        // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4).
+        current ? "bg-mint font-medium text-mint-ink" : "font-medium text-ink-2",
       )}
     >
       <div className="relative">
-        <NavEmoji emoji={emoji} current={current !== undefined} size={20} />
+        <Icon size={22} tinted={current !== undefined} />
         <TabBadge count={badge} />
       </div>
       {label}
@@ -64,8 +65,8 @@ function SideMenuNav({ pathname, jobRow, siteSwitch }: { pathname: string | null
         <AppLogo />
         {appName}
       </p>
-      {/* The boende under the name (Story 16.14); nothing, and no space, with one boende. */}
-      {siteSwitch ? <div className="-mt-5 pb-3 pl-12 empty:hidden">{siteSwitch}</div> : null}
+      {/* The boende under the name (Story 16.14, Story 19.2): a full-width row whose pin sits in the icon column of the items below; nothing, and no space, with one boende. */}
+      {siteSwitch ? <div className="-mt-3 pb-3 empty:hidden">{siteSwitch}</div> : null}
       {jobRow ? <div className="pb-4">{jobRow}</div> : null}
       <ul className="flex flex-col gap-1">
         {mainDestinations.map((destination) => (
@@ -74,11 +75,40 @@ function SideMenuNav({ pathname, jobRow, siteSwitch }: { pathname: string | null
           </li>
         ))}
       </ul>
-      <ul className="mt-auto flex flex-col">
-        <li>
-          <MenuLink destination={settingsDestination} pathname={pathname} />
-        </li>
-      </ul>
+      {/* Story 19.2: the account's own things at the bottom, under a hairline: who is signed in, Hjälp och tips (on the section of the page I am on), Inställningar and Logga ut. */}
+      <div className="mt-auto flex flex-col gap-0.5 border-t border-hairline pt-2.5">
+        <AccountRow />
+        <MenuLink destination={helpDestination} pathname={pathname} to={helpHref(pathname)} />
+        <MenuLink destination={settingsDestination} pathname={pathname} />
+        <SignOutRow />
+      </div>
     </nav>
   );
+}
+
+function AccountWho() {
+  const account = useAccount();
+  if (!account) return null;
+  return (
+    <p className="flex items-center gap-2.5 px-3 pt-1.5 pb-2" data-testid="side-account">
+      <Avatar initial={account.initial} size={28} />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-control text-ink">{account.name}</span>
+        <span className="truncate text-badge text-ink-3">{account.email}</span>
+      </span>
+    </p>
+  );
+}
+
+function AccountRow() {
+  if (!useHasAccount()) return null;
+  return (
+    <Suspense fallback={<span aria-hidden="true" inert className="block h-11" />}>
+      <AccountWho />
+    </Suspense>
+  );
+}
+
+function SignOutRow() {
+  return useSignOutSlots()?.menu ?? null;
 }

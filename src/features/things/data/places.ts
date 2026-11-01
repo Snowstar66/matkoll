@@ -10,6 +10,7 @@ import {
 } from "../domain/thing-place";
 import { shownStatus } from "../domain/thing-photo";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
+import { findPlaceIn } from "./rooms";
 
 // The places (Story 18.1): every call to thing_place is here, and the things
 // module alone makes them (AD-1). Every function needs the signed-in user's
@@ -106,4 +107,29 @@ export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput, box = 
     }
     return { kind: "saved", id: data.id };
   });
+}
+
+/**
+ * The place of the room and optional part (or box) in the boende, found when
+ * it is there and made when it is not (Stories 18.11 and 18.19); the room keeps
+ * the spelling it has already. `made` says it is new. Throws ThingsDataError.
+ */
+export async function ensurePlaceIn(
+  db: ThingsDb,
+  input: ValidPlaceInput,
+  box = false,
+): Promise<{ kind: "found" | "made"; id: string } | { kind: "site_gone" } | { kind: "limit" } | { kind: "failed" }> {
+  const target = {
+    siteId: input.siteId,
+    roomKey: normalizePlaceName(input.room),
+    partKey: input.part === null ? "" : box ? boxKey(input.part) : normalizePlaceName(input.part),
+  };
+  const found = await findPlaceIn(db, target);
+  if (found) return { kind: "found", id: found };
+  const saved = await insertPlaceIn(db, input, box);
+  if (saved.kind === "saved") return { kind: "made", id: saved.id };
+  if (saved.kind === "limit" || saved.kind === "site_gone") return saved;
+  // Taken: another tab made it a moment ago.
+  const again = await findPlaceIn(db, target);
+  return again ? { kind: "found", id: again } : { kind: "failed" };
 }

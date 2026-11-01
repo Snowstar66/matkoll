@@ -69,15 +69,15 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const bytButton = () => screen.getByRole("button", { name: "Byt boende för listan" });
-const sheet = () => screen.getByRole("dialog", { name: "Räkna listan mot" });
+const bytButton = () => screen.getByRole("button", { name: /^Boende: / });
+const sheet = () => screen.getByRole("dialog", { name: "Boende" });
 /** A place's row; while it is saved, its name is followed by "Sparar …". */
 const row = (name: string) => within(sheet()).getByRole("button", { name: new RegExp(`^${name}`) });
 const toastText = () => screen.queryByTestId("toast")?.textContent ?? null;
 
 async function openSheet(user: ReturnType<typeof userEvent.setup>) {
   await user.click(bytButton());
-  return screen.findByRole("dialog", { name: "Räkna listan mot" });
+  return screen.findByRole("dialog", { name: "Boende" });
 }
 
 beforeEach(() => {
@@ -100,28 +100,28 @@ describe("ListSiteLine", () => {
   it("shows nothing with one place", () => {
     server = [hemma];
     render(<Lista />);
-    expect(screen.queryByTestId("site-line")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Byt boende för listan" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
   });
 
-  it("shows Boende with the place and the text button Byt, not in a live region", () => {
+  it("shows the boende button with the place, the pin and the chevron, not in a live region (Story 19.2)", () => {
     render(<Lista />);
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Hemma");
-    expect(screen.getByTestId("site-line").closest("[aria-live]")).toBeNull();
-    expect(bytButton()).toHaveTextContent(/^Byt$/);
+    expect(bytButton()).toHaveAccessibleName("Boende: Hemma");
+    expect(bytButton()).toHaveTextContent(/^Hemma$/);
+    expect(bytButton().closest("[aria-live]")).toBeNull();
+    expect(bytButton().querySelectorAll("svg")).toHaveLength(2);
     expect(bytButton()).toHaveAttribute("aria-haspopup", "dialog");
   });
 
   it("shows the place selected among the places when the list has none, so a failing place can be left", () => {
     server = [{ ...hemma, isSelected: false }, { ...stugan, isSelected: true }];
     render(<Lista listSite={null} />);
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
   });
 
   it("reads the page again, once, when the list and the places disagree", () => {
     render(<Lista listSite={{ id: stugan.id, name: "Stugan", siteCount: 2 }} />);
     // The line names the place the list was counted against.
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -137,13 +137,13 @@ describe("ListSiteLine", () => {
     server = [hemma, stugan, torpet];
     render(<Lista />);
     const dialog = await openSheet(user);
-    const list = within(dialog).getByRole("list", { name: "Räkna listan mot" });
+    const list = within(dialog).getByRole("group", { name: "Boende" });
     const buttons = within(list).getAllByRole("button");
     expect(buttons.map((button) => button.textContent)).toEqual(["Hemma", "Stugan", "Torpet"]);
     expect(within(dialog).queryByRole("radiogroup")).toBeNull();
-    expect(row("Hemma")).toHaveAttribute("aria-current", "true");
+    expect(row("Hemma")).toHaveAttribute("aria-pressed", "true");
     expect(row("Hemma").querySelector("svg")).not.toBeNull();
-    expect(row("Stugan")).not.toHaveAttribute("aria-current");
+    expect(row("Stugan")).toHaveAttribute("aria-pressed", "false");
     expect(row("Stugan").querySelector("svg")).toBeNull();
     // The normal tab order, every row in it.
     for (const button of buttons) expect(button).not.toHaveAttribute("tabindex");
@@ -164,8 +164,8 @@ describe("ListSiteLine", () => {
     expect(row("Stugan")).toBeDisabled();
     expect(row("Hemma")).toBeDisabled();
     expect(row("Torpet")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Avbryt" })).toBeDisabled();
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Hemma");
+    expect(screen.getByRole("button", { name: "Klar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Hemma");
 
     await act(async () => {
       selectOnServer(stugan.id);
@@ -173,7 +173,7 @@ describe("ListSiteLine", () => {
       answer.resolve(ok({ site: { id: stugan.id, name: "Stugan" } }));
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
     expect(await screen.findByTestId("toast")).toHaveTextContent("Listan räknas nu mot Stugan.");
     await waitFor(() => expect(bytButton()).toHaveFocus());
     expect(refresh).not.toHaveBeenCalled();
@@ -216,11 +216,11 @@ describe("ListSiteLine", () => {
     await openSheet(user);
     await user.click(row("Stugan"));
     expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Det gick inte att spara boendet. Försök igen.");
-    expect(row("Hemma")).toHaveAttribute("aria-current", "true");
+    expect(row("Hemma")).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(row("Stugan")).toBeEnabled());
     expect(row("Stugan")).toHaveTextContent(/^Stugan$/);
     await waitFor(() => expect(row("Stugan")).toHaveFocus());
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Hemma");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Hemma");
     expect(toastText()).toBeNull();
     expect(refresh).toHaveBeenCalled();
     expect(onSwitching).toHaveBeenLastCalledWith(null);
@@ -238,7 +238,7 @@ describe("ListSiteLine", () => {
     await user.click(row("Stugan"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(refresh).toHaveBeenCalled();
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
     expect(await screen.findByTestId("toast")).toHaveTextContent("Listan räknas nu mot Stugan.");
   });
 
@@ -250,7 +250,7 @@ describe("ListSiteLine", () => {
     await user.click(row("Stugan"));
     expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Det gick inte att spara boendet. Försök igen.");
     expect(refresh).toHaveBeenCalled();
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Hemma");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Hemma");
     expect(onSwitching).toHaveBeenLastCalledWith(null);
   });
 
@@ -263,13 +263,13 @@ describe("ListSiteLine", () => {
     fireEvent.click(bytButton());
     expect(sheet()).toBeInTheDocument();
     fireEvent.click(row("Stugan"));
-    expect(screen.getByRole("button", { name: "Avbryt" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Klar" })).toBeDisabled();
     await act(async () => vi.advanceTimersByTime(selectTimeoutMs));
     expect(refresh).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Avbryt" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Klar" })).toBeDisabled();
     await act(async () => vi.advanceTimersByTime(refreshWaitMs));
     expect(within(sheet()).getByRole("alert")).toHaveTextContent("Det gick inte att spara boendet. Försök igen.");
-    expect(screen.getByRole("button", { name: "Avbryt" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Klar" })).toBeEnabled();
     expect(row("Stugan")).toBeEnabled();
   });
 
@@ -298,7 +298,7 @@ describe("ListSiteLine", () => {
     render(<Lista />);
     await openSheet(user);
     await user.click(row("Stugan"));
-    await waitFor(() => expect(screen.queryByTestId("site-line")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull());
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(await screen.findByTestId("toast")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
@@ -317,7 +317,7 @@ describe("ListSiteLine", () => {
       server = [hemma];
       publish();
     });
-    expect(screen.queryByTestId("site-line")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
     // Stugan back: the line, but no sheet.
@@ -325,7 +325,7 @@ describe("ListSiteLine", () => {
       server = [hemma, stugan];
       publish();
     });
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Hemma");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Hemma");
     expect(screen.queryByRole("dialog")).toBeNull();
     await openSheet(user);
     expect(within(sheet()).queryByRole("alert")).toBeNull();
@@ -349,8 +349,8 @@ describe("ListSiteLine", () => {
     await openSheet(user);
     await user.click(row("Stugan"));
     expect(await within(sheet()).findByRole("alert")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Avbryt" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Avbryt" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Klar" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const dialog = await openSheet(user);
     expect(within(dialog).queryByRole("alert")).toBeNull();
@@ -392,7 +392,7 @@ describe("ListSiteLine", () => {
       answer.resolve(ok({ site: { id: stugan.id, name: "Stugan" } }));
     });
     await act(async () => rerender(<Lista mode="visible" />));
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
     expect(toastText()).toBeNull();
   });
 });

@@ -753,10 +753,35 @@ describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)",
   const service = createMockAiService();
 
   it("gives the words of the question that are not small words", async () => {
-    expect(await service.thingSearchTerms({ question: "Har du sett min skiftnyckel?", history: [] }, signal())).toEqual({ ok: true, data: { terms: ["skiftnyckel"] } });
+    expect(await service.thingSearchTerms({ question: "Har du sett min skiftnyckel?", history: [] }, signal())).toEqual({
+      ok: true,
+      data: { terms: ["skiftnyckel"], intent: "question", remember: null },
+    });
     expect(await service.thingSearchTerms({ question: "och tången då?", history: [{ question: "Skiftnyckel?", answer: "Ja." }] }, signal())).toEqual({
       ok: true,
-      data: { terms: ["tången"] },
+      data: { terms: ["tången"], intent: "question", remember: null },
+    });
+    expect(await service.thingSearchTerms({ question: "var är passen?", history: [] }, signal())).toMatchObject({ data: { terms: ["passen"], intent: "question" } });
+  });
+
+  it("takes a statement of where something is as something to remember, with the room the boende has (Story 18.19)", async () => {
+    expect(
+      await service.thingSearchTerms({ question: "Passen ligger i översta byrålådan i sovrummet", history: [], rooms: [{ room: "Sovrummet", parts: [] }] }, signal()),
+    ).toEqual({
+      ok: true,
+      data: { terms: ["passen"], intent: "remember", remember: { name: "Passen", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" } },
+    });
+    expect(await service.thingSearchTerms({ question: "Julgranskulorna står på vinden", history: [] }, signal())).toMatchObject({
+      data: { intent: "remember", remember: { name: "Julgranskulorna", room: "Vinden", part: null } },
+    });
+    expect(await service.thingSearchTerms({ question: "Ligger passen i byrån?", history: [] }, signal())).toMatchObject({ data: { intent: "question", remember: null } });
+  });
+
+  it("says in the answer that Pontus wrote a place in himself (Story 18.19)", async () => {
+    const places = [{ title: "Sovrummet · Översta byrålådan", site: "Hemma", cardDate: "31 okt", hidden: 0, noted: true, things: [{ name: "Passen", category: "Övrigt", where: null }] }];
+    expect(await service.askThings({ question: "var är passen?", places, history: [] }, signal())).toEqual({
+      ok: true,
+      data: { answer: "Passen finns i Sovrummet · Översta byrålådan (Hemma). Det skrev du in själv 31 okt.", places: [0] },
     });
   });
 

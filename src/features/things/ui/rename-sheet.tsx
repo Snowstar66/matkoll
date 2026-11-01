@@ -93,7 +93,7 @@ export function RenameSheet({ open, onClose, title, label, initial, confirmText,
       >
         {problem && !problem.field ? <Notice role="alert">{problem.message}</Notice> : null}
         {question ? (
-          <p className="text-body font-semibold text-ink" role="status" data-testid="rename-question">
+          <p className="text-body font-medium text-ink" role="status" data-testid="rename-question">
             {question}
           </p>
         ) : null}

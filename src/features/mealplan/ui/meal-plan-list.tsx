@@ -496,7 +496,7 @@ export function MealPlanList({
               className={`w-10 shrink-0 text-center leading-tight ${past ? "opacity-60" : ""} ${isToday ? "text-accent" : "text-ink-2"}`}
             >
               <span className="sr-only">{dayText}</span>
-              <span aria-hidden="true" className="block text-meta font-semibold uppercase">
+              <span aria-hidden="true" className="block text-meta font-medium uppercase">
                 {weekday ? weekdayShortName(weekday) : "–"}
               </span>
               {weekday && weekOf ? (
@@ -526,7 +526,7 @@ export function MealPlanList({
                   className="flex min-h-tap w-full items-center gap-3 py-2 pr-3 pl-3 text-left"
                 >
                   {when}
-                  <span className="flex-1 text-body font-semibold text-accent">+ Lägg till</span>
+                  <span className="flex-1 text-body font-medium text-accent">+ Lägg till</span>
                   {isToday ? <TodayPill /> : null}
                 </button>
               ) : (
@@ -650,22 +650,22 @@ function DishRow({
                   href={`/recept/${dish.recipeId}`}
                   data-dish-focus
                   // The link covers the whole row, so a tap anywhere on it opens the recipe.
-                  className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-semibold" : "text-row-title"}`}
+                  className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-medium" : "text-row-title"}`}
                 >
                   {title}
                 </Link>
               ) : (
-                <p className={`break-words text-ink ${past ? "text-body font-semibold" : "text-row-title"}`}>{title}</p>
+                <p className={`break-words text-ink ${past ? "text-body font-medium" : "text-row-title"}`}>{title}</p>
               )}
               <p data-testid="dish-meta" className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-3">
                 {today ? <TodayPill /> : null}
                 <span>{dishRowMetaText(dish.recipeId, recipe?.totalMinutes, servings)}</span>
                 {cooked ? (
-                  <span data-testid="dish-cooked" className="font-semibold text-mint-ink">
+                  <span data-testid="dish-cooked" className="font-medium text-mint-ink">
                     ✓ Lagad
                   </span>
                 ) : progress ? (
-                  <span data-testid="dish-status" className={`font-semibold ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
+                  <span data-testid="dish-status" className={`font-medium ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
                     {missing ? progress.text : "✓ Allt hemma"}
                   </span>
                 ) : null}
@@ -677,7 +677,7 @@ function DishRow({
                   type="button"
                   onClick={() => setPanel("cooked")}
                   aria-label={`Lagad? ${title}`}
-                  className="relative z-10 flex min-h-tap items-center self-start rounded-full text-meta font-semibold text-accent"
+                  className="relative z-10 flex min-h-tap items-center self-start rounded-full text-meta font-medium text-accent"
                 >
                   <span className="rounded-full border border-border bg-surface px-3 py-1">Lagad?</span>
                 </button>
@@ -705,7 +705,7 @@ function DishRow({
               {dish.recipeId ? (
                 <Link
                   href={`/recept/${dish.recipeId}`}
-                  className="flex min-h-tap items-center self-start text-body font-semibold text-accent"
+                  className="flex min-h-tap items-center self-start text-body font-medium text-accent"
                 >
                   Öppna receptet ›
                 </Link>
@@ -727,7 +727,7 @@ function DishRow({
           {cooked ? (
             <div className="flex flex-col">
               <div className="flex items-center justify-between gap-3">
-                <p className="flex min-h-tap items-center text-row-title font-semibold text-mint-ink">✓ Lagad</p>
+                <p className="flex min-h-tap items-center text-row-title font-medium text-mint-ink">✓ Lagad</p>
                 <Button
                   variant="text"
                   onClick={onUnmark}

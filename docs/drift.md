@@ -1,5 +1,7 @@
 # Matkoll – drift i molnet
 
+> Den som följs steg för steg vid flytten är [`docs/molnet.md`](molnet.md) (Story 17.3); den här filen är fördjupningen och gäller i övrigt. Nytt sedan den skrevs: strömbrytaren `CLOUD_ENABLED` (flödet `cloud-migrate.yml` kör `supabase db push` på `main`, och `backup.yml` slås på med den), AI via Claude i stället för LM Studio och Cloudflare Tunnel, och ämnesraderna Livskoll.
+
 Så här sätts molnet upp när Epic 1–3 fungerar lokalt. Allt som går att förbereda i repot är gjort; stegen här kräver Pontus konton och görs av Pontus. Den korta listan finns i [Checklista för Pontus](oppna-fragor.md#checklista-för-pontus-när-molnet-sätts-upp-efter-epic-13); den här filen beskriver varje punkt: vad du gör, var värdet hämtas och hur du kontrollerar det.
 
 Inga riktiga värden skrivs in i repot (AD-14). Adresser, nycklar och lösenord läggs bara i Vercel, i GitHub-hemligheterna eller tillfälligt i din terminal. `<adress>` nedan är appens publika adress, till exempel `https://matkoll.vercel.app` eller en egen domän, och `<ref>` är Supabase-projektets id.
@@ -72,7 +74,7 @@ Länken i mejlet går till `<adress>/auth/confirm?next=…` (appen bygger den fr
 
 **Authentication → Emails → Templates → Magic Link:**
 
-- **Subject:** `Din inloggningslänk till Matkoll`
+- **Subject:** `Din inloggningslänk till Livskoll`
 - **Body:** innehållet i `supabase/templates/magic-link.html`, oförändrat (samma som lokalt, se `[auth.email.template.magic_link]` i `supabase/config.toml`). Från Epic 11 (Story 11.6) har mallen både länken och den sexsiffriga koden `{{ .Token }}` under texten "Eller skriv in koden i Matkoll:". Koden behövs för att logga in i Matkoll på hemskärmen, som inte delar inloggning med Safari, där länken öppnas. Har du lagt in en äldre mall: klistra in den nya, annars kommer bara länken i mejlet.
 
 **Authentication → Sign In / Providers → Email:**
@@ -89,7 +91,7 @@ Supabase inbyggda e-post skickar bara till projektets teammedlemmar och bara nå
 
 ## 6. Schemat: `supabase link` och `supabase db push`
 
-Schemat ändras bara med migrationer (AD-5). Molnet får dem från din terminal, aldrig från CI:
+Schemat ändras bara med migrationer (AD-5). Första gången körs de från din terminal (efteråt tar flödet `cloud-migrate.yml` över när `CLOUD_ENABLED` är på, se `docs/molnet.md`):
 
 ```bash
 pnpm exec supabase login                      # öppnar webbläsaren; sparar en åtkomsttoken lokalt

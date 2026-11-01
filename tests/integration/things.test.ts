@@ -31,7 +31,8 @@ import {
 import { boxKey } from "@/features/things/domain/thing-place";
 import { loadUnseenIn, searchThingsIn } from "@/features/things/data/search";
 import { addCardThingsIn, loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
-import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
+import { ensurePlaceIn, insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
+import { findNotedIn, loadRoomPartsIn, rememberThingIn } from "@/features/things/data/noted";
 import { findPlaceIn, loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, loadRoomThingsIn } from "@/features/things/data/rooms";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
@@ -1134,3 +1135,104 @@ describe("byt namn och ta bort rum och delar (Story 18.16)", () => {
     return saved.id;
   };
 });
+
+describe("kom ihåg var jag lade den (Story 18.19)", () => {
+  let n: TestUser;
+  let o: TestUser;
+  beforeAll(async () => {
+    n = await createTestUser("things-n");
+    o = await createTestUser("things-o");
+  });
+
+  async function remember(user: TestUser, site: string, room: string, part: string | null, name: string, replaces: string | null = null) {
+    const place = await ensurePlaceIn(user.db, { siteId: site, room, part });
+    if (place.kind !== "found" && place.kind !== "made") throw new Error(`no place: ${place.kind}`);
+    const saved = await rememberThingIn(user.db, { placeId: place.id, name, category: "Övrigt", replaces });
+    if (saved.kind !== "saved") throw new Error(`not saved: ${saved.kind}`);
+    return { id: saved.id, placeId: place.id };
+  }
+
+  it("saves a thing without a card in a part it makes, and the room, the search and the room's list show it with its day", async () => {
+    const site = await siteOf(n, "Kom ihåg");
+    await placeOf(n, site, "Sovrummet", "Garderoben");
+    const { id, placeId } = await remember(n, site, "sovrummet", "Översta byrålådan", "Pass");
+    const { data: row } = await adminClient().from("thing_item").select("source, photo_id, user_id, place_id, created_at").eq("id", id).single();
+    expect(row).toMatchObject({ source: "noted", photo_id: null, user_id: n.id, place_id: placeId });
+    // The room keeps its spelling, the part is a part (not a box), and the parts are given for the next proposal.
+    const place = await loadPlaceIn(n.db, placeId);
+    expect(place).toMatchObject({ room: "Sovrummet", part: "Översta byrålådan", isBox: false, itemCount: 1 });
+    expect(await loadRoomPartsIn(n.db, site)).toEqual([{ room: "Sovrummet", parts: ["Garderoben", "Översta byrålådan"] }]);
+    // Counted in the room, listed under its category with its part and day, found by the search as noted.
+    expect((await loadRoomIn(n.db, site, "sovrummet"))?.things).toBe(1);
+    const [listed] = await loadRoomThingsIn(n.db, site, "sovrummet", "Övrigt");
+    expect(listed).toMatchObject({ id, name: "Pass", whereHint: expect.stringMatching(/^Översta byrålådan · skrivet \d{1,2} [a-z]{3}$/), noted: { part: "Översta byrålådan" } });
+    const [hit] = await searchThingsIn(n.db, ["passen"]);
+    expect(hit).toMatchObject({ id, name: "Pass", noted: true, written: false, photoId: null, room: "Sovrummet", part: "Översta byrålådan" });
+    expect(await findNotedIn(n.db, "  PASS ")).toMatchObject({ id, title: "Sovrummet · Översta byrålådan" });
+  });
+
+  it("moves the same thing written again, is removed alone with Ångra, and is edited like any thing", async () => {
+    const site = await siteOf(n, "Flytta");
+    const first = await remember(n, site, "Hallen", "Byrån", "Bilnyckel");
+    const moved = await remember(n, site, "Köket", "Skålen", "Bilnyckel", first.id);
+    expect((await adminClient().from("thing_item").select("id").eq("id", first.id)).data).toEqual([]);
+    expect(await findNotedIn(n.db, "bilnyckel")).toMatchObject({ id: moved.id, title: "Köket · Skålen" });
+    // A noted thing of another name, or a thing of a card, is never what `replaces` removes.
+    const card = await doneCard(n, first.placeId);
+    const [cardThing] = await loadThingsIn(n.db, card.id);
+    await remember(n, site, "Köket", null, "Reservnyckel", cardThing.id);
+    // The same name saved again without `replaces` (a second proposal, another tab) moves it too.
+    const again = await remember(n, site, "Hallen", "Kroken", "bilnyckel");
+    expect((await adminClient().from("thing_item").select("id").eq("source", "noted").eq("user_id", n.id).ilike("name", "bilnyckel")).data).toEqual([{ id: again.id }]);
+    // A noted thing of another name is not moved by it.
+    await remember(n, site, "Hallen", null, "Bilnycklar", again.id);
+    expect((await adminClient().from("thing_item").select("id").eq("id", again.id)).data).toHaveLength(1);
+    // A * in a name is no wildcard that hides the real match.
+    const star = await remember(n, site, "Hallen", null, "Nyckel*");
+    expect(await findNotedIn(n.db, "Nyckel*")).toMatchObject({ id: star.id });
+    expect((await loadThingsIn(n.db, card.id)).map((thing) => thing.id)).toEqual([cardThing.id]);
+    expect(await updateItemIn(n.db, again.id, { name: "Bilnyckel Volvo", category: "Hushåll", whereHint: null })).toBe(true);
+    const snapshot = await removeItemIn(n.db, again.id);
+    expect(snapshot).toMatchObject({ id: again.id, photoId: null, source: "noted", name: "Bilnyckel Volvo" });
+    expect(await restoreItemIn(n.db, snapshot!)).toBe("restored");
+    expect((await adminClient().from("thing_item").select("source, photo_id").eq("id", again.id).single()).data).toEqual({ source: "noted", photo_id: null });
+  });
+
+  it("refuses a box, another user's place, a noted row with a card and a card row without one", async () => {
+    const site = await siteOf(n, "Vägra");
+    const boxPlace = await insertPlaceIn(n.db, { siteId: site, room: "Garaget", part: "Black box" }, true);
+    if (boxPlace.kind !== "saved") throw new Error("no box");
+    expect(await rememberThingIn(n.db, { placeId: boxPlace.id, name: "Laddare", category: "Elektronik", replaces: null })).toEqual({ kind: "gone" });
+    const mine = await placeOf(n, site, "Garaget", "Hyllan");
+    expect(await rememberThingIn(o.db, { placeId: mine, name: "Laddare", category: "Elektronik", replaces: null })).toEqual({ kind: "gone" });
+    const card = await cardOf(n, mine);
+    const noted = await n.db.from("thing_item").insert({ photo_id: card.id, place_id: mine, name: "X", category: "Övrigt", confidence: "high", source: "noted" });
+    expect(noted.error?.code).toBe("23514");
+    const cardless = await n.db.from("thing_item").insert({ photo_id: null, place_id: mine, name: "X", category: "Övrigt", confidence: "high", source: "photo" });
+    expect(cardless.error?.code).toBe("23514");
+    await expect(rememberThingIn(n.db, { placeId: mine, name: "x".repeat(81), category: "Övrigt", replaces: null })).rejects.toThrow(ThingsDataError);
+  });
+
+  it("is the household's own: another user can neither read, find, change, move nor remove it, and anon nothing", async () => {
+    const site = await siteOf(n, "Eget");
+    const { id, placeId } = await remember(n, site, "Sovrummet", "Byrån", "Pass");
+    expect((await o.db.from("thing_item").select("id").eq("id", id)).data).toEqual([]);
+    expect(await searchThingsIn(o.db, ["pass"])).toEqual([]);
+    expect(await findNotedIn(o.db, "Pass")).toBeNull();
+    expect(await loadRoomThingsIn(o.db, site, "sovrummet", "Övrigt")).toEqual([]);
+    expect(await loadRoomPartsIn(o.db, site)).toEqual([]);
+    expect(await updateItemIn(o.db, id, { name: "Stulet", category: "Övrigt", whereHint: null })).toBe(false);
+    expect(await removeItemIn(o.db, id)).toBeNull();
+    // Another user's `replaces` never removes it, even in a place of their own.
+    const oSite = await siteOf(o, "Annat");
+    await remember(o, oSite, "Hallen", null, "Pass", id);
+    expect((await adminClient().from("thing_item").select("name, place_id").eq("id", id).single()).data).toEqual({ name: "Pass", place_id: placeId });
+    // Nor can it be written into another user's place by naming that place.
+    const sneaked = await o.db.from("thing_item").insert({ photo_id: null, place_id: placeId, name: "Lapp", category: "Övrigt", confidence: "high", source: "noted" });
+    expect(sneaked.error).not.toBeNull();
+    const anon = anonClient();
+    expect((await anon.rpc("remember_thing", { place: placeId, thing_name: "X", thing_category: "Övrigt" })).error).not.toBeNull();
+    expect((await anon.from("thing_item").select("id").eq("id", id)).data ?? []).toEqual([]);
+  });
+});
+

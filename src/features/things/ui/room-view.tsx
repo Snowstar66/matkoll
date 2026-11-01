@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { FilterPills } from "@/components/filter-pills";
+import { Segment } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { isActive, type AiJob } from "@/lib/ai-job-shape";
@@ -129,8 +129,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         title={moreCardsText}
         sub={latestCardText(summary.latest)}
       />
-      <FilterPills<View>
-        segmented
+      <Segment<View>
         label="Visa"
         value={view}
         onChange={setView}
@@ -138,7 +137,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
           { value: "things", label: thingNounCap.plural },
           { value: "cards", label: "Kort" },
         ]}
-        className="w-full [&>button]:flex-1"
+        className="w-full"
       />
       {view === "things" ? (
         <>

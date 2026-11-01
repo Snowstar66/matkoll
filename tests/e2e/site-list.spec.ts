@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, expectBoende, siteListEmail, siteListStorageState, thisMonday } from "./support";
 
 // Story 8.5: Inköpslista before a trip to Stugan (UJ-6, Flöde 6). Under the
-// title "Boende: Hemma" and "Byt"; "Byt" opens the sheet "Räkna listan mot",
+// title "📍 Hemma ⌄" (Story 19.2); it opens the sheet "Boende",
 // and a place chosen there is the same selection as in Hemma. The spec has
 // an E2E user of its own (siteListEmail). Before each test the service role
 // makes:
@@ -215,10 +215,11 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const siteLine = (page: Page) => page.getByTestId("site-line").filter({ visible: true });
-const bytButton = (page: Page) => page.getByRole("button", { name: "Byt boende för listan" }).filter({ visible: true });
-const switchSheet = (page: Page) => page.getByRole("dialog", { name: "Räkna listan mot" });
-const placeRow = (page: Page, name: "Hemma" | "Stugan") => switchSheet(page).getByRole("button", { name, exact: true });
+// Story 19.2: the same "📍 Hemma ⌄" button and the same sheet "Boende" as under the other titles.
+const siteLine = (page: Page) => page.getByRole("button", { name: /^Boende: / }).filter({ visible: true });
+const bytButton = siteLine;
+const switchSheet = (page: Page) => page.getByRole("dialog", { name: "Boende" });
+const placeRow = (page: Page, name: "Hemma" | "Stugan") => switchSheet(page).getByRole("button", { name: new RegExp(`^${name}`) });
 const lineCheck = (page: Page, label: "Ketchup" | "Senap" | "Korv" | "Kaffe") =>
   page.getByRole("checkbox", { name: new RegExp(`^${label}\\b`) }).filter({ visible: true });
 const toast = (page: Page, text: string) => page.getByTestId("toast").filter({ hasText: text });
@@ -238,7 +239,7 @@ const tab = (page: Page, name: "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 /**
- * "Byt", then `name` in "Räkna listan mot": the sheet closes and the
+ * the boende button, then `name` in the sheet "Boende": the sheet closes and the
  * confirmation says so. A confirmation from before goes first, so the one
  * seen is this switch's.
  */
@@ -253,7 +254,7 @@ async function countAgainst(page: Page, name: "Hemma" | "Stugan") {
   await expect(toast(page, `Listan räknas nu mot ${name}.`)).toBeVisible();
   // Said once, by the confirmation: the list's own announcement stays empty (read at once, no retries).
   expect(await listAnnouncement(page).textContent()).toBe("");
-  await expect(siteLine(page)).toHaveText(`Boende: ${name}`);
+  await expect(siteLine(page)).toHaveAccessibleName(`Boende: ${name}`);
 }
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -267,30 +268,30 @@ test.beforeEach(async () => {
 test("Byt counts the list against Stugan: ketchup instead of senap, and Hemma shows Stugan as selected", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
-  await expect(bytButton(page)).toHaveText("Byt");
+  await expect(siteLine(page)).toHaveAccessibleName("Boende: Hemma");
+  await expect(bytButton(page)).toHaveText("Hemma");
   await expect(lineCheck(page, "Senap")).toBeVisible();
   await expect(lineCheck(page, "Korv")).toBeVisible();
   await expect(lineCheck(page, "Ketchup")).toHaveCount(0);
-  // Metadata under the title, never in a live region.
-  await expect(page.locator("[aria-live] [data-testid=site-line]")).toHaveCount(0);
+  // Under the title, never in a live region.
+  await expect(page.locator("[aria-live] [data-testid=boende-page]")).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 
   await bytButton(page).click();
   const sheet = switchSheet(page);
-  await expect(sheet.getByRole("list", { name: "Räkna listan mot" })).toBeVisible();
-  await expect(placeRow(page, "Hemma")).toHaveAttribute("aria-current", "true");
-  await expect(placeRow(page, "Stugan")).not.toHaveAttribute("aria-current");
+  await expect(sheet.getByRole("group", { name: "Boende" })).toBeVisible();
+  await expect(placeRow(page, "Hemma")).toHaveAttribute("aria-pressed", "true");
+  await expect(placeRow(page, "Stugan")).toHaveAttribute("aria-pressed", "false");
   await placeRow(page, "Stugan").click();
   await expect(sheet).toHaveCount(0);
   await expect(toast(page, "Listan räknas nu mot Stugan.")).toBeVisible();
   // Only the confirmation is said: the list's own recount stays silent for a switch made in the sheet.
   expect(await listAnnouncement(page).textContent()).toBe("");
-  await expect(siteLine(page)).toHaveText("Boende: Stugan");
+  await expect(siteLine(page)).toHaveAccessibleName("Boende: Stugan");
   await expect(lineCheck(page, "Ketchup")).toBeVisible();
   await expect(lineCheck(page, "Korv")).toBeVisible();
   await expect(lineCheck(page, "Senap")).toHaveCount(0);
-  // Focus goes back to Byt.
+  // Focus goes back to the boende button.
   await expect(bytButton(page)).toBeFocused();
   await expectNoHorizontalScroll(page);
   await expect.poll(async () => (await sites()).find((site) => site.is_selected)?.id).toBe(stugan);
