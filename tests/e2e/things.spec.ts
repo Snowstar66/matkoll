@@ -458,8 +458,8 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   if (stugan.error) throw stugan.error;
   // Searching, then asking, in the one field logs no console error or page error (Story 18.17).
   const problems: string[] = [];
-  // The seeded cards have no file in storage, so their thumbnails 404; that is the seed, not the page.
-  page.on("console", (message) => message.type() === "error" && !message.location().url.includes("/api/things/photo/") && problems.push(message.text()));
+  // The seeded cards have no file in storage, so their thumbnails 404, and so does the lookup of a thing on one (Story 18.7); that is the seed, not the page.
+  page.on("console", (message) => message.type() === "error" && !/\/api\/things\/(photo\/|locate)/.test(message.location().url) && problems.push(message.text()));
   page.on("pageerror", (error) => problems.push(error.message));
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
   await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
@@ -1100,6 +1100,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   expect(boxes.every((thing) => thing.box_left !== null && thing.box_width !== null)).toBe(true);
 
   await page.goto(`${roomUrl("Boden")}?vy=cards`);
+  await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0));
   await shot(page, "18-7-kort-fliken");
   await page.getByTestId("open-card").click();
   await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
