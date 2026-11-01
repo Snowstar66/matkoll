@@ -200,7 +200,7 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
               setView("photo");
             }}
             // A text button in meta type that keeps a 44 px tap area without making the line taller.
-            className="-mx-2 -my-3 inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-semibold text-accent"
+            className="-mx-2 -my-3 inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-medium text-accent"
           >
             {latestPhotoOpenText}
           </button>

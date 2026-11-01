@@ -167,7 +167,7 @@ function swipe(dx: number, dy = 0, { pointerId = 1, pointerType = "touch" } = {}
 describe("Laga nu", () => {
   it("is a secondary button beside Lägg på matsedeln, which stays the primary one", () => {
     render(<RecipeView recipe={recipe} snapshot={snapshot} addToPlan={addToPlan} />);
-    expect(cookButton()).toHaveClass("bg-sky", "text-sky-ink");
+    expect(cookButton()).toHaveClass("bg-surface", "text-accent");
     expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toHaveClass("bg-accent");
     expect(cookButton().parentElement).toBe(screen.getByRole("button", { name: "Lägg på matsedeln" }).parentElement);
     expect(cookButton().parentElement).toHaveClass("flex-wrap");
@@ -297,7 +297,7 @@ describe("CookMode", () => {
   it("has buttons of at least 44 px in the thumb zone, the primary being Nästa", async () => {
     installWakeLock();
     await openCookMode();
-    expect(previous()).toHaveClass("h-button", "bg-sky");
+    expect(previous()).toHaveClass("h-button", "bg-surface");
     expect(next()).toHaveClass("h-button", "bg-accent");
     expect(previous().closest("div.shrink-0")).toHaveClass(
       "pb-[calc(env(safe-area-inset-bottom)+var(--gutter-mobile))]",

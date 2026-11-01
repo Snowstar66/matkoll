@@ -94,7 +94,7 @@ export function UnpackSheet({ open, onClose, items, siteId, onSiteGone }: Unpack
                 className="flex flex-col gap-2 border-b border-hairline py-3 first:pt-0 last:border-b-0"
               >
                 <span className="flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 text-body font-semibold text-ink">{item.name}</span>
+                  <span className="min-w-0 flex-1 text-body font-medium text-ink">{item.name}</span>
                   {amount ? <span className="text-meta text-ink-2">{amount}</span> : null}
                 </span>
                 <FilterPills

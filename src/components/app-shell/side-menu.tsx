@@ -6,12 +6,11 @@ import { type ReactNode, Suspense } from "react";
 import { AppLogo } from "../app-logo";
 import { cx } from "../cx";
 import { currentState, type Destination, mainDestinations, settingsDestination } from "./destinations";
-import { NavEmoji } from "./nav-emoji";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 import { appName } from "@/app/app-info";
 
 function MenuLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
-  const { href, label, emoji } = destination;
+  const { href, label, Icon } = destination;
   const current = currentState(pathname, href);
   // Story 12.4: finished AI results that Pontus has not seen, never on the surface he is on.
   const badge = useAiBadgeCount(destination, current !== undefined);
@@ -23,12 +22,12 @@ function MenuLink({ destination, pathname }: { destination: Destination; pathnam
       aria-label={badge > 0 ? badgeName(label, badge) : undefined}
       className={cx(
         "flex min-h-tap items-center gap-3 rounded-md px-3 text-body focus-visible:-outline-offset-2",
-        // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4); the emoji keeps its colour.
-        current ? "bg-mint font-semibold text-mint-ink" : "text-ink-2",
+        // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4).
+        current ? "bg-mint font-medium text-mint-ink" : "font-medium text-ink-2",
       )}
     >
       <div className="relative">
-        <NavEmoji emoji={emoji} current={current !== undefined} size={20} />
+        <Icon size={22} tinted={current !== undefined} />
         <TabBadge count={badge} />
       </div>
       {label}

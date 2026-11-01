@@ -12,21 +12,28 @@
   /* Colours, light */
   --bg: #F5F7F4;
   --surface: #FFFFFF;
+  /* Level 3: sheets, menus and the toast (premium look, Story 19.1). Lifted in dark mode. */
+  --surface-2: #FFFFFF;
+  /* Tracks and field fills inside a sheet: ink at about 6 % (8 % in dark mode). */
+  --fill: #EAEDEB;
   --ink: #1B2420;
   --ink-2: #56635D;
   --ink-3: #6B7872;
-  --hairline: #EEF1EF;
-  --border: #E3E8E4;
+  --hairline: #E8ECE9;
+  --border: #DCE2DE;
   --accent: #3E7C62;
   --on-accent: #FFFFFF;
+  /* The one red, muted: Ta bort only, as text and icon, never a fill and never for errors, which stay light blue (Story 16.17, EXPERIENCE.md). */
+  --danger: #B3261E;
+  /* Segment: the grey track and the white plate of the chosen part. */
+  --seg-track: #E9ECEA;
+  --seg-on: #FFFFFF;
   --mint: #DDEFE5;
   --mint-ink: #2C5E48;
   --sky: #DCE9F6;
   --sky-ink: #2E5A85;
   --sand: #F1ECE2;
   --sand-ink: #6E5B3E;
-  /* Muted red for "Ta bort" only (Story 16.17, Pontus 2026-10-31); never for errors, which stay light blue. */
-  --danger: #B3261E;
   /* Store badge (Story 9.13): the chain's colour on an offer row; ICA warm clay, any other chain neutral. */
   --store-ica: #B3261E;
   --store-ica-ink: #FFFFFF;
@@ -42,56 +49,84 @@
   --tile-lilac: #E6E1F2;
   /* Veil behind sheets and dialogs: 40 % ink (DESIGN.md, Elevation & Depth). */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+  /* Level 2, the floating frame: the tab bar and the collapsed header, 84 % surface over a blur. */
+  --bar: color-mix(in srgb, var(--surface) 84%, transparent);
+  /* The one shadow, only for what floats over the page: a sheet as a dialog on desktop, menus, the toast. */
+  --shadow-float: 0 12px 32px rgb(27 36 32 / 0.14), 0 0 0 0.5px rgb(27 36 32 / 0.08);
   /* Light plate for a badge or the heart on a recipe image (image-badge, Epic 11); follows --surface in dark mode. */
   --overlay: color-mix(in srgb, var(--surface) 92%, transparent);
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Helvetica Neue", Arial, sans-serif;
-  --page-title-size: 34px;
-  --page-title-weight: 700;
-  --page-title-tracking: -0.5px;
-  --page-title-leading: 1.1;
-  --recipe-title-size: 28px;
-  --recipe-title-weight: 700;
-  --recipe-title-tracking: -0.4px;
-  --recipe-title-leading: 1.15;
-  --section-title-size: 24px;
-  --section-title-weight: 700;
-  --section-title-tracking: -0.3px;
-  --section-title-leading: 1.2;
+  /* Type scale (premium look): size / line-height in rem so 200 % text grows the rows; weights by role, never 700. */
+  --page-title-size: 1.875rem;
+  --page-title-weight: 600;
+  --page-title-tracking: -0.4px;
+  --page-title-leading: 2.25rem;
+  --recipe-title-size: 1.625rem;
+  --recipe-title-weight: 600;
+  --recipe-title-tracking: -0.3px;
+  --recipe-title-leading: 2rem;
+  --section-title-size: 1.25rem;
+  --section-title-weight: 600;
+  --section-title-tracking: -0.2px;
+  --section-title-leading: 1.625rem;
   --step-size: 24px;
   --step-weight: 500;
   --step-leading: 1.4;
-  --row-title-size: 17px;
-  --row-title-weight: 600;
-  --row-title-leading: 1.25;
-  --body-size: 16px;
+  --headline-size: 1.0625rem;
+  --headline-weight: 600;
+  --headline-leading: 1.375rem;
+  --row-title-size: 1.0625rem;
+  --row-title-weight: 500;
+  --row-title-leading: 1.375rem;
+  --item-size: 1.0625rem;
+  --item-weight: 400;
+  --item-leading: 1.375rem;
+  --body-size: 1rem;
   --body-weight: 400;
-  --body-leading: 1.45;
-  --meta-size: 14px;
+  --body-leading: 1.5rem;
+  --control-size: 0.9375rem;
+  --control-weight: 500;
+  --control-leading: 1.25rem;
+  --meta-size: 0.875rem;
   --meta-weight: 400;
-  --meta-leading: 1.35;
-  --section-label-size: 13px;
-  --section-label-weight: 600;
-  --section-label-tracking: 0.4px;
-  --badge-size: 12px;
-  --badge-weight: 600;
+  --meta-leading: 1.25rem;
+  --section-label-size: 0.8125rem;
+  --section-label-weight: 500;
+  --section-label-tracking: 0.5px;
+  --section-label-leading: 1.125rem;
+  --badge-size: 0.75rem;
+  --badge-weight: 500;
+  --badge-leading: 1rem;
+  /* px on purpose: the bar's labels are unchanged and break between their parts at 200 % (Story 10.4). */
   --tab-label-size: 11px;
   --tab-label-weight: 500;
+  --tab-label-leading: 13px;
 
   /* Corners */
+  --rounded-xs: 6px;
   --rounded-sm: 10px;
-  --rounded-md: 14px;
-  --rounded-lg: 18px;
+  --rounded-md: 12px;
+  --rounded-lg: 16px;
   --rounded-xl: 24px;
-  --rounded-pill: 17px;
+  --rounded-pill: 999px;
   --rounded-full: 9999px;
 
   /* Spacing and sizes (the 4–24 px steps are Tailwind's 1–6; 32 px is 8) */
+  /* The 4-px base, rhythm of 8 (premium look); 20 px is the page gutter. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
   --gutter-mobile: 20px;
   /* Side padding that also keeps clear of the iPhone's side safe areas in landscape. */
   --gutter-page: max(var(--gutter-mobile), env(safe-area-inset-left), env(safe-area-inset-right));
-  --header-top-mobile: 56px;
+  /* Air above the page title: 16 px in a browser tab, below the notch on the home screen. */
+  --header-top-mobile: max(16px, calc(env(safe-area-inset-top) + 8px));
   --tap-min: 44px;
   /*
    * The tab bar and, while an AI job is queued or running, the job row above
@@ -99,7 +134,7 @@
    * toast, FixedAction, the page's bottom padding) follows its height. The
    * job row sets --job-row-height to its own height, and removes it.
    */
-  --tab-bar-height: calc(84px + var(--job-row-height, 0px));
+  --tab-bar-height: calc(56px + env(safe-area-inset-bottom) + var(--job-row-height, 0px));
   --side-menu-width: 240px;
   --content-max: 720px;
   /* Inställningar on a desktop (Story 14.8): the two columns need more than the content width. */
@@ -122,22 +157,26 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121714;
-    --surface: #1B211E;
-    --ink: #E8EDEA;
-    --ink-2: #A9B5AF;
-    --ink-3: #8E9A94;
-    --hairline: #262E2A;
-    --border: #2F3833;
+    --bg: #0F1311;
+    --surface: #181D1A;
+    --surface-2: #202622;
+    --fill: #242927;
+    --ink: #E6EBE8;
+    --ink-2: #A3AFA9;
+    --ink-3: #86928C;
+    --hairline: #262D29;
+    --border: #313934;
     --accent: #6FB394;
     --on-accent: #0F1A15;
+    --danger: #E5736A;
+    --seg-track: #1A1F1C;
+    --seg-on: #2C3430;
     --mint: #1F3A2D;
     --mint-ink: #A8D9BF;
     --sky: #1E3247;
     --sky-ink: #A9C9EA;
     --sand: #3A3326;
     --sand-ink: #DCC9A6;
-    --danger: #E5736A;
     --store-ica: #E5736A;
     --store-ica-ink: #2A0B08;
     --store-other: #C3CDC8;
@@ -150,6 +189,9 @@
     --tile-lilac: #2C2840;
     /* Dark ink is light, so the veil darkens with black instead. */
     --scrim: color-mix(in srgb, #000000 60%, transparent);
+    /* No shadow in the dark (it does not show): a hairline light edge, with the lifted --surface-2. */
+    --shadow-float: 0 0 0 0.5px rgb(255 255 255 / 0.09);
+    --bar: color-mix(in srgb, var(--surface) 82%, transparent);
   }
 }
 
@@ -158,7 +200,7 @@
   --color-*: initial;
   --radius-*: initial;
   --text-*: initial;
-  /* No shadows (DESIGN.md, Elevation & Depth). */
+  /* One shadow only, --shadow-float below (DESIGN.md, Elevation & Depth). */
   --shadow-*: initial;
   --inset-shadow-*: initial;
   --drop-shadow-*: initial;
@@ -214,6 +256,12 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fill: var(--fill);
+  --color-seg-track: var(--seg-track);
+  --color-seg-on: var(--seg-on);
+  --color-danger: var(--danger);
+  --color-bar: var(--bar);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -227,7 +275,6 @@
   --color-sky-ink: var(--sky-ink);
   --color-sand: var(--sand);
   --color-sand-ink: var(--sand-ink);
-  --color-danger: var(--danger);
   --color-store-ica: var(--store-ica);
   --color-store-ica-ink: var(--store-ica-ink);
   --color-store-other: var(--store-other);
@@ -241,6 +288,8 @@
   --color-overlay: var(--overlay);
 
   --font-sans: var(--font-family);
+
+  --shadow-float: var(--shadow-float);
 
   --text-page-title: var(--page-title-size);
   --text-page-title--font-weight: var(--page-title-weight);
@@ -257,24 +306,37 @@
   --text-step: var(--step-size);
   --text-step--font-weight: var(--step-weight);
   --text-step--line-height: var(--step-leading);
+  --text-headline: var(--headline-size);
+  --text-headline--font-weight: var(--headline-weight);
+  --text-headline--line-height: var(--headline-leading);
   --text-row-title: var(--row-title-size);
   --text-row-title--font-weight: var(--row-title-weight);
   --text-row-title--line-height: var(--row-title-leading);
+  --text-item: var(--item-size);
+  --text-item--font-weight: var(--item-weight);
+  --text-item--line-height: var(--item-leading);
   --text-body: var(--body-size);
   --text-body--font-weight: var(--body-weight);
   --text-body--line-height: var(--body-leading);
+  --text-control: var(--control-size);
+  --text-control--font-weight: var(--control-weight);
+  --text-control--line-height: var(--control-leading);
   --text-meta: var(--meta-size);
   --text-meta--font-weight: var(--meta-weight);
   --text-meta--line-height: var(--meta-leading);
   --text-section-label: var(--section-label-size);
   --text-section-label--font-weight: var(--section-label-weight);
   --text-section-label--letter-spacing: var(--section-label-tracking);
+  --text-section-label--line-height: var(--section-label-leading);
   --text-badge: var(--badge-size);
   --text-badge--font-weight: var(--badge-weight);
+  --text-badge--line-height: var(--badge-leading);
   --text-tab-label: var(--tab-label-size);
   --text-tab-label--font-weight: var(--tab-label-weight);
+  --text-tab-label--line-height: var(--tab-label-leading);
   --text-tile-icon: var(--tile-icon);
 
+  --radius-xs: var(--rounded-xs);
   --radius-sm: var(--rounded-sm);
   --radius-md: var(--rounded-md);
   --radius-lg: var(--rounded-lg);
@@ -315,13 +377,13 @@
     line-height: var(--body-leading);
   }
 
-  /* Visible focus ring in the accent colour (EXPERIENCE.md, Accessibility Floor). */
+  /* Visible focus ring in the accent colour, for the keyboard only; it follows the element's rounding (EXPERIENCE.md, Accessibility Floor). */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
-  /* No shadows anywhere; sheets and dialogs dim the page with a veil instead. */
+  /* Sheets and dialogs dim the page with a veil. */
   dialog::backdrop {
     background-color: var(--scrim);
   }
@@ -347,15 +409,10 @@
   }
 }
 
-/* The selected segment of the week control (Story 14.5): white in light mode,
-   the surface lifted towards the ink in dark mode, so it stands out from the track. */
+/* The chosen plate of a segment (Story 14.5, premium look): white in light mode, a clearly lighter
+   plate than the track in dark mode so the chosen week shows. */
 .segment-on {
-  background-color: var(--surface);
-}
-@media (prefers-color-scheme: dark) {
-  .segment-on {
-    background-color: color-mix(in srgb, var(--surface), var(--ink) 22%);
-  }
+  background-color: var(--seg-on);
 }
 
 /*

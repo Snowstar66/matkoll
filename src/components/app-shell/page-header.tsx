@@ -20,10 +20,10 @@ export type PageHeaderProps = {
   backOnlyOnMobile?: boolean;
 };
 
-/** Sidrubrik: 34 px bold title with 56 px of air above it on mobile (more under a notch). */
+/** Sidrubrik: 30 px semibold title with 16 px of air above it in a browser tab on mobile (below the notch on the home screen). */
 export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
   return (
-    <header className="flex flex-col pt-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] pb-4 desktop:pt-10">
+    <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
       {backHref ? (
         <Link
           href={backHref}

@@ -53,9 +53,9 @@ test.describe("mobile, 390 × 844", () => {
     await expect(mainMenu(page)).toHaveCount(1);
     await expect(mainMenu(page).getByRole("link")).toHaveText(mainLabels.map(endsWith));
 
-    // The tab bar sits at the bottom of the screen and is 84 px high.
+    // The tab bar sits at the bottom of the screen and is 56 px high (no safe area in a browser tab, Story 19.1).
     const box = await mainMenu(page).boundingBox();
-    expect(box?.height).toBe(84);
+    expect(box?.height).toBe(56);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBe(mobile.height);
 
     // The active tab is in the accent colour, the others in ink-3 (light mode values).
@@ -174,7 +174,7 @@ test.describe("desktop, 1280 × 800", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     const dark = await background();
     expect(light).toBe("rgb(245, 247, 244)");
-    expect(dark).toBe("rgb(18, 23, 20)");
+    expect(dark).toBe("rgb(15, 19, 17)");
   });
 });
 
@@ -188,7 +188,7 @@ test.describe("dark mode from the start", () => {
     const title = await page.getByRole("heading", { level: 1 }).evaluate((el) => getComputedStyle(el).color);
     // The visible main menu: the tab bar at this width.
     const tabBar = await mainMenu(page).evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect({ body, title, tabBar }).toEqual({ body: "rgb(18, 23, 20)", title: "rgb(232, 237, 234)", tabBar: "rgb(27, 33, 30)" });
+    expect({ body, title, tabBar }).toEqual({ body: "rgb(15, 19, 17)", title: "rgb(230, 235, 232)", tabBar: "color(srgb 0.0941176 0.113725 0.101961 / 0.82)" });
   });
 });
 
@@ -262,6 +262,6 @@ test.describe("tab labels (Story 10.4)", () => {
     );
     // The tab bar itself never scrolls sideways, and keeps its height while everything fits.
     expect(await mainMenu(page).evaluate((nav) => nav.scrollWidth <= nav.clientWidth)).toBe(true);
-    expect((await mainMenu(page).boundingBox())?.height).toBe(84);
+    expect((await mainMenu(page).boundingBox())?.height).toBe(56);
   });
 });

@@ -139,7 +139,7 @@ test.describe("<head>", () => {
       .evaluateAll((metas) => metas.map((meta) => [meta.getAttribute("media"), meta.getAttribute("content")]));
     expect(themeColors).toEqual([
       ["(prefers-color-scheme: light)", "rgb(245 247 244)"],
-      ["(prefers-color-scheme: dark)", "rgb(18 23 20)"],
+      ["(prefers-color-scheme: dark)", "rgb(15 19 17)"],
     ]);
   });
 });

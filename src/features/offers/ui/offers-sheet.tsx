@@ -323,7 +323,7 @@ export function OffersSheet({
                 {tops > 0 ? (
                   <>
                     {" · "}
-                    <span data-testid="offers-finds" className="font-semibold">
+                    <span data-testid="offers-finds" className="font-medium">
                       <span aria-hidden="true">{"\u{1F525} "}</span>
                       {`${tops} Toppklipp`}
                     </span>

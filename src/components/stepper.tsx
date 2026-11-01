@@ -77,12 +77,12 @@ export function Stepper({
       </button>
       <output
         aria-live="polite"
-        className="sr-only text-center text-body font-semibold break-normal text-ink @[11rem]:not-sr-only @[11rem]:min-w-0 @[11rem]:flex-1"
+        className="sr-only text-center text-body font-medium tabular-nums break-normal text-ink @[11rem]:not-sr-only @[11rem]:min-w-0 @[11rem]:flex-1"
       >
         {text}
       </output>
       {/* Only in a narrow selector: the number, which the output above says in full. */}
-      <span aria-hidden="true" className="min-w-0 flex-1 text-center text-body font-semibold text-ink @[11rem]:hidden">
+      <span aria-hidden="true" className="min-w-0 flex-1 text-center text-body font-medium tabular-nums text-ink @[11rem]:hidden">
         {stepperNumber(text)}
       </span>
       <button

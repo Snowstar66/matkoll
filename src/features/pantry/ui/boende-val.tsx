@@ -63,7 +63,7 @@ function BoendeList({
             )}
           >
             <span className="flex min-w-0 flex-col">
-              <span className="text-body font-semibold break-words text-ink desktop:text-[0.9375rem]">{site.name}</span>
+              <span className="text-body font-medium break-words text-ink desktop:text-[0.9375rem]">{site.name}</span>
               {sub ? <span className="text-meta text-ink-2">{boendeMenuText(sub)}</span> : null}
             </span>
             {checked ? <CheckIcon size={18} className="ml-auto shrink-0 text-accent" /> : null}
@@ -75,7 +75,7 @@ function BoendeList({
         scroll={false}
         role={menu ? "menuitem" : undefined}
         onClick={onManage}
-        className="mt-1.5 flex min-h-tap items-center justify-between border-t border-hairline px-3 pt-1 text-body font-semibold text-accent"
+        className="mt-1.5 flex min-h-tap items-center justify-between border-t border-hairline px-3 pt-1 text-body font-medium text-accent"
       >
         {manageBoendenText}
         <span aria-hidden="true">›</span>
@@ -92,6 +92,7 @@ export function BoendeVal({ variant, sites, loadCounts }: BoendeValProps) {
   const [counts, setCounts] = useState<Record<string, BoendeCounts> | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
+  const usedKeyboard = useRef(false);
   const menuId = useId();
   const side = variant === "side";
 
@@ -119,24 +120,31 @@ export function BoendeVal({ variant, sites, loadCounts }: BoendeValProps) {
   }, [open, side]);
 
   useEffect(() => {
-    if (open && side) root.current?.querySelector<HTMLElement>("[role=menuitemradio]")?.focus();
+    // Only a keyboard user is moved into the menu; a mouse click leaves no focus ring behind.
+    if (open && side && usedKeyboard.current) root.current?.querySelector<HTMLElement>("[role=menuitemradio]")?.focus();
   }, [open, side]);
 
   if (sites.length < 2) return null;
   const shown = sites.find((site) => site.id === shownId) ?? sites[0];
 
+  function returnFocus() {
+    if (usedKeyboard.current) toggle.current?.focus();
+  }
+
   function close() {
     setOpen(false);
-    toggle.current?.focus();
+    returnFocus();
   }
 
   function onChoose(id: string) {
     setOpen(false);
-    toggle.current?.focus();
+    returnFocus();
     if (id !== shownId) void choose(id);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    usedKeyboard.current = true;
+    if (!side) return;
     if (event.key === "Escape") {
       event.preventDefault();
       close();
@@ -161,7 +169,10 @@ export function BoendeVal({ variant, sites, loadCounts }: BoendeValProps) {
       ref={root}
       data-testid={`boende-${variant}`}
       className={cx("relative", side ? "hidden desktop:block" : "desktop:hidden")}
-      onKeyDown={side ? onKeyDown : undefined}
+      onKeyDown={onKeyDown}
+      onPointerDown={() => {
+        usedKeyboard.current = false;
+      }}
     >
       <button
         ref={toggle}
@@ -186,7 +197,7 @@ export function BoendeVal({ variant, sites, loadCounts }: BoendeValProps) {
       {side && open ? (
         <div
           id={menuId}
-          className="absolute top-full left-0 z-40 mt-1 w-[16.75rem] rounded-lg bg-surface p-1.5 shadow-lg ring-1 ring-hairline"
+          className="absolute top-full left-0 z-40 mt-1 w-[16.75rem] rounded-lg bg-surface p-1.5 shadow-float ring-1 ring-hairline"
         >
           {list}
         </div>

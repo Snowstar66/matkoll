@@ -18,8 +18,8 @@ function contrast(a: string, b: string): number {
 const { light, dark } = colorTokens();
 
 const colorNames = [
-  "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "danger", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac",
+  "bg", "surface", "surface-2", "fill", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "danger", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "seg-track", "seg-on",
 ];
 
 /** [text, background, where it is used] */
@@ -35,6 +35,7 @@ const textPairs: [string, string, string][] = [
   ["sand-ink", "sand", "AI-förslag"],
   ["store-ica-ink", "store-ica", "store badge, ICA"],
   ["danger", "surface", "Ta bort in the Lagervara sheet (Story 16.17)"],
+  ["danger", "surface-2", "Ta bort in the Lagervara sheet, which is surface-2 since Story 19.1"],
   ["store-other-ink", "store-other", "store badge, other chains"],
   ["deal-ink", "deal", "saving badge on an offer row"],
   ["deal-ink", "surface", "saving percent as text on an offer row (Story 16.6)"],

@@ -58,7 +58,7 @@ export function LocationCards({ selected, counts, ready = [] }: LocationCardsPro
                   {icon}
                 </span>
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-meta leading-tight font-semibold text-ink">{location}</span>{" "}
+                  <span className="text-meta leading-tight font-medium text-ink">{location}</span>{" "}
                   <span className={cx("text-badge", isSelected ? "text-mint-ink" : "font-normal text-ink-3")}>
                     {itemCountText(counts[location])}
                   </span>

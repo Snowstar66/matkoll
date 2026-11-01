@@ -98,7 +98,7 @@ const cardsOf = async () => (await adminClient().from("thing_photo").select("id,
 test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page }) => {
   await page.goto("/prylar");
   const links = nav(page).getByRole("link");
-  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "🥕Matvaror", "🧰Förråd"]);
+  await expect(links).toHaveText(["Recept", "Matsedel", "Inköpslista", "Matvaror", "Förråd"]);
   await expect(nav(page).getByRole("link", { name: "Förråd" })).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveTitle(/Förråd/);
 });

@@ -7,6 +7,8 @@ export type IconProps = {
   /** Width and height in px. */
   size?: number;
   className?: string;
+  /** A soft fill (16 %) in the icon's colour: the chosen tab (premium look). */
+  tinted?: boolean;
 };
 
 type BaseProps = IconProps & {
@@ -15,13 +17,14 @@ type BaseProps = IconProps & {
   filled?: boolean;
 };
 
-function Icon({ size = 24, className, children, strokeWidth = 1.8, filled = false }: BaseProps) {
+function Icon({ size = 24, className, children, strokeWidth = 1.8, filled = false, tinted = false }: BaseProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
+      fill={filled || tinted ? "currentColor" : "none"}
+      fillOpacity={tinted && !filled ? 0.16 : undefined}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -60,6 +63,26 @@ export function CartIcon(props: IconProps) {
       <path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4" />
       <circle cx="9.5" cy="19.5" r="1.5" />
       <circle cx="17" cy="19.5" r="1.5" />
+    </Icon>
+  );
+}
+
+/** A carrot: the Matvaror tab. */
+export function CarrotIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z" />
+      <path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9" />
+    </Icon>
+  );
+}
+
+/** A storage box with a lid: the Förråd tab. */
+export function BoxIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="5" rx="1.5" />
+      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" />
     </Icon>
   );
 }

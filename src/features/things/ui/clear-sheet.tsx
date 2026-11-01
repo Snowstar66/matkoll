@@ -78,7 +78,7 @@ export function ClearSheet({ open, onClose, title, counts, detail, word, onClear
     >
       <div className="flex flex-col gap-3" aria-busy={busy || undefined}>
         {notice ? <Notice role="alert">{notice}</Notice> : null}
-        <p className="text-body font-semibold text-ink" data-testid="clear-counts">
+        <p className="text-body font-medium text-ink" data-testid="clear-counts">
           {clearLeadText(counts)}
         </p>
         <p className="text-body text-ink-2">{detail}</p>

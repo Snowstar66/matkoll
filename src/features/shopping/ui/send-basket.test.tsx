@@ -182,7 +182,7 @@ describe("Kopiera till ICA-varukorgen", () => {
   it("is the secondary button alone, in the list's FixedAction (Story 11.4)", () => {
     stubClipboard("ok");
     render(<ShoppingList {...props()} />);
-    expect(sendButton()).toHaveClass("bg-sky");
+    expect(sendButton()).toHaveClass("bg-surface");
     expect(screen.queryByRole("button", { name: "Lägg till i Matvaror" })).not.toBeInTheDocument();
   });
 
@@ -214,7 +214,7 @@ describe("Kopiera till ICA-varukorgen", () => {
     const put = screen.getByRole("button", { name: "Lägg till i Matvaror" });
     const send = sendButton()!;
     expect(put).toHaveClass("bg-accent");
-    expect(send).toHaveClass("bg-sky");
+    expect(send).toHaveClass("bg-surface");
     // One FixedAction: "Kopiera till ICA-varukorgen" first in the row, "Lägg till i Matvaror" after it (on top when they wrap).
     expect(put.parentElement).toBe(send.parentElement);
     expect(send.compareDocumentPosition(put) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

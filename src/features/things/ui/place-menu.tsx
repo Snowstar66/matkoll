@@ -126,7 +126,7 @@ export function PlaceMenu({ placeId, part, box, counts, roomHasOthers }: PlaceMe
       >
         <div className="flex flex-col gap-3" aria-busy={busy || undefined}>
           {notice ? <Notice role="alert">{notice}</Notice> : null}
-          <p className="text-body font-semibold text-ink" data-testid="place-remove-counts">
+          <p className="text-body font-medium text-ink" data-testid="place-remove-counts">
             {removePlaceLeadText(counts)}
           </p>
           <p className="text-body text-ink-2">{removePlaceDetailText(box)}</p>

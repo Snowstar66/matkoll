@@ -107,7 +107,7 @@ export function FilterPills<T extends string>({
               onClick={() => choose(index)}
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cx(
-                "relative flex min-w-0 items-center justify-center rounded-sm px-3 font-semibold whitespace-nowrap outline-none",
+                "relative flex min-w-0 items-center justify-center rounded-sm px-3 font-medium whitespace-nowrap outline-none",
                 tall
                   ? "flex-1 gap-1.5 text-body"
                   : "text-meta before:absolute before:inset-x-0 before:-inset-y-[9px] before:content-['']",
@@ -150,7 +150,7 @@ export function FilterPills<T extends string>({
           >
             <span
               className={cx(
-                "flex items-center rounded-pill text-meta font-semibold group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent",
+                "flex items-center rounded-pill text-meta font-medium group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent",
                 compact ? "h-8 px-3" : "h-[34px] px-[14px]",
                 selected ? "bg-accent text-on-accent" : "bg-surface text-ink-2",
               )}
