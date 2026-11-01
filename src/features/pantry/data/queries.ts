@@ -8,6 +8,7 @@ import {
   type Location,
   type Unit,
 } from "@/features/catalog";
+import { lastChangeOf, noOthers, type Others } from "@/features/household";
 import {
   comparePantryItems,
   toSnapshot,
@@ -119,13 +120,14 @@ export async function listPantryIn(
   location: Location,
   ingredientSummaries: IngredientSummaries,
   siteId?: string,
+  others: Others = noOthers,
 ): Promise<PantryItem[]> {
   const place = await placeToRead(db, siteId);
   if (place === null) return [];
   const rows = await allPages((from, to) =>
     db
       .from("pantry_item")
-      .select("id, site_id, ingredient_id, location, amount, unit, label, created_at")
+      .select("id, site_id, ingredient_id, location, amount, unit, label, created_at, user_id, updated_by, updated_at")
       .eq("site_id", place)
       .eq("location", location)
       .order("id")
@@ -150,6 +152,7 @@ export async function listPantryIn(
       label: readableLabel(row.label),
       createdAt: row.created_at,
       section: summary.section,
+      lastChange: lastChangeOf(others, row),
     };
   });
   return items.sort(comparePantryItems);

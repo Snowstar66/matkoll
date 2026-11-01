@@ -1,4 +1,5 @@
 import { UNITS, type Location, type Section, type Unit } from "@/features/catalog";
+import type { LastChange } from "@/features/household";
 
 // What is at home (FR-11, FR-12, AD-19): a pantry item points at a catalog
 // ingredient and is kept in one location, with an amount and unit or
@@ -27,6 +28,8 @@ export type PantryItem = {
   createdAt: string | null;
   /** The catalog ingredient's section, so the view can work out its category (AD-12). */
   section: Section;
+  /** Story 21.3: who else in the household last added or changed it, and when; absent or null when that was me. */
+  lastChange?: LastChange | null;
 };
 
 /** An amount at home in one unit. Units are never converted into each other (AD-12). */

@@ -76,13 +76,19 @@ vi.mock("@/features/catalog/server", () => ({
 const getSelectedStore = vi.fn();
 vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore() }));
 
+// Story 21.3: the other members, for the marks; none unless a test says so.
+const getOthers = vi.fn(async (): Promise<ReadonlyMap<string, { name: string; tone: string }>> => new Map());
+vi.mock("@/features/household/server", () => ({ getOthers: () => getOthers() }));
+
 const db = { session: true };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const listChecksIn = vi.fn();
 // The checks' keys from listChecksIn's stub, with ids as listCheckRowsIn reads them.
 vi.mock("./data/checks", () => ({
   listCheckRowsIn: async (...args: unknown[]) =>
-    ((await listChecksIn(...args)) as string[]).map((key, index) => ({ id: `check-${index}`, key })),
+    ((await listChecksIn(...args)) as (string | { key: string; by: string; at: string })[]).map((check, index) =>
+      typeof check === "string" ? { id: `check-${index}`, key: check } : { id: `check-${index}`, ...check },
+    ),
 }));
 const listCustomItemsIn = vi.fn();
 vi.mock("./data/custom-items", () => ({ listCustomItemsIn: (...args: unknown[]) => listCustomItemsIn(...args) }));
@@ -142,6 +148,7 @@ const listed = (choices: Record<string, unknown> = {}, unreadable: string[] = []
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user" }));
+  getOthers.mockReset().mockResolvedValue(new Map());
   getCurrentPlan.mockReset().mockResolvedValue(plan);
   getRecipesByIds.mockReset().mockResolvedValue([recipe]);
   getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([{ ingredientId: gradde, amount: 1, unit: "dl" }]));
@@ -179,6 +186,7 @@ describe("getShoppingList", () => {
         checksUnavailable: false,
         pendingClear: 0,
         ...withStore,
+        marks: {},
       }),
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
@@ -220,6 +228,7 @@ describe("getShoppingList", () => {
         checksUnavailable: false,
         pendingClear: 0,
         ...withStore,
+        marks: {},
       }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
@@ -239,6 +248,27 @@ describe("getShoppingList", () => {
     expect(result.ok && result.data.lines.map((line) => [line.key, line.label, line.checked])).toEqual([
       [`c:${disk}`, "diskmedel", true],
     ]);
+  });
+
+  it("marks what someone else in the household checked off or added, and nothing of mine (Story 21.3)", async () => {
+    const martina = "a0000000-0000-4000-8000-00000000000a";
+    const me = "b0000000-0000-4000-8000-00000000000b";
+    const citron = "56000000-5555-4555-8555-555555555555";
+    const disk = "57000000-5555-4555-8555-555555555555";
+    getOthers.mockResolvedValue(new Map([[martina, { name: "Martina", tone: "sky" }]]));
+    listCustomItemsIn.mockResolvedValue([
+      { id: citron, label: "citron", ingredientId: null, amount: null, unit: null, by: martina, at: "2026-11-04T13:12:00Z" },
+      { id: disk, label: "diskmedel", ingredientId: null, amount: null, unit: null, by: me, at: "2026-11-04T13:13:00Z" },
+    ]);
+    listChecksIn.mockResolvedValue([
+      { key: `r:${gradde}:dl`, by: martina, at: "2026-11-04T16:42:00Z" },
+      { key: `c:${disk}`, by: me, at: "2026-11-04T16:43:00Z" },
+    ]);
+    const result = await getShoppingList();
+    expect(result.ok && result.data.marks).toEqual({
+      [`r:${gradde}:dl`]: { checkedBy: { name: "Martina", tone: "sky", at: "2026-11-04T16:42:00Z" } },
+      [`c:${citron}`]: { addedBy: { name: "Martina", tone: "sky", at: "2026-11-04T13:12:00Z" } },
+    });
   });
 
   it("reads own items for the shown week, so a coming week leaves out what was checked before it", async () => {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { CategoryHeader } from "@/components/category-header";
+import { Avatar } from "@/components/app-shell/avatar";
 import { CheckCircle } from "@/components/check-circle";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +19,7 @@ import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
 import { TrashButton, type TrashPress } from "@/components/trash-button";
 import type { Category } from "@/features/catalog";
+import { initialOf } from "@/features/household";
 import { type SelectedSite, shownSiteName } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
@@ -25,6 +27,7 @@ import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
+import { markDetailText, markLabel, noMarks, shownMark, type LineMarks } from "../domain/line-marks";
 import {
   filterEmptyText,
   LIST_FILTERS,
@@ -185,6 +188,8 @@ export type ShoppingListProps = {
   productChoicesUnavailable?: boolean;
   /** The catalog ingredients whose stored choice cannot be read: their section says so. */
   unreadableChoices?: readonly string[];
+  /** Story 21.3: the lines someone else in the household checked off or added. */
+  marks?: LineMarks;
 };
 
 /** How long an announcement stays in the live region before it is cleared. */
@@ -650,6 +655,7 @@ export function ShoppingList({
   empty,
   openAddOnStart = false,
   filter: initialFilter = null,
+  marks = noMarks,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
@@ -923,6 +929,7 @@ export function ShoppingList({
       onOpen={() => openDetail(line)}
       checkingOff={checksUnavailable}
       ignoredTap={ignored?.key === line.key ? ignored.id : null}
+      mark={shownMark(line, marks)}
     />
   );
 
@@ -1092,6 +1099,10 @@ export function ShoppingList({
               session={detail.session}
               planId={detail.planId}
               line={detail.line}
+              byLine={(() => {
+                const shown = shownMark(lines.find((line) => line.key === detail.line.key) ?? detail.line, marks);
+                return shown ? markDetailText(shown) : undefined;
+              })()}
               dishTitles={plan?.dishTitles ?? {}}
               searchIngredients={searchIngredients}
               onRemove={removal.remove}
@@ -1319,6 +1330,7 @@ export function ShoppingLineRow({
   onOpen,
   checkingOff = false,
   ignoredTap = null,
+  mark = null,
 }: {
   line: ShoppingLine;
   /** The line under the name (lineMetaText), or `null`. */
@@ -1336,6 +1348,8 @@ export function ShoppingLineRow({
   checkingOff?: boolean;
   /** A tap on the check was ignored (doubleTapGuardMs): a new number each time, for a short cue; `null` for none. */
   ignoredTap?: number | null;
+  /** Story 21.3: someone else checked the line off or added it (shownMark); their initial goes before the amount. */
+  mark?: ReturnType<typeof shownMark>;
 }) {
   const metaId = useId();
   const chipId = useId();
@@ -1360,8 +1374,8 @@ export function ShoppingLineRow({
     plain: true,
     oneLine: true,
     crossedOut: line.checked,
-    // The strike-through, said: "Grädde 3 dl, i korgen".
-    srStatus: line.checked ? "i korgen" : undefined,
+    // The strike-through, said: "Grädde 3 dl, i korgen"; and who else did it: "…, i korgen, bockad av Martina".
+    srStatus: [line.checked ? "i korgen" : null, mark ? markLabel(mark) : null].filter(Boolean).join(", ") || undefined,
     leading: (
       <CheckCircle
         checked={line.checked}
@@ -1378,8 +1392,12 @@ export function ShoppingLineRow({
       />
     ),
     trailing:
-      amount || chip || onTrash ? (
+      amount || chip || onTrash || mark ? (
         <>
+          {/* Story 21.3 (decision 6): someone else's initial, 20 px in their shade; said in srStatus. */}
+          {mark ? (
+            <Avatar initial={initialOf(mark.mark.name)} size={20} tone={mark.mark.tone} className="mr-1.5" data-testid="line-mark" title={markLabel(mark)} />
+          ) : null}
           {/* Story 19.7: the amount to the right in grey, struck through with the name when checked. */}
           {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[15px] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
           {chip ? <ProductChip name={chip} id={chipId} /> : null}

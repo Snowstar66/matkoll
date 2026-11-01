@@ -28,15 +28,19 @@ export async function listChecksIn(db: ShoppingDb, planId: string | null): Promi
  * check's id is the idempotency key of the item it puts in the pantry, stable
  * until the check is cleared. Throws ShoppingDataError.
  */
-export async function listCheckRowsIn(db: ShoppingDb, planId: string | null): Promise<{ id: string; key: string }[]> {
+export async function listCheckRowsIn(
+  db: ShoppingDb,
+  planId: string | null,
+): Promise<{ id: string; key: string; by: string | null; at: string }[]> {
   validate(planId);
   // An own item's check (`c:` key) belongs to the user, not to a plan (Story 17.10).
   const { data, error } = await db
     .from("shopping_check")
-    .select("id, line_key")
+    .select("id, line_key, user_id, created_at")
     .or(planId === null ? "meal_plan_id.is.null" : `meal_plan_id.eq.${planId},meal_plan_id.is.null`);
   if (error) throw new ShoppingDataError(`list_checks_failed ${error.code}`, error.code);
-  return data.map((row) => ({ id: row.id, key: row.line_key }));
+  // Story 21.3: a check is one row, made by the one who checked the line off.
+  return data.map((row) => ({ id: row.id, key: row.line_key, by: row.user_id, at: row.created_at }));
 }
 
 /**

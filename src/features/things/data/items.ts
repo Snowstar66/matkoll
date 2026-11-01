@@ -61,7 +61,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
     // Story 18.23: its history, which goes with it, for "Ångra".
     const history = await db
       .from("thing_change")
-      .select("kind, delta, quantity_after, cleared, created_at")
+      .select("kind, delta, quantity_after, cleared, created_at, user_id")
       .eq("item_id", id)
       .order("created_at")
       .order("id")
@@ -109,16 +109,18 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
 async function restoreHistoryIn(db: ThingsDb, thing: ThingSnapshot): Promise<void> {
   if (thing.quantity === null || thing.changes.length === 0) return;
   try {
-    const { error } = await db.from("thing_change").insert(
-      thing.changes.map((change) => ({
-        item_id: thing.id,
+    // Story 21.3: each change keeps the one who made it (put_thing_changes checks that they are in the household).
+    const { error } = await db.rpc("put_thing_changes", {
+      item: thing.id,
+      changes: thing.changes.map((change) => ({
         kind: change.kind,
         delta: change.delta,
         quantity_after: change.quantity_after,
         cleared: change.cleared,
         created_at: change.created_at,
+        ...(change.user_id === undefined ? {} : { user_id: change.user_id }),
       })),
-    );
+    });
     if (error) console.error("things_history_restore_failed", { reason: error.code });
   } catch {
     console.error("things_history_restore_failed", { reason: "threw" });

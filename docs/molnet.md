@@ -379,6 +379,16 @@ Lokalt står samma sak i `supabase/config.toml` (`[auth] enable_signup = true` o
 5. **Rätta rum (slå ihop två rum)** kopierar ett korts fil inom tagarens mapp; för ett kort som en tidigare medlem tog misslyckas det, och sammanslagningen säger "Det gick inte att byta namn".
 6. **Filer under en borttagen plats eller ett borttaget boende** i en tidigare medlems mapp, ligger kvar oläsbara för alla tills den personens konto raderas (då tar `users:sync` hela mappen).
 
+## Vem som gjort vad (Story 21.3)
+
+Migreringen `20261102150000_who_did_what.sql`. Bara det **någon annan** i hushållet gjort markeras: en initial 20 px i personens nyans på raden i Inköpslistan ("bockad av Martina", "tillagd av Martina" för skärmläsaren, och "Martina bockade av · 17:42" i Listpostdetalj), namnet före verbet i föremålets Ändringar ("Martina tog"), och en rad under rubriken i lagervarans ark och hos ett föremål utan antal ("Martina ändrade · 4 nov").
+
+- **Bockar och egna varor** behövde ingen ny kolumn: en bock är en rad som `set_shopping_check` lägger in som den inloggade (och tar bort när bocken tas bort), så dess `user_id` är den som bockade; en egen varas `user_id` är den som lade till den.
+- **`pantry_item` och `thing_item`** fick `updated_by` och `updated_at`. Triggern `stamp_updated_by` sätter båda från sessionen vid varje insert och update, så ingen kan skriva någon annans namn. Utan session (service role, `on delete set null`) lämnas raden som den är. Rader från före migreringen har inga värden; appen läser då `user_id` och `created_at`.
+- **Föremålets historik behåller skaparen** när den skrivs om: sammanslagning, Ta om, Ångra efter Sluta räkna och Ångra efter ett borttaget föremål går genom `put_thing_changes` (security definer, eftersom radskyddet bara låter en lägga in rader i eget namn). En skapare behålls bara om personen är medlem i hushållet nu; annars blir det den som anropar.
+- **Kvar som risk:** en medlem kan via `put_thing_changes` lägga in en ändring i en annan *nuvarande* medlems namn i det egna hushållet (Ångra skickar tillbaka historiken från webbläsaren). Aldrig i ett annat hushåll, och aldrig för någon utanför hushållet.
+- Namnen och nyanserna läses en gång per sidvisning (`getOthers`, från `household_members`). Kan de inte läsas markeras inget.
+
 ## Vad som är provat
 
 Provat 2026-10-31 i förberedelsegrenen `prep/molnet`, utan någon molnkontakt:

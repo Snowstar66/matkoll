@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
 import { cx } from "@/components/cx";
 import { Notice } from "@/components/notice";
+import { lastChangeText } from "@/features/household";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { loadThingCount, restoreThingCount, setThingCount, stopThingCount, undoThingChange } from "../actions/thing-count";
 import {
@@ -60,7 +61,10 @@ function Changes({ changes }: { changes: readonly ThingChange[] }) {
               <b className={cx("w-[30px] shrink-0 text-row-title tabular-nums", row.quiet ? "font-medium text-ink-2" : "font-semibold", row.plus ? "text-accent" : !row.quiet && "text-ink")}>
                 {row.amount}
               </b>
-              <span className="min-w-0 flex-1 text-body text-ink">{row.label}</span>
+              {/* Story 21.3: someone else's change has their name before the verb ("Martina tog"); mine stay "Tog". */}
+              <span className="min-w-0 flex-1 text-body text-ink" data-testid="count-change-label">
+                {change.who ? `${change.who.name} ${row.label.toLowerCase()}` : row.label}
+              </span>
               <time dateTime={change.at} className="shrink-0 text-meta text-ink-3">
                 {changeDateText(change.at)}
               </time>
@@ -272,6 +276,12 @@ export function CountCard({
           {setRow}
           {done ? <DoneLine done={done} busy={busy} onUndo={undo} /> : null}
         </div>
+        {/* Story 21.3: without a history, who else last added or changed the föremål ("Martina ändrade · 4 nov"). */}
+        {count?.lastChange ? (
+          <p className="m-0 px-1 text-meta text-ink-2" data-testid="thing-last-change">
+            {lastChangeText(count.lastChange)}
+          </p>
+        ) : null}
       </div>
     );
   }

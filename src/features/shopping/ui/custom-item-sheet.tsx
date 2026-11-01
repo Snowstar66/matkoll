@@ -120,6 +120,8 @@ export type CustomItemSheetProps = {
   item?: CustomItemSheetItem;
   /** The title for an item to change: its text as the line showed it. */
   title?: string;
+  /** The line under the title of an item to change (Story 21.3: "Martina lade till · 14:12"). */
+  subtitle?: string;
   /** "Ta bort" in an item's detail: removes it, with "Ångra" (Story 3.5). */
   onRemove?: () => void;
   /**
@@ -149,6 +151,7 @@ export function CustomItemSheet({
   session,
   item,
   title,
+  subtitle,
   onRemove,
   renderAfterForm,
 }: CustomItemSheetProps) {
@@ -385,6 +388,7 @@ export function CustomItemSheet({
             ? (title ?? item.label)
             : addSheetTitle
       }
+      subtitle={item && !unitStep ? subtitle : undefined}
       onBack={unitStep ? () => setUnitStep(false) : undefined}
       // "Klar" once something was added: what is added is saved (the sheet rule, Story 19.4).
       closeLabel={added && !item ? "Klar" : "Avbryt"}

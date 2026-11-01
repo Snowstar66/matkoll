@@ -9,7 +9,8 @@ import { parseLineKey } from "./line-key";
 // so it is tested without a database.
 
 /** A check as stored (shopping_check): its id, the item's idempotency key in the pantry, and its line key. */
-export type CheckRow = { id: string; key: string };
+/** A check; `by` is who checked it off and `at` when (Story 21.3), where they were read. */
+export type CheckRow = { id: string; key: string; by?: string | null; at?: string };
 
 /** One item for pantry.addToPantry; its location is the catalog ingredient's. */
 export type PantryAddition = {
