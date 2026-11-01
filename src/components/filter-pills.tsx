@@ -27,7 +27,7 @@ export type FilterPillsProps<T extends string> = {
   compact?: boolean;
   /** Deprecated: renders a `Segment` (Story 19.3). New code uses `Segment` directly. */
   segmented?: boolean;
-  /** With `segmented`: 46 px segments (Story 16.17). */
+  /** With `segmented` (Story 16.17): the taller choice for a form, a `Segment` with 46 px segments. */
   tall?: boolean;
 };
 

@@ -1,0 +1,82 @@
+name: Cloud migrate
+
+# Story 17.3 (AC 2), prepared but switched off. On every push to main that changes
+# supabase/migrations, this applies the new migrations to the cloud database with
+# `supabase db push`. Vercel builds the app itself through its Git integration;
+# nothing here calls Vercel.
+#
+# Off until the repository variable CLOUD_ENABLED is "true" (Settings > Secrets and
+# variables > Actions > Variables). Until then the job is skipped, which GitHub
+# shows as a grey "skipped" run, and it is not a required check on main, so merges
+# are never held up by it. docs/molnet.md describes the secrets.
+#
+# The migrations are backward compatible with the previous code (AD-5), so the
+# few minutes between the migration and Vercel's new build are safe. Never
+# `supabase db reset` here.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two pushes in a row run one after the other, never at the same time.
+concurrency:
+  group: cloud-migrate
+  cancel-in-progress: false
+
+env:
+  # Same version as ci.yml and the `supabase` dev dependency.
+  SUPABASE_CLI_VERSION: 2.122.0
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/main' && vars.CLOUD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # With CLOUD_ENABLED on, a missing secret is a red run, never a silent skip.
+      - name: Check the secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          missing=()
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing+=(SUPABASE_ACCESS_TOKEN)
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing+=(SUPABASE_DB_PASSWORD)
+          [ -n "$SUPABASE_PROJECT_REF" ] || missing+=(SUPABASE_PROJECT_REF)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            message="CLOUD_ENABLED är på men hemligheterna saknas: ${missing[*]}. Se docs/molnet.md."
+            echo "::error title=Molnmigrering::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "::add-mask::$SUPABASE_DB_PASSWORD"
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Link the cloud project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # The list of what is about to run stays in the log, so a surprise is visible.
+      - name: Push the migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push --dry-run
+          supabase db push

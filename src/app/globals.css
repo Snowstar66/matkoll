@@ -23,7 +23,7 @@
   --border: #DCE2DE;
   --accent: #3E7C62;
   --on-accent: #FFFFFF;
-  /* The one red: Ta bort, as text and icon only, never a fill (EXPERIENCE.md). */
+  /* The one red, muted: Ta bort only, as text and icon, never a fill and never for errors, which stay light blue (Story 16.17, EXPERIENCE.md). */
   --danger: #B3261E;
   /* Segment: the grey track and the white plate of the chosen part. */
   --seg-track: #E9ECEA;
@@ -195,7 +195,7 @@
   }
 }
 
-/* Only DESIGN.md tokens: Tailwind's own palette, radii and text sizes are removed (no red anywhere). */
+/* Only DESIGN.md tokens: Tailwind's own palette, radii and text sizes are removed (no red anywhere, except --danger for Ta bort, Story 16.17). */
 @theme {
   --color-*: initial;
   --radius-*: initial;

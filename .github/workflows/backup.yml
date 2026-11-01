@@ -5,6 +5,11 @@ name: Backup
 # branch, so this starts once the file is on main. Not a required check: it
 # never runs on pull requests. docs/drift.md describes the secrets, the
 # BACKUP_ENABLED variable and the restore.
+#
+# Switched on with the repository variable CLOUD_ENABLED = "true" (the same switch
+# as cloud-migrate.yml, docs/molnet.md), or with BACKUP_ENABLED alone. With
+# neither set the job is skipped. CLOUD_ENABLED also counts as BACKUP_ENABLED
+# below, so a missing secret then fails the run.
 on:
   schedule:
     # Mondays and Thursdays 03:17 UTC, off the hour when scheduled runs pile up.
@@ -25,7 +30,7 @@ env:
 jobs:
   backup:
     # Only main has the migrations that match the cloud database.
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (vars.CLOUD_ENABLED == 'true' || vars.BACKUP_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -39,7 +44,7 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
-          BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
+          BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED || vars.CLOUD_ENABLED }}
         run: |
           missing=()
           [ -n "$SUPABASE_DB_URL" ] || missing+=(SUPABASE_DB_URL)

@@ -226,8 +226,8 @@ describe("AiSuggestions", () => {
     expect(first.getByRole("heading", { level: 3, name: "Kycklinggryta" })).toBeInTheDocument();
     expect(first.getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(first.getByText("AI-förslag")).toHaveClass("bg-sand", "text-sand-ink");
-    // A recipe card: a short mint strip on top with the AI label on it, and no heart.
-    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-16");
+    // A recipe card: a mint placeholder on top with the AI label on it, and no heart.
+    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-card-image");
     expect(first.queryByRole("button", { name: /Favorit/ })).not.toBeInTheDocument();
     // The label is read before "Spara", and no card loads an address from the model.
     expect(
