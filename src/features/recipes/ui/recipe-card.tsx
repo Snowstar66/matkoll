@@ -86,7 +86,6 @@ export function RecipeCard({
   favorite,
   onDelete,
   deleteLabel,
-  tile = false,
   quickAction,
   children,
   "data-testid": testId = "recipe-card",
@@ -99,14 +98,14 @@ export function RecipeCard({
           {href ? (
             <Link
               href={href}
-              className={cx("text-row-title break-words text-ink outline-none", tile && "line-clamp-2", "after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent")}
+              className={cx("line-clamp-2 text-[15px]/5 font-semibold wrap-break-word text-ink outline-none", "after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent")}
             >
               {title}
             </Link>
           ) : (
-            <h3 className="text-row-title break-words text-ink">{title}</h3>
+            <h3 className="text-[15px]/5 font-semibold wrap-break-word text-ink">{title}</h3>
           )}
-          <p className="text-meta text-ink-3">{meta}</p>
+          <p className="text-[13px]/[18px] text-ink-3">{meta}</p>
         </div>
         {onDelete ? (
           <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
@@ -117,24 +116,24 @@ export function RecipeCard({
           src={imageUrl}
           emoji={emoji}
           iconSize={emoji ? 56 : 40}
-          className={cx("w-full rounded-t-lg", tile ? "h-[104px] desktop:h-card-image" : "h-card-image")}
+          className={cx("w-full rounded-t-lg", "h-card-image desktop:h-[180px]")}
         />
-        {badge || favorite ? (
-          <div
-            data-testid="recipe-card-plates"
-            className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2"
-          >
-            {/* 3.5rem: the heart's 44 px and the gap, so the badge never runs under it. */}
-            <div className="flex max-w-[calc(100%-3.5rem)] min-w-0">{badge}</div>
-            {favorite ? (
-              <HeartToggle
-                pressed={favorite.pressed}
-                onPressedChange={favorite.onPressedChange}
-                label={`Favorit, ${title}`}
-                // The focus ring is drawn inside the light plate, so it shows on any photo.
-                className="relative z-10 bg-overlay focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-accent"
-              />
-            ) : null}
+        {badge ? (
+          <div data-testid="recipe-card-plates" className="absolute inset-x-0 bottom-0 flex p-2">
+            <div className="flex max-w-full min-w-0">{badge}</div>
+          </div>
+        ) : null}
+        {favorite ? (
+          // 44 px tap area with the 32 px glass plate inside, 4 px from the corner.
+          <div className="absolute top-0.5 right-0.5 z-10">
+            <HeartToggle
+              pressed={favorite.pressed}
+              onPressedChange={favorite.onPressedChange}
+              label={`Favorit, ${title}`}
+              glass
+              // The focus ring is drawn inside the tap area, so it shows on any photo.
+              className="focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-accent"
+            />
           </div>
         ) : null}
       </div>

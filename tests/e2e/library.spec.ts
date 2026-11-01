@@ -97,11 +97,11 @@ test("saved recipes are listed newest first with time and servings, and a row op
   await expectTitles(page, [soppa, gryta]);
   await expect(row(page, soppa).getByText("30 min · 6 portioner")).toBeVisible();
   await expect(row(page, gryta).getByText("40 min · 4 portioner")).toBeVisible();
-  // No image address from pasted text: a mint placeholder across the top of the card, as tall as a photo (104 px).
+  // No image address from pasted text: a mint placeholder across the top of the card, as tall as a photo (120 px, Story 19.6).
   await expect(row(page, gryta).getByTestId("recipe-image-placeholder")).toBeVisible();
   const image = await row(page, gryta).getByTestId("recipe-image-placeholder").boundingBox();
   const card = await row(page, gryta).boundingBox();
-  expect(image?.height).toBe(104);
+  expect(image?.height).toBe(120);
   expect(image?.width).toBeCloseTo(card!.width, 0);
   await expectAll(page);
 
@@ -258,7 +258,7 @@ test("the compact view, the sort and the categories work together and are kept a
   await expect(compactRows.filter({ hasText: soppa })).toContainText("30 min · 6 port.");
   await expect(page.getByRole("button", { name: /^Ta bort/ })).toHaveCount(0);
   const thumb = await compactRows.first().getByTestId("recipe-image-placeholder").boundingBox();
-  expect(thumb?.width).toBe(48);
+  expect(thumb?.width).toBe(56);
   expect(await noSidewaysScroll()).toBe(true);
   await page.reload();
   await expect(compactRows).toHaveCount(2);

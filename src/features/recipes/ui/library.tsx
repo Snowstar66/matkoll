@@ -260,20 +260,27 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
 
   return (
     <div className="flex flex-col gap-3">
-      <SearchField
-        ref={searchField}
-        label="Sök recept"
-        placeholder="Sök på titel eller ingrediens"
-        maxLength={maxSearchChars}
-        onSearch={runSearch}
-      />
-      <RecipeFilterChips
-        filter={filter}
-        onFilterChange={setFilter}
-        category={category}
-        onCategoryChange={setCategory}
-        available={availableCategories}
-      />
+      {/* Story 19.6: on a desktop the search (360 px) and the filter chips share a row. */}
+      <div className="flex flex-col gap-3 desktop:flex-row desktop:items-center desktop:gap-4">
+        <div className="desktop:w-[360px] desktop:shrink-0">
+        <SearchField
+          ref={searchField}
+          label="Sök recept"
+          placeholder="Sök på titel eller ingrediens"
+          maxLength={maxSearchChars}
+          onSearch={runSearch}
+        />
+        </div>
+        <div className="min-w-0 desktop:flex-1 desktop:[&>div]:mx-0 desktop:[&>div]:px-0 desktop:[&>div]:[mask-image:linear-gradient(90deg,#000_92%,transparent)]">
+        <RecipeFilterChips
+          filter={filter}
+          onFilterChange={setFilter}
+          category={category}
+          onCategoryChange={setCategory}
+          available={availableCategories}
+        />
+        </div>
+      </div>
       {/* Metadata, never announced: the badges are what changes. */}
       {siteLine ? (
         <p className="text-meta break-words text-ink-2" data-testid="site-line">

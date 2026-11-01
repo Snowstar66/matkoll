@@ -145,6 +145,12 @@
   --content-max: 720px;
   /* Inställningar on a desktop (Story 14.8): the two columns need more than the content width. */
   --frame-wide: 1040px;
+  /* Recept on a desktop (Story 19.6): three columns of cards. */
+  --frame-recipes: 960px;
+  /* The 960 px frame, or what the window leaves beside the side menu; the page centres itself on the 720 px frame with it. */
+  --frame-recipes-w: min(var(--frame-recipes), calc(100vw - var(--side-menu-width) - 2 * var(--gutter-mobile)));
+  /* Matte glass on a photo: the heart and the label on a recipe card, the round buttons on the recipe view. */
+  --glass: rgba(255, 255, 255, 0.78);
   --settings-menu-width: 320px;
   --dialog-max: 560px;
   --thumb-list: 72px;
@@ -163,6 +169,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --glass: rgba(28, 32, 30, 0.66);
     --bg: #0F1311;
     --surface: #181D1A;
     --surface-2: #202622;
@@ -372,6 +379,7 @@
 
   --container-content: var(--content-max);
   --container-frame-wide: var(--frame-wide);
+  --color-glass: var(--glass);
   --container-dialog: var(--dialog-max);
 }
 

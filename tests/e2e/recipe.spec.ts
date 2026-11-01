@@ -64,10 +64,10 @@ test("an import saves the recipe by itself and Öppna opens the recipe view", as
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await expect(page).toHaveTitle(`${title} – Livskoll`);
   await expectReceptCurrent(page);
-  // The recipe has no time, so no meta line; the portion selector shows the servings.
-  await expect(page.getByTestId("recipe-meta")).toHaveCount(0);
+  // The recipe has no time, so the meta line is the source alone; the portion selector shows the servings.
+  await expect(page.getByTestId("recipe-meta").filter({ visible: true })).not.toContainText("min");
   await expect(page.getByRole("article").filter({ visible: true }).getByText("4 portioner", { exact: true })).toBeVisible();
-  await expect(page.getByText("Källa: Inklistrad text")).toBeVisible();
+  await expect(page.getByTestId("recipe-meta").filter({ visible: true }).filter({ hasText: "Inklistrad text" })).toBeVisible();
   // No image address from pasted text: the placeholder takes its place. The
   // library stays mounted but hidden after navigation, so only visible ones count.
   await expect(page.getByTestId("recipe-image-placeholder").filter({ visible: true })).toHaveCount(1);
@@ -119,6 +119,7 @@ test.describe("desktop, 1280 × 800", () => {
     const stepsBox = await page.getByRole("region", { name: "Steg" }).boundingBox();
     expect(ingredientsBox!.x + ingredientsBox!.width).toBeLessThanOrEqual(stepsBox!.x);
     await expectReceptCurrent(page);
-    expect(Math.abs(ingredientsBox!.y - stepsBox!.y)).toBeLessThan(2);
+    // Story 19.6: the portions and the buttons stand above the ingredients in the left column, so the steps start higher.
+    expect(stepsBox!.y).toBeLessThanOrEqual(ingredientsBox!.y);
   });
 });

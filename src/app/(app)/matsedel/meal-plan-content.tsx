@@ -120,6 +120,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         snapshot={view.snapshot}
         names={view.names ?? {}}
         siteId={view.site?.id ?? null}
+        nextWeek={{ weekStart: addWeeks(weekStart, 1), count: counts[addWeeks(weekStart, 1)] ?? 0 }}
       />
     </AddDishProvider>
   );

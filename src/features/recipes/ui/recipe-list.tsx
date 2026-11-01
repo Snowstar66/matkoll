@@ -24,13 +24,13 @@ export type RecipeListProps = {
 
 /**
  * The library's recipe cards, in the order given (newest first, or ranked):
- * two columns on a phone as in the sketch (Story 14.4; one when 200 % text leaves no room for 10 rem tiles), two from 1024 px. Each
+ * two columns on a phone as in the sketch (Story 14.4; one when 200 % text leaves no room for 10 rem tiles), three from 1024 px. Each
  * has the status on its image ("Kan lagas nu" or "Saknar N varor"; none when
  * the pantry could not be read) and the heart.
  */
 export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, planning, addToPlan }: RecipeListProps) {
   return (
-    <ul aria-label={ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-2">
+    <ul aria-label={ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
       {recipes.map((recipe) => (
         <RecipeCard
           key={recipe.id}
