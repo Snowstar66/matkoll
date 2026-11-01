@@ -28,7 +28,7 @@ Hemligheter (lösenord, nycklar) skriver du själv in i Vercels och GitHubs webb
 | 5 | Din användare | Båda | 1 min |
 | 6 | Första publiceringen | Claude | 3 min |
 | 7 | Rökprov | Båda | 5 min |
-| 8 | Slå på CI och säkerhetskopian | Båda | 3 min |
+| 8 | Slå på CI, säkerhetskopian och erbjudandena | Båda | 3 min |
 | 9 | Egen domän (valfritt) | Båda | 5 min |
 | 10 | Flytta din data (recept, lager, matsedlar, listor, foton) | Båda | 5 min |
 
@@ -161,7 +161,7 @@ Sätt miljövariablerna under **Settings → Environment Variables** *innan* ste
 | `OPENAI_API_KEY` | används inte | nej | nej | hemlig |
 | `AI_MOCK_DELAY_MS` | **sätts aldrig** (bara testerna) | nej | nej | – |
 | `DEV_AUTO_LOGIN_EMAIL`, `DEV_AUTO_LOGIN_PASSWORD`, `MATKOLL_DEV_LOOPBACK` | **sätts aldrig** (automatisk inloggning på din dator) | nej | nej | – |
-| `SUPABASE_SERVICE_ROLE_KEY` | **läggs aldrig i Vercel**, bara tillfälligt i din terminal i steg 5 | nej | nej | hemlig |
+| `SUPABASE_SERVICE_ROLE_KEY` | **läggs aldrig i Vercel**: tillfälligt i din terminal i steg 5, och som hemlighet i GitHub för erbjudandejobbet (steg 8) | nej | nej | hemlig |
 | `VERCEL`, `NODE_ENV` | sätts av Vercel och Next själva | auto | auto | – |
 
 Preview får bara `SITE_URL` och `AI_PROVIDER=mock`. Förhandsversioner når därför aldrig den riktiga databasen; de bygger bara och svarar 503 (provat). Variabler börjar gälla först i nästa driftsättning.
@@ -172,10 +172,12 @@ Preview får bara `SITE_URL` och `AI_PROVIDER=mock`. Förhandsversioner når dä
 
 | Namn | Typ | Värde och var det hämtas | Används av |
 | --- | --- | --- | --- |
-| `CLOUD_ENABLED` | Variable | `true` när allt fungerar (strömbrytaren) | båda flödena |
+| `CLOUD_ENABLED` | Variable | `true` när allt fungerar (strömbrytaren) | alla tre flödena |
 | `SUPABASE_ACCESS_TOKEN` | Secret | supabase.com → Account → **Access Tokens** → Generate (namn `github-ci`) | `cloud-migrate.yml` |
 | `SUPABASE_DB_PASSWORD` | Secret | databaslösenordet från steg 1 | `cloud-migrate.yml` |
-| `SUPABASE_PROJECT_REF` | Secret | `<ref>` från steg 1 | `cloud-migrate.yml` |
+| `SUPABASE_PROJECT_REF` | Secret | `<ref>` från steg 1 (bara id:t, ingen adress) | `cloud-migrate.yml`, `offers.yml` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret | `sb_secret_…`: Supabase → Project Settings → API Keys (samma som i steg 5) | `offers.yml` |
+| `SUPABASE_PUBLISHABLE_KEY` | Secret | `sb_publishable_…`: samma värde som `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` i Vercel | `offers.yml` |
 | `SUPABASE_DB_URL` | Secret | Session pooler-strängen med lösenordet i (procentkodat, `@` blir `%40`) | `backup.yml` |
 | `BACKUP_PASSPHRASE` | Secret | minst 32 tecken: `openssl rand -base64 32`; spara i lösenordshanteraren, utan den går kopiorna inte att läsa | `backup.yml` |
 
@@ -227,22 +229,29 @@ Gör dem på telefonen (Safari/Chrome) och i datorns webbläsare, på den riktig
 
 Hittas fel: skriv ned vilket steg och vad som hände; Claude felsöker. Appen kan alltid stängas av genom att pausa Vercel-projektet; datan ligger kvar i Supabase.
 
-## 8. Slå på CI och säkerhetskopian – [Båda]
+## 8. Slå på CI, säkerhetskopian och erbjudandena – [Båda]
 
-Två flöden i `.github/workflows/` är färdiga men avstängda. Båda är **inte** obligatoriska kontroller på `main`; utan `CLOUD_ENABLED` hoppas de över (GitHub visar "skipped") och inget annat flöde påverkas.
+Tre flöden i `.github/workflows/` är färdiga men avstängda. Inget av dem är en obligatorisk kontroll på `main`; utan `CLOUD_ENABLED` hoppas de över (GitHub visar "skipped") och inget annat flöde påverkas.
 
 - **`cloud-migrate.yml`** kör `supabase db push` mot molndatabasen vid varje push till `main` som ändrar `supabase/migrations/`. Vercels egen Git-koppling bygger och driftsätter appen vid samma push; CI anropar inte Vercel. Migrationerna är bakåtkompatibla med föregående kod, så minuterna emellan är säkra.
 - **`backup.yml`** gör en krypterad `pg_dump`-kopia (via `supabase db dump`) måndag och torsdag 03:17 UTC och sparar den som artefakt i 90 dagar utanför Supabase, i GitHub. Den håller också gratisprojektet vaket (Supabase pausar gratisprojekt efter en vecka utan aktivitet).
+- **`offers.yml`** (Story 17.11) hämtar erbjudandena varje dag 04:00 UTC och söndagar 19:00 UTC (svensk tid 05:00 och 20:00 på vintern, 06:00 och 21:00 på sommaren; schemat är i UTC och flyttar sig med sommartiden) för varje butik som har en erbjudandelänk. ICA lägger ut nästa veckas erbjudanden sent, söndag kväll eller måndag, så de körs ofta för att nästa vecka ska synas så fort den finns. Har minst hälften så många erbjudanden på sidan nästa vecka kvar som de som slutar den här veckan, sparas de också på nästa vecka (som appen då visar); annars är de bara erbjudanden som gäller längre och stannar på den här veckan. En ny körning samma vecka ersätter veckans rader från länken, så inget dubbleras. ICA släpper inte in Vercels servrar (403) men svarar GitHubs. Jobbet (`pnpm offers:fetch`, `scripts/fetch-offers.ts`) använder appens egen säkra hämtning med samma ärliga rubriker, samma läsare och samma sparande som knappen i appen: en butikssida i taget med paus emellan, och en sida hämtas en gång även om flera har butiken. Den hemliga nyckeln används bara för att lista butikerna och logga in som varje ägare (en engångslänk som växlas direkt; inget mejl skickas), sedan sparas allt med ägarens egen session, som i appen, och sessionen loggas ut. Loggen har bara koder och antal. Svarar ICA 403/429 eller går något annat fel blir körningen röd, så att GitHub mejlar (med dagliga körningar kan det bli ett mejl om dagen tills felet är borta). I appen på Vercel står det "Erbjudandena hämtas automatiskt varje morgon – nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag)." om någon trycker Hämta och ICA säger nej.
 
 Gör så här:
 
 1. **[Pontus]** Lägg in hemligheterna ur tabellen ovan (alla utom `CLOUD_ENABLED`).
 2. **[Pontus]** Sätt variabeln `CLOUD_ENABLED` = `true`.
-3. **[Claude]** Kör **Actions → Cloud migrate → Run workflow** och **Actions → Backup → Run workflow** på `main`. Båda ska bli gröna; Backup ska ha artefakten `matkoll-backup-<datum>` med fyra `.gpg`-filer.
+3. **[Claude]** Kör **Actions → Cloud migrate → Run workflow**, **Actions → Backup → Run workflow** och **Actions → Offers → Run workflow** på `main`. Alla ska bli gröna; Backup ska ha artefakten `matkoll-backup-<datum>` med fyra `.gpg`-filer, och Offers ska sluta med raden `offers_job_done` där `saved` är antalet butiker som fick erbjudanden.
 4. **[Pontus]** Kontrollera under **GitHub → Settings → Notifications → Actions** att misslyckade flöden mejlas till dig.
 5. **[Pontus]** En gång i månaden: ladda ned senaste säkerhetskopian (zip) och spara den utanför GitHub, med lösenfrasen på ett annat ställe.
 
 Är `CLOUD_ENABLED` på men en hemlighet saknas blir körningen röd med ett tydligt meddelande, aldrig tyst.
+
+### Hämta erbjudandena för hand
+
+Vill du ha erbjudandena direkt (ny butik, eller ICA uppdaterade sidan sent): **GitHub → repot → Actions → Offers → Run workflow** (gren `main`) → **Run workflow**. Det tar en minut eller två. En butik som hämtats de senaste 15 minuterna lämnas i fred. Loggen visar per sida `read` (sidan lästes), `blocked` (ICA sa nej, butiken spärras 6 timmar som i appen) eller en felkod, och sist summan: `saved` butiker, `offers` erbjudanden, `recently` som lämnades i fred.
+
+`pnpm offers:fetch` läser inte `.env.local`: jobbet rör alla användares butiker och hämtar riktiga sidor, så det körs bara med inställningarna uttryckligen satta (som i flödet). På datorn räcker knappen i appen.
 
 ### Återställning
 
@@ -376,7 +385,7 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 
 ### Efter flytten
 
-11. **Butikserbjudanden hämtas från Vercels IP-adresser.** ICA-sidor kan svara 403 eller 429 mot molntrafik; koden hanterar det (status sparas, `store_offers.attempted_at`) men resultatet är inte provat från molnet. Rökprovet visar det; fungerar det inte får erbjudandena bli manuella.
+11. **Butikserbjudanden: löst med GitHub-jobbet (Story 17.11).** Från Vercel svarar ICA 403 (provat efter publiceringen 2026-11-01). Från GitHub Actions svarar sidan 200 med hela sidan och appens rubriker (provat tre gånger). Därför hämtar `offers.yml` erbjudandena varje morgon och söndag kväll (steg 8), och appen på Vercel säger lugnt att de hämtas automatiskt när ICA nekar ett tryck. Försöket sparas på butiken som förut (`store.offers_attempted_at`). Kvar att se: att ICA fortsätter släppa in GitHubs runners; gör de inte det blir körningen röd och GitHub mejlar. Willys och Hemköp kan bli en egen story (jobbet har plats för fler läsare); Coop hoppas över.
 12. **Receptimport från molnet** går mot riktiga sajter med `safeFetch` (Node, DNS-kontroll). Provat lokalt; provas på riktigt i rökprovet.
 13. **Härdning av den automatiska inloggningen.** Den kan inte slå till i molnet (se nedan), men en extra spärr kostar nästan inget: vägra starta (i `src/server/env.ts`) om `NODE_ENV=production` och `DEV_AUTO_LOGIN_*` är satta. Inte gjort; inga ändringar i appens beteende ingår i förberedelsen.
 14. **`config.toml` pekar på `./seed.sql`** som inte finns (varning vid `supabase start`, harmlöst).
@@ -400,7 +409,8 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 - `scripts/move-to-cloud.ts`, `scripts/move-to-cloud/` och `scripts/test-move-to-cloud.sh` (Story 17.4: flyttskriptet och dess tvåstackstest)
 - `.github/workflows/cloud-migrate.yml` (ny, avstängd tills `CLOUD_ENABLED=true`)
 - `.github/workflows/backup.yml` (`CLOUD_ENABLED` slår på den; hoppas över när varken den eller `BACKUP_ENABLED` är satt)
+- `.github/workflows/offers.yml`, `scripts/fetch-offers.ts`, `scripts/fetch-offers/` och `scripts/src-paths.mjs` (Story 17.11: erbjudandena varje morgon och söndag kväll; avstängt tills `CLOUD_ENABLED=true`)
 - `.env.example` (bara kommentarer: var varje värde sätts)
 - `vercel.json` (`"regions": ["cdg1"]`; `ignoreCommand` borttagen vid publiceringen 2026-11-01)
 - `supabase/config.toml` (ämnesraderna i inloggningsmejlen säger Livskoll i stället för Matkoll, som mallarna)
-- `tests/lint/backup-workflow.test.ts` (följer ändringen i `backup.yml`)
+- `tests/lint/backup-workflow.test.ts` (följer ändringen i `backup.yml`) och `tests/lint/offers-workflow.test.ts` (`offers.yml`)

@@ -203,6 +203,9 @@ export const errorMessages = {
   offers_fetched_recently: "Erbjudandena hämtades nyss. Försök igen om en stund.",
   // 403 or 429 from the store's site: no new try.
   offers_fetch_blocked: `ica.se släppte inte in ${appName} just nu. Öppna sidan och titta där, eller försök igen senare.`,
+  // Story 17.11: the same refusal in the cloud (Vercel), where it is expected: a
+  // GitHub job fetches the offers every morning and Sunday evening instead. Shown calmly, not as an alert.
+  offers_fetch_scheduled: "Erbjudandena hämtas automatiskt varje morgon – nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag).",
   // Too slow, too large, no connection or another status.
   offers_fetch_failed: "Det gick inte att hämta erbjudandena. Försök igen senare.",
   // No offer data in the page, or a shape the reader does not know.

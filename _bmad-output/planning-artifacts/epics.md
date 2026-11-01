@@ -3842,6 +3842,62 @@ så att det familjen skriver in inte försvinner.
 
 **Regel (beslutad vid bygget):** en egen vara hör till hushållet, inte till en vecka (`shopping_custom_item.meal_plan_id` är tom för nya varor, och bockarna för egna varor, nyckel `c:<id>`, hör till användaren). Varan visas i varje veckas lista, även en vecka utan matsedel, tills den bockas av. En avbockad vara visas kvar (avbockad, "I korgen") den vecka den bockades av och döljs i senare veckors listor när den veckan har passerat (tittar man på en kommande vecka medan man planerar ligger den kvar i korgen tills veckan är slut); avbockningens tidpunkt (`shopping_check.created_at`) avgör veckan. "Lägg i förrådet" och "Ta bort" raderar varan helt. En matsedel behålls inte längre för sina egna varors skull, och raderas matsedeln behåller varorna sin plats på listan. "Lägg i förrådet" finns bara för en vecka med matsedel.
 
+### Story 17.11: Erbjudanden hämtas schemalagt från GitHub
+
+Som Pontus,
+vill jag att erbjudandena hämtas av sig själva varje morgon och söndag kväll,
+så att pristaggen visar dem i molnappen fast ICA inte släpper in Vercels servrar, och nästa veckas syns så fort ICA lagt ut dem.
+
+Bakgrund: från Vercel svarar ICA:s sajt 403. Från GitHub Actions svarar den 200 med hela sidan och samma ärliga rubriker som appen skickar. Pontus valde en schemalagd hämtning (2026-11-01). Samma dag: ICA lägger ut nästa veckas erbjudanden sent (söndag 13:43 slutade 182 erbjudanden samma dag och bara 16 veckan efter), så jobbet körs varje morgon och söndag kväll i stället för bara måndag. Willys och Hemköp kan bli en egen story senare; Coop hoppas över. Jobbet byggs så att fler kedjor kan kopplas in, men bara ICA byggs nu.
+
+**Acceptance Criteria:**
+
+**Givet** att `CLOUD_ENABLED` är `true` och hemligheterna finns
+**När** klockan är 04:00 UTC (varje dag) eller 19:00 UTC en söndag, eller någon kör **Actions → Offers → Run workflow**
+**Så** hämtas sidan för varje användares butik med erbjudandelänk, med appens säkra hämtning, samma rubriker och samma läsare, och erbjudandena sparas precis som när man trycker Hämta i appen (raderna, ingrediensmatchningen mot användarens egen katalog och försöket på butiken), så att appen visar dem oförändrat
+
+**Givet** att sidan har minst hälften så många erbjudanden som gäller in i nästa vecka som de som slutar den här veckan
+**När** jobbet (eller Hämta i appen) läser sidan
+**Så** sparas de också på nästa veckas `week_start`, och appen visar nästa vecka; är de färre stannar de på den här veckan (erbjudanden som bara gäller längre), så att listan inte byts mot en handfull
+
+**Givet** att jobbet körs igen samma vecka
+**När** det sparar
+**Så** ersätts veckans rader från länken; inget dubbleras
+
+**Givet** att flera användare har samma butikslänk
+**När** jobbet körs
+**Så** hämtas sidan en gång, en butikssida i taget med en kort paus emellan, och sparas för var och en
+
+**Givet** en butik utan länk, eller med en länk appen inte hämtar
+**När** jobbet körs
+**Så** hoppas den över och räknas
+
+**Givet** en butik som hämtades för mindre än 15 minuter sedan
+**När** jobbet körs
+**Så** lämnas den i fred; en spärr som Vercels server fick (403/429) stoppar inte jobbet
+
+**Givet** att sidan svarar 403 eller 429, eller att något annat fel uppstår
+**När** jobbet körs
+**Så** spärras butiken i 6 timmar som i appen, jobbet fortsätter med nästa sida och körningen blir röd så att GitHub mejlar
+
+**Givet** jobbets logg
+**När** någon läser den
+**Så** innehåller den bara koder och antal, aldrig en adress, butik, användare eller ett erbjudande, och inga hemligheter
+
+**Givet** att `CLOUD_ENABLED` inte är `true`
+**När** schemat slår till
+**Så** hoppas jobbet över; är den på men en hemlighet saknas blir körningen röd med ett tydligt meddelande
+
+**Givet** att appen körs på Vercel
+**När** jag trycker Hämta veckans erbjudanden och butiken svarar 403 eller 429
+**Så** står det lugnt "Erbjudandena hämtas automatiskt varje morgon – nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag)." i stället för ett fel; på datorn (`pnpm dev`) är det som förut
+
+**Givet** hjälpen
+**När** jag läser "Var kommer erbjudandena ifrån?"
+**Så** står det att erbjudandena hämtas automatiskt varje morgon och att nästa veckas kommer så fort butiken lagt ut dem
+
+**Regel (beslutad vid bygget):** `save_store_offers` får bara anropas av inloggade användare (radskydd, `auth.uid()`), så jobbet använder den hemliga nyckeln bara för att lista butikerna och logga in som varje ägare (en engångslänk från `generateLink` som växlas direkt, inget mejl skickas) och skriver sedan med ägarens egen session. Sessionen loggas ut efter körningen. Ingen migrering. Hemligheter i GitHub: `SUPABASE_PROJECT_REF` (finns), `SUPABASE_SERVICE_ROLE_KEY` och `SUPABASE_PUBLISHABLE_KEY` (nya). Guiden: `docs/molnet.md`, steg 8.
+
 ## Epic 18: Prylar
 
 Version 2.1. Hushållet kan fotografera förråd, garage och bodar och låta AI lista vad som finns, så att man kan fråga "var är hammaren?" eller "har vi skruvar?". Kortet är källan: sakerna kommer från korten, ett nytt kort av samma plats ersätter det gamla, och tas kortet bort försvinner dess saker. Prylar har en egen flik och blandas aldrig med maten (inga inköpslistor, ingen synk, ingen påverkan på recept eller "hemma"). Beslut 2026-10-31 (Pontus): egen flik "Prylar", platser med egna namn (rum + valfri del, ingen planritning), garderoben pausad. Test samma dag på 9 bilder från skräpförrådet: Haiku 5.5 hittade 9–47 saker per bild (ca 2 öre, 9–24 s), en kontrollerad bild hade 26 av 26 rätt; frågor besvarades bra från listorna; sammanslagning av överlapp behöver förbättras; stängda lådor är den stora luckan.
