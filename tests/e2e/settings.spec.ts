@@ -92,7 +92,9 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   await openSettingsViaAvatar(page);
   await expect(page).toHaveURL(/\/installningar$/);
   await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
-  for (const group of ["Konto", "Hushåll", "Recept", "AI", "Appen"]) {
+  // Story 19.7: the account is a card at the top, with no label of its own.
+  await expect(page.getByTestId("settings-row").filter({ hasText: "@" }).first()).toBeVisible();
+  for (const group of ["Hushåll", "Recept", "AI", "Appen"]) {
     await expect(page.getByRole("heading", { level: 2, name: group, exact: true })).toBeVisible();
   }
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });

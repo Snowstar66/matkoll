@@ -8,6 +8,7 @@ import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Chip } from "@/components/chip";
 import { Segment } from "@/components/segment";
 import { Notice } from "@/components/notice";
+import { CameraIcon, ImageIcon } from "@/components/icons";
 import { PhotoRow } from "@/components/photo-row";
 import { Sheet } from "@/components/sheet";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
@@ -231,7 +232,8 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
             {state.count > 0 ? <p className="text-body text-ink">{sentText(state.count)}</p> : null}
             {viaCamera && touch ? (
               <Button variant="secondary" onClick={another} data-testid="take-another">
-                {`\u{1F4F7} ${takeAnotherText}`}
+                <CameraIcon size={20} />
+                {takeAnotherText}
               </Button>
             ) : null}
           </div>
@@ -345,9 +347,11 @@ function CaptureButtons({ disabled, onChoose }: { disabled?: boolean; onChoose: 
   return (
     <div className="grid grid-cols-2 gap-2">
       <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(true)} data-testid="open-camera">
+        <CameraIcon size={22} />
         {openCameraText}
       </Button>
       <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(false)} data-testid="pick-images">
+        <ImageIcon size={22} />
         {pickImagesText}
       </Button>
     </div>

@@ -198,12 +198,12 @@ test("the fridge shows its items under categories in the store's order, with the
   await expect(page.getByTestId("pantry-old").filter({ visible: true })).toHaveText(["24 dagar", "10 dagar"]);
   await expect(places(page).getByRole("link", { name: /^Kyl/ })).toContainText("6 varor");
 
-  // A swipe action of 44 px at least, rows of at least 56 px, and no sideways scroll at 375 px.
+  // A swipe action of 44 px at least, rows of at least 52 px (Story 19.7), and no sideways scroll at 375 px.
   const binBox = await bin(page, "Gräddfil").boundingBox();
   expect(binBox?.width).toBeGreaterThanOrEqual(44);
   expect(binBox?.height).toBeGreaterThanOrEqual(44);
   const rowBox = await row(page, "Gräddfil").boundingBox();
-  expect(rowBox?.height).toBeGreaterThanOrEqual(56);
+  expect(rowBox?.height).toBeGreaterThanOrEqual(52);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   // A tap on the row opens the sheet Lagervara, where the amount still is.

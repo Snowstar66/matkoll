@@ -209,7 +209,7 @@ test("Ta bort removes one item at once, and Ångra puts the row back with the sa
   await photographFridge(page);
 
   await section(page).getByRole("button", { name: "Ta bort Yoghurt" }).click();
-  await expect(toast(page)).toContainText("Yoghurt är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Yoghurt.");
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
   await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*4 varor(\s?Förslag klara)?$/);
   expect((await pantry()).some((row) => row.name === "Yoghurt")).toBe(false);

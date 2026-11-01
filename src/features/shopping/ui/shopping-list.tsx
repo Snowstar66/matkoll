@@ -1002,7 +1002,7 @@ export function ShoppingList({
             </div>
           )}
           {/* Own items belong to the household, not to a week: also in a week without a plan (Story 17.10). */}
-          {hasLines ? null : <ListGroup label="Lägg till egen vara">{addRow}</ListGroup>}
+          {groups.length > 0 ? null : <ListGroup label="Lägg till egen vara">{addRow}</ListGroup>}
           {inBasket.length > 0 ? (
             <Basket open={basketShown} onOpenChange={changeBasketOpen} count={inBasket.length}>
               {inBasket.map(lineRow)}

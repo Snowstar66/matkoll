@@ -210,19 +210,19 @@ test("the list groups the lines by category, with the dishes under each name and
   await expect(sectionHeadings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
   await expect(lines(page)).toHaveCount(5);
   // An amount without unit counts as st.
-  await expect(lineOf(page, "Paprika")).toContainText(`Paprika 1 st ${gryta}`);
-  // 2 dl and 1 dl from two dishes is one line; the dishes with " · ", without "från".
-  await expect(lineOf(page, "Grädde")).toContainText(`${gryta} · ${paj}`);
+  await expect(lineOf(page, "Paprika")).toContainText(`Paprika Till ${gryta}1 st`);
+  // 2 dl and 1 dl from two dishes is one line: "Till 2 rätter" (Story 19.7).
+  await expect(lineOf(page, "Grädde")).toContainText("Till 2 rätter");
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
   // 1 kg at home is never converted into dl.
   await expect(lineOf(page, "Mjöl")).toContainText("2 dl (hemma: 1 kg)");
   // A vague line: no amount, "Saknas i Matvaror" before the dishes; no "Finns hemma?".
-  await expect(lineOf(page, "Salt")).toContainText(`Saknas i Matvaror · ${gryta}`);
+  await expect(lineOf(page, "Salt")).toContainText(`Saknas i Matvaror · Till ${gryta}`);
   await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   // A line without a catalog ingredient, with its own text, under Övrigt.
   const other = page.getByRole("list", { name: "Övrigt" }).filter({ visible: true });
   // Every line's row also holds its "Ta bort", behind the row until it is swiped (Story 3.6).
-  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja\\s*${paj}\\s*Ta bort$`)]);
+  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja\\s*Till ${paj}\\s*Ta bort$`)]);
   expect(errors).toEqual([]);
 });
 
@@ -469,7 +469,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     const mejeri = region(page, "Mejeri & ägg").getByTestId("shopping-line");
     await expect(mejeri).toHaveCount(2);
     await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*Egen\s*2 förp\s*Ta bort$/);
-    await expect(mejeri.filter({ hasText: "1 dl" })).toContainText(`${gryta} · ${paj}`);
+    await expect(mejeri.filter({ hasText: "1 dl" })).toContainText("Till 2 rätter");
     expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["Grädde", ids.get("Grädde")]]);
     expect(errors).toEqual([]);
   } finally {
@@ -504,7 +504,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort diskmedel" }).click());
   await expect(region(page, "I korgen")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Diskmedel är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Diskmedel.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
@@ -619,7 +619,7 @@ test("a corrected amount is saved, stays when the servings change, and goes back
   const amount = sheet.getByRole("textbox", { name: "Mängd" });
   await expect(amount).toHaveValue("3");
   await expect(sheet.getByTestId("line-detail-unit")).toHaveText("dl");
-  await expect(sheet.getByTestId("line-detail-origins")).toHaveText(`Från ${gryta}, ${paj}`);
+  await expect(sheet.getByTestId("line-detail-origins")).toHaveText(`${gryta}${paj}`);
   await expect(sheet.getByRole("button", { name: "Ta bort" })).toBeVisible();
 
   await amount.fill("två");
@@ -676,7 +676,7 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort Grädde" }).click());
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Grädde.");
   // "varor kvar" leaves the hidden line out.
   await expect(progress(page)).toHaveText(/^3 varor kvar/);
   expect(await storedOverrides()).toEqual([{ ...seeded, hidden: true }]);
@@ -698,7 +698,7 @@ test("Ta bort in the detail hides a line, which stays hidden when the list is co
   // A vague line has no amount to correct.
   await nameOf(page, "Salt").click();
   const salt = detailSheet(page, "Salt");
-  await expect(salt.getByTestId("line-detail-origins")).toHaveText(`Från ${gryta}`);
+  await expect(salt.getByTestId("line-detail-origins")).toHaveText(gryta);
   await expect(salt.getByRole("textbox")).toHaveCount(0);
   await salt.getByRole("button", { name: "Klar" }).click();
   await expect(detailSheet(page, "Salt")).toHaveCount(0);
@@ -707,7 +707,7 @@ test("Ta bort in the detail hides a line, which stays hidden when the list is co
   await actionsAnswered(page, 1, () => detailSheet(page, "Grädde").getByRole("button", { name: "Ta bort" }).click());
   await expect(detailSheet(page, "Grädde")).toHaveCount(0);
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Grädde.");
   await expect(progress(page)).toHaveText(/^3 varor kvar/);
 
   // More servings: the same key, still hidden; the other lines are counted again.
@@ -761,40 +761,22 @@ test("an own item's detail changes it in place, keeping its id and check", async
 });
 
 // Story 13.1: the bin on every row asks first; a second bin within a minute does not.
-test("the bin asks the first time, not the second within a minute, and asks again after it", async ({ page }) => {
-  await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }, { label: "svamp" }]);
+test("the bin removes at once with Tog bort and Ångra, and asks nothing (Story 19.7)", async ({ page }) => {
+  await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }]);
   await seedChecks([]);
-  await page.clock.install();
   await page.goto("/lista");
   const bin = (name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true });
-  const dialog = page.getByRole("dialog");
   const box = await bin("diskmedel").boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
-  // Avbryt removes nothing and starts no window.
-  await bin("diskmedel").click();
-  await expect(dialog.getByText("Ta bort diskmedel från inköpslistan?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Avbryt" }).click();
-  await expect(dialog).toHaveCount(0);
-  expect((await storedCustomItems()).length).toBe(3);
-
-  await bin("diskmedel").click();
-  await actionsAnswered(page, 1, () => dialog.getByRole("button", { name: "Ta bort", exact: true }).click());
+  await actionsAnswered(page, 1, () => bin("diskmedel").click());
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bin("diskmedel")).toHaveCount(0);
-
-  // Within the minute: no question.
-  await page.clock.fastForward(30_000);
-  await actionsAnswered(page, 1, () => bin("tvättmedel").click());
-  await expect(dialog).toHaveCount(0);
-  await expect(bin("tvättmedel")).toHaveCount(0);
-
-  // The window restarted at the last delete; after a quiet minute the question is back.
-  await page.clock.fastForward(61_000);
-  await bin("svamp").click();
-  await expect(dialog.getByText("Ta bort svamp från inköpslistan?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Avbryt" }).click();
-  expect((await storedCustomItems()).map((item) => item.label)).toEqual(["svamp"]);
+  await expect(toast(page)).toContainText("Tog bort Diskmedel.");
+  expect((await storedCustomItems()).map((item) => item.label)).toEqual(["tvättmedel"]);
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect(bin("diskmedel")).toHaveCount(1);
 });
 
 test("an own item stays on the list in another week, also one without a plan, until it is checked off (Story 17.10)", async ({

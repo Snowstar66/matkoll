@@ -45,7 +45,7 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 // which brings the photo back). "Ta bort" waits for the server; a failure
 // shows in the question with the photo kept. Afterwards the sheet closes,
 // the line goes at once (the page is revalidated too), the short
-// confirmation says "Fotot av kylen är borttaget.", and focus goes to the
+// confirmation says "Tog bort fotot av kylen.", and focus goes to the
 // camera button, since the line it came from is gone. Closing the photo
 // gives focus back to "Visa" (the sheet does that).
 //

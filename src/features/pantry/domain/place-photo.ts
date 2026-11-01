@@ -278,9 +278,9 @@ export function removePhotoQuestion(location: Location): string {
   return `Ta bort fotot av ${definite[location]}? Det går inte att ångra.`;
 }
 
-/** The short confirmation afterwards: "Fotot av kylen är borttaget." */
+/** The short confirmation afterwards: "Tog bort fotot av kylen." */
 export function removedPhotoText(location: Location): string {
-  return `Fotot av ${definite[location]} är borttaget.`;
+  return `Tog bort fotot av ${definite[location]}.`;
 }
 
 /**

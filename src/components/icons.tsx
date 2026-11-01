@@ -393,3 +393,14 @@ export function MicIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A picture: "Välj från Bilder". */
+export function ImageIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M4 17l5-4.5 3.5 3L15 13l5 4.5" />
+    </Icon>
+  );
+}

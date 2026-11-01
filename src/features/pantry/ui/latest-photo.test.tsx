@@ -199,7 +199,7 @@ describe("LatestPhoto", () => {
     expect(removePlacePhoto).toHaveBeenCalledWith({ id });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(line()).toBeNull();
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Fotot av kylen är borttaget.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Tog bort fotot av kylen.");
     await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
   });
 

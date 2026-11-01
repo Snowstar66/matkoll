@@ -237,7 +237,7 @@ describe("hiding a recipe line", () => {
     expect(hideLine).toHaveBeenCalledWith({ planId, key: graddeKey });
     expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
     expect(screen.getByTestId("list-progress")).toHaveTextContent("1 vara kvar");
-    expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Grädde.")).length).toBeGreaterThan(0);
     rerender(<ShoppingList plan={plan} lines={[salt]} pantryUnavailable={false} />);
 
     await user.click(screen.getByRole("button", { name: "Ångra" }));
@@ -257,7 +257,7 @@ describe("hiding a recipe line", () => {
     await user.click(within(detail("Grädde")).getByRole("button", { name: "Ta bort" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(hideLine).toHaveBeenCalledWith({ planId, key: graddeKey });
-    expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Grädde.")).length).toBeGreaterThan(0);
     // Focus moves on to the next line.
     await waitFor(() => expect(screen.getByRole("checkbox", { name: "Salt" })).toHaveFocus());
     await user.click(screen.getByRole("button", { name: "Ångra" }));
@@ -339,7 +339,7 @@ describe("hiding a recipe line", () => {
     hideLine.mockRejectedValueOnce(new Error("offline"));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
-    expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Grädde.")).length).toBeGreaterThan(0);
     expect(hideLine).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: "Ångra" })).toBeInTheDocument();
     expect(refresh).not.toHaveBeenCalled();
@@ -361,7 +361,7 @@ describe("hiding a recipe line", () => {
     hideLine.mockResolvedValue(ok(null));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
-    expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Grädde.")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -418,7 +418,7 @@ describe("Listpostdetalj for an own item", () => {
     await user.click(within(detail("diskmedel")).getByRole("button", { name: "Ta bort" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(removeCustomItem).toHaveBeenCalledWith(diskId);
-    expect((await screen.findAllByText("Diskmedel är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Diskmedel.")).length).toBeGreaterThan(0);
     expect(hideLine).not.toHaveBeenCalled();
   });
 
