@@ -47,7 +47,8 @@ const saveOffersIn = vi.fn<(db: unknown, input: { storeId: string; weekStart: st
 vi.mock("../data/save", () => ({ saveOffersIn: (...args: Parameters<typeof saveOffersIn>) => saveOffersIn(...args) }));
 
 // The fetch port reads the saved pages; every call to it is counted.
-vi.mock("@/server/env", () => ({ env: { AI_PROVIDER: "mock", SITE_URL: "http://localhost:3100" } }));
+const env = vi.hoisted((): Record<string, string | undefined> => ({ AI_PROVIDER: "mock", SITE_URL: "http://localhost:3100" }));
+vi.mock("@/server/env", () => ({ env }));
 const fetchCalls: string[] = [];
 /** When set, the fetch port answers with this page instead of a saved one. */
 let pageOverride: string | null = null;
@@ -198,6 +199,34 @@ describe("fetchStoreOffers", () => {
     expect(fetchCalls).toHaveLength(1);
     expect(saveOffersIn).not.toHaveBeenCalled();
     expect(errorMessages.offers_fetch_blocked).toContain("Öppna sidan");
+  });
+
+  it.each([
+    ["matkoll-test-nekad-1000005", 403],
+    ["matkoll-test-for-manga-1000006", 429],
+  ])("on Vercel, says the offers come every morning after %s (%i), and still records the block (Story 17.11)", async (slug) => {
+    env.VERCEL = "1";
+    try {
+      listStores.mockResolvedValue([storeWith(linkOf(slug))]);
+      expect(await fetchStoreOffers({ storeId })).toEqual(fail("offers_fetch_scheduled"));
+      expect(errorMessages.offers_fetch_scheduled).toBe("Erbjudandena hämtas automatiskt varje morgon – nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag).");
+      expect(requests).toEqual([linkOf(slug)]);
+      expect(blockFetch).toHaveBeenCalledTimes(1);
+      expect(saveOffersIn).not.toHaveBeenCalled();
+      expect(logs).toContainEqual(["offers_fetch_blocked", { reason: expect.stringMatching(/^status_4\d\d$/) }]);
+    } finally {
+      delete env.VERCEL;
+    }
+  });
+
+  it("on Vercel, still shows other failures as they are (Story 17.11)", async () => {
+    env.VERCEL = "1";
+    try {
+      listStores.mockResolvedValue([storeWith(linkOf("matkoll-test-serverfel-1000007"))]);
+      expect(await fetchStoreOffers({ storeId })).toEqual(fail("offers_fetch_failed"));
+    } finally {
+      delete env.VERCEL;
+    }
   });
 
   it.each([

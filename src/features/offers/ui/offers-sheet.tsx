@@ -102,6 +102,7 @@ type StoreRun = { storeId: string; result: FetchStoreOffersResult; attempt: numb
 const settingsActions = new Set<ErrorCode>(["offers_link_missing", "offers_link_unsupported", "offers_store_missing"]);
 const pageActions = new Set<ErrorCode>([
   "offers_fetch_blocked",
+  "offers_fetch_scheduled",
   "offers_fetch_failed",
   "offers_page_changed",
   "offers_page_old",
@@ -498,7 +499,8 @@ export function OffersSheet({
                 <Notice
                   // A new element per failure, so the same message is announced again.
                   key={`${run.storeId}-${run.attempt}`}
-                  role="alert"
+                  // Story 17.11: in the cloud a refused fetch is expected (a job fetches every morning), so it is news, not an alert.
+                  role={error.code === "offers_fetch_scheduled" ? "status" : "alert"}
                   action={
                     settingsActions.has(error.code) ? (
                       <SettingsLink />

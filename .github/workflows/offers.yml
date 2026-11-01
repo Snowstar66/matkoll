@@ -1,0 +1,82 @@
+name: Offers
+
+# Story 17.11: fetches the store offers for every store with a link, every
+# morning and on Sunday evening, so next week's offers show as soon as ICA
+# publishes them (late: Sunday evening or Monday). A rerun updates the week,
+# never duplicates it. ICA's site refuses the app's servers on Vercel but
+# answers GitHub's runners, so the fetch runs here: scripts/fetch-offers.ts,
+# with the app's own safe fetch, honest headers, reader and save, one page at
+# a time and once per page. GitHub runs schedules only from the default branch.
+# Not a required check: it never runs on pull requests.
+#
+# Off until the repository variable CLOUD_ENABLED is "true" (the same switch as
+# cloud-migrate.yml and backup.yml); then a missing secret is a red run, never
+# a silent skip. A refused or failed page also turns the run red, so GitHub
+# mails. docs/molnet.md (steg 8) describes the secrets and the run by hand.
+on:
+  schedule:
+    # In UTC, so the Swedish time moves with daylight saving (CET/CEST):
+    # every day 04:00 UTC = 05:00 in winter, 06:00 in summer;
+    # Sundays 19:00 UTC = 20:00 in winter, 21:00 in summer.
+    - cron: "0 4 * * *"
+    - cron: "0 19 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offers
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    if: github.ref == 'refs/heads/main' && vars.CLOUD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # With CLOUD_ENABLED on, a missing secret is a red run, never a silent skip.
+      - name: Check the secrets
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=()
+          [ -n "$SUPABASE_PROJECT_REF" ] || missing+=(SUPABASE_PROJECT_REF)
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || missing+=(SUPABASE_SERVICE_ROLE_KEY)
+          [ -n "$SUPABASE_PUBLISHABLE_KEY" ] || missing+=(SUPABASE_PUBLISHABLE_KEY)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            message="CLOUD_ENABLED är på men hemligheterna saknas: ${missing[*]}. Se docs/molnet.md."
+            echo "::error title=Erbjudanden::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if ! [[ "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]+$ ]]; then
+            message="SUPABASE_PROJECT_REF ska vara projektets id (bara a–z och 0–9), inte en adress. Se docs/molnet.md."
+            echo "::error title=Erbjudanden::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6 # version from package.json "packageManager"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # The log holds codes and counts only (scripts/fetch-offers/job.ts).
+      - name: Fetch the offers
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          export NEXT_PUBLIC_SUPABASE_URL="https://$SUPABASE_PROJECT_REF.supabase.co"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          pnpm offers:fetch
