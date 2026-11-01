@@ -4,7 +4,7 @@ Det här är den korta, praktiska vägen: ungefär 15 minuter av dina egna klick
 
 Detaljerna bakom varje steg (gränser för inloggning, återställning av säkerhetskopian, foton, Siri) finns i [`docs/drift.md`](drift.md). Den här filen är den som följs uppifrån och ner; den pekar dit när något behöver fördjupas. Om de två säger olika saker gäller den här.
 
-**Beslut som styr guiden:** Supabase i EU (Stockholm), Vercel Hobby med funktioner i Stockholm (`arn1`), AI via Claude (Haiku 5.5, nyckel i Vercel) i stället för LM Studio på din Mac, ett konto per hushåll med inloggning med lösenord (Story 17.2), registrering avstängd.
+**Beslut som styr guiden:** Supabase i EU (Paris, `eu-west-3`; Stockholm var fullt när projektet skapades 2026-11-01), Vercel Hobby med funktioner i Paris (`cdg1`), samma region som databasen, AI via Claude (Haiku 5.5, nyckel i Vercel) i stället för LM Studio på din Mac, ett konto per hushåll med inloggning med lösenord (Story 17.2), registrering avstängd.
 
 ## Vem gör vad
 
@@ -135,7 +135,7 @@ Kontroll: **Table Editor** visar tabellerna i `public`, **Storage** visar bucket
 | Install Command | standard (pnpm känns igen på `pnpm-lock.yaml`) |
 | Output Directory | standard |
 | Node.js Version | **24.x** (Settings → General; matchar `engines` i `package.json`) |
-| Function Region | **Stockholm, `arn1`** (står redan i `vercel.json`; ska stå samma i Settings → Functions). Hamnade databasen i Frankfurt: `fra1`, i Irland: `dub1`. |
+| Function Region | **Paris, `cdg1`** (står i `vercel.json`; ska stå samma i Settings → Functions), samma region som databasen. Hamnade databasen i Frankfurt: `fra1`, i Irland: `dub1`. |
 | Fluid Compute | **på** (standard för nya projekt; Settings → Functions). Utan det stoppar Hobby funktioner efter 60 s, och AI-importerna har 300 s. |
 | Production Branch | `main` (Settings → Git) |
 | Deployment Protection | **Vercel Authentication ska inte gälla Production** (Settings → Deployment Protection). Annars får Siri-genvägen och inloggningslänkarna en Vercel-inloggningssida i stället för appen. |
@@ -401,6 +401,6 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 - `.github/workflows/cloud-migrate.yml` (ny, avstängd tills `CLOUD_ENABLED=true`)
 - `.github/workflows/backup.yml` (`CLOUD_ENABLED` slår på den; hoppas över när varken den eller `BACKUP_ENABLED` är satt)
 - `.env.example` (bara kommentarer: var varje värde sätts)
-- `vercel.json` (`"regions": ["arn1"]`)
+- `vercel.json` (`"regions": ["cdg1"]`; `ignoreCommand` borttagen vid publiceringen 2026-11-01)
 - `supabase/config.toml` (ämnesraderna i inloggningsmejlen säger Livskoll i stället för Matkoll, som mallarna)
 - `tests/lint/backup-workflow.test.ts` (följer ändringen i `backup.yml`)

@@ -1329,3 +1329,10 @@ PRD: `_bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md`. Beslu
 - **Varför:** OrbStack är lättare än Docker Desktop på Mac. Kubernetes och Linux-maskiner i OrbStack behövs inte.
 - **OrbStack-inställningar:** start vid inloggning på; `docker.expose_ports_to_lan` och `machines.expose_ports_to_lan` av, så att lokal Supabase (med standardlösenord) inte nås från andra på samma nätverk.
 - **Alternativ:** Docker Desktop; Supabase i molnet redan under utveckling (skulle frångå ordningen i `autonomi.md`).
+
+## 2026-11-01 – Molnet i Paris
+
+- **Supabase i Paris (`eu-west-3`) och Vercel-funktioner i Paris (`cdg1`)** i stället för Stockholm. Stockholm saknade kapacitet när projektet skapades; regionen kan inte bytas i efterhand, och det viktiga är att databasen och funktionerna ligger i samma region. Fortfarande inom EU.
+- **Supabase-projektet skapades direkt hos Supabase** (egen organisation `Livskoll`), inte via Vercels Marketplace-integration, så att den hemliga servicenyckeln aldrig hamnar i Vercel och förhandsversioner inte når databasen.
+- **Vercel-projektet heter `livskoll`**, adressen är `https://livskoll.vercel.app` (`SITE_URL`).
+
