@@ -6,6 +6,7 @@ import { errorMessages, fail, ok, type ErrorCode, type Result } from "@/lib/erro
 import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { handOverPlacePhoto, takeHandedOverPhoto } from "./photo-handover";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 /** The place Hemma shows (Story 8.2). */
@@ -120,6 +121,17 @@ describe("PantryCamera", () => {
     expect(cameraClick).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Välj bild" }));
     expect(libraryClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a photo taken from the welcome tour as if chosen here, once, in its own location only (Story 20.1)", async () => {
+    const photo = new File(["x"], "kylen.jpg", { type: "image/jpeg" });
+    handOverPlacePhoto(photo, "Kyl");
+    const { rerender } = render(<Hemma location="Frys" />);
+    expect(fakeAi.calls).toHaveLength(0);
+    rerender(<Hemma location="Kyl" />);
+    await vi.waitFor(() => expect(fakeAi.calls).toHaveLength(1));
+    expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden …");
+    expect(takeHandedOverPhoto("Kyl")).toBeNull();
   });
 
   it("resizes the photo of a place to at most 2048 px (Story 6.5)", async () => {

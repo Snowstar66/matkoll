@@ -279,6 +279,12 @@ export const liveListEmail = "e2e-live-lista@matkoll.test";
  * 17.8): checks made offline, sent when the net is back, read on a second phone.
  */
 export const offlineListEmail = "e2e-offline-lista@matkoll.test";
+/**
+ * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
+ * that has not seen the welcome tour, so it shows. Every other E2E user is
+ * marked as having seen it (markWelcomeTourSeen), so it never covers their pages.
+ */
+export const welcomeEmail = "e2e-valkomst@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -327,6 +333,7 @@ export const e2eEmails = [
   thingsEmail,
   liveListEmail,
   offlineListEmail,
+  welcomeEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -376,6 +383,7 @@ export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.j
 export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
+export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
 
@@ -413,6 +421,24 @@ export async function deleteE2eUsers(): Promise<void> {
 }
 
 /**
+ * Story 20.1: marks the E2E users as having seen the welcome tour, as the
+ * migration did for every user who existed when it shipped, so the tour never
+ * covers a spec's page. welcomeEmail is left out: its spec shows the tour.
+ */
+export async function markWelcomeTourSeen(emails: readonly string[] = e2eEmails): Promise<void> {
+  localSupabaseUrl();
+  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  const wanted = new Set(emails.filter((email) => email !== welcomeEmail));
+  const rows = data.users
+    .filter((user) => user.email && wanted.has(user.email))
+    .map((user) => ({ user_id: user.id, tour_seen_at: new Date().toISOString() }));
+  if (rows.length === 0) return;
+  const saved = await adminClient().from("welcome_tour").upsert(rows, { onConflict: "user_id", ignoreDuplicates: true });
+  if (saved.error) throw saved.error;
+}
+
+/**
  * Deletes the E2E user `email` and creates it again, as users:sync does, and
  * returns the new id. Everything the user owned goes with it (on delete
  * cascade), and so does Auth's per-address limit on new magic links, so a
@@ -430,6 +456,8 @@ export async function recreateE2eUser(email: (typeof e2eEmails)[number]): Promis
   }
   const created = await adminClient().auth.admin.createUser({ email, email_confirm: true });
   if (created.error) throw created.error;
+  // Story 20.1: like every E2E user but welcomeEmail, it has seen the welcome tour.
+  await markWelcomeTourSeen([email]);
   return created.data.user.id;
 }
 

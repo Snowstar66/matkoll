@@ -19,6 +19,7 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 import { useSiteSwitching } from "./site-switching";
 import type { PhotoSite } from "../domain/site";
 import { focusIsFree } from "./use-pantry-analysis";
+import { takeHandedOverPhoto, useHandedOverLocation } from "./photo-handover";
 import { AiWorking } from "@/components/ai-working";
 
 // Kameraknappen (FR-24, UX-DR10, DESIGN.md camera-button): a light blue
@@ -92,6 +93,14 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
     handledSettles.current = settles;
     if (focusIsFree(cameraAreaRef.current)) cameraButtonRef.current?.focus();
   }, [settles, cameraAreaRef, cameraButtonRef]);
+
+  // Story 20.1: a photo taken from the welcome tour's "Fotografera kylen" is read here, as if chosen here.
+  const waiting = useHandedOverLocation();
+  useEffect(() => {
+    if (waiting !== location || switching) return;
+    const file = takeHandedOverPhoto(location);
+    if (file) analyze(file, location, site);
+  }, [waiting, location, site, switching, analyze]);
 
   /** The chosen file; the field is emptied so the same photo can be chosen again. */
   function onChosen(event: ChangeEvent<HTMLInputElement>) {
