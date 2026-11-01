@@ -207,6 +207,10 @@ Lägger Vercel en adress som inte är den du valde som `SITE_URL`: ändra `SITE_
 
 Står bygget fast på installationen med ett fel om `pnpm`-versionen: lägg `ENABLE_EXPERIMENTAL_COREPACK=1` som miljövariabel (alla miljöer), så använder Vercel versionen i `packageManager`.
 
+### Bara `main` byggs på Vercel
+
+Vercel Hobby tillåter 100 driftsättningar per dygn, och varje push till en gren räknas, även överhoppade byggen. En dag med många PR:er nådde gränsen (2026-11-01), och då stannade även produktionen. `vercel.json` stänger därför av driftsättningar för arbetsgrenarna (`git.deploymentEnabled`: `story/**`, `fix/**`, `docs/**` och så vidare); bara `main` (produktion) byggs. Förhandsversioner finns inte längre, men de hade ändå bara `AI_PROVIDER=mock` och ingen databas. Ny grenprefix? Lägg till den i listan.
+
 ## 7. Rökprov – [Båda]
 
 Gör dem på telefonen (Safari/Chrome) och i datorns webbläsare, på den riktiga adressen. Claude bockar av och läser loggarna (Vercel → Logs) vid fel.

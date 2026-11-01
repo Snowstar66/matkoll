@@ -1,4 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cdg1"]
+  "regions": [
+    "cdg1"
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "story/**": false,
+      "fix/**": false,
+      "docs/**": false,
+      "base/**": false,
+      "batch/**": false,
+      "chore/**": false,
+      "cloud/**": false,
+      "design/**": false,
+      "epic/**": false,
+      "mockup/**": false,
+      "prep/**": false,
+      "ux/**": false,
+      "wip/**": false,
+      "test/**": false,
+      "feat/**": false,
+      "refactor/**": false,
+      "dependabot/**": false,
+      "claude/**": false
+    }
+  }
 }
