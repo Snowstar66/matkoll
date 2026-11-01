@@ -19,8 +19,8 @@ env:
   SITE_URL: http://localhost:3100
   # Same version as the `supabase` dev dependency, so generated types match.
   SUPABASE_CLI_VERSION: 2.122.0
-  # Mailpit, Auth, the API gateway, Postgres, Storage and Realtime (the live
-  # shopping list, Story 17.7) stay; the rest is not
+  # Mailpit, Auth, the API gateway, Postgres, Storage and Realtime (its RLS
+  # spy test in live-list.spec.ts; the publication stays, Story 17.12) stay; the rest is not
   # used by tests. Storage (storage-api) holds the latest photo per place: its
   # migration creates a bucket, and the RLS tests and e2e use it (AD-23, AD-26).
   SUPABASE_EXCLUDE: imgproxy,edge-runtime,logflare,vector,supavisor,studio

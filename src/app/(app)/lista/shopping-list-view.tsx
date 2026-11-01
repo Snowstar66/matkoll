@@ -1,12 +1,12 @@
 "use client";
 
 import { type ReactNode, useCallback, useRef, useState } from "react";
-import { useLiveRefresh } from "@/components/use-live-refresh";
+import { listRefreshMs, useLiveRefresh } from "@/components/use-live-refresh";
 import type { BoendeCounts, PantrySite } from "@/features/pantry";
 import { ListSiteLine } from "@/features/pantry/ui/list-site-line";
 import { ShoppingList, type ShoppingListProps } from "@/features/shopping/ui/shopping-list";
 
-export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "onBusyChange"> & {
+export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "onBusyChange" | "onOfflineChange"> & {
   /** Every place of the user's, or `null` when they could not be read: then no line "Boende". */
   sites: readonly PantrySite[] | null;
   /** What each boende holds, read when the boende sheet opens (a Server Action); the page gives it. */
@@ -14,17 +14,6 @@ export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "o
   /** The week tiles, which come under the boende button and above the list (Story 19.2). */
   weekNav?: ReactNode;
 };
-
-/** What the list is counted from, and what a family member can change on it. */
-const liveTables = [
-  "shopping_check",
-  "shopping_custom_item",
-  "shopping_line_override",
-  "meal_plan",
-  "meal_plan_recipe",
-  "pantry_item",
-  "product_choice",
-] as const;
 
 /**
  * Inköpslista as the page shows it: the boende button "📍 Stugan ⌄"
@@ -35,9 +24,12 @@ const liveTables = [
  */
 export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: ShoppingListViewProps) {
   const [busy, setBusy] = useState(false);
-  // Story 17.7: another phone on the account changes the list, the meal plan or
-  // what the list is counted against; this one reads the page again.
-  useLiveRefresh({ tables: liveTables, busy });
+  const [offline, setOffline] = useState(false);
+  // Story 17.7, polled since 17.12: another phone on the account changes the
+  // list, the meal plan or what the list is counted against; this one reads the
+  // page again every few seconds. Queued offline checks are laid over whatever
+  // is read (mergeQueued), so a read never undoes a tick that waits to be sent.
+  useLiveRefresh({ intervalMs: listRefreshMs, busy, paused: offline });
   /** The place a switch from the sheet is on its way to, until the list has shown it. */
   const quiet = useRef<string | null>(null);
   const onSwitching = useCallback((siteId: string | null) => {
@@ -55,7 +47,7 @@ export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: Shoppi
         <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
       ) : null}
       {weekNav}
-      <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} />
+      <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} onOfflineChange={setOffline} />
     </>
   );
 }

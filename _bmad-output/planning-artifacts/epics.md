@@ -3906,6 +3906,40 @@ Bakgrund: från Vercel svarar ICA:s sajt 403. Från GitHub Actions svarar den 20
 
 **Regel (beslutad vid bygget):** `save_store_offers` får bara anropas av inloggade användare (radskydd, `auth.uid()`), så jobbet använder den hemliga nyckeln bara för att lista butikerna och logga in som varje ägare (en engångslänk från `generateLink` som växlas direkt, inget mejl skickas) och skriver sedan med ägarens egen session. Sessionen loggas ut efter körningen. Ingen migrering. Hemligheter i GitHub: `SUPABASE_PROJECT_REF` (finns), `SUPABASE_SERVICE_ROLE_KEY` och `SUPABASE_PUBLISHABLE_KEY` (nya). Guiden: `docs/molnet.md`, steg 8.
 
+### Story 17.12: Liveuppdatering utan nyckel i webbläsaren
+
+Som Pontus,
+vill jag att inköpslistan fortsätter uppdatera sig själv utan att min inloggning lämnas ut till sidans skript,
+så att ett fel i någon annans text aldrig kan låna mitt konto när vänner kommer in.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan öppen på två enheter med samma konto
+**När** den ena bockar av, lägger till eller tar bort en vara, eller matsedeln ändras
+**Så** syns ändringen på den andra inom cirka 6 sekunder utan omladdning: listan läser om sig själv var 4:e sekund (andra levande sidor var 10:e sekund)
+
+**Givet** appen i webbläsaren
+**När** någon letar efter en åtkomsttoken
+**Så** finns ingen: rutten `/api/realtime/session` och webbläsarens Realtime-klient är borttagna, och omläsningen är sidans egen förfrågan med de `httpOnly`-kakor den redan har
+
+**Givet** att fliken är dold
+**När** tiden går
+**Så** läses inget om; när fliken syns igen läses sidan om direkt och sedan som vanligt
+
+**Givet** att nätet är borta, eller att köade avbockningar väntar på nätet (Story 17.8)
+**När** tiden går
+**Så** läses inget om; när nätet är tillbaka läses sidan om direkt, och en omläsning skriver aldrig över en avbockning som väntar på att skickas
+
+**Givet** att jag själv just sparar något
+**När** en omläsning står i tur
+**Så** väntar den tills sparandet svarat, så att listan inte blinkar
+
+**Givet** varje svar från appen
+**När** det skickas
+**Så** har det en grundnivå av säkerhetsrubriker: `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` och en `Permissions-Policy` som bara tillåter kameran för appen själv
+
+**Regel (beslutad vid bygget):** ingen skript-CSP. Med `cacheComponents` förrenderas sidorna delvis, och en CSP med nonce kräver att varje sida renderas dynamiskt (Next: "Partial Prerendering (PPR) is incompatible with nonce-based CSP"); en CSP utan nonce skulle behöva `'unsafe-inline'` och ger lite. Inga `dangerouslySetInnerHTML` finns i appen. Publikationen `supabase_realtime` får ligga kvar (ofarlig; e2e-testet för Realtimes radskydd står kvar). Pontus valde standardvalet i hushållsmockuppen (beslut 8). Ska vara klar före Story 21.2. Bakgrund: `docs/molnet.md`, "Före vänner", punkt 7.
+
 ## Epic 18: Prylar
 
 Version 2.1. Hushållet kan fotografera förråd, garage och bodar och låta AI lista vad som finns, så att man kan fråga "var är hammaren?" eller "har vi skruvar?". Kortet är källan: sakerna kommer från korten, ett nytt kort av samma plats ersätter det gamla, och tas kortet bort försvinner dess saker. Prylar har en egen flik och blandas aldrig med maten (inga inköpslistor, ingen synk, ingen påverkan på recept eller "hemma"). Beslut 2026-10-31 (Pontus): egen flik "Prylar", platser med egna namn (rum + valfri del, ingen planritning), garderoben pausad. Test samma dag på 9 bilder från skräpförrådet: Haiku 5.5 hittade 9–47 saker per bild (ca 2 öre, 9–24 s), en kontrollerad bild hade 26 av 26 rätt; frågor besvarades bra från listorna; sammanslagning av överlapp behöver förbättras; stängda lådor är den stora luckan.

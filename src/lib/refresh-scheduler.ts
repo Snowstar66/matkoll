@@ -1,16 +1,12 @@
-// Story 17.7: Realtime tells the page that something changed; the page then
-// reads itself again (router.refresh). Many events arrive at once (a meal plan
-// change touches several tables), and this device's own saves echo back as
-// events too, so the refresh is coalesced and waits while a local save is in
-// flight (its optimistic state is on screen and its own answer already brings
-// the server's list).
+// Story 17.7, polled since Story 17.12: a live page reads itself again
+// (router.refresh). This device's own save already brings the server's state,
+// and its optimistic state is on screen meanwhile, so a refresh due while a
+// save is in flight waits until the save has answered.
 
 export type RefreshScheduler = {
-  /** A change was heard; one refresh follows `delayMs` later, however many are heard until then. */
-  notify: () => void;
-  /** Refreshes at once, unless a refresh is already waiting for its turn (then that one covers it). */
+  /** Refreshes at once, or `delayMs` later and again until this device is no longer busy; a refresh already waiting covers it. */
   refreshNow: () => void;
-  /** Drops a waiting refresh (the page is hidden or goes away). */
+  /** Drops a waiting refresh (the page is hidden, offline or goes away). */
   cancel: () => void;
 };
 
@@ -33,9 +29,6 @@ export function createRefreshScheduler({ delayMs, isBusy, refresh }: RefreshSche
   }
 
   return {
-    notify() {
-      if (timer === undefined) arm();
-    },
     refreshNow() {
       if (timer !== undefined) return;
       if (isBusy()) arm();

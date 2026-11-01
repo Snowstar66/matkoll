@@ -11,63 +11,32 @@ function setup(busy = { current: false }) {
 }
 
 describe("createRefreshScheduler", () => {
-  it("refreshes once, delayMs after a burst of events", () => {
+  it("refreshNow refreshes at once when not busy", () => {
     const { refresh, scheduler } = setup();
-    scheduler.notify();
-    vi.advanceTimersByTime(100);
-    scheduler.notify();
-    scheduler.notify();
-    vi.advanceTimersByTime(199);
-    expect(refresh).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
+    scheduler.refreshNow();
     expect(refresh).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(5000);
-    expect(refresh).toHaveBeenCalledTimes(1);
+    scheduler.refreshNow();
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it("waits while this device is saving, then refreshes once", () => {
+  it("refreshNow waits while busy, then refreshes once", () => {
     const { refresh, scheduler, busy } = setup({ current: true });
-    scheduler.notify();
+    scheduler.refreshNow();
+    scheduler.refreshNow();
     vi.advanceTimersByTime(900);
     expect(refresh).not.toHaveBeenCalled();
     busy.current = false;
     vi.advanceTimersByTime(300);
     expect(refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it("handles a later event after a refresh", () => {
-    const { refresh, scheduler } = setup();
-    scheduler.notify();
-    vi.advanceTimersByTime(300);
-    scheduler.notify();
-    vi.advanceTimersByTime(300);
-    expect(refresh).toHaveBeenCalledTimes(2);
-  });
-
-  it("refreshNow refreshes at once, or leaves it to a waiting refresh", () => {
-    const { refresh, scheduler } = setup();
-    scheduler.refreshNow();
-    expect(refresh).toHaveBeenCalledTimes(1);
-    scheduler.notify();
-    scheduler.refreshNow();
-    expect(refresh).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(300);
-    expect(refresh).toHaveBeenCalledTimes(2);
-  });
-
-  it("refreshNow waits while busy", () => {
-    const { refresh, scheduler, busy } = setup({ current: true });
-    scheduler.refreshNow();
-    expect(refresh).not.toHaveBeenCalled();
-    busy.current = false;
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(3000);
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("cancel drops a waiting refresh", () => {
-    const { refresh, scheduler } = setup();
-    scheduler.notify();
+    const { refresh, scheduler, busy } = setup({ current: true });
+    scheduler.refreshNow();
     scheduler.cancel();
+    busy.current = false;
     vi.advanceTimersByTime(1000);
     expect(refresh).not.toHaveBeenCalled();
   });

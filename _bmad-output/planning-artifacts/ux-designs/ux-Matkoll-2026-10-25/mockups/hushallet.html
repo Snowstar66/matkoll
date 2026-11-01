@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hushållet och lappar</title>
+<style>
+/* ---------- document chrome (same as premium-look.html) ---------- */
+:root { --pbg:#E8ECE9; --pcard:#FFFFFF; --pink:#1B2420; --pink2:#56635D; --pacc:#3E7C62; --pline:#D9DFDB; --ptag:#F1ECE2; --ptagink:#6E5B3E;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; color-scheme:light dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; } }
+:root[data-theme="dark"] { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; }
+* { box-sizing:border-box; }
+html, body { overflow-x:hidden; }
+body { margin:0; background:var(--pbg); color:var(--pink); -webkit-font-smoothing:antialiased; }
+.wrap { max-width:1440px; margin:0 auto; padding:32px 16px 80px; }
+.wrap > h1 { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0 0 8px; }
+h2.part { font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.3px; margin:64px 0 4px; padding-top:16px; border-top:1px solid var(--pline); }
+h3.sec { font-size:19px; line-height:24px; font-weight:600; margin:40px 0 6px; }
+p.lead, p.note { color:var(--pink2); line-height:1.55; max-width:860px; margin:0 0 12px; font-size:16px; }
+ul.spec { margin:8px 0 16px; padding-left:20px; line-height:1.55; max-width:980px; font-size:15px; }
+ul.spec li { margin:3px 0; }
+.tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:1px 7px; border-radius:99px; background:var(--ptag); color:var(--ptagink); vertical-align:1px; }
+.pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:12px; }
+.col { display:flex; flex-direction:column; gap:8px; min-width:0; max-width:100%; }
+.lbl { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--pink2); }
+.lbl.new { color:var(--pacc); }
+.cap { font-size:14px; line-height:20px; color:var(--pink2); max-width:390px; min-height:40px; }
+.box { background:var(--pcard); border-radius:16px; padding:20px 22px; max-width:980px; margin-top:12px; }
+.box h4 { margin:0 0 8px; font-size:17px; font-weight:600; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; background:rgba(127,140,133,.14); padding:1px 5px; border-radius:6px; overflow-wrap:anywhere; }
+.toc { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; }
+.toc a, .themes button { font-size:14px; color:var(--pacc); text-decoration:none; background:var(--pcard); padding:6px 12px; border-radius:99px; border:0; font-family:inherit; cursor:pointer; }
+.themes { display:flex; gap:6px; align-items:center; margin-top:12px; font-size:14px; color:var(--pink2); flex-wrap:wrap; }
+.themes button[aria-pressed="true"] { background:var(--pacc); color:#fff; }
+.stories { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; margin-top:12px; max-width:1200px; }
+.stories > div { background:var(--pcard); border-radius:16px; padding:16px 18px; }
+.stories b { display:block; font-size:17px; font-weight:600; margin-bottom:2px; }
+.stories i { font-style:normal; color:var(--pacc); font-weight:600; font-size:13px; display:block; margin-bottom:4px; }
+.stories ul { margin:8px 0 0; padding-left:18px; font-size:14.5px; line-height:1.5; }
+.stories small { display:block; color:var(--pink2); font-size:14px; line-height:1.45; }
+ol.beslut { max-width:980px; line-height:1.6; font-size:15px; padding-left:22px; }
+ol.beslut li { margin:6px 0; }
+
+/* ---------- mock app: tokens (globals.css) ---------- */
+.t-light { --bg:#F5F7F4; --surface:#FFFFFF; --surface-2:#FFFFFF; --fill:#EAEDEB; --ink:#1B2420; --ink-2:#56635D; --ink-3:#6B7872; --hairline:#E8ECE9; --border:#DCE2DE; --accent:#3E7C62; --on-accent:#FFFFFF; --mint:#DDEFE5; --mint-ink:#2C5E48; --sky:#DCE9F6; --sky-ink:#2E5A85; --sand:#F1ECE2; --sand-ink:#6E5B3E; --lilac:#E6E1F2; --scrim:rgba(27,36,32,.4); --bar:rgba(255,255,255,.84); --shadow-float:0 12px 32px rgba(27,36,32,.14),0 0 0 .5px rgba(27,36,32,.08); --seg-on:#FFFFFF; --seg-track:#E9ECEA;
+  /* NEW: the one warm accent of the two-tone line art and the stars (decoration, never text). */
+  --warm:#D9963F; --illus-bg:#EEF4F0; --tour-bg:#FFFFFF; }
+.t-dark { --bg:#0F1311; --surface:#181D1A; --surface-2:#202622; --fill:#242927; --ink:#E6EBE8; --ink-2:#A3AFA9; --ink-3:#86928C; --hairline:#262D29; --border:#313934; --accent:#6FB394; --on-accent:#0F1A15; --mint:#1F3A2D; --mint-ink:#A8D9BF; --sky:#1E3247; --sky-ink:#A9C9EA; --sand:#3A3326; --sand-ink:#DCC9A6; --lilac:#2C2840; --scrim:rgba(0,0,0,.6); --bar:rgba(24,29,26,.82); --shadow-float:0 0 0 .5px rgba(255,255,255,.09); --seg-on:#2C3430; --seg-track:#1A1F1C;
+  --warm:#E9B872; --illus-bg:#16211B; --tour-bg:#0F1311; }
+
+.ic { flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; display:block; }
+.duo { color:var(--accent); }
+.phone { position:relative; width:390px; height:844px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:16px; box-shadow:0 4px 18px rgba(27,36,32,.18); font-size:16px; line-height:24px; flex:none; }
+.phone.short { height:auto; }
+.scroll { position:absolute; inset:0; overflow-y:auto; scrollbar-width:none; }
+.scroll::-webkit-scrollbar { display:none; }
+.scr { padding:16px 20px 96px; }
+.tap { width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
+.av { border-radius:50%; background:var(--mint); color:var(--mint-ink); display:inline-flex; align-items:center; justify-content:center; font-weight:600; flex:none; }
+.backrow { display:inline-flex; align-items:center; gap:2px; color:var(--accent); font-size:16px; line-height:24px; height:44px; margin:-4px 0 4px -8px; padding:0 8px; }
+.lt { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0; color:var(--ink); }
+.search { display:flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-radius:12px; background:var(--surface); color:var(--ink-3); font-size:16px; margin-top:12px; }
+.search input { all:unset; flex:1; min-width:0; color:var(--ink); font-size:16px; }
+.search input::placeholder { color:var(--ink-3); }
+.search input::-webkit-search-cancel-button { display:none; }
+.chips { display:flex; gap:8px; margin:6px -20px 0; padding:6px 20px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+.chips::-webkit-scrollbar { display:none; }
+.chip { flex:none; height:32px; display:inline-flex; align-items:center; gap:4px; padding:0 12px; border-radius:999px; background:var(--surface); border:1px solid var(--border); color:var(--ink-2); font-size:15px; line-height:20px; font-weight:500; font-family:inherit; cursor:pointer; }
+.chip.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+.chip .n { font-weight:400; opacity:.8; }
+.sec { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); margin:24px 4px 8px; }
+.grp { background:var(--surface); border-radius:16px; overflow:hidden; }
+.tabbar { position:absolute; left:0; right:0; bottom:0; height:56px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-top:.5px solid var(--border); z-index:3; }
+.tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-3); font-size:11px; line-height:13px; font-weight:500; }
+.cbar { position:absolute; left:0; right:0; top:0; height:52px; display:flex; align-items:center; background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-bottom:.5px solid var(--border); z-index:3; opacity:0; transition:opacity 150ms; pointer-events:none; }
+.cbar.show { opacity:1; }
+.cbar .ttl { position:absolute; left:0; right:0; text-align:center; font-size:17px; line-height:22px; font-weight:600; }
+.cbar .bk { display:flex; align-items:center; color:var(--accent); font-size:16px; padding-left:8px; }
+.btn { height:52px; border-radius:12px; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; gap:8px; font-size:17px; font-weight:600; border:0; width:100%; font-family:inherit; cursor:pointer; }
+.btn.off { opacity:.4; }
+.tbtn { display:inline-flex; align-items:center; gap:2px; color:var(--accent); font-size:15px; font-weight:500; min-height:44px; }
+.step + .step::before, .faq + .faq::before, .row + .row::before, .res + .res::before, .msg + .msg::before { content:''; position:absolute; top:0; right:0; left:var(--inset,16px); border-top:1px solid var(--hairline); }
+.row { display:flex; align-items:center; gap:12px; min-height:52px; padding:0 8px 0 14px; position:relative; --inset:56px; font-size:17px; line-height:22px; cursor:pointer; }
+.row .grow { flex:1; min-width:0; }
+.row .v { color:var(--ink-3); font-size:15px; }
+.row .chev { color:var(--ink-3); width:28px; display:flex; justify-content:center; }
+.tile2 { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--mint); color:var(--mint-ink); flex:none; }
+.tile2.sky { background:var(--sky); color:var(--sky-ink); } .tile2.sand { background:var(--sand); color:var(--sand-ink); } .tile2.lilac { background:var(--lilac); color:var(--ink-2); }
+/* ---------- sheets ---------- */
+.dim { position:absolute; inset:0; background:var(--scrim); z-index:4; }
+.sheet { position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--surface-2); color:var(--ink); border-radius:24px 24px 0 0; padding:0 20px 34px; }
+.t-light .sheet { background:var(--surface); }
+.grab { width:36px; height:5px; border-radius:99px; background:var(--border); margin:8px auto 4px; }
+.shead { display:flex; align-items:center; justify-content:space-between; min-height:52px; gap:12px; }
+.stitle { font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.2px; }
+.cancel { color:var(--accent); font-size:17px; font-weight:500; min-height:44px; display:flex; align-items:center; padding:0 12px; margin-right:-12px; }
+.field { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.flabel { font-size:15px; line-height:20px; font-weight:500; } .opt { font-weight:400; color:var(--ink-2); }
+.ta { min-height:120px; border:1px solid var(--border); border-radius:12px; padding:12px 14px; font-size:17px; line-height:24px; color:var(--ink); background:var(--surface); }
+.t-dark .ta { background:var(--fill); border-color:transparent; }
+.ta.ph { color:var(--ink-3); }
+.ta.focus { border:2px solid var(--accent); padding:11px 13px; }
+.ta .caret { display:inline-block; width:2px; height:20px; background:var(--accent); vertical-align:-4px; margin-left:1px; }
+.hint { font-size:14px; line-height:20px; color:var(--ink-2); margin:12px 0 0; }
+.chiprow { display:flex; flex-wrap:wrap; gap:8px; }
+.acct { display:flex; align-items:center; gap:12px; padding:12px 8px 12px 16px; background:var(--surface); border-radius:16px; margin-top:12px; }
+.acct b { display:block; font-size:17px; line-height:22px; font-weight:500; } .acct small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.newpill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:99px; background:var(--accent); color:var(--on-accent); font-size:13px; font-weight:600; }
+/* ---------- desktop frame ---------- */
+.scaler { width:690px; height:431px; overflow:hidden; border-radius:14px; box-shadow:0 4px 18px rgba(27,36,32,.18); flex:none; max-width:100%; }
+.frame { width:1280px; height:800px; zoom:.5390625; position:relative; overflow:hidden; background:var(--bg); color:var(--ink); font-size:16px; line-height:24px; }
+.side { position:absolute; left:0; top:0; bottom:0; width:240px; background:var(--surface); border-right:1px solid var(--hairline); padding:24px 12px 20px; display:flex; flex-direction:column; }
+.brand { display:flex; align-items:center; gap:10px; padding:0 12px; font-size:17px; font-weight:500; }
+.site { display:flex; align-items:center; gap:10px; color:var(--ink-2); padding:0 12px; height:44px; margin-top:12px; font-size:16px; }
+.nvs { margin-top:20px; display:flex; flex-direction:column; gap:2px; }
+.nv { display:flex; align-items:center; gap:12px; height:46px; padding:0 12px; border-radius:10px; color:var(--ink-2); font-size:16px; }
+.nv.on { background:var(--mint); color:var(--mint-ink); font-weight:500; }
+.nvb { margin-top:auto; border-top:1px solid var(--hairline); padding-top:10px; display:flex; flex-direction:column; gap:2px; }
+.who { display:flex; align-items:center; gap:10px; padding:6px 12px 8px; }
+.who b { display:block; font-size:15px; line-height:20px; font-weight:500; } .who small { display:block; font-size:12px; line-height:16px; color:var(--ink-3); }
+.dmain { position:absolute; left:240px; right:0; top:0; bottom:0; overflow:hidden; }
+.dmain > .in { width:720px; margin:0 auto; padding:40px 0 0; }
+.dmain .chips { margin:6px 0 0; padding:6px 0; }
+.dmain .old-nav { margin:16px 0 4px; padding:6px 0; }
+.dmain .old-nav .chips { margin:-6px 0; }
+.dlg { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:560px; height:680px; border-radius:24px; background:var(--tour-bg); box-shadow:var(--shadow-float); overflow:hidden; z-index:5; }
+.dlg .tour { border-radius:24px; }
+.dlg .tp { width:560px; padding-bottom:140px; }
+.ghost { background:var(--surface); border-radius:16px; height:220px; }
+
+
+/* ---------- Epic 21 + 24 (new) ---------- */
+.t-light { --danger:#B3261E; } .t-dark { --danger:#E5736A; }
+.ph { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; }
+.ph .tap { margin-right:-6px; }
+.av.s32 { width:32px; height:32px; font-size:15px; } .av.s40 { width:40px; height:40px; font-size:19px; } .av.s20 { width:20px; height:20px; font-size:11px; line-height:1; }
+.av.sky { background:var(--sky); color:var(--sky-ink); } .av.sand { background:var(--sand); color:var(--sand-ink); }
+.bdg { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:4px; background:var(--border); color:var(--ink-2); font-size:12px; font-weight:500; vertical-align:2px; margin-left:6px; }
+.t-dark .bdg { background:var(--fill); }
+/* settings rows (settings-menu.tsx) */
+.acct .grow { flex:1; min-width:0; }
+.row.ac { color:var(--accent); }
+.row .v { max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.signout { text-align:center; color:var(--accent); font-size:17px; min-height:52px; display:flex; align-items:center; justify-content:center; margin-top:12px; }
+/* members */
+.mrow { display:flex; align-items:center; gap:12px; min-height:64px; padding:8px 8px 8px 16px; position:relative; }
+.mrow + .mrow::before { content:''; position:absolute; top:0; right:0; left:68px; border-top:1px solid var(--hairline); }
+.mrow .mt { flex:1; min-width:0; }
+.mrow b { display:block; font-size:17px; line-height:22px; font-weight:400; }
+.mrow small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.trash { width:44px; height:44px; display:flex; align-items:center; justify-content:center; color:var(--ink-3); flex:none; }
+.itile { width:40px; height:40px; border-radius:50%; border:1.5px dashed var(--border); display:flex; align-items:center; justify-content:center; color:var(--ink-3); flex:none; }
+.dz { text-align:center; color:var(--danger); font-size:17px; min-height:52px; display:flex; align-items:center; justify-content:center; margin-top:16px; }
+.fnote { font-size:14px; line-height:20px; color:var(--ink-2); margin:8px 4px 0; }
+/* invite sheet */
+.slead { font-size:16px; line-height:24px; color:var(--ink-2); margin:0 0 4px; }
+.codebox { background:var(--bg); border-radius:16px; padding:16px 16px 14px; margin-top:12px; text-align:center; }
+.t-dark .codebox { background:var(--fill); }
+.codebox .k { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); }
+.code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:34px; line-height:44px; font-weight:600; letter-spacing:6px; color:var(--ink); margin:2px 0 0; }
+.codebox small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.linkrow { display:flex; align-items:center; gap:8px; margin-top:10px; padding:4px 4px 4px 14px; border:1px solid var(--border); border-radius:12px; min-height:48px; }
+.t-dark .linkrow { border-color:transparent; background:var(--fill); }
+.linkrow > span:first-child { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; color:var(--ink-2); }
+.chip.act { color:var(--accent); }
+.sfoot .tbtn { justify-content:center; width:100%; margin-top:4px; }
+/* login-like pages (logga-in/page.tsx) */
+.auth { position:absolute; inset:0; padding:56px 24px 24px; display:flex; flex-direction:column; gap:16px; }
+.auth .brandl { display:flex; align-items:center; gap:8px; color:var(--accent); font-size:17px; font-weight:500; }
+.auth .tagl { margin:-12px 0 0; font-size:14px; color:var(--ink-3); }
+.auth h1 { margin:0; font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; }
+.auth p { margin:0; font-size:16px; line-height:24px; color:var(--ink-2); }
+.fl { display:flex; flex-direction:column; gap:8px; }
+.inp { height:48px; border-radius:12px; border:1px solid var(--border); background:var(--surface); padding:0 16px; display:flex; align-items:center; font-size:17px; color:var(--ink); }
+.t-dark .inp { background:var(--fill); border-color:transparent; }
+.inp.focus { border:2px solid var(--accent); padding:0 15px; }
+.inp .caret { display:inline-block; width:2px; height:20px; background:var(--accent); margin-left:1px; }
+.hh { display:flex; align-items:center; gap:12px; background:var(--surface); border-radius:16px; padding:12px 14px; }
+.hh b { display:block; font-size:17px; line-height:22px; font-weight:500; } .hh small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.stack { display:flex; } .stack .av + .av { margin-left:-8px; box-shadow:0 0 0 2px var(--surface); }
+.tbtn.c { justify-content:center; }
+/* toast (toast.tsx) */
+.toast { position:absolute; left:16px; right:16px; bottom:68px; z-index:6; display:flex; align-items:center; gap:12px; min-height:44px; padding:4px 4px 4px 16px; border-radius:12px; background:var(--ink); color:var(--surface); box-shadow:var(--shadow-float); font-size:16px; }
+.toast p { flex:1; margin:0; padding:8px 0; }
+.toast span { min-height:44px; display:flex; align-items:center; padding:0 12px; font-weight:500; color:var(--mint); }
+.t-dark .toast span { color:var(--accent); }
+/* shopping list (shopping-list.tsx) */
+.prog { background:var(--surface); border-radius:16px; padding:16px; margin-top:12px; }
+.prog p { margin:0 0 12px; display:flex; justify-content:space-between; align-items:baseline; }
+.prog b { font-size:17px; font-weight:600; } .prog span { font-size:14px; color:var(--ink-2); }
+.meter { height:6px; border-radius:99px; background:var(--fill); overflow:hidden; } .meter i { display:block; height:100%; background:var(--accent); border-radius:99px; }
+.cath { display:flex; align-items:center; gap:10px; margin:20px 4px 8px; }
+.cath .e { font-size:18px; width:24px; text-align:center; }
+.cath h3 { flex:1; margin:0; font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); }
+.cath .n { font-size:14px; color:var(--ink-2); }
+.lr { display:flex; align-items:center; min-height:56px; padding:0 2px 0 6px; position:relative; }
+.lr + .lr::before { content:''; position:absolute; top:0; right:0; left:56px; border-top:1px solid var(--hairline); }
+.cc { width:44px; height:44px; display:flex; align-items:center; justify-content:center; flex:none; }
+.cc i { width:24px; height:24px; border-radius:50%; border:1.75px solid var(--ink-3); background:var(--surface); display:flex; align-items:center; justify-content:center; }
+.cc i.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+.lr .lt2 { flex:1; min-width:0; padding:8px 4px 8px 8px; }
+.lr .nm { display:block; font-size:17px; line-height:22px; color:var(--ink); }
+.lr.done .nm { color:var(--ink-3); text-decoration:line-through; }
+.lr .mm { display:block; font-size:14px; line-height:20px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+.lr .egen { display:inline-block; border-radius:2px; background:var(--border); color:var(--ink-2); font-size:12px; line-height:16px; padding:1px 6px; }
+.t-dark .lr .egen { background:var(--fill); }
+.lr .amt { font-size:15px; line-height:20px; color:var(--ink-2); padding-right:4px; white-space:nowrap; }
+.lr.done .amt { color:var(--ink-3); text-decoration:line-through; }
+.lr .av.s20 { margin:0 6px 0 4px; }
+.lr .trash { color:var(--ink-3); }
+.bask { display:flex; align-items:center; justify-content:space-between; margin:24px 4px 8px; font-size:15px; font-weight:600; color:var(--ink-2); }
+.fab { position:absolute; right:16px; bottom:72px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-float); z-index:3; }
+.mark { outline:2px dashed var(--warm); outline-offset:2px; border-radius:6px; }
+.lr.markrow { outline:2px dashed var(--warm); outline-offset:-3px; border-radius:12px; }
+/* count card (count-card.tsx, Story 18.23) */
+.ssub { margin:-6px 0 0; font-size:14px; line-height:20px; color:var(--ink-2); }
+.qcard { background:var(--bg); border-radius:16px; overflow:hidden; margin-top:12px; }
+.t-dark .qcard { background:var(--fill); }
+.qtop { display:flex; align-items:center; gap:8px; padding:12px 12px 0 16px; }
+.qnum { flex:1; font-size:28px; line-height:34px; font-weight:600; letter-spacing:-.3px; font-variant-numeric:tabular-nums; }
+.qnum small { font-size:17px; font-weight:500; letter-spacing:0; color:var(--ink-2); margin-left:4px; }
+.pill { height:32px; padding:0 14px; border-radius:999px; background:var(--surface); border:1px solid var(--border); color:var(--accent); font-size:15px; font-weight:500; display:inline-flex; align-items:center; white-space:nowrap; }
+.qline { padding:2px 16px 12px; font-size:14px; line-height:20px; color:var(--ink-2); }
+.qh { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); padding:12px 16px 4px; border-top:1px solid var(--hairline); }
+.t-dark .qh { border-top-color:var(--border); }
+.chg { display:flex; align-items:center; gap:12px; min-height:40px; padding:0 16px; }
+.chg b { width:30px; font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
+.chg b.plus { color:var(--accent); } .chg.card b { color:var(--ink-2); font-weight:500; }
+.chg span { flex:1; font-size:16px; } .chg time { font-size:14px; color:var(--ink-3); }
+.chg em { font-style:normal; color:var(--ink-2); }
+.qfoot { display:flex; gap:4px; margin:4px 0 0 -8px; }
+.cmp { height:44px; padding:0 8px; color:var(--accent); font-size:15px; font-weight:500; display:inline-flex; align-items:center; }
+/* note (Story 24.1) */
+.note { background:var(--sand); color:var(--ink); border-radius:16px; padding:14px 14px 8px; margin-top:12px; }
+.note .nh { display:flex; align-items:center; gap:12px; }
+.ring { width:52px; height:52px; border-radius:50%; border:1.5px dashed var(--sand-ink); display:flex; align-items:center; justify-content:center; flex:none; opacity:.95; }
+.note .nh b { display:block; font-size:15px; line-height:20px; font-weight:600; }
+.note .nh small { display:block; font-size:13px; line-height:18px; color:var(--sand-ink); }
+.note p { margin:10px 0 0; font-size:17px; line-height:24px; }
+.note .na { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.note .na .pill { border-color:transparent; }
+.note .nf { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+.note .nf .tbtn { padding:0 4px; }
+.kbtn { height:36px; padding:0 16px; border-radius:10px; background:var(--accent); color:var(--on-accent); font-size:15px; font-weight:600; display:inline-flex; align-items:center; }
+.more { font-size:14px; color:var(--sand-ink); }
+.emo { display:flex; gap:8px; }
+.emo span { width:44px; height:44px; border-radius:50%; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--surface); }
+.t-dark .emo span { background:var(--fill); border-color:transparent; }
+.emo span.on { border:2px solid var(--accent); background:var(--mint); }
+.chip.on .ic { stroke:currentColor; }
+.quote { background:var(--bg); border-radius:12px; padding:10px 12px; font-size:15px; line-height:21px; color:var(--ink-2); margin-top:4px; }
+.t-dark .quote { background:var(--fill); }
+.quote b { color:var(--ink); font-weight:600; }
+/* page-level */
+.flow { display:grid; grid-template-columns:1fr 40px 1fr; gap:12px; align-items:stretch; max-width:980px; margin-top:12px; }
+.flow > div.b { background:var(--pcard); border-radius:16px; padding:16px 18px; font-size:15px; line-height:1.55; }
+.flow > div.b h4 { margin:0 0 6px; font-size:17px; }
+.flow .arr { display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--pacc); }
+.flow ul { margin:6px 0 0; padding-left:18px; }
+@media (max-width: 760px) { .flow { grid-template-columns:1fr; } .flow .arr { transform:rotate(90deg); height:28px; } }
+.risk { max-width:980px; line-height:1.55; font-size:15px; padding-left:22px; }
+.risk li { margin:6px 0; }
+pre.sql { background:var(--pcard); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.5; overflow-x:auto; max-width:980px; margin:8px 0 12px; }
+.size { display:inline-block; font-size:12px; font-weight:700; padding:1px 8px; border-radius:99px; background:var(--pacc); color:#fff; margin-left:6px; vertical-align:2px; }
+.dmain .note, .dmain .prog { margin-top:16px; }
+@media (max-width: 760px) { .scaler { width:346px; height:216px; } .frame { zoom:.27; } }
+@media (max-width: 430px) { .phone { zoom:.9; } .wrap { padding:24px 16px 64px; } }
+</style></head><body>
+<!-- Icons: the app's own line icons (src/components/icons.tsx); the d-* ones are the new two-tone family: green stroke plus one warm detail. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></symbol>
+  <symbol id="i-carrot" viewBox="0 0 24 24"><path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z"/><path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-width="2" d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.5"/><path stroke-width="2.6" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.28 5.28l2.12 2.12M16.6 16.6l2.12 2.12M5.28 18.72l2.12-2.12M16.6 7.4l2.12-2.12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke-width="2"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 5.5l6.5 6.5-6.5 6.5" stroke-width="2"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z" fill="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-tray" viewBox="0 0 24 24"><path d="M4 13l2.5-7.5h11L20 13v5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></symbol>
+  <!-- two-tone -->
+  <symbol id="d-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path style="stroke:var(--warm)" d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="d-pot" viewBox="0 0 24 24"><path d="M5 11h14v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4zM3 11h18"/><path style="stroke:var(--warm)" d="M9.5 3.5c-.8 1.2.8 2.3 0 3.5M14.5 3.5c-.8 1.2.8 2.3 0 3.5"/></symbol>
+  <symbol id="d-steps" viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h6"/><path style="stroke:var(--warm)" stroke-width="2.8" d="M5 6.5h.01M5 12h.01M5 17.5h.01"/></symbol>
+  <symbol id="d-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/><path style="stroke:var(--warm)" d="M9.5 15l2 2 3.5-3.5"/></symbol>
+  <symbol id="d-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M12 8.5v7M8.5 12h7"/></symbol>
+  <symbol id="d-house" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path style="stroke:var(--warm)" d="M9 14.5l2 2 4-4"/></symbol>
+  <symbol id="d-list" viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path style="stroke:var(--warm)" d="M3.5 6.5l1.2 1.2L7 5.4M3.5 12l1.2 1.2L7 10.9M3.5 17.5l1.2 1.2L7 16.4"/></symbol>
+  <symbol id="d-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M8.5 12.3l2.3 2.3 4.7-4.9"/></symbol>
+  <symbol id="d-bag" viewBox="0 0 24 24"><path d="M5.5 8.5h13l-1 11.5h-11z"/><path style="stroke:var(--warm)" d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/></symbol>
+  <symbol id="d-fridge" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M6 10h12"/><path style="stroke:var(--warm)" d="M9 6v2M9 13v3"/></symbol>
+  <symbol id="d-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle style="stroke:var(--warm)" cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="d-undo" viewBox="0 0 24 24"><path d="M4.5 9.5h10a5.5 5.5 0 0 1 0 11H11"/><path style="stroke:var(--warm)" d="M8.5 5.5l-4 4 4 4"/></symbol>
+  <symbol id="d-door" viewBox="0 0 24 24"><path d="M6.5 20V4.5h11V20M3.5 20h17"/><path style="stroke:var(--warm)" stroke-width="2.8" d="M14.5 12.5h.01"/></symbol>
+  <symbol id="d-shelf" viewBox="0 0 24 24"><path d="M3.5 10.5h17M3.5 19.5h17M4 4v16M20 4v16"/><path style="stroke:var(--warm)" d="M7 10.5V7h5v3.5M12.5 19.5V15h4.5v4.5"/></symbol>
+  <symbol id="d-ask" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/><path style="stroke:var(--warm)" d="M9.3 9.2a1.8 1.8 0 1 1 2.6 1.6c-.5.2-.9.6-.9 1.2v.2M11 14.4h.01"/></symbol>
+  <symbol id="d-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle style="stroke:var(--warm)" cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="d-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path style="stroke:var(--warm)" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/></symbol>
+  <symbol id="d-phone" viewBox="0 0 24 24"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path style="stroke:var(--warm)" d="M12 9v5M9.5 11.5h5"/></symbol>
+  <symbol id="d-bookmark" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path style="stroke:var(--warm)" d="M10 4v6l2-1.5 2 1.5V4"/></symbol>
+  <symbol id="d-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path style="stroke:var(--warm)" d="M10 13h4"/></symbol>
+  <symbol id="d-bulb" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1v1h6v-1c0-.4.2-.8.5-1.1A6 6 0 0 0 12 3z"/><path style="stroke:var(--warm)" d="M9.5 19h5M10.5 21.5h3"/></symbol>
+  <symbol id="d-star" viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4-3.9 5.6-.8z"/><path style="stroke:var(--warm)" d="M12 8.6v2.8"/></symbol>
+  <symbol id="d-bubble" viewBox="0 0 24 24"><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v9a1.5 1.5 0 0 1-1.5 1.5h-7l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z"/><path style="stroke:var(--warm)" d="M12 7.8v3.6M12 13.6h.01"/></symbol>
+  <symbol id="d-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path style="stroke:var(--warm)" d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M15.5 5.6a3 3 0 0 1 0 5.8M17 13.8a5.2 5.2 0 0 1 3.5 5.2"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-4.5h13L20 9"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0A2.7 2.7 0 0 0 20 9"/><path d="M5.5 12v7.5h13V12"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5S9.6 5.9 12 3.5z"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.5L7 20z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/><path d="M18.5 3.5v3M17 5h3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v11M8 7.5l4-4 4 4"/><path d="M8.5 10.5H7A1.5 1.5 0 0 0 5.5 12v7A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-1.5"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M5 19l1-4.2L15.6 5.2a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L9.2 18 5 19z"/><path d="M13.5 7.3l3.2 3.2"/></symbol>
+</svg>
+
+<div class="wrap">
+<h1>Livskoll – hushållet: medlemmar, vem gjorde vad, lappar</h1>
+<p class="lead">Förslag för Story 21.2 (egna inloggningar i samma hushåll), 21.3 (vem bockade av, vem tog) och 24.1 (lappen på kylskåpet). Inget är byggt. Allt följer Epic 19: arkets rubrik är saken, Avbryt/Klar uppe till höger, “Tog bort X.” med Ångra där det går att ångra och en fråga först där det inte går, chips i stället för rullistor. Inga nya tokens.</p>
+<p class="note"><b>Idag</b> = HTML-kopia byggd från <code>settings-menu-content.tsx</code>, <code>account-button.tsx</code>, <code>shopping-list.tsx</code> och <code>count-card.tsx</code> på main (be29e49); appen kördes inte. <b>Nytt</b> = modell. Martina, e-postadresser, koden och adressen är <span class="tag">illustrativt</span>. Streckad varm ram = det som är nytt i en bild.</p>
+<div class="themes"><span>Visa telefonerna i</span><button data-t="auto" aria-pressed="true">Systemets läge</button><button data-t="light" aria-pressed="false">Ljust</button><button data-t="dark" aria-pressed="false">Mörkt</button></div>
+<div class="toc"><a href="#idag">Idag</a><a href="#medlemmar">Medlemmar</a><a href="#ga-med">Gå med</a><a href="#lamna">Lämna</a><a href="#data">Datan</a><a href="#vem">Vem gjorde vad</a><a href="#lapp">Lappen</a><a href="#teknik">Teknik</a><a href="#stories">Stories</a><a href="#beslut">Beslut</a></div>
+
+<!-- ============ TODAY ============ -->
+<h2 class="part" id="idag">Idag: ett hushåll = en inloggning</h2>
+<p class="lead">Familjen delar ett konto (beslut 2026-10-31). P-knappen visar kontots initial, Inställningar har bara Boenden och Butiker under Hushåll, och Förrådets Ändringar säger “Tog” utan namn, eftersom appen inte vet vem.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag – Inställningar</span><div class="phone t-light" id="old-set"></div></div>
+  <div class="col"><span class="lbl">Idag – P-knappen</span><div class="phone t-light" id="old-p"></div></div>
+</div>
+<ul class="spec">
+  <li>All data har <code>user_id = auth.uid()</code> i radskyddet. Två personer = samma lösenord, och ingen historik vet vem som gjorde något.</li>
+  <li>Nya hushåll släpps in med <code>ALLOWED_EMAILS</code> och <code>pnpm users:sync</code>. Molnet kan inte skicka mejl än (molnet.md punkt 8), så “Välj lösenord” via mejl fungerar inte för någon ny.</li>
+</ul>
+
+<!-- ============ MEMBERS ============ -->
+<h2 class="part" id="medlemmar">1. Inställningar → Hushåll → Medlemmar <span class="tag">21.2</span></h2>
+<p class="lead">En ny rad överst under Hushåll. Undersidan listar alla med initial och namn, och har Bjud in. Inbjudan delas från appen (delningsarket eller Kopiera), aldrig med mejl.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Inställningar</span><div class="phone t-light" id="n-set"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Medlemmar (Pontus, ägare)</span><div class="phone t-light" id="n-mem"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Bjud in</span><div class="phone t-light" id="n-inv"></div></div>
+</div>
+<ul class="spec">
+  <li><b>Inställningar</b>: kontokortet visar <b>ditt</b> namn och din adress. Hushåll får raden <b>Medlemmar</b> först (platta i mint, ikon två personer) med värdet “Pontus, Martina”. Gruppen Ägare (Inkorg, Epic 20) heter nu <b>Appens ägare</b>, så den inte blandas ihop med hushållets ägare (beslut 9).</li>
+  <li><b>Medlemmar</b>: rubriken är hushållets namn i en rad överst (“Namn · Hushållet Hellgren ›”, ändras i ett ark). Sedan en rad per person: initial 40 px i personens nyans, förnamn, märkena <span class="bdg" style="margin:0">Du</span> och <span class="bdg" style="margin:0">Ägare</span> (samma lilla etikett som “Egen” i listan), e-post under. Varje medlem får en av de fyra platt-nyanserna (mint, sky, sand, lila) i den ordning de gick med, så initialerna går isär i listan.</li>
+  <li>En väntande inbjudan är en egen rad: streckad cirkel, “Inbjudan K7Q 4MP”, “Gäller till 8 nov”. Soptunnan tar bort den direkt: “Tog bort inbjudan.” med Ångra (den går att ta tillbaka, så ingen fråga).</li>
+  <li><b>Bjud in någon</b> sist i gruppen (grön text, plus-ikon). Ägaren har soptunna på de andras rader; en vanlig medlem har ingen. Längst ned i rött: <b>Lämna hushållet</b> (för ägaren bara när ingen annan är kvar, se avsnitt 3).</li>
+  <li><b>Bjud in</b>: arket heter “Bjud in till hushållet” med Klar. Koden står stort (6 tecken, utan 0/O och 1/I/L, monospace, grupperad 3+3), under den “Gäller till 8 nov · för en person”. Under koden länken med <b>Kopiera</b>-chip (“Kopierade länken.”). Huvudknappen <b>Dela inbjudan</b> öppnar telefonens delningsark med texten: “Pontus bjuder in dig till Hushållet Hellgren i Livskoll: &lt;länk&gt; (kod K7Q4MP)”. På dator utan delningsark blir knappen Kopiera inbjudan.</li>
+  <li>En kod gäller i 7 dagar och för en person; Återkalla tar bort den. Arket kan öppnas igen från raden och visar samma kod tills den används eller går ut. Alla medlemmar kan bjuda in (beslut 2).</li>
+</ul>
+
+<!-- ============ JOIN ============ -->
+<h2 class="part" id="ga-med">2. Gå med: på Martinas telefon <span class="tag">21.2</span></h2>
+<p class="lead">Martina öppnar länken från Meddelanden. Hon har inget konto, så hon väljer e-post och lösenord direkt på sidan (inget mejl behövs, koden i länken är beviset). Sedan frågar appen vad hon heter, en gång.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – länken öppnad, inte inloggad</span><div class="phone t-light" id="j-1"></div></div>
+  <div class="col"><span class="lbl new">Nytt – första inloggningen: namnet</span><div class="phone t-light" id="j-2"></div></div>
+  <div class="col"><span class="lbl new">Nytt – inne: P-knappen visar Martina</span><div class="phone t-light" id="j-3"></div></div>
+</div>
+<ul class="spec">
+  <li><b>/ga-med/K7Q4MP</b> ser ut som inloggningssidan (samma logga, rubrik 30 px, fält och knapp). Rubriken “Gå med i Hushållet Hellgren”, sedan ett kort med medlemmarnas initialer: “Pontus bjöd in dig · 1 medlem”.</li>
+  <li>Inte inloggad: <b>E-postadress</b> och <b>Välj lösenord</b>, knappen <b>Gå med</b>. Under: “Har du redan ett konto? Logga in”, som loggar in och kommer tillbaka hit. Redan inloggad: bara kortet och Gå med.</li>
+  <li>Utan länk: inloggningssidan får en textknapp “Har du en kod?”, som visar ett fält för de 6 tecknen och leder hit.</li>
+  <li>Utgången, använd eller återkallad kod: “Inbjudan gäller inte längre. Be Pontus om en ny.” och inga fält.</li>
+  <li><b>Vad heter du?</b> visas en gång, första gången någon utan namn loggar in (även Pontus efter släppet). Förifyllt från e-postens början (“martina” → Martina), som idag. Stor initial överst som ändras medan man skriver. <b>Fortsätt</b> sparar namnet; det kan ändras under Inställningar → Konto.</li>
+  <li><b>P-knappen</b> visar personens egen initial i personens nyans, och arket har namnet och adressen som rubrik. Ny rad överst: <b>Skriv en lapp</b> (avsnitt 6). På dator står namnet längst ned i sidomenyn som idag.</li>
+  <li>Efter Gå med: Recept öppnas med “Välkommen till Hushållet Hellgren.” (meddelande, ingen Ångra). Välkomstturen (20.1) visas efter det, som för andra nya.</li>
+</ul>
+
+<!-- ============ LEAVE / REMOVE ============ -->
+<h2 class="part" id="lamna">3. Lämna, och ta bort en medlem <span class="tag">21.2</span></h2>
+<p class="lead">Båda frågar först, med frågan som arkets rubrik och “Det går inte att ångra.” under (Story 19.4). Ingen data försvinner: det personen lagt in stannar i hushållet.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – ägaren tar bort Martina</span><div class="phone t-light short" id="r-1" style="height:560px"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Martina lämnar</span><div class="phone t-light short" id="r-2" style="height:560px"></div></div>
+</div>
+<ul class="spec">
+  <li>Ta bort: soptunnan på Martinas rad → “Ta bort Martina ur hushållet?”, knappen <b>Ta bort</b> (röd text på grå platta, som andra frågor). Efteråt “Martina är inte längre med i hushållet.” utan Ångra.</li>
+  <li>Lämna: “Lämna Hushållet Hellgren?”, knappen <b>Lämna</b>. Den som lämnar eller tas bort får ett eget, tomt hushåll och behåller sin inloggning; tillbaka kommer man bara med en ny inbjudan.</li>
+  <li>Ägaren kan inte lämna medan andra är kvar. Raden säger då “Gör någon annan till ägare först” och en medlemsrad får valet <b>Gör till ägare</b> (i medlemmens ark). Ensam i hushållet finns ingen Lämna-rad.</li>
+  <li>Den som tagits bort och har appen öppen kastas ut vid nästa läsning: “Du är inte längre med i Hushållet Hellgren.” och sitt nya tomma hushåll.</li>
+</ul>
+
+<!-- ============ DATA ============ -->
+<h2 class="part" id="data">4. Vad som händer med befintlig data</h2>
+<div class="flow">
+  <div class="b"><h4>Före migreringen</h4>Ett konto per hushåll. Varje rad ägs av kontot (<code>user_id</code>).<ul><li>Konto pontus@… → recept, matsedel, inköpslista, matvaror, boenden, butiker, förråd, foton</li><li>Martina använder samma inloggning</li></ul></div>
+  <div class="arr">→</div>
+  <div class="b"><h4>Efter</h4>Varje konto blir ett hushåll med sig själv som ägare. Raderna får hushållets id; inget flyttas eller tas bort.<ul><li>Hushållet Hellgren (ägare Pontus) → exakt samma data</li><li>Martina bjuds in, får egen inloggning och ser allt direkt</li><li>Det gemensamma kontot <i>är</i> Pontus konto: ingen ny inloggning för honom</li></ul></div>
+</div>
+<ul class="spec">
+  <li>Allt i appen blir hushållets: recept, favoriter, matsedel, inköpslista och bockar, egna varor, matvaror, boenden, butiker, förrådet och dess foton, AI-valet. Per person blir bara det som hör till en människa: namn, välkomsttur (20.1), Siri-nyckel (den skriver i hushållet), egna inskick till Inkorgen (20.3).</li>
+  <li>Gamla rader saknar “vem” före släppet; de visar inget namn (som egna ändringar).</li>
+</ul>
+
+<!-- ============ WHO ============ -->
+<h2 class="part" id="vem">5. Vem gjorde vad <span class="tag">21.3</span></h2>
+<p class="lead">Bara <b>andras</b> ändringar markeras, och lågmält: en initial 20 px på raden, och namnet i Förrådets Ändringar. Det man själv gjort ser ut som idag.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Inköpslista hos Pontus</span><div class="phone t-light" id="w-list"></div></div>
+  <div class="col"><span class="lbl new">Nytt – föremålets ark (18.23)</span><div class="phone t-light" id="w-thing"></div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – 1280 px, Pontus, med Martinas svar</span><div class="scaler"><div class="frame t-light" id="w-desk"></div></div></div>
+</div>
+<ul class="spec">
+  <li><b>Inköpslista</b>: en rad som någon annan bockat av eller lagt till får en initial 20 px (personens nyans, 11 px · 600) direkt före mängden. Mjölk och Bröd ligger i korgen för att Martina bockade av dem; Smör bockade Pontus själv, så den raden är som idag (hos Martina får Smör i stället ett P). Citron (Egen) lade Martina till.</li>
+  <li>Initialen visar den senaste ändringen av någon annan. Skärmläsaren får “Mjölk, 1 l, i korgen, bockad av Martina”. Trycket på raden öppnar Listpostdetalj, som får en rad “Martina bockade av · 17:42” (eller “Martina lade till · 14:12”).</li>
+  <li><b>Live</b>: när Martina bockar i butiken flyttar raden ned i korgen hos Pontus inom ett par sekunder, med initialen. Inget meddelande, ingen rörelse utöver den som finns idag.</li>
+  <li><b>Föremålets ark</b>: Ändringar får namnet före verbet för andras ändringar, “−2 · Martina tog · 4 nov”; egna står kvar som “Tog”. Skärmläsaren: “Martina tog 2, 4 nov”. Raden under antalet säger fortfarande vad Livskoll vet.</li>
+  <li><b>Matvaror</b>: lagervarans ark får en rad under rubriken, “Martina fyllde på · 1 nov”, när den senaste ändringen var någon annans.</li>
+</ul>
+
+<!-- ============ NOTE ============ -->
+<h2 class="part" id="lapp">6. Lappen på kylskåpet <span class="tag">24.1</span></h2>
+<p class="lead">Pontus skriver från P-knappen → <b>Skriv en lapp</b>. Martina ser lappen överst i appen, på vilken flik hon än är, med knappar som gör något direkt.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Pontus skriver</span><div class="phone t-light" id="l-write"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Martina får lappen</span><div class="phone t-light" id="l-recv"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Martina svarar</span><div class="phone t-light" id="l-reply"></div></div>
+</div>
+<ul class="spec">
+  <li><b>Skriv</b>: arket heter “Lapp till Martina” (med fler medlemmar “Lapp till hushållet”, och chips med namnen för att välja vem; inget valt = alla). Avbryt uppe till höger. Textfältet har fokus, högst 300 tecken.</li>
+  <li><b>Humör</b> (valfritt): fem runda emoji-chips 44 px, 😊 😍 😋 😤 😩, ett eller inget. Det valda står sist i lappen och styr senare avatarens min (24.2).</li>
+  <li><b>Knappar på lappen</b> föreslås medan man skriver, utan AI: ett receptnamn i texten ger “Lägg Fisksoppa på matsedeln”, “handla”/“köp”/“listan” ger “Visa listan”, “köp mjölk” ger “Lägg mjölk på listan”. Förslagen är chips som är valda; tryck tar bort. Hittas inget finns ingen rubrik.</li>
+  <li><b>Mottagaren</b>: lappen ligger överst på varje flik, på sand som en papperslapp. Avsändarens initial står i en streckad ring 52 px, där avataren från 24.2 kommer att stå; i 24.1 är den stilla. Namn och tid, texten 17 px, knapparna som vita chips, sist <b>Svara</b> och <b>Klar</b>. Flera lappar: den nyaste, och “1 lapp till” som visar nästa.</li>
+  <li><b>Lägg på matsedeln</b> öppnar dagens Lägg på matsedeln-ark med receptet valt; <b>Visa listan</b> går till Inköpslista. <b>Klar</b> tar bort lappen för alla: “Lappen är klar.” med Ångra. Avsändaren ser sin egen lapp överst, mindre, med “Väntar” tills någon trycker Klar.</li>
+  <li><b>Svara</b> öppnar samma ark som “Svar till Pontus” med lappen citerad och tre snabbsvar som chips (“Ja, jag fixar det”, “Kan inte idag”, 👍) som fyller fältet. Svaret blir en egen lapp hos Pontus.</li>
+  <li>Push (Epic 23) väntar; utan den syns lappen nästa gång appen öppnas eller läser om sig. P-knappen får en liten prick när en lapp väntar.</li>
+  <li><b>24.2, senare:</b> i ringen står då en levande avatar som andas, blinkar och pekar busigt på lappen medan texten skrivs fram, med min efter humöret; i 24.1 står bara initialen där.</li>
+</ul>
+
+<!-- ============ TECH ============ -->
+<h2 class="part" id="teknik">7. Teknik, kort</h2>
+<div class="box">
+<h4>Databasen</h4>
+<ul class="spec" style="margin:0">
+  <li><code>household</code> (id, namn, skapad) och <code>household_member</code> (household_id, user_id <b>unik</b>, namn, roll <code>owner</code>/<code>member</code>, nyans, med sedan). <code>household_invite</code> (kod unik, household_id, skapad av, går ut, använd av/när, återkallad). Index på <code>household_member(user_id)</code>.</li>
+  <li><code>household_id</code> (not null, FK, index) på varje datatabell: 26 av dagens 30 tabeller, alla utom de per person (<code>welcome_tour</code>, <code>api_key</code>, <code>feedback</code>, <code>app_owner</code>). Unika index och <code>on conflict</code> som bygger på <code>user_id</code> (till exempel bockar, produktval, AI-val) byts till <code>household_id</code>.</li>
+  <li><b>Backfill</b> i samma migrering: varje befintligt konto får ett hushåll (“Pontus hushåll”, döps om i appen) med sig själv som ägare, och varje rad får kontots hushåll. Sedan not null. Före: <code>backup.yml</code> körs, och migreringen provas på en kopia av molnets data.</li>
+  <li><b>21.3</b>: kolumnen <code>user_id</code> döps om till <code>created_by</code> (den är ju den som skapade raden) och <code>updated_by</code> läggs till, båda med <code>default auth.uid()</code> och en trigger som sätter <code>updated_by</code> vid ändring. <code>thing_change</code> och bockarna har redan en rad per händelse; de får <code>created_by</code>.</li>
+  <li><b>24.1</b>: <code>household_note</code> (household_id, från, till eller null = alla, text ≤ 300, humör, knappar som jsonb, skapad, klar av/när, svar på). Städas när den läses: klar sedan ett dygn eller äldre än 7 dagar (inget cron finns).</li>
+</ul>
+<h4 style="margin-top:16px">Radskyddet</h4>
+<p class="note" style="margin:0 0 6px">Från <code>user_id = (select auth.uid())</code> till medlemskap, i 77 av 91 migreringar finns <code>auth.uid()</code>; alla policies, RPC:er och Storage-policies skrivs om i en migrering.</p>
+<pre class="sql">create function public.is_household_member(hid uuid) returns boolean
+  language sql stable security definer set search_path = ''
+as $$ select exists (select 1 from public.household_member m
+                     where m.household_id = hid and m.user_id = (select auth.uid())) $$;
+revoke execute on function public.is_household_member(uuid) from public, anon;
+
+create policy recipe_member on public.recipe for all to authenticated
+  using ((select public.is_household_member(household_id)))
+  with check ((select public.is_household_member(household_id)));</pre>
+<ul class="spec" style="margin:0">
+  <li>Med en person i ett hushåll (beslut 3) kan den heta policyn skrivas <code>household_id = (select public.my_household_id())</code>, som Postgres räknar ut en gång per fråga i stället för per rad. Rekommendation: den formen i tabellernas policies, <code>is_household_member</code> i RPC:er och Storage.</li>
+  <li>Gå med och inbjudningar bara via <code>security definer</code>-RPC:er (<code>create_invite</code>, <code>accept_invite(code)</code>, <code>leave_household</code>, <code>remove_member</code>), aldrig direkt insert i <code>household_member</code>. <code>accept_invite</code> räknar fel: 10 felaktiga koder per konto och timme.</li>
+  <li><b>Konto utan mejl</b>: Supabase “Confirm email” av, och en <i>Before User Created</i>-hook som bara släpper in en registrering som bär en giltig kod (<code>options.data.invite</code>). <code>ALLOWED_EMAILS</code> gäller som förut för resten.</li>
+  <li>Storage: foton ligger under <code>{user_id}/…</code>. Policyn byts till att slå upp fotots rad (eller flyttas till <code>{household_id}/…</code> i en engångskörning). Förval: slå upp raden, inga filer flyttas.</li>
+</ul>
+<h4 style="margin-top:16px">Live och token i webbläsaren (molnet.md, Före vänner punkt 7)</h4>
+<ul class="spec" style="margin:0">
+  <li><b>Rekommendation: förslag 1, ingen token i webbläsaren.</b> Ta bort <code>/api/realtime/session</code>; <code>use-live-refresh.ts</code> läser om sidan (<code>router.refresh</code>) var 4:e sekund på Inköpslista och var 10:e annars, bara medan fliken syns, och direkt när den syns igen. Martinas bock syns hos Pontus inom ~4 s, en lapp inom ~10 s. Ingen token i JavaScript, inget filter per <code>user_id</code> att skriva om, och samma kod för alla tabeller.</li>
+  <li>Kostar några tusen anrop per handlingstur, försumbart för några hushåll. Räcker det inte senare: förslag 2 (SSE från servern, utan token). Lägg CSP med nonce oavsett (punkt 7.4).</li>
+</ul>
+<h4 style="margin-top:16px">Övrigt</h4>
+<ul class="spec" style="margin:0">
+  <li><b>Isoleringstestet (17.1) utökas</b>: två hushåll med två medlemmar var. Testet listar själv varje tabell med <code>household_id</code> ur <code>information_schema</code> och misslyckas om en ny tabell saknar prov; dessutom borttagen medlem ser inget, utgången och återkallad kod ger inget, Storage per hushåll.</li>
+  <li><b>Appens ägare ≠ hushållets ägare.</b> <code>app_owner</code>/<code>is_app_owner()</code> (Inkorgen, 20.3) är Pontus som driver Livskoll och rörs inte; <code>household_member.role = 'owner'</code> är den som skapade ett hushåll.</li>
+  <li><b>Flyttskriptet (<code>pnpm move:cloud</code>, 17.4) behövs inte längre</b>: flytten är gjord och skriptets kolumnlista skulle bli fel. Tas bort med sina tester i 21.2a.</li>
+  <li>21.1 (bjud in ett nytt hushåll) blir liten: samma kod, men <code>accept_invite</code> skapar ett nytt hushåll i stället för att lägga till en medlem.</li>
+</ul>
+</div>
+
+<!-- ============ STORIES ============ -->
+<h2 class="part" id="stories">Stories, storlek och risker</h2>
+<div class="stories">
+  <div><i>17.12 (ny, före 21.2)</i><b>Live utan token <span class="size">S</span></b><small>Pollning i <code>use-live-refresh.ts</code>, rutten bort, CSP. Löser Före vänner 7 oavsett Epic 21.</small></div>
+  <div><i>21.2a</i><b>Hushållet i databasen <span class="size">XL</span></b><small>Tabellerna, backfill, ny RLS i alla tabeller, RPC:er och Storage, <code>created_by</code>, isoleringstestet, flyttskriptet bort. Ingen ny skärm. Migration och integritet: 2–3 granskare.</small></div>
+  <div><i>21.2b</i><b>Medlemmar och inbjudan <span class="size">L</span></b><small>Medlemmar, Bjud in, /ga-med, “Har du en kod?”, Vad heter du?, Lämna/Ta bort/Gör till ägare, P-knappen med eget namn, signup-hooken.</small></div>
+  <div><i>21.3</i><b>Vem gjorde vad <span class="size">M</span></b><small><code>updated_by</code>-triggern, initialen i listan och Listpostdetalj, namnen i Ändringar och lagervarans ark.</small></div>
+  <div><i>24.1</i><b>Lappen på kylskåpet <span class="size">L</span></b><small><code>household_note</code>, Skriv/Svara-arket, kortet överst i appshellen, knappar utan AI, pricken på P. Utan push tills Epic 23.</small></div>
+</div>
+<h3 style="font-size:19px;line-height:24px;font-weight:600;margin:40px 0 6px">Största riskerna</h3>
+<ol class="risk">
+  <li><b>RLS-omskrivningen är bred.</b> En missad policy, RPC eller Storage-regel = läcka mellan hushåll eller en trasig funktion. Motmedel: en migrering, isoleringstestet som självt listar tabellerna, 2–3 granskare.</li>
+  <li><b>Unika index och upserts på <code>user_id</code></b> ger tysta fel (två bockar på samma vara, dubbla produktval) om någon glöms. Sök igenom alla <code>on conflict</code> i koden.</li>
+  <li><b>Konton utan mejl</b>: adressen är aldrig bekräftad och “Glömt lösenordet?” fungerar inte förrän egen SMTP finns (punkt 8). Tills dess hjälper Pontus med ett skript; en kod kan gissas, därför 7 dagar, en person och spärr efter 10 fel.</li>
+  <li><b>Migrering på riktig data i molnet.</b> Backup först, prov på en kopia, och en väg tillbaka (kolumnerna tas inte bort i samma steg).</li>
+  <li><b>Prestanda</b> om medlemskapet räknas per rad: initPlan-formen och index på <code>household_member(user_id)</code>.</li>
+  <li><b>Pollning</b> kostar fler anrop än sockeln; bra nog för hushåll och vänner, inte för hundratals.</li>
+</ol>
+
+<!-- ============ DECISIONS ============ -->
+<h2 class="part" id="beslut">Beslut för Pontus, med det som byggs om du inte säger något</h2>
+<ol class="beslut">
+  <li><b>Inbjudan med länk och kod</b> (förval: länken för den som får ett meddelande, koden för att läsa upp vid köksbordet), eller bara kod.</li>
+  <li><b>Alla ser och ändrar allt</b> (förval), inga roller utöver ägare; alla kan bjuda in, bara ägaren tar bort någon. Eller att bara ägaren kan bjuda in.</li>
+  <li><b>En person, ett hushåll</b> (förval: enklare radskydd och snabbare), eller att man kan tillhöra flera och byta som Boenden.</li>
+  <li><b>Namn: förnamnet från profilen, frågas vid första inloggningen</b> (förval, förifyllt från e-posten), eller bara e-postens början utan fråga.</li>
+  <li><b>Lappar ligger kvar tills någon trycker Klar, högst 7 dagar</b> (förval), eller bara tills Klar.</li>
+  <li><b>Initial 20 px på raden</b> för andras bockar och tillägg (förval), eller hela förnamnet i grå text (“Martina”) under varunamnet.</li>
+  <li><b>En nyans per medlem</b> (förval: mint, sky, sand, lila i ordning), eller samma mint för alla.</li>
+  <li><b>Live med pollning, ingen token i webbläsaren</b> (förval, ny liten story 17.12 före 21.2), eller SSE från servern direkt.</li>
+  <li><b>Gruppen Ägare i Inställningar heter “Appens ägare”</b> (förval), eller blir kvar som “Ägare”.</li>
+  <li><b>Den som går med och redan har data i eget hushåll tar med allt in</b> (förval: inget försvinner; dubbletter som två “Hemma” slås inte ihop av sig själva), eller bara tomma konton kan gå med.</li>
+  <li><b>Lappens knappar utan AI</b> (förval: receptnamn och några ord), eller ett billigt AI-anrop som också läser humöret, som 24.2 ändå behöver.</li>
+  <li><b>Skriv en lapp i P-menyn</b> (förval), eller också en liten penna bredvid P i varje fliks rubrik.</li>
+</ol>
+</div>
+<script>
+
+// ---------- helpers (as in hjalp-valkomst.html) ----------
+const I = (id, s = 24, cls = '') => `<svg class="ic ${cls}" width="${s}" height="${s}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const D = (id, s = 28) => I(id, s, 'duo');
+const tabbar = (on) => `<nav class="tabbar">${[['i-book','Recept'],['i-cal','Matsedel'],['i-cart','Inköpslista'],['i-carrot','Matvaror'],['i-box','Förråd']].map(([i,l]) => `<span class="tab"${on===l?' style="color:var(--accent)"':''}>${I(i,24)}<span>${l}</span></span>`).join('')}</nav>`;
+const logo = (s = 28) => `<svg width="${s}" height="${s}" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#3E7C62"/><path d="M256 112 L406 236 V384 c0 18-14 32-32 32 H138 c-18 0-32-14-32-32 V236 Z" fill="#F6F1E4"/><path d="M196 300l44 44 84-96" fill="none" stroke="#3E7C62" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const back = (l) => `<span class="backrow">${I('i-chev-l',22)}${l}</span>`;
+const av = (n, size = 's32', tint = '') => `<span class="av ${size} ${tint}">${n[0]}</span>`;
+const P = (tint = '') => av('Pontus', 's40', tint), MT = 'sky';
+const side = (active, who = ['Pontus', 'pontus@matkoll.local', '']) => `<aside class="side"><div class="brand">${logo()}<span>Livskoll</span></div><div class="site">${I('i-pin',22)}<span style="flex:1">Hemma</span>${I('i-chev-d',18)}</div><nav class="nvs">${[['i-book','Recept'],['i-cal','Matsedel'],['i-cart','Inköpslista'],['i-carrot','Matvaror'],['i-box','Förråd']].map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</nav><div class="nvb"><div class="who"><span class="av ${who[2]}" style="width:28px;height:28px;font-size:13px">${who[0][0]}</span><span><b>${who[0]}</b><small>${who[1]}</small></span></div>${[['i-pen','Skriv en lapp'],['i-help','Hjälp och tips'],['i-gear','Inställningar'],['i-logout','Logga ut']].map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</div></aside>`;
+const sheet = (title, right, body, extra = '') => `<div class="dim"></div><div class="sheet"${extra}><div class="grab"></div><div class="shead"><span class="stitle">${title}</span><span class="cancel">${right}</span></div>${body}</div>`;
+const srow = (tile, icon, t, v, extra = '', cls = '') => `<div class="row${cls}"><span class="tile2 ${tile}">${I(icon,20)}</span><span class="grow">${t}</span>${extra}${v ? `<span class="v">${v}</span>` : ''}<span class="chev">${I('i-chev-r',18)}</span></div>`;
+const set = (id, html) => { document.getElementById(id).innerHTML = html; };
+const toast = (t, a = '') => `<div class="toast"><p>${t}</p>${a ? `<span>${a}</span>` : ''}</div>`;
+
+// ---------- Inställningar (settings-menu-content.tsx) ----------
+function settings({ name, email, tint = '', ownerLabel, members }) {
+  return `<div class="scroll" style="overflow:hidden"><div class="scr">${back('Recept')}<h1 class="lt">Inställningar</h1>
+  <div class="acct">${av(name, 's40', tint)}<span class="grow"><b>${name}</b><small>${email}</small></span><span class="chev" style="color:var(--ink-3)">${I('i-chev-r',18)}</span></div>
+  <div class="sec">${ownerLabel}</div><div class="grp">${srow('sky','i-tray','Inkorg','', '<span class="newpill">2 nya</span>')}</div>
+  <div class="sec">Hushåll</div><div class="grp">${members ? `<div class="mark" style="border-radius:0">${srow('','i-users','Medlemmar',members)}</div>` : ''}${srow('','i-pin','Boenden','Hemma, Duved')}${srow('sky','i-store','Butiker','Maxi ICA Stormarknad')}</div>
+  <div class="sec">Recept</div><div class="grp">${srow('sky','i-globe','Receptsajter','4 sajter')}${srow('lilac','i-bookmark','Spara i Livskoll','')}</div>
+  <div class="sec">AI</div><div class="grp">${srow('sand','i-sparkle','Modell','Claude Haiku · Medel')}</div>
+  </div></div>${tabbar()}`;
+}
+set('old-set', settings({ name: 'Pontus', email: 'pontus@matkoll.local', ownerLabel: 'Ägare' }));
+set('n-set', settings({ name: 'Pontus', email: 'pontus@matkoll.local', ownerLabel: '<span class="mark" style="padding:0 4px">Appens ägare</span>', members: 'Pontus, Martina' }));
+
+// ---------- P sheet (account-button.tsx) ----------
+const prow = (icon, l, v = '', mark = false) => `<div class="row${mark ? ' mark' : ''}" style="--inset:48px;padding-left:14px"><span style="color:var(--ink-2)">${I(icon,22)}</span><span class="grow">${l}</span>${v ? `<span class="v">${v}</span>` : ''}<span class="chev">${I('i-chev-r',16)}</span></div>`;
+const psheet = (name, email, tint, withNote) => `<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle" style="display:flex;align-items:center;gap:12px">${av(name,'s40',tint)}<span style="display:flex;flex-direction:column"><span>${name}</span><span style="font-size:14px;line-height:20px;font-weight:400;color:var(--ink-2)">${email}</span></span></span><span class="cancel">Klar</span></div>
+  <div class="grp" style="background:var(--fill);border-radius:14px;margin-top:4px">${withNote ? prow('i-pen','Skriv en lapp','', true) : ''}${prow('i-gear','Inställningar')}${prow('i-help','Hjälp och tips','Om Inköpslista')}</div>
+  <div class="signout">Logga ut</div></div>`;
+
+// ---------- Inköpslista (shopping-list.tsx) ----------
+const cc = (on) => `<span class="cc"><i class="${on ? 'on' : ''}">${on ? I('i-check',14) : ''}</i></span>`;
+const lrow = ({ n, meta = '', egen = false, amt = '', on = false, by = '', mark = false }) => `<div class="lr${on ? ' done' : ''}${mark ? ' markrow' : ''}">${cc(on)}<span class="lt2"><span class="nm">${n}</span>${meta || egen ? `<span class="mm">${egen ? '<span class="egen">Egen</span>' : meta}</span>` : ''}</span>${by ? `<span class="av s20 ${by==='Martina'?MT:''}" aria-label="${on ? 'bockad av' : 'tillagd av'} ${by}">${by[0]}</span>` : ''}${amt ? `<span class="amt">${amt}</span>` : ''}<span class="trash">${I('i-trash',20)}</span></div>`;
+const cat = (e, l, n) => `<div class="cath"><span class="e">${e}</span><h3>${l}</h3><span class="n">${n}</span></div>`;
+const listBody = (who = 'Pontus', mark = true) => {
+  // Initials only for what someone else did: Martina added Citron and ticked Mjölk and Bröd, Pontus ticked Smör. who = null: today, no names.
+  const by = (doer) => (who && doer !== who ? doer : '');
+  const m = (doer) => mark && who && doer !== who;
+  return `<div class="prog"><p><b>5 varor kvar</b><span>3 av 8 i korgen</span></p><div class="meter"><i style="width:37.5%"></i></div></div>
+  <div class="chips" style="margin-top:8px"><span class="chip">Egna <span class="n">1</span></span><span class="chip">Till rätter <span class="n">3</span></span></div>
+  ${cat('🥦','Frukt &amp; grönt',3)}<div class="grp">${lrow({ n:'Gul lök', meta:'Till Korv stroganoff', amt:'2 st' })}${lrow({ n:'Citron', egen:true, amt:'1 st', by: by('Martina'), mark: m('Martina') })}${lrow({ n:'Dill', meta:'Till Fisksoppa', amt:'1 knippe' })}</div>
+  ${cat('🥛','Mejeri &amp; ägg',2)}<div class="grp">${lrow({ n:'Grädde', meta:'Till Korv stroganoff', amt:'3 dl' })}${lrow({ n:'Ägg', egen:true, amt:'6 st' })}</div>
+  <div class="bask"><span>I korgen (3)</span>${I('i-chev-d',18)}</div>
+  <div class="grp">${lrow({ n:'Mjölk', amt:'1 l', on:true, by: by('Martina'), mark: m('Martina') })}${lrow({ n:'Bröd', meta:'Till Fisksoppa', amt:'1 st', on:true, by: by('Martina') })}${lrow({ n:'Smör', amt:'1 st', on:true, by: by('Pontus') })}</div>`;
+};
+const listHead = (name, tint = '', dot = false) => `<div class="ph"><h1 class="lt">Inköpslista</h1><span class="tap" style="position:relative">${av(name,'s32',tint)}${dot ? '<i style="position:absolute;top:7px;right:7px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)"></i>' : ''}</span></div>`;
+const listPhone = (top = '', name = 'Pontus', tint = '', mark = true, dot = false, who = name) => `<div class="scroll" style="overflow:hidden"><div class="scr" style="padding-top:12px">${listHead(name, tint, dot)}${top}${listBody(who, mark)}</div></div><span class="fab">${I('i-plus',26)}</span>${tabbar('Inköpslista')}`;
+
+set('old-p', listPhone('', 'Pontus', '', false, false, null) + psheet('Pontus', 'pontus@matkoll.local', '', false));
+set('w-list', listPhone());
+
+// ---------- Medlemmar ----------
+const mrow = (name, email, badges, tint, trash) => `<div class="mrow">${av(name,'s40',tint)}<span class="mt"><b>${name}${badges.map((b) => `<span class="bdg">${b}</span>`).join('')}</b><small>${email}</small></span>${trash ? `<span class="trash">${I('i-trash',20)}</span>` : '<span style="width:8px"></span>'}</div>`;
+const membersPageOf = (me) => `<div class="scroll" style="overflow:hidden"><div class="scr">${back('Inställningar')}<h1 class="lt">Medlemmar</h1>
+  <div class="grp" style="margin-top:16px"><div class="row" style="--inset:16px"><span class="grow">Namn</span><span class="v">Hushållet Hellgren</span><span class="chev">${I('i-chev-r',18)}</span></div></div>
+  <div class="sec">2 medlemmar</div>
+  <div class="grp">${mrow('Pontus','pontus@matkoll.local',me==='Pontus'?['Du','Ägare']:['Ägare'],'',false)}${mrow('Martina','martina@exempel.se',me==='Martina'?['Du']:[],MT,me==='Pontus')}
+    ${me==='Pontus'?`<div class="mrow mark" style="border-radius:0"><span class="itile">${I('i-link',20)}</span><span class="mt"><b>Inbjudan <span style="font-family:ui-monospace,Menlo,monospace;letter-spacing:1px">K7Q 4MP</span></b><small>Gäller till 8 nov</small></span><span class="trash">${I('i-trash',20)}</span></div>`:''}
+    <div class="mrow" style="color:var(--accent);min-height:52px"><span style="width:40px;display:flex;justify-content:center">${I('i-plus',22)}</span><span class="mt"><b>Bjud in någon</b></span></div></div>
+  <p class="fnote">Alla i hushållet ser och ändrar samma recept, matsedel, lista, matvaror och förråd.</p>
+  <div class="dz">Lämna hushållet</div>
+  </div></div>${tabbar()}`;
+const membersPage = membersPageOf('Pontus');
+set('n-mem', membersPage);
+set('n-inv', membersPage + sheet('Bjud in till hushållet', 'Klar', `<p class="slead">Den du bjuder in får en egen inloggning och ser allt som ni har i Livskoll.</p>
+  <div class="codebox"><div class="k">Kod</div><div class="code">K7Q 4MP</div><small>Gäller till 8 nov · för en person</small></div>
+  <div class="linkrow"><span>livskoll.app/ga-med/K7Q4MP</span><span class="chip act">Kopiera</span></div>
+  <p class="hint">Inget mejl skickas. Dela länken i ett meddelande, eller läs upp koden.</p>
+  <div class="sfoot"><button class="btn">${I('i-share',20)}Dela inbjudan</button><span class="tbtn" style="color:var(--danger)">Återkalla inbjudan</span></div>`));
+
+// ---------- Gå med ----------
+const authTop = `<div class="brandl">${logo(28)}<span>Livskoll</span></div><p class="tagl">Mat, saker och vardag under kontroll</p>`;
+set('j-1', `<div class="auth">${authTop}<h1>Gå med i Hushållet Hellgren</h1>
+  <div class="hh mark"><span class="stack">${av('Pontus','s40')}</span><span><b>Pontus bjöd in dig</b><small>1 medlem · gäller till 8 nov</small></span></div>
+  <p>Välj e-post och lösenord, så får du en egen inloggning i hushållet.</p>
+  <div class="fl"><span class="flabel">E-postadress</span><div class="inp">martina@exempel.se</div></div>
+  <div class="fl"><span class="flabel">Välj lösenord</span><div class="inp focus">••••••••<i class="caret"></i></div></div>
+  <button class="btn">Gå med</button>
+  <span class="tbtn c">Har du redan ett konto? Logga in</span>
+  <p style="margin-top:auto;text-align:center;font-size:14px;color:var(--ink-3)">Livskoll · av Snowstar</p></div>`);
+set('j-2', `<div class="auth" style="padding-top:96px">${'<span class="av sky" style="width:72px;height:72px;font-size:32px;align-self:center">M</span>'}
+  <h1 style="text-align:center;margin-top:8px">Vad heter du?</h1>
+  <p style="text-align:center">Namnet syns för de andra i hushållet, till exempel när du bockar av en vara.</p>
+  <div class="fl" style="margin-top:8px"><span class="flabel">Förnamn</span><div class="inp focus">Martina<i class="caret"></i></div></div>
+  <button class="btn">Fortsätt</button>
+  <p style="text-align:center;font-size:14px;line-height:20px">Går att ändra under Inställningar → Konto.</p></div>`);
+set('j-3', listPhone('', 'Martina', MT, false) + psheet('Martina', 'martina@exempel.se', MT, true));
+
+// ---------- Lämna / ta bort (confirm-delete.tsx) ----------
+const ask = (q, detail, btn) => `<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle">${q}</span><span class="cancel">Avbryt</span></div>
+  <p class="slead" style="margin-top:4px">Det går inte att ångra.</p><p class="slead">${detail}</p>
+  <div class="sfoot"><button class="btn" style="background:var(--fill);color:var(--danger);height:50px">${btn}</button></div></div>`;
+set('r-1', membersPage + ask('Ta bort Martina ur hushållet?', 'Martina ser inte längre er data och får ett eget, tomt hushåll. Det Martina har lagt in stannar här.', 'Ta bort'));
+set('r-2', membersPageOf('Martina') + ask('Lämna Hushållet Hellgren?', 'Du ser inte längre recepten, listan och förrådet här, och får ett eget, tomt hushåll. Tillbaka kommer du med en ny inbjudan.', 'Lämna'));
+
+// ---------- föremålets ark (count-card.tsx) ----------
+const chg = (d, who, t, date) => `<div class="chg${t==='Nytt kort'?' card':''}${who ? ' mark' : ''}"${who ? ' style="outline-offset:-2px;border-radius:8px"' : ''}><b class="${d.startsWith('+')?'plus':''}">${d}</b><span>${who ? `${who} ${t.toLowerCase()}` : t}</span><time>${date}</time></div>`;
+set('w-thing', `<div class="scroll" style="overflow:hidden"><div class="scr">${back('Förråd')}<h1 class="lt">Förrådet</h1><div class="grp" style="height:400px;margin-top:16px"></div></div></div>${tabbar('Förråd')}` + sheet('Gravljus', 'Avbryt', `<p class="ssub">översta hyllan, vänster</p>
+  <div class="qcard"><div class="qtop"><span class="qnum">3<small>st</small></span><span style="display:flex;gap:8px"><span class="pill">Ta</span><span class="pill">Fyll på</span></span></div>
+  <div class="qline">Du borde ha 3 kvar · kortet 12 okt visade 5</div>
+  <div class="qh">Ändringar</div>${chg('−2','Martina','Tog','4 nov')}${chg('+2','','Fyllde på','3 nov')}${chg('−2','Martina','Tog','1 nov')}${chg('5','','Nytt kort','12 okt')}<div style="height:6px"></div></div>
+  <div class="qfoot"><span class="cmp">Rätta antalet</span><span class="cmp">Sluta räkna</span></div>
+  <div class="field" style="margin-top:8px"><span class="flabel">Byt namn</span><div class="inp">Gravljus</div></div>`, ' style="max-height:88%"'));
+
+// ---------- Lappen ----------
+const noteCard = ({ from, tint = '', time, text, acts = [], more = '', mark = true }) => `<div class="note${mark ? ' mark' : ''}" style="${mark ? 'outline-offset:3px;border-radius:16px' : ''}"><div class="nh"><span class="ring">${av(from,'s40',tint)}</span><span style="flex:1"><b>${from}</b><small>Lapp · ${time}</small></span>${more ? `<span class="more">${more}</span>` : ''}</div>
+  <p>${text}</p>${acts.length ? `<div class="na">${acts.map((a) => `<span class="pill">${a}</span>`).join('')}</div>` : ''}
+  <div class="nf"><span class="tbtn">Svara</span><span class="kbtn">Klar</span></div></div>`;
+const NOTE = { from:'Pontus', time:'16:05', text:'Sugen på fisksoppa idag, kan du handla? 😍', acts:['Lägg Fisksoppa på matsedeln','Visa listan'], more:'1 lapp till' };
+set('l-write', listPhone('', 'Pontus', '', false) + sheet('Lapp till Martina', 'Avbryt', `
+  <div class="field" style="margin-top:4px"><div class="ta focus" style="min-height:96px">Sugen på fisksoppa idag, kan du handla?<i class="caret"></i></div></div>
+  <div class="field"><span class="flabel">Humör <span class="opt">(valfritt)</span></span><div class="emo">${['😊','😍','😋','😤','😩'].map((e) => `<span class="${e==='😍'?'on':''}">${e}</span>`).join('')}</div></div>
+  <div class="field mark" style="border-radius:8px"><span class="flabel">Knappar på lappen</span><div class="chiprow"><span class="chip on">${I('i-check',16)}Lägg Fisksoppa på matsedeln</span><span class="chip on">${I('i-check',16)}Visa listan</span></div></div>
+  <div class="sfoot"><button class="btn">Skicka</button></div>`));
+set('l-recv', listPhone(noteCard(NOTE), 'Martina', MT, false, true));
+set('l-reply', listPhone(noteCard({ ...NOTE, mark:false }), 'Martina', MT, false) + sheet('Svar till Pontus', 'Avbryt', `
+  <div class="quote"><b>Pontus:</b> Sugen på fisksoppa idag, kan du handla? 😍</div>
+  <div class="field"><div class="ta focus" style="min-height:80px">Ja, jag fixar det<i class="caret"></i></div></div>
+  <div class="chiprow mark" style="margin-top:12px;border-radius:8px"><span class="chip on">Ja, jag fixar det</span><span class="chip">Kan inte idag</span><span class="chip">👍</span></div>
+  <div class="field"><span class="flabel">Humör <span class="opt">(valfritt)</span></span><div class="emo">${['😊','😍','😋','😤','😩'].map((e) => `<span>${e}</span>`).join('')}</div></div>
+  <div class="sfoot"><button class="btn">Skicka</button></div>`));
+
+// ---------- desktop ----------
+set('w-desk', `${side('Inköpslista')}<main class="dmain"><div class="in"><div class="ph"><h1 class="lt">Inköpslista</h1><span class="chip" style="color:var(--accent)">${I('i-plus',18)}Lägg till</span></div>
+  ${noteCard({ from:'Martina', tint:MT, time:'16:12', text:'Ja, jag fixar det. Handlar på vägen hem 👍', acts:['Visa listan'], mark:false })}
+  ${listBody('Pontus', false)}</div></main>`);
+
+// ---------- theme switch: the phones follow the system, or a forced mode ----------
+(function () {
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  let mode = 'auto';
+  function apply() {
+    const dark = mode === 'dark' || (mode === 'auto' && mq.matches);
+    document.querySelectorAll('.phone, .frame').forEach((p) => { p.classList.toggle('t-dark', dark); p.classList.toggle('t-light', !dark); });
+    if (mode === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', mode);
+    document.querySelectorAll('.themes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === mode)));
+  }
+  document.querySelectorAll('.themes button').forEach((b) => b.onclick = () => { mode = b.dataset.t; apply(); });
+  mq.addEventListener('change', apply);
+  const forced = new URLSearchParams(location.search).get('theme');
+  if (forced === 'dark' || forced === 'light') mode = forced;
+  apply();
+})();
+</script></body></html>
