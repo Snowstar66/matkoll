@@ -4,15 +4,18 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { TrashIcon } from "@/components/icons";
-import { FieldError, FieldLabel, Input } from "@/components/field";
+import { AmountInput } from "@/components/amount-input";
+import { FieldError, FieldLabel } from "@/components/field";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
+import { isCountUnit, type Unit } from "@/features/catalog";
+import { stepAmountField } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
 import { clearLineAmount } from "../actions/clear-line-amount";
 import { setLineAmount } from "../actions/set-line-amount";
 import type { ShoppingLine } from "../domain/compute-list";
-import { exactAmountText, maxCustomAmountChars } from "../domain/custom-item";
+import { exactAmountText } from "../domain/custom-item";
 import { parseLineKey } from "../domain/line-key";
 import { isAmountKey, lineAmountFieldErrors, lineAmountFormSchema } from "../domain/line-override";
 import { backToComputedText, computedAmountText, detailOriginsText } from "../domain/list-text";
@@ -246,7 +249,6 @@ function RecipeLineDetail({
 
   const origins = detailOriginsText(line.origins, dishTitles);
   const formId = `${ids}-form`;
-  const describedBy = amountError ? { "aria-invalid": true as const, "aria-describedby": `${ids}-amount-error` } : {};
 
   return (
     <Sheet
@@ -283,20 +285,35 @@ function RecipeLineDetail({
           <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-1.5">
             <FieldLabel htmlFor={`${ids}-amount`}>Mängd</FieldLabel>
             <div className="flex items-center gap-3">
-              <Input
-                ref={amountRef}
+              <AmountInput
                 id={`${ids}-amount`}
-                inputMode="decimal"
-                autoComplete="off"
-                maxLength={maxCustomAmountChars}
+                inputRef={amountRef}
                 value={amount}
-                onChange={(event) => {
-                  setAmount(event.target.value);
+                onChange={(text) => {
+                  setAmount(text);
                   setServerError(null);
                   setError(null);
                 }}
-                className="w-28"
-                {...describedBy}
+                stepper={isCountUnit(line.unit as Unit)}
+                onStep={(direction) => {
+                  const next = stepAmountField(
+                    amount,
+                    line.unit as Unit,
+                    direction,
+                  );
+                  if (next === null) return;
+                  setAmount(next);
+                  setServerError(null);
+                  setError(null);
+                }}
+                canStepDown={
+                  stepAmountField(amount, line.unit as Unit, -1) !== null
+                }
+                canStepUp={
+                  stepAmountField(amount, line.unit as Unit, 1) !== null
+                }
+                invalid={Boolean(amountError)}
+                describedBy={`${ids}-amount-error`}
               />
               <span data-testid="line-detail-unit" className="text-body text-ink">
                 {line.unit}

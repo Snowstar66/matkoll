@@ -8,6 +8,7 @@ import { LocationCards } from "./location-cards";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryList } from "./pantry-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { unitOf } from "./unit-test-helpers";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -258,7 +259,7 @@ describe("PantryList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mjölk Arla" }));
     expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Mjölk");
     expect(screen.getByLabelText("Mängd")).toHaveValue("1,5");
-    expect(screen.getByLabelText("Enhet")).toHaveValue("l");
+    expect(unitOf()).toBe("l");
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     fireEvent.click(screen.getByRole("button", { name: "Salt" }));

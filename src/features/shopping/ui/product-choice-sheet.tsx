@@ -258,12 +258,19 @@ export function ProductChoiceSheet({ open, onClose, session, label, ingredientId
   }
 
   const formId = `${ids}-form`;
-  const textField = (field: Field, text: string, props: Partial<ComponentProps<typeof Input>> = {}) => {
+  const textField = (
+    field: Field,
+    text: string,
+    props: Partial<ComponentProps<typeof Input>> = {},
+    optional = false,
+  ) => {
     const message = fieldError(field);
     const errorId = `${ids}-${field}-error`;
     return (
       <div className="flex flex-col gap-1.5">
-        <FieldLabel htmlFor={`${ids}-${field}`}>{text}</FieldLabel>
+        <FieldLabel htmlFor={`${ids}-${field}`} optional={optional}>
+          {text}
+        </FieldLabel>
         <Input
           ref={refs[field]}
           id={`${ids}-${field}`}
@@ -311,15 +318,25 @@ export function ProductChoiceSheet({ open, onClose, session, label, ingredientId
     >
       <form id={formId} onSubmit={submit} noValidate inert={pending} className="flex flex-col gap-5">
         {textField("productName", "Produkt")}
-        {textField("packageSize", "Förpackning", { placeholder: packageSizePlaceholder })}
-        {textField("url", "Länk", {
-          type: "url",
-          inputMode: "url",
-          autoCapitalize: "none",
-          autoCorrect: "off",
-          spellCheck: false,
-          placeholder: "https://",
-        })}
+        {textField(
+          "packageSize",
+          "Förpackning",
+          { placeholder: packageSizePlaceholder },
+          true,
+        )}
+        {textField(
+          "url",
+          "Länk",
+          {
+            type: "url",
+            inputMode: "url",
+            autoCapitalize: "none",
+            autoCorrect: "off",
+            spellCheck: false,
+            placeholder: "https://",
+          },
+          true,
+        )}
       </form>
     </Sheet>
   );

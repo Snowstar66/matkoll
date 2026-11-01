@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, type MouseEvent, type ReactNode, useContext, useId, useRef, useState } from "react";
 import { StatusBadge } from "@/components/badges";
-import { Button, buttonClasses } from "@/components/button";
-import { FieldLabel, inputClasses } from "@/components/field";
+import { Button } from "@/components/button";
+import { FilterPills } from "@/components/filter-pills";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
 import { PlusIcon } from "@/components/icons";
@@ -18,8 +17,13 @@ import { recipeStatusText } from "@/features/pantry";
 import { recipeMetaText, type RecipeListItem } from "@/features/recipes";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { addToCurrentPlan } from "../actions/add-to-current-plan";
-import { defaultWeekday, todayWeekday, weekdayNames, weekdays, addedOnDayText } from "../domain/meal-plan";
-import { planningHref } from "../domain/planning";
+import {
+  defaultWeekday,
+  todayWeekday,
+  weekdayNames,
+  weekdays,
+  addedOnDayText,
+} from "../domain/meal-plan";
 import { currentWeekStart } from "../domain/week";
 
 // Lägg till rätt (FR-13, Flöde 2): the sheet with the favourites first and a
@@ -27,6 +31,13 @@ import { currentWeekStart } from "../domain/week";
 // meal plan with its own servings and closes the sheet, so a favourite is on
 // the plan after two taps (SM-4). "+" in Matsedel's header and "Lägg till
 // rätt" in the empty plan open the same sheet (AddDishProvider).
+
+/** The sheet's title (Story 19.5): the action, and the day it is for once one is chosen: "Lägg till rätt på torsdag". */
+export function addDishTitle(day: number | null): string {
+  return day === null
+    ? "Lägg till rätt"
+    : `Lägg till rätt på ${weekdayNames[day - 1].toLowerCase()}`;
+}
 
 /** recipes.searchRecipes, passed down by the page (AD-1). */
 export type SearchRecipes = (query: string) => Promise<Result<RecipeListItem[]>>;
@@ -43,8 +54,9 @@ type AddDishContentProps = {
   /** `null` when the library could not be read. */
   recipes: readonly RecipeListItem[] | null;
   searchRecipes: SearchRecipes;
-  /** The day the sheet starts on: a day tapped in the week view, else the first free day from today, or `null`. */
-  startDay: number | null;
+  /** The day the dish goes to (1-7, `null` for none): the sheet's title says it, and Dag changes it. */
+  day: number | null;
+  onDayChange: (day: number | null) => void;
   /** The Monday of the week the dish goes to (Story 13.7); left out, this week. */
   weekStart?: string;
   /** The dish is on the plan, on `weekday` (`null`: no day). */
@@ -53,9 +65,16 @@ type AddDishContentProps = {
   onBusyChange: (busy: boolean) => void;
 };
 
-function AddDishContent({ recipes, searchRecipes, startDay, weekStart, onAdded, onBusyChange }: AddDishContentProps) {
+function AddDishContent({
+  recipes,
+  searchRecipes,
+  day,
+  onDayChange,
+  weekStart,
+  onAdded,
+  onBusyChange,
+}: AddDishContentProps) {
   const dayId = useId();
-  const [day, setDay] = useState<number | null>(startDay);
   const router = useRouter();
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [searching, setSearching] = useState(false);
@@ -163,41 +182,38 @@ function AddDishContent({ recipes, searchRecipes, startDay, weekStart, onAdded, 
       className={cx("flex flex-col gap-5 motion-safe:transition-opacity", adding && "opacity-60")}
     >
       {error ? <Notice role="alert">{error}</Notice> : null}
-      <div className="flex flex-col gap-1.5">
-        <FieldLabel htmlFor={dayId}>Dag</FieldLabel>
-        <select
-          id={dayId}
+      <div className="flex flex-col gap-2">
+        <span id={dayId} className="text-control text-ink">
+          Dag
+        </span>
+        {/* Story 19.5: the day is a row of chips, not a web form list; it scrolls sideways instead of wrapping. */}
+        <FilterPills
+          label="Dag"
+          compact
+          options={[
+            ...weekdays.map((weekday) => ({
+              value: String(weekday),
+              label: weekdayNames[weekday - 1],
+            })),
+            { value: "none", label: "Ingen dag" },
+          ]}
           value={day === null ? "none" : String(day)}
-          onChange={(event) => setDay(event.target.value === "none" ? null : Number(event.target.value))}
-          className={inputClasses}
-        >
-          {weekdays.map((weekday) => (
-            <option key={weekday} value={weekday}>
-              {weekdayNames[weekday - 1]}
-            </option>
-          ))}
-          <option value="none">Ingen dag</option>
-        </select>
-        {/* Story 13.8: pick the recipe in Recept instead, which then adds it to this day. */}
-        {day !== null ? (
-          <Link
-            href={planningHref(weekStart ?? currentWeekStart(), day)}
-            data-testid="pick-recipe"
-            className={buttonClasses("secondary", true)}
-          >
-            Välj recept
-          </Link>
-        ) : null}
-      </div>
-      {favorites.length > 0 ? <DishChoices label="Favoriter" recipes={favorites} onChoose={add} /> : null}
-      <div className="flex flex-col gap-3">
-        <SearchField
-          label="Sök recept"
-          placeholder="Sök på titel eller ingrediens"
-          maxLength={maxSearchChars}
-          onSearch={runSearch}
-          className="bg-bg"
+          onChange={(value) =>
+            onDayChange(value === "none" ? null : Number(value))
+          }
         />
+      </div>
+      <SearchField
+        label="Sök recept"
+        placeholder="Sök på titel eller ingrediens"
+        maxLength={maxSearchChars}
+        onSearch={runSearch}
+        className="bg-bg"
+      />
+      {favorites.length > 0 ? (
+        <DishChoices label="Favoriter" recipes={favorites} onChoose={add} />
+      ) : null}
+      <div className="flex flex-col gap-3">
         <div
           data-testid="dish-search-results"
           aria-busy={searching}
@@ -293,7 +309,7 @@ export type AddDishProviderProps = {
  */
 export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], weekStart, children }: AddDishProviderProps) {
   /** The day the sheet starts on, set when it opens. */
-  const [startDay, setStartDay] = useState<number | null>(null);
+  const [day, setDay] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   /** Counts openings: the sheet starts afresh each time, without the last search or error. */
   const [session, setSession] = useState(0);
@@ -302,8 +318,17 @@ export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], week
   const api: AddDishApi = {
     open: (weekday) => {
       // A coming week starts on its first free day from Monday; this week from today.
-      const from = weekStart && weekStart !== currentWeekStart() ? 1 : todayWeekday(new Date());
-      setStartDay(weekday ?? defaultWeekday(plannedDays.map((day) => ({ weekday: day })), from));
+      const from =
+        weekStart && weekStart !== currentWeekStart()
+          ? 1
+          : todayWeekday(new Date());
+      setDay(
+        weekday ??
+          defaultWeekday(
+            plannedDays.map((planned) => ({ weekday: planned })),
+            from,
+          ),
+      );
       setSession((current) => current + 1);
       setOpen(true);
     },
@@ -311,13 +336,20 @@ export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], week
   return (
     <AddDishContext.Provider value={api}>
       {children}
-      <Sheet open={open} onClose={() => setOpen(false)} title="Lägg till rätt" closeLabel="Klar" preventClose={busy}>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={addDishTitle(day)}
+        closeLabel="Klar"
+        preventClose={busy}
+      >
         <AddDishContent
           key={session}
           recipes={recipes}
           searchRecipes={searchRecipes}
           onBusyChange={setBusy}
-          startDay={startDay}
+          day={day}
+          onDayChange={setDay}
           weekStart={weekStart}
           onAdded={(weekday) => {
             setOpen(false);

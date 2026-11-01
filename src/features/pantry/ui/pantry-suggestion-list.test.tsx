@@ -13,6 +13,7 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import type { PhotoPostAnswer } from "./photo-post";
+import { unitOf } from "./unit-test-helpers";
 
 /** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
 function placeRadio(scope: HTMLElement, name: string) {
@@ -432,7 +433,7 @@ describe("Rätta", () => {
     fireEvent.click(button("Rätta mjölk"));
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
+    expect(unitOf(sheet())).toBe("förp");
     expect(placeRadio(sheet(), "Kyl")).toHaveAttribute("aria-checked", "true");
 
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2,5" } });

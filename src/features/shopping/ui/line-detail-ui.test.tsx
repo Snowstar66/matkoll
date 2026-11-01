@@ -376,7 +376,7 @@ describe("Listpostdetalj for an own item", () => {
     const field = within(sheet).getByRole("textbox", { name: "Vara" });
     expect(field).toHaveValue("diskmedel");
     expect(within(sheet).getByRole("textbox", { name: "Mängd" })).toHaveValue("2");
-    expect(within(sheet).getByRole("combobox", { name: "Enhet" })).toHaveValue("förp");
+    expect(within(within(sheet).getByRole("radiogroup", { name: "Enhet" })).getByRole("radio", { name: "förp" })).toBeChecked();
     expect(within(sheet).getByTestId("custom-item-link")).toHaveTextContent("Kopplad till Kaffe");
     // Not in focus at once, unlike Lägg till egen vara.
     expect(field).not.toHaveFocus();

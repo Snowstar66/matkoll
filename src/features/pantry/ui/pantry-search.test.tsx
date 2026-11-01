@@ -8,6 +8,7 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryPlace } from "./pantry-place";
 import { PantrySearchField } from "./pantry-search";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { chooseUnit } from "./unit-test-helpers";
 
 // Sök i platsen (Story 11.3): the field, and that the search starts empty on
 // another place or location but stays while the page is hidden (Activity).
@@ -134,7 +135,7 @@ describe("the search in Matvaror", () => {
     fireEvent.change(field(), { target: { value: "mjö" } });
     fireEvent.click(screen.getByRole("button", { name: /^Mellanmjölk(?:\s|$)/ }));
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
-    fireEvent.change(screen.getByLabelText("Enhet"), { target: { value: "l" } });
+    chooseUnit("l");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
     await waitFor(() => expect(field()).toHaveValue(""));
     expect(rowCount()).toBe(2);

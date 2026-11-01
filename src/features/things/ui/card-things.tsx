@@ -234,7 +234,9 @@ export function CardThings({ things, headings = true, aside = false }: { things:
           {/* A noted thing (Story 18.19) has no picture to say where on. */}
           {selected?.noted ? null : (
             <div className="flex flex-col gap-2">
-              <FieldLabel htmlFor={`${ids}-where`}>{whereLabelText}</FieldLabel>
+              <FieldLabel htmlFor={`${ids}-where`} optional>
+                {whereLabelText}
+              </FieldLabel>
               <Input
                 id={`${ids}-where`}
                 name="where"

@@ -1,5 +1,5 @@
 import { crc32, deflateSync } from "node:zlib";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { placePhotoBucket as sharedPlacePhotoBucket, removeUserPlacePhotos } from "../../scripts/pantry-photo-files.mjs";
@@ -620,4 +620,23 @@ export async function expectBoende(page: Page, name: string) {
 export async function openSettingsViaAvatar(page: Page) {
   await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
   await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: "Inställningar" }).click();
+}
+
+/** Story 19.5: Enhet is a row of chips; a unit that is not among them is chosen through "Fler ›" and its row in the step behind it. */
+export async function chooseUnit(scope: Locator, unit: string): Promise<void> {
+  const group = scope.getByRole("radiogroup", { name: "Enhet" });
+  const chip = group.getByRole("radio", { name: unit, exact: true });
+  if ((await chip.count()) > 0) {
+    await chip.click();
+    return;
+  }
+  await group.getByRole("button", { name: "Fler ›" }).click();
+  await scope.getByRole("radio", { name: unit, exact: true }).click();
+}
+
+/** The unit the Enhet chips show as chosen; "" means none. */
+export async function expectUnit(scope: Locator, unit: string): Promise<void> {
+  const group = scope.getByRole("radiogroup", { name: "Enhet" });
+  if (unit === "") await expect(group.getByRole("radio", { checked: true })).toHaveCount(0);
+  else await expect(group.getByRole("radio", { name: unit, exact: true })).toBeChecked();
 }

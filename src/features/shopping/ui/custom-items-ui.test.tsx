@@ -151,7 +151,7 @@ describe("Lägg till egen vara", () => {
     // The text can still change; the link stays, and the text becomes a synonym.
     await user.type(field, " bryggmalet");
     await user.type(within(dialog).getByRole("textbox", { name: "Mängd" }), "2");
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Enhet" }), "förp");
+    await user.click(within(within(dialog).getByRole("radiogroup", { name: "Enhet" })).getByRole("radio", { name: "förp" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
     await waitFor(() => expect(addCustomItem).toHaveBeenCalledTimes(1));
     expect(addCustomItem.mock.calls[0][0]).toMatchObject({
@@ -184,10 +184,10 @@ describe("Lägg till egen vara", () => {
     await user.type(amount, "2");
     await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
     expect(within(dialog).getByText("Välj en enhet.")).toBeInTheDocument();
-    expect(within(dialog).getByRole("combobox", { name: "Enhet" })).toHaveFocus();
+    expect(within(within(dialog).getByRole("radiogroup", { name: "Enhet" })).getAllByRole("radio")[0]).toHaveFocus();
     await user.clear(amount);
     await user.type(amount, "0");
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Enhet" }), "förp");
+    await user.click(within(within(dialog).getByRole("radiogroup", { name: "Enhet" })).getByRole("radio", { name: "förp" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
     expect(within(dialog).getByText("Ange ett tal större än 0.")).toBeInTheDocument();
     expect(addCustomItem).not.toHaveBeenCalled();

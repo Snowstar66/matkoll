@@ -12,6 +12,7 @@ import { AddPantryItemButton, PantryItemSheet, PantrySheetProvider, usePantryShe
 import type { CorrectOutcome, RejectOutcome } from "./pantry-suggestions";
 import { PantryRemovalProvider } from "./pantry-removal";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { chooseUnit, unitOf } from "./unit-test-helpers";
 
 const savePantryItem = vi.fn<(form: PantryItemFormInput) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: (form: PantryItemFormInput) => savePantryItem(form) }));
@@ -107,7 +108,7 @@ describe("PantryItemSheet, a new item", () => {
 
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
     expect(location("Skafferi")).toHaveAttribute("aria-checked", "true");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("st");
+    expect(unitOf(sheet())).toBe("st");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveFocus();
 
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
@@ -149,7 +150,10 @@ describe("PantryItemSheet, a new item", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Saffran som ny" }));
 
     expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
-    fireEvent.change(within(sheet()).getByLabelText("Avdelning"), { target: { value: "Skafferi" } });
+    // Avdelning is a row that opens a step in with the sections as rows with a check (Story 19.5).
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avdelning: Övrigt" }));
+    expect(sheet()).toHaveAccessibleName("Avdelning");
+    fireEvent.click(within(sheet()).getByRole("radio", { name: "Skafferi" }));
     fireEvent.click(location("Skafferi"));
     await save("Lägg till vara");
     expect(savePantryItem).toHaveBeenCalledWith({
@@ -519,7 +523,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
     expect(within(sheet()).queryByText("Ny")).toBeNull();
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
+    expect(unitOf(sheet())).toBe("förp");
     expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
     expect(within(sheet()).getByRole("button", { name: "Bekräfta" })).toBeInTheDocument();
     expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeInTheDocument();
@@ -531,9 +535,9 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     open(ketchup);
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("ketchup");
     expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
-    expect(within(sheet()).getByLabelText("Avdelning")).toHaveValue("Skafferi");
+    expect(within(sheet()).getByRole("button", { name: "Avdelning: Skafferi" })).toBeInTheDocument();
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("0,5");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("l");
+    expect(unitOf(sheet())).toBe("l");
   });
 
   it("fills in Märke eller sort with the suggestion's first label and confirms a changed one (Story 11.2)", async () => {
@@ -568,7 +572,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
   it("leaves an unlimited suggestion's amount and unit empty", () => {
     open({ ...mjolkSuggestion, amount: null, unit: null });
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("");
+    expect(unitOf(sheet())).toBe("");
   });
 
   it("keeps the place when another ingredient is chosen", async () => {
@@ -577,13 +581,13 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     await search("gul");
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
     expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
-    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
+    expect(unitOf(sheet())).toBe("förp");
   });
 
   it("Bekräfta saves the form as corrected, then closes with the short confirmation", async () => {
     open(ketchup);
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
-    fireEvent.change(within(sheet()).getByLabelText("Enhet"), { target: { value: "dl" } });
+    chooseUnit("dl", sheet());
     fireEvent.click(location("Frys"));
     await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
     expect(onConfirm).toHaveBeenCalledWith(
@@ -727,16 +731,21 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
 
   it("steps the amount by the unit and lets the number be typed", async () => {
     openMjolk();
-    // Mjölk is counted in litres: steps of 0,5.
-    more().click();
-    expect(await within(sheet()).findByDisplayValue("1,5")).toBe(amount());
+    // Mjölk is counted in litres, a measure: a field with the unit after it, and no stepper (Story 19.5).
+    expect(amount()).toHaveValue("1");
+    expect(within(sheet()).queryByRole("button", { name: "Öka" })).toBeNull();
+    expect(within(sheet()).getByTestId("amount-unit")).toHaveTextContent("l");
+    // A counted unit has − n +.
+    chooseUnit("st", sheet());
+    expect(await within(sheet()).findByRole("button", { name: "Öka" })).toBeInTheDocument();
+    fireEvent.click(more());
+    expect(amount()).toHaveValue("2");
     fireEvent.click(less());
     expect(amount()).toHaveValue("1");
-    fireEvent.change(within(sheet()).getByLabelText("Enhet"), { target: { value: "g" } });
+    chooseUnit("g", sheet());
     fireEvent.change(amount(), { target: { value: "250" } });
-    fireEvent.click(more());
-    expect(amount()).toHaveValue("350");
-    fireEvent.change(within(sheet()).getByLabelText("Enhet"), { target: { value: "st" } });
+    expect(within(sheet()).queryByRole("button", { name: "Öka" })).toBeNull();
+    chooseUnit("st", sheet());
     fireEvent.change(amount(), { target: { value: "2" } });
     fireEvent.click(more());
     expect(amount()).toHaveValue("3");
@@ -784,7 +793,7 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     expect(within(sheet()).queryByRole("button", { name: /^Ligger i/ })).toBeNull();
     expect(location("Skafferi")).toHaveAttribute("aria-checked", "true");
     expect(within(sheet()).queryByRole("button", { name: "Ta bort" })).toBeNull();
-    expect(within(sheet()).getByText("(valfritt)")).toBeInTheDocument();
+    expect(within(sheet()).getAllByText("(valfritt)").length).toBeGreaterThan(0);
   });
 
   it("heads the add search with Lägg till vara and a hint that goes away when typing", async () => {
@@ -826,6 +835,7 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
 
   it("still asks Släng ändringarna? when cancelling with changes, and Ta bort stays last", () => {
     openMjolk();
+    chooseUnit("st", sheet());
     fireEvent.click(more());
     fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
     expect(within(sheet()).getByText("Släng ändringarna?")).toBeInTheDocument();

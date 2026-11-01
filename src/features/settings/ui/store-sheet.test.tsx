@@ -104,7 +104,7 @@ describe("StoreSheet: the link to the weekly offers (Story 9.1)", () => {
     expect(within(dialog).queryByLabelText("Länk till veckans erbjudanden")).not.toBeInTheDocument();
     expect(within(dialog).getByText("Länk stöds bara för ICA än så länge.")).toBeInTheDocument();
 
-    await user.selectOptions(within(dialog).getByLabelText("Kedja"), "ICA");
+    await user.click(within(dialog).getByRole("radio", { name: "ICA" }));
     expect(within(dialog).getByLabelText("Länk till veckans erbjudanden")).toBeInTheDocument();
   });
 
@@ -129,11 +129,11 @@ describe("StoreSheet", () => {
     await user.click(screen.getByRole("button", { name: "Lägg till butik" }));
     const dialog = sheet("Ny butik");
     expect(within(dialog).getByRole("checkbox", { name: "Använd för varukorgen" })).toBeChecked();
-    expect(within(dialog).getByLabelText("Kedja")).toHaveValue("ICA");
+    expect(within(dialog).getByRole("radio", { name: "ICA" })).toBeChecked();
     expect(within(dialog).getByLabelText("URL")).toHaveAttribute("type", "url");
 
     await user.type(within(dialog).getByLabelText("Namn"), "Willys Lindhagen");
-    await user.selectOptions(within(dialog).getByLabelText("Kedja"), "Willys");
+    await user.click(within(dialog).getByRole("radio", { name: "Willys" }));
     await user.click(within(dialog).getByRole("button", { name: "Spara" }));
 
     await waitFor(() => expect(saveStore).toHaveBeenCalledTimes(1));
@@ -249,7 +249,7 @@ describe("StoreSheet", () => {
     const dialog = sheet("Ändra butik");
     expect(within(dialog).getByLabelText("Namn")).toHaveValue(maxi.name);
     expect(within(dialog).getByLabelText("Butiks-id")).toHaveValue("1003733");
-    expect(within(dialog).getByLabelText("Kedja")).toHaveAccessibleDescription(
+    expect(within(dialog).getByRole("radiogroup", { name: "Kedja" })).toHaveAccessibleDescription(
       "Byter du kedja, lägg hellre till en ny butik, så behåller den här sina produktval.",
     );
     expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();

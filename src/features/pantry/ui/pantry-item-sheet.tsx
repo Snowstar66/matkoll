@@ -13,14 +13,23 @@ import {
 } from "react";
 import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
-import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
+import { AmountInput } from "@/components/amount-input";
+import { ChoiceRows } from "@/components/choice-rows";
+import { FieldError, FieldLabel, Input } from "@/components/field";
 import { FilterPills } from "@/components/filter-pills";
-import { ChevronDownIcon, MinusIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@/components/icons";
 import { IngredientPicker } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
+import { UnitChoice, UnitList } from "@/components/unit-choice";
 import { useToast } from "@/components/toast";
 import {
+  isCountUnit,
   LOCATIONS,
   normalizeIngredientText,
   SECTIONS,
@@ -234,6 +243,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const [picking, setPicking] = useState(target.kind === "new");
   /** Story 16.17: the place choice is unfolded; an item that exists shows it as a calm row first. */
   const [placeOpen, setPlaceOpen] = useState(false);
+  /** Story 19.5: one level deeper, replacing the form: all units, or the sections of a new ingredient. */
+  const [step, setStep] = useState<"unit" | "section" | null>(null);
   /** Why saving failed; the form stays as it was. Cleared when a field changes. */
   const [error, setError] = useState<string | null>(null);
   /** The server's messages for fields (`amount`, `ingredient`), shown at the field. Cleared when a field changes. */
@@ -258,6 +269,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     setValues(fresh);
     setPicking(target.kind === "new");
     setPlaceOpen(false);
+    setStep(null);
     setError(null);
     setServerFields({});
     setAmountTouched(false);
@@ -411,7 +423,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
 
   const formId = `${ids}-form`;
   const footer =
-    picking || !ingredient ? null : (
+    picking || !ingredient || step ? null : (
       <>
         {error ? <Notice role="alert">{error}</Notice> : null}
         {formError ? <Notice role="alert">{formError}</Notice> : null}
@@ -439,7 +451,11 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     );
 
   const picksAgain = picking && ingredient !== null;
-  const heading = picking ? (
+  const stepHeading =
+    step === "unit" ? "Enhet" : step === "section" ? "Avdelning" : null;
+  const heading = stepHeading ? (
+    stepHeading
+  ) : picking ? (
     ingredient ? (
       "Byt vara"
     ) : (
@@ -460,22 +476,56 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   }
   const canStepDown = stepAmountField(values.amount, values.unit, -1) !== null;
   const canStepUp = stepAmountField(values.amount, values.unit, 1) !== null;
-  const stepButton =
-    "flex w-14 flex-none items-center justify-center text-accent outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
+  const countable = values.unit === "" || isCountUnit(values.unit);
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={picking ? (ingredient ? "Byt vara" : "Lägg till vara") : (ingredient?.name ?? "Lägg till vara")}
+      title={
+        stepHeading ??
+        (picking
+          ? ingredient
+            ? "Byt vara"
+            : "Lägg till vara"
+          : (ingredient?.name ?? "Lägg till vara"))
+      }
       heading={heading}
-      onBack={picksAgain ? () => setPicking(false) : undefined}
+      onBack={
+        step
+          ? () => setStep(null)
+          : picksAgain
+            ? () => setPicking(false)
+            : undefined
+      }
       closeLabel="Avbryt"
       isDirty={isDirty}
       preventClose={saving}
       footer={footer}
     >
-      {picking || !ingredient ? (
+      {step === "unit" ? (
+        <UnitList
+          units={UNITS}
+          value={values.unit}
+          onChange={(unit) => {
+            update({ unit });
+            setStep(null);
+          }}
+        />
+      ) : step === "section" && ingredient?.kind === "new" ? (
+        <ChoiceRows
+          label="Avdelning"
+          options={SECTIONS.map((section) => ({
+            value: section,
+            label: section,
+          }))}
+          value={ingredient.section}
+          onChange={(section) => {
+            update({ ingredient: { ...ingredient, section } });
+            setStep(null);
+          }}
+        />
+      ) : picking || !ingredient ? (
         <IngredientPicker
           searchIngredients={searchPantryIngredients}
           newName={pantryNewIngredientName}
@@ -503,83 +553,52 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
 
           {ingredient.kind === "new" ? (
             <div className="flex flex-col gap-1.5">
-              <FieldLabel htmlFor={`${ids}-section`}>Avdelning</FieldLabel>
-              <select
-                id={`${ids}-section`}
-                value={ingredient.section}
-                onChange={(event) => update({ ingredient: { ...ingredient, section: event.target.value as Section } })}
-                className={inputClasses}
+              <span className="text-control text-ink">Avdelning</span>
+              <button
+                type="button"
+                aria-label={`Avdelning: ${ingredient.section}`}
+                aria-haspopup="dialog"
+                onClick={() => setStep("section")}
+                className="flex h-12 items-center justify-between gap-2 rounded-md border border-border bg-surface px-4 text-left text-body text-ink"
               >
-                {SECTIONS.map((section) => (
-                  <option key={section} value={section}>
-                    {section}
-                  </option>
-                ))}
-              </select>
+                {ingredient.section}
+                <ChevronRightIcon size={18} className="text-ink-3" />
+              </button>
             </div>
           ) : null}
 
           <div className="flex flex-col gap-2">
-            <span className="text-body font-medium text-ink">
-              Mängd och enhet
-            </span>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex h-14 flex-none items-stretch overflow-hidden rounded-md border border-ink-3 bg-surface">
-                <button
-                  type="button"
-                  aria-label="Minska"
-                  disabled={!canStepDown}
-                  onClick={() => stepAmount(-1)}
-                  className={stepButton}
-                >
-                  <MinusIcon size={22} />
-                </button>
-                <input
-                  ref={amountRef}
-                  id={`${ids}-amount`}
-                  aria-label="Mängd"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  autoFocus
-                  value={values.amount}
-                  onChange={(event) => update({ amount: event.target.value })}
-                  onBlur={() => setAmountTouched(true)}
-                  {...(amountError ? { "aria-invalid": true, "aria-describedby": `${ids}-amount-error` } : {})}
-                  className="w-[72px] min-w-0 border-x border-border bg-surface text-center text-step font-medium tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky"
-                />
-                <button
-                  type="button"
-                  aria-label="Öka"
-                  disabled={!canStepUp}
-                  onClick={() => stepAmount(1)}
-                  className={stepButton}
-                >
-                  <PlusIcon size={22} />
-                </button>
-              </div>
-              <div className="relative min-w-28 flex-1">
-                <select
-                  id={`${ids}-unit`}
-                  aria-label="Enhet"
-                  value={values.unit}
-                  onChange={(event) => update({ unit: event.target.value as Unit | "" })}
-                  className="h-14 w-full appearance-none rounded-md border border-ink-3 bg-surface pr-11 pl-4 text-body text-ink"
-                >
-                  <option value="">Ingen enhet</option>
-                  {UNITS.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon
-                  size={18}
-                  className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-accent"
-                />
-              </div>
-            </div>
-            {amountError ? <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError> : null}
-            <p className="text-meta text-ink-2">Lämna mängden tom om du inte vill räkna.</p>
+            <FieldLabel htmlFor={`${ids}-amount`}>
+              Mängd <span className="font-normal text-ink-2">(valfritt)</span>
+            </FieldLabel>
+            <AmountInput
+              id={`${ids}-amount`}
+              inputRef={amountRef}
+              value={values.amount}
+              onChange={(amount) => update({ amount })}
+              stepper={countable}
+              onStep={stepAmount}
+              canStepDown={canStepDown}
+              canStepUp={canStepUp}
+              unit={values.unit}
+              autoFocus
+              onBlur={() => setAmountTouched(true)}
+              invalid={Boolean(amountError)}
+              describedBy={`${ids}-amount-error`}
+            />
+            {amountError ? (
+              <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError>
+            ) : null}
+            <span className="mt-1 text-control text-ink">Enhet</span>
+            <UnitChoice
+              units={UNITS}
+              value={values.unit}
+              onChange={(unit) => update({ unit })}
+              onMore={() => setStep("unit")}
+            />
+            <p className="text-meta text-ink-2">
+              Lämna mängden tom om du inte vill räkna.
+            </p>
           </div>
 
           {choosePlace ? (

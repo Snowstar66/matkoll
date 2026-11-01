@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState } from "./support";
+import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState, chooseUnit } from "./support";
 
 // Story 2.4: "Kan lagas nu" or "Saknar N varor" in the library and the recipe
 // view, with a tick or ring on every line, counted again when the pantry
@@ -108,7 +108,7 @@ async function addInLagersaldo(page: Page, name: string, amount: string, unit: s
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
   await sheet(page).getByRole("button", { name: new RegExp(`^${name}$`, "i") }).click();
   await sheet(page).getByLabel("Mängd").fill(amount);
-  await sheet(page).getByLabel("Enhet").selectOption(unit);
+  await chooseUnit(sheet(page), unit);
   await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByTestId("toast")).toContainText(new RegExp(`^${name} är sparad`, "i"));

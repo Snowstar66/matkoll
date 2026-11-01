@@ -142,6 +142,8 @@ export {
   pantryItemSetSchema,
   pantryRowSchema,
   parseAmountField,
+  stepAmountField,
+  amountStep,
   amountErrorMessage,
   type PantryIngredient,
   type PantryItemForm,

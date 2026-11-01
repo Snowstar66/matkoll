@@ -1,5 +1,5 @@
 import { expect, type Page, type Response, test } from "@playwright/test";
-import { adminClient, e2eUserId, pantryEmail, pantryStorageState } from "./support";
+import { adminClient, e2eUserId, pantryEmail, pantryStorageState, chooseUnit, expectUnit } from "./support";
 
 // Stories 2.1, 2.2 and 2.3: Hemma with the location cards and the chosen
 // location's items, the sheet Lagervara that adds and changes items, and
@@ -227,7 +227,7 @@ test.describe("the sheet Lagervara", () => {
     // The catalog keeps Mjölk in Kyl.
     await expect(place(page, "Kyl")).toHaveAttribute("aria-checked", "true");
     await amountField(page).fill("1,5");
-    await sheet(page).getByLabel("Enhet").selectOption("l");
+    await chooseUnit(sheet(page), "l");
     await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
 
     await expect(sheet(page)).toHaveCount(0);
@@ -249,7 +249,8 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
     await sheet(page).getByRole("button", { name: `Lägg till ${name} som ny` }).click();
     await expect(sheet(page).getByText("Ny", { exact: true })).toBeVisible();
-    await sheet(page).getByLabel("Avdelning").selectOption("Skafferi");
+    await sheet(page).getByRole("button", { name: /^Avdelning:/ }).click();
+    await sheet(page).getByRole("radio", { name: "Skafferi" }).click();
     // Frys was chosen on Hemma, so it is preselected.
     await expect(place(page, "Frys")).toHaveAttribute("aria-checked", "true");
     await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
@@ -274,7 +275,7 @@ test.describe("the sheet Lagervara", () => {
 
     await row(page, "Mjölk").click();
     await expect(amountField(page)).toHaveValue("1");
-    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("l");
+    await expectUnit(sheet(page), "l");
     await amountField(page).fill("2");
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
@@ -364,13 +365,13 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("salt");
     await sheet(page).getByRole("button", { name: "Salt" }).click();
     await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
-    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("");
+    await expectUnit(sheet(page), "");
 
     // Smör has the default unit g.
     await sheet(page).getByRole("button", { name: "Byt vara" }).click();
     await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("smör");
     await sheet(page).getByRole("button", { name: "Smör" }).click();
-    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("g");
+    await expectUnit(sheet(page), "g");
     expect(errors).toEqual([]);
   });
 });

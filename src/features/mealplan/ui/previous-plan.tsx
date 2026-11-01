@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/button";
+import { ChoiceRows } from "@/components/choice-rows";
 import { cannotUndoText } from "@/components/confirm-delete";
 import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
@@ -187,19 +188,26 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
       >
         <div className="flex flex-col gap-2">
           {copyError ? <Notice role="alert">{copyError}</Notice> : null}
-          {copyTargets().map((target) => (
-            <Button
-              key={target.weekStart}
-              variant="secondary"
-              fullWidth
-              disabled={copyBusy}
-              data-testid="copy-target"
-              onClick={() => copyTo(target)}
-            >
-              {target.label} ({target.name.toLocaleLowerCase("sv-SE")})
-              {targetCounts ? ` \u00b7 ${weekFillText(targetCounts[target.weekStart] ?? 0)}` : null}
-            </Button>
-          ))}
+          <ChoiceRows
+            kind="action"
+            label="Kopiera till"
+            value={null}
+            disabled={copyBusy}
+            onChange={(weekStart) => {
+              const target = copyTargets().find(
+                (candidate) => candidate.weekStart === weekStart,
+              );
+              if (target) copyTo(target);
+            }}
+            options={copyTargets().map((target) => ({
+              value: target.weekStart,
+              label: `${target.label} (${target.name.toLocaleLowerCase("sv-SE")})`,
+              detail: targetCounts
+                ? weekFillText(targetCounts[target.weekStart] ?? 0)
+                : undefined,
+              testId: "copy-target",
+            }))}
+          />
         </div>
       </Sheet>
       <Sheet

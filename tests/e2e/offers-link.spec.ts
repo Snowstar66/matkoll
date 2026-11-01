@@ -104,7 +104,7 @@ test("the store's link is in Inställningar, and only an offer page on ica.se is
   expect(data?.offers_url).toBe(`${other}/`);
 
   await card.getByRole("button", { name: "Ändra" }).click();
-  await page.getByRole("dialog", { name: "Ändra butik" }).getByLabel("Kedja").selectOption("Willys");
+  await page.getByRole("dialog", { name: "Ändra butik" }).getByRole("radio", { name: "Willys" }).click();
   await expect(page.getByRole("dialog", { name: "Ändra butik" }).getByText("Länk stöds bara för ICA än så länge.")).toBeVisible();
   expect(errors).toEqual([]);
 });

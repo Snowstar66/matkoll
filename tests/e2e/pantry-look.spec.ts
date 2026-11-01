@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, pantryLookEmail, pickBoende, pantryLookStorageState } from "./support";
+import { adminClient, e2eUserId, pantryLookEmail, pickBoende, pantryLookStorageState, expectUnit } from "./support";
 
 // Story 11.3 (FR-40, FR-41): Matvaror in the new look at 375 px. The spec
 // has an E2E user of its own (pantryLookEmail). Before each test the service
@@ -210,7 +210,7 @@ test("the fridge shows its items under categories in the store's order, with the
   await row(page, "Mellanmjölk").click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByLabel("Mängd")).toHaveValue("1");
-  await expect(sheet.getByLabel("Enhet")).toHaveValue("l");
+  await expectUnit(sheet, "l");
   await expect(sheet.getByRole("textbox", { name: "Märke eller sort" })).toHaveValue("Arla laktosfri");
   await sheet.getByRole("button", { name: "Avbryt" }).click();
   await expect(sheet).toHaveCount(0);

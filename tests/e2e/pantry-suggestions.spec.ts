@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog";
-import { adminClient, cardTitles, e2eUserId, suggestionsEmail, suggestionsStorageState } from "./support";
+import { adminClient, cardTitles, e2eUserId, suggestionsEmail, suggestionsStorageState, chooseUnit, expectUnit } from "./support";
 
 // Story 6.2: confirming, correcting and rejecting lagerförslag on Hemma, with
 // AI_PROVIDER=mock. kyl.png gives six suggestions (kyl.analyze.json): grädde,
@@ -151,7 +151,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await section(page).getByRole("button", { name: "Rätta Grädde" }).click();
   await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Grädde");
   await expect(sheet(page).getByLabel("Mängd")).toHaveValue("1");
-  await expect(sheet(page).getByLabel("Enhet")).toHaveValue("förp");
+  await expectUnit(sheet(page), "förp");
   await expect(sheet(page).getByRole("button", { name: "Ligger i Kyl · Flytta" })).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Avvisa" })).toBeVisible();
   await sheet(page).getByRole("button", { name: "Byt vara" }).click();
@@ -162,7 +162,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
     .or(sheet(page).getByRole("button", { name: "Matlagningsgrädde", exact: true }))
     .click();
   await sheet(page).getByLabel("Mängd").fill("2");
-  await sheet(page).getByLabel("Enhet").selectOption("dl");
+  await chooseUnit(sheet(page), "dl");
   await sheet(page).getByRole("button", { name: "Bekräfta" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(toast(page)).toHaveText("Matlagningsgrädde är sparad i kylen.");

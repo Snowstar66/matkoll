@@ -77,7 +77,7 @@ describe("MealPlanContent", () => {
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
     await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Lägg till rätt" }));
-    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
+    const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
   });

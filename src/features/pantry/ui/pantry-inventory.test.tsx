@@ -11,6 +11,7 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
+import { chooseUnit } from "./unit-test-helpers";
 
 /** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
 function placeRadio(scope: HTMLElement, name: string) {
@@ -722,7 +723,7 @@ describe("review patches", () => {
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
     const sheet = screen.getByRole("dialog");
-    fireEvent.change(within(sheet).getByLabelText("Enhet"), { target: { value: "l" } });
+    chooseUnit("l", sheet);
     fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input).toMatchObject({

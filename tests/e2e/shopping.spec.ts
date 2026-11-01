@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
 import { addWeeks, weekQuery } from "../../src/features/mealplan/domain/week";
-import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday } from "./support";
+import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday, chooseUnit } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
 // the pantry every time it is read. Story 3.4: checking lines off, saved at
@@ -462,7 +462,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("Grädde");
     await expect(sheet.getByText("Kopplad till Grädde")).toBeVisible();
     await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
-    await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+    await chooseUnit(sheet, "förp");
     await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
     await expect(customSheet(page)).toHaveCount(0);
@@ -750,7 +750,7 @@ test("an own item's detail changes it in place, keeping its id and check", async
   await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("diskmedel");
   await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel eko");
   await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
-  await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+  await chooseUnit(sheet, "förp");
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
   await expect(detailSheet(page, "diskmedel")).toHaveCount(0);
 
