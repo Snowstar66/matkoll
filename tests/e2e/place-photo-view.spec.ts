@@ -150,7 +150,7 @@ function watchPhotoReads(page: Page): { count: () => number } {
 const line = (page: Page) => page.getByTestId("pantry-latest-photo").filter({ visible: true });
 const visa = (page: Page, place = "kylen") =>
   line(page).getByRole("button", { name: `Visa senaste foto av ${place}`, exact: true });
-const photoSheet = (page: Page, place = "kylen") => page.getByRole("dialog", { name: `Fotot av ${place}` });
+const photoSheet = (page: Page, place = "kylen") => page.getByRole("dialog", { name: `Fotot av ${place}`, exact: true });
 const question = (page: Page) => page.getByRole("dialog", { name: "Ta bort fotot av kylen?" });
 const markers = (page: Page) => photoSheet(page).getByTestId("pantry-photo-marker");
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });

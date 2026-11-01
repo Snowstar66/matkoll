@@ -222,7 +222,7 @@ test("Story 13.2: the soptunna on the recipe page asks, then deletes; the librar
   await openBin();
   const confirm = page.getByRole("dialog", { name: `Ta bort ${fromPage}?` });
   await expect(confirm.getByText("Det går inte att ångra.")).toBeVisible();
-  await confirm.getByRole("button", { name: "Tillbaka" }).click();
+  await confirm.getByRole("button", { name: "Avbryt" }).click();
   await expect(page.getByRole("heading", { level: 1, name: fromPage })).toBeVisible();
   await openBin();
   await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();

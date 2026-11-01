@@ -320,10 +320,7 @@ export function Sheet({
                   ref={titleRef}
                   id={titleId}
                   tabIndex={-1}
-                  className={cx(
-                    "min-w-0 break-words text-ink outline-none",
-                    heading === undefined ? "text-row-title" : "text-section-title",
-                  )}
+                  className="min-w-0 break-words text-section-title text-ink outline-none"
                 >
                   {heading ?? title}
                 </h2>

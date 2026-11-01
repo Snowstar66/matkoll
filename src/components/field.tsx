@@ -1,9 +1,9 @@
 import type { ComponentPropsWithRef, HTMLAttributes, LabelHTMLAttributes } from "react";
 import { cx } from "./cx";
 
-/** Classes for a text field: at least 16 px text so iPhone Safari does not zoom, 52 px high. */
+/** Classes for a text field (Story 19.4): at least 16 px text so iPhone Safari does not zoom, 48 px high, a `--border` line and corner 12. */
 export const inputClasses =
-  "h-button w-full rounded-md border border-ink-3 bg-surface px-4 text-body text-ink placeholder:text-ink-3 aria-[invalid=true]:border-sky-ink";
+  "h-12 w-full rounded-md border border-border bg-surface px-4 text-body text-ink placeholder:text-ink-3 aria-[invalid=true]:border-sky-ink";
 
 export type InputProps = ComponentPropsWithRef<"input">;
 
@@ -14,7 +14,7 @@ export function Input({ className, ...props }: InputProps) {
 
 /** The label above a field. */
 export function FieldLabel({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cx("text-body font-medium text-ink", className)} {...props} />;
+  return <label className={cx("text-control text-ink", className)} {...props} />;
 }
 
 /** A validation message under a field: light-blue ink, never red. */
