@@ -34,7 +34,7 @@ export type {
 } from "./service";
 export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
-export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPosition, ThingCategory, ThingConfidence } from "./schemas";
+export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPosition, ThingCategory, ThingConfidence, ThingIntent, ThingToRemember } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 export type { AiUsage, AiUsageSink } from "./usage";

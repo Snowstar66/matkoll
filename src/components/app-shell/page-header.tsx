@@ -2,11 +2,18 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "../cx";
 import { ChevronLeftIcon } from "../icons";
+import { AccountButton, type HeaderTab } from "./account-button";
+import { CollapsingTitleRow } from "./collapsing-title-row";
 
 export type PageHeaderProps = {
   title: string;
-  /** A round 44 px button or link at the right, e.g. the gear or "+". */
+  /** The tab's own button at the right, a 44 px icon button: "+" or Erbjudanden (Story 19.2). */
   action?: ReactNode;
+  /**
+   * The tab this is the header of (Story 19.2): the P button comes after `action` at the right,
+   * and once the title has scrolled out of sight a slim bar takes its place. Left out for a page under a tab.
+   */
+  tab?: HeaderTab;
   /**
    * A "Tillbaka" link above the title to the page above, for every page under a
    * tab (Inställningar, Tidigare matsedlar, an earlier plan). Shown at every
@@ -20,10 +27,13 @@ export type PageHeaderProps = {
   backOnlyOnMobile?: boolean;
 };
 
-/** Sidrubrik: 34 px bold title with 56 px of air above it on mobile (more under a notch). */
-export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
+/** Sidrubrik: 30 px semibold title with 16 px of air above it in a browser tab on mobile (below the notch on the home screen). */
+export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
+  const heading = (
+    <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">{title}</h1>
+  );
   return (
-    <header className="flex flex-col pt-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] pb-4 desktop:pt-10">
+    <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
       {backHref ? (
         <Link
           href={backHref}
@@ -40,12 +50,23 @@ export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", ba
       {/* The title takes the room the actions leave and wraps between its words there. Only
           when its longest word and the actions cannot share the row (a phone at 200 % zoom)
           do the actions move to a row of their own; a word wider than the page breaks. */}
-      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-        <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">
-          {title}
-        </h1>
-        {action ? <div className="ml-auto flex shrink-0 items-center gap-1">{action}</div> : null}
-      </div>
+      {tab ? (
+        <CollapsingTitleRow
+          title={title}
+          heading={heading}
+          actions={
+            <>
+              {action}
+              <AccountButton tab={tab} />
+            </>
+          }
+        />
+      ) : (
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+          {heading}
+          {action ? <div className="ml-auto flex shrink-0 items-center gap-1">{action}</div> : null}
+        </div>
+      )}
     </header>
   );
 }

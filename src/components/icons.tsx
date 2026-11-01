@@ -7,6 +7,8 @@ export type IconProps = {
   /** Width and height in px. */
   size?: number;
   className?: string;
+  /** A soft fill (16 %) in the icon's colour: the chosen tab (premium look). */
+  tinted?: boolean;
 };
 
 type BaseProps = IconProps & {
@@ -15,13 +17,14 @@ type BaseProps = IconProps & {
   filled?: boolean;
 };
 
-function Icon({ size = 24, className, children, strokeWidth = 1.8, filled = false }: BaseProps) {
+function Icon({ size = 24, className, children, strokeWidth = 1.8, filled = false, tinted = false }: BaseProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
+      fill={filled || tinted ? "currentColor" : "none"}
+      fillOpacity={tinted && !filled ? 0.16 : undefined}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -60,6 +63,26 @@ export function CartIcon(props: IconProps) {
       <path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4" />
       <circle cx="9.5" cy="19.5" r="1.5" />
       <circle cx="17" cy="19.5" r="1.5" />
+    </Icon>
+  );
+}
+
+/** A carrot: the Matvaror tab. */
+export function CarrotIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z" />
+      <path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9" />
+    </Icon>
+  );
+}
+
+/** A storage box with a lid: the Förråd tab. */
+export function BoxIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="5" rx="1.5" />
+      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" />
     </Icon>
   );
 }
@@ -227,6 +250,75 @@ export function ChevronDownIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="M6 9l6 6 6-6" />
+    </Icon>
+  );
+}
+
+/** A chevron pointing right: a row that goes somewhere (premium look). */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon strokeWidth={2} {...props}>
+      <path d="M9.5 5.5l6.5 6.5-6.5 6.5" />
+    </Icon>
+  );
+}
+
+/** A price tag: Erbjudanden in Inköpslista's header. */
+export function TagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.4 6.4a1.5 1.5 0 0 1-2.1 0z" />
+      <circle cx="8" cy="8" r="1.5" />
+    </Icon>
+  );
+}
+
+/** Two arrows, up and down: the sort button (Story 19.3). */
+export function SortIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 19V5M4.5 8.5L8 5l3.5 3.5M16 5v14M12.5 15.5L16 19l3.5-3.5" />
+    </Icon>
+  );
+}
+
+/** A circle with a question mark: Hjälp och tips. */
+export function HelpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeWidth={2} d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01" />
+    </Icon>
+  );
+}
+
+/** Four tiles: the card view (Story 19.3). */
+export function GridIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.8" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8" />
+    </Icon>
+  );
+}
+
+/** A door with an arrow out: Logga ut. */
+export function LogoutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14" />
+      <path d="M10 8l-4 4 4 4M6 12h10" />
+    </Icon>
+  );
+}
+
+/** Three lines: the list view (Story 19.3). */
+export function ListIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
     </Icon>
   );
 }

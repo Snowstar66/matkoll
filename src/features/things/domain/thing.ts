@@ -48,6 +48,8 @@ export type Thing = {
   confidence: ThingConfidence;
   /** On how many cards of the room it is seen (Story 18.6): 1 for a thing on one card. */
   seenOn: number;
+  /** Story 18.19: written in by hand with where it is (no card): when (ISO), and the part of the room it is in. */
+  noted?: { at: string; part: string | null } | null;
 };
 
 /** A thing_item row as read, checked before the page shows it. */

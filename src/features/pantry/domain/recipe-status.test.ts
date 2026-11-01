@@ -204,6 +204,8 @@ describe("atHomeSummaryText", () => {
   it("says X av Y hemma", () => {
     expect(atHomeSummaryText(7, 9)).toBe("7 av 9 hemma");
     expect(atHomeSummaryText(0, 1)).toBe("0 av 1 hemma");
+    expect(atHomeSummaryText(2, 8, "Stugan")).toBe("2 av 8 hemma i Stugan");
+    expect(atHomeSummaryText(2, 8, null)).toBe("2 av 8 hemma");
   });
 });
 

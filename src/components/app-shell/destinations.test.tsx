@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentState, mainDestinations } from "./destinations";
+import { currentState, helpHref, mainDestinations, settingsDestination } from "./destinations";
 import { SideMenu } from "./side-menu";
 import { TabBar } from "./tab-bar";
 
@@ -11,14 +11,15 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 const pictograph = /\p{Extended_Pictographic}/u;
 
 describe("mainDestinations", () => {
-  it("has the five surfaces with their names (Story 10.4, Epic 18) and the sketch's emoji (Story 14.4)", () => {
-    expect(mainDestinations.map(({ href, label, emoji }) => [href, label, emoji])).toEqual([
-      ["/recept", "Recept", "\u{1F4D6}"],
-      ["/matsedel", "Matsedel", "\u{1F4C5}"],
-      ["/lista", "Inköpslista", "\u{1F6D2}"],
-      ["/hemma", "Matvaror", "\u{1F955}"],
-      ["/prylar", "Förråd", "\u{1F9F0}"],
+  it("has the five surfaces with their names (Story 10.4, Epic 18), each with a line icon (Story 19.1)", () => {
+    expect(mainDestinations.map(({ href, label }) => [href, label])).toEqual([
+      ["/recept", "Recept"],
+      ["/matsedel", "Matsedel"],
+      ["/lista", "Inköpslista"],
+      ["/hemma", "Matvaror"],
+      ["/prylar", "Förråd"],
     ]);
+    for (const { Icon } of [...mainDestinations, settingsDestination]) expect(Icon).toBeTypeOf("function");
   });
 
   it("has no emoji in a label", () => {
@@ -38,37 +39,53 @@ describe("currentState", () => {
   });
 });
 
-describe("tab bar and side menu emoji (Story 14.4)", () => {
+describe("tab bar and side menu icons (Story 19.1)", () => {
   beforeEach(() => {
     pathname.current = "/lista";
   });
 
-  it("the tab bar shows the current emoji in colour and the others grey and dimmed, all hidden from screen readers", async () => {
+  it("the tab bar shows line icons: the current one green with a soft fill, the others grey, all hidden from screen readers", async () => {
     render(<TabBar />);
     const list = await screen.findByRole("link", { name: "Inköpslista" });
     expect(list).toHaveAttribute("aria-current", "page");
-    expect(list).toHaveClass("text-accent");
-    const icon = list.querySelector("[aria-hidden]");
-    expect(icon).toHaveTextContent("\u{1F6D2}");
-    expect(icon).not.toHaveClass("grayscale");
+    expect(list).toHaveClass("text-accent", "font-semibold");
+    const icon = list.querySelector("svg");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveAttribute("fill-opacity", "0.16");
 
     const pantry = screen.getByRole("link", { name: "Matvaror" });
     expect(pantry).not.toHaveAttribute("aria-current");
     expect(pantry).toHaveClass("text-ink-3");
-    const dimmed = pantry.querySelector("[aria-hidden]");
-    expect(dimmed).toHaveTextContent("\u{1F955}");
-    expect(dimmed).toHaveClass("grayscale", "opacity-70");
+    const plain = pantry.querySelector("svg");
+    expect(plain).toHaveAttribute("fill", "none");
+    expect(plain).not.toHaveAttribute("fill-opacity");
+    expect(pantry.textContent).not.toMatch(pictograph);
   });
 
-  it("the side menu has the same emoji, with Inställningar last", async () => {
+  it("the side menu has the same icons, with Inställningar last", async () => {
     pathname.current = "/hemma";
     render(<SideMenu />);
     const nav = screen.getByRole("navigation", { name: "Huvudmeny" });
     const pantry = await within(nav).findByRole("link", { name: "Matvaror" });
     expect(pantry).toHaveAttribute("aria-current", "page");
-    expect(nav.textContent).toContain("\u2699\uFE0F");
-    for (const link of within(nav).getAllByRole("link")) {
-      expect(link.querySelector("[aria-hidden]")).toBeInTheDocument();
+    expect(pantry).toHaveClass("bg-mint", "font-medium");
+    const links = within(nav).getAllByRole("link");
+    expect(links.at(-1)).toHaveAccessibleName("Inställningar");
+    for (const link of links) {
+      expect(link.querySelector("svg")).toBeInTheDocument();
+      expect(link.textContent).not.toMatch(pictograph);
     }
+  });
+});
+
+describe("helpHref (Story 19.2)", () => {
+  it("opens Hjälp och tips on the section of the tab the path is on, else at the top", () => {
+    expect(helpHref("/recept")).toBe("/hjalp#recept");
+    expect(helpHref("/recept/abc")).toBe("/hjalp#recept");
+    expect(helpHref("/lista")).toBe("/hjalp#inkopslista");
+    expect(helpHref("/hemma")).toBe("/hjalp#matvaror");
+    expect(helpHref("/prylar")).toBe("/hjalp#forrad");
+    expect(helpHref("/installningar")).toBe("/hjalp");
+    expect(helpHref(null)).toBe("/hjalp");
   });
 });

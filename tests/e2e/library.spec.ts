@@ -40,7 +40,19 @@ const rows = (page: Page) => page.getByTestId("recipe-card");
 const row = (page: Page, title: string) => rows(page).filter({ hasText: title });
 const heart = (row: Locator) => row.getByRole("button", { name: /^Favorit/ });
 const searchField = (page: Page) => page.getByRole("searchbox", { name: "Sök recept" });
-const pill = (page: Page, name: "Alla" | "Favoriter") => page.getByRole("radio", { name });
+const pill = (page: Page, name: "Favoriter") => page.getByRole("button", { name });
+
+/** "Alla" has no chip (Story 19.3): letting go of the chosen filter chip shows every recipe. */
+const showAll = async (page: Page) => {
+  for (const name of ["Favoriter", "Kan lagas nu"]) {
+    const chip = page.getByRole("button", { name, pressed: true }).filter({ visible: true });
+    if ((await chip.count()) > 0) await chip.click();
+  }
+};
+const expectAll = async (page: Page) => {
+  await expect(page.getByRole("button", { name: "Favoriter", pressed: true }).filter({ visible: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Kan lagas nu", pressed: true }).filter({ visible: true })).toHaveCount(0);
+};
 
 async function importAndSave(page: Page, text: string, title: string) {
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
@@ -91,7 +103,7 @@ test("saved recipes are listed newest first with time and servings, and a row op
   const card = await row(page, gryta).boundingBox();
   expect(image?.height).toBe(104);
   expect(image?.width).toBeCloseTo(card!.width, 0);
-  await expect(pill(page, "Alla")).toBeChecked();
+  await expectAll(page);
 
   // A tap on the row, not only on the title, opens the recipe.
   const box = await row(page, gryta).boundingBox();
@@ -203,7 +215,7 @@ test("Favoriter shows only favourites, works with search, and is kept after a re
   await page.goto("/recept");
   await expectTitles(page, [soppa, gryta]);
   await pill(page, "Favoriter").click();
-  await expect(pill(page, "Favoriter")).toBeChecked();
+  await expect(pill(page, "Favoriter")).toHaveAttribute("aria-pressed", "true");
   await expectTitles(page, [soppa, gryta]);
 
   // Search and filter together: only favourites whose title or ingredients match.
@@ -215,20 +227,20 @@ test("Favoriter shows only favourites, works with search, and is kept after a re
   await expectTitles(page, [gryta]);
 
   await page.reload();
-  await expect(pill(page, "Favoriter")).toBeChecked();
+  await expect(pill(page, "Favoriter")).toHaveAttribute("aria-pressed", "true");
   await expectTitles(page, [gryta]);
 
   // Without favourites.
   await tapHeart(page, heart(row(page, gryta)));
   await expect(page.getByText("Inga favoriter än. Tryck på hjärtat på ett recept.")).toBeVisible();
   await page.reload();
-  await expect(pill(page, "Favoriter")).toBeChecked();
+  await expect(pill(page, "Favoriter")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("Inga favoriter än. Tryck på hjärtat på ett recept.")).toBeVisible();
 
-  await pill(page, "Alla").click();
+  await showAll(page);
   await expectTitles(page, [soppa, gryta]);
   await page.reload();
-  await expect(pill(page, "Alla")).toBeChecked();
+  await expectAll(page);
 });
 
 test("the compact view, the sort and the categories work together and are kept after a reload", async ({ page }) => {
@@ -266,11 +278,12 @@ test("the compact view, the sort and the categories work together and are kept a
   await page.reload();
   await expect(compactRows.getByRole("link")).toHaveText([new RegExp(gryta), new RegExp(soppa)]);
 
-  // Kategorier (Story 14.4): only categories some recipe has, wrapped, never scrolled sideways.
-  const chips = page.getByRole("group", { name: "Kategori" });
+  // Kategorier (Story 14.4, 19.3): only categories some recipe has, on the one filter row that scrolls inside itself, never the page.
+  const chips = page.getByRole("group", { name: "Filter" });
   await expect(chips.getByRole("button", { name: "Kött" })).toHaveCount(0);
   await expect(chips.getByRole("button", { name: "Fågel" })).toHaveCount(1);
-  expect(await chips.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const tops = await chips.getByRole("button").evaluateAll((buttons) => new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size);
+  expect(tops).toBe(1);
   expect(await noSidewaysScroll()).toBe(true);
   await chips.getByRole("button", { name: "Fågel" }).click();
   await expect(chips.getByRole("button", { name: "Fågel" })).toHaveAttribute("aria-pressed", "true");

@@ -100,9 +100,12 @@ export function recipeStatusForFactor(
   };
 }
 
-/** "7 av 9 hemma": X of the recipe's Y catalog ingredients are at home for the chosen servings. */
-export function atHomeSummaryText(atHomeCount: number, ingredientCount: number): string {
-  return `${atHomeCount} av ${ingredientCount} hemma`;
+/**
+ * "7 av 9 hemma": X of the recipe's Y catalog ingredients are at home for the chosen servings.
+ * With `siteName` (more than one boende, Story 19.2) "7 av 9 hemma i Stugan": the one place a recipe names the boende.
+ */
+export function atHomeSummaryText(atHomeCount: number, ingredientCount: number, siteName?: string | null): string {
+  return `${atHomeCount} av ${ingredientCount} hemma${siteName ? ` i ${siteName}` : ""}`;
 }
 
 /** At most this many names are spelled out in "Saknar: a, b +N". */

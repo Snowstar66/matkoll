@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import { useLiveRefresh } from "@/components/use-live-refresh";
-import type { PantrySite } from "@/features/pantry";
+import type { BoendeCounts, PantrySite } from "@/features/pantry";
 import { ListSiteLine } from "@/features/pantry/ui/list-site-line";
 import { ShoppingList, type ShoppingListProps } from "@/features/shopping/ui/shopping-list";
 
 export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "onBusyChange"> & {
   /** Every place of the user's, or `null` when they could not be read: then no line "Boende". */
   sites: readonly PantrySite[] | null;
+  /** What each boende holds, read when the boende sheet opens (a Server Action); the page gives it. */
+  loadCounts?: () => Promise<Record<string, BoendeCounts> | null>;
+  /** The week tiles, which come under the boende button and above the list (Story 19.2). */
+  weekNav?: ReactNode;
 };
 
 /** What the list is counted from, and what a family member can change on it. */
@@ -23,13 +27,13 @@ const liveTables = [
 ] as const;
 
 /**
- * Inköpslista as the page shows it: the line "Boende: Stugan" with "Byt"
+ * Inköpslista as the page shows it: the boende button "📍 Stugan ⌄"
  * (pantry/ui) above the list (shopping/ui), which never import each other
- * (AD-24). What they share passes through here: "Byt" waits while the list
+ * (AD-24). What they share passes through here: the button waits while the list
  * saves something, and a switch made from the sheet is not announced twice
  * (the list keeps quiet once for the place the sheet is switching to).
  */
-export function ShoppingListView({ sites, ...list }: ShoppingListViewProps) {
+export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: ShoppingListViewProps) {
   const [busy, setBusy] = useState(false);
   // Story 17.7: another phone on the account changes the list, the meal plan or
   // what the list is counted against; this one reads the page again.
@@ -47,7 +51,10 @@ export function ShoppingListView({ sites, ...list }: ShoppingListViewProps) {
 
   return (
     <>
-      {sites ? <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} /> : null}
+      {sites ? (
+        <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
+      ) : null}
+      {weekNav}
       <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} />
     </>
   );

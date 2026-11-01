@@ -99,7 +99,7 @@ describe("LoginForm", () => {
     expect(code).toHaveAttribute("pattern", "[0-9]{6}");
     expect(code).toHaveClass("text-body");
     // One primary button: "Logga in" now, with "Skicka länk" as the secondary.
-    expect(screen.getByRole("button", { name: "Skicka länk" })).toHaveClass("bg-sky");
+    expect(screen.getByRole("button", { name: "Skicka länk" })).toHaveClass("bg-surface");
     expect(screen.getByRole("button", { name: "Logga in" })).toHaveClass("bg-accent");
   });
 

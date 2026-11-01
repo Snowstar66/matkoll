@@ -97,7 +97,7 @@ describe("FilterPills segmented (Story 16.11)", () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<FilterPills segmented label="Visa butik" options={options} value="all" onChange={onChange} />);
-    expect(screen.getByRole("radiogroup", { name: "Visa butik" })).toHaveClass("h-8");
+    expect(screen.getByRole("radiogroup", { name: "Visa butik" })).toHaveClass("bg-seg-track");
     expect(screen.getByRole("radio", { name: "Alla" })).toBeChecked();
     screen.getByRole("radio", { name: "Alla" }).focus();
     await user.keyboard("{ArrowRight}");

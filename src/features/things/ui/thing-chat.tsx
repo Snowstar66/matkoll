@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
+import { cx } from "@/components/cx";
 import { Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
@@ -19,13 +21,19 @@ import {
   newQuestionText,
   type ChatRef,
 } from "../domain/thing-ask";
+import { notedSubText, rememberedText, type NotedProposal, type Remembered } from "../domain/thing-noted";
+import type { ThingHit } from "../domain/thing-search";
+import { RankedHits } from "./hit-rows";
+import { NotedTile, RememberProposal } from "./remember-proposal";
 
 // "Fråga om ditt förråd" as a chat (Story 18.14), at the top of Förråd under
 // "Ta kort": a bubble for each question, an answer with cards to tap (room and
 // part or box, the card's thumbnail and date), and a field for the next one. The
 // conversation is kept here, in the browser, and not stored: a reload or "Ny
 // fråga" clears it, and only the latest turns go with a question, so the AI
-// understands "och tången då?".
+// understands "och tången då?". Story 18.19: a text that says where something
+// is gets a proposal to remember it instead of an answer; once saved, the
+// bubble says where it is, with a card to the room.
 
 type Turn = {
   id: number;
@@ -34,6 +42,11 @@ type Turn = {
   answer?: string;
   refs?: ChatRef[];
   error?: AppError;
+  /** Story 18.19: a thing to remember, until it is saved. */
+  proposal?: NotedProposal;
+  /** Story 18.19: a plain search's answer from the database. */
+  hits?: ThingHit[];
+  similar?: ThingHit[];
 };
 
 function Reference({ reference }: { reference: ChatRef }) {
@@ -43,7 +56,9 @@ function Reference({ reference }: { reference: ChatRef }) {
       data-testid="chat-ref"
       className="mt-2 flex min-h-tap items-center gap-2.5 rounded-md border border-border bg-surface p-1.5"
     >
-      {reference.photoId ? (
+      {reference.noted ? (
+        <NotedTile className="h-10 w-13" />
+      ) : reference.photoId ? (
         // The photo is served by the route that checks the user; nothing is fetched from anywhere else.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/api/things/photo/${reference.photoId}`} alt="" loading="lazy" className="h-10 w-13 shrink-0 rounded-sm bg-border object-cover" />
@@ -53,7 +68,7 @@ function Reference({ reference }: { reference: ChatRef }) {
         </span>
       )}
       <span className="flex min-w-0 flex-col">
-        <span className="text-meta font-semibold wrap-break-word text-ink">{reference.title}</span>
+        <span className="text-meta font-medium wrap-break-word text-ink">{reference.title}</span>
         <span className="text-meta text-ink-3">{reference.sub}</span>
       </span>
     </Link>
@@ -63,13 +78,20 @@ function Reference({ reference }: { reference: ChatRef }) {
 export function ThingChat({
   onTextChange,
   onConversationChange,
+  siteId,
+  rooms = [],
 }: {
+  /** Story 18.19: the boende the page shows; a thing to remember is saved there. */
+  siteId?: string;
+  /** The boende's rooms, offered when a proposal is changed. */
+  rooms?: readonly string[];
   /** Called with the field's text on every change (the instant search follows it). */
   onTextChange?: (text: string) => void;
   /** Called with whether a conversation is going on (the instant matches hide then). */
   onConversationChange?: (active: boolean) => void;
 } = {}) {
   const ids = useId();
+  const router = useRouter();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const pending = turns.some((turn) => turn.answer === undefined && !turn.error);
@@ -107,16 +129,37 @@ export function ThingChat({
     type("");
     let result: Result<ChatAnswer>;
     try {
-      result = await askChat({ question, history });
+      result = await askChat({ question, history, ...(siteId ? { siteId } : {}) });
     } catch {
       result = fail("ai_unavailable");
     }
     if (mine !== generation.current) return;
     setTurns((all) =>
       all.map((turn) =>
-        turn.id !== id ? turn : result.ok ? { ...turn, answer: result.data.answer, refs: result.data.refs } : { ...turn, error: result.error },
+        turn.id !== id
+          ? turn
+          : result.ok
+            ? { ...turn, answer: result.data.answer, refs: result.data.refs, proposal: result.data.proposal, hits: result.data.hits, similar: result.data.similar }
+            : { ...turn, error: result.error },
       ),
     );
+  }
+
+  /** A proposal saved: the bubble says where it is, with the room to tap, and the counts are read again. */
+  function saved(id: number, remembered: Remembered, name: string) {
+    setTurns((all) =>
+      all.map((turn) =>
+        turn.id !== id
+          ? turn
+          : {
+              ...turn,
+              answer: rememberedText(name, remembered.title),
+              proposal: undefined,
+              refs: [{ href: remembered.href, photoId: null, title: remembered.title, sub: notedSubText(new Date(remembered.notedAt)), noted: true }],
+            },
+      ),
+    );
+    router.refresh();
   }
 
   function clear() {
@@ -141,12 +184,23 @@ export function ThingChat({
                   <Notice role="alert">{turn.error.fields?.question ?? errorMessages[turn.error.code]}</Notice>
                 ) : (
                   <div className="flex">
-                    <div className="max-w-[88%] rounded-[1rem_1rem_1rem_0.25rem] bg-bg px-3 py-2.5 text-body text-ink" data-testid="chat-answer">
+                    <div
+                      className={cx("rounded-[1rem_1rem_1rem_0.25rem] bg-bg px-3 py-2.5 text-body text-ink", turn.hits || turn.similar ? "w-full" : "max-w-[88%]")}
+                      data-testid="chat-answer"
+                    >
                       {turn.answer === undefined ? (
                         <AiWorking size="sm" inLiveRegion />
                       ) : (
                         <>
                           <p className="wrap-break-word">{turn.answer}</p>
+                          {turn.hits || turn.similar ? (
+                            <div className="mt-2">
+                              <RankedHits best={turn.hits ?? []} similar={turn.similar ?? []} siteId={siteId} label="Träffar" />
+                            </div>
+                          ) : null}
+                          {turn.proposal && siteId ? (
+                            <RememberProposal proposal={turn.proposal} siteId={siteId} rooms={rooms} onSaved={(remembered, name) => saved(turn.id, remembered, name)} />
+                          ) : null}
                           {turn.refs?.map((reference) => <Reference key={reference.href + (reference.photoId ?? "")} reference={reference} />)}
                         </>
                       )}

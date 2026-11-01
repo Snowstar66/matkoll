@@ -122,7 +122,8 @@ const visible = (page: Page) => page.locator("main").filter({ visible: true });
 const section = (page: Page) => page.getByRole("region", { name: "AI-förslag" }).filter({ visible: true });
 const cards = (page: Page) => section(page).getByRole("listitem");
 const suggestButton = (page: Page) => page.getByRole("button", { name: "Föreslå rätter med AI" }).filter({ visible: true });
-const pill = (page: Page, name: "Alla" | "Kan lagas nu") => page.getByRole("radio", { name }).filter({ visible: true });
+const pill = (page: Page, name: "Kan lagas nu") => page.getByRole("button", { name }).filter({ visible: true });
+
 const jobRow = (page: Page) => page.getByTestId("ai-job-row").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 const nav = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
@@ -173,7 +174,7 @@ test("starts at once, goes on in the other tabs with the job row, and says so wh
   // Visa: Recept with the suggestions, and the badge goes.
   await toast(page).getByRole("button", { name: "Visa" }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   await expect(cards(page)).toHaveCount(3);
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(titles);
   await expect(toast(page)).toHaveCount(0);

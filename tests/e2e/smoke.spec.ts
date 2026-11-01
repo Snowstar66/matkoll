@@ -15,7 +15,7 @@ test("the root layout sets theme colours for light and dark and covers the iPhon
   );
   expect(themeColors).toEqual([
     { media: "(prefers-color-scheme: light)", content: "rgb(245 247 244)" },
-    { media: "(prefers-color-scheme: dark)", content: "rgb(18 23 20)" },
+    { media: "(prefers-color-scheme: dark)", content: "rgb(15 19 17)" },
   ]);
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /viewport-fit=cover/);
 });

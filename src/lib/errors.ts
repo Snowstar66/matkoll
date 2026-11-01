@@ -109,6 +109,9 @@ export const errorMessages = {
   things_rename_failed: "Det gick inte att byta namn. Försök igen.",
   things_place_remove_failed: "Det gick inte att ta bort. Försök igen.",
   things_item_gone: `${thingNounCap.definite} finns inte längre.`,
+  // Kom ihåg var jag lade den (Story 18.19): nothing was saved.
+  things_noted_failed: "Det gick inte att spara. Försök igen.",
+  things_noted_full: `Du har skrivit in så många ${thingNoun.plural} som får plats. Ta bort några först.`,
   // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
   things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved

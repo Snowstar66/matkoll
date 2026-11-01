@@ -230,7 +230,7 @@ export function RecipePreview({
 
       <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
         <div className="flex max-w-full min-w-0 flex-col gap-1.5">
-          <span id={`${ids}-servings`} className="text-body font-semibold text-ink">
+          <span id={`${ids}-servings`} className="text-body font-medium text-ink">
             Portioner
           </span>
           <div role="group" aria-labelledby={`${ids}-servings`}>
@@ -382,7 +382,7 @@ function LineRow({
               ref={ingredientRef}
               type="button"
               onClick={onPick}
-              className="min-h-tap rounded-sm text-left text-body font-semibold text-ink underline decoration-ink-3 underline-offset-4"
+              className="min-h-tap rounded-sm text-left text-body font-medium text-ink underline decoration-ink-3 underline-offset-4"
             >
               {name}
               <span className="sr-only">, byt ingrediens</span>

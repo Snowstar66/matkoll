@@ -48,7 +48,6 @@ import {
   recountedText,
   sendButtonText,
   shareButtonText,
-  stepsLinkText,
   siteRecountedText,
   skippedDishesText,
 } from "../domain/list-text";
@@ -1033,9 +1032,7 @@ export function ShoppingList({
               <Button variant="text" onClick={basket.share}>
                 {shareButtonText}
               </Button>
-              <Button variant="text" onClick={basket.showSteps}>
-                {stepsLinkText}
-              </Button>
+              {/* Story 19.2: "Så funkar det" lives in Hjälp och tips, under Inköpslista. */}
             </div>
           ) : null}
           <ListActions
