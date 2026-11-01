@@ -10,6 +10,8 @@ export const settingsPages = [
   "spara-i-matkoll",
   "ai",
   "installera",
+  // Story 23.2: the number on the app's icon, opt-in per device.
+  "appikon",
   "siri",
   "om",
   // Story 20.3: the owner's inbox; its row shows only for the owner.

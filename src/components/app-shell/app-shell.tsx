@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NewsWatcher } from "./news-watcher";
 import { ScrollMemory } from "./scroll-memory";
 import { SideMenu } from "./side-menu";
 import { TabBar } from "./tab-bar";
@@ -37,6 +38,7 @@ export function AppShell({
       </main>
       <TabBar jobRow={jobRows?.bar} />
       <ScrollMemory />
+      <NewsWatcher />
     </div>
   );
 }

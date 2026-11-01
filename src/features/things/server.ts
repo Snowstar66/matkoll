@@ -12,6 +12,7 @@ import { loadPlaceCountsIn } from "./data/place-edit";
 import type { PlaceCounts } from "./domain/thing-place-edit";
 import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
 import { loadCardViewIn } from "./data/card-view";
+import { listCardNewsIn } from "./data/news";
 import type { CardView } from "./domain/thing-card";
 import type { ClearCounts } from "./domain/thing-clear";
 import type { WrittenBox } from "./domain/thing-written";
@@ -154,4 +155,9 @@ export async function getBoxPage(id: string): Promise<BoxPageData | null> {
   if (!place || !place.isBox) return null;
   const written = await loadWrittenIn(db, id);
   return { place, written, photographed: Math.max(0, place.itemCount - written.length) };
+}
+
+/** Brickor (Story 23.1): the news keys of the cards taken after `since`, for the badge on Förråd; at most `limit`. Throws ThingsDataError. */
+export async function listCardNews(since: Date, limit: number): Promise<string[]> {
+  return listCardNewsIn(await createClient(), since, limit);
 }

@@ -7,6 +7,8 @@ import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
 import { toDecodableImage } from "@/lib/heic";
 import { maxPlacePhotoSide } from "@/lib/images";
+import { newsKey } from "@/lib/news";
+import { noteOwnNews } from "@/lib/news-client";
 
 // Sending cards (Story 18.11): every image becomes its own card and its own AI
 // job, one after the other. At most three AI jobs are active (AD-28); when the
@@ -65,6 +67,11 @@ export function useCardUpload(onSaved: () => void) {
           answer = await start("/api/things/photo", form, clientKey);
         } catch {
           answer = fail("ai_unavailable");
+        }
+        if (answer.ok) {
+          // Story 23.1: a card taken on this device is never news on its own badge.
+          const photoId = answer.data.job.context.photoId;
+          if (typeof photoId === "string") noteOwnNews(newsKey.card(photoId));
         }
         if (answer.ok || answer.error.code !== "ai_queue_full" || !alive.current) return answer;
         await sleep(queueWaitMs);
