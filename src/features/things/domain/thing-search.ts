@@ -145,6 +145,19 @@ export function hitHref(hit: Pick<ThingHit, "id" | "placeId" | "written" | "phot
   return hit.photoId && !hit.noted ? cardViewHref(hit.photoId, hit.id) : `/prylar/${hit.placeId}`;
 }
 
+/**
+ * Pontus 1 Nov: a hit opens its föremål's sheet (count, name, Ta bort), except a thing written into a box, which
+ * is changed by editing the box's text and opens the box's page (`hitHref`).
+ */
+export function hitOpensSheet(hit: Pick<ThingHit, "written">): boolean {
+  return !hit.written;
+}
+
+/** Where a hit's sheet and thumbnail show it: its card big with it marked (Story 18.7), or a noted thing's room; null for a thing written into a box. */
+export function hitShowHref(hit: Pick<ThingHit, "id" | "placeId" | "written" | "photoId"> & { noted?: boolean }): string | null {
+  return hit.written ? null : hitHref(hit);
+}
+
 /** The thumbnail of a hit (Story 18.7): its card's photo, or none for a thing written into a box or noted (their icons show then). */
 export function hitThumbnail(hit: Pick<ThingHit, "photoId" | "written"> & { noted?: boolean }): string | null {
   return !hit.written && !hit.noted && hit.photoId ? `/api/things/photo/${hit.photoId}` : null;

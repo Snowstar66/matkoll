@@ -98,7 +98,19 @@ export const cardFilePathSchema = z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36
 export const removeCardText = "Ta bort kortet";
 export const removeCardQuestion = "Ta bort kortet?";
 export const removeCardDetail = `Kortet, fotot och alla ${thingNoun.plural} som lästes från det tas bort. Platsen finns kvar.`;
-export const removeThingText = `Ta bort ${thingNoun.singular}`;
+/** Pontus 1 Nov: "Ta bort föremålet", in the muted red, last in its sheet. */
+export const removeThingText = `Ta bort ${thingNoun.definite}`;
+/** The row in a föremål's sheet that opens its card big (Story 18.7), or for a noted föremål its room. */
+export const showOnCardText = "Visa på kortet";
+export const showInRoomText = "Visa i rummet";
+/** The button on a föremål's row on its card that opens its sheet: "Öppna Hammare". */
+export function openThingText(name: string): string {
+  return `Öppna ${name}`;
+}
+/** The thumbnail of a search hit, a link of its own: "Visa Hammare på kortet". */
+export function showThingOnCardText(name: string): string {
+  return `Visa ${name} på kortet`;
+}
 export const renameThingText = "Byt namn";
 export const categoryLabelText = "Kategori";
 export const whereLabelText = "Var på bilden";

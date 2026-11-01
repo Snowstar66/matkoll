@@ -71,10 +71,11 @@ function hits(hit: ThingHit) {
 }
 
 describe("a counted hit (Story 18.23)", () => {
-  it("shows the count first in its line, with Ta and Fyll på as buttons of their own beside the link", () => {
+  it("shows the count first in its line, with Ta and Fyll på as buttons of their own beside the row and its thumbnail", () => {
     hits(gravljus);
     expect(screen.getByTestId("hit-count")).toHaveTextContent("5 st");
-    expect(screen.getByRole("link", { name: /Gravljus/ })).toHaveAttribute("href", expect.stringContaining("/prylar/kort/"));
+    expect(screen.getByTestId("thing-hit")).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("link", { name: "Visa Gravljus på kortet" })).toHaveAttribute("href", expect.stringContaining("/prylar/kort/"));
     expect(screen.getByRole("button", { name: "Ta" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fyll på" })).toBeInTheDocument();
   });

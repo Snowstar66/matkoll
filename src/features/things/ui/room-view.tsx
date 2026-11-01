@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Segment } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
@@ -9,6 +9,7 @@ import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { useAiJobs, useOnAiJobsFinished, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { unseenText, type ThingCategory } from "../domain/thing";
 import { moreCardsText } from "../domain/capture";
+import { isJobInRoom } from "../domain/thing-news";
 import { latestCardText } from "../domain/thing-photo";
 import { type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
 import { boxesLabelText, boxMeta, type WrittenBox, writeInsteadText } from "../domain/thing-written";
@@ -70,19 +71,21 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
 
   // The results of this tab's jobs are on this page, so no confirmation says what is already here.
   useShowingAiResults("things");
+  // A card moved here with its room (Byt namn på rummet) is found by its id.
+  const cardIds = useMemo(() => cards.map((card) => card.id), [cards]);
   useEffect(() => {
     for (const job of jobs) {
-      if (job.kind === "things" && typeof job.context.placeId === "string" && placeIds.includes(job.context.placeId) && !job.seen && !isActive(job)) {
+      if (job.kind === "things" && isJobInRoom(job, placeIds, cardIds) && !job.seen && !isActive(job)) {
         void markSeen(job.id);
       }
     }
-  }, [jobs, placeIds, markSeen]);
+  }, [jobs, placeIds, cardIds, markSeen]);
   useOnAiJobsFinished(
     useCallback(
       (finished: AiJob[]) => {
-        if (finished.some((job) => job.kind === "things" && typeof job.context.placeId === "string" && placeIds.includes(job.context.placeId))) router.refresh();
+        if (finished.some((job) => job.kind === "things" && isJobInRoom(job, placeIds, cardIds))) router.refresh();
       },
-      [router, placeIds],
+      [router, placeIds, cardIds],
     ),
   );
   useEffect(() => {

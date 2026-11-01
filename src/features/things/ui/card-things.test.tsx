@@ -62,7 +62,12 @@ describe("the things of a card", () => {
     const dialog = await openHammer();
     expect(within(dialog).getByLabelText("Byt namn")).toHaveValue("Hammare");
     expect(within(dialog).getByRole("button", { name: "Spara" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Ta bort föremål" })).toBeInTheDocument();
+    // Pontus 1 Nov: last, in the muted red of Ta bort (Epic 19), never a fill.
+    const remove = within(dialog).getByRole("button", { name: "Ta bort föremålet" });
+    expect(remove).toHaveClass("text-danger");
+    expect(remove.className).not.toMatch(/bg-danger/);
+    // In the room there is no "Visa på kortet": the room is where it was opened.
+    expect(within(dialog).queryByTestId("thing-sheet-link")).not.toBeInTheDocument();
   });
 
   it("renames just that thing and reads the page again", async () => {
@@ -120,7 +125,7 @@ describe("the things of a card", () => {
     removeThing.mockResolvedValue(ok(snapshot));
     restoreThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
     expect((await screen.findAllByText("Tog bort Hammare.")).length).toBeGreaterThan(0);
     expect(removeThing).toHaveBeenCalledWith(hammer.id);
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
@@ -130,7 +135,7 @@ describe("the things of a card", () => {
   it("says so and keeps the thing when it cannot be removed", async () => {
     removeThing.mockResolvedValue(fail("things_item_failed"));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara föremålet.");
   });
 });
@@ -171,12 +176,12 @@ describe("a thing written in with where it is (Story 18.19)", () => {
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: pass.id, name: "Pass", category: "Kläder & textil", whereHint: null }));
   });
 
-  it("is removed with Ta bort föremål, and Ångra puts it back", async () => {
+  it("is removed with Ta bort föremålet, and Ångra puts it back", async () => {
     const noted: ThingSnapshot = { ...snapshot, id: pass.id, photoId: null, name: "Pass", category: "Övrigt", whereHint: null, source: "noted" };
     removeThing.mockResolvedValue(ok(noted));
     restoreThing.mockResolvedValue(ok(null));
     const dialog = await openPass();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
     expect(removeThing).toHaveBeenCalledWith(pass.id);
     expect((await screen.findAllByText("Tog bort Pass.")).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));

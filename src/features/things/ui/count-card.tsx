@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
 import { cx } from "@/components/cx";
@@ -91,7 +91,18 @@ function DoneLine({ done, busy, onUndo }: { done: Done; busy: boolean; onUndo: (
   );
 }
 
-export function CountCard({ itemId, name, initial }: { itemId: string; name: string; initial: number | null }) {
+export function CountCard({
+  itemId,
+  name,
+  initial,
+  onQuantity,
+}: {
+  itemId: string;
+  name: string;
+  initial: number | null;
+  /** The count as read and after each change (null when it is not counted), for a list that shows it beside the sheet. */
+  onQuantity?: (quantity: number | null) => void;
+}) {
   const router = useRouter();
   const [count, setCount] = useState<ThingCount | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -132,6 +143,17 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
   const quantity = count ? count.quantity : initial;
   const countId = count?.itemId ?? itemId;
 
+  // The latest callback, so the count is told once per change and not per render.
+  const report = useRef(onQuantity);
+  useEffect(() => {
+    report.current = onQuantity;
+  });
+  const known = count !== null;
+  const counted = count?.quantity ?? null;
+  useEffect(() => {
+    if (known) report.current?.(counted);
+  }, [known, counted]);
+
   /** After a change: the card is read again (the history), and the page behind it. */
   async function after(text: string | null, undo: (() => Promise<void>) | null) {
     setProblem(null);
@@ -144,7 +166,7 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
     countId,
     (change: CountChange) => {
       setCount((current) => (current ? { ...current, quantity: change.quantity } : current));
-      void after(changedText(change.kind, change.amount, name), async () => {
+      void after(changedText(change.kind, change.amount, name, change.quantity), async () => {
         let undone: Result<{ quantity: number }>;
         try {
           undone = await undoThingChange(change.changeId);

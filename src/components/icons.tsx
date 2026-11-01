@@ -414,3 +414,14 @@ export function InboxIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A padlock: Om din data, the one-time note on who sees the account's data (Story 17.2). */
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+      <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" />
+      <path d="M12 14.5v2" />
+    </Icon>
+  );
+}

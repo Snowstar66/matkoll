@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { cx } from "@/components/cx";
-import { CheckIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import type { ThingBox } from "@/lib/thing-box";
@@ -26,6 +26,8 @@ import { countText } from "../domain/thing-count";
 import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
+import { ThingSheet } from "./thing-sheet";
+import { openThingText } from "../domain/thing-edit";
 
 // Kortet i stort (Story 18.7): the card's whole photo, never cropped, with a
 // thin box and the name of every föremål that has a box, and the föremål listed
@@ -33,8 +35,10 @@ import { RetakeCard } from "./retake-card";
 // its box is drawn thick and the rest of the photo is shaded; a second tap
 // clears the mark. A föremål without a box (a card read before the boxes came)
 // is looked up with one small AI call the first time it is marked ("Letar …");
-// when that finds nothing it says so. The card's buttons (Ta om, Lägg till
-// föremål, Ta bort kortet last) are here too.
+// when that finds nothing it says so. The › at the end of a row opens the
+// föremål's sheet (Pontus 1 Nov: count, name, Ta bort föremålet), as in the room
+// and in search. The card's buttons (Ta om, Lägg till föremål, Ta bort kortet
+// last) are here too.
 
 /** A box's place on the photo, in percent. */
 function boxStyle(box: ThingBox) {
@@ -167,6 +171,13 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
   }, [needsLookup, selected]);
 
   const pick = useCallback((id: string) => setSelectedId((current) => (current === id ? null : id)), []);
+  // The föremål's sheet; kept while it closes, so its text does not blank during the animation.
+  const [sheetThing, setSheetThing] = useState<CardThing | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const openSheet = (thing: CardThing) => {
+    setSheetThing(thing);
+    setSheetOpen(true);
+  };
   // The card is replaced once the new one is read, so it is not kept in the history.
   const toRoom = useCallback(() => router.replace(`${roomHref}?vy=cards`), [router, roomHref]);
   const title = cardViewTitle(card);
@@ -216,7 +227,22 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
                     onPress={() => pick(thing.id)}
                     pressProps={{ "aria-pressed": isSelected, "data-testid": "card-thing" }}
                     className={isSelected ? "bg-mint" : undefined}
-                    trailing={isSelected ? <CheckIcon size={18} className="mr-2 text-accent" /> : undefined}
+                    trailing={
+                      <span className="flex items-center">
+                        {isSelected ? <CheckIcon size={18} className="text-accent" /> : null}
+                        {/* Pontus 1 Nov: the föremål's sheet (count, name, Ta bort föremålet), the same as in the room and in search. */}
+                        <button
+                          type="button"
+                          aria-label={openThingText(thing.name)}
+                          aria-haspopup="dialog"
+                          onClick={() => openSheet(thing)}
+                          className={cx("flex size-tap items-center justify-center rounded-md", isSelected ? "text-mint-ink" : "text-ink-3")}
+                          data-testid="card-thing-open"
+                        >
+                          <ChevronRightIcon size={18} />
+                        </button>
+                      </span>
+                    }
                   />
                 );
               })}
@@ -235,6 +261,15 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
         </div>
         <RemoveCard cardId={card.id} takenAt={new Date(card.takenAt)} name={title} onRemoved={() => router.replace(`${roomHref}?vy=cards`)} />
       </div>
+      <ThingSheet
+        thing={sheetThing ? (things.find((thing) => thing.id === sheetThing.id) ?? sheetThing) : null}
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onEvent={(event) => {
+          // A removed föremål is no longer marked; Ångra brings it back unmarked.
+          if (event.kind === "removed" && event.id === selectedId) setSelectedId(null);
+        }}
+      />
     </div>
   );
 }

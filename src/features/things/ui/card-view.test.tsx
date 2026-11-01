@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
 import type { CardView as Card } from "../domain/thing-card";
 import { CardView } from "./card-view";
@@ -10,15 +11,21 @@ vi.mock("./locate-client", () => ({ lookUpBox: (id: string) => locateThingOnCard
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
+// Pontus 1 Nov: the föremål's sheet opens from its row; its actions have tests of their own (card-things, thing-sheet).
+vi.mock("../actions/thing-item", () => ({ updateThing: vi.fn(), removeThing: vi.fn(), restoreThing: vi.fn() }));
+vi.mock("../actions/thing-count", () => ({
+  loadThingCount: async (itemId: string) => ({ ok: true, data: { itemId, quantity: 4, changes: [] } }),
+}));
 // The card's buttons have tests of their own; here they only need to be there, in order.
 vi.mock("./retake-card", () => ({ RetakeCard: () => <button type="button">Ta om</button> }));
 vi.mock("./add-card-things", () => ({ AddCardThings: () => <button type="button">Lägg till föremål</button> }));
 vi.mock("./remove-card", () => ({ RemoveCard: () => <button type="button">Ta bort kortet</button> }));
 
-const hammer = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", whereHint: "på väggen, mitten", box: { left: 0.2, top: 0.15, width: 0.14, height: 0.21 }, boxMissed: false };
-const saw = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Cirkelsåg", whereHint: "översta hyllan", box: { left: 0.44, top: 0.1, width: 0.12, height: 0.19 }, boxMissed: false };
-const drill = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a13", name: "Skruvdragare", whereHint: null, box: null, boxMissed: false };
-const lost = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a14", name: "Tång", whereHint: null, box: null, boxMissed: true };
+const tool = { category: "Verktyg", confidence: "high" } as const;
+const hammer = { ...tool, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", whereHint: "på väggen, mitten", box: { left: 0.2, top: 0.15, width: 0.14, height: 0.21 }, boxMissed: false };
+const saw = { ...tool, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Cirkelsåg", whereHint: "översta hyllan", box: { left: 0.44, top: 0.1, width: 0.12, height: 0.19 }, boxMissed: false };
+const drill = { ...tool, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a13", name: "Skruvdragare", whereHint: null, box: null, boxMissed: false };
+const lost = { ...tool, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a14", name: "Tång", whereHint: null, box: null, boxMissed: true };
 
 const card = (things: Card["things"], extra: Partial<Card> = {}): Card => ({
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",
@@ -37,7 +44,11 @@ const card = (things: Card["things"], extra: Partial<Card> = {}): Card => ({
 });
 
 const renderIt = (things: Card["things"], initialThingId: string | null = null, extra: Partial<Card> = {}) =>
-  render(<CardView card={card(things, extra)} initialThingId={initialThingId} roomHref="/prylar/rum/s/boden" />);
+  render(
+    <ToastProvider>
+      <CardView card={card(things, extra)} initialThingId={initialThingId} roomHref="/prylar/rum/s/boden" />
+    </ToastProvider>,
+  );
 const row = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) });
 
 beforeEach(() => {
@@ -76,6 +87,19 @@ describe("the card big (Story 18.7)", () => {
     await userEvent.click(row("Cirkelsåg"));
     expect(screen.queryByTestId("card-box-selected")).toBeNull();
     expect(screen.getAllByTestId("card-box")).toHaveLength(2);
+  });
+
+  it("opens the föremål's sheet from the › at the end of its row, with its count and Ta bort föremålet, and no Visa på kortet", async () => {
+    renderIt([hammer, saw]);
+    const open = screen.getByRole("button", { name: "Öppna Cirkelsåg" });
+    expect(open).toHaveAttribute("aria-haspopup", "dialog");
+    await userEvent.click(open);
+    const dialog = screen.getByRole("dialog", { name: "Cirkelsåg" });
+    expect(await within(dialog).findByTestId("count-number")).toHaveTextContent("4st");
+    expect(within(dialog).getByRole("button", { name: "Ta bort föremålet" })).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("thing-sheet-link")).not.toBeInTheDocument();
+    // Opening is not marking.
+    expect(row("Cirkelsåg")).toHaveAttribute("aria-pressed", "false");
   });
 
   it("marks the föremål under a tap on the photo", async () => {

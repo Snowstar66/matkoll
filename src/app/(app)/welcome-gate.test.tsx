@@ -18,7 +18,7 @@ vi.mock("@/features/pantry/ui/photo-handover", () => ({
 
 const { WelcomeGate } = await import("./welcome-gate");
 
-const note = "Den som driver Livskoll kan tekniskt se kontots data.";
+const note = "Det du sparar i Livskoll syns bara för ditt hushåll och lagras i EU. Som i de flesta appar kan den som driver tjänsten tekniskt komma åt datan.";
 
 beforeEach(() => {
   pathname = "/recept";
