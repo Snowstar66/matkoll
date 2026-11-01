@@ -19,6 +19,8 @@ import { useToast } from "@/components/toast";
 import { isCountUnit, UNITS, type Unit } from "@/features/catalog";
 import { stepAmountField } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
+import { newsKey } from "@/lib/news";
+import { noteOwnNews } from "@/lib/news-client";
 import { addCustomItem } from "../actions/add-custom-item";
 import { updateCustomItem } from "../actions/update-custom-item";
 import {
@@ -354,6 +356,8 @@ export function CustomItemSheet({
     // One id per opening: a retry after a lost answer adds the item once (AD-20).
     const id = itemId ?? crypto.randomUUID();
     if (!itemId) setItemId(id);
+    // Story 23.1: an item added on this device is never news on its own badge.
+    noteOwnNews(newsKey.item(id));
     const payload = { input: { ...input, id }, change: false };
     startTransition(() => save(payload));
   }

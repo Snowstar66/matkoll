@@ -291,6 +291,11 @@ export const feedbackEmail = "e2e-tyck-till@matkoll.test";
  * marked as having seen it (markWelcomeTourSeen), so it never covers their pages.
  */
 export const welcomeEmail = "e2e-valkomst@matkoll.test";
+/**
+ * The E2E user of news-badges.spec.ts alone (Brickor, Story 23.1): two browser
+ * contexts sign in as this one user, as two phones on the household's shared login.
+ */
+export const newsEmail = "e2e-brickor@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -341,6 +346,7 @@ export const e2eEmails = [
   offlineListEmail,
   feedbackEmail,
   welcomeEmail,
+  newsEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -390,6 +396,7 @@ export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.j
 export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
+export const newsStorageState = "tests/e2e/.auth/news.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 

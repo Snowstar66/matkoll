@@ -22,6 +22,8 @@ import { type SelectedSite, shownSiteName } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
+import { newsKey } from "@/lib/news";
+import { noteOwnNews } from "@/lib/news-client";
 import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
@@ -321,6 +323,8 @@ type Answer = { result: Result<CheckChange>; lost: boolean };
 
 /** setChecked, or a failure when it throws or gives no answer within checkTimeoutMs. */
 async function answerOf(change: CheckChange): Promise<Answer> {
+  // Story 23.1: a line this device checks off is never news on its own badge.
+  if (change.checked) noteOwnNews(newsKey.check(change.key));
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<Answer>((resolve) => {
     timer = setTimeout(() => resolve({ result: fail("shopping_check_failed"), lost: true }), checkTimeoutMs);
