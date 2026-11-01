@@ -26,6 +26,11 @@ describe("Epic 11 tokens", () => {
     expect(lengthTokens(css)["tile-icon"]).toBeLessThan(lengthTokens(css)["tile-size"]);
   });
 
+  it("--category-icon is 20px, mapped as the text size of a category header's emoji (ikoner.html B)", () => {
+    expect(lengthTokens(css)["category-icon"]).toBe(20);
+    expect(css).toContain("--text-category-icon: var(--category-icon);");
+  });
+
   it("--overlay is surface at 92 %, mapped as a colour, and follows surface in dark mode", () => {
     expect(rootToken("overlay", css)).toBe("color-mix(in srgb, var(--surface) 92%, transparent)");
     expect(css).toContain("--color-overlay: var(--overlay);");

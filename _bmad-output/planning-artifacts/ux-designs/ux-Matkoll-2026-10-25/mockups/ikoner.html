@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kategorirubriker och menyikoner</title>
+<style>
+/* ---------- document chrome (same as hjalp-valkomst.html) ---------- */
+:root { --pbg:#E8ECE9; --pcard:#FFFFFF; --pink:#1B2420; --pink2:#56635D; --pacc:#3E7C62; --pline:#D9DFDB; --ptag:#F1ECE2; --ptagink:#6E5B3E;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; color-scheme:light dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; } }
+:root[data-theme="dark"] { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; }
+* { box-sizing:border-box; }
+html, body { overflow-x:hidden; }
+body { margin:0; background:var(--pbg); color:var(--pink); -webkit-font-smoothing:antialiased; }
+.wrap { max-width:1440px; margin:0 auto; padding:32px 16px 80px; }
+.wrap > h1 { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0 0 8px; }
+h2.part { font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.3px; margin:56px 0 4px; padding-top:16px; border-top:1px solid var(--pline); }
+h3.sec { font-size:19px; line-height:24px; font-weight:600; margin:32px 0 6px; }
+p.lead, p.note { color:var(--pink2); line-height:1.55; max-width:860px; margin:0 0 12px; font-size:16px; }
+ul.spec { margin:8px 0 16px; padding-left:20px; line-height:1.55; max-width:980px; font-size:15px; }
+ul.spec li { margin:3px 0; }
+.tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:1px 7px; border-radius:99px; background:var(--ptag); color:var(--ptagink); vertical-align:1px; }
+.pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:12px; }
+.col { display:flex; flex-direction:column; gap:8px; min-width:0; max-width:100%; }
+.lbl { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--pink2); }
+.lbl.new { color:var(--pacc); }
+.cap { font-size:14px; line-height:20px; color:var(--pink2); max-width:390px; }
+.box { background:var(--pcard); border-radius:16px; padding:20px 22px; max-width:980px; margin-top:12px; }
+.box h4 { margin:0 0 8px; font-size:17px; font-weight:600; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; background:rgba(127,140,133,.14); padding:1px 5px; border-radius:6px; overflow-wrap:anywhere; }
+.toc { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; }
+.toc a, .themes button { font-size:14px; color:var(--pacc); text-decoration:none; background:var(--pcard); padding:6px 12px; border-radius:99px; border:0; font-family:inherit; cursor:pointer; }
+.themes { display:flex; gap:6px; align-items:center; margin-top:12px; font-size:14px; color:var(--pink2); flex-wrap:wrap; }
+.themes button[aria-pressed="true"] { background:var(--pacc); color:#fff; }
+ol.beslut { max-width:980px; line-height:1.6; font-size:15px; padding-left:22px; }
+ol.beslut li { margin:6px 0; }
+.rec { border-left:3px solid var(--pacc); padding:10px 14px; background:var(--pcard); border-radius:0 12px 12px 0; max-width:980px; margin-top:16px; font-size:15px; line-height:1.55; }
+
+/* ---------- mock app: tokens (globals.css) ---------- */
+.t-light { --bg:#F5F7F4; --surface:#FFFFFF; --fill:#EAEDEB; --ink:#1B2420; --ink-2:#56635D; --ink-3:#6B7872; --hairline:#E8ECE9; --border:#DCE2DE; --accent:#3E7C62; --on-accent:#FFFFFF; --mint:#DDEFE5; --mint-ink:#2C5E48; --sky:#DCE9F6; --sky-ink:#2E5A85; --sand:#F1ECE2; --sand-ink:#6E5B3E; --tile-clay:#F1E3DD; --tile-lilac:#E6E1F2; --bar:rgba(255,255,255,.84); --seg-on:#FFFFFF; --seg-track:#E9ECEA;
+  /* Variant C only: the tile palette's hues in a mid tone, strong enough for a line icon (≥ 3:1 on the bar). */
+  --c-sand:#A9762F; --c-sky:#3A76B8; --c-mint:#3A8763; --c-clay:#B9603F; --c-lilac:#7462B0; }
+.t-dark { --bg:#0F1311; --surface:#181D1A; --fill:#242927; --ink:#E6EBE8; --ink-2:#A3AFA9; --ink-3:#86928C; --hairline:#262D29; --border:#313934; --accent:#6FB394; --on-accent:#0F1A15; --mint:#1F3A2D; --mint-ink:#A8D9BF; --sky:#1E3247; --sky-ink:#A9C9EA; --sand:#3A3326; --sand-ink:#DCC9A6; --tile-clay:#3B2C27; --tile-lilac:#2C2840; --bar:rgba(24,29,26,.82); --seg-on:#2C3430; --seg-track:#1A1F1C;
+  --c-sand:#E3BC7E; --c-sky:#8FBBEA; --c-mint:#86CDA8; --c-clay:#EBA389; --c-lilac:#B7A9EA; }
+
+.ic { flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; display:block; }
+.ic.tint { fill:currentColor; fill-opacity:.16; }
+.phone { position:relative; width:390px; height:844px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:16px; box-shadow:0 4px 18px rgba(27,36,32,.18); font-size:16px; line-height:24px; flex:none; }
+.phone.short { height:auto; }
+.scr { padding:0 20px 96px; }
+.av { border-radius:50%; background:var(--mint); color:var(--mint-ink); display:inline-flex; align-items:center; justify-content:center; font-weight:600; flex:none; }
+.topbar { height:52px; margin:0 -20px; display:flex; align-items:center; justify-content:flex-end; gap:4px; padding:0 14px 0 20px; position:relative; border-bottom:.5px solid var(--border); background:var(--bar); }
+.topbar .ttl { position:absolute; left:0; right:0; text-align:center; font-size:17px; line-height:22px; font-weight:600; pointer-events:none; }
+.topbar .tap { width:44px; height:44px; display:flex; align-items:center; justify-content:center; color:var(--accent); }
+.search { display:flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-radius:12px; background:var(--surface); color:var(--ink-3); font-size:16px; margin-top:6px; }
+.grp { background:var(--surface); border-radius:16px; overflow:hidden; }
+.r { display:flex; align-items:center; gap:12px; min-height:52px; padding:0 16px; font-size:17px; line-height:22px; position:relative; }
+.r .q { margin-left:auto; color:var(--ink-2); }
+.r + .r::before, .sr + .sr::before { content:''; position:absolute; top:0; right:0; left:var(--inset,16px); border-top:1px solid var(--hairline); }
+.sr { --inset:56px; display:flex; align-items:center; min-height:56px; position:relative; padding:6px 8px 6px 0; }
+.sr .ck { width:52px; display:flex; justify-content:center; padding-left:8px; flex:none; }
+.sr .ck i { width:24px; height:24px; border-radius:50%; border:1.5px solid var(--ink-3); display:block; }
+.sr .tx { flex:1; min-width:0; }
+.sr .tx b { display:block; font-size:17px; line-height:22px; font-weight:500; }
+.sr .tx small { display:block; font-size:14px; line-height:20px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+.sr .q { font-size:17px; color:var(--ink-2); padding:0 4px 0 12px; white-space:nowrap; }
+.sr .tr { width:44px; height:44px; display:flex; align-items:center; justify-content:center; color:var(--ink-2); }
+.add { display:flex; align-items:center; gap:12px; min-height:52px; padding:0 16px; color:var(--accent); font-size:17px; position:relative; }
+.add::before { content:''; position:absolute; top:0; right:0; left:56px; border-top:1px solid var(--hairline); }
+
+/* ---------- category header: the three variants ---------- */
+.ch { display:flex; align-items:center; gap:12px; padding:0 4px; margin:20px 0 8px; min-height:30px; }
+.ch.first { margin-top:16px; }
+.ch .lab { flex:1; min-width:0; font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); }
+.ch .cnt { font-size:14px; line-height:20px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.ch .emo { flex:none; line-height:1; text-align:center; user-select:none; }
+/* A – today: 30 px tile, rounded-sm, emoji 17 px. */
+.vA .emo { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; }
+.vA .mint { background:var(--mint); } .vA .sky { background:var(--sky); } .vA .sand { background:var(--sand); } .vA .clay { background:var(--tile-clay); } .vA .lilac { background:var(--tile-lilac); }
+/* B – no tile, emoji 20 px in a 24 px box, 8 px to the label; centred on the row, which puts it on the capitals' centre. */
+.vB .ch { gap:8px; }
+.vB .emo { width:24px; font-size:20px; }
+/* C – no tile, emoji 22 px, label in sentence case 15 px · 500. */
+.vC .ch { gap:10px; }
+.vC .emo { width:26px; font-size:22px; }
+.vC .lab { text-transform:none; letter-spacing:0; font-size:15px; line-height:20px; }
+.zoom { background:var(--bg); color:var(--ink); border-radius:12px; padding:6px 12px; width:390px; flex:none; }
+.zoom .lab { white-space:nowrap; }
+.zoom .in { zoom:2; width:181px; }
+.zoom .ch { margin:4px 0; }
+
+/* ---------- tab bar ---------- */
+.tabbar { position:absolute; left:0; right:0; bottom:0; height:56px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-top:.5px solid var(--border); z-index:3; }
+.tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-3); font-size:11px; line-height:13px; font-weight:500; }
+.tab.on { color:var(--accent); font-weight:600; }
+/* C: each section's icon in its own colour; the label stays grey, ink and semibold when chosen. */
+.navC .tab .ic, .navC .nv .ic { color:var(--sc); }
+.navC .tab.on { color:var(--ink); }
+.s-sand { --sc:var(--c-sand); } .s-sky { --sc:var(--c-sky); } .s-mint { --sc:var(--c-mint); } .s-clay { --sc:var(--c-clay); } .s-lilac { --sc:var(--c-lilac); }
+.strip { position:relative; width:390px; height:150px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:16px; box-shadow:0 4px 18px rgba(27,36,32,.18); flex:none; font-size:16px; line-height:24px; }
+.strip .scr { padding-top:4px; }
+
+/* ---------- side menu (1:1 crop of the 1280 px layout) ---------- */
+.dcrop { position:relative; width:272px; height:612px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:14px; box-shadow:0 4px 18px rgba(27,36,32,.18); flex:none; font-size:16px; line-height:24px; }
+.side { position:absolute; left:0; top:0; bottom:0; width:240px; background:var(--surface); border-right:1px solid var(--border); padding:32px 12px 24px; display:flex; flex-direction:column; }
+.brand { display:flex; align-items:center; gap:8px; padding:0 12px 24px; font-size:17px; line-height:22px; font-weight:500; }
+.site { display:flex; align-items:center; gap:10px; color:var(--ink-2); padding:0 12px; height:44px; margin:-12px 0 12px; font-size:16px; }
+.nvs { display:flex; flex-direction:column; gap:4px; }
+.nv { display:flex; align-items:center; gap:12px; min-height:44px; padding:0 12px; border-radius:12px; color:var(--ink-2); font-size:16px; font-weight:500; }
+.nv.on { background:var(--mint); color:var(--mint-ink); }
+.navB .nv.on .ic { color:var(--accent); }
+.navC .nv.on { background:var(--fill); color:var(--ink); }
+.nvb { margin-top:auto; border-top:1px solid var(--hairline); padding-top:10px; display:flex; flex-direction:column; gap:2px; }
+.nvb .nv .ic { color:var(--ink-2) !important; }
+.who { display:flex; align-items:center; gap:10px; padding:6px 12px 8px; }
+.who b { display:block; font-size:15px; line-height:20px; font-weight:500; } .who small { display:block; font-size:12px; line-height:16px; color:var(--ink-3); }
+
+/* ---------- icon sheet ---------- */
+.sheetrow { display:grid; grid-template-columns:110px repeat(5,1fr); align-items:center; gap:8px; padding:10px 14px; }
+.sheetrow + .sheetrow { border-top:1px solid var(--hairline); }
+.sheetrow > span:first-child { font-size:13px; color:var(--ink-2); font-weight:500; }
+.sheetrow > div { display:flex; gap:14px; align-items:center; justify-content:center; }
+.sheet2 { background:var(--surface); color:var(--ink); border-radius:16px; overflow:hidden; width:620px; max-width:100%; }
+.sheethead { display:grid; grid-template-columns:110px repeat(5,1fr); gap:8px; padding:10px 14px 0; font-size:11px; font-weight:500; color:var(--ink-3); text-align:center; }
+
+@media (max-width: 430px) {
+  .wrap { padding:24px 16px 64px; }
+  .phone, .strip, .zoom { zoom:.9; }
+  .dcrop { zoom:.9; }
+  .sheetrow, .sheethead { grid-template-columns:64px repeat(5,1fr); gap:2px; padding-left:8px; padding-right:8px; }
+  .sheetrow > div { gap:6px; }
+  .sheetrow .big { display:none; }
+}
+</style>
+</head>
+<body>
+<!-- Icons: the app's own line icons (src/components/icons.tsx) and the new filled set (f-*), drawn on the same 24 grid with the same 1.8 px edge. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <mask id="mk-cal" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <path d="M4.2 10h15.6" stroke="#000" stroke-width="1.4"/>
+      <g fill="#000"><rect x="7" y="12.4" width="2.2" height="2.2" rx=".6"/><rect x="10.9" y="12.4" width="2.2" height="2.2" rx=".6"/><rect x="14.8" y="12.4" width="2.2" height="2.2" rx=".6"/><rect x="7" y="15.9" width="2.2" height="2.2" rx=".6"/><rect x="10.9" y="15.9" width="2.2" height="2.2" rx=".6"/></g>
+    </mask>
+    <mask id="mk-carrot" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <path d="M9.4 11.5l1.7 1.7M7.3 15.1l1.5 1.5" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
+    </mask>
+    <mask id="mk-box" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <path d="M1 10.1h22" stroke="#000" stroke-width="1.3"/>
+      <path d="M10 13.6h4" stroke="#000" stroke-width="1.8" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></symbol>
+  <symbol id="i-carrot" viewBox="0 0 24 24"><path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z"/><path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <!-- filled: the cover, the calendar, the basket, the carrot and the box are solid; details are cut out, so the bar's glass shows through -->
+  <symbol id="f-book" viewBox="0 0 24 24"><path fill="currentColor" d="M5 4h11a3 3 0 0 1 3 3v7H8a3 3 0 0 0-3 3z"/><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M8 17h11"/></symbol>
+  <symbol id="f-cal" viewBox="0 0 24 24"><g mask="url(#mk-cal)"><rect fill="currentColor" x="4" y="5" width="16" height="15" rx="3"/></g><path d="M9 3v3M15 3v3"/></symbol>
+  <symbol id="f-cart" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 11"/><path fill="currentColor" d="M6.4 7h14.1l-2.2 8H7.7z"/><circle fill="currentColor" cx="9.5" cy="19.5" r="1.6"/><circle fill="currentColor" cx="17" cy="19.5" r="1.6"/></symbol>
+  <symbol id="f-carrot" viewBox="0 0 24 24"><g mask="url(#mk-carrot)"><path fill="currentColor" d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z"/></g><path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9"/></symbol>
+  <symbol id="f-box" viewBox="0 0 24 24"><g mask="url(#mk-box)"><rect fill="currentColor" x="3" y="4" width="18" height="5" rx="1.5"/><path fill="currentColor" d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/></g></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-width="2" d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.5"/><path stroke-width="2.6" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.28 5.28l2.12 2.12M16.6 16.6l2.12 2.12M5.28 18.72l2.12-2.12M16.6 7.4l2.12-2.12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path stroke-width="2.2" d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></symbol>
+</svg>
+
+<div class="wrap">
+<h1>Livskoll – kategorirubriker och menyikoner</h1>
+<p class="lead">Två små frågor från Pontus, var och en med <b>A = idag</b> och två alternativ i samma ram. Allt annat i bilderna är som i appen idag.</p>
+<p class="note"><b>Idag</b> = HTML-kopia av <code>category-header.tsx</code>, <code>tab-bar.tsx</code> och <code>side-menu.tsx</code>, med tokens från <code>globals.css</code> och ikoner från <code>icons.tsx</code>, jämförd med skärmdumpar av appen på main (60b53b0) i 390 och 1280 px. Raderna är från ditt riktiga kylskåp. De fyllda ikonerna är nyritade. Infobannern är bortklickad.</p>
+<div class="themes"><span>Visa ramarna i</span><button data-t="auto" aria-pressed="true">Systemets läge</button><button data-t="light" aria-pressed="false">Ljust</button><button data-t="dark" aria-pressed="false">Mörkt</button></div>
+<div class="toc"><a href="#rubriker">1. Kategorirubriker</a><a href="#ikoner">2. Menyikoner</a><a href="#beslut">Beslut</a></div>
+
+<!-- ============ Q1 ============ -->
+<h2 class="part" id="rubriker">1. Kategorirubriker i Matvaror och Inköpslista</h2>
+<p class="lead">En komponent, <code>CategoryHeader</code>, används på båda sidorna, så valet slår igenom på båda. Telefonen visar Matvaror › Kyl, remsan under visar Inköpslista.</p>
+<div class="pair" id="q1"></div>
+<ul class="spec">
+  <li><b>A, idag:</b> emoji 17 px på en tonad platta 30 × 30 px (<code>rounded-sm</code>), 12 px till etiketten i versaler 13 px · 500, spärrad 0,5 px, <code>ink-2</code>. Plattan har fem färger och blir fem små färgfält per skärm.</li>
+  <li><b>B:</b> ingen platta. Emoji 20 px i en ruta på 24 px, 8 px till etiketten, centrerad på raden, vilket lägger dess mitt på versalernas mitt (kontrollerat i närbilden; en extra förskjutning behövs inte). Etiketten och antalet som idag. Raden blir lugnare, och emojin syns ändå tydligt. Tokens <code>--tile-size</code> och <code>--tile-icon</code> utgår, <code>categoryTiles</code> behåller bara <code>icon</code>.</li>
+  <li><b>C:</b> ingen platta. Emoji 22 px, etiketten i vanlig skrift 15 px · 500, <code>ink-2</code>, utan spärrning. Ser mer ut som Påminnelser, men avviker från alla andra gruppetiketter i appen (Inställningar, Hjälp och tips), som är versaler.</li>
+</ul>
+
+<!-- ============ Q2 ============ -->
+<h2 class="part" id="ikoner">2. Menyikoner: flikfältet och sidomenyn</h2>
+<p class="lead">Först flikfältet på telefon, en rad per variant i ljust och mörkt läge (alltid båda), sedan de tre sidomenyerna för dator bredvid varandra i skala 1:1 (de följer lägesväljaren). På telefonen är Matvaror vald i ljust läge och Inköpslista i mörkt.</p>
+<div id="q2"></div>
+
+<h3 class="sec">Ikonarket: dagens linjeikoner och de nya fyllda</h3>
+<p class="note">Samma rutnät på 24 och samma linje på 1,8 px. Fyllt = själva formen är massiv, detaljerna är urklippta (ringarna och datumen i kalendern, locket och handtaget på lådan, ränderna på moroten), så att flikfältets glas syns genom dem. Visas i 24 och 40 px.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Ljust</span><div class="sheet2 t-light" id="sheet-l"></div></div>
+  <div class="col"><span class="lbl">Mörkt</span><div class="sheet2 t-dark" id="sheet-d"></div></div>
+</div>
+
+<ul class="spec">
+  <li><b>A, idag:</b> grå linjeikoner (<code>ink-3</code>). Vald flik: ikon och etikett i <code>accent</code>, ikonen med 16 % fyllning (<code>tinted</code>), som knappt syns i 24 px. Dator: mint-pill, ikon och etikett i <code>mint-ink</code>. Detta är vad Pontus menar med “ingen färg, inte ens när den är vald”.</li>
+  <li><b>B, iOS:</b> ovalda som idag. Vald flik får den <b>fyllda</b> ikonen i <code>accent</code>, etiketten i accent · 600 som idag. Dator: samma fyllda gröna ikon på mint-pillen, etiketten kvar i <code>mint-ink</code> (accent på mint är bara 4,1:1 för text). Inga nya tokens; <code>tinted</code> byts mot <code>filled</code> i <code>icons.tsx</code>.</li>
+  <li><b>C, Things 3:</b> varje del har en egen ton på ikonen, alltid: Recept sand, Matsedel himmel, Inköpslista mint, Matvaror lera, Förråd lila. Tonerna är Inställningars plattfärger i en mellanton som håller 3:1 mot fältet (tio nya tokens, ljust och mörkt). Vald: fylld ikon i samma ton, etiketten i <code>ink</code> · 600. Dator: neutral pill (<code>fill</code>), eftersom en mint-pill under en lila ikon krockar. Hjälp, Inställningar och Logga ut förblir grå.</li>
+</ul>
+<div class="rec"><b>Min rekommendation: B.</b> Jag håller med dig. Färgen hamnar där den betyder något, “här är du”, och appens enda gröna behåller den rollen. I C betyder fem färger ingenting, eftersom läget redan säger vilken flik det är. De tävlar också med kategoriernas emoji, butiksmärkena och erbjudandena, och lägger till tio tokens. C passar Things, där sidomenyn har många listor att hitta bland, men inte fem fasta flikar.</div>
+
+<!-- ============ DECISIONS ============ -->
+<h2 class="part" id="beslut">Beslut för Pontus, med det som byggs om du inte säger något</h2>
+<ol class="beslut">
+  <li><b>Kategorirubrik B</b> (förval: emoji utan platta, versaletiketten kvar), eller A (som idag), eller C (större emoji, etikett i vanlig skrift).</li>
+  <li><b>Emoji 20 px i B</b> (förval), eller 22 px som i C, om 20 känns för litet bredvid raderna på 17 px.</li>
+  <li><b>Menyikoner B</b> (förval: fylld grön ikon på vald flik), eller A (som idag), eller C (egen färg per del).</li>
+  <li><b>Mint-pillen kvar på dator</b> med den fyllda gröna ikonen (förval), eller ingen pill, bara fylld ikon och etikett i <code>ink</code> · 600 som på telefon.</li>
+  <li><b>De fyllda ikonerna som ritade här</b> (förval), eller att jag ritar om någon av dem. Säg vilken; boken och lådan är de som avviker mest från linjeversionen.</li>
+</ol>
+</div>
+
+<script>
+const I = (id, s = 24, cls = '') => `<svg class="ic ${cls}" width="${s}" height="${s}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const logo = (s = 28) => `<svg width="${s}" height="${s}" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#3E7C62"/><path d="M256 112 L406 236 V384 c0 18-14 32-32 32 H138 c-18 0-32-14-32-32 V236 Z" fill="#F6F1E4"/><path d="M196 300l44 44 84-96" fill="none" stroke="#3E7C62" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// ---------- Q1: category headers ----------
+const CATS = [
+  ['🥦', 'mint', 'Frukt & grönt', [['Färsk grön jalapeño','1 st'],['Färsk koriander','1 kruka'],['Lime','1 st']]],
+  ['🥛', 'sky', 'Mejeri & ägg', [['Grädde','2 dl'],['Mozzarella','150 g'],['Smör','']]],
+  ['🥩', 'clay', 'Kött, fisk & chark', [['Kycklingfärs','500 g']]],
+  ['🧂', 'sand', 'Såser & smaksättare', [['Majonnäs','2 dl']]],
+];
+const head = ([emo, tile, name], n, first) => `<div class="ch${first ? ' first' : ''}"><span class="emo ${tile}" aria-hidden="true">${emo}</span><span class="lab">${name}</span><span class="cnt">${n}</span></div>`;
+const pantry = () => CATS.map((c, k) => head(c, c[3].length, k === 0) + `<div class="grp">${c[3].map(([t, q]) => `<div class="r"><span>${t}</span>${q ? `<span class="q">${q}</span>` : ''}</div>`).join('')}</div>`).join('');
+const TABS = [['book','Recept','sand'],['cal','Matsedel','sky'],['cart','Inköpslista','mint'],['carrot','Matvaror','clay'],['box','Förråd','lilac']];
+const tabbar = (v, on) => `<nav class="tabbar ${v==='C'?'navC':''}">${TABS.map(([i,l,c]) => {
+  const sel = l === on;
+  const icon = v === 'A' ? I('i-' + i, 24, sel ? 'tint' : '') : I((sel ? 'f-' : 'i-') + i, 24);
+  return `<span class="tab s-${c}${sel ? ' on' : ''}">${icon}<span>${l}</span></span>`;
+}).join('')}</nav>`;
+const SHOP = [
+  [CATS[0], [['Färsk basilika','Till Panerad kycklingfärsburgare med parmesan- och tryffelmajo','1 kruka']]],
+  [CATS[1], [['Parmesanost','Till Panerad kycklingfärsburgare med parmesan- och tryffelmajo','2 dl'],['Ägg','Till Shakshuka','6 st']]],
+];
+const shop = () => SHOP.map(([c, rows], k) => head(c, rows.length, k === 0) + `<div class="grp">${rows.map(([t, m, q]) => `<div class="sr"><span class="ck"><i></i></span><span class="tx"><b>${t}</b><small>${m}</small></span><span class="q">${q}</span><span class="tr">${I('i-trash',22)}</span></div>`).join('')}</div>`).join('');
+const VARS = [['A','Idag – tonad platta, versaler', ''],['B','B – emoji 20 px utan platta', 'new'],['C','C – emoji 22 px, vanlig skrift', '']];
+document.getElementById('q1').innerHTML = VARS.map(([v, l, cls]) => `<div class="col">
+  <span class="lbl ${cls}">${l}${v==='B'?' · rekommenderas':''}</span>
+  <div class="phone themed v${v}"><div class="scr">
+    <div class="topbar"><span class="ttl">Matvaror</span><span class="tap">${I('i-plus',26)}</span><span class="av" style="width:32px;height:32px;font-size:14px">P</span></div>
+    <div class="search">${I('i-search',18)}<span>Sök i kylen</span></div>
+    ${pantry()}
+  </div>${tabbar('A','Matvaror')}</div>
+  <span class="lbl">${v === 'A' ? 'Idag' : v} – Inköpslista</span>
+  <div class="phone short themed v${v}"><div class="scr" style="padding-bottom:16px">${shop()}</div></div>
+  <span class="lbl">${v === 'A' ? 'Idag' : v} – närbild 2×</span>
+  <div class="zoom themed v${v}"><div class="in">${head(CATS[0], 3, true)}${head(CATS[1], 3, false)}</div></div>
+</div>`).join('');
+
+// ---------- Q2: menu icons ----------
+const side = (v, active) => `<aside class="side ${v==='C'?'navC':''} ${v==='B'?'navB':''}"><div class="brand">${logo()}<span>Livskoll</span></div><div class="site">${I('i-pin',20)}<span style="flex:1">Hemma</span>${I('i-chev-d',16)}</div>
+  <nav class="nvs">${TABS.map(([i,l,c]) => { const sel = active === l;
+    const icon = v === 'A' ? I('i-' + i, 22, sel ? 'tint' : '') : I((sel ? 'f-' : 'i-') + i, 22);
+    return `<div class="nv s-${c}${sel?' on':''}">${icon}<span>${l}</span></div>`; }).join('')}</nav>
+  <div class="nvb"><div class="who"><span class="av" style="width:28px;height:28px;font-size:13px">P</span><span><b>Pontus</b><small>pontus@matkoll.local</small></span></div>${[['i-help','Hjälp och tips'],['i-gear','Inställningar'],['i-logout','Logga ut']].map(([i,l]) => `<div class="nv">${I(i,22)}<span>${l}</span></div>`).join('')}</div></aside>`;
+const stripBody = `<div class="scr"><div class="grp"><div class="r"><span>Kycklingfärs</span><span class="q">500 g</span></div><div class="r"><span>Majonnäs</span><span class="q">2 dl</span></div></div></div>`;
+const Q2 = [['A','Idag – grå linjer, svag grön ton på vald',''],['B','B – iOS: fylld grön ikon på vald','new'],['C','C – Things 3: egen färg per del, fylld på vald','']];
+document.getElementById('q2').innerHTML = Q2.map(([v, l, cls]) => `<h3 class="sec" style="margin-top:24px">${l.replace(/^Idag/, 'A, idag')}${v==='B'?' <span class="tag">rekommenderas</span>':''}</h3><div class="pair">
+  <div class="col"><span class="lbl ${cls}">${v} – telefon, ljust</span><div class="strip t-light">${stripBody}${tabbar(v,'Matvaror')}</div></div>
+  <div class="col"><span class="lbl ${cls}">${v} – telefon, mörkt</span><div class="strip t-dark">${stripBody}${tabbar(v,'Inköpslista')}</div></div>
+</div>`).join('') + `<h3 class="sec" style="margin-top:24px">Dator: sidomenyn 1:1, A · B · C</h3><div class="pair">${Q2.map(([v,,cls]) => `<div class="col"><span class="lbl ${cls}">${v === 'A' ? 'A, idag' : v}${v==='B'?' · rekommenderas':''}</span><div class="dcrop themed">${side(v,'Matvaror')}</div></div>`).join('')}</div>`;
+
+// ---------- icon sheet ----------
+const sheet = () => `<div class="sheethead"><span></span>${TABS.map(([,l]) => `<span>${l}</span>`).join('')}</div>
+  <div class="sheetrow"><span>Linje (idag)</span>${TABS.map(([i]) => `<div style="color:var(--ink-2)">${I('i-'+i,24)}<span class="big">${I('i-'+i,40)}</span></div>`).join('')}</div>
+  <div class="sheetrow"><span>Fylld, B</span>${TABS.map(([i]) => `<div style="color:var(--accent)">${I('f-'+i,24)}<span class="big">${I('f-'+i,40)}</span></div>`).join('')}</div>
+  <div class="sheetrow navC"><span>Linje / fylld, C</span>${TABS.map(([i,,c]) => `<div class="s-${c}" style="color:var(--sc)">${I('i-'+i,24)}${I('f-'+i,24)}</div>`).join('')}</div>`;
+document.getElementById('sheet-l').innerHTML = sheet();
+document.getElementById('sheet-d').innerHTML = sheet();
+
+// ---------- theme switch: the themed frames follow the system, or a forced mode ----------
+(function () {
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  let mode = 'auto';
+  function apply() {
+    const dark = mode === 'dark' || (mode === 'auto' && mq.matches);
+    document.querySelectorAll('.themed').forEach((p) => { p.classList.toggle('t-dark', dark); p.classList.toggle('t-light', !dark); });
+    if (mode === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', mode);
+    document.querySelectorAll('.themes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === mode)));
+  }
+  document.querySelectorAll('.themes button').forEach((b) => b.onclick = () => { mode = b.dataset.t; apply(); });
+  mq.addEventListener('change', apply);
+  const forced = new URLSearchParams(location.search).get('theme');
+  if (forced === 'dark' || forced === 'light') mode = forced;
+  apply();
+})();
+</script>
+</body>
+</html>
