@@ -153,6 +153,19 @@ describe("OffersSheet", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it("says calmly that the offers come every morning when the cloud is refused (Story 17.11)", async () => {
+    fetchStoreOffers.mockResolvedValue(fail("offers_fetch_scheduled"));
+    render();
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    const status = await within(dialog).findByText("Erbjudandena hämtas automatiskt varje morgon – nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag).");
+    expect(status).toHaveAttribute("role", "status");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/släppte inte in/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: /^Öppna sidan ?\(öppnas i en ny flik\)$/ })).toBeInTheDocument();
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
+  });
+
   it("says when the offers were fetched just now", async () => {
     fetchStoreOffers.mockResolvedValue(fail("offers_fetched_recently"));
     render({ offers });

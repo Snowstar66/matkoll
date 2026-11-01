@@ -2,21 +2,18 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
-import type { IngredientMatch } from "@/features/catalog";
 import { CatalogDataError, getIngredientSummaries, matchIngredients } from "@/features/catalog/server";
 import { OFFER_SITE_DOMAINS, parseOffersLink, type Store } from "@/features/settings";
 import { listStores, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type ErrorCode, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
+import { env } from "@/server/env";
 import { fetchOfferPage } from "@/server/fetch";
 import { OffersDataError } from "../data/client";
 import { blockFetch, claimFetch } from "../data/queries";
-import { saveOffersIn } from "../data/save";
-import { foodSection, parseIcaOfferPage, type IcaOffer } from "../domain/ica-offer-page";
-import { maxOffersPerWeek, toOfferDraft, type OfferDraft } from "../domain/offer";
-import { isNamed, offerName, type OfferName } from "../domain/offer-name";
-import { isSavableWeek, weekOfValidTo } from "../domain/week";
+import { readOfferPage } from "../domain/offer-page-read";
+import { saveOfferPageIn } from "./save-offer-page";
 
 // "Hämta veckans erbjudanden" (FR-34, Story 9.1, AD-11, AD-25): one fetch of
 // the store's offer page per tap, read without AI and saved at once. The
@@ -48,33 +45,13 @@ function failWith(code: ErrorCode, reason: string): ReturnType<typeof fail> {
   return fail(code);
 }
 
-/** The catalog ingredient for each offer: its first name that matched exactly or as a synonym. */
-async function matchOffers(names: readonly OfferName[]) {
-  const items = names.flatMap((name) => name.candidates.map((text) => ({ text })));
-  const matches: IngredientMatch[] = items.length > 0 ? await matchIngredients(items) : [];
-  let at = 0;
-  const found = names.map((name) => {
-    let hit: { name: string; ingredientId: string } | null = null;
-    for (const candidate of name.candidates) {
-      const match = matches[at++];
-      if (!hit && match?.kind === "match" && match.confidence !== "hint") hit = { name: candidate, ingredientId: match.ingredientId };
-    }
-    return { label: name.label, name: hit?.name ?? name.fallback, ingredientId: hit?.ingredientId ?? null };
-  });
-  const ids = [...new Set(found.flatMap((entry) => (entry.ingredientId ? [entry.ingredientId] : [])))];
-  const summaries = ids.length > 0 ? await getIngredientSummaries(ids) : {};
-  return found.map((entry) => ({
-    ...entry,
-    section: (entry.ingredientId ? summaries[entry.ingredientId]?.section : undefined) ?? null,
-  }));
-}
-
 /**
  * Fetches and saves the weekly offers of the signed-in user's store
  * `storeId`. Gives the counts and the week, or `unauthorized`, `validation`,
  * `offers_store_missing`, `offers_link_missing`, `offers_link_unsupported`,
  * `offers_fetched_recently` (within 15 minutes of the last fetch),
- * `offers_fetch_blocked` (403, 429), `offers_fetch_failed`,
+ * `offers_fetch_blocked` (403, 429; `offers_fetch_scheduled` instead on Vercel,
+ * Story 17.11), `offers_fetch_failed`,
  * `offers_page_changed`, `offers_none`, `offers_page_old`,
  * `offers_week_invalid`, `offers_limit`, `offers_failed`,
  * `settings_store_unavailable` or `catalog_unavailable`.
@@ -121,55 +98,35 @@ export async function fetchStoreOffers(input: { storeId: string }): Promise<Fetc
         if (!(error instanceof OffersDataError)) throw error;
         console.error("offers_failed", { reason: error.detail });
       }
-      return failWith("offers_fetch_blocked", `status_${status}`);
+      // Story 17.11: in the cloud the store's site refuses the app's servers, so a
+      // job fetches the offers every morning and Sunday evening instead
+      // (docs/molnet.md); the sheet says so calmly. On a computer the refusal is shown as it is.
+      console.error("offers_fetch_blocked", { reason: `status_${status}` });
+      return fail(env.VERCEL ? "offers_fetch_scheduled" : "offers_fetch_blocked");
     }
     return failWith("offers_fetch_failed", page.error.code);
   }
 
-  const read = parseIcaOfferPage(page.data.html);
-  if (!read.ok) return failWith("offers_page_changed", "page_shape");
-  let { skipped } = read.data;
-  if (read.data.offers.length === 0) {
-    console.info("offers_none", { skipped });
-    return fail("offers_none");
+  const read = readOfferPage(page.data.html, now);
+  if (!read.ok) {
+    if (read.error.code === "offers_none") {
+      console.info("offers_none", { skipped: read.error.skipped });
+      return fail("offers_none");
+    }
+    return failWith(read.error.code, read.error.reason);
   }
 
-  const weekStart = weekOfValidTo(read.data.offers.map((offer) => offer.validTo));
-  if (!weekStart || !isSavableWeek(weekStart, now)) return failWith("offers_page_old", "week");
-  // An offer that ended before the week began is over: it is not saved.
-  // An offer with nothing left of its label or name once cleaned is not saved either, and the offers
-  // beyond the week's limit are cut before matching (the rest are counted as skipped).
-  const current = read.data.offers
-    .filter((offer) => offer.validTo >= weekStart)
-    .map((offer) => ({ offer, name: offerName(offer) }));
-  const named = current.filter((entry) => isNamed(entry.name));
-  const kept = named.slice(0, maxOffersPerWeek);
-  skipped += current.length - kept.length;
-  const offers: IcaOffer[] = kept.map((entry) => entry.offer);
-  if (kept.length === 0) {
-    console.info("offers_none", { skipped });
-    return fail("offers_none");
-  }
-
-  let drafts: OfferDraft[];
+  let saved: Awaited<ReturnType<typeof saveOfferPageIn>>;
   try {
-    const matches = await matchOffers(kept.map((entry) => entry.name));
-    drafts = offers.map((offer, index) =>
-      toOfferDraft(offer, { ...matches[index], icaSection: foodSection(offer.category) }),
-    );
+    saved = await saveOfferPageIn(db, { storeId, read: read.data }, { match: matchIngredients, summaries: getIngredientSummaries });
   } catch (error) {
     if (!(error instanceof CatalogDataError)) throw error;
     return failWith("catalog_unavailable", "match");
   }
-
-  const saved = await saveOffersIn(db, { storeId, weekStart, items: drafts, replaceSource: "link" });
-  if (!saved.ok) {
-    if (saved.error.code === "offers_week_invalid") return failWith("offers_page_old", "week_refused");
-    return saved;
-  }
+  if (!saved.ok) return saved;
   revalidateFor("store_offer");
-  const matched = drafts.filter((draft) => draft.ingredientId !== null).length;
-  const withRegularPrice = drafts.filter((draft) => draft.regularPrice !== null).length;
-  console.info("offers_fetched", { saved: saved.data, skipped, matched, withRegularPrice });
-  return ok({ saved: saved.data, skipped, matched, weekStart });
+  const { skipped } = read.data;
+  const { weekStart } = saved.data;
+  console.info("offers_fetched", { saved: saved.data.saved, skipped, matched: saved.data.matched, withRegularPrice: saved.data.withRegularPrice });
+  return ok({ saved: saved.data.saved, skipped, matched: saved.data.matched, weekStart });
 }
