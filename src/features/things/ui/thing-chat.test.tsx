@@ -144,7 +144,8 @@ describe("the chat", () => {
     expect(await screen.findByText("Coca-Cola finns i Boden · Nedersta hyllan · mitten.")).toBeInTheDocument();
     const [row] = screen.getAllByTestId("thing-hit");
     expect(row).toHaveTextContent("Coca-Cola Boden · Nedersta hyllan · mitten");
-    expect(row).toHaveAttribute("href", `/prylar/${placeId}`);
+    // Story 18.7: a hit on a card opens the card big with the thing marked.
+    expect(row).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${found.id}`);
     expect(row.closest("li")?.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
     expect(screen.queryByText("Fun Light läsk")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Visa 1 liknande" }));

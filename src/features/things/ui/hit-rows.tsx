@@ -4,19 +4,20 @@ import { useState } from "react";
 import { Button } from "@/components/button";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
-import { hitHref, hitLine, showSimilarText, similarLabelText, type ThingHit } from "../domain/thing-search";
+import { hitHref, hitLine, hitThumbnail, showSimilarText, similarLabelText, type ThingHit } from "../domain/thing-search";
 import { NotedTile } from "./remember-proposal";
 
 // A found thing as a row (Story 18.19): its name, where it is (room · part or
 // box), and the card's thumbnail at the right (a note for a thing written in
 // with where it is, a box for a thing written into a box). The hits that answer
 // what was written come first; the close ones are "Liknande", shown when
-// nothing answers, or folded in under "Visa 5 liknande". Opening the card big
-// with the thing marked is Story 18.7.
+// nothing answers, or folded in under "Visa 5 liknande". A hit on a card opens
+// the card big with the thing marked (Story 18.7); a noted thing opens its room.
 
 function HitThumb({ hit }: { hit: ThingHit }) {
   if (hit.noted) return <NotedTile className="h-10 w-13" />;
-  if (!hit.photoId) {
+  const thumbnail = hitThumbnail(hit);
+  if (!thumbnail) {
     return (
       <span aria-hidden="true" className="flex h-10 w-13 shrink-0 items-center justify-center rounded-sm bg-tile-clay text-tile-icon leading-none select-none">
         {"\u{1F4E6}"}
@@ -25,7 +26,7 @@ function HitThumb({ hit }: { hit: ThingHit }) {
   }
   // The photo is served by the route that checks the user; nothing is fetched from anywhere else.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={`/api/things/photo/${hit.photoId}`} alt="" loading="lazy" className="h-10 w-13 shrink-0 rounded-sm bg-border object-cover" />;
+  return <img src={thumbnail} alt="" loading="lazy" className="h-10 w-13 shrink-0 rounded-sm bg-border object-cover" data-testid="hit-thumbnail" />;
 }
 
 function HitList({ hits, label, siteId }: { hits: readonly ThingHit[]; label: string; siteId?: string }) {

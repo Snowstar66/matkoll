@@ -88,12 +88,14 @@ describe("the one field to search and ask", () => {
     expect(hits).toHaveLength(2);
     // Story 18.19: the name, then room · part or box, then the card's thumbnail at the right.
     expect(hits[0]).toHaveTextContent("Hammare Skräpförrådet · väggen");
-    expect(hits[0].closest("li")?.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${hit.photoId}`);
-    expect(hits[0]).toHaveAttribute("href", `/prylar/${hit.placeId}`);
+    expect(within(hits[0].closest("li") as HTMLElement).getByTestId("hit-thumbnail")).toHaveAttribute("src", `/api/things/photo/${hit.photoId}`);
+    // Story 18.7: the card opens big with the thing marked.
+    expect(hits[0]).toHaveAttribute("href", `/prylar/kort/${hit.photoId}?foremal=${hit.id}`);
     // A thing written into a box says so and opens the box's page.
     expect(hits[1]).toHaveTextContent("Hammarbor Skräpförrådet · i Black box · skrivet 31 okt");
     expect(hits[1].closest("li")?.querySelector("img")).toBeNull();
     expect(hits[1]).toHaveAttribute("href", `/prylar/lada/${hit.placeId}`);
+    expect(within(hits[1].closest("li") as HTMLElement).queryByTestId("hit-thumbnail")).toBeNull();
     expect(screen.getByText("Rummen").parentElement).toHaveClass("hidden");
     // The last text asked for is the one shown (a typo is the database's business).
     await waitFor(() => expect(searchThingsAction).toHaveBeenLastCalledWith("hamm"));

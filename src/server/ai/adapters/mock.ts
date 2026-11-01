@@ -18,7 +18,8 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -48,7 +49,9 @@ import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, Ca
 // parseItemPositions for the labels given, like a model's answer, and the
 // same reserved images give the same codes. The suggest, analyze and locate
 // fixtures are each loaded on their own, so a broken one never breaks an
-// import.
+// import. locateThing (Story 18.7) answers the box the things fixture gives a
+// thing of the same name (any photo), no box for a name it does not have, and
+// a name that holds a reserved text fails with that code.
 
 /** Error codes the mock can be asked to return through a reserved input. */
 export const mockErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected", "import_no_recipe"] as const;
@@ -243,6 +246,16 @@ function loadThingsFixtures(dir: string): ThingsFixtures {
     if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
   }
   return { errors, answer: parsed };
+}
+
+/**
+ * locateThing (Story 18.7) without a model: the box of the fixture's thing
+ * with the same name (labelKey), or none.
+ */
+function mockLocatedBox(input: LocateThingInput, things: ListThingsResult["things"]): LocateThingResult {
+  const key = labelKey(input.name);
+  const found = things.find((thing) => labelKey(thing.name) === key && thing.box !== null);
+  return { box: found?.box ? { ...found.box } : null };
 }
 
 /**
@@ -442,6 +455,7 @@ function countingCalls(service: AiService): AiService {
     analyzeImage: counted(service.analyzeImage),
     locateItems: counted(service.locateItems),
     listThings: counted(service.listThings),
+    locateThing: counted(service.locateThing),
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
     thingSearchTerms: counted(service.thingSearchTerms),
@@ -532,6 +546,16 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
       return ok({ ...structuredClone(current.answer), invalid: 0, trimmed: 0 });
+    },
+    async locateThing(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const current = logged(thingsFixtures());
+      const errors = logged(askErrors());
+      if (!current || !errors) return fail("ai_unavailable");
+      // A name that holds a reserved text fails with its code, so "AI svarar inte" can be tried.
+      const name = normalizeInputText({ text: input.name });
+      for (const [text, code] of errors) if (name.includes(text)) return fail(code);
+      return ok(mockLocatedBox(input, current.answer.things));
     },
     async askThings(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");

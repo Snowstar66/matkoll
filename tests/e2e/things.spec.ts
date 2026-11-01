@@ -458,8 +458,8 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   if (stugan.error) throw stugan.error;
   // Searching, then asking, in the one field logs no console error or page error (Story 18.17).
   const problems: string[] = [];
-  // The seeded cards have no file in storage, so their thumbnails 404; that is the seed, not the page.
-  page.on("console", (message) => message.type() === "error" && !message.location().url.includes("/api/things/photo/") && problems.push(message.text()));
+  // The seeded cards have no file in storage, so their thumbnails 404, and so does the lookup of a thing on one (Story 18.7); that is the seed, not the page.
+  page.on("console", (message) => message.type() === "error" && !/\/api\/things\/(photo\/|locate)/.test(message.location().url) && problems.push(message.text()));
   page.on("pageerror", (error) => problems.push(error.message));
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
   await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
@@ -519,10 +519,11 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(page.getByTestId("chat-turn")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Har vi något att måla med?");
   await chat.getByRole("button", { name: "Skicka" }).click();
-  // The card opens the room (the old place address redirects), also in another boende.
+  // Story 18.7: the card opens big with the thing the answer is built on marked, also in another boende.
   await page.getByTestId("chat-ref").click();
-  await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
+  await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}\?foremal=[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
+  await expect(page.getByRole("button", { name: /^Målarfärgsburkar/ })).toHaveAttribute("aria-pressed", "true");
   expect(problems).toEqual([]);
 });
 
@@ -1049,6 +1050,158 @@ test("the one field fits 375 px in dark mode with 200 % text, and its targets ar
   await expect(page.getByTestId("chat-answer")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+// Story 18.7: the drawn storage room (never a real photo); the mock's things have boxes that fit it.
+const storeroom = "tests/fixtures/ai/forrad.png";
+
+/** A finished card of a new place in `room` with the drawn photo in storage, and things without boxes (a card read before Story 18.7). */
+async function seedOldCard(siteId: string, room: string, names: { name: string; category: string; where?: string }[]): Promise<{ cardId: string; ids: string[] }> {
+  const admin = adminClient();
+  const place = await admin
+    .from("thing_place")
+    .insert({ user_id: userId, site_id: siteId, room, part: null, room_key: room.toLowerCase(), part_key: "" })
+    .select("id")
+    .single();
+  if (place.error) throw place.error;
+  const cardId = randomUUID();
+  const path = `${userId}/${place.data.id}/${cardId}.png`;
+  const uploaded = await admin.storage.from("thing-photo").upload(path, readFileSync(storeroom), { contentType: "image/png" });
+  if (uploaded.error) throw uploaded.error;
+  const card = await admin.from("thing_photo").insert({
+    id: cardId,
+    user_id: userId,
+    place_id: place.data.id,
+    object_path: path,
+    media_type: "image/png",
+    width: 1200,
+    height: 900,
+    taken_at: "2026-10-30T10:00:00Z",
+    status: "done",
+  });
+  if (card.error) throw card.error;
+  const items = await admin
+    .from("thing_item")
+    .insert(names.map((thing, position) => ({ user_id: userId, photo_id: cardId, place_id: place.data.id, name: thing.name, category: thing.category, where_hint: thing.where ?? null, confidence: "high", position })))
+    .select("id, position");
+  if (items.error) throw items.error;
+  return { cardId, ids: [...items.data].sort((a, b) => a.position - b.position).map((item) => item.id) };
+}
+
+test("a card on the Kort tab opens big and whole with every föremål marked; a tap marks one; its buttons are there, and Ta bort goes back to the room with Ångra", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/prylar");
+  // A new card gets its boxes in the same AI call that lists its things.
+  await takeCards(page, storeroom, { room: "Boden" });
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("done");
+  const boxes = (await adminClient().from("thing_item").select("name, box_left, box_width").eq("user_id", userId)).data ?? [];
+  expect(boxes).toHaveLength(12);
+  expect(boxes.every((thing) => thing.box_left !== null && thing.box_width !== null)).toBe(true);
+
+  await page.goto(`${roomUrl("Boden")}?vy=cards`);
+  await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0));
+  await shot(page, "18-7-kort-fliken");
+  await page.getByTestId("open-card").click();
+  await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Boden");
+  await expect(page.getByTestId("card-meta")).toHaveText(`Hela rummet · Kort från ${shortDateText(new Date())} · 12 föremål`);
+  // The whole photo, never cropped, with a thin box and the name of each of the twelve.
+  const photo = page.getByTestId("card-photo");
+  await expect(photo.getByRole("img", { name: "Kort: Boden" })).toBeVisible();
+  await expect(page.getByTestId("card-box")).toHaveCount(12);
+  await expect(page.getByTestId("card-box").first()).toHaveText("Hammare");
+  await expect(page.getByTestId("card-hint")).toHaveText("Tryck på ett föremål eller en ruta för att markera det.");
+  const ratio = await photo.evaluate((element) => element.getBoundingClientRect().width / element.getBoundingClientRect().height);
+  expect(ratio).toBeCloseTo(1200 / 900, 1);
+  await shot(page, "18-7-alla");
+
+  // A row marks its föremål and dims the rest; the photo stays in sight while the list scrolls.
+  await page.getByRole("button", { name: /^Förlängningssladd/ }).click();
+  await expect(page.getByTestId("card-box-selected")).toHaveText("Förlängningssladd");
+  await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("card-hint")).toHaveText("Förlängningssladd · mellersta hyllan, mitten");
+  await shot(page, "18-7-markerad");
+  // A tap on another box moves the mark; a second tap on it clears it.
+  const area = (await photo.boundingBox())!;
+  await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
+  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare");
+  await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
+  await expect(page.getByTestId("card-box-selected")).toHaveCount(0);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.getByRole("button", { name: /^Hammare/ }).click();
+  await shot(page, "18-7-markerad-mork");
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // The card's buttons are here, Ta bort kortet last.
+  await expect(page.getByRole("button", { name: /^Ta om kortet/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Lägg till föremål på kortet/ })).toBeVisible();
+  // On a desktop the list sits beside the large photo.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const wide = (await photo.boundingBox())!;
+  const list = (await page.getByTestId("card-thing").first().boundingBox())!;
+  expect(wide.width).toBeGreaterThan(500);
+  expect(list.x).toBeGreaterThan(wide.x + wide.width);
+  await shot(page, "18-7-dator");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(page).toHaveURL(new RegExp(`${roomUrl("Boden").replace(/[.?]/g, "\\$&")}\\?vy=cards$`));
+  await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(page.getByTestId("room-card")).toHaveCount(1);
+  // Ångra brings the boxes back with the things.
+  await expect
+    .poll(async () => ((await adminClient().from("thing_item").select("box_left").eq("user_id", userId).not("box_left", "is", null)).data ?? []).length)
+    .toBe(12);
+  expect(errors).toEqual([]);
+});
+
+test("a search hit and a chat reference open the card big with the föremål marked; an older card looks it up once, or says it could not point it out", async ({ page }) => {
+  const { cardId, ids } = await seedOldCard(hemma, "Boden", [
+    { name: "Hammare", category: "Verktyg", where: "på väggen, mitten" },
+    { name: "Gammal kofot", category: "Verktyg" },
+  ]);
+  await page.goto("/prylar");
+  const search = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await search.fill("hammare");
+  // The hit has the card's thumbnail instead of the category's tile.
+  const hit = page.getByTestId("thing-hit");
+  await expect(hit).toHaveCount(1);
+  await expect(page.getByTestId("hit-thumbnail")).toHaveAttribute("src", `/api/things/photo/${cardId}`);
+  await shot(page, "18-7-sok");
+  await hit.click();
+  await expect(page).toHaveURL(new RegExp(`/prylar/kort/${cardId}\\?foremal=${ids[0]}$`));
+  // The card has no boxes: one small call looks the hammer up ("Letar …"), saves it and marks it.
+  await expect(page.getByTestId("card-looking")).toContainText("Letar …");
+  await shot(page, "18-7-letar");
+  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare", { timeout: 10_000 });
+  await expect.poll(async () => (await adminClient().from("thing_item").select("box_left").eq("id", ids[0]).single()).data?.box_left).toBeCloseTo(0.197, 3);
+
+  // A föremål the AI cannot see is said so, remembered, and never asked for again.
+  await page.getByRole("button", { name: /^Gammal kofot/ }).click();
+  await expect(page.getByTestId("card-missed")).toHaveText("Kunde inte peka ut den på bilden.", { timeout: 10_000 });
+  await shot(page, "18-7-hittades-inte");
+  await expect.poll(async () => (await adminClient().from("thing_item").select("box_missed").eq("id", ids[1]).single()).data?.box_missed).toBe(true);
+  // Story 17.6: the two lookups are counted.
+  await expect.poll(async () => ((await adminClient().from("ai_usage").select("model").eq("user_id", userId)).data ?? []).length).toBe(2);
+  await page.reload();
+  await page.getByRole("button", { name: /^Gammal kofot/ }).click();
+  await expect(page.getByTestId("card-missed")).toBeVisible();
+  await expect(page.getByTestId("card-looking")).toHaveCount(0);
+
+  // Tillbaka goes back to the search.
+  await page.goto("/prylar");
+  await search.fill("Var är hammaren?");
+  await search.press("Enter");
+  const ref = page.getByTestId("chat-ref");
+  await expect(ref).toHaveAttribute("href", `/prylar/kort/${cardId}?foremal=${ids[0]}`);
+  await shot(page, "18-7-chatt");
+  await ref.click();
+  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare");
+  await page.getByRole("link", { name: "Tillbaka" }).click();
+  await expect(page).toHaveURL(/\/prylar$/);
 });
 
 test("Kom ihåg: a statement in the one field is proposed with room and part, saved on one tap without a card, found, answered with its day, edited and removed (Story 18.19)", async ({ page }) => {
