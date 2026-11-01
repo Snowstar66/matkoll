@@ -55,6 +55,17 @@ describe("useLiveRefresh", () => {
     expect(refresh).toHaveBeenCalledTimes(4);
   });
 
+  it("calls its own read instead of the page's when one is given (Story 24.1's note card)", () => {
+    const read = vi.fn();
+    renderHook(() => useLiveRefresh({ busy: false, refresh: read }));
+    advance(liveRefreshMs);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(refresh).not.toHaveBeenCalled();
+    setOnline(false);
+    setOnline(true);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it("uses 10 s when no interval is given", () => {
     renderHook(() => useLiveRefresh({ busy: false }));
     advance(liveRefreshMs - 1);

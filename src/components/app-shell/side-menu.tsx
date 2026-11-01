@@ -8,6 +8,8 @@ import { cx } from "../cx";
 import { DestinationIcon } from "./destination-icon";
 import { useAccount, useHasAccount, useSignOutSlots } from "./account";
 import { Avatar } from "./avatar";
+import { PenIcon } from "../icons";
+import { useShellNote } from "./note-slot";
 import { currentState, type Destination, helpDestination, helpHref, mainDestinations, settingsDestination } from "./destinations";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 import { appName } from "@/app/app-info";
@@ -79,6 +81,7 @@ function SideMenuNav({ pathname, jobRow, siteSwitch }: { pathname: string | null
       {/* Story 19.2: the account's own things at the bottom, under a hairline: who is signed in, Hjälp och tips (on the section of the page I am on), Inställningar and Logga ut. */}
       <div className="mt-auto flex flex-col gap-0.5 border-t border-hairline pt-2.5">
         <AccountRow />
+        <WriteNoteRow />
         <MenuLink destination={helpDestination} pathname={pathname} to={helpHref(pathname)} />
         <MenuLink destination={settingsDestination} pathname={pathname} />
         <SignOutRow />
@@ -112,4 +115,20 @@ function AccountRow() {
 
 function SignOutRow() {
   return useSignOutSlots()?.menu ?? null;
+}
+
+/** Skriv en lapp (Story 24.1) under who is signed in; nothing when there is no one to write to. */
+function WriteNoteRow() {
+  const write = useShellNote()?.write;
+  if (!write) return null;
+  return (
+    <button
+      type="button"
+      onClick={write}
+      className="flex min-h-tap items-center gap-3 rounded-md px-3 text-left text-body font-medium text-ink-2 focus-visible:-outline-offset-2"
+    >
+      <PenIcon size={22} className="shrink-0" />
+      Skriv en lapp
+    </button>
+  );
 }
