@@ -52,17 +52,16 @@ describe("LocationCards", () => {
     render(<LocationCards selected="Frys" counts={{ Kyl: 3, Frys: 1, Skafferi: 0 }} />);
     const nav = screen.getByRole("navigation", { name: "Platser" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["\u{1F9CA}Kyl 3 varor", "\u2744\uFE0FFrys 1 vara", "\u{1F96B}Skafferi 0 varor"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Kyl 3 varor", "Frys 1 vara", "Skafferi 0 varor"]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/hemma?plats=kyl",
       "/hemma?plats=frys",
       "/hemma?plats=skafferi",
     ]);
     expect(links.map((link) => link.getAttribute("aria-current"))).toEqual([null, "true", null]);
-    expect(links[1]).toHaveClass("border-accent");
-    expect(links[0]).toHaveClass("bg-surface", "border-transparent");
-    expect(links[1]).toHaveClass("bg-mint");
-    expect(links[2]).toHaveClass("bg-surface");
+    expect(links[1]).toHaveClass("bg-seg-on", "border-border");
+    expect(links[0]).toHaveClass("border-transparent");
+    expect(links[2]).toHaveClass("border-transparent");
   });
 });
 

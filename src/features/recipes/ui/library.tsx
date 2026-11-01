@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
-import { FilterPills, type FilterOption } from "@/components/filter-pills";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
@@ -19,7 +18,6 @@ import {
   filterByCategory,
   filterRecipes,
   sortRecipes,
-  type RecipeFilter,
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
@@ -28,7 +26,7 @@ import { AiSuggestions } from "./ai-suggestions";
 import type { OwnRecipesRead } from "./own-recipes";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
-import { RecipeCategoryChips } from "./recipe-category-chips";
+import { RecipeFilterChips } from "./recipe-filter-chips";
 import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
 import { RecipeSortSheet } from "./recipe-sort-sheet";
@@ -53,12 +51,6 @@ import { useFavorites } from "./use-favorites";
 // together with the search and the pills: the category narrows the list, the
 // sort orders it. Kan lagas nu keeps its own order (fewest missing first) while
 // the sort is Senast tillagda or Mest hemma, and follows an explicit Snabbast or A–Ö.
-
-const filterOptions: readonly FilterOption<RecipeFilter>[] = [
-  { value: "all", label: "Alla" },
-  { value: "favorites", label: "Favoriter" },
-  { value: "cookable", label: "Kan lagas nu" },
-];
 
 /** Shown over the rows in Kan lagas nu when the pantry could not be read. */
 const notRankedMessage = "Det gick inte att läsa matvarorna, så recepten är inte rangordnade.";
@@ -275,14 +267,19 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         maxLength={maxSearchChars}
         onSearch={runSearch}
       />
-      <FilterPills label="Filter" options={filterOptions} value={filter} onChange={setFilter} />
+      <RecipeFilterChips
+        filter={filter}
+        onFilterChange={setFilter}
+        category={category}
+        onCategoryChange={setCategory}
+        available={availableCategories}
+      />
       {/* Metadata, never announced: the badges are what changes. */}
       {siteLine ? (
         <p className="text-meta break-words text-ink-2" data-testid="site-line">
           {siteLine}
         </p>
       ) : null}
-      <RecipeCategoryChips value={category} onChange={setCategory} available={availableCategories} />
       {search.kind !== "failed" ? (
         <RecipeBar
           count={visible.length}

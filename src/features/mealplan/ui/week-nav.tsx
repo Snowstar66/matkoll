@@ -51,8 +51,8 @@ export function WeekNav({
                 data-testid="week-tile"
                 aria-current={selected ? "page" : undefined}
                 aria-label={weekTileName(week, offset, count)}
-                className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
-                  selected ? "segment-on ring-1 ring-border" : ""
+                className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[9px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
+                  selected ? "border border-border bg-seg-on" : "border border-transparent"
                 }`}
               >
                 <span aria-hidden="true" className={`text-body ${selected ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>

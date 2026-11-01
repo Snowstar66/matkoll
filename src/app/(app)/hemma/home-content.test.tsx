@@ -88,7 +88,7 @@ describe("HomeContent", () => {
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     const links = within(screen.getByRole("navigation", { name: "Platser" })).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["\u{1F9CA}Kyl 1 vara", "\u2744\uFE0FFrys 1 vara", "\u{1F96B}Skafferi 0 varor"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Kyl 1 vara", "Frys 1 vara", "Skafferi 0 varor"]);
     expect(screen.getByText("Mjölk")).toBeInTheDocument();
     expect(listPantry).toHaveBeenCalledWith("Kyl", site.id);
     expect(countPantryItems).toHaveBeenCalledWith(site.id);

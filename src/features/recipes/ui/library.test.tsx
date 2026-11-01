@@ -110,7 +110,16 @@ async function finishSuggestions(suggestions: unknown[], siteId?: string) {
 }
 
 const titles = () => screen.queryAllByTestId("recipe-card").map((row) => within(row).getByRole("link").textContent);
-const pill = (name: string) => screen.getByRole("radio", { name });
+const pill = (name: string) => screen.getByRole("button", { name });
+const pressed = (name: string) => screen.queryByRole("button", { name, pressed: true });
+/** "Alla" has no chip (Story 19.3): nothing chosen shows every recipe, so letting go of the chosen filter chip is the way back. */
+const showAll = async (user: ReturnType<typeof userEvent.setup>) => {
+  for (const name of ["Favoriter", "Kan lagas nu"]) if (pressed(name)) await user.click(pill(name));
+};
+const expectAll = () => {
+  expect(pressed("Favoriter")).toBeNull();
+  expect(pressed("Kan lagas nu")).toBeNull();
+};
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -145,7 +154,7 @@ describe("Library, the line Boende", () => {
     expect(line.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
     await user.click(pill("Favoriter"));
     expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
-    await user.click(pill("Alla"));
+    await showAll(user);
     expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     // The badges are counted against Stugan all the same.
     expect(screen.getAllByText("Kan lagas nu", { selector: "span" }).length).toBeGreaterThan(0);
@@ -267,11 +276,11 @@ describe("Library, AI-förslag and the place", () => {
     renderLibrary(ranking);
     await aiJobsClient().refresh();
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(pressed("Kan lagas nu")).not.toBeNull();
     await waitFor(() => expect(server.actions.markSeen).toHaveBeenCalledTimes(1));
 
-    await user.click(pill("Alla"));
-    expect(pill("Alla")).toBeChecked();
+    await showAll(user);
+    expectAll();
   });
 
   it("opens Kan lagas nu when Visa is tapped for a result that came while another filter was shown", async () => {
@@ -279,17 +288,17 @@ describe("Library, AI-förslag and the place", () => {
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    await user.click(pill("Alla"));
+    await showAll(user);
     // The job ends while Alla is shown: nothing moves by itself.
     await finishSuggestions([{ draft, ingredientNames: {} }], undefined);
-    expect(pill("Alla")).toBeChecked();
+    expectAll();
     expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
     expect(server.actions.markSeen).not.toHaveBeenCalled();
 
     // "Visa" in the confirmation asks to reveal it.
     act(() => aiJobsClient().reveal("suggest"));
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(pressed("Kan lagas nu")).not.toBeNull();
   });
 });
 
@@ -306,7 +315,7 @@ describe("Library", () => {
     expect(within(first).getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     const heart = within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true });
     expect(heart.closest("a")).toBeNull();
-    expect(pill("Alla")).toBeChecked();
+    expectAll();
   });
 
   it("shows a row without status when the pantry could not be read", () => {
@@ -405,13 +414,13 @@ describe("Library", () => {
     const user = userEvent.setup();
     const { unmount } = renderLibrary();
     await user.click(pill("Favoriter"));
-    expect(pill("Favoriter")).toBeChecked();
+    expect(pressed("Favoriter")).not.toBeNull();
     expect(titles()).toEqual(["Krämig kycklinggryta"]);
     expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("favorites");
     unmount();
 
     renderLibrary([soppa]);
-    expect(pill("Favoriter")).toBeChecked();
+    expect(pressed("Favoriter")).not.toBeNull();
     expect(screen.getByText("Inga favoriter än. Tryck på hjärtat på ett recept.")).toBeInTheDocument();
   });
 
@@ -437,16 +446,18 @@ describe("Library", () => {
     });
     const user = userEvent.setup();
     renderLibrary();
-    expect(pill("Alla")).toBeChecked();
+    expectAll();
     await user.click(pill("Favoriter"));
-    expect(pill("Favoriter")).toBeChecked();
-    await user.click(pill("Alla"));
-    expect(pill("Alla")).toBeChecked();
+    expect(pressed("Favoriter")).not.toBeNull();
+    await showAll(user);
+    expectAll();
   });
 
-  it("has three pills, Alla first", () => {
+  it("has the filters on one row: Favoriter and Kan lagas nu, no Alla, nothing chosen", () => {
     renderLibrary();
-    expect(within(screen.getByRole("radiogroup", { name: "Filter" })).getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu"]);
+    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu"]);
+    expect(screen.queryByRole("button", { name: "Alla" })).not.toBeInTheDocument();
+    expectAll();
     expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
@@ -456,14 +467,14 @@ describe("Library", () => {
     const { unmount } = renderLibrary(ranking);
     expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Pannkakor", "Fiskgratäng"]);
     await user.click(pill("Kan lagas nu"));
-    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(pressed("Kan lagas nu")).not.toBeNull();
     expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
     expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
     expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("cookable");
     unmount();
 
     renderLibrary(ranking);
-    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(pressed("Kan lagas nu")).not.toBeNull();
     expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
   });
 
@@ -478,16 +489,19 @@ describe("Library", () => {
     expect(within(first).getByText("Kan lagas nu")).toBeInTheDocument();
   });
 
-  it("chooses Kan lagas nu with the right arrow from Favoriter", async () => {
+  it("toggles a filter chip with the keyboard, each chip being a button in the tab order", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
-    await user.click(pill("Favoriter"));
-    expect(pill("Favoriter")).toHaveFocus();
-    await user.keyboard("{ArrowRight}");
-    expect(pill("Kan lagas nu")).toBeChecked();
+    pill("Favoriter").focus();
+    await user.tab();
     expect(pill("Kan lagas nu")).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(pressed("Kan lagas nu")).not.toBeNull();
     expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    await user.keyboard(" ");
+    expectAll();
   });
+
 
   it("offers Föreslå rätter med AI when the pantry could not be read too, since the server reads it again", async () => {
     const user = userEvent.setup();
@@ -500,7 +514,7 @@ describe("Library", () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
-    await user.click(pill("Alla"));
+    await showAll(user);
     await user.click(pill("Kan lagas nu"));
     expect(server.started).toHaveLength(0);
   });
@@ -522,7 +536,7 @@ describe("Library", () => {
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
     await finishSuggestions([{ draft, ingredientNames: {} }]);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    await user.click(pill("Alla"));
+    await showAll(user);
     expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
     await user.click(pill("Kan lagas nu"));
     expect(within(screen.getByRole("region", { name: "AI-förslag" })).getByRole("heading", { name: "Ugnsomelett" })).toBeInTheDocument();
@@ -550,7 +564,7 @@ describe("Library", () => {
     expect(server.started[0].body).toMatchObject({ kind: "suggest", avoidTitles: [] });
     expect(searchRecipes).not.toHaveBeenCalled();
 
-    await user.click(pill("Alla"));
+    await showAll(user);
     expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
     expect(screen.queryByText("Letar efter idéer …")).not.toBeInTheDocument();
@@ -640,7 +654,7 @@ describe("Library", () => {
       expect(within(row).queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
     }
 
-    await user.click(pill("Alla"));
+    await showAll(user);
     expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
   });
 
@@ -827,7 +841,7 @@ describe("Library, view, sort and categories", () => {
     renderLibrary(withCategories);
     await user.click(pill("Favoriter"));
     expect(titles()).toEqual(["Krämig kycklinggryta"]);
-    await user.click(pill("Alla"));
+    await showAll(user);
     searchRecipes.mockResolvedValueOnce(ok([withCategories[2], withCategories[0]]));
     await user.type(screen.getByRole("searchbox"), "p");
     await screen.findByText("2 recept");
@@ -838,13 +852,14 @@ describe("Library, view, sort and categories", () => {
     const user = userEvent.setup();
     renderLibrary(withCategories);
     // Story 14.4: only the categories some recipe has.
-    const group = screen.getByRole("group", { name: "Kategori" });
-    expect(within(group).getAllByRole("button").map((button) => button.textContent?.replace(/^\P{L}+/u, ""))).toEqual(["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]);
+    const group = screen.getByRole("group", { name: "Filter" });
+    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu", "Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]);
     for (const name of ["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]) {
       expect(chip(name)).toHaveAttribute("aria-pressed", "false");
     }
-    expect(group).toHaveClass("flex-wrap");
-    expect(group).not.toHaveClass("overflow-x-auto");
+    // One row that scrolls inside itself (Story 19.3).
+    expect(group).toHaveClass("overflow-x-auto");
+    expect(group).not.toHaveClass("flex-wrap");
     await user.click(chip("Vegetariskt"));
     expect(chip("Vegetariskt")).toHaveAttribute("aria-pressed", "true");
     expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
@@ -853,7 +868,7 @@ describe("Library, view, sort and categories", () => {
     // Together with a pill.
     await user.click(pill("Favoriter"));
     expect(screen.getByText("Inga favoriter än. Tryck på hjärtat på ett recept.")).toBeInTheDocument();
-    await user.click(pill("Alla"));
+    await showAll(user);
     await user.click(chip("Vegetariskt"));
     expect(chip("Vegetariskt")).toHaveAttribute("aria-pressed", "false");
     expect(titles()).toHaveLength(3);
@@ -878,6 +893,7 @@ describe("Library, view, sort and categories", () => {
     first.unmount();
     window.localStorage.clear();
     renderLibrary([gryta, soppa]);
-    expect(screen.queryByRole("group", { name: "Kategori" })).not.toBeInTheDocument();
+    // Only the two filter chips are left: no category chip.
+    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button")).toHaveLength(2);
   });
 });

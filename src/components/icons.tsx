@@ -273,6 +273,15 @@ export function TagIcon(props: IconProps) {
   );
 }
 
+/** Two arrows, up and down: the sort button (Story 19.3). */
+export function SortIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 19V5M4.5 8.5L8 5l3.5 3.5M16 5v14M12.5 15.5L16 19l3.5-3.5" />
+    </Icon>
+  );
+}
+
 /** A circle with a question mark: Hjälp och tips. */
 export function HelpIcon(props: IconProps) {
   return (
@@ -283,12 +292,33 @@ export function HelpIcon(props: IconProps) {
   );
 }
 
+/** Four tiles: the card view (Story 19.3). */
+export function GridIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.8" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8" />
+    </Icon>
+  );
+}
+
 /** A door with an arrow out: Logga ut. */
 export function LogoutIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14" />
       <path d="M10 8l-4 4 4 4M6 12h10" />
+    </Icon>
+  );
+}
+
+/** Three lines: the list view (Story 19.3). */
+export function ListIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
     </Icon>
   );
 }

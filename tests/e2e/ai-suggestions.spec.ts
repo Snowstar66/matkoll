@@ -216,7 +216,8 @@ async function latestJobStatus(): Promise<string | null> {
 // locator is scoped to what is visible.
 const visible = (page: Page) => page.locator("main").filter({ visible: true });
 const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
-const pill = (page: Page, name: "Alla" | "Kan lagas nu") => page.getByRole("radio", { name }).filter({ visible: true });
+const pill = (page: Page, name: "Kan lagas nu") => page.getByRole("button", { name }).filter({ visible: true });
+
 const section = (page: Page) => page.getByRole("region", { name: "AI-förslag" }).filter({ visible: true });
 const cards = (page: Page) => section(page).getByRole("listitem");
 const suggestButton = (page: Page) => page.getByRole("button", { name: "Föreslå rätter med AI" }).filter({ visible: true });
@@ -294,7 +295,7 @@ test("AI-förslag: Avbryt, three cards of their own, and a saved suggestion in t
   // Back in the library: the recipe is a row without the AI label, and the other two suggestions stay.
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   const saved = rows(page).filter({ hasText: first.title });
   await expect(saved).toHaveCount(1);
   await expect(saved.getByText("Kan lagas nu", { exact: true })).toBeVisible();

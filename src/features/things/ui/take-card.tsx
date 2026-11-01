@@ -5,7 +5,8 @@ import { type ChangeEvent, useCallback, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { FieldError, FieldLabel, Input } from "@/components/field";
-import { FilterPills } from "@/components/filter-pills";
+import { Chip } from "@/components/chip";
+import { Segment } from "@/components/segment";
 import { Notice } from "@/components/notice";
 import { PhotoRow } from "@/components/photo-row";
 import { Sheet } from "@/components/sheet";
@@ -260,11 +261,11 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
             </p>
             <div role="radiogroup" aria-labelledby={`${ids}-rooms`} className="flex flex-wrap gap-2">
               {rooms.map((room) => (
-                <Chip key={room} selected={choice === room} onClick={() => setChoice(room)}>
+                <Chip key={room} role="radio" aria-checked={choice === room} selected={choice === room} onClick={() => setChoice(room)}>
                   {room}
                 </Chip>
               ))}
-              <Chip selected={choice === newRoom} dashed onClick={() => setChoice(newRoom)}>
+              <Chip role="radio" aria-checked={choice === newRoom} selected={choice === newRoom} dashed onClick={() => setChoice(newRoom)}>
                 {newRoomText}
               </Chip>
             </div>
@@ -300,8 +301,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
               {exactPlaceText} {exactOpen ? "▴" : "▾"}
             </button>
             <div id={`${ids}-exact`} hidden={!exactOpen} className="flex flex-col gap-3">
-              <FilterPills
-                segmented
+              <Segment
                 label="Del eller låda"
                 value={box}
                 onChange={setBox}
@@ -351,23 +351,5 @@ function CaptureButtons({ disabled, onChoose }: { disabled?: boolean; onChoose: 
         {pickImagesText}
       </Button>
     </div>
-  );
-}
-
-function Chip({ selected, dashed = false, onClick, children }: { selected: boolean; dashed?: boolean; onClick: () => void; children: string }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onClick}
-      className={cx(
-        "flex min-h-tap items-center rounded-pill border-[1.5px] px-3.5 text-body font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        selected ? "border-accent bg-mint text-mint-ink" : "border-border text-ink-2",
-        dashed && !selected && "border-dashed text-accent",
-      )}
-    >
-      {children}
-    </button>
   );
 }

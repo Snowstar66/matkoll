@@ -1,11 +1,12 @@
 "use client";
 
-import { FilterPills, type FilterOption } from "@/components/filter-pills";
+import { GridIcon, ListIcon, SortIcon } from "@/components/icons";
+import { Segment, type SegmentOption } from "@/components/segment";
 import { recipeSortLabels, type RecipeSort, type RecipeView } from "../domain/recipe-list";
 
-const views: readonly FilterOption<RecipeView>[] = [
-  { value: "cards", icon: "\u25A6", label: "Kort" },
-  { value: "compact", icon: "\u2630", label: "Lista" },
+const views: readonly SegmentOption<RecipeView>[] = [
+  { value: "cards", icon: <GridIcon size={18} />, iconOnly: true, label: "Kort" },
+  { value: "compact", icon: <ListIcon size={18} />, iconOnly: true, label: "Lista" },
 ];
 
 export type RecipeBarProps = {
@@ -20,13 +21,13 @@ export type RecipeBarProps = {
 
 /**
  * The library's quiet line (Story 1.16): "12 recept", the sort button with the
- * chosen sort, and the segmented switch "Kort" / "Lista" (Story 14.4, the shared FilterPills). The line wraps
+ * chosen sort, and the icon switch "Kort" / "Lista" (Segment, Story 19.3). The line wraps
  * rather than scrolls at 200 % text; every target keeps a 44 px area.
  */
 export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: RecipeBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 px-1 text-meta text-ink-3">
-      <p data-testid="recipe-count" aria-live="polite">
+    <div className="-my-1 flex flex-wrap items-center gap-x-3 px-1 text-meta text-ink-2">
+      <p data-testid="recipe-count" aria-live="polite" className="mr-auto">
         {count} recept
       </p>
       <button
@@ -34,12 +35,14 @@ export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: Recip
         aria-haspopup="dialog"
         onClick={onOpenSort}
         data-testid="sort-button"
-        className="min-h-tap rounded-sm font-medium text-accent outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+        className="flex min-h-tap items-center gap-1 rounded-sm text-control font-medium text-ink-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
       >
-        <span className="sr-only">Sortera:</span> {recipeSortLabels[sort]} <span aria-hidden="true">▾</span>
+        <SortIcon size={18} />
+        <span className="sr-only">Sortera:</span>{" "}
+        {recipeSortLabels[sort]}
       </button>
       {view !== null ? (
-        <FilterPills segmented label="Vy" options={views} value={view} onChange={onViewChange} className="ml-auto [&>button]:px-2.5" />
+        <Segment size="small" label="Vy" options={views} value={view} onChange={onViewChange} />
       ) : null}
     </div>
   );
