@@ -116,9 +116,21 @@ beforeEach(() => {
 });
 
 describe("MealPlanList", () => {
+  it("offers next week in the empty plan when it has dishes (Story 19.6)", () => {
+    render(
+      <ToastProvider>
+        <AddDishProvider recipes={[]} searchRecipes={searchRecipes}>
+          <MealPlanList planName={null} dishes={[]} snapshot={snapshot} weekStart="2026-10-26" nextWeek={{ weekStart: "2026-11-02", count: 2 }} />
+        </AddDishProvider>
+      </ToastProvider>,
+    );
+    expect(screen.getByText("Rätterna du lägger här blir din inköpslista.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Nästa vecka har 2 rätter/ })).toHaveAttribute("href", "/matsedel?vecka=2026-W45");
+  });
+
   it("shows the empty plan with Lägg till rätt", () => {
     render(<Matsedel initial={[]} />);
-    expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
+    expect(screen.getByText("Den här veckan är tom.")).toBeInTheDocument();
     // "+" (the header's, here) and the empty state's button.
     expect(screen.getAllByRole("button", { name: "Lägg till rätt" })).toHaveLength(2);
   });
@@ -217,7 +229,7 @@ describe("MealPlanList", () => {
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
     expect(pastaCard().getByText("5 portioner")).toBeInTheDocument();
     expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · 5 port\.0 av 1 hemma$/);
-    expect(pastaCard().getByTestId("dish-status")).toHaveClass("text-sand-ink");
+    expect(pastaCard().getByTestId("dish-status")).toHaveClass("text-ink-2");
     const meter = pastaCard().getByTestId("meter");
     expect(meter).toHaveAttribute("aria-hidden", "true");
     expect(meter.firstElementChild).toHaveStyle({ width: "0%" });
@@ -251,7 +263,7 @@ describe("MealPlanList", () => {
     await removeFromSheet("Pasta");
     await removeFromSheet("Soppa");
     expect(toast()).toHaveTextContent("Pasta och Soppa är borttagna från matsedeln.");
-    expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
+    expect(screen.getByText("Den här veckan är tom.")).toBeInTheDocument();
   });
 
   it("brings the dish back when the removal fails", async () => {
@@ -541,7 +553,7 @@ describe("focus after a removal", () => {
     await removeFromSheet("Gryta", 0);
     expect(screen.getByRole("link", { name: "Pasta" })).toHaveFocus();
     await removeFromSheet("Pasta", 0);
-    expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
+    expect(screen.getByText("Den här veckan är tom.")).toBeInTheDocument();
     const add = screen.getAllByRole("button", { name: "Lägg till rätt" }).find((button) => button.textContent === "Lägg till rätt");
     expect(add).toHaveFocus();
   });

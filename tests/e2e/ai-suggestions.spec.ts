@@ -287,7 +287,7 @@ test("AI-förslag: Avbryt, three cards of their own, and a saved suggestion in t
   await expect(sheet(page)).toBeHidden();
   await expect(page.getByTestId("toast")).toHaveText("Receptet är sparat.");
   await expect(page.getByRole("heading", { level: 1, name: first.title })).toBeVisible();
-  await expect(page.getByText("Källa: AI-förslag")).toBeVisible();
+  await expect(page.getByTestId("recipe-meta").filter({ visible: true }).filter({ hasText: "AI-förslag" })).toBeVisible();
   const article = page.getByRole("article").filter({ visible: true });
   await expect(article.getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await expect(article.getByText("AI-förslag", { exact: true })).toHaveCount(0);

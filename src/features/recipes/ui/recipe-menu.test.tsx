@@ -92,6 +92,16 @@ beforeEach(() => {
 });
 
 describe("RecipeMenu", () => {
+  it("has Ändra and, last, Ta bort, which asks first (Story 19.6)", async () => {
+    render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(items).toEqual(["Ändra", "Ta bort"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ta bort" }));
+    expect(await screen.findByText("Ta bort Linssoppa?")).toBeInTheDocument();
+    expect(screen.getByText("Det går inte att ångra.")).toBeInTheDocument();
+  });
+
   it("opens the menu with Ändra, and closes it with Esc", () => {
     render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     const toggle = screen.getByRole("button", { name: "Fler val" });

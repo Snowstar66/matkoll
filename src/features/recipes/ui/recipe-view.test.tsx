@@ -107,25 +107,24 @@ describe("RecipeView", () => {
   it("shows the title, the time alone on the meta line, the servings in the portion selector and the source as a link", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     expect(screen.getByRole("heading", { level: 1, name: "Krämig kycklinggryta" })).toBeInTheDocument();
-    expect(screen.getByTestId("recipe-meta")).toHaveTextContent(/^35 min$/);
+    expect(screen.getByTestId("recipe-meta")).toHaveTextContent(/^35 min · koket\.se ↗/);
     expect(stepper.value()).toHaveTextContent("4 portioner");
-    expect(screen.getByRole("link", { name: "koket.se" })).toHaveAttribute("href", recipe.sourceUrl);
+    expect(screen.getByRole("link", { name: /^koket\.se/ })).toHaveAttribute("href", recipe.sourceUrl);
   });
 
   it("has a visible Tillbaka with an arrow to Recept, at every width (Story 11.6)", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     const back = screen.getByRole("link", { name: "Tillbaka" });
     expect(back).toHaveAttribute("href", "/recept");
-    expect(back).toHaveTextContent(/^Tillbaka$/);
     expect(back.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(back).toHaveClass("min-h-tap", "min-w-tap");
+    expect(back).toHaveClass("size-tap");
     expect(back.className).not.toMatch(/\bhidden\b/);
   });
 
   it("says portion for one and has no meta line without a time", () => {
     render(<RecipeView recipe={{ ...recipe, servings: 1, totalMinutes: 0 }} snapshot={allHome} />);
     expect(stepper.value()).toHaveTextContent(/^1 portion$/);
-    expect(screen.queryByTestId("recipe-meta")).not.toBeInTheDocument();
+    expect(screen.getByTestId("recipe-meta")).not.toHaveTextContent(/min/);
   });
 
   it("shows amounts, and the original text where the name does not say it all", () => {
@@ -153,10 +152,10 @@ describe("RecipeView", () => {
   it("says Saknar N varor, rings what is short, and shows what is at home in another unit", () => {
     // Chicken only in kg, no onion, and no salt: the vague salt is ringed but not counted in N.
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 1, unit: "kg" }])} />);
-    expect(screen.getByText("Saknar: kycklinglårfilé, rödlök")).toHaveClass("bg-sky", "text-sky-ink");
-    // Each missing line has the calm word, and what is at home has not.
-    expect(within(rows()[0]).getByText("Saknas")).toBeInTheDocument();
-    expect(within(rows()[2]).queryByText("Saknas")).not.toBeInTheDocument();
+    expect(screen.getByText("Saknar 2 varor")).toBeInTheDocument();
+    expect(screen.getByText("kycklinglårfilé, rödlök").closest("button")).toHaveClass("bg-sky", "text-sky-ink");
+    // No extra word on a missing line any more: the ring and the blue amount say it (Story 19.6).
+    expect(within(rows()[0]).queryByText("Saknas")).not.toBeInTheDocument();
     // The salt is not at home either, so none of the three is.
     expect(atHome()).toHaveTextContent(/^0 av 3 hemma$/);
     expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med matvarorna", "saknas"]);
@@ -176,7 +175,8 @@ describe("RecipeView", () => {
         ])}
       />,
     );
-    expect(screen.getByText("Saknar: rödlök")).toHaveClass("bg-sky");
+    expect(screen.getByText("Saknar 1 vara")).toBeInTheDocument();
+    expect(screen.getByText("rödlök").closest("button")).toHaveClass("bg-sky");
     expect(atHome()).toHaveTextContent(/^2 av 3 hemma$/);
   });
 
@@ -186,7 +186,7 @@ describe("RecipeView", () => {
     Element.prototype.scrollIntoView = scrollIntoView;
     window.matchMedia ??= ((query: string) => ({ matches: false, media: query })) as unknown as typeof window.matchMedia;
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 600, unit: "g" }])} />);
-    await user.click(screen.getByRole("button", { name: "Saknar: rödlök" }));
+    await user.click(screen.getByRole("button", { name: /^Saknar 1 vara/ }));
     expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
     expect(rows()[1]).toHaveFocus();
   });
@@ -365,7 +365,9 @@ describe("RecipeView: the portion selector", () => {
     const live = screen.getByText("Kan lagas nu").parentElement!;
     expect(live).toHaveAttribute("aria-live", "polite");
     expect(live).toHaveAttribute("aria-atomic", "true");
-    expect(live).toContainElement(atHome());
+    // X av Y hemma is a live region of its own beside the portion selector (Story 19.6).
+    expect(atHome()).toHaveAttribute("aria-live", "polite");
+    expect(atHome()).toHaveAttribute("aria-atomic", "true");
   });
 
   it("follows the servings with the badge, X, the ring, the colour and what is at home", async () => {
@@ -388,7 +390,7 @@ describe("RecipeView: the portion selector", () => {
     render(<RecipeView recipe={withCream} snapshot={snapshot} />);
     const creamRow = () => rows()[4];
     // Chicken is at home only in kg: one short at the recipe's own servings.
-    expect(screen.getByText("Saknar: kycklinglårfilé")).toBeInTheDocument();
+    expect(screen.getByText("kycklinglårfilé")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^3 av 4 hemma$/);
 
     // 8 portions need exactly the 4 dl at home.
@@ -403,7 +405,7 @@ describe("RecipeView: the portion selector", () => {
     expect(within(creamRow()).getByRole("img")).toHaveAccessibleName("saknas");
     expect(within(creamRow()).getByText("5 dl")).toHaveClass("text-sky-ink");
     expect(within(creamRow()).getByText("hemma: 4 dl")).toBeInTheDocument();
-    expect(screen.getByText("Saknar: kycklinglårfilé, grädde")).toBeInTheDocument();
+    expect(screen.getByText("kycklinglårfilé, grädde")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^2 av 4 hemma$/);
 
     await user.click(stepper.fewer());
@@ -424,7 +426,7 @@ describe("RecipeView: the portion selector", () => {
       </ToastProvider>,
     );
     expect(stepper.value()).toHaveTextContent("5 portioner");
-    expect(screen.getByText("Saknar: kycklinglårfilé, rödlök")).toBeInTheDocument();
+    expect(screen.getByText("kycklinglårfilé, rödlök")).toBeInTheDocument();
 
     rerender(
       <ToastProvider>

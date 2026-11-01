@@ -8,7 +8,7 @@ import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
-import { MoreIcon } from "@/components/icons";
+import { CartIcon, MoreIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -142,6 +142,8 @@ export type MealPlanListProps = {
   upcoming?: boolean;
   /** The weekday a dish was just put on from Recept (Story 13.8): lit for a moment. */
   highlightDay?: number | null;
+  /** Next week and how many dishes it has (Story 19.6): "Nästa vecka har 2 rätter ›" in an empty week. */
+  nextWeek?: { weekStart: string; count: number };
 };
 
 /**
@@ -165,6 +167,7 @@ export function MealPlanList({
   weekStart,
   upcoming = false,
   highlightDay = null,
+  nextWeek,
 }: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -450,7 +453,25 @@ export function MealPlanList({
     return (
       <div ref={rootRef}>
         {siteSlot ? <div data-site-slot>{siteSlot}</div> : null}
-        <EmptyState action={<AddDishButton variant="primary" />}>Ingen rätt på matsedeln än.</EmptyState>
+        <EmptyState
+          title="Den här veckan är tom."
+          action={
+            <>
+              <AddDishButton variant="primary" />
+              {nextWeek && nextWeek.count > 0 ? (
+                <Link
+                  href={`/matsedel${weekQuery(nextWeek.weekStart)}`}
+                  scroll={false}
+                  className="flex min-h-tap items-center text-control text-accent"
+                >
+                  Nästa vecka har {nextWeek.count === 1 ? "1 rätt" : `${nextWeek.count} rätter`} {"\u203A"}
+                </Link>
+              ) : null}
+            </>
+          }
+        >
+          Rätterna du lägger här blir din inköpslista.
+        </EmptyState>
       </div>
     );
   }
@@ -472,8 +493,8 @@ export function MealPlanList({
           data-testid="shopping-row"
           className="flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-2 text-body text-ink"
         >
-          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
-            🛒
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky text-sky-ink">
+            <CartIcon size={18} />
           </span>
           <span className="min-w-0 flex-1 break-words">{shoppingRowText(weekNumber(weekStart ?? currentWeekStart()))}</span>
           <span aria-hidden="true" className="text-row-title text-ink-3">
@@ -493,14 +514,14 @@ export function MealPlanList({
           const dayText = date ? `${heading} ${date}` : heading;
           const when = (
             <div
-              className={`w-10 shrink-0 text-center leading-tight ${past ? "opacity-60" : ""} ${isToday ? "text-accent" : "text-ink-2"}`}
+              className={`w-[34px] shrink-0 text-center leading-tight ${past ? "opacity-60" : ""} ${isToday ? "text-accent" : "text-ink-2"}`}
             >
               <span className="sr-only">{dayText}</span>
-              <span aria-hidden="true" className="block text-meta font-medium uppercase">
+              <span aria-hidden="true" className="block text-badge text-ink-2 uppercase">
                 {weekday ? weekdayShortName(weekday) : "–"}
               </span>
               {weekday && weekOf ? (
-                <span aria-hidden="true" className="block text-row-title">
+                <span aria-hidden="true" className="block text-section-title text-ink">
                   {weekdayDayNumber(weekOf, weekday)}
                 </span>
               ) : null}
@@ -526,7 +547,7 @@ export function MealPlanList({
                   className="flex min-h-tap w-full items-center gap-3 py-2 pr-3 pl-3 text-left"
                 >
                   {when}
-                  <span className="flex-1 text-body font-medium text-accent">+ Lägg till</span>
+                  <span className="flex-1 text-control text-ink-2">+ Lägg till</span>
                   {isToday ? <TodayPill /> : null}
                 </button>
               ) : (
@@ -535,7 +556,7 @@ export function MealPlanList({
                     <DishRow
                       key={dish.id}
                       dish={dish}
-                      when={index === 0 ? when : <div className="w-10 shrink-0" aria-hidden="true" />}
+                      when={index === 0 ? when : <div className="w-[34px] shrink-0" aria-hidden="true" />}
                       dayText={dayText}
                       today={isToday}
                       past={past}
@@ -635,13 +656,13 @@ function DishRow({
       data-cooked={cooked || undefined}
       className="relative border-t border-hairline first:border-t-0"
     >
-      <div className={`flex items-center gap-2 py-2 pr-1 pl-3 ${past ? "" : "min-h-row"}`}>
+      <div className={`flex items-center gap-2 py-2 pr-0 pl-[10px] ${past ? "" : "min-h-row"}`}>
         {when}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <RecipeImage
             src={recipe?.imageUrl ?? null}
             iconSize={past ? 20 : 24}
-            className={`shrink-0 rounded-md ${past ? "size-tap opacity-60" : "size-dish-thumb"}`}
+            className={`shrink-0 rounded-[10px] ${past ? "size-tap opacity-60" : "size-dish-thumb"}`}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className={`flex min-w-0 flex-col gap-0.5 ${past ? "opacity-60" : ""}`}>
@@ -650,22 +671,22 @@ function DishRow({
                   href={`/recept/${dish.recipeId}`}
                   data-dish-focus
                   // The link covers the whole row, so a tap anywhere on it opens the recipe.
-                  className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-medium" : "text-row-title"}`}
+                  className={`line-clamp-2 max-w-full self-start wrap-break-word text-ink after:absolute after:inset-0 ${past ? "text-body font-medium" : "text-row-title"}`}
                 >
                   {title}
                 </Link>
               ) : (
-                <p className={`break-words text-ink ${past ? "text-body font-medium" : "text-row-title"}`}>{title}</p>
+                <p className={`line-clamp-2 wrap-break-word text-ink ${past ? "text-body font-medium" : "text-row-title"}`}>{title}</p>
               )}
               <p data-testid="dish-meta" className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-3">
                 {today ? <TodayPill /> : null}
                 <span>{dishRowMetaText(dish.recipeId, recipe?.totalMinutes, servings)}</span>
                 {cooked ? (
-                  <span data-testid="dish-cooked" className="font-medium text-mint-ink">
+                  <span data-testid="dish-cooked" className="text-[13px] font-medium text-mint-ink">
                     ✓ Lagad
                   </span>
                 ) : progress ? (
-                  <span data-testid="dish-status" className={`font-medium ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
+                  <span data-testid="dish-status" className={`text-[13px] font-medium ${missing ? "text-ink-2" : "text-mint-ink"}`}>
                     {missing ? progress.text : "✓ Allt hemma"}
                   </span>
                 ) : null}

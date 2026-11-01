@@ -30,7 +30,7 @@ function portionsText(servings: number): string {
  */
 export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false }: RecipeCompactListProps) {
   return (
-    <ListGroup label={ranked ? "Recept, minst saknat först" : "Recept"}>
+    <ListGroup label={ranked ? "Recept, minst saknat först" : "Recept"} className="[&>li]:border-b-0">
       {recipes.map((recipe) => {
         const time = recipeTimeText(recipe.totalMinutes);
         const status =
@@ -38,14 +38,14 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
             <span className="font-medium text-mint-ink">Kan lagas nu</span>
           ) : (
             <span className="font-medium text-sky-ink">
-              Saknar {recipe.missingCount}
-              <span className="sr-only"> {recipe.missingCount === 1 ? "vara" : "varor"}</span>
+              Saknar {recipe.missingCount} {recipe.missingCount === 1 ? "vara" : "varor"}
             </span>
           );
         return (
           <ListRow
             key={recipe.id}
             data-testid="recipe-row"
+            className="relative min-h-[72px] after:absolute after:right-0 after:bottom-0 after:left-20 after:h-px after:bg-hairline last:after:hidden [&>a]:pl-3 [&>div:first-child]:pl-3"
             href={`/recept/${recipe.id}`}
             title={<span className="block truncate">{recipe.title}</span>}
             meta={
@@ -60,8 +60,8 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
               <RecipeImage
                 src={recipe.imageUrl}
                 emoji={dishEmoji(recipe.title)}
-                iconSize={24}
-                className="size-12 rounded-sm"
+                iconSize={28}
+                className="size-14 rounded-[10px]"
               />
             }
             trailing={

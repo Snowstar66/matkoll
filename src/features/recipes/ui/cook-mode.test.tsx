@@ -167,10 +167,11 @@ function swipe(dx: number, dy = 0, { pointerId = 1, pointerType = "touch" } = {}
 describe("Laga nu", () => {
   it("is a secondary button beside Lägg på matsedeln, which stays the primary one", () => {
     render(<RecipeView recipe={recipe} snapshot={snapshot} addToPlan={addToPlan} />);
-    expect(cookButton()).toHaveClass("bg-surface", "text-accent");
+    // Mint, not the light blue of before (Story 19.6).
+    expect(cookButton()).toHaveClass("bg-mint!", "text-mint-ink!");
     expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toHaveClass("bg-accent");
     expect(cookButton().parentElement).toBe(screen.getByRole("button", { name: "Lägg på matsedeln" }).parentElement);
-    expect(cookButton().parentElement).toHaveClass("flex-wrap");
+    expect(cookButton().parentElement).toHaveAttribute("data-testid", "fixed-action");
   });
 
   it("is there without Lägg på matsedeln, and not for a recipe without steps", () => {

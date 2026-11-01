@@ -275,14 +275,15 @@ test("the library shows recipe cards with the image on top, the status and the h
   const imageBox = await box(image);
   const cardBox = await box(korvCard);
   expect(imageBox.width).toBeCloseTo(cardBox.width, 0);
-  expect(imageBox.height).toBe(104);
+  expect(imageBox.height).toBe(120);
   expect(imageBox.y).toBeCloseTo(cardBox.y, 0);
 
-  // The status bottom left and the heart bottom right, on the image.
+  // The status bottom left and the heart top right, on the image (Story 19.6).
   const status = await box(korvCard.getByText("Kan lagas nu", { exact: true }));
   const heartBox = await box(heart(korvCard, korv));
   expect(status.x).toBeLessThan(imageBox.x + imageBox.width / 2);
   expect(heartBox.x).toBeGreaterThan(imageBox.x + imageBox.width / 2);
+  expect(heartBox.y).toBeLessThan(imageBox.y + 8);
   for (const inside of [status, heartBox]) {
     expect(inside.y).toBeGreaterThanOrEqual(imageBox.y);
     expect(inside.y + inside.height).toBeLessThanOrEqual(imageBox.y + imageBox.height + 0.5);
@@ -352,14 +353,21 @@ test("with the keyboard, the card's link comes before its heart, and the card ha
 test.describe("on a computer", () => {
   test.use({ viewport: desktop });
 
-  test("the cards stand in two columns", async ({ page }) => {
+  test("the cards stand in three columns", async ({ page }) => {
     await serveImages(page);
     await page.goto("/recept");
     await expect(cards(page)).toHaveCount(4);
-    const [first, second, third] = [await box(cards(page).nth(0)), await box(cards(page).nth(1)), await box(cards(page).nth(2))];
+    const [first, second, third, fourth] = [
+      await box(cards(page).nth(0)),
+      await box(cards(page).nth(1)),
+      await box(cards(page).nth(2)),
+      await box(cards(page).nth(3)),
+    ];
     expect(second.y).toBeCloseTo(first.y, 0);
     expect(second.x).toBeGreaterThan(first.x + first.width);
-    expect(third.y).toBeGreaterThan(first.y + first.height);
+    expect(third.y).toBeCloseTo(first.y, 0);
+    expect(third.x).toBeGreaterThan(second.x + second.width);
+    expect(fourth.y).toBeGreaterThan(first.y + first.height);
     await expectNoHorizontalScroll(page);
   });
 });
@@ -405,7 +413,7 @@ test("the shopping row above the list in Matsedel goes to Inköpslistan", async 
   await serveImages(page);
   await page.goto("/matsedel");
   const show = page.getByTestId("shopping-row").filter({ visible: true });
-  await expect(show).toHaveText(/^🛒Inköpslista för vecka \d{1,2}›$/);
+  await expect(show).toHaveText(/^Inköpslista för vecka \d{1,2}›$/);
   // Above the dishes, and no big buttons under them.
   expect((await box(show)).y).toBeLessThan((await box(dish(page, korv))).y);
   await expect(page.getByRole("link", { name: "Visa inköpslistan" })).toHaveCount(0);
