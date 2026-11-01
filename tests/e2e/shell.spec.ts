@@ -105,7 +105,7 @@ test.describe("mobile, 390 × 844", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
 
     // No tab for Inställningar on mobile, so the header has a way back, named for the page above.
-    await page.getByRole("main").getByRole("link", { name: "Recept" }).click();
+    await page.getByRole("main").getByRole("link", { name: "Recept", exact: true }).click();
     await expect(page).toHaveURL(/\/recept$/);
     expect(errors).toEqual([]);
   });
