@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import { Chip } from "./chip";
 import { cx } from "./cx";
 import { Segment } from "./segment";
@@ -53,10 +53,24 @@ export function FilterPills<T extends string>({
   describedBy,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const rowRef = useRef<HTMLDivElement>(null);
   const chosenIndex = Math.max(
     0,
     options.findIndex((option) => option.value === value),
   );
+
+  // A compact row scrolls sideways: the chosen pill is brought into it (only the row scrolls, never
+  // the page), so a choice at the end, such as Söndag in Lägg till rätt, is seen when the sheet opens.
+  useLayoutEffect(() => {
+    if (!compact || segmented) return;
+    const row = rowRef.current;
+    const chip = refs.current[chosenIndex];
+    if (!row || !chip) return;
+    const rowBox = row.getBoundingClientRect();
+    const chipBox = chip.getBoundingClientRect();
+    if (chipBox.right > rowBox.right) row.scrollLeft += chipBox.right - rowBox.right;
+    else if (chipBox.left < rowBox.left) row.scrollLeft -= rowBox.left - chipBox.left;
+  }, [compact, segmented, chosenIndex]);
 
   function choose(index: number, moveFocus = false) {
     const option = options[index];
@@ -82,7 +96,14 @@ export function FilterPills<T extends string>({
   }
 
   return (
-    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cx("flex gap-x-2", compact ? "flex-nowrap overflow-x-auto" : "flex-wrap", className)}>
+    <div
+      ref={rowRef}
+      role="radiogroup"
+      aria-label={label}
+      aria-describedby={describedBy}
+      // A compact row clips what sticks out, so it gets 6 px of room above and below for the pills' 44 px tap area.
+      className={cx("flex gap-x-2", compact ? "-my-1.5 flex-nowrap overflow-x-auto py-1.5" : "flex-wrap", className)}
+    >
       {options.map((option, index) => {
         const selected = index === chosenIndex;
         return (

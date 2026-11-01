@@ -22,4 +22,11 @@ describe("PageHeader", () => {
     expect(back).toHaveClass("min-h-tap", "min-w-tap");
     expect(back.className).not.toMatch(/\bhidden\b/);
   });
+
+  it("keeps Tillbaka inside the header's air at the top, never pulled above the screen", () => {
+    render(<PageHeader title="Hjälp och tips" backHref="/recept" backLabel="Recept" />);
+    const back = screen.getByRole("link", { name: "Recept" });
+    expect(back).toHaveClass("-mt-1");
+    expect(back.className).not.toMatch(/-mt-tap\b/);
+  });
 });

@@ -36,8 +36,10 @@ export type PageHeaderProps = {
 
 /** Sidrubrik: 30 px semibold title with 16 px of air above it in a browser tab on mobile (below the notch on the home screen). */
 export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false, backInHistory = false }: PageHeaderProps) {
+  // 4 px up into the header's 16 px of air (.backrow in premium-look): a full -44 px, from the time
+  // the header had 56 px above the title, put the link above the top of the screen (sista varvet).
   const backClasses = cx(
-    "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
+    "-mt-1 mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
     backOnlyOnMobile && "desktop:hidden",
   );
   const back = (

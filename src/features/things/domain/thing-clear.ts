@@ -66,3 +66,11 @@ export function typeToConfirmText(word: string): string {
 export function clearedText(counts: ClearCounts): string {
   return counts.things + counts.cards + counts.boxes === 0 ? "Det fanns inget att rensa." : `Rensade ${clearCountsText(counts)}.`;
 }
+
+/**
+ * The toast after "Rensa rummet", which removes the room too: "Tog bort Garaget." for an empty room (not "Det fanns
+ * inget att rensa.", while the room is gone), else "Tog bort Garaget: 3 föremål, 1 kort." (sista varvet).
+ */
+export function roomClearedText(room: string, counts: ClearCounts): string {
+  return counts.things + counts.cards + counts.boxes === 0 ? `Tog bort ${room}.` : `Tog bort ${room}: ${clearCountsText(counts)}.`;
+}

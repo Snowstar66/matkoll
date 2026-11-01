@@ -150,10 +150,10 @@ describe("a plain search and its best hits (Story 18.19)", () => {
 
   it("answers first and short", () => {
     const pass = hit({ name: "Pass", room: "Sovrummet", part: "Översta byrålådan" });
-    expect(plainSearchAnswer("passen", [pass], [])).toBe("Pass finns i Sovrummet · Översta byrålådan.");
-    expect(plainSearchAnswer("pass", [pass, pass], [])).toBe("Hittade 2 föremål.");
-    expect(plainSearchAnswer(" coca-cola ", [], [pass])).toBe('Ingen "coca-cola" hittad. Liknande:');
-    expect(plainSearchAnswer("coca-cola", [], [])).toBe('Ingen "coca-cola" hittad.');
+    expect(plainSearchAnswer("passen", [pass])).toBe("Pass finns i Sovrummet · Översta byrålådan.");
+    expect(plainSearchAnswer("pass", [pass, pass])).toBe("Hittade 2 föremål.");
+    // The close matches have their own heading Liknande right under the answer.
+    expect(plainSearchAnswer(" coca-cola ", [])).toBe("Ingen \u201Dcoca-cola\u201D hittad.");
   });
 
   it("gives a hit's line: where, the boende only when it is another, and the day only for a thing written in", () => {

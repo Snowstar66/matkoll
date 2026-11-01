@@ -6,7 +6,7 @@ import { MoreIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { clearThingRoom } from "../actions/clear-things";
 import { renameThingRoom } from "../actions/edit-place";
-import { clearedText, clearRoomDetailText, clearRoomMenuText, moreActionsText, type ClearCounts } from "../domain/thing-clear";
+import { clearRoomDetailText, clearRoomMenuText, moreActionsText, roomClearedText, type ClearCounts } from "../domain/thing-clear";
 import { mergeConfirmText, mergeQuestionText, renameRoomLabelText, renameRoomMenuText, roomRenamedText } from "../domain/thing-place-edit";
 import { ClearSheet } from "./clear-sheet";
 import { RenameSheet } from "./rename-sheet";
@@ -124,7 +124,7 @@ export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; r
           setAsking(false);
           // The room is gone: back to Förråd, and "back" never leads to it.
           router.replace("/prylar");
-          showToast(clearedText(removed));
+          showToast(roomClearedText(room, removed));
         }}
         onStale={() => router.refresh()}
       />
