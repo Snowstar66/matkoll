@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { clearCountsText, clearedText, clearInputSchema, matchesClearWord, roomClearedText } from "./thing-clear";
+import {
+  clearCountsText,
+  clearedText,
+  clearInputSchema,
+  isEmptyRoom,
+  matchesClearWord,
+  roomClearedText,
+  roomRemovedText,
+  roomSnapshotSchema,
+  type RoomSnapshot,
+} from "./thing-clear";
 import { updateThingInputSchema } from "./thing-edit";
 
 const id = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11";
@@ -48,5 +58,39 @@ describe("the update of a thing", () => {
     expect(updateThingInputSchema.safeParse({ id, name: "Hammare", category: "Mat", whereHint: null }).success).toBe(false);
     expect(updateThingInputSchema.safeParse({ id, name: " ", category: "Verktyg", whereHint: null }).success).toBe(false);
     expect(updateThingInputSchema.safeParse({ id, name: "Hammare", category: "Verktyg", whereHint: "x".repeat(121) }).success).toBe(false);
+  });
+});
+
+describe("Ta bort rummet (Pontus 1 Nov)", () => {
+  const place = (extra: Partial<RoomSnapshot["places"][number]> = {}): RoomSnapshot["places"][number] => ({
+    id,
+    room: "Boden",
+    part: null,
+    roomKey: "boden",
+    partKey: "",
+    kind: "part",
+    createdAt: "2026-11-01T07:00:00.123456+00:00",
+    ...extra,
+  });
+
+  it("is only for a room without föremål and without any card", () => {
+    expect(isEmptyRoom(0, 0)).toBe(true);
+    expect(isEmptyRoom(1, 0)).toBe(false);
+    expect(isEmptyRoom(0, 1)).toBe(false);
+  });
+
+  it("says Tog bort and the room", () => {
+    expect(roomRemovedText("Boden")).toBe("Tog bort Boden.");
+  });
+
+  it("brings back one room under its own key, with its parts and boxes", () => {
+    const ok = { siteId: id, places: [place(), place({ part: "Hyllan", partKey: "hyllan" }), place({ part: "Röda lådan", partKey: "box:röda lådan", kind: "box" })] };
+    expect(roomSnapshotSchema.safeParse(ok).success).toBe(true);
+    // Another room, a key that is not the name's, a box without its key, no places.
+    expect(roomSnapshotSchema.safeParse({ siteId: id, places: [place(), place({ room: "Garaget", roomKey: "garaget" })] }).success).toBe(false);
+    expect(roomSnapshotSchema.safeParse({ siteId: id, places: [place({ roomKey: "vinden" })] }).success).toBe(false);
+    expect(roomSnapshotSchema.safeParse({ siteId: id, places: [place({ part: "Lådan", partKey: "lådan", kind: "box" })] }).success).toBe(false);
+    expect(roomSnapshotSchema.safeParse({ siteId: id, places: [place({ part: "Hyllan", partKey: "" })] }).success).toBe(false);
+    expect(roomSnapshotSchema.safeParse({ siteId: id, places: [] }).success).toBe(false);
   });
 });

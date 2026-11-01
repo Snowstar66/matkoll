@@ -37,7 +37,7 @@ export const helpSections: readonly HelpSection[] = [
       },
       {
         title: "Laga steg för steg",
-        text: "Öppna ett recept och tryck Laga nu: då visas ett steg i taget och skärmen hålls tänd. Du kan ändra portionerna först, så räknas mängderna om.",
+        text: "Öppna ett recept och tryck Laga nu: då visas ett steg i taget och skärmen hålls tänd. Du kan ändra portionerna först, så räknas mängderna om. Står rätten på matsedeln slutar sista steget med Markera som lagad.",
       },
       {
         title: "Lägg på matsedeln",
@@ -142,6 +142,10 @@ export const helpSections: readonly HelpSection[] = [
       {
         title: "Sök eller fråga",
         text: `Skriv överst för att söka bland ${thingNoun.plural}en i alla dina boenden, eller tryck ↑ för att ställa en fråga, till exempel var skruvdragaren finns.`,
+      },
+      {
+        title: "Ta bort ett rum",
+        text: `Ett tomt rum tar du bort med Ta bort rummet längst ned i rummet, och du kan ångra direkt. Har rummet ${thingNoun.plural} eller kort väljer du ⋯ och Rensa rummet, och skriver rummets namn för att bekräfta.`,
       },
     ],
   },

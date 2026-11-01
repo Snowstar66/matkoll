@@ -36,9 +36,9 @@ export type CookModeProps = {
   /** Where focus goes when Pontus closes the step mode: "Laga nu". */
   returnFocusRef: RefObject<HTMLElement | null>;
   /**
-   * "Markera som lagad" from the page (mealplan, AD-1, Story 13.4), shown
-   * above Föregående and Nästa at the last step; left out when the recipe is
-   * not on the menu.
+   * "Markera som lagad" from the page (mealplan, AD-1, Story 13.4), the
+   * primary button in Nästa's place at the last step (Pontus 1 Nov); left out
+   * when the recipe is not on the menu, and the last step then ends with Klar.
    */
   finish?: ReactNode;
 };
@@ -65,9 +65,10 @@ const withModifier = (event: globalThis.KeyboardEvent) =>
  * step 1 also the lines of no step under "Övriga ingredienser", and the step's
  * text in the step type (24 px). A change of step is announced as "Steg N av
  * M: <text>" in a hidden live region, and focus stays where it is.
- * Föregående and Nästa are always there in the thumb zone; at either end the
- * one that cannot go further is aria-disabled and stays in the tab order, as
- * in the portion selector. A swipe to the left over the step goes to the next
+ * Föregående and Nästa are always there in the thumb zone. On step 1
+ * Föregående is aria-disabled and stays in the tab order, as in the portion
+ * selector; at the last step Nästa gives way to the primary "Markera som
+ * lagad" (`finish`), or to Klar, which closes, when the dish is not on the menu. A swipe to the left over the step goes to the next
  * step and one to the right to the previous; a vertical drag scrolls the
  * step. ArrowRight and ArrowLeft do the same on a computer wherever focus is
  * (one step per press, however long the key is held), and Esc closes. The
@@ -82,6 +83,10 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
   const closing = useRef(false);
   const closedByUser = useRef(false);
   const drag = useRef<Drag | null>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const finishRef = useRef<HTMLDivElement>(null);
+  /** Set when Nästa had focus as it took Pontus to the last step, where "Markera som lagad" takes its place. */
+  const focusFinish = useRef(false);
   const [position, setPosition] = useState<Position>(() => ({ stepId: steps[0]?.id ?? null, index: 0, direction: 0 }));
   const [announcement, setAnnouncement] = useState("");
   const { unavailable } = useWakeLock(true);
@@ -96,6 +101,7 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
   const step = steps[current];
   const atFirst = current <= 0;
   const atLast = current >= last;
+  const finishing = atLast && finish !== undefined && finish !== null;
 
   // Shown as a modal while mounted. The cleanup also runs when the page is
   // hidden by a client navigation, so the dialog never stays in the top layer.
@@ -128,10 +134,18 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
   function go(to: number) {
     const target = steps[to];
     if (!target || to === current) return;
+    focusFinish.current = to === last && document.activeElement === nextRef.current;
     setPosition({ stepId: target.id, index: to, direction: Math.sign(to - current) });
     setAnnouncement(`Steg ${to + 1} av ${steps.length}: ${target.text}`);
     if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }
+
+  // Nästa's focus goes on to "Markera som lagad", which takes its place, so focus is never lost.
+  useLayoutEffect(() => {
+    if (!finishing || !focusFinish.current) return;
+    focusFinish.current = false;
+    finishRef.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [finishing]);
 
   // The keys work wherever focus is, also after a tap on the step's text,
   // which leaves focus outside the dialog's controls.
@@ -297,7 +311,6 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
 
         <div className="shrink-0 px-page pt-3 pb-[calc(env(safe-area-inset-bottom)+var(--gutter-mobile))]">
           {/* Side by side; with large text Nästa wraps below Föregående, still in the thumb zone. */}
-          {atLast && finish ? <div className="mx-auto mb-3 flex max-w-content flex-col [&>*]:w-full">{finish}</div> : null}
           <div className="mx-auto flex max-w-content flex-wrap gap-3">
             <Button
               variant="secondary"
@@ -307,13 +320,21 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
             >
               Föregående
             </Button>
-            <Button
-              aria-disabled={atLast || undefined}
-              onClick={() => go(current + 1)}
-              className={cx("grow basis-auto", disabledLook)}
-            >
-              Nästa
-            </Button>
+            {finishing ? (
+              <div ref={finishRef} data-testid="cook-finish" className="flex grow basis-auto flex-col [&>*]:w-full">
+                {finish}
+              </div>
+            ) : (
+              // One element for Nästa and Klar, so focus stays on it at the last step.
+              <Button
+                ref={nextRef}
+                onClick={atLast ? close : () => go(current + 1)}
+                data-testid={atLast ? "cook-done" : undefined}
+                className="grow basis-auto"
+              >
+                {atLast ? "Klar" : "Nästa"}
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { boxKeyPrefix, maxPlaceNameChars, maxPlacesPerSite, normalizePlaceName } from "./thing-place";
 import { cardsText, thingsText } from "./thing-room";
 import { thingNoun } from "./thing-noun";
 
@@ -74,3 +75,52 @@ export function clearedText(counts: ClearCounts): string {
 export function roomClearedText(room: string, counts: ClearCounts): string {
   return counts.things + counts.cards + counts.boxes === 0 ? `Tog bort ${room}.` : `Tog bort ${room}: ${clearCountsText(counts)}.`;
 }
+
+// "Ta bort rummet" (Pontus 1 Nov): an empty room (no föremål, no cards) goes at
+// once, without typing its name, and "Tog bort Garaget." offers "Ångra", which
+// puts its places back with the same ids. A room with something in it keeps
+// "Rensa rummet".
+
+export const removeRoomText = "Ta bort rummet";
+
+/** The toast after "Ta bort rummet": "Tog bort Garaget." */
+export function roomRemovedText(room: string): string {
+  return `Tog bort ${room}.`;
+}
+
+/** Whether a room can go with "Ta bort rummet": no kept föremål and no card at all (done, being read or failed). */
+export function isEmptyRoom(things: number, cards: number): boolean {
+  return things === 0 && cards === 0;
+}
+
+/** The input of "Ta bort rummet". */
+export const removeRoomInputSchema = z.object({ siteId: z.uuid(), roomKey: z.string().min(1).max(160) });
+
+const placeSnapshotSchema = z.object({
+  id: z.uuid(),
+  room: z.string().min(1).max(maxPlaceNameChars * 2),
+  part: z.string().min(1).max(maxPlaceNameChars * 2).nullable(),
+  roomKey: z.string().min(1).max(160),
+  partKey: z.string().max(160),
+  kind: z.enum(["part", "box"]),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+
+/**
+ * A removed empty room as it was, for "Ångra": its boende and its places (the
+ * room itself, its parts and its empty boxes). Every place has the room's
+ * own key, so "Ångra" brings back one room under its own name.
+ */
+export const roomSnapshotSchema = z
+  .object({ siteId: z.uuid(), places: z.array(placeSnapshotSchema).min(1).max(maxPlacesPerSite) })
+  .refine(({ places }) =>
+    places.every(
+      (place) =>
+        place.roomKey === places[0]!.roomKey &&
+        place.roomKey === normalizePlaceName(place.room) &&
+        (place.part === null) === (place.partKey === "") &&
+        (place.kind === "box") === place.partKey.startsWith(boxKeyPrefix),
+    ),
+  );
+
+export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;
