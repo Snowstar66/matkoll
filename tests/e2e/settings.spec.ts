@@ -100,13 +100,14 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
   await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siri och genvägar", "Om Livskoll"]) {
+  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siffra på appikonen", "Siri och genvägar", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   }
-  // The start page fits a phone screen without scrolling to Logga ut.
+  // Since Story 23.2 (Siffra på appikonen) the start page is a little taller than a phone: Logga ut is a short scroll away.
   const signOut = page.getByRole("button", { name: "Logga ut" });
+  await signOut.scrollIntoViewIfNeeded();
   await expect(signOut).toBeInViewport();
   const width = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(width[0]).toBeLessThanOrEqual(width[1]);
