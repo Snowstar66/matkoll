@@ -13,6 +13,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
@@ -84,6 +85,24 @@ function newestUnseenFailure(jobs: readonly AiJob[], handled: ReadonlySet<string
 
 /** How many "Visa" taps for imports have been handled, kept across pages so the sheet opens once per tap. */
 let handledRevealCount = 0;
+
+// Story 20.1: "Lägg till ett recept" in the welcome tour opens this sheet on Recept, from wherever the
+// tour was. Like "Visa" above: a count kept across pages, so the sheet opens once per request, in the
+// Recept that shows (a page the router keeps hidden runs no effects, so it never takes the request).
+let importRequests = 0;
+let handledImportRequests = 0;
+const importRequestListeners = new Set<() => void>();
+
+/** Opens Importera recept the next time Recept shows (now, when it already does). */
+export function requestImportSheet(): void {
+  importRequests += 1;
+  for (const listener of importRequestListeners) listener();
+}
+
+function subscribeImportRequests(listener: () => void) {
+  importRequestListeners.add(listener);
+  return () => importRequestListeners.delete(listener);
+}
 
 /** From this length on, the text field shows how much is left. */
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
@@ -801,6 +820,16 @@ export function ImportRecipeProvider({
   /** Opened with "Visa" for a finished import, not with the "+". */
   const [showFinished, setShowFinished] = useState(false);
   const { reveals } = useAiJobs();
+
+  // Story 20.1: a request from the welcome tour opens the sheet, once.
+  const requested = useSyncExternalStore(subscribeImportRequests, () => importRequests, () => 0);
+  useEffect(() => {
+    if (requested <= handledImportRequests) return;
+    handledImportRequests = requested;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a request from the welcome tour opens the sheet.
+    setShowFinished(false);
+    setOpen(true);
+  }, [requested]);
 
   // "Visa" in the confirmation of a finished import (also from another page) opens the sheet on that job.
   const revealed = reveals.import;

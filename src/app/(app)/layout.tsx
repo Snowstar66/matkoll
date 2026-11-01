@@ -6,14 +6,15 @@ import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
 import { SavedImports } from "@/features/recipes/ui/saved-imports";
 import { accountOf } from "@/features/auth";
 import { getCurrentUser } from "@/features/auth/server";
-import { PrivacyNote } from "@/features/auth/ui/privacy-note";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
+import { hasSeenWelcomeTour } from "@/features/welcome/server";
 import { loadBoendeCounts } from "./boende-counts";
+import { WelcomeGate } from "./welcome-gate";
 
 /**
  * The boende button in the side menu (Story 16.14), read inside its own
@@ -37,11 +38,15 @@ async function SideBoende() {
 // (their polling, the sheet and the confirmations) live here, and their job row
 // is part of the shell, above the tabs and in the side menu. Story 17.2: the
 // one-time privacy note sits above every page until Okej is pressed on the device.
+// Story 20.1: the first time, the welcome tour comes first (WelcomeGate), and the
+// note only after it.
 export default function AppLayout({ children }: { children: ReactNode }) {
   // Story 19.2: the P button and the side menu show who is signed in. The promise, not the session, goes down (AD-18).
   const account = getCurrentUser()
     .then((user) => (user ? accountOf(user.email) : null))
     .catch(() => null);
+  // Story 20.1: whether to leave the welcome tour out; a promise, read inside WelcomeGate's <Suspense>.
+  const welcomeSeen = hasSeenWelcomeTour().catch(() => true);
   return (
     <AccountProvider
       account={account}
@@ -60,7 +65,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </Suspense>
             }
           >
-            <PrivacyNote />
+            <Suspense fallback={null}>
+              <WelcomeGate seen={welcomeSeen} />
+            </Suspense>
             {children}
           </AppShell>
         </SiteSwitchProvider>

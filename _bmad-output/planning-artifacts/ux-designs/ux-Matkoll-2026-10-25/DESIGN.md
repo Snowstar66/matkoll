@@ -2,7 +2,7 @@
 name: Matkoll
 description: Personlig matplanerare på mobilen. Lugn, luftig och grågrön, där matbilderna står för färgen. Lätt typografi, tre ytnivåer och en enda dämpad röd (Ta bort).
 status: final
-updated: 2026-10-31
+updated: 2026-11-02
 sources:
   - docs/ux/ux-spec.md
   - docs/brief.md
@@ -11,6 +11,7 @@ sources:
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md (Epic 9, `offer-chip`)
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/premium-look.html (Epic 19, Premiumlook, godkänd av Pontus 2026-10-31)
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/hjalp-valkomst.html (Epic 20, välkomsttur och hjälp, godkänd av Pontus 2026-11-01)
 colors:
   bg: '#F5F7F4'
   surface: '#FFFFFF'
@@ -72,6 +73,10 @@ colors:
   hot-ink-dark: '#2B1203'
   tile-clay-dark: '#3B2C27'
   tile-lilac-dark: '#2C2840'
+  warm: '#D9963F'
+  warm-dark: '#E9B872'
+  illus-bg: '#EEF4F0'
+  illus-bg-dark: '#16211B'
 typography:
   family:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif"
@@ -132,6 +137,15 @@ typography:
     fontSize: 11px
     fontWeight: 500
     lineHeight: 13px
+  tour-title:
+    fontSize: 32px
+    fontWeight: 500
+    letterSpacing: -0.6px
+    lineHeight: 38px
+  tour-text:
+    fontSize: 17px
+    fontWeight: 400
+    lineHeight: 25px
 rounded:
   xs: 6px
   sm: 10px
@@ -394,6 +408,7 @@ Ljust läge följer `docs/ux/ux-spec.md`, med de nya rollerna från Premiumlook 
 - **Sand (`{colors.sand}` / `{colors.sand-ink}`)** används för platskortet Skafferi och märkningen av AI-förslag.
 - **Butiksetikett (Story 9.13, lugnad i Story 16.6, `store-badge`):** på varje erbjudanderad en liten text med butikens korta namn ("Maxi", "Krokom") i `{colors.ink-3}`, med en liten prick (8 px) i kedjans färg framför: ICA `{colors.store-ica}` (varm röd), varje annan kedja `{colors.store-other}`. Etiketten står först i radens metarad ("● Maxi · ICA · Spanien") och visas bara när listan visar mer än en butik (filtret "Alla" med två butiker eller fler). Färgen finns bara i pricken; butikens namn är text. Mörkt läge har egna värden. En ny kedja (Willys) får en egen prickfärg när den läggs till.
 - **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
+- **Varm ton och linjebilder (Epic 20):** `{colors.warm}` (ljust #D9963F, mörkt #E9B872) är den enda varma detaljen i linjebilderna i två toner (rundturen, hjälpens ikoner) och i stjärnorna i Betygsätt. Den är bara dekor, aldrig text och aldrig en yta, så den ingår inte i kontrasttestets textpar. `{colors.illus-bg}` är den mjuka runda plattan bakom en linjebild och plattan bakom en tvåtonsikon. Rundturens bakgrund är `{colors.surface}` i ljust läge (rent vitt) och `{colors.bg}` i mörkt (`--tour-bg`).
 
 Det enda röda är `{colors.danger}`, den dämpade röda för Ta bort: bara text och ikon (soptunna), aldrig en fylld knapp eller bakgrund (6,5:1 ljust, 5,1:1 mörkt). Butiksprickens ICA-röda och de varma erbjudandefärgerna är dekor. Fel och varningar är fortfarande blå. Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
 
@@ -418,6 +433,8 @@ Vikter efter roll, och aldrig 700: **400** för allt man läser, **500** för de
 | Sektionsrubrik | `{typography.section-label}` | 13/18 · 500, versaler +0,5 | Butiksavdelningar, "Ingredienser" |
 | Etikett | `{typography.badge}` | 12/16 · 500 | Statusetiketter och AI-märkning |
 | Flik | `{typography.tab-label}` | 11/13 · 500 (vald 600) | Flikfältet |
+| Rundturens rubrik | `{typography.tour-title}` | 32/38 · 500, −0,6 | Välkomstturen (Epic 20, beslut 10): lättare, mer keynote |
+| Rundturens text | `{typography.tour-text}` | 17/25 · 400 | Meningen under rubriken i välkomstturen, i `{colors.ink-2}` |
 
 Webbläsarens textförstoring ska fungera fullt ut. Ingen text är mindre än 11 px.
 
@@ -494,6 +511,8 @@ Från Epic 11 (skisserna ovan):
 Från Epic 12 (AI i bakgrunden):
 
 - **Jobbrad** (`job-row`): en vit remsa i full bredd direkt ovanför flikfältet, med en hårfin linje överst, minst `{spacing.tap-min}` hög. Texten "AI: Tittar på fotot av kylen · 2 i kö" i `{typography.meta}` och `{colors.ink-2}`, avkortad med "…", och en liten pil till höger. En lugn, pulserande prick i `{colors.accent}` till vänster visar att något pågår; med "Minska rörelse" står pricken still. På dator ligger raden överst i sidomenyn.
+- **Välkomsttur** (Story 20.1): sex sidor helskärm på mobil (utan flikfält) och en dialog på `{spacing.dialog-max}` × 680 px med `--shadow-float` över den tonade appen på dator. Varje sida: en linjebild (inline-SVG, 2,4 px linje i `{colors.accent}` med en detalj i `{colors.warm}`, på en rund `{colors.illus-bg}`-platta), rubriken i `{typography.tour-title}` och en mening i `{typography.tour-text}`, högst 310 px bred. Nederst sex prickar (den aktiva en 22 px kapsel i `{colors.accent}`) och Fortsätt (primärknapp); Hoppa över i `{colors.ink-2}` uppe till höger. Sista sidan har i stället tre valkort (`{colors.surface}`, hårfin kant, en 44 px `{colors.illus-bg}`-platta med tvåtonsikon, titel, en rad och ›). Rörelse: sidorna glider 460 ms, linjerna ritas fram 1,1 s, texten tonar upp 12 px; med "Minska rörelse" tonar sidan bara in.
+- **Tvåtonsikon** (`icons-duo.tsx`): samma 24 px rutnät och 1,8 px linje som linjeikonerna, i `{colors.accent}` med en detalj i `{colors.warm}`. Bara som dekor bredvid text.
 - **Flikmärke** (`tab-badge`): en rund etikett i `{colors.accent}` med siffran i `{colors.surface}`, minst 18 px, uppe till höger på flikens ikon. Aldrig rött. Över 9 står "9+".
 
 Från Epic 9 (veckans erbjudanden):
