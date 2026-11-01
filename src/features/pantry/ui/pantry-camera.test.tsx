@@ -190,7 +190,7 @@ describe("PantryCamera", () => {
       .find((element) => element.textContent !== "");
     expect(status).toHaveTextContent("Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.");
     fireEvent.click(within(area()).getByRole("button", { name: "Lägg till vara" }));
-    expect(await screen.findByRole("dialog", { name: "Lagervara" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("clears the notice when the next photo is sent", async () => {

@@ -273,9 +273,9 @@ export const photoReadingHeading = "AI:n läste av:";
 /** The text button last in the sheet. */
 export const removePhotoText = "Ta bort fotot";
 
-/** The question that replaces the sheet: "Ta bort fotot av kylen? Det går inte att ångra." */
+/** The question that replaces the sheet and is its title: "Ta bort fotot av kylen?" ("Det går inte att ångra." stands under it) */
 export function removePhotoQuestion(location: Location): string {
-  return `Ta bort fotot av ${definite[location]}? Det går inte att ångra.`;
+  return `Ta bort fotot av ${definite[location]}?`;
 }
 
 /** The short confirmation afterwards: "Tog bort fotot av kylen." */

@@ -12,7 +12,7 @@ function setup(onClear = vi.fn().mockResolvedValue(ok(counts))) {
   render(
     <ClearSheet open onClose={vi.fn()} title="Rensa rummet" counts={counts} detail="Det går inte att ångra." word="Skräpförrådet" onClear={onClear} onCleared={onCleared} onStale={onStale} />,
   );
-  return { onClear, onCleared, onStale, dialog: screen.getByRole("dialog", { name: "Rensa rummet" }) };
+  return { onClear, onCleared, onStale, dialog: screen.getByRole("dialog", { name: "Rensa rummet?" }) };
 }
 
 describe("the sheet that guards a clearing", () => {

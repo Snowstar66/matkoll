@@ -68,7 +68,7 @@ function Hemma({ shown = photo, location = "Kyl" }: { shown?: ShownPlacePhoto | 
 const line = () => screen.queryByTestId("pantry-latest-photo");
 const visa = () => screen.getByRole("button", { name: "Visa senaste foto av kylen" });
 const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
-const question = () => screen.getByRole("dialog", { name: "Ta bort fotot" });
+const question = () => screen.getByRole("dialog", { name: /^Ta bort fotot av .*\?$/ });
 const largePhoto = () => within(photoSheet()).getByRole("img", { name: "Senaste fotot av kylen" });
 const markers = () => within(photoSheet()).queryAllByTestId("pantry-photo-marker");
 const decode = () => {
@@ -145,7 +145,7 @@ describe("LatestPhoto", () => {
     render(<Hemma />);
     visa().focus();
     fireEvent.click(visa());
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(visa()).toHaveFocus());
   });
 
@@ -182,7 +182,8 @@ describe("LatestPhoto", () => {
     fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
     // The question replaces the sheet: they never stack.
     expect(screen.queryByRole("dialog", { name: "Fotot av kylen" })).toBeNull();
-    expect(within(question()).getByText("Ta bort fotot av kylen? Det går inte att ångra.")).toBeInTheDocument();
+    expect(within(question()).getByRole("heading", { name: "Ta bort fotot av kylen?" })).toBeInTheDocument();
+    expect(within(question()).getByText("Det går inte att ångra.")).toBeInTheDocument();
     await waitFor(() => expect(within(question()).getByRole("button", { name: "Avbryt" })).toHaveFocus());
     fireEvent.click(within(question()).getByRole("button", { name: "Avbryt" }));
     expect(photoSheet()).toBeInTheDocument();

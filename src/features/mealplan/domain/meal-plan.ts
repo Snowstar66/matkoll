@@ -203,13 +203,13 @@ export function isoWeekName(date: Date): string {
 
 /**
  * The short confirmation, with "Ångra", for the dishes removed while the same
- * confirmation has shown: "Pasta är borttagen från matsedeln.", "Pasta och
- * Soppa är borttagna från matsedeln." or "3 rätter är borttagna från matsedeln."
+ * confirmation has shown: "Tog bort Pasta.", "Tog bort Pasta och Soppa."
+ * or "Tog bort 3 rätter." (Story 19.4)
  */
 export function removedDishesText(titles: readonly string[]): string {
-  if (titles.length === 1) return `${titles[0]} är borttagen från matsedeln.`;
-  if (titles.length === 2) return `${titles[0]} och ${titles[1]} är borttagna från matsedeln.`;
-  return `${titles.length} rätter är borttagna från matsedeln.`;
+  if (titles.length === 1) return `Tog bort ${titles[0]}.`;
+  if (titles.length === 2) return `Tog bort ${titles[0]} och ${titles[1]}.`;
+  return `Tog bort ${titles.length} rätter.`;
 }
 
 /** The short confirmation after a dish was added: "Lagt på matsedeln." */
@@ -265,9 +265,9 @@ export function planSummaryText(plan: Pick<PlanSummary, "createdAt" | "dishCount
   return `${dishCountText(plan.dishCount)} · ${plan.weekStart === null ? `undanlagd · ${made}` : made}`;
 }
 
-/** The question before an earlier plan is deleted: "Ta bort Vecka 42? Det går inte att ångra." */
+/** The question before an earlier plan is deleted, and the sheet's title: "Ta bort Vecka 42?" ("Det går inte att ångra." stands under it) */
 export function deletePlanQuestion(name: string): string {
-  return `Ta bort ${name}? Det går inte att ångra.`;
+  return `Ta bort ${name}?`;
 }
 
 /**
@@ -288,7 +288,7 @@ export const nothingToCopyText = "Alla recept på matsedeln är borttagna, så d
 export const noDishesText = "Matsedeln har inga rätter.";
 
 /** The short confirmation in Tidigare after a plan was deleted. */
-export const planDeletedText = "Matsedeln är borttagen.";
+export const planDeletedText = "Tog bort matsedeln.";
 
 /** A plan id: the plan to copy or delete. */
 export const planIdSchema = z.uuid();

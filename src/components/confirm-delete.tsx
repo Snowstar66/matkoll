@@ -4,49 +4,26 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "./button";
 import { Sheet } from "./sheet";
 
-/**
- * How long after a confirmed delete a trash tap deletes at once, without a
- * question (Story 13.1): a quick second tap shows that Pontus knows what he
- * is doing. Every delete starts the window again.
- */
-export const deleteGraceMs = 60_000;
-
-// The start of the window, in memory and shared by every list on the page.
-// A reload resets it, and that is fine.
-let lastDeleteAt: number | null = null;
-
-/** Whether a trash tap now deletes without a question. */
-export function isDeleteGraceActive(): boolean {
-  return lastDeleteAt !== null && Date.now() - lastDeleteAt < deleteGraceMs;
-}
-
-/** Starts the window again from now. `useConfirmDelete` does this for every delete. */
-export function startDeleteGrace(): void {
-  lastDeleteAt = Date.now();
-}
-
-/** Ends the window, so the next trash tap asks. For tests. */
-export function resetDeleteGrace(): void {
-  lastDeleteAt = null;
-}
+/** Under every question that is only asked because the delete cannot be undone (Story 19.4). */
+export const cannotUndoText = "Det går inte att ångra.";
 
 export type DeleteRequest = {
-  /** The question, e.g. "Ta bort Mjölk från inköpslistan?". */
+  /** The question, e.g. "Ta bort receptet Lasagne?"; it is the sheet's title. */
   question: string;
-  /** Deletes; may be async. Called at once inside the grace window, else after "Ta bort". */
+  /** Deletes; may be async. Called after "Ta bort". */
   onConfirm: () => void | Promise<void>;
   /** Under the question, e.g. what happens to the item. */
   detail?: ReactNode;
-  /** The sheet's title and the confirm button; "Ta bort" by default. */
+  /** The confirm button; "Ta bort" by default. */
   confirmLabel?: string;
 };
 
 /**
- * A trash tap with a smart question (Story 13.1). `requestDelete` asks first;
- * after a confirmed delete, any request within `deleteGraceMs` deletes at
- * once, and each delete restarts the window. "Avbryt" does not start it.
- * Render `dialog` once, e.g. next to the list, and call `requestDelete` from
- * every trash button.
+ * A question before something that cannot be undone (Story 19.4: recipes, whole
+ * meal plans, photos, emptying a place). Anything that "Ångra" can bring back
+ * never asks; it deletes at once and says "Tog bort X." with "Ångra". The
+ * question is the sheet's title, "Det går inte att ångra." stands under it.
+ * Render `dialog` once, and call `requestDelete` from every Ta bort button.
  */
 export function useConfirmDelete(): { requestDelete: (request: DeleteRequest) => void; dialog: ReactNode } {
   const [asking, setAsking] = useState<DeleteRequest | null>(null);
@@ -64,11 +41,6 @@ export function useConfirmDelete(): { requestDelete: (request: DeleteRequest) =>
   }, [asking]);
 
   const requestDelete = useCallback((request: DeleteRequest) => {
-    if (isDeleteGraceActive()) {
-      startDeleteGrace();
-      void request.onConfirm();
-      return;
-    }
     setLastAsked(request);
     setAsking(request);
   }, []);
@@ -79,15 +51,16 @@ export function useConfirmDelete(): { requestDelete: (request: DeleteRequest) =>
     <Sheet
       open={asking !== null}
       onClose={() => setAsking(null)}
-      title={label}
+      // A question sheet (Story 19.4): the question is the title, the consequence stands under it.
+      title={shown?.question ?? label}
       closeLabel="Avbryt"
       initialFocus="close"
       footer={
         <Button
+          variant="danger-confirm"
           fullWidth
           onClick={() => {
             if (!asking) return;
-            startDeleteGrace();
             confirmed.current = asking;
             setAsking(null);
           }}
@@ -97,7 +70,7 @@ export function useConfirmDelete(): { requestDelete: (request: DeleteRequest) =>
       }
     >
       <div className="flex flex-col gap-2">
-        <p className="text-body text-ink">{shown?.question}</p>
+        <p className="text-body text-ink-2">{cannotUndoText}</p>
         {shown?.detail ? <p className="text-body text-ink-2">{shown.detail}</p> : null}
       </div>
     </Sheet>

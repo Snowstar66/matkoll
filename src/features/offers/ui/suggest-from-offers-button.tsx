@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { ChoiceRows } from "@/components/choice-rows";
 import { cx } from "@/components/cx";
 import { useToast } from "@/components/toast";
 import { useAiJobs } from "@/lib/ai-jobs-client";
@@ -101,50 +102,30 @@ export function StoreChoice({
 }) {
   const { starting, suggest, resetKey } = useSuggestJob(onStarted);
   const [picked, setPicked] = useState(defaultStoreId);
-  const name = useId();
   return (
     <div className="flex flex-col gap-4" data-testid="store-choice">
-      <div role="radiogroup" aria-label="Föreslå rätter från vilken butik?" className="flex flex-col gap-2">
-        {stores.map((store) => {
-          const on = store.id === picked;
-          return (
-            <label
-              key={store.id}
-              className={cx(
-                "relative flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-4 py-2",
-                on ? "border-accent bg-surface" : "border-border",
-              )}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={store.id}
-                checked={on}
-                disabled={starting}
-                onChange={() => {
-                  resetKey();
-                  setPicked(store.id);
-                }}
-                className="peer sr-only"
-              />
-              <span
-                aria-hidden="true"
-                className={cx(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full border-2 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent",
-                  on ? "border-accent" : "border-ink-2",
-                )}
-              >
-                {on ? <span className="size-3 rounded-full bg-accent" /> : null}
-              </span>
-              <span className="text-row-title text-ink">
-                {store.label}
-                {store.id === bestStoreId ? <span className="font-normal text-ink-2">{" – passar dig bäst"}</span> : null}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-      <Button type="button" variant="primary" disabled={starting} onClick={() => void suggest(picked)} data-testid="store-choice-start">
+      {/* Story 19.5: rows with a check; the chosen row has no frame, only a green check on the right. */}
+      <ChoiceRows
+        label="Föreslå rätter från vilken butik?"
+        value={picked}
+        disabled={starting}
+        onChange={(id) => {
+          resetKey();
+          setPicked(id);
+        }}
+        options={stores.map((store) => ({
+          value: store.id,
+          label: store.label,
+          detail: store.id === bestStoreId ? "passar dig bäst" : undefined,
+        }))}
+      />
+      <Button
+        type="button"
+        variant="primary"
+        disabled={starting}
+        onClick={() => void suggest(picked)}
+        data-testid="store-choice-start"
+      >
         Föreslå rätter
       </Button>
     </div>

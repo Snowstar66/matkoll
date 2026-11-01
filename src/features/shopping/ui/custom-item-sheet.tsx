@@ -3,13 +3,21 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
-import { type IngredientHit, type SearchIngredients, useIngredientSearch } from "@/components/ingredient-picker";
+import { TrashIcon } from "@/components/icons";
+import { AmountInput } from "@/components/amount-input";
+import { FieldError, FieldLabel, Input } from "@/components/field";
+import {
+  type IngredientHit,
+  type SearchIngredients,
+  useIngredientSearch,
+} from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { searchDelayMs } from "@/components/search-field";
 import { Sheet } from "@/components/sheet";
+import { UnitChoice, UnitList } from "@/components/unit-choice";
 import { useToast } from "@/components/toast";
-import { UNITS, type Unit } from "@/features/catalog";
+import { isCountUnit, UNITS, type Unit } from "@/features/catalog";
+import { stepAmountField } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
 import { addCustomItem } from "../actions/add-custom-item";
 import { updateCustomItem } from "../actions/update-custom-item";
@@ -149,7 +157,9 @@ export function CustomItemSheet({
   const removing = useRef(false);
   const { showToast } = useToast();
   const amountRef = useRef<HTMLInputElement>(null);
-  const unitRef = useRef<HTMLSelectElement>(null);
+  /** Story 19.5: "Fler ›" is a step in, replacing the form with all the units. */
+  const [unitStep, setUnitStep] = useState(false);
+  const unitRef = useRef<HTMLDivElement>(null);
   const nextError = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { query, hits, error: searchError, search, reset: resetSearch } = useIngredientSearch(searchIngredients);
@@ -159,6 +169,7 @@ export function CustomItemSheet({
   if (session !== formSession) {
     const fresh = valuesOf(item);
     setFormSession(session);
+    setUnitStep(false);
     setInitial(fresh);
     setValues(fresh);
     setItemId(null);
@@ -289,7 +300,7 @@ export function CustomItemSheet({
       const fields = customItemFieldErrors(parsed.error);
       if (fields.label) labelRef.current?.focus();
       else if (fields.amount) amountRef.current?.focus();
-      else if (fields.unit) unitRef.current?.focus();
+      else if (fields.unit) unitRef.current?.querySelector<HTMLElement>('[role="radio"]')?.focus();
       return;
     }
     setError(null);
@@ -330,31 +341,65 @@ export function CustomItemSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={item ? (title ?? item.label) : "Lägg till egen vara"}
+      title={
+        unitStep
+          ? "Enhet"
+          : item
+            ? (title ?? item.label)
+            : "Lägg till egen vara"
+      }
+      onBack={unitStep ? () => setUnitStep(false) : undefined}
       closeLabel="Avbryt"
       isDirty={isFormDirty(values, initial)}
       preventClose={saving}
       footer={
-        <>
-          {error ? (
-            <Notice key={error.id} role="alert">
-              {error.text}
-            </Notice>
-          ) : null}
-          {formError ? <Notice role="alert">{formError}</Notice> : null}
-          {/* Enabled while the form is invalid, so a tap shows why instead of doing nothing. */}
-          <Button type="submit" form={formId} fullWidth disabled={saving}>
-            {saving ? "Sparar …" : item ? "Spara" : "Lägg till"}
-          </Button>
-          {item && onRemove ? (
-            <Button variant="text" fullWidth disabled={saving} onClick={remove}>
-              Ta bort
+        unitStep ? undefined : (
+          <>
+            {error ? (
+              <Notice key={error.id} role="alert">
+                {error.text}
+              </Notice>
+            ) : null}
+            {formError ? <Notice role="alert">{formError}</Notice> : null}
+            {/* Enabled while the form is invalid, so a tap shows why instead of doing nothing. */}
+            <Button type="submit" form={formId} fullWidth disabled={saving}>
+              {saving ? "Sparar …" : item ? "Spara" : "Lägg till"}
             </Button>
-          ) : null}
-        </>
+            {item && onRemove ? (
+              <div className="mt-3 border-t border-border pt-1">
+                <Button
+                  variant="danger"
+                  fullWidth
+                  disabled={saving}
+                  onClick={remove}
+                >
+                  <TrashIcon size={20} />
+                  Ta bort
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )
       }
     >
-      <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
+      {unitStep ? (
+        <UnitList
+          units={UNITS}
+          value={values.unit}
+          onChange={(unit) => {
+            update({ unit });
+            setUnitStep(false);
+          }}
+        />
+      ) : null}
+      <form
+        id={formId}
+        onSubmit={submit}
+        noValidate
+        inert={saving}
+        hidden={unitStep}
+        className="flex flex-col gap-5"
+      >
         <div className="flex flex-col gap-1.5">
           <FieldLabel htmlFor={`${ids}-label`}>Vara</FieldLabel>
           <Input
@@ -400,42 +445,49 @@ export function CustomItemSheet({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="flex gap-3">
-            <div className="flex w-28 flex-col gap-1.5">
-              <FieldLabel htmlFor={`${ids}-amount`}>Mängd</FieldLabel>
-              <Input
-                ref={amountRef}
-                id={`${ids}-amount`}
-                inputMode="decimal"
-                autoComplete="off"
-                maxLength={maxCustomAmountChars}
-                value={values.amount}
-                onChange={(event) => update({ amount: event.target.value })}
-                {...describedBy("amount", amountError)}
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor={`${ids}-unit`}>Enhet</FieldLabel>
-              <select
-                ref={unitRef}
-                id={`${ids}-unit`}
-                value={values.unit}
-                onChange={(event) => update({ unit: event.target.value as Unit | "" })}
-                className={inputClasses}
-                {...describedBy("unit", unitError)}
-              >
-                <option value="">Ingen enhet</option>
-                {UNITS.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {amountError ? <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError> : null}
-          {unitError ? <FieldError id={`${ids}-unit-error`}>{unitError}</FieldError> : null}
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor={`${ids}-amount`}>
+            Mängd <span className="font-normal text-ink-2">(valfritt)</span>
+          </FieldLabel>
+          <AmountInput
+            id={`${ids}-amount`}
+            inputRef={amountRef}
+            value={values.amount}
+            onChange={(amount) => update({ amount })}
+            stepper={values.unit === "" || isCountUnit(values.unit)}
+            onStep={(direction) => {
+              const next = stepAmountField(
+                values.amount,
+                values.unit,
+                direction,
+              );
+              if (next !== null) update({ amount: next });
+            }}
+            canStepDown={
+              stepAmountField(values.amount, values.unit, -1) !== null
+            }
+            canStepUp={stepAmountField(values.amount, values.unit, 1) !== null}
+            unit={values.unit}
+            maxLength={maxCustomAmountChars}
+            invalid={Boolean(amountError)}
+            describedBy={`${ids}-amount-error`}
+          />
+          {amountError ? (
+            <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError>
+          ) : null}
+          <span className="mt-1 text-control text-ink">
+            Enhet <span className="font-normal text-ink-2">(valfritt)</span>
+          </span>
+          <UnitChoice
+            ref={unitRef}
+            units={UNITS}
+            value={values.unit}
+            onChange={(unit) => update({ unit })}
+            onMore={() => setUnitStep(true)}
+          />
+          {unitError ? (
+            <FieldError id={`${ids}-unit-error`}>{unitError}</FieldError>
+          ) : null}
         </div>
       </form>
       {item && renderAfterForm ? (

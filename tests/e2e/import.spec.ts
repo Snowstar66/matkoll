@@ -232,7 +232,7 @@ test("pasted text that has not been parsed is not lost silently", async ({ page 
   await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
   await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
   await expect(textField(page)).toHaveValue(linssoppa);
-  await sheet(page).getByRole("button", { name: "Stäng" }).click();
+  await sheet(page).getByRole("button", { name: "Avbryt" }).click();
   await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
   await expect(sheet(page)).toBeHidden();
 });
@@ -349,7 +349,7 @@ test.describe("import from a link", () => {
 
     // Ångra removes it again.
     await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
-    await expect(page.getByTestId("toast")).toHaveText("Receptet är borttaget.");
+    await expect(page.getByTestId("toast")).toHaveText(/^Tog bort .+\.$/);
     await expect(page.getByTestId("recipe-card")).toHaveCount(0);
     expect(errors).toEqual([]);
   });

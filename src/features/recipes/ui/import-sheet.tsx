@@ -553,7 +553,8 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
       open={open}
       onClose={close}
       title="Importera recept"
-      closeLabel="Stäng"
+      // While a job reads, closing leaves it running ("Du kan göra annat under tiden"): Klar. The in-sheet "Avbryt" stops it.
+      closeLabel={reading ? "Klar" : "Avbryt"}
       isDirty={isDirty}
       footer={footer}
     >

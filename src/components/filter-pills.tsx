@@ -29,6 +29,8 @@ export type FilterPillsProps<T extends string> = {
   segmented?: boolean;
   /** With `segmented` (Story 16.17): the taller choice for a form, a `Segment` with 46 px segments. */
   tall?: boolean;
+  /** The id of the text that describes the group, e.g. a hint under it. */
+  describedBy?: string;
 };
 
 const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -48,6 +50,7 @@ export function FilterPills<T extends string>({
   compact = false,
   segmented = false,
   tall = false,
+  describedBy,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
@@ -79,7 +82,7 @@ export function FilterPills<T extends string>({
   }
 
   return (
-    <div role="radiogroup" aria-label={label} className={cx("flex gap-x-2", compact ? "flex-nowrap overflow-x-auto" : "flex-wrap", className)}>
+    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cx("flex gap-x-2", compact ? "flex-nowrap overflow-x-auto" : "flex-wrap", className)}>
       {options.map((option, index) => {
         const selected = index === chosenIndex;
         return (

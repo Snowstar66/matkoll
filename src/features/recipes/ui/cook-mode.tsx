@@ -31,7 +31,7 @@ export type CookModeProps = {
   status: RecipeStatus | null;
   /** The factor the lines were scaled with, for the "×2" beside a line without ingredient. */
   factor: number;
-  /** Called on "Stäng", Esc or a close the browser starts; the caller unmounts the step mode. */
+  /** Called on "Klar", Esc or a close the browser starts; the caller unmounts the step mode. */
   onClose: () => void;
   /** Where focus goes when Pontus closes the step mode: "Laga nu". */
   returnFocusRef: RefObject<HTMLElement | null>;
@@ -59,7 +59,7 @@ const withModifier = (event: globalThis.KeyboardEvent) =>
  * mounts it to open it and unmounts it to close it.
  *
  * At the top, the line about the screen when the Wake Lock cannot be had
- * (not an error, so no alert), the title and the servings, and "Stäng". Then
+ * (not an error, so no alert), the title and the servings, and "Klar". Then
  * "Steg N av M", focused when the step mode opens, the step's lines as in the
  * recipe view (IngredientRow, with tick or ring and the scaled amount), on
  * step 1 also the lines of no step under "Övriga ingredienser", and the step's
@@ -244,7 +244,7 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
                 <p className="text-meta text-ink-2">{formatPortions(servings)}</p>
               </div>
               <Button variant="text" onClick={close} className="-mr-3 shrink-0">
-                Stäng
+                Klar
               </Button>
             </div>
           </div>

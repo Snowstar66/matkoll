@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/button";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -89,25 +90,25 @@ export function RemoveCard({
 
   return (
     <>
-      <Button variant={compact ? "compact" : "text"} onClick={() => setAsking(true)} className={compact ? undefined : "self-center"} aria-label={compact && name ? `Ta bort kortet ${name}` : undefined} data-testid="remove-card">
+      <Button variant={compact ? "compact" : "danger"} onClick={() => setAsking(true)} className={compact ? undefined : "self-center"} aria-label={compact && name ? `Ta bort kortet ${name}` : undefined} data-testid="remove-card">
+        {compact ? null : <TrashIcon size={20} />}
         {compact ? "Ta bort" : removeCardText}
       </Button>
       <Sheet
         open={asking}
         onClose={() => setAsking(false)}
-        title={removeCardText}
+        title={removeCardQuestion}
         closeLabel="Avbryt"
         initialFocus="close"
         preventClose={busy}
         footer={
-          <Button fullWidth onClick={confirm} aria-disabled={busy || undefined}>
+          <Button variant="danger-confirm" fullWidth onClick={confirm} aria-disabled={busy || undefined}>
             {busy ? "Tar bort …" : removeCardText}
           </Button>
         }
       >
         <div className="flex flex-col gap-2">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
-          <p className="text-body text-ink">{removeCardQuestion}</p>
           <p className="text-body text-ink-2">{removeCardDetail}</p>
         </div>
       </Sheet>

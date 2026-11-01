@@ -198,7 +198,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await fullSize.click();
   await expect(fullSize).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await photoSheet.getByRole("button", { name: "Stäng" }).click();
+  await photoSheet.getByRole("button", { name: "Klar" }).click();
   await expect(photoSheet).toBeHidden();
   await expect(photo).toBeFocused();
   // The camera button is back, and nothing was saved or sent again.
@@ -271,7 +271,7 @@ test("the cards come first, then their numbers, and the large photo has the same
   await expect.poll(async () => (await frame.boundingBox())!.width).toBeCloseTo(720, 0);
   await expect.poll(markerOffset).toBeLessThan(0.005);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await photoSheet.getByRole("button", { name: "Stäng" }).click();
+  await photoSheet.getByRole("button", { name: "Klar" }).click();
   await expect(photoSheet).toBeHidden();
 
   // A card handled takes its number off the photo; nothing was saved by the lookup.

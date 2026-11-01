@@ -135,9 +135,9 @@ test("the portion selector scales the amounts and the status at once, without ca
   const errors = watchErrors(page);
   await page.goto(`/recept/${recipeId}`);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  await expect(view(page).getByTestId("recipe-meta")).toHaveText("35 min");
+  await expect(view(page).getByTestId("recipe-meta")).toHaveText(/^35 min/);
   await expect(view(page).getByText("4 portioner", { exact: true })).toBeVisible();
-  await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*[^,+]+$/ })).toBeVisible();
   await expect(atHome(page)).toHaveText("3 av 4 hemma");
   await expect(mark(line(page, "grädde"))).toHaveAccessibleName("finns hemma");
   await expect(line(page, "grädde").getByText("2 dl", { exact: true })).not.toHaveClass(/text-sky-ink/);
@@ -153,7 +153,7 @@ test("the portion selector scales the amounts and the status at once, without ca
   await expect(line(page, "grädde").getByText("5 dl", { exact: true })).toHaveClass(/text-sky-ink/);
   await expect(mark(line(page, "grädde"))).toHaveAccessibleName("saknas");
   await expect(line(page, "grädde").getByText("hemma: 4 dl")).toBeVisible();
-  await expect(view(page).getByText(/^Saknar: [^,+]+, [^,+]+$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 2 varor\s*[^,+]+, [^,+]+$/ })).toBeVisible();
   await expect(atHome(page)).toHaveText("2 av 4 hemma");
   await expect(line(page, "gul lök").getByText("2,5 st", { exact: true })).toBeVisible();
   // Not scaled: the vague line and the text of the line without ingredient, which shows the factor.
@@ -198,7 +198,8 @@ test.describe("on a computer", () => {
     const steps = view(page).getByRole("region", { name: "Steg" });
     const [left, right] = await Promise.all([ingredients.boundingBox(), steps.boundingBox()]);
     expect(left && right && left.x + left.width <= right.x).toBe(true);
-    expect(left && right && Math.abs(left.y - right.y) < 1).toBe(true);
+    // Story 19.6: the portions and buttons stand above the ingredients, so the steps start higher.
+    expect(left && right && right.y <= left.y).toBe(true);
   });
 });
 

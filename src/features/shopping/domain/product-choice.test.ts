@@ -148,7 +148,7 @@ describe("texts", () => {
     expect(unlinkedCustomItemText).toBe("Koppla varan till en ingrediens för att spara ett produktval.");
     expect(noStoreText).toBe("Välj en butik i inställningarna för att spara produktval.");
     expect(productChoiceSavedText).toBe("Produktvalet är sparat.");
-    expect(productChoiceRemovedText).toBe("Produktvalet är borttaget.");
+    expect(productChoiceRemovedText).toBe("Tog bort produktvalet.");
   });
 });
 

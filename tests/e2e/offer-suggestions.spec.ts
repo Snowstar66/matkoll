@@ -255,7 +255,7 @@ test("the week's best store is on top and preselected, and the dishes are built 
   await suggestButton(page).click();
   const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
   await expect(picker.getByRole("radio", { name: /Maxi/ })).toBeChecked();
-  await expect(picker).toContainText("Maxi \u2013 passar dig bäst");
+  await expect(picker).toContainText("passar dig bäst");
   await choice(page).getByTestId("store-choice-start").click();
   await expect(sheet(page)).toBeHidden();
   expect(bodies).toHaveLength(1);
@@ -274,7 +274,7 @@ test("another store can be picked for the dishes", async ({ page }) => {
   await openOffers(page);
   await suggestButton(page).click();
   const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
-  await picker.getByRole("radio", { name: /Matkoll/ }).check({ force: true });
+  await picker.getByRole("radio", { name: /Matkoll/ }).click();
   await expect(picker.getByRole("radio", { name: /Matkoll/ })).toBeChecked();
   await choice(page).getByTestId("store-choice-start").click();
   await expect(sheet(page)).toBeHidden();

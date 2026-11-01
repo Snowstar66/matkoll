@@ -167,10 +167,11 @@ function swipe(dx: number, dy = 0, { pointerId = 1, pointerType = "touch" } = {}
 describe("Laga nu", () => {
   it("is a secondary button beside Lägg på matsedeln, which stays the primary one", () => {
     render(<RecipeView recipe={recipe} snapshot={snapshot} addToPlan={addToPlan} />);
-    expect(cookButton()).toHaveClass("bg-surface", "text-accent");
+    // Mint, not the light blue of before (Story 19.6).
+    expect(cookButton()).toHaveClass("bg-mint!", "text-mint-ink!");
     expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toHaveClass("bg-accent");
     expect(cookButton().parentElement).toBe(screen.getByRole("button", { name: "Lägg på matsedeln" }).parentElement);
-    expect(cookButton().parentElement).toHaveClass("flex-wrap");
+    expect(cookButton().parentElement).toHaveAttribute("data-testid", "fixed-action");
   });
 
   it("is there without Lägg på matsedeln, and not for a recipe without steps", () => {
@@ -342,11 +343,11 @@ describe("CookMode", () => {
     expect(animated.className).not.toMatch(/(^|\s)animate-/);
   });
 
-  it("closes with Stäng, releases the lock, and leaves the recipe view as it was with focus on Laga nu", async () => {
+  it("closes with Klar, releases the lock, and leaves the recipe view as it was with focus on Laga nu", async () => {
     const { sentinels } = installWakeLock();
     const { user } = await openCookMode();
     expect(sentinels).toHaveLength(1);
-    await user.click(inDialog().getByRole("button", { name: "Stäng" }));
+    await user.click(inDialog().getByRole("button", { name: "Klar" }));
     expect(queryDialog()).not.toBeInTheDocument();
     expect(sentinels[0].release).toHaveBeenCalledTimes(1);
     expect(cookButton()).toHaveFocus();
@@ -382,10 +383,10 @@ describe("CookMode", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
-  it("releases a lock that comes after Stäng at once, and shows no line", async () => {
+  it("releases a lock that comes after Klar at once, and shows no line", async () => {
     const { pending } = installWakeLock("wait");
     const { user } = await openCookMode();
-    await user.click(inDialog().getByRole("button", { name: "Stäng" }));
+    await user.click(inDialog().getByRole("button", { name: "Klar" }));
     const late = new FakeSentinel();
     await act(async () => pending[0](late));
     expect(late.release).toHaveBeenCalledTimes(1);
@@ -397,8 +398,8 @@ describe("CookMode", () => {
     const note = inDialog().getByText(wakeLockUnavailableText);
     expect(note).toHaveClass("text-meta", "text-ink-2");
     expect(inDialog().queryByRole("alert")).not.toBeInTheDocument();
-    // At the top, before Stäng and the step.
-    const close = inDialog().getByRole("button", { name: "Stäng" });
+    // At the top, before Klar and the step.
+    const close = inDialog().getByRole("button", { name: "Klar" });
     expect(note.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await user.click(next());
     expect(heading()).toHaveTextContent("Steg 2 av 3");
@@ -514,7 +515,7 @@ describe("CookMode", () => {
     document.documentElement.style.overflow = "clip";
     const { user } = await openCookMode();
     expect(document.documentElement.style.overflow).toBe("hidden");
-    await user.click(inDialog().getByRole("button", { name: "Stäng" }));
+    await user.click(inDialog().getByRole("button", { name: "Klar" }));
     expect(document.documentElement.style.overflow).toBe("clip");
     document.documentElement.style.overflow = "";
   });

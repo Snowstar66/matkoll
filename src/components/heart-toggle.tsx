@@ -8,6 +8,8 @@ export type HeartToggleProps = {
   onPressedChange: (pressed: boolean) => void;
   /** Screen readers hear "Favorit, på/av" through the label and `aria-pressed`. */
   label?: string;
+  /** Matte glass on a photo (Story 19.6): a 32 px round plate inside the 44 px tap area. */
+  glass?: boolean | "large";
   className?: string;
 };
 
@@ -16,7 +18,7 @@ export type HeartToggleProps = {
  * link, never inside it (a button in a link is invalid HTML): for a whole-row link,
  * stretch the link over the row and lift the heart above it with `relative z-10`.
  */
-export function HeartToggle({ pressed, onPressedChange, label = "Favorit", className }: HeartToggleProps) {
+export function HeartToggle({ pressed, onPressedChange, label = "Favorit", glass = false, className }: HeartToggleProps) {
   return (
     <button
       type="button"
@@ -25,11 +27,17 @@ export function HeartToggle({ pressed, onPressedChange, label = "Favorit", class
       onClick={() => onPressedChange(!pressed)}
       className={cx(
         "flex size-tap shrink-0 items-center justify-center rounded-full",
-        pressed ? "text-accent" : "text-ink-3",
+        pressed ? "text-accent" : glass ? "text-ink" : "text-ink-3",
         className,
       )}
     >
-      <HeartIcon size={22} filled={pressed} />
+      {glass ? (
+        <span className={cx("flex items-center justify-center rounded-full bg-glass backdrop-blur-md", glass === "large" ? "size-10" : "size-8")}>
+          <HeartIcon size={glass === "large" ? 22 : 18} filled={pressed} />
+        </span>
+      ) : (
+        <HeartIcon size={22} filled={pressed} />
+      )}
     </button>
   );
 }

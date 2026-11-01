@@ -452,7 +452,8 @@ export function OffersSheet({
       open={open}
       onClose={choosing ? () => setChoosing(false) : onClose}
       title={choosing ? "Föreslå rätter från vilken butik?" : "Veckans erbjudanden"}
-      closeLabel={choosing ? "Tillbaka" : undefined}
+      closeLabel="Klar"
+      onBack={choosing ? () => setChoosing(false) : undefined}
       subtitle={
         // With offers the meta line in the body says store, week and count (Story 16.11).
         stores.length > 0 && !choosing && offers.length === 0

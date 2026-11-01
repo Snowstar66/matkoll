@@ -35,6 +35,8 @@ export function RecipesView({
   return (
     <ImportRecipeProvider autoImport={autoImport} sites={sites}>
       <WarmAi kind="text" />
+      {/* Story 19.6: Recept has a 960 px frame on a desktop (three columns of cards), centred on the 720 px one. */}
+      <div className="flex flex-1 flex-col desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
       <PageHeader
         title="Recept"
         tab="/recept"
@@ -45,6 +47,7 @@ export function RecipesView({
       <Suspense fallback={<Skeleton rows={4} />}>
         <RecipesContent searchParams={searchParams} />
       </Suspense>
+      </div>
     </ImportRecipeProvider>
   );
 }

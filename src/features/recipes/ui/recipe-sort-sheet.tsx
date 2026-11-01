@@ -25,7 +25,7 @@ export type RecipeSortSheetProps = {
 /** Arket "Sortera" (Story 1.16): the four sorts with a check at the chosen one; a choice applies at once and closes the sheet. */
 export function RecipeSortSheet({ open, onClose, value, onChange }: RecipeSortSheetProps) {
   return (
-    <Sheet open={open} onClose={onClose} title="Sortera" closeLabel="Stäng" initialFocus="title">
+    <Sheet open={open} onClose={onClose} title="Sortera" closeLabel="Klar" initialFocus="title">
       <ListGroup label="Sortering">
         {RECIPE_SORTS.map((sort) => (
           <ListRow

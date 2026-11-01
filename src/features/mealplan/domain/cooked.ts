@@ -94,9 +94,9 @@ export function cookedPlan(
   return { deduct, check };
 }
 
-/** "5 dl − 2 dl → 3 dl": what is at home, what is taken, what is left. */
-export function deductionText(line: Pick<DeductLine, "current" | "unit">, deducted: number, left: number): string {
-  return `${formatQuantity(line.current, line.unit)} − ${formatQuantity(deducted, line.unit)} → ${formatQuantity(left, line.unit)}`;
+/** "Receptet använder 2 dl": what the dish takes (Story 19.5; the old "5 dl − 2 dl → 3 dl" is gone). */
+export function deductionText(line: Pick<DeductLine, "unit">, deducted: number): string {
+  return `Receptet använder ${formatQuantity(deducted, line.unit)}`;
 }
 
 /** The note under a line that goes to 0: "Du har bara 1 dl hemma, så det blir 0." */

@@ -39,7 +39,7 @@ export function SavedImports() {
     } catch {
       removed = false;
     }
-    showToast(removed ? "Receptet är borttaget." : "Det gick inte att ångra.", { role: removed ? "status" : "alert" });
+    showToast(removed ? "Tog bort receptet." : "Det gick inte att ångra.", { role: removed ? "status" : "alert" });
     if (removed) router.refresh();
   }
 
@@ -123,7 +123,7 @@ export function ImportFailures() {
             role="alert"
             action={
               <Button variant="text" onClick={() => void dismiss(job.id)}>
-                Stäng
+                Klar
               </Button>
             }
           >

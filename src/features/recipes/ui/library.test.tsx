@@ -798,7 +798,7 @@ describe("Library, view, sort and categories", () => {
     expect(within(first).getByRole("link")).toHaveAttribute("href", `/recept/${gryta.id}`);
     expect(first).toHaveTextContent("35 min · 4 port. · Kan lagas nu");
     expect(second).toHaveTextContent("1 port. · Saknar 2 varor");
-    expect(within(second).getByText("Saknar 2")).toHaveClass("text-sky-ink");
+    expect(within(second).getByText("Saknar 2 varor")).toHaveClass("text-sky-ink");
     expect(within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
     await user.click(within(second).getByRole("button", { name: "Favorit, Linssoppa" }));
     expect(setFavorite).toHaveBeenCalledWith({ id: soppa.id, isFavorite: true });

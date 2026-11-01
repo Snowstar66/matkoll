@@ -1,12 +1,6 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  deleteGraceMs,
-  isDeleteGraceActive,
-  resetDeleteGrace,
-  startDeleteGrace,
-  useConfirmDelete,
-} from "./confirm-delete";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cannotUndoText, useConfirmDelete } from "./confirm-delete";
 
 const deleted = vi.fn();
 
@@ -14,12 +8,8 @@ function Harness() {
   const { requestDelete, dialog } = useConfirmDelete();
   return (
     <>
-      {["Mjölk", "Ägg"].map((name) => (
-        <button
-          key={name}
-          type="button"
-          onClick={() => requestDelete({ question: `Ta bort ${name} från inköpslistan?`, onConfirm: () => deleted(name) })}
-        >
+      {["Lasagne", "Pannkakor"].map((name) => (
+        <button key={name} type="button" onClick={() => requestDelete({ question: `Ta bort ${name}?`, onConfirm: () => deleted(name) })}>
           {`Bin ${name}`}
         </button>
       ))}
@@ -28,54 +18,32 @@ function Harness() {
   );
 }
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  resetDeleteGrace();
-  deleted.mockClear();
-});
-afterEach(() => vi.useRealTimers());
+beforeEach(() => deleted.mockClear());
 
-const confirm = () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
-
-describe("useConfirmDelete", () => {
-  it("asks first and deletes only after Ta bort", () => {
+describe("useConfirmDelete (Story 19.4)", () => {
+  it("is a question sheet: the question is the title, the consequence stands under it, and only Ta bort deletes", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByText("Bin Mjölk"));
-    expect(screen.getByText("Ta bort Mjölk från inköpslistan?")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Bin Lasagne"));
+    const dialog = screen.getByRole("dialog", { name: "Ta bort Lasagne?" });
+    expect(dialog).toHaveTextContent(cannotUndoText);
     expect(deleted).not.toHaveBeenCalled();
-    confirm();
-    expect(deleted).toHaveBeenCalledWith("Mjölk");
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    expect(deleted).toHaveBeenCalledWith("Lasagne");
   });
 
-  it("does not start the window on Avbryt", () => {
+  it("keeps the thing when Avbryt is pressed", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByText("Bin Mjölk"));
+    fireEvent.click(screen.getByText("Bin Pannkakor"));
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     expect(deleted).not.toHaveBeenCalled();
-    expect(isDeleteGraceActive()).toBe(false);
   });
 
-  it("deletes at once inside the window, restarting it each time, and asks again after it", () => {
+  it("asks every time, with no window that skips the question", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByText("Bin Mjölk"));
-    confirm();
-    act(() => void vi.advanceTimersByTime(deleteGraceMs - 1000));
-    fireEvent.click(screen.getByText("Bin Ägg"));
-    expect(deleted).toHaveBeenLastCalledWith("Ägg");
-    act(() => void vi.advanceTimersByTime(deleteGraceMs - 1000));
-    expect(isDeleteGraceActive()).toBe(true);
-    act(() => void vi.advanceTimersByTime(1000));
-    expect(isDeleteGraceActive()).toBe(false);
-    deleted.mockClear();
-    fireEvent.click(screen.getByText("Bin Mjölk"));
-    expect(deleted).not.toHaveBeenCalled();
-    expect(screen.getByText("Ta bort Mjölk från inköpslistan?")).toBeInTheDocument();
-  });
-
-  it("shares the window app-wide", () => {
-    startDeleteGrace();
-    render(<Harness />);
-    fireEvent.click(screen.getByText("Bin Ägg"));
-    expect(deleted).toHaveBeenCalledWith("Ägg");
+    fireEvent.click(screen.getByText("Bin Lasagne"));
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    fireEvent.click(screen.getByText("Bin Pannkakor"));
+    expect(deleted).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "Ta bort Pannkakor?" })).toBeInTheDocument();
   });
 });

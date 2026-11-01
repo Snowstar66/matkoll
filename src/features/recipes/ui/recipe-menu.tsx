@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { MoreIcon } from "@/components/icons";
-import { TrashButton } from "@/components/trash-button";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
 import { useRecipeDelete } from "./recipe-delete";
@@ -73,13 +72,14 @@ export function RecipeMenu({
     setEditing(true);
   }
 
+  function remove() {
+    // Focus on ⋯ first, so the confirmation gives it back when it closes.
+    closeMenu();
+    ask({ id: recipe.id, title: recipe.title, onMenu });
+  }
+
   return (
     <div ref={root} className={className ? `relative flex ${className}` : "relative flex"}>
-      <TrashButton
-        label="Ta bort recept"
-        className="rounded-full"
-        onPress={() => ask({ id: recipe.id, title: recipe.title, onMenu })}
-      />
       {dialog}
       <button
         ref={toggle}
@@ -89,9 +89,11 @@ export function RecipeMenu({
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? menuId : undefined}
         onClick={() => setMenuOpen((open) => !open)}
-        className="flex size-tap items-center justify-center rounded-full text-ink-2"
+        className="flex size-tap items-center justify-center rounded-full text-ink"
       >
-        <MoreIcon size={24} />
+        <span className="flex size-10 items-center justify-center rounded-full bg-glass backdrop-blur-md">
+          <MoreIcon size={22} />
+        </span>
       </button>
       {menuOpen ? (
         <div
@@ -109,6 +111,15 @@ export function RecipeMenu({
             className="min-h-tap px-4 text-left text-body text-ink"
           >
             Ändra
+          </button>
+          {/* Story 19.4: Ta bort is last in the menu, in muted red, not a bin next to the heart. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={remove}
+            className="min-h-tap px-4 text-left text-body text-danger"
+          >
+            Ta bort
           </button>
         </div>
       ) : null}

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type FormEvent, startTransition, useActionState, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
+import { FieldError, FieldLabel, Input } from "@/components/field";
+import { FilterPills } from "@/components/filter-pills";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -190,6 +191,8 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
     if (!editing && !newId) setNewId(id);
     formData.set("id", id);
     formData.set("mode", editing ? "change" : "add");
+    // The chain is a row of chips, which a form does not send by itself.
+    formData.set("chain", values.chain);
     const check = storeFormSchema.safeParse(readStoreForm(formData));
     if (!check.success) {
       // Nothing is saved; the reasons show at their fields, and focus goes to the first.
@@ -209,14 +212,22 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
   }
 
   const formId = `${ids}-form`;
-  const textField = (field: Field, label: string, props: Partial<ComponentProps<typeof Input>> = {}, hint?: string) => {
+  const textField = (
+    field: Field,
+    label: string,
+    props: Partial<ComponentProps<typeof Input>> = {},
+    hint?: string,
+    optional = false,
+  ) => {
     const message = fieldError(field);
     const errorId = `${ids}-${field}-error`;
     const hintId = `${ids}-${field}-hint`;
     const describedBy = [hint ? hintId : null, message ? errorId : null].filter(Boolean).join(" ");
     return (
       <div className="flex flex-col gap-1.5">
-        <FieldLabel htmlFor={`${ids}-${field}`}>{label}</FieldLabel>
+        <FieldLabel htmlFor={`${ids}-${field}`} optional={optional}>
+          {label}
+        </FieldLabel>
         <Input
           ref={refs[field]}
           id={`${ids}-${field}`}
@@ -263,60 +274,71 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
       <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
         {textField("name", "Namn")}
         <div className="flex flex-col gap-1.5">
-          <FieldLabel htmlFor={`${ids}-chain`}>Kedja</FieldLabel>
-          <select
-            id={`${ids}-chain`}
-            name="chain"
+          <span id={`${ids}-chain`} className="text-control text-ink">
+            Kedja
+          </span>
+          <FilterPills
+            label="Kedja"
+            options={STORE_CHAINS.map((chain) => ({
+              value: chain,
+              label: chain,
+            }))}
             value={values.chain}
-            onChange={(event) => update({ chain: event.target.value as StoreChain })}
-            aria-describedby={editing ? `${ids}-chain-hint` : undefined}
-            className={inputClasses}
-          >
-            {STORE_CHAINS.map((chain) => (
-              <option key={chain} value={chain}>
-                {chain}
-              </option>
-            ))}
-          </select>
+            onChange={(chain) => update({ chain })}
+            describedBy={editing ? `${ids}-chain-hint` : undefined}
+          />
           {editing ? (
             <p id={`${ids}-chain-hint`} className="text-meta text-ink-2">
               {changeChainHint}
             </p>
           ) : null}
         </div>
-        {textField("externalStoreId", "Butiks-id", { spellCheck: false })}
-        {textField("address", "Adress")}
-        {textField("url", "URL", {
-          type: "url",
-          inputMode: "url",
-          autoCapitalize: "none",
-          autoCorrect: "off",
-          spellCheck: false,
-          placeholder: "https://",
-        })}
+        {textField(
+          "externalStoreId",
+          "Butiks-id",
+          { spellCheck: false },
+          undefined,
+          true,
+        )}
+        {textField("address", "Adress", {}, undefined, true)}
+        {textField(
+          "url",
+          "URL",
+          {
+            type: "url",
+            inputMode: "url",
+            autoCapitalize: "none",
+            autoCorrect: "off",
+            spellCheck: false,
+            placeholder: "https://",
+          },
+          undefined,
+          true,
+        )}
         {/* The link to the weekly offers (Story 9.1): only for a chain with an offer site. */}
-        {offerSiteFor(values.chain)
-          ? textField(
-              "offersUrl",
-              offersLinkLabel,
-              {
-                type: "url",
-                inputMode: "url",
-                autoCapitalize: "none",
-                autoCorrect: "off",
-                spellCheck: false,
-                placeholder: "https://www.ica.se/erbjudanden/…",
-              },
-              offersLinkHint,
-            )
-          : (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-body text-ink">{offersLinkLabel}</p>
-              <p data-testid="offers-link-chain" className="text-meta text-ink-2">
-                {offersLinkChainText}
-              </p>
-            </div>
-          )}
+        {offerSiteFor(values.chain) ? (
+          textField(
+            "offersUrl",
+            offersLinkLabel,
+            {
+              type: "url",
+              inputMode: "url",
+              autoCapitalize: "none",
+              autoCorrect: "off",
+              spellCheck: false,
+              placeholder: "https://www.ica.se/erbjudanden/…",
+            },
+            offersLinkHint,
+            true,
+          )
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-body text-ink">{offersLinkLabel}</p>
+            <p data-testid="offers-link-chain" className="text-meta text-ink-2">
+              {offersLinkChainText}
+            </p>
+          </div>
+        )}
         {editing ? null : (
           <label className="flex min-h-tap items-center gap-3 text-body text-ink">
             <input

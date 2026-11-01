@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { adminClient, boendeButton, e2eUserId, expectBoende, pickBoende, sitesEmail, sitesStorageState } from "./support";
+import { adminClient, boendeButton, e2eUserId, expectBoende, pickBoende, sitesEmail, sitesStorageState, chooseUnit } from "./support";
 
 // Story 8.2: choosing and managing places in Hemma. The spec has an E2E user
 // of its own (sitesEmail). Before each test the service role removes the
@@ -129,7 +129,7 @@ const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).get
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const announcement = (page: Page) => page.getByTestId("site-announcement").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-const itemSheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const itemSheet = (page: Page) => page.getByRole("dialog");
 
 /** Hemma, once React runs: the boende button (or "Lägg till boende" with one place) is enabled. */
 async function openHemma(page: Page, path = "/hemma") {
@@ -305,7 +305,7 @@ test("milk added with Stugan selected is on Stugan, and Hemma's fridge is as it 
   await itemSheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("mjö");
   await itemSheet(page).getByRole("button", { name: "Mjölk" }).click();
   await itemSheet(page).getByLabel("Mängd").fill("1");
-  await itemSheet(page).getByLabel("Enhet").selectOption("l");
+  await chooseUnit(itemSheet(page), "l");
   await itemSheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(toast(page)).toHaveText("Mjölk är sparad i kylen.");
   await expect(rows(page)).toHaveText(["Mjölk"]);

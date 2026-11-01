@@ -865,6 +865,7 @@ export function ShoppingList({
   });
   const canSend = exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
+  // The bin on a row removes at once and offers "Ångra": it can be undone, so it never asks (Story 19.4).
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
   /** A line's row, the same among the lines left and in I korgen. */
@@ -876,7 +877,6 @@ export function ShoppingList({
       chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
       onCheckedChange={(checked) => moveLine(line, checked)}
       onRemove={(moveFocus) => removal.remove(line, moveFocus)}
-      // Story 19.7: removed at once, "Tog bort Kaffe." with Ångra, no question first.
       onTrash={(press) => removal.remove(line, !press.pointer)}
       onOpen={() => openDetail(line)}
       checkingOff={checksUnavailable}

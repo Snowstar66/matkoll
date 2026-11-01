@@ -19,7 +19,7 @@ import type { ReviewPhoto } from "./use-pantry-analysis";
 // The photo during review (quick fix after Story 6.5): at the top of
 // Lagerförslag, a thumbnail of the resized photo that was sent ("Fotot av
 // kylen"), so Pontus can check the reading. A tap opens it larger in a sheet,
-// which closes with "Stäng", Esc, a tap outside or a swipe down, and gives
+// which closes with "Klar", Esc, a tap outside or a swipe down, and gives
 // focus back to the thumbnail. In the sheet, a tap on the photo switches
 // between fitting the screen and full size, which scrolls inside the sheet,
 // so small print can be read. A photo the browser cannot show says so
@@ -194,7 +194,7 @@ export function AnalyzedPhotoSheet({
       }}
       title={analyzedPhotoTitle(location)}
       subtitle={subtitle}
-      closeLabel="Stäng"
+      closeLabel="Klar"
     >
       {/* Mounted empty, so VoiceOver says the text when the photo fails, and again if it changes to "Fotot finns inte längre.". */}
       <div role="status">{failed ? <p className="text-body text-ink-2">{errorText}</p> : null}</div>

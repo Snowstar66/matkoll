@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/button";
+import { ChoiceRows } from "@/components/choice-rows";
+import { cannotUndoText } from "@/components/confirm-delete";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { formatPortions } from "@/components/stepper";
@@ -170,7 +173,8 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
         >
           Kopiera till {"\u2026"}
         </Button>
-        <Button variant="text" disabled={busy} onClick={ask} className="self-start -ml-3">
+        <Button variant="danger" disabled={busy} onClick={ask} className="self-start -ml-3">
+          <TrashIcon size={20} />
           Ta bort matsedel
         </Button>
       </div>
@@ -184,38 +188,45 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
       >
         <div className="flex flex-col gap-2">
           {copyError ? <Notice role="alert">{copyError}</Notice> : null}
-          {copyTargets().map((target) => (
-            <Button
-              key={target.weekStart}
-              variant="secondary"
-              fullWidth
-              disabled={copyBusy}
-              data-testid="copy-target"
-              onClick={() => copyTo(target)}
-            >
-              {target.label} ({target.name.toLocaleLowerCase("sv-SE")})
-              {targetCounts ? ` \u00b7 ${weekFillText(targetCounts[target.weekStart] ?? 0)}` : null}
-            </Button>
-          ))}
+          <ChoiceRows
+            kind="action"
+            label="Kopiera till"
+            value={null}
+            disabled={copyBusy}
+            onChange={(weekStart) => {
+              const target = copyTargets().find(
+                (candidate) => candidate.weekStart === weekStart,
+              );
+              if (target) copyTo(target);
+            }}
+            options={copyTargets().map((target) => ({
+              value: target.weekStart,
+              label: `${target.label} (${target.name.toLocaleLowerCase("sv-SE")})`,
+              detail: targetCounts
+                ? weekFillText(targetCounts[target.weekStart] ?? 0)
+                : undefined,
+              testId: "copy-target",
+            }))}
+          />
         </div>
       </Sheet>
       <Sheet
         open={asking}
         onClose={() => setAsking(false)}
-        title="Ta bort matsedel"
+        title={deletePlanQuestion(plan.name)}
         closeLabel="Avbryt"
         initialFocus="close"
         preventClose={deleting}
         footer={
           <>
             {deleteError ? <Notice role="alert">{deleteError}</Notice> : null}
-            <Button fullWidth disabled={deleting} onClick={remove}>
+            <Button variant="danger-confirm" fullWidth disabled={deleting} onClick={remove}>
               {deleting ? "Tar bort …" : "Ta bort"}
             </Button>
           </>
         }
       >
-        <p className="text-body text-ink">{deletePlanQuestion(plan.name)}</p>
+        <p className="text-body text-ink-2">{cannotUndoText}</p>
       </Sheet>
     </div>
   );

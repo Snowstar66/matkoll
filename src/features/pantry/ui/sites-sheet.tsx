@@ -478,7 +478,7 @@ export function SitesSheet({ open, onClose, session, sites, startRenaming = null
                 </div>
                 {canRemoveSite(site, sites) ? (
                   <Button
-                    variant="text"
+                    variant="danger"
                     aria-label={`Ta bort ${site.name}`}
                     disabled={removing || liveUndoSites.has(site.id)}
                     onClick={() => remove(site)}

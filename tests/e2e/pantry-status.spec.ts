@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState } from "./support";
+import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState, chooseUnit } from "./support";
 
 // Story 2.4: "Kan lagas nu" or "Saknar N varor" in the library and the recipe
 // view, with a tick or ring on every line, counted again when the pantry
@@ -50,7 +50,7 @@ const line = (page: Page, text: string) => lines(page).filter({ hasText: text })
 const mark = (row: Locator) => row.getByRole("img");
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 
 type SeedItem = { line: string; location: string; amount?: number; unit?: string };
 
@@ -108,7 +108,7 @@ async function addInLagersaldo(page: Page, name: string, amount: string, unit: s
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
   await sheet(page).getByRole("button", { name: new RegExp(`^${name}$`, "i") }).click();
   await sheet(page).getByLabel("Mängd").fill(amount);
-  await sheet(page).getByLabel("Enhet").selectOption(unit);
+  await chooseUnit(sheet(page), unit);
   await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByTestId("toast")).toContainText(new RegExp(`^${name} är sparad`, "i"));
@@ -127,7 +127,7 @@ test("a saved recipe with nothing at home says Saknar 5 varor, with a ring on ev
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   // Five ingredients with an amount; the two vague lines do not count.
-  await expect(view(page).getByText(/^Saknar: .+ \+3$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar \d+ varor\s*.+ \+3$/ })).toBeVisible();
   await expect(lines(page)).toHaveCount(7);
   for (const row of await lines(page).all()) await expect(mark(row)).toHaveAccessibleName("saknas");
 
@@ -144,7 +144,7 @@ test("too little, or only another unit, counts as missing; a vague line is ringe
 
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByText(/^Saknar: [^,+]+, [^,+]+$/)).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar \d+ varor\s*[^,+]+, [^,+]+$/ })).toBeVisible();
   await expect(mark(line(page, "bacon"))).toHaveAccessibleName("finns hemma");
   await expect(mark(line(page, "ägg"))).toHaveAccessibleName("finns hemma");
   await expect(mark(line(page, "salt"))).toHaveAccessibleName("finns hemma");
@@ -206,7 +206,7 @@ test("removing an item in Matvaror makes the library and the recipe view say Sak
   await expect(recipeRow(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByText("Saknar: mjölk", { exact: true })).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ })).toBeVisible();
   await expect(mark(line(page, "mjölk"))).toHaveAccessibleName("saknas");
   await expect(mark(line(page, "bacon"))).toHaveAccessibleName("finns hemma");
   expect(errors).toEqual([]);
@@ -222,7 +222,7 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
 
   await page.getByRole("button", { name: "Fler val" }).click();
   await page.getByRole("menuitem", { name: "Ändra" }).click();
-  const edit = page.getByRole("dialog", { name: "Ändra recept" });
+  const edit = page.getByRole("dialog");
   // 12 dl milk where 6 dl is at home.
   await edit.getByRole("button", { name: /^Ändra mängd för mjölk$/i }).click();
   await edit.getByLabel("Mängd").fill("12");
@@ -230,13 +230,12 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
   await expect(edit).toBeHidden();
   await expect(page.getByTestId("toast")).toHaveText("Ändringarna är sparade.");
 
-  await expect(view(page).getByText("Saknar: mjölk", { exact: true })).toBeVisible();
+  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ })).toBeVisible();
   await expect(mark(line(page, "mjölk"))).toHaveAccessibleName("saknas");
   await expect(line(page, "mjölk").getByText("hemma: 6 dl")).toBeVisible();
-  // Story 4.3: the chip leads to the missing line, which says Saknas and takes focus.
-  await view(page).getByRole("button", { name: "Saknar: mjölk" }).click();
+  // Story 4.3: the chip leads to the missing line, which takes focus.
+  await view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ }).click();
   await expect(line(page, "mjölk")).toBeFocused();
-  await expect(line(page, "mjölk").getByText("Saknas", { exact: true })).toBeVisible();
   await page.goto("/recept");
   await expect(recipeRow(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);

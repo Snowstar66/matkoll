@@ -4,7 +4,7 @@ import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
 import { noMatchText } from "@/components/empty-state";
-import { thingCountText } from "./thing-noun";
+import { thingCountText, thingNoun } from "./thing-noun";
 import { cardViewHref } from "./thing-card";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
