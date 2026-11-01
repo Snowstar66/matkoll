@@ -4900,3 +4900,89 @@ så att hela appen känns som en helhet.
 **Givet** Inköpslista, Matvaror, Förråd och Inställningar
 **När** jag jämför med modellerna 8–14
 **Så** stämmer de i ljust, mörkt, 390 och 1280 px, vid 375 px och 200 % text utan sidledes rullning
+
+## Epic 21: Hushållet
+
+Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "vi lägger det på on-hold". Byggs tidigast efter flytten till molnet (17.3–17.4), när fler hushåll använder appen. Bakgrund: i dag är ett hushåll ett enda konto som familjen delar (beslut 2026-10-31), och nya hushåll bjuds in genom `ALLOWED_EMAILS` och `pnpm users:sync`. Pontus vill kunna se vem som gjort vad, till exempel vem som bockade av en vara när man handlar ihop, och kanske en ändringslogg i Inställningar. Epic 20 är reserverad för Hjälp och välkomst.
+
+21.1 är liten och fristående. 21.2 är grunden för 21.3 och 21.4: all data flyttar från att ägas av kontot till att ägas av hushållet (migrering och nya RLS-regler i hela databasen, isoleringstestet från 17.1 utökas).
+
+### Story 21.1: Bjud in ett hushåll från appen
+
+Som Pontus (appens ägare),
+vill jag bjuda in en kompis hushåll från Inställningar,
+så att jag inte behöver terminalen eller Vercels miljövariabler för att släppa in någon.
+
+**Acceptance Criteria:**
+
+**Givet** att jag är appens ägare
+**När** jag öppnar Inställningar
+**Så** finns en ägarsida "Inbjudningar" som bara jag ser (samma ägarbegrepp som inkorgen i Epic 20)
+
+**Givet** ägarsidan
+**När** jag skriver en e-postadress och trycker Bjud in
+**Så** skapas kontot och personen kan logga in, utan att `ALLOWED_EMAILS` behöver ändras
+
+**Givet** en inbjuden adress
+**När** jag tar bort den
+**Så** kan personen inte längre logga in, och appen frågar först eftersom det inte går att ångra
+
+### Story 21.2: Hushållsmedlemmar med egna inloggningar
+
+Som en i familjen,
+vill jag ha en egen inloggning i samma hushåll,
+så att vi inte delar lösenord och appen vet vem jag är.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar → Hushåll
+**När** jag öppnar Medlemmar
+**Så** ser jag alla i hushållet med namn, och kan bjuda in en till med en länk eller kod
+
+**Givet** en inbjudningslänk
+**När** någon öppnar den och loggar in
+**Så** blir personen medlem i hushållet och ser samma recept, matsedel, lista, matvaror och förråd
+
+**Givet** databasen
+**När** migreringen körs
+**Så** ägs all data av hushållet i stället för kontot, befintliga konton blir hushåll med en medlem, och isoleringstestet visar att hushåll aldrig ser varandras data
+
+**Givet** P-knappen
+**När** jag är inloggad
+**Så** visar den mitt eget namn, inte hushållets
+
+### Story 21.3: Se vem som gjort vad
+
+Som en som handlar ihop med någon,
+vill jag se vem som bockade av eller lade till en vara,
+så att vi inte köper samma sak två gånger och vet vem man ska fråga.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan
+**När** en vara är avbockad av någon annan i hushållet
+**Så** visas en liten initial eller ett namn på raden ("Anna"), live
+
+**Givet** en vara jag själv lagt till eller bockat av
+**När** jag tittar på raden
+**Så** syns inget namn (bara andras ändringar markeras)
+
+**Givet** Matvaror och Förråd
+**När** jag öppnar en vara eller ett föremål
+**Så** står det vem som senast fyllde på eller ändrade, och när
+
+### Story 21.4: Ändringslogg
+
+Som en i hushållet,
+vill jag se en logg över vad som ändrats,
+så att jag förstår varför något försvann eller tillkom.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar → Hushåll
+**När** jag öppnar Ändringar
+**Så** ser jag de senaste ändringarna grupperade per dag ("Anna bockade av Mjölk · 17:42", "Pontus tog bort Tacos från matsedeln")
+
+**Givet** loggen
+**När** den blir lång
+**Så** sparas bara de senaste 90 dagarna
