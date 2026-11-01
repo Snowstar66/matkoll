@@ -141,7 +141,9 @@ describe("backup.yml", () => {
     expect(crons).toEqual(["17 3 * * 1,4"]);
     expect(on).toContain("  workflow_dispatch:");
     expect(on.join("\n")).not.toMatch(/pull_request|push:/);
-    expect(lines).toContain("    if: github.ref == 'refs/heads/main'");
+    expect(lines).toContain(
+      "    if: github.ref == 'refs/heads/main' && (vars.CLOUD_ENABLED == 'true' || vars.BACKUP_ENABLED == 'true')",
+    );
   });
 
   it("may only read the repository", () => {
@@ -177,7 +179,7 @@ describe("backup.yml", () => {
       new Map([
         ["SUPABASE_DB_URL", "${{ secrets.SUPABASE_DB_URL }}"],
         ["BACKUP_PASSPHRASE", "${{ secrets.BACKUP_PASSPHRASE }}"],
-        ["BACKUP_ENABLED", "${{ vars.BACKUP_ENABLED }}"],
+        ["BACKUP_ENABLED", "${{ vars.BACKUP_ENABLED || vars.CLOUD_ENABLED }}"],
       ]),
     );
     const rest = steps.slice(1);
