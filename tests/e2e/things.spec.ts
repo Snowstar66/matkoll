@@ -1645,3 +1645,57 @@ test("the field is there in a boende with rooms but no föremål, and Kom ihåg 
   await expect(chat.getByText("Klart. Passen ligger i Sovrummet · Byrån.")).toBeVisible();
   await expect(rooms(page)).toHaveText([/Sovrummet\s*1 föremål/]);
 });
+
+// Story 18.10: Snabbkamera with Chromium's fake camera (playwright.config.ts).
+test("Snabbkamera: tap, tap, tap, drop one with ×, and Klar sends each shot as its own card", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+  await page.goto(roomUrl("Garaget"));
+  const open = page.getByTestId("room-capture").getByRole("button", { name: /Snabbkamera/ });
+  await expect(open).toBeVisible();
+  // With E2E_SHOTS: the room's page at 390 px, 390 px dark and 1280 px, without the dev badge.
+  if (process.env.E2E_SHOTS) {
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    for (const [suffix, width, scheme] of [["390", 390, "light"], ["390-dark", 390, "dark"], ["1280", 1280, "light"]] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.emulateMedia({ colorScheme: scheme });
+      await shot(page, `room-${suffix}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "light" });
+  }
+  const before = (await cardsOf()).length;
+  await open.click();
+  const camera = page.getByRole("dialog", { name: "Snabbkamera, Garaget" });
+  await expect(camera.getByRole("heading", { name: "Garaget" })).toBeVisible();
+  const shutter = camera.getByRole("button", { name: "Ta kort", exact: true });
+  await expect(shutter).toBeEnabled();
+  for (let i = 0; i < 3; i++) await shutter.click();
+  await expect(camera.getByTestId("quick-camera-count")).toHaveText("3 kort");
+  await expect(camera.getByRole("img")).toHaveCount(3);
+  await shot(page, "camera-390");
+  await camera.getByRole("button", { name: "Ta bort kort 2" }).click();
+  await expect(camera.getByTestId("quick-camera-count")).toHaveText("2 kort");
+  await camera.getByRole("button", { name: "Klar, skicka 2 kort" }).click();
+  await expect(camera).toBeHidden();
+  // The camera is off: no live track is left.
+  expect(await page.evaluate(() => document.querySelectorAll("video").length)).toBe(0);
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 30_000 }).toBe(before + 2);
+  const saved = (await adminClient().from("thing_photo").select("media_type").eq("user_id", userId).order("created_at", { ascending: false }).limit(2)).data!;
+  expect(saved.map((row) => row.media_type)).toEqual(["image/jpeg", "image/jpeg"]);
+});
+
+test("Snabbkamera without a camera says so calmly and falls back to Ta foto", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error("none"), { name: "NotFoundError" }));
+  });
+  await page.goto(roomUrl("Garaget"));
+  await page.getByTestId("room-capture").getByRole("button", { name: /Snabbkamera/ }).click();
+  const camera = page.getByRole("dialog", { name: "Snabbkamera, Garaget" });
+  await expect(camera.getByRole("alert")).toContainText("Hittar ingen kamera här");
+  // A desktop's Ta foto is the file window.
+  const chooser = page.waitForEvent("filechooser");
+  await camera.getByRole("button", { name: "Använd Ta foto" }).click();
+  await chooser;
+  await expect(camera).toBeHidden();
+});

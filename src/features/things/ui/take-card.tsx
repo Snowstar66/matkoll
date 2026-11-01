@@ -35,6 +35,8 @@ import {
 import { maxPlaceNameChars, normalizePlaceName } from "../domain/thing-place";
 import { useLastRoom } from "./device-store";
 import { useCardUpload } from "./use-card-upload";
+import { QuickCamera } from "./quick-camera";
+import { quickCameraHintText, quickCameraText } from "../domain/quick-camera";
 
 // "Ta kort" (Story 18.11): the first row of Förråd, and the two buttons on a
 // room's page (Story 18.16). A sheet asks only where the card is taken: the room
@@ -48,6 +50,8 @@ import { useCardUpload } from "./use-card-upload";
 // camera "Ta ett till" opens the camera again for the same place. The inputs are
 // always in the page and clicked in the tap itself (iOS Safari refuses an input
 // that no tap opened); the place is made once the images are chosen.
+// Story 18.10: on a room's page "Snabbkamera" comes first: an in-app camera
+// where every tap is a shot and "Klar" sends them all, one card each.
 
 export type TakeCardProps = {
   siteId: string;
@@ -91,6 +95,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   const placeId = useRef<string | null>(null);
   const reuse = useRef(false);
   const [viaCamera, setViaCamera] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
   const refresh = useCallback(() => router.refresh(), [router]);
   const upload = useCardUpload(refresh);
   const [problem, setProblem] = useState<AppError | null>(null);
@@ -159,6 +164,32 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   async function onChosen(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
+    await deliver(files);
+  }
+
+  /** Snabbkamera on a room's page: the room is the page's own. */
+  function openQuick() {
+    if (placing || upload.state.kind === "sending") return;
+    where.current = { siteId, room: defaultRoom ?? "", part: "", box: false };
+    reuse.current = false;
+    setQuickOpen(true);
+  }
+
+  function onQuickDone(photos: File[]) {
+    setQuickOpen(false);
+    reuse.current = false;
+    setViaCamera(false);
+    void deliver(photos);
+  }
+
+  /** No camera or no permission: today's "Ta foto", in the same tap. */
+  function onQuickFallback() {
+    setQuickOpen(false);
+    choose(true, true);
+  }
+
+  /** Makes the place once (or reuses it for "Ta ett till"), then sends every image as its own card, in order. */
+  async function deliver(files: File[]) {
     const target = where.current;
     if (files.length === 0 || !target || placing) return;
     setProblem(null);
@@ -198,6 +229,19 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
     <div className="flex flex-col gap-3" data-testid="take-card">
       {layout === "room" ? (
         <div className="flex flex-col gap-2 rounded-lg bg-surface p-3" data-testid="room-capture">
+          <button
+            type="button"
+            disabled={sending}
+            onClick={openQuick}
+            className="inline-flex min-h-button w-full flex-col items-center justify-center rounded-md bg-accent px-4 py-2 text-center text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            data-testid="quick-camera-open"
+          >
+            <span className="inline-flex items-center gap-2 text-headline">
+              <CameraIcon size={22} className="shrink-0" />
+              {quickCameraText}
+            </span>
+            <span className="text-meta opacity-85">{quickCameraHintText}</span>
+          </button>
           <CaptureButtons disabled={sending} onChoose={(camera) => choose(camera, true)} />
           <div className="flex flex-wrap items-center justify-between gap-x-3">
             {sub ? <p className="px-1 text-meta text-ink-3">{sub}</p> : <span />}
@@ -254,6 +298,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
       ) : null}
       <input ref={pickerRef} type="file" accept={pickerAccept} multiple tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
+      {quickOpen ? <QuickCamera room={defaultRoom ?? ""} onCancel={() => setQuickOpen(false)} onDone={onQuickDone} onFallback={onQuickFallback} /> : null}
       <Sheet open={open} onClose={() => setOpen(false)} title={captureTitle} closeLabel="Avbryt" preventClose={placing}>
         <div className="flex flex-col gap-4">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
