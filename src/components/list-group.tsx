@@ -38,7 +38,7 @@ export function ListGroup({ children, labelledBy, label, inset, className, ...da
         "flex flex-col overflow-hidden rounded-lg bg-surface",
         inset === undefined
           ? "divide-y divide-hairline"
-          : "[&>li+li]:relative [&>li+li]:before:pointer-events-none [&>li+li]:before:absolute [&>li+li]:before:top-0 [&>li+li]:before:right-0 [&>li+li]:before:left-(--inset) [&>li+li]:before:border-t [&>li+li]:before:border-hairline [&>li+li]:before:content-['']",
+          : "[&>li+li]:relative [&>li+li]:before:z-10 before:pointer-events-none [&>li+li]:before:absolute [&>li+li]:before:top-0 [&>li+li]:before:right-0 [&>li+li]:before:left-(--inset) [&>li+li]:before:border-t [&>li+li]:before:border-hairline [&>li+li]:before:content-['']",
         className,
       )}
     >

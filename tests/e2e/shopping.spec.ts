@@ -433,11 +433,11 @@ test("an own item without a catalog ingredient goes under Övrigt, and shows alt
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
   await expect(customSheet(page)).toHaveCount(0);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toHaveCount(0);
   await expect(progress(page)).toHaveText(/^1 vara kvar\s*0 av 1 i korgen$/);
   await page.reload();
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
   expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["diskmedel", null]]);
   expect(errors).toEqual([]);
 });
@@ -468,7 +468,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await expect(customSheet(page)).toHaveCount(0);
     const mejeri = region(page, "Mejeri & ägg").getByTestId("shopping-line");
     await expect(mejeri).toHaveCount(2);
-    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*2 förp\s*Egen vara\s*Ta bort$/);
+    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*Egen\s*2 förp\s*Ta bort$/);
     await expect(mejeri.filter({ hasText: "1 dl" })).toContainText(`${gryta} · ${paj}`);
     expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["Grädde", ids.get("Grädde")]]);
     expect(errors).toEqual([]);
@@ -483,8 +483,8 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
-  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Egen\s*Ta bort$/]);
 
   await actionsAnswered(page, 1, () => check(page, "diskmedel").click());
   // Moved to I korgen (Story 11.4): Övrigt had only diskmedel.
@@ -527,7 +527,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*2 förp\s*Ta bort$/]);
 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
@@ -541,7 +541,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await expect(page).toHaveURL(/\/lista$/);
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
   await expect(region(page, "Mejeri & ägg").getByTestId("shopping-line")).toContainText(["Grädde"]);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*2 förp\s*Ta bort$/]);
   expect(errors).toEqual([]);
 });
 
@@ -754,7 +754,7 @@ test("an own item's detail changes it in place, keeping its id and check", async
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
   await expect(detailSheet(page, "diskmedel")).toHaveCount(0);
 
-  await expect(region(page, "I korgen").getByTestId("shopping-line")).toHaveText([/^diskmedel eko\s*2 förp\s*i korgen\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "I korgen").getByTestId("shopping-line")).toHaveText([/^diskmedel eko\s*i korgen\s*Egen\s*2 förp\s*Ta bort$/]);
   await expect(check(page, "diskmedel eko, 2 förp")).toBeChecked();
   expect((await storedCustomItems()).map((item) => [item.id, item.label])).toEqual([[seeded.get("diskmedel"), "diskmedel eko"]]);
   expect(errors).toEqual([]);
@@ -816,7 +816,7 @@ test("an own item stays on the list in another week, also one without a plan, un
 
   // Next week has no plan: the item is on its list all the same, and can be checked off there.
   await page.goto(nextWeek);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^tvättmedel\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^tvättmedel\s*Egen\s*Ta bort$/]);
   await expect(addCustomButton(page)).toBeVisible();
   await actionsAnswered(page, 1, () => check(page, "tvättmedel").click());
   await expect.poll(async () => {

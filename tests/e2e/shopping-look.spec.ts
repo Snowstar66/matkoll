@@ -247,7 +247,7 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(lineOf(page, "Gul lök")).toContainText(stroganoff);
   // The vague line counted against Stugan, and the own item.
   await expect(lineOf(page, "Senap")).toContainText(`Saknas i Stugan · ${stroganoff}`);
-  await expect(lineOf(page, "Diskmedel")).toContainText("Egen vara");
+  await expect(lineOf(page, "Diskmedel")).toContainText("Egen");
   await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   await expect(page.getByText(/från /).filter({ visible: true })).toHaveCount(0);
   // The selected store's product choice, as a chip beside Falukorv.
