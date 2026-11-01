@@ -182,12 +182,9 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
   return (
     <>
       {photo && removedId !== photo.id ? (
-        // Under "Fotografera kylen" in the camera row (Story 14.6): "Senaste idag 15:42 · Visa".
-        <div data-testid="pantry-latest-photo" className="flex flex-wrap items-center gap-x-1 text-meta text-ink-3">
-          <p>
-            {latestPhotoText(timeOf(photo))}
-            <span aria-hidden="true"> ·</span>
-          </p>
+        // Under "Fotografera kylen" in the camera row (Story 14.6): "Senaste foto idag 15:42 · Visa".
+        <div data-testid="pantry-latest-photo" className="flex items-center justify-between gap-3 text-meta text-ink-2">
+          <p className="min-w-0">{latestPhotoText(timeOf(photo))}</p>
           <button
             type="button"
             aria-haspopup="dialog"
@@ -200,13 +197,13 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
               setView("photo");
             }}
             // A text button in meta type that keeps a 44 px tap area without making the line taller.
-            className="-mx-2 -my-3 inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-medium text-accent"
+            className="-mr-2 -my-1.5 inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-md px-2 text-[15px] font-medium text-accent"
           >
             {latestPhotoOpenText}
           </button>
         </div>
       ) : (
-        <p data-testid="pantry-no-photo" className="text-meta text-ink-3">
+        <p data-testid="pantry-no-photo" className="text-meta text-ink-2">
           {noPhotoText}
         </p>
       )}

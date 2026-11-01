@@ -262,7 +262,7 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(listPlacePhotos).toHaveBeenCalledWith(site.id);
     const line = screen.getByTestId("pantry-latest-photo");
-    expect(line).toHaveTextContent("Senaste idag 15:42");
+    expect(line).toHaveTextContent("Senaste foto idag 15:42");
     expect(within(line).getByRole("button", { name: "Visa senaste foto av kylen" })).toBeInTheDocument();
     // Inside the camera area, under "Fotografera kylen" (Story 14.6).
     expect(screen.getByTestId("pantry-camera")).toContainElement(line);

@@ -3,7 +3,7 @@
 import { type ChangeEvent, type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
-import { PhotoRow } from "@/components/photo-row";
+import { CameraIcon } from "@/components/icons";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { Location } from "@/features/catalog";
 import {
@@ -145,20 +145,28 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
       ) : null}
       {/* Story 14.6: a quiet row like the shopping row in Matsedel. The camera button covers the card (stretched);
           the line under it, with "Visa", sits above that. While a photo is read it is hidden, not unmounted. */}
-      <PhotoRow
-        hidden={analyzing}
-        buttonRef={cameraButtonRef}
-        disabled={switching}
-        onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
-        title={cameraButtonText(location)}
-      >
-        {children}
-      </PhotoRow>
-      {touch && !analyzing ? (
-        <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="self-center">
-          Välj bild
+      {/* Story 19.7: the camera is a button (white, green text, a camera), "Välj bild" a text button beside it, and the
+          line "Senaste foto … · Visa" a thin row under them. While a photo is read they are hidden, not unmounted. */}
+      <div hidden={analyzing} className={analyzing ? "hidden" : "flex items-center gap-3"}>
+        <Button
+          variant="secondary"
+          ref={cameraButtonRef}
+          disabled={switching}
+          onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
+          className="min-w-0 grow"
+        >
+          <CameraIcon size={22} />
+          {cameraButtonText(location)}
         </Button>
-      ) : null}
+        {touch ? (
+          <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="shrink-0">
+            Välj bild
+          </Button>
+        ) : null}
+      </div>
+      <div hidden={analyzing} className={analyzing ? "hidden" : "-mt-1"}>
+        {children}
+      </div>
       {touch ? (
         <input
           ref={cameraRef}

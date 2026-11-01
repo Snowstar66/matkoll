@@ -179,8 +179,8 @@ describe("photoTimeText", () => {
 
 describe("the texts of the line and the sheet", () => {
   it("has the line, its button's name and the subtitle with and without points", () => {
-    expect(latestPhotoText("idag 15:42")).toBe("Senaste idag 15:42");
-    expect(latestPhotoText("24 okt 15:42")).toBe("Senaste 24 okt 15:42");
+    expect(latestPhotoText("idag 15:42")).toBe("Senaste foto idag 15:42");
+    expect(latestPhotoText("24 okt 15:42")).toBe("Senaste foto 24 okt 15:42");
     expect(latestPhotoOpenText).toBe("Visa");
     expect(latestPhotoOpenLabel("Frys")).toBe("Visa senaste foto av frysen");
     expect(photoTakenText("idag 15:42", true)).toBe("Taget idag 15:42. Numren visar vad AI:n läste av.");

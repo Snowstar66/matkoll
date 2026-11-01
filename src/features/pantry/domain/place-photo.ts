@@ -240,7 +240,7 @@ export function photoTimeText(takenAt: Date, now: Date): string {
 
 /** The line under "Fotografera kylen" (Story 14.6): "Senaste idag 15:42". */
 export function latestPhotoText(time: string): string {
-  return `Senaste ${time}`;
+  return `Senaste foto ${time}`;
 }
 
 /** The same line when the location has no photo younger than 30 days. */

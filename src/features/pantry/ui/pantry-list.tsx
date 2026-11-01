@@ -239,7 +239,7 @@ function CategoryGroup({
   return (
     <div className="flex flex-col gap-2" data-testid="pantry-category">
       <CategoryHeader id={headingId} category={group.category} count={group.items.length} />
-      <ListGroup labelledBy={headingId}>
+      <ListGroup labelledBy={headingId} inset={16}>
         {group.items.map((item) => {
           const { meta, extra, removeLabel } = names.get(item.id) ?? { meta: null, extra: undefined, removeLabel: `Ta bort ${item.name}` };
           const amount = item.amount !== null && item.unit !== null ? formatQuantity(item.amount, item.unit) : "";
@@ -249,6 +249,9 @@ function CategoryGroup({
               <SwipeRow actionLabel="Ta bort" actionName={removeLabel} onAction={(via) => onRemove(item, via === "keyboard")}>
                 <ListRow
                   as="div"
+                  plain
+                  compact
+                  oneLine
                   title={item.name}
                   meta={meta}
                   srStatus={extra}
@@ -259,7 +262,7 @@ function CategoryGroup({
                       // The amount to the right of the name, and when the item has lain too long a small sand label (Story 14.6).
                       // "dagar" is hidden from nobody: the label is the text.
                       <span className="flex items-center gap-2 pr-2">
-                        {amount ? <span className="text-meta text-ink-3 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
+                        {amount ? <span className="text-[15px] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
                         {old ? (
                           <span className="rounded-full bg-sand px-2 py-0.5 text-badge text-sand-ink" data-testid="pantry-old">
                             {old}
