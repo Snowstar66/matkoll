@@ -1567,6 +1567,65 @@ test("Kom ihåg fits 375 px in dark mode with 200 % text, and its targets are at
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+test("Story 18.24: jag har köpt … says where it is with Fyll på open, or proposes the place of its kind with the count", async ({ page }) => {
+  const admin = adminClient();
+  const place = await seedPlace(hemma, "Förrådet", [
+    { name: "Gravljus", category: "Hushåll" },
+    { name: "Skarvsladdar", category: "Elektronik" },
+  ], { part: "Översta hyllan", takenAt: "2026-10-12T10:00:00Z" });
+  const gravljus = (await admin.from("thing_item").select("id").eq("place_id", place).eq("name", "Gravljus").single()).data!.id;
+  expect((await admin.from("thing_item").update({ quantity: 3 }).eq("id", gravljus)).error).toBeNull();
+  expect((await admin.from("thing_change").insert({ user_id: userId, item_id: gravljus, kind: "card", quantity_after: 3, created_at: "2026-10-12T10:00:00Z" })).error).toBeNull();
+  const usage = async () => (await admin.from("ai_usage").select("id").eq("user_id", userId)).data?.length ?? 0;
+  // With E2E_SHOTS: each state at 390 px, 390 px dark and 1280 px, without the dev badge.
+  const shots = async (name: string) => {
+    if (!process.env.E2E_SHOTS) return;
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    for (const [suffix, width, scheme] of [["390", 390, "light"], ["390-dark", 390, "dark"], ["1280", 1280, "light"]] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.emulateMedia({ colorScheme: scheme });
+      await shot(page, `${name}-${suffix}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "light" });
+  };
+
+  await page.goto("/prylar");
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  const chat = page.getByTestId("chat");
+  await field.fill("jag har köpt 2 gravljus, var förvarar vi dem?");
+  await field.press("Enter");
+  // One AI call; the database finds it, and Fyll på is open on 2: one tap fills up.
+  const first = chat.getByTestId("chat-turn").first();
+  await expect(first.getByTestId("chat-answer")).toContainText("I Förrådet · Översta hyllan – där finns 3.");
+  await expect(first.getByTestId("hit-count")).toHaveText("3 st");
+  await shots("18-24-finns");
+  await first.getByRole("button", { name: "Fyll på 2" }).click();
+  await expect(first.getByTestId("hit-count")).toHaveText("5 st");
+  await expect(page.getByTestId("toast")).toContainText("Fyllde på 2 gravljus.");
+  expect(await usage()).toBe(1);
+
+  // Not written in: Kom ihåg where föremål of its kind are, with the count; Ändra has Antal (valfritt).
+  await field.fill("jag har köpt 4 batterier, var lägger vi dem?");
+  await field.press("Enter");
+  await expect(chat.getByText("Inga batterier inskrivna än. Ska de ligga i Förrådet · Översta hyllan, som skarvsladdarna?")).toBeVisible();
+  await expect(page.getByTestId("proposal-where")).toHaveText("Förrådet · Översta hyllan · 4 st");
+  expect(await usage()).toBe(2);
+  await shots("18-24-finns-inte");
+  await chat.getByRole("button", { name: "Ändra" }).click();
+  const sheet = page.getByRole("dialog", { name: "Batterier" });
+  const count = sheet.getByRole("group", { name: "Antal (valfritt)" });
+  await expect(count).toContainText("4 st");
+  await shots("18-24-andra");
+  await count.getByRole("button", { name: "Fler" }).click();
+  await count.getByRole("button", { name: "Färre" }).click();
+  await sheet.getByRole("button", { name: "Kom ihåg" }).click();
+  await expect(chat.getByText("Klart. Batterier ligger i Förrådet · Översta hyllan.")).toBeVisible();
+  const saved = (await admin.from("thing_item").select("id, quantity, source").eq("user_id", userId).eq("name", "Batterier").single()).data!;
+  expect(saved).toMatchObject({ quantity: 4, source: "noted" });
+  expect((await admin.from("thing_change").select("kind, quantity_after").eq("item_id", saved.id)).data).toEqual([{ kind: "noted", quantity_after: 4 }]);
+});
+
 test("the field is there in a boende with rooms but no föremål, and Kom ihåg makes the first föremål (Story 18.19)", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByRole("textbox", { name: "Sök eller fråga" })).toHaveCount(0);

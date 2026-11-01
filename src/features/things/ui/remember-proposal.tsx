@@ -6,12 +6,16 @@ import { cx } from "@/components/cx";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
+import { Stepper } from "@/components/stepper";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { rememberThing } from "../actions/remember-thing";
 import { maxThingNameChars } from "../domain/thing-edit";
 import {
   chooseRoomText,
   editProposalText,
+  maxNotedCount,
+  notedCountLabel,
+  notedCountText,
   movedFromText,
   newRoomBadgeText,
   notedIcon,
@@ -26,13 +30,16 @@ import {
   type NotedProposal,
   type Remembered,
 } from "../domain/thing-noted";
+import { countText, lessCountText, moreCountText } from "../domain/thing-count";
 import { maxPlaceNameChars, normalizePlaceName } from "../domain/thing-place";
 
 // "Kom ihåg" in the chat (Story 18.19): the AI's proposal of a thing to remember
 // in the answer's bubble (a note tile, the name, "Sovrummet · Översta
 // byrålådan"), "Kom ihåg" to save it as it is, and "Ändra" for a sheet with the
 // name, the room (with the boende's rooms as chips) and the part. Nothing is
-// saved before a tap.
+// saved before a tap. Story 18.24: the sheet ends with "Antal (valfritt)", a
+// stepper where 0 is "Räkna inte"; a count said with something bought ("4
+// batterier") is there from the start and shows in the proposal ("4 st").
 
 type Fields = { name?: string; room?: string; part?: string };
 
@@ -64,12 +71,13 @@ export function RememberProposal({
   const [name, setName] = useState(proposal.name);
   const [room, setRoom] = useState(proposal.room ?? "");
   const [part, setPart] = useState(proposal.part ?? "");
+  const [count, setCount] = useState(proposal.count ?? 0);
   const [errors, setErrors] = useState<Fields>({});
   const nameRef = useRef<HTMLInputElement>(null);
   const roomRef = useRef<HTMLInputElement>(null);
   const partRef = useRef<HTMLInputElement>(null);
 
-  async function save(values: { name: string; room: string; part: string }): Promise<boolean> {
+  async function save(values: { name: string; room: string; part: string; count: number }): Promise<boolean> {
     if (saving) return false;
     setSaving(true);
     setNotice(null);
@@ -84,6 +92,7 @@ export function RememberProposal({
         part: values.part,
         category: proposal.category,
         replaces: same ? (proposal.moves?.id ?? null) : null,
+        count: values.count > 0 ? values.count : null,
       });
     } catch {
       result = fail("things_noted_failed");
@@ -112,7 +121,7 @@ export function RememberProposal({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (await save({ name, room, part })) setOpen(false);
+    if (await save({ name, room, part, count })) setOpen(false);
   }
 
   const where = proposal.room ? (
@@ -124,7 +133,10 @@ export function RememberProposal({
         </span>
       ) : null}
       {proposal.part ? ` · ${proposal.part}` : null}
+      {proposal.count ? ` · ${countText(proposal.count)}` : null}
     </>
+  ) : proposal.count ? (
+    `${chooseRoomText} · ${countText(proposal.count)}`
   ) : (
     chooseRoomText
   );
@@ -153,7 +165,7 @@ export function RememberProposal({
         <Button
           variant="compact-primary"
           aria-disabled={saving || undefined}
-          onClick={() => (proposal.room ? void save({ name: proposal.name, room: proposal.room, part: proposal.part ?? "" }) : openSheet())}
+          onClick={() => (proposal.room ? void save({ name: proposal.name, room: proposal.room, part: proposal.part ?? "", count: proposal.count ?? 0 }) : openSheet())}
           data-testid="proposal-save"
         >
           {saving ? savingNotedText : proposal.room ? rememberText : chooseRoomText}
@@ -245,6 +257,22 @@ export function RememberProposal({
               aria-describedby={errors.part ? `${ids}-part-error` : undefined}
             />
             {errors.part ? <FieldError id={`${ids}-part-error`}>{errors.part}</FieldError> : null}
+          </div>
+          <div role="group" aria-labelledby={`${ids}-count`} className="flex flex-col gap-2" data-testid="proposal-count">
+            <span id={`${ids}-count`} className="text-control text-ink">
+              {notedCountLabel} <span className="font-normal text-ink-2">{optionalText}</span>
+            </span>
+            <Stepper
+              allowZero
+              min={0}
+              max={maxNotedCount}
+              value={count}
+              onChange={setCount}
+              format={notedCountText}
+              decreaseLabel={lessCountText}
+              increaseLabel={moreCountText}
+              onBg
+            />
           </div>
           <Button type="submit" fullWidth aria-disabled={saving || undefined} data-testid="proposal-sheet-save">
             {saving ? savingNotedText : rememberText}

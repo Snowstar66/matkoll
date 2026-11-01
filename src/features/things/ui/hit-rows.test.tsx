@@ -144,6 +144,21 @@ describe("a search hit's sheet", () => {
     expect(screen.getByTestId("thing-hit")).toBeInTheDocument();
   });
 
+  it("opens Fyll på at once on the amount bought, and one tap fills up (Story 18.24)", async () => {
+    changeThingCount.mockResolvedValue(ok({ changeId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a99", quantity: 5 }));
+    render(
+      <ToastProvider>
+        <RankedHits best={[{ ...hammer, name: "Gravljus", quantity: 3 }]} similar={[]} label="Träffar" refill={{ itemId: id, amount: 2 }} />
+      </ToastProvider>,
+    );
+    const confirm = screen.getByRole("button", { name: "Fyll på 2" });
+    expect(confirm).toHaveFocus();
+    await userEvent.click(confirm);
+    expect(changeThingCount).toHaveBeenCalledWith({ itemId: id, delta: 2 });
+    expect((await screen.findAllByText("Fyllde på 2 gravljus.")).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("hit-count")).toHaveTextContent("5 st");
+  });
+
   it("opens a noted föremål's sheet with Visa i rummet ›, and a thing written into a box opens the box's page", async () => {
     hits({ ...hammer, noted: true, photoId: null, part: "Översta byrålådan" }, { ...hammer, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Skarvsladd", written: true, photoId: null, isBox: true, part: "Black box" });
     const [noted, written] = screen.getAllByTestId("thing-hit");

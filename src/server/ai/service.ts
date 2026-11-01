@@ -42,6 +42,7 @@ import {
   thingTermsAnswer,
   type ThingCategory,
   type ThingIntent,
+  type ThingToRefill,
   type ThingToRemember,
   parseAskAnswer,
   listThingsAnswer,
@@ -236,7 +237,7 @@ export type ThingSearchTermsInput = {
  * lower case, 2 to 40 characters), what the text is (Story 18.19), and the
  * thing to remember when it is one.
  */
-export type ThingSearchTermsResult = { terms: string[]; intent: ThingIntent; remember: ThingToRemember | null };
+export type ThingSearchTermsResult = { terms: string[]; intent: ThingIntent; remember: ThingToRemember | null; refill: ThingToRefill | null };
 
 /** What categorizeThings gets (Story 18.13): the names written into a box, each on one line. */
 export type CategorizeThingsInput = { names: string[] };
