@@ -283,6 +283,6 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-25T09:10:00+01:00"))] });
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(screen.getByText(unavailable)).toBeInTheDocument();
-    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste igår 09:10");
+    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste foto igår 09:10");
   });
 });
