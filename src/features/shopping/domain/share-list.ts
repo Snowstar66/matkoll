@@ -1,4 +1,4 @@
-import { categoryTiles } from "@/components/category-header";
+import { categoryIcons } from "@/components/category-header";
 import { formatQuantity } from "@/features/catalog";
 import type { ShoppingLine } from "./compute-list";
 import { groupByCategory } from "./list-text";
@@ -26,7 +26,7 @@ export function shareListText(lines: readonly ShoppingLine[], week: number | nul
       const quantity = formatQuantity(line.amount, line.unit);
       return quantity ? `\u2610 ${line.label} ${quantity}` : `\u2610 ${line.label}`;
     });
-    return [`${categoryTiles[category].icon} ${category.toUpperCase()}`, ...items].join("\n");
+    return [`${categoryIcons[category].icon} ${category.toUpperCase()}`, ...items].join("\n");
   });
   if (departments.length === 0) return "";
   const heading = week === null ? "\u{1F6D2} Inköpslista" : `\u{1F6D2} Inköpslista v. ${week}`;

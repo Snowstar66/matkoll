@@ -97,11 +97,12 @@ describe("design tokens", () => {
 });
 
 /**
- * Category tiles (Epic 11) are decoration: the category's name always stands
- * beside them, so no contrast ratio applies. They must still be told apart
- * from the page, in both modes.
+ * The tiles in Förråd (categories and rooms of things, Epic 18) are decoration:
+ * the name always stands beside them, so no contrast ratio applies. They must
+ * still be told apart from the page, in both modes. The food category headers
+ * have had no tile since ikoner.html B.
  */
-const categoryTiles = ["mint", "sky", "sand", "tile-clay", "tile-lilac", "border"];
+const tiles = ["mint", "sky", "sand", "tile-clay", "tile-lilac", "border"];
 
 /** WCAG 1.4.11: borders that show where a control is need 3:1. [border, background, where] */
 const controlBorderPairs: [string, string, string][] = [
@@ -128,7 +129,7 @@ describe.each([
     expect(contrast(tokens[border], tokens[background])).toBeGreaterThanOrEqual(3);
   });
 
-  it.each(categoryTiles)("category tile: %s stands apart from bg", (tile) => {
+  it.each(tiles)("tile: %s stands apart from bg", (tile) => {
     expect(contrast(tokens[tile], tokens.bg)).toBeGreaterThanOrEqual(1.05);
   });
 });

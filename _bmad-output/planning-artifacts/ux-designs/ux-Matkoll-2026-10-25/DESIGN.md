@@ -174,6 +174,7 @@ spacing:
   button-height: 52px
   fixed-action-gap: 12px
   tile-size: 30px
+  category-icon: 20px
   row-min: 56px
   card-image: 120px
   dish-thumb: 56px
@@ -283,22 +284,13 @@ components:
     action: '{colors.mint}'
     radius: '{rounded.md}'
   category-header:
+    icon-size: '{spacing.category-icon}'
+    icon-box: 24px
+    gap: '{spacing.2}'
+    min-height: 30px
     label: '{typography.section-label}'
     text: '{colors.ink-2}'
     count: '{colors.ink-2}'
-    gap: '{spacing.3}'
-  category-tile:
-    size: '{spacing.tile-size}'
-    radius: '{rounded.sm}'
-    fruit-veg: '{colors.mint}'
-    bread: '{colors.sand}'
-    dairy-eggs: '{colors.sky}'
-    meat-fish: '{colors.tile-clay}'
-    frozen: '{colors.sky}'
-    pantry: '{colors.sand}'
-    sauces: '{colors.sand}'
-    drinks: '{colors.tile-lilac}'
-    other: '{colors.border}'
   list-group:
     background: '{colors.surface}'
     radius: '{rounded.lg}'
@@ -407,7 +399,7 @@ Ljust läge följer `docs/ux/ux-spec.md`, med de nya rollerna från Premiumlook 
 - **Dämpad röd (`{colors.danger}`, Story 16.17):** endast för Ta bort i Lagervara-bladet (text och papperskorg, aldrig fylld knapp). Pontus 2026-10-31: "dämpad röd endast för Ta bort". Det är det enda undantaget från att fel och varningar är ljusblå; mörkt läge har eget värde (`danger-dark`).
 - **Sand (`{colors.sand}` / `{colors.sand-ink}`)** används för platskortet Skafferi och märkningen av AI-förslag.
 - **Butiksetikett (Story 9.13, lugnad i Story 16.6, `store-badge`):** på varje erbjudanderad en liten text med butikens korta namn ("Maxi", "Krokom") i `{colors.ink-3}`, med en liten prick (8 px) i kedjans färg framför: ICA `{colors.store-ica}` (varm röd), varje annan kedja `{colors.store-other}`. Etiketten står först i radens metarad ("● Maxi · ICA · Spanien") och visas bara när listan visar mer än en butik (filtret "Alla" med två butiker eller fler). Färgen finns bara i pricken; butikens namn är text. Mörkt läge har egna värden. En ny kedja (Willys) får en egen prickfärg när den läggs till.
-- **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
+- **Plattor (Epic 11, i Förråd sedan ikoner.html):** kategorirubrikerna för mat har ingen platta längre (Pontus 2026-11-01, variant B); plattorna finns kvar för föremålens kategorier och rum i Förråd. Den lilla plattan bakom ikonen har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Plattan är dekor: namnet står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
 - **Varm ton och linjebilder (Epic 20):** `{colors.warm}` (ljust #D9963F, mörkt #E9B872) är den enda varma detaljen i linjebilderna i två toner (rundturen, hjälpens ikoner) och i stjärnorna i Betygsätt. Den är bara dekor, aldrig text och aldrig en yta, så den ingår inte i kontrasttestets textpar. `{colors.illus-bg}` är den mjuka runda plattan bakom en linjebild och plattan bakom en tvåtonsikon. Rundturens bakgrund är `{colors.surface}` i ljust läge (rent vitt) och `{colors.bg}` i mörkt (`--tour-bg`).
 
 Det enda röda är `{colors.danger}`, den dämpade röda för Ta bort: bara text och ikon (soptunna), aldrig en fylld knapp eller bakgrund (6,5:1 ljust, 5,1:1 mörkt). Butiksprickens ICA-röda och de varma erbjudandefärgerna är dekor. Fel och varningar är fortfarande blå. Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
@@ -460,8 +452,8 @@ Mjuka, generösa hörn enligt `rounded`-tokens (6 / 10 / 12 / 16 / 24 / rund) oc
 
 Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` under Component Patterns. Tokennyckeln står inom parentes.
 
-- **Flikfält** (`tab-bar`): fem flikar (Recept, Matsedel, Inköpslista, Matvaror, Förråd) med linjeikon (bok, kalender, kundvagn, morot, låda) och etikett, 56 px höga plus säkra området, halvgenomskinliga med en 0,5 px linje upptill. Vald flik: grön ikon med svag grön fyllning (16 %) och etikett 600, ingen platta eller ruta. Fokusringen (2 px grön, bara vid tangentbord) ritas runt ikon och etikett. En etikett som inte får plats bryts på två rader mellan orddelarna (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`. Emoji finns inte i ramen; de stannar bara där de är innehåll (matkategorier, rum, receptbilder som saknas).
-- **Sidomeny** (`side-menu`): samma fem mål och linjeikoner som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund och `{colors.mint-ink}`-text i vikt 500 (accent på mint ger bara 4,1:1).
+- **Flikfält** (`tab-bar`): fem flikar (Recept, Matsedel, Inköpslista, Matvaror, Förråd) med linjeikon (bok, kalender, kundvagn, morot, låda) och etikett, 56 px höga plus säkra området, halvgenomskinliga med en 0,5 px linje upptill. Vald flik: den fyllda varianten av ikonen i `{colors.accent}` (ikoner.html B, Pontus 2026-11-01: formen massiv, detaljerna urklippta så att glaset syns igenom) och etikett 600, ingen platta eller ruta. Fokusringen (2 px grön, bara vid tangentbord) ritas runt ikon och etikett. En etikett som inte får plats bryts på två rader mellan orddelarna (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`. Emoji finns inte i ramen; de stannar bara där de är innehåll (matkategorier, rum, receptbilder som saknas).
+- **Sidomeny** (`side-menu`): samma fem mål och linjeikoner som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund, den fyllda ikonen i `{colors.accent}` (som i flikfältet) och `{colors.mint-ink}`-text i vikt 500 (accent på mint ger bara 4,1:1 för text). Hjälp och tips och Inställningar har ingen fylld variant och behåller linjeikonen med svag fyllning när de är valda.
 - **Sökfält** (`search-field`): vitt fält med förstoringsglas och platshållartext i `{colors.ink-3}`.
 - **Filterpiller** (`filter-pill`): Alla, Favoriter, Kan lagas nu. Valt piller fylls med `{colors.accent}`.
 - **Receptrad** (`recipe-row`): kort med bild (`{spacing.thumb-list}` i kvadrat), titel i `{typography.row-title}`, "35 min · 4 portioner" i `{typography.meta}` och en statusetikett.
@@ -483,19 +475,19 @@ Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` u
 
 Från Epic 11 (skisserna ovan):
 
-- **Kategorirubrik** (`category-header`, `category-tile`): en platta på `{spacing.tile-size}` med kategorins ikon (emoji), kategorins namn i `{typography.section-label}` och antalet längst till höger, båda i `{colors.ink-2}` direkt på sidbakgrunden. Används i Lagersaldo och Inköpslista. Kategorierna, ikonerna och plattornas färger:
+- **Kategorirubrik** (`category-header`, ikoner.html B, Pontus 2026-11-01): kategorins ikon (emoji) i `{spacing.category-icon}` (20 px) i en ruta på 24 px, utan platta, 8 px till kategorins namn i `{typography.section-label}` (versaler) och antalet längst till höger, båda i `{colors.ink-2}` direkt på sidbakgrunden. Emojin är centrerad på raden, vilket lägger den på versalernas mitt. Raden är minst 30 px hög som förut. Används i Matvaror och Inköpslista. Kategorierna och ikonerna:
 
-  | Kategori | Ikon | Platta |
-  | --- | --- | --- |
-  | Frukt & grönt | 🥦 | mint |
-  | Bröd | 🍞 | sand |
-  | Mejeri & ägg | 🥛 | ljusblå |
-  | Kött, fisk & chark | 🥩 | lera |
-  | Frys | ❄️ | ljusblå |
-  | Skafferi | 🥫 | sand |
-  | Såser & smaksättare | 🧂 | sand |
-  | Dryck | 🥤 | syren |
-  | Övrigt | 🛍️ | `border` |
+  | Kategori | Ikon |
+  | --- | --- |
+  | Frukt & grönt | 🥦 |
+  | Bröd | 🍞 |
+  | Mejeri & ägg | 🥛 |
+  | Kött, fisk & chark | 🥩 |
+  | Frys | ❄️ |
+  | Skafferi | 🥫 |
+  | Såser & smaksättare | 🧂 |
+  | Dryck | 🥤 |
+  | Övrigt | 🛍️ |
 
 - **Listgrupp** (`list-group`): ett vitt kort med `{rounded.lg}` och hårfina avdelare mellan raderna. Raderna under en kategorirubrik ligger i en listgrupp.
 - **Listrad** (`list-row`): minst `{spacing.row-min}` hög. Namnet i `{typography.row-title}` och raden under i `{typography.meta}` och `{colors.ink-3}`, på en rad med "…" när den inte får plats. Till vänster kan en rund bock stå, och till höger en soptunna eller en produktetikett.

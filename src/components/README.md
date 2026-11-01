@@ -4,7 +4,7 @@ Each follows the same-named entry under Components in DESIGN.md (look) and Compo
 
 ## Epic 11 building blocks (Story 11.1)
 
-The new look in Lagersaldo, Inköpslista, Recept and Matsedel (Stories 11.3–11.5) is built from these. The category of an item comes from `displayCategory(section, name)` in `@/features/catalog`; sort with `compareCategories`. Only `category-header.tsx` knows a category's icon and tile.
+The new look in Lagersaldo, Inköpslista, Recept and Matsedel (Stories 11.3–11.5) is built from these. The category of an item comes from `displayCategory(section, name)` in `@/features/catalog`; sort with `compareCategories`. Only `category-header.tsx` knows a category's icon.
 
 ```tsx
 // One plain div per category: no landmark per category. The heading names the list.
@@ -39,7 +39,7 @@ const headingId = useId();
 </div>
 ```
 
-- `CategoryHeader({ category, count, id?, level?: 2 | 3 | 4, className? })`: the tile (emoji, `aria-hidden`), the name as a heading (`h2` by default) and the count, read as "1 vara" / "3 varor" and also the heading's description. `category` is a `CategoryName`, the same names as `Category`; an unknown one gets Övrigt's tile. A count that is not a whole number ≥ 0 shows as 0 (rounded down).
+- `CategoryHeader({ category, count, id?, level?: 2 | 3 | 4, className? })`: the emoji (20 px, no tile, `aria-hidden`), the name as a heading (`h2` by default) and the count, read as "1 vara" / "3 varor" and also the heading's description. `category` is a `CategoryName`, the same names as `Category`; an unknown one gets Övrigt's icon. A count that is not a whole number ≥ 0 shows as 0 (rounded down).
 - `ListGroup({ children, labelledBy?, label?, className?, data-* })`: a `ul role="list"` card with hairline dividers and clipped corners.
 - `ListRow({ title, meta?, leading?, trailing?, onPress? | href?, crossedOut?, srStatus?, as?, pressProps?, pressRef?, className?, data-* })`: an `li` (or `div` with `as="div"`, e.g. inside `<li><SwipeRow>`). With `onPress` the text is a button, with a non-empty `href` a link, otherwise plain text; its accessible name is the title and the line under it. `meta` shows unless it is null, undefined or "", and stops at two lines with "…". `leading` (e.g. `CheckCircle`) and `trailing` (e.g. `TrashButton`, a product chip with its own `max-w-*` and `truncate`) are separate controls with an inset focus ring. `crossedOut` strikes a ticked-off name through; say the same with `srStatus="i korgen"`. `pressProps` takes `data-*`, `aria-haspopup`, `aria-describedby`, `aria-expanded`, `aria-controls`, `aria-current`, `aria-label` (needed when the title is empty) and `prefetch` (links only); `pressRef` reaches the button or link; `data-*` on the row go to the `li`. Both `onPress` and `href`, or a press target without a name, give a console warning.
 - `TrashButton({ label, onPress(bin, { pointer }), disabled?, ref?, className?, aria-describedby?, data-* })`: a 44 × 44 px grey bin with an inset focus ring; `label` is the full name ("Ta bort Gräddfil"). A second pointer press on any bin within `trashPressGuardMs` (400 ms) is ignored, so a double tap never removes the row that slides up; a press from the keyboard or a screen reader (`pointer: false`) is never ignored. The caller removes at once and offers "Ångra", and moves focus only for `pointer: false` (or when the bin has focus), so a tap never brings up the iPhone keyboard.
@@ -48,4 +48,4 @@ const headingId = useId();
 - `StatusBadge({ status, onImage?, … })`: with `onImage` (Story 11.5) the status colour is text on the `overlay` plate, for a badge on a recipe image (the recipe card in `features/recipes/ui/recipe-card.tsx`). The AI label stays sand.
 - `Stepper`: always 11.5rem wide (− and + stand still while the value changes) and never wider than its container; the buttons stay 44 × 44 px. It is a size container: below 11rem only the number shows, and the whole value ("4 portioner") is read from a visually hidden `output`. Words never break mid-way. A parent that is a flex item needs `min-w-0` to let it shrink.
 - `PageHeader`: the title shares its row with the actions and wraps between its words; the actions move to a row of their own only when the title's longest word and the actions cannot share the row.
-- Tokens: `size-tile`, `text-tile-icon`, `min-h-row`, `h-card-image`, `size-dish-thumb`, `h-meter`, `h-meter-small`, `bg-tile-clay`, `bg-tile-lilac` and `bg-overlay` (the light plate for a badge or heart on a recipe image).
+- Tokens: `text-category-icon`, `size-tile` and `text-tile-icon` (the tiles in Förråd), `min-h-row`, `h-card-image`, `size-dish-thumb`, `h-meter`, `h-meter-small`, `bg-tile-clay`, `bg-tile-lilac` and `bg-overlay` (the light plate for a badge or heart on a recipe image).

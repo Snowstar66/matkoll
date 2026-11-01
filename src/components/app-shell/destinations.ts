@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { AiJobKind } from "@/lib/ai-job-shape";
 import { BoxIcon, CarrotIcon, CartIcon, HelpIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
+import { BoxFilledIcon, CarrotFilledIcon, CartFilledIcon, MealPlanFilledIcon, RecipesFilledIcon } from "../icons-filled";
 
 export type Destination = {
   href: string;
@@ -10,8 +11,14 @@ export type Destination = {
    * narrow (a 375 px phone at 200 % zoom). Joined, the parts are `label`.
    */
   labelParts?: readonly string[];
-  /** The destination's line icon (premium look): grey, and green with a soft fill when it is the current one. */
+  /** The destination's line icon: grey when it is not the current one. */
   Icon: ComponentType<IconProps>;
+  /**
+   * The filled twin of `Icon` (ikoner.html, variant B), shown in accent when
+   * this is the current destination. Without one, the current item shows
+   * `Icon` with a soft fill (Inställningar, Hjälp och tips).
+   */
+  FilledIcon?: ComponentType<IconProps>;
   /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
   aiKinds?: readonly AiJobKind[];
   /** The anchor of this surface's section in Hjälp och tips (Story 19.2): `/hjalp#recept`. */
@@ -20,15 +27,15 @@ export type Destination = {
 
 /** The five main surfaces, in tab order (EXPERIENCE.md, Information Architecture). */
 export const mainDestinations: readonly Destination[] = [
-  { href: "/recept", helpId: "recept", label: "Recept", Icon: RecipesIcon, aiKinds: ["suggest", "import"] },
+  { href: "/recept", helpId: "recept", label: "Recept", Icon: RecipesIcon, FilledIcon: RecipesFilledIcon, aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
-  { href: "/matsedel", helpId: "matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
+  { href: "/matsedel", helpId: "matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon, FilledIcon: MealPlanFilledIcon },
   // Story 10.4: "Inköpslista" (was "Lista") and "Matvaror" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
-  { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
-  { href: "/hemma", helpId: "matvaror", label: "Matvaror", labelParts: ["Mat", "varor"], Icon: CarrotIcon, aiKinds: ["analyze"] },
+  { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon, FilledIcon: CartFilledIcon },
+  { href: "/hemma", helpId: "matvaror", label: "Matvaror", labelParts: ["Mat", "varor"], Icon: CarrotIcon, FilledIcon: CarrotFilledIcon, aiKinds: ["analyze"] },
   // Epic 18: the things of the home (tools, the storage room), kept apart from the food.
-  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, aiKinds: ["things"] },
+  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, FilledIcon: BoxFilledIcon, aiKinds: ["things"] },
 ];
 
 /** Settings: reached from the P button on a phone (Story 19.2), the bottom of the side menu on desktop. */

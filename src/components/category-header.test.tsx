@@ -1,19 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CategoryHeader, type CategoryName, categoryTiles } from "./category-header";
+import { CategoryHeader, type CategoryName, categoryIcons } from "./category-header";
 
 describe("CategoryHeader", () => {
-  it("is an h2 with the name, a hidden tile and the count read as '3 varor'", () => {
+  it("is an h2 with the name, a hidden emoji with no tile and the count read as '3 varor'", () => {
     render(<CategoryHeader category="Mejeri & ägg" count={3} id="kategori-mejeri" />);
     const heading = screen.getByRole("heading", { level: 2, name: "Mejeri & ägg" });
     expect(heading).toHaveAttribute("id", "kategori-mejeri");
     // Upper case on screen only (section-label); the text stays as written for screen readers.
     expect(heading).toHaveClass("text-section-label", "text-ink-2");
 
-    const tile = screen.getByTestId("category-tile");
-    expect(tile).toHaveAttribute("aria-hidden", "true");
-    expect(tile).toHaveTextContent("🥛");
-    expect(tile).toHaveClass("bg-sky", "size-tile", "rounded-sm", "text-tile-icon");
+    // ikoner.html B: the emoji at 20 px in a 24 px box, no tile behind it, 8 px to the name.
+    const icon = screen.getByTestId("category-icon");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveTextContent("🥛");
+    expect(icon).toHaveClass("w-6", "text-category-icon", "text-center");
+    expect(icon.className).not.toMatch(/\bbg-|rounded|size-tile/);
+    expect(icon.parentElement).toHaveClass("items-center", "gap-2");
 
     expect(screen.getByText("3 varor")).toHaveClass("sr-only");
     expect(screen.getByText("3")).toHaveAttribute("aria-hidden", "true");
@@ -27,11 +30,10 @@ describe("CategoryHeader", () => {
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
   });
 
-  it("gives an unknown category Övrigt's tile instead of throwing", () => {
+  it("gives an unknown category Övrigt's icon instead of throwing", () => {
     render(<CategoryHeader category={"Godis" as CategoryName} count={1} />);
     expect(screen.getByRole("heading", { level: 2, name: "Godis" })).toBeInTheDocument();
-    expect(screen.getByTestId("category-tile")).toHaveClass(categoryTiles["Övrigt"].tile);
-    expect(screen.getByTestId("category-tile")).toHaveTextContent(categoryTiles["Övrigt"].icon);
+    expect(screen.getByTestId("category-icon")).toHaveTextContent(categoryIcons["Övrigt"].icon);
   });
 
   it.each([
@@ -58,14 +60,12 @@ describe("CategoryHeader", () => {
     expect(screen.getByText("2 varor")).toHaveTextContent(/^2 varor$/);
   });
 
-  it.each(Object.entries(categoryTiles) as [CategoryName, (typeof categoryTiles)[CategoryName]][])(
-    "%s has its icon and tile",
-    (category, { icon, tile }) => {
+  it.each(Object.entries(categoryIcons) as [CategoryName, (typeof categoryIcons)[CategoryName]][])(
+    "%s has its icon",
+    (category, { icon }) => {
       render(<CategoryHeader category={category} count={4} />);
       expect(screen.getByRole("heading", { level: 2, name: category })).toBeInTheDocument();
-      const plate = screen.getByTestId("category-tile");
-      expect(plate).toHaveTextContent(icon);
-      expect(plate).toHaveClass(tile);
+      expect(screen.getByTestId("category-icon")).toHaveTextContent(icon);
     },
   );
 });
