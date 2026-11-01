@@ -135,7 +135,7 @@ const showAll = async (page: Page) => {
 const rankedList = (page: Page) => page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 
 /** The status on each visible row, in order. */
 async function expectStatuses(page: Page, statuses: string[]) {

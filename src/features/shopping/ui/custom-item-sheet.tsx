@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { TrashIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
 import { type IngredientHit, type SearchIngredients, useIngredientSearch } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
@@ -347,9 +348,12 @@ export function CustomItemSheet({
             {saving ? "Sparar …" : item ? "Spara" : "Lägg till"}
           </Button>
           {item && onRemove ? (
-            <Button variant="text" fullWidth disabled={saving} onClick={remove}>
-              Ta bort
-            </Button>
+            <div className="mt-3 border-t border-border pt-1">
+              <Button variant="danger" fullWidth disabled={saving} onClick={remove}>
+                <TrashIcon size={20} />
+                Ta bort
+              </Button>
+            </div>
           ) : null}
         </>
       }

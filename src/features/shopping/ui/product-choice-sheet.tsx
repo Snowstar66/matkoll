@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type FormEvent, startTransition, useActionState, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { TrashIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
@@ -300,7 +301,8 @@ export function ProductChoiceSheet({ open, onClose, session, label, ingredientId
             {pending && pendingKind === "save" ? "Sparar …" : "Spara"}
           </Button>
           {base ? (
-            <Button variant="text" fullWidth disabled={pending} onClick={remove}>
+            <Button variant="danger" fullWidth disabled={pending} onClick={remove}>
+              <TrashIcon size={20} />
               {removeProductChoiceText}
             </Button>
           ) : null}

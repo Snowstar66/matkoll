@@ -50,7 +50,7 @@ function renderIt() {
 
 async function confirmRemoval() {
   await userEvent.click(screen.getByRole("button", { name: "Ta bort kortet" }));
-  const dialog = screen.getByRole("dialog", { name: "Ta bort kortet" });
+  const dialog = screen.getByRole("dialog", { name: "Ta bort kortet?" });
   await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort kortet" }));
 }
 describe("Ta bort kortet", () => {

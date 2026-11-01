@@ -141,11 +141,6 @@ async function removeVia(page: Page, row: Locator, title: string) {
   await sheet.getByRole("button", { name: "Ta bort från matsedeln" }).click();
 }
 
-/** Answers "Ta bort <rätt> från matsedeln?" with "Ta bort". */
-async function confirmRemoval(page: Page) {
-  await removalQuestion(page).getByRole("button", { name: "Ta bort", exact: true }).click();
-}
-const removalQuestion = (page: Page) => page.getByRole("dialog", { name: "Ta bort" });
 
 async function dishCount(): Promise<number> {
   const { count, error } = await adminClient()
@@ -240,9 +235,8 @@ test("Ta bort removes a dish at once, and Ångra puts it back with the same id",
   const id = await dish(page, soppa).getAttribute("data-dish");
 
   await removeVia(page, dish(page, soppa), soppa);
-  await confirmRemoval(page);
   await expect(dish(page, soppa)).toHaveCount(0);
-  await expect(toast(page)).toContainText(`${soppa} är borttagen från matsedeln.`);
+  await expect(toast(page)).toContainText(`Tog bort ${soppa}.`);
   await expect.poll(dishCount).toBe(2);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
@@ -285,7 +279,7 @@ test("a row opens the recipe and ⋯ opens the sheet with the seldom used button
 // Story 13.3: the trash asks first, then removes within a minute without
 // asking, and the shopping list follows. Servings were covered above; moving
 // a dish to another day waits, since the plan has no days (see the spec).
-test("the trash asks before it removes, the next removals go at once and the list follows", async ({ page }) => {
+test("Ta bort never asks, every removal goes at once and the list follows", async ({ page }) => {
   const errors = watchErrors(page);
   // Linssoppa has been on the plan since the tests above; leave the two gryta dishes.
   const dropped = await adminClient().from("meal_plan_recipe").delete().eq("user_id", userId).eq("recipe_title", soppa);
@@ -296,17 +290,10 @@ test("the trash asks before it removes, the next removals go at once and the lis
   await page.goto("/matsedel");
   const trash = (index: number) => removeVia(page, dishes(page).nth(index), gryta);
   await trash(0);
-  await expect(removalQuestion(page)).toContainText(`Ta bort ${gryta} från matsedeln?`);
-  await removalQuestion(page).getByRole("button", { name: "Avbryt" }).click();
-  await expect(dishes(page)).toHaveCount(2);
-  expect(await dishCount()).toBe(2);
-
-  await trash(0);
-  await confirmRemoval(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(1);
-  // Within a minute the next one goes without a question.
   await trash(0);
-  await expect(removalQuestion(page)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(0);
   await expect.poll(dishCount).toBe(0);
 
@@ -436,10 +423,10 @@ test("Ta bort matsedel asks first; Avbryt keeps the plan, Ta bort deletes it wit
   const errors = watchErrors(page);
   const id = planIds["Vecka 42"];
   await page.goto(`/matsedel/tidigare/${id}`);
-  const question = page.getByRole("dialog", { name: "Ta bort matsedel" });
+  const question = page.getByRole("dialog", { name: "Ta bort Vecka 42?" });
 
   await page.getByRole("button", { name: "Ta bort matsedel" }).click();
-  await expect(question).toContainText("Ta bort Vecka 42? Det går inte att ångra.");
+  await expect(question).toContainText("Det går inte att ångra.");
   await question.getByRole("button", { name: "Avbryt" }).click();
   await expect(question).toHaveCount(0);
   expect((await plansOfUser()).some((plan) => plan.id === id)).toBe(true);
@@ -447,7 +434,7 @@ test("Ta bort matsedel asks first; Avbryt keeps the plan, Ta bort deletes it wit
   await page.getByRole("button", { name: "Ta bort matsedel" }).click();
   await question.getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(page).toHaveURL(/\/matsedel\/tidigare$/);
-  await expect(toast(page)).toHaveText("Matsedeln är borttagen.");
+  await expect(toast(page)).toHaveText("Tog bort matsedeln.");
   await expect(previousPlans(page).filter({ hasText: "Vecka 42" })).toHaveCount(0);
   expect((await plansOfUser()).some((plan) => plan.id === id)).toBe(false);
   const { count, error } = await adminClient()

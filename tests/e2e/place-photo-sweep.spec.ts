@@ -203,7 +203,7 @@ test("Töm kylen and Ångra leave the photo of the fridge", async ({ page }) => 
 
   await openHemma(page);
   await emptyButton(page).click();
-  await page.getByRole("dialog", { name: "Töm kylen" }).getByRole("button", { name: "Töm kylen" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true }).click();
   // With two places the toast names the place (Story 8.4).
   await expect(toast(page)).toContainText("Tog bort 1 vara ur kylen för Hemma.");
   expect(await photoIds()).toEqual([photo.id]);

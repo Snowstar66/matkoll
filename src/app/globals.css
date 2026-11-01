@@ -386,6 +386,15 @@
   /* Sheets and dialogs dim the page with a veil. */
   dialog::backdrop {
     background-color: var(--scrim);
+    animation: veil-in 200ms ease-out;
+  }
+  @keyframes veil-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 

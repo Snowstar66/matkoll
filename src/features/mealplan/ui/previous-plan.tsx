@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/button";
+import { cannotUndoText } from "@/components/confirm-delete";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { formatPortions } from "@/components/stepper";
@@ -170,7 +172,8 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
         >
           Kopiera till {"\u2026"}
         </Button>
-        <Button variant="text" disabled={busy} onClick={ask} className="self-start -ml-3">
+        <Button variant="danger" disabled={busy} onClick={ask} className="self-start -ml-3">
+          <TrashIcon size={20} />
           Ta bort matsedel
         </Button>
       </div>
@@ -202,20 +205,20 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
       <Sheet
         open={asking}
         onClose={() => setAsking(false)}
-        title="Ta bort matsedel"
+        title={deletePlanQuestion(plan.name)}
         closeLabel="Avbryt"
         initialFocus="close"
         preventClose={deleting}
         footer={
           <>
             {deleteError ? <Notice role="alert">{deleteError}</Notice> : null}
-            <Button fullWidth disabled={deleting} onClick={remove}>
+            <Button variant="danger-confirm" fullWidth disabled={deleting} onClick={remove}>
               {deleting ? "Tar bort …" : "Ta bort"}
             </Button>
           </>
         }
       >
-        <p className="text-body text-ink">{deletePlanQuestion(plan.name)}</p>
+        <p className="text-body text-ink-2">{cannotUndoText}</p>
       </Sheet>
     </div>
   );

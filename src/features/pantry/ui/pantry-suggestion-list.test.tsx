@@ -229,7 +229,7 @@ const lastConfirm = () => confirms[confirms.length - 1];
 const answerConfirm = async (result: Result<{ count: number }> = ok({ count: 1 })) => {
   await act(async () => lastConfirm().answer(result));
 };
-const sheet = () => screen.getByRole("dialog", { name: "Lagervara" });
+const sheet = () => screen.getByRole("dialog");
 const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fotografera kylen" });
 
 describe("Bekräfta", () => {
@@ -757,7 +757,7 @@ describe("the photo during review", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("opens the photo larger in a sheet, which closes with Stäng and Esc and gives focus back to the thumbnail", async () => {
+  it("opens the photo larger in a sheet, which closes with Klar and Esc and gives focus back to the thumbnail", async () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(thumbnail());
@@ -768,7 +768,7 @@ describe("the photo during review", () => {
       "src",
       "blob:photo-1",
     );
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(thumbnail()).toHaveFocus();
 
@@ -800,7 +800,7 @@ describe("the photo during review", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     // Closed and opened again: fitted.
     fireEvent.click(toggle);
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.click(thumbnail());
     expect(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" })).toHaveAttribute("aria-pressed", "false");
@@ -813,7 +813,7 @@ describe("the photo during review", () => {
     fireEvent.error(within(photoSheet()).getByRole("img"));
     expect(within(photoSheet()).getByText("Fotot kunde inte visas.")).toBeVisible();
     expect(within(photoSheet()).queryByRole("img")).toBeNull();
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.error(thumbnail().querySelector("img")!);
     expect(within(section()).getByText("Fotot kunde inte visas.")).toBeVisible();
@@ -845,7 +845,7 @@ describe("the photo during review", () => {
     expect(within(photoSheet()).getByRole("img")).toHaveAttribute("src", "blob:photo-1");
     expect(cameraButton()).not.toHaveFocus();
     expect(revoke).not.toHaveBeenCalled();
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     // The move to the camera button that waited for the sheet.
     await waitFor(() => expect(cameraButton()).toHaveFocus());

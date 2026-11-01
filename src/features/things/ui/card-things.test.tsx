@@ -46,7 +46,7 @@ async function openHammer() {
     </ToastProvider>,
   );
   await userEvent.click(screen.getByRole("button", { name: /Hammare/ }));
-  return screen.getByRole("dialog", { name: "Föremål" });
+  return screen.getByRole("dialog", { name: "Hammare" });
 }
 
 describe("the things of a card", () => {
@@ -146,7 +146,7 @@ describe("a thing written in with where it is (Story 18.19)", () => {
     );
     expect(screen.getByTestId("thing")).toHaveTextContent("Översta byrålådan · skrivet 31 okt");
     await userEvent.click(screen.getByRole("button", { name: /Pass/ }));
-    return screen.getByRole("dialog", { name: "Föremål" });
+    return screen.getByRole("dialog", { name: "Pass" });
   }
 
   it("says when it was written in and where, and has no 'Var på bilden'", async () => {

@@ -63,7 +63,7 @@ function setup(location: Location = "Frys") {
   );
 }
 
-const sheet = () => screen.getByRole("dialog", { name: "Lagervara" });
+const sheet = () => screen.getByRole("dialog");
 /** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
 function placeRadio(scope: HTMLElement, name: string) {
   const row = within(scope).queryByRole("button", { name: /^Ligger i/ });
@@ -716,9 +716,9 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
   };
 
-  it("shows the item as the heading, keeps Lagervara as the dialog's name and has no heading Lagervara", () => {
+  it("is named after the item (Story 19.4), never the generic Lagervara", () => {
     openMjolk();
-    expect(sheet()).toHaveAccessibleName("Lagervara");
+    expect(sheet()).toHaveAccessibleName("Mjölk");
     expect(within(sheet()).getByRole("heading", { name: "Mjölk" })).toBeInTheDocument();
     expect(within(sheet()).queryByRole("heading", { name: "Lagervara" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();

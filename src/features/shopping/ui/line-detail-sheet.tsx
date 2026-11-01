@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { TrashIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
@@ -268,9 +269,12 @@ function RecipeLineDetail({
               {saving ? "Sparar …" : "Spara"}
             </Button>
           ) : null}
-          <Button variant="text" fullWidth disabled={saving} onClick={remove}>
-            Ta bort
-          </Button>
+          <div className="mt-3 border-t border-border pt-1">
+            <Button variant="danger" fullWidth disabled={saving} onClick={remove}>
+              <TrashIcon size={20} />
+              Ta bort
+            </Button>
+          </div>
         </>
       }
     >

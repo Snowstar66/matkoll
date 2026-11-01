@@ -196,7 +196,7 @@ export function CardThings({ things, headings = true, aside = false }: { things:
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title={thingNounCap.singular}
+        title={selected?.name ?? thingNounCap.singular}
         subtitle={selected?.noted ? notedSheetSubtitle(selected.noted.part, new Date(selected.noted.at)) : selected ? thingMeta(selected) || undefined : undefined}
         closeLabel="Avbryt"
         preventClose={saving}

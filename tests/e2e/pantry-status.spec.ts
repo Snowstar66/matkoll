@@ -50,7 +50,7 @@ const line = (page: Page, text: string) => lines(page).filter({ hasText: text })
 const mark = (row: Locator) => row.getByRole("img");
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 
 type SeedItem = { line: string; location: string; amount?: number; unit?: string };
 
@@ -222,7 +222,7 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
 
   await page.getByRole("button", { name: "Fler val" }).click();
   await page.getByRole("menuitem", { name: "Ändra" }).click();
-  const edit = page.getByRole("dialog", { name: "Ändra recept" });
+  const edit = page.getByRole("dialog");
   // 12 dl milk where 6 dl is at home.
   await edit.getByRole("button", { name: /^Ändra mängd för mjölk$/i }).click();
   await edit.getByLabel("Mängd").fill("12");

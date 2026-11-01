@@ -191,8 +191,8 @@ describe("the texts of the line and the sheet", () => {
 
   it("asks before removing and confirms after", () => {
     expect(removePhotoText).toBe("Ta bort fotot");
-    expect(removePhotoQuestion("Kyl")).toBe("Ta bort fotot av kylen? Det går inte att ångra.");
-    expect(removedPhotoText("Frys")).toBe("Fotot av frysen är borttaget.");
+    expect(removePhotoQuestion("Kyl")).toBe("Ta bort fotot av kylen?");
+    expect(removedPhotoText("Frys")).toBe("Tog bort fotot av frysen.");
   });
 
   it("has the route's address for a photo", () => {

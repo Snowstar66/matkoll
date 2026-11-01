@@ -129,7 +129,7 @@ const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).get
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const announcement = (page: Page) => page.getByTestId("site-announcement").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-const itemSheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const itemSheet = (page: Page) => page.getByRole("dialog");
 
 /** Hemma, once React runs: the boende button (or "Lägg till boende" with one place) is enabled. */
 async function openHemma(page: Page, path = "/hemma") {

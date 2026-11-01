@@ -467,7 +467,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     <Sheet
       open={open}
       onClose={onClose}
-      title="Lagervara"
+      title={picking ? (ingredient ? "Byt vara" : "Lägg till vara") : (ingredient?.name ?? "Lägg till vara")}
       heading={heading}
       onBack={picksAgain ? () => setPicking(false) : undefined}
       closeLabel="Avbryt"

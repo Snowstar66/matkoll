@@ -208,7 +208,7 @@ test("the fridge shows its items under categories in the store's order, with the
 
   // A tap on the row opens the sheet Lagervara, where the amount still is.
   await row(page, "Mellanmjölk").click();
-  const sheet = page.getByRole("dialog", { name: "Lagervara" });
+  const sheet = page.getByRole("dialog");
   await expect(sheet.getByLabel("Mängd")).toHaveValue("1");
   await expect(sheet.getByLabel("Enhet")).toHaveValue("l");
   await expect(sheet.getByRole("textbox", { name: "Märke eller sort" })).toHaveValue("Arla laktosfri");

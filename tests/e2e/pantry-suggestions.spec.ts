@@ -94,7 +94,7 @@ const skafferiCard = (page: Page) =>
   page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Skafferi/ });
 // Story 11.3: one row per item, with or without an amount, and no amount shown; saved() reads the amounts.
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 const toast = (page: Page) => page.getByTestId("toast");
 
 async function photographFridge(page: Page) {

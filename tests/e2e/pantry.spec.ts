@@ -181,7 +181,7 @@ test.describe("on a computer", () => {
 });
 
 // Story 2.2: the sheet Lagervara.
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 const addButton = (page: Page) => page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first();
 const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name}(?:\\s|$)`) });
 

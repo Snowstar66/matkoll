@@ -64,7 +64,7 @@ const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visibl
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const cards = (page: Page) => section(page).getByTestId("pantry-suggestion");
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 const labelField = (page: Page) => sheet(page).getByRole("textbox", { name: "Märke eller sort" });
 const toast = (page: Page) => page.getByTestId("toast");
 

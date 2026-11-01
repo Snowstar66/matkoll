@@ -388,14 +388,14 @@ test("Ta bort kortet asks first, removes card, things and file, and Ångra bring
 
   // The question comes first; "Avbryt" leaves everything.
   await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Ta bort kortet" });
+  const dialog = page.getByRole("dialog", { name: "Ta bort kortet?" });
   await expect(dialog.getByText("Ta bort kortet?")).toBeVisible();
   await dialog.getByRole("button", { name: "Avbryt" }).click();
   await expect(cards).toHaveCount(1);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(1);
 
   await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
-  await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
+  await dialog.getByRole("button", { name: "Ta bort kortet", exact: true }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");
   await expect(cards).toHaveCount(0);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
@@ -410,7 +410,7 @@ test("Ta bort kortet asks first, removes card, things and file, and Ångra bring
 
   // Without Ångra the file goes when the time is out.
   await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
-  await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
+  await dialog.getByRole("button", { name: "Ta bort kortet", exact: true }).click();
   await expect(cards).toHaveCount(0);
   await expect.poll(fileExists, { timeout: 15_000 }).toBe(false);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
@@ -429,7 +429,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   const things = page.getByTestId("thing");
 
   await page.getByRole("button", { name: /Hammare/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Föremål" });
+  const sheet = page.getByRole("dialog");
   await sheet.getByLabel("Byt namn").fill("Klohammare");
   await sheet.getByRole("button", { name: "Spara" }).click();
   await expect(things.first()).toContainText("Klohammare");
@@ -597,7 +597,7 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await expect(page).toHaveURL(/\/prylar\/rum\//);
   await page.getByRole("radio", { name: "Kort" }).click();
   await page.getByTestId("room-card").filter({ hasText: "0 föremål" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
-  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
   await page.getByRole("radio", { name: "Föremål" }).click();
   await expect(page.getByTestId("room-summary")).toContainText("12föremål");
@@ -757,7 +757,7 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await page.goto(roomUrl("Skräpförrådet"));
   await page.getByRole("button", { name: "Verktyg · 1" }).click();
   await page.getByRole("button", { name: /Hammare/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Föremål" });
+  const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("radio", { name: /Verktyg/ })).toBeChecked();
   await expect(sheet.getByLabel("Var på bilden")).toHaveValue("på väggen");
   await shot(page, "1-thing-sheet");
@@ -805,7 +805,7 @@ test("Lägg till föremål on a card writes things tied to that card, sorted by 
   // Removed with its card.
   await page.getByRole("radio", { name: "Kort" }).click();
   await page.getByTestId("remove-card").click();
-  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await admin.from("thing_item").select("id").eq("user_id", userId)).data?.length).toBe(0);
 });
 
@@ -1023,10 +1023,10 @@ test("a card that could not be read, or is stuck reading, has Försök igen and 
   }
   await shot(page, "10-failed-card-both-actions");
   await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
-  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect(failedCards).toHaveCount(1);
   await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
-  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect(failedCards).toHaveCount(0);
   expect((await admin.from("thing_photo").select("id").in("id", [failedId, stuckId])).data).toEqual([]);
 });
@@ -1111,7 +1111,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   const row = page.getByTestId("thing").filter({ hasText: "Passen" });
   await expect(row).toContainText(`Översta byrålådan · skrivet ${today}`);
   await row.getByTestId("thing-press").click();
-  const sheet = page.getByRole("dialog", { name: "Föremål" });
+  const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText(`Du skrev in det ${today} · Översta byrålådan`);
   await expect(sheet.getByLabel("Var på bilden")).toHaveCount(0);
   await sheet.getByRole("button", { name: "Ta bort föremål" }).click();

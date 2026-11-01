@@ -553,7 +553,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
       open={open}
       onClose={close}
       title="Importera recept"
-      closeLabel="Stäng"
+      closeLabel="Avbryt"
       isDirty={isDirty}
       footer={footer}
     >

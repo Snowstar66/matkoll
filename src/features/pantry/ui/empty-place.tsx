@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import type { Location } from "@/features/catalog";
@@ -115,28 +116,28 @@ export function EmptyPlaceButton({ site, location, count, items }: EmptyPlaceBut
   return (
     <>
       {count > 0 ? (
-        <Button variant="text" disabled={pending} onClick={ask} className="-ml-3 self-start">
+        <Button variant="danger" disabled={pending} onClick={ask} className="-ml-3 self-start">
+          <TrashIcon size={20} />
           {text}
         </Button>
       ) : null}
       <Sheet
         open={asking !== null}
         onClose={() => setAsking(null)}
-        title={text}
+        title={asking ? emptyPlaceQuestion(asking.location, asking.count, asking.site) : text}
         closeLabel="Avbryt"
         initialFocus="close"
         preventClose={emptying}
         footer={
           <>
             {error ? <Notice role="alert">{error}</Notice> : null}
-            <Button fullWidth disabled={emptying || pending} onClick={() => void confirm()}>
-              {emptying ? "Tar bort …" : text}
+            <Button variant="danger-confirm" fullWidth disabled={emptying || pending} onClick={() => void confirm()}>
+              {emptying ? "Tar bort …" : "Ta bort"}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-2">
-          <p className="text-body text-ink">{asking ? emptyPlaceQuestion(asking.location, asking.count, asking.site) : null}</p>
           <p className="text-body text-ink-2">{emptyPlaceUndoHint}</p>
         </div>
       </Sheet>

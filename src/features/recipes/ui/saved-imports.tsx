@@ -123,7 +123,7 @@ export function ImportFailures() {
             role="alert"
             action={
               <Button variant="text" onClick={() => void dismiss(job.id)}>
-                Stäng
+                Klar
               </Button>
             }
           >

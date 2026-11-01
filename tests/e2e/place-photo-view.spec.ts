@@ -151,7 +151,7 @@ const line = (page: Page) => page.getByTestId("pantry-latest-photo").filter({ vi
 const visa = (page: Page, place = "kylen") =>
   line(page).getByRole("button", { name: `Visa senaste foto av ${place}`, exact: true });
 const photoSheet = (page: Page, place = "kylen") => page.getByRole("dialog", { name: `Fotot av ${place}` });
-const question = (page: Page) => page.getByRole("dialog", { name: "Ta bort fotot" });
+const question = (page: Page) => page.getByRole("dialog", { name: "Ta bort fotot av kylen?" });
 const markers = (page: Page) => photoSheet(page).getByTestId("pantry-photo-marker");
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const card = (page: Page, name: Location) =>
@@ -234,14 +234,14 @@ test("the line follows the location and the place, and a photo older than 30 day
   await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(720);
   await expect(photoSheet(page, "skafferiet").getByTestId("pantry-photo-marker")).toHaveCount(0);
   await expect(photoSheet(page, "skafferiet").getByRole("listitem")).toHaveText([/Ketchup$/]);
-  await photoSheet(page, "skafferiet").getByRole("button", { name: "Stäng" }).click();
+  await photoSheet(page, "skafferiet").getByRole("button", { name: "Klar" }).click();
 
   await card(page, "Kyl").click();
   await choose(page, "Stugan");
   await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.stuganKyl)}`));
   await visa(page).click();
   await expect(photoSheet(page).getByRole("img")).toHaveAttribute("src", `/api/pantry/photo/${photos.stuganKyl.id}`);
-  await photoSheet(page).getByRole("button", { name: "Stäng" }).click();
+  await photoSheet(page).getByRole("button", { name: "Klar" }).click();
 
   // Stugan's freezer has a photo from 31 days ago.
   await card(page, "Frys").click();
@@ -317,14 +317,14 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   await visa(page).click();
   await photoSheet(page).getByRole("button", { name: "Ta bort fotot" }).click();
   await expect(photoSheet(page)).toHaveCount(0);
-  await expect(question(page)).toContainText("Ta bort fotot av kylen? Det går inte att ångra.");
+  await expect(question(page)).toContainText("Det går inte att ångra.");
   await expect(question(page).getByRole("button", { name: "Avbryt" })).toBeFocused();
   await question(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(photoSheet(page)).toBeVisible();
 
   await photoSheet(page).getByRole("button", { name: "Ta bort fotot" }).click();
   await question(page).getByRole("button", { name: "Ta bort", exact: true }).click();
-  await expect(page.getByTestId("toast")).toContainText("Fotot av kylen är borttaget.");
+  await expect(page.getByTestId("toast")).toContainText("Tog bort fotot av kylen.");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(line(page)).toHaveCount(0);
   await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();

@@ -62,7 +62,7 @@ export function removePlaceLeadText(counts: PlaceCounts): string {
 }
 
 export function removePlaceTitle(place: { part: string; box: boolean }): string {
-  return place.box ? `Ta bort lådan ${place.part}` : `Ta bort delen ${place.part}`;
+  return place.box ? `Ta bort lådan ${place.part}?` : `Ta bort delen ${place.part}?`;
 }
 
 export function removePlaceDetailText(box: boolean): string {

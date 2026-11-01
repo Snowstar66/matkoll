@@ -86,8 +86,8 @@ function Hemma({ location = "Kyl", initial, site = hemma }: { location?: Locatio
 }
 
 const emptyButton = (name = "Töm kylen") => screen.queryByRole("button", { name });
-const sheet = () => screen.getByRole("dialog", { name: "Töm kylen" });
-const sheetConfirm = () => within(sheet()).getByRole("button", { name: /^(Töm kylen|Tar bort …)$/ });
+const sheet = () => screen.getByRole("dialog");
+const sheetConfirm = () => within(sheet()).getByRole("button", { name: /^(Ta bort|Tar bort …)$/ });
 
 /** A promise resolved from the test, to see the sheet while the action waits. */
 function deferred<T>() {
@@ -129,7 +129,7 @@ describe("the sheet", () => {
     expect(within(sheet()).getByText("Ta bort alla 14 varor i kylen?")).toBeInTheDocument();
     expect(within(sheet()).getByText("Du kan ångra direkt efteråt.")).toBeInTheDocument();
     expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toHaveFocus();
-    expect(sheetConfirm()).toHaveTextContent("Töm kylen");
+    expect(sheetConfirm()).toHaveTextContent("Ta bort");
   });
 
   it("asks about the one item", () => {
@@ -144,7 +144,7 @@ describe("the sheet", () => {
     button.focus();
     fireEvent.click(button);
     fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(emptyPantryPlace).not.toHaveBeenCalled();
     expect(screen.getAllByTestId("pantry-row")).toHaveLength(3);
     expect(button).toHaveFocus();
@@ -154,7 +154,7 @@ describe("the sheet", () => {
     render(<Hemma initial={items(3)} />);
     fireEvent.click(emptyButton()!);
     fireEvent.keyDown(sheet(), { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(emptyPantryPlace).not.toHaveBeenCalled();
   });
 
@@ -176,7 +176,7 @@ describe("the sheet", () => {
     expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.any(String), hemma.id);
 
     await act(async () => pending.resolve(ok(emptiedOf(kyl))));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
     expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort 3 varor ur kylen.");
     expect(emptyButton()).toBeNull();
@@ -193,8 +193,8 @@ describe("the sheet", () => {
     expect(screen.queryByTestId("toast")).toBeNull();
     expect(refresh).not.toHaveBeenCalled();
 
-    fireEvent.click(await within(sheet()).findByRole("button", { name: "Töm kylen" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull());
+    fireEvent.click(await within(sheet()).findByRole("button", { name: "Ta bort" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(emptyPantryPlace).toHaveBeenCalledTimes(2);
   });
 
@@ -220,7 +220,7 @@ describe("the sheet when the location changes meanwhile", () => {
     rerender(<Changing items={items(2)} />);
     expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen?")).toBeInTheDocument();
     rerender(<Changing items={[]} />);
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(emptyPantryPlace).not.toHaveBeenCalled();
   });
 
@@ -230,12 +230,12 @@ describe("the sheet when the location changes meanwhile", () => {
     fireEvent.click(emptyButton()!);
     fireEvent.click(sheetConfirm());
     await within(sheet()).findByRole("alert");
-    fireEvent.click(await within(sheet()).findByRole("button", { name: "Töm kylen" }));
+    fireEvent.click(await within(sheet()).findByRole("button", { name: "Ta bort" }));
     await waitFor(() => expect(emptyPantryPlace).toHaveBeenCalledTimes(2));
     expect(emptyPantryPlace.mock.calls[1][1]).toBe(emptyPantryPlace.mock.calls[0][1]);
     await waitFor(() => expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toBeEnabled());
     fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(emptyButton()!);
     fireEvent.click(sheetConfirm());
     await waitFor(() => expect(emptyPantryPlace).toHaveBeenCalledTimes(3));
@@ -372,7 +372,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     fireEvent.click(sheetConfirm());
     expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(screen.getAllByTestId("pantry-row")).toHaveLength(2);
-    fireEvent.click(await within(sheet()).findByRole("button", { name: "Töm kylen" }));
+    fireEvent.click(await within(sheet()).findByRole("button", { name: "Ta bort" }));
     await waitFor(() => expect(emptyPantryPlace).toHaveBeenCalledTimes(2));
     expect(emptyPantryPlace.mock.calls[1]).toEqual(emptyPantryPlace.mock.calls[0]);
   });
@@ -443,7 +443,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     rerender(<Hemma initial={items(2)} site={stugan} />);
     expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen för Stugan?")).toBeInTheDocument();
     rerender(<Hemma initial={items(2)} site={{ ...hemma, siteCount: 2 }} />);
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(emptyPantryPlace).not.toHaveBeenCalled();
   });
 });

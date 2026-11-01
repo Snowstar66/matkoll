@@ -221,7 +221,7 @@ function CardMenu({
             Byt namn
           </button>
           {canRemove ? (
-            <button type="button" role="menuitem" onClick={() => pick(onRemove)} className="min-h-tap px-4 text-left text-body text-ink">
+            <button type="button" role="menuitem" onClick={() => pick(onRemove)} className="min-h-tap px-4 text-left text-body text-danger">
               Ta bort
             </button>
           ) : null}

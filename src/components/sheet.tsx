@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, type TouchEvent, useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, type TouchEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "./button";
 import { ChevronLeftIcon } from "./icons";
 import { cx } from "./cx";
@@ -19,7 +19,12 @@ export type SheetProps = {
   children: ReactNode;
   /** Unsaved changes: closing first asks "Släng ändringarna?". */
   isDirty?: boolean;
-  /** The text button in the header, usually "Klar" or "Avbryt". */
+  /**
+   * The text button in the header (Story 19.4): "Avbryt" when the sheet has a form that is not saved
+   * yet or asks a question, "Klar" when everything saves at once or the sheet only shows something;
+   * never "Stäng". Titles: the thing itself ("Lime"), the action for a thing that does not exist
+   * yet ("Lägg till vara"), the question for a question sheet ("Ta bort Lime?").
+   */
   closeLabel?: string;
   /** Buttons at the bottom of the sheet, e.g. the primary action. */
   footer?: ReactNode;
@@ -273,7 +278,7 @@ export function Sheet({
       }}
       className={cx(
         "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface-2 p-0 text-ink",
-        "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:starting:open:translate-y-full",
+        "motion-safe:transition-transform motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(.2,.8,.2,1)] motion-safe:starting:open:translate-y-full",
         "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl desktop:shadow-float",
         "desktop:motion-safe:starting:open:translate-y-4 desktop:motion-safe:starting:open:opacity-0 desktop:motion-safe:transition-[transform,opacity]",
       )}
@@ -304,7 +309,7 @@ export function Sheet({
                   ref={titleRef}
                   id={titleId}
                   tabIndex={-1}
-                  className="pointer-events-none absolute inset-x-0 top-2 flex min-h-tap items-center justify-center text-row-title text-ink outline-none desktop:top-3"
+                  className="pointer-events-none absolute inset-x-0 top-2 flex min-h-tap items-center justify-center px-24 text-center text-row-title break-words text-ink outline-none desktop:top-3"
                 >
                   {heading ?? title}
                 </h2>
@@ -355,7 +360,15 @@ export function Sheet({
             </div>
           ) : null}
           {/* Hidden, not unmounted, while asking, so "Fortsätt ändra" keeps what was typed. */}
-          <div hidden={confirming} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-page pt-2 pb-gutter">
+          <div
+            hidden={confirming}
+            // One level deeper (onBack) slides in from the side, 180 ms; "Minska rörelse" changes it without the slide.
+            style={onBack ? ({ "--step-from": "24px" } as CSSProperties) : undefined}
+            className={cx(
+              "min-h-0 flex-1 overflow-y-auto overscroll-contain px-page pt-2 pb-gutter",
+              onBack && "motion-safe:animate-step-in",
+            )}
+          >
             {children}
           </div>
           {footer ? (

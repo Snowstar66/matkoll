@@ -72,7 +72,7 @@ async function readLink(page: Page, url: string) {
 }
 
 async function closeSheet(page: Page) {
-  await sheet(page).getByRole("button", { name: "Stäng" }).click();
+  await sheet(page).getByRole("button", { name: "Klar" }).click();
   await expect(sheet(page)).toHaveCount(0);
 }
 
@@ -141,7 +141,7 @@ test("a link keeps only its domain in the job, and the open sheet closes on a sa
 
   // Ångra removes it again, with the existing delete.
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(toast(page)).toHaveText("Receptet är borttaget.");
+  await expect(toast(page)).toHaveText(/^Tog bort .+\.$/);
   await expect.poll(recipeTitles).toEqual([]);
   await expect(page.getByTestId("recipe-card")).toHaveCount(0);
 });

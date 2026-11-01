@@ -265,7 +265,7 @@ test("Laga nu opens the step mode with the chosen servings; the steps change wit
   await swipe(page, 120);
   await expect(heading(page)).toHaveText("Steg 1 av 3");
 
-  await stepMode(page).getByRole("button", { name: "Stäng" }).click();
+  await stepMode(page).getByRole("button", { name: "Klar" }).click();
   await expect(stepMode(page)).toHaveCount(0);
   await expect(cookButton(page)).toBeFocused();
   await expect(page.getByText("6 portioner", { exact: true })).toBeVisible();
@@ -324,7 +324,7 @@ test("without Wake Lock the step mode says the screen may dim, and still works",
   await expect(stepMode(page).getByRole("alert")).toHaveCount(0);
   await stepMode(page).getByRole("button", { name: "Nästa" }).click();
   await expect(heading(page)).toHaveText("Steg 2 av 3");
-  await stepMode(page).getByRole("button", { name: "Stäng" }).click();
+  await stepMode(page).getByRole("button", { name: "Klar" }).click();
   await expect(stepMode(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

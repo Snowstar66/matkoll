@@ -239,7 +239,7 @@ describe("removing an own item", () => {
     await user.click(screen.getByRole("button", { name: "Svep bort diskmedel" }));
     expect(removeCustomItem).toHaveBeenCalledWith(diskId);
     expect(screen.queryByText("diskmedel")).not.toBeInTheDocument();
-    expect((await screen.findAllByText("Diskmedel är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Diskmedel.")).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     expect(restoreCustomItem).toHaveBeenCalledWith(diskRow);
@@ -256,9 +256,9 @@ describe("removing an own item", () => {
     removeCustomItem.mockImplementation(async (id) => ok(id === diskId ? diskRow : kaffeRow));
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Svep bort diskmedel" }));
-    await screen.findAllByText("Diskmedel är borttagen.");
+    await screen.findAllByText("Tog bort Diskmedel.");
     await user.click(screen.getByRole("button", { name: "Svep bort Kaffe" }));
-    expect((await screen.findAllByText("Diskmedel och Kaffe är borttagna.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Diskmedel och Kaffe.")).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(restoreCustomItem).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("Kaffe")).toBeInTheDocument();
@@ -325,7 +325,7 @@ describe("own items after review", () => {
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
     await user.click(screen.getByRole("button", { name: "Svep bort diskmedel" }));
     rerender(<ShoppingList plan={plan} lines={[gradde]} pantryUnavailable={false} />);
-    await screen.findAllByText("Diskmedel är borttagen.");
+    await screen.findAllByText("Tog bort Diskmedel.");
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
   });
 
@@ -360,7 +360,7 @@ describe("own items after review", () => {
     restoreCustomItem.mockImplementation(async (row) => (row.id === diskId ? fail("shopping_restore_failed") : ok(row)));
     const { rerender } = render(<ShoppingList plan={plan} lines={[gradde, coffee, disk]} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Svep bort diskmedel" }));
-    await screen.findAllByText("Diskmedel är borttagen.");
+    await screen.findAllByText("Tog bort Diskmedel.");
     await user.click(screen.getByRole("button", { name: "Svep bort Kaffe" }));
     rerender(<ShoppingList plan={plan} lines={[gradde]} pantryUnavailable={false} />);
     await user.click(await screen.findByRole("button", { name: "Ångra" }));
@@ -374,12 +374,12 @@ describe("own items after review", () => {
     removeCustomItem.mockResolvedValueOnce(ok(null));
     render(<ShoppingList plan={plan} lines={[gradde, coffee, disk]} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Svep bort diskmedel" }));
-    await screen.findAllByText("Diskmedel är borttagen.");
+    await screen.findAllByText("Tog bort Diskmedel.");
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
     removeCustomItem.mockResolvedValueOnce(ok({ ...diskRow, id: kaffeId, label: "Kaffe" }));
     await user.click(screen.getByRole("button", { name: "Svep bort Kaffe" }));
     // Kaffe alone: diskmedel's confirmation was no batch to join.
-    expect((await screen.findAllByText("Kaffe är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Tog bort Kaffe.")).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 

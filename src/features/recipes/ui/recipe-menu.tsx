@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { MoreIcon } from "@/components/icons";
-import { TrashButton } from "@/components/trash-button";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
 import { useRecipeDelete } from "./recipe-delete";
@@ -75,11 +74,6 @@ export function RecipeMenu({
 
   return (
     <div ref={root} className={className ? `relative flex ${className}` : "relative flex"}>
-      <TrashButton
-        label="Ta bort recept"
-        className="rounded-full"
-        onPress={() => ask({ id: recipe.id, title: recipe.title, onMenu })}
-      />
       {dialog}
       <button
         ref={toggle}
@@ -109,6 +103,18 @@ export function RecipeMenu({
             className="min-h-tap px-4 text-left text-body text-ink"
           >
             Ändra
+          </button>
+          {/* Story 19.4: Ta bort is last in the menu, in muted red, not a bin next to the heart. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              closeMenu();
+              ask({ id: recipe.id, title: recipe.title, onMenu });
+            }}
+            className="min-h-tap px-4 text-left text-body text-danger"
+          >
+            Ta bort recept
           </button>
         </div>
       ) : null}

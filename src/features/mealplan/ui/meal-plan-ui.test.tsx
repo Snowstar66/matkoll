@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import { toSnapshot } from "@/features/pantry";
 import type { RecipeListItem } from "@/features/recipes";
@@ -106,7 +105,6 @@ beforeEach(() => {
   // Thursday 29 October 2026, in Stockholm.
   vi.useFakeTimers({ now: new Date("2026-10-29T10:00:00Z"), toFake: ["Date"] });
   setWeekday.mockReset().mockImplementation(async (change) => ok(change));
-  startDeleteGrace();
   addToCurrentPlan.mockReset();
   setServings.mockReset().mockImplementation(async (change) => ok(change));
   removePlanRecipe.mockReset().mockImplementation(async (id) => ok(rowOf(known.find((d) => d.id === id)!)));
@@ -238,7 +236,7 @@ describe("MealPlanList", () => {
     render(<Matsedel initial={[pasta, soppa]} />);
     await removeFromSheet("Pasta");
     expect(cards()).toHaveLength(1);
-    expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta.");
     // The server's plan catches up; Ångra puts the same row back.
     act(() => serverUpdate((dishes) => dishes.filter((other) => other.id !== pasta.id)));
     await act(async () => fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" })));
@@ -250,7 +248,7 @@ describe("MealPlanList", () => {
     render(<Matsedel initial={[pasta, soppa]} />);
     await removeFromSheet("Pasta");
     await removeFromSheet("Soppa");
-    expect(toast()).toHaveTextContent("Pasta och Soppa är borttagna från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta och Soppa.");
     expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
   });
 
@@ -511,7 +509,7 @@ describe("more on servings and removal", () => {
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort från matsedeln" }), { detail: 1 }));
     await act(async () => write.resolve(fail("mealplan_servings_failed")));
-    expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 

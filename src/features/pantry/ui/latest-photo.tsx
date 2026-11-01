@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { cannotUndoText } from "@/components/confirm-delete";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -253,7 +255,8 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
                 </>
               ) : null}
               {/* Not a bin: the file cannot be brought back, so it asks first (EXPERIENCE.md, Fotoark). */}
-              <Button variant="text" onClick={ask} className="-ml-3 self-start">
+              <Button variant="danger" onClick={ask} className="-ml-3 self-start">
+                <TrashIcon size={20} />
                 {removePhotoText}
               </Button>
             </div>
@@ -261,20 +264,20 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
           <Sheet
             open={view === "ask"}
             onClose={() => setView("photo")}
-            title={removePhotoText}
+            title={removePhotoQuestion(sheetPhoto.location)}
             closeLabel="Avbryt"
             initialFocus="close"
             preventClose={removing}
             footer={
               <>
                 {error ? <Notice role="alert">{error}</Notice> : null}
-                <Button fullWidth disabled={removing} onClick={() => void remove(sheetPhoto)}>
+                <Button variant="danger-confirm" fullWidth disabled={removing} onClick={() => void remove(sheetPhoto)}>
                   {removing ? "Tar bort …" : "Ta bort"}
                 </Button>
               </>
             }
           >
-            <p className="text-body text-ink">{removePhotoQuestion(sheetPhoto.location)}</p>
+            <p className="text-body text-ink-2">{cannotUndoText}</p>
           </Sheet>
         </>
       ) : null}

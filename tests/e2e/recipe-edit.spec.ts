@@ -16,7 +16,7 @@ const fixtureTitle = "Fiskgratäng med räkor";
 const recipePath = /\/recept\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 const importSheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
-const editSheet = (page: Page) => page.getByRole("dialog", { name: "Ändra recept" });
+const editSheet = (page: Page) => page.getByRole("dialog");
 
 /** Collects console errors and uncaught exceptions for the page. */
 function watchErrors(page: Page): string[] {
@@ -126,7 +126,7 @@ test("closing with changes asks first, and nothing is saved", async ({ page }) =
   await saveRecipe(page, title);
   await openEdit(page);
   await editSheet(page).getByLabel("Titel").fill("Något annat");
-  await editSheet(page).getByRole("button", { name: "Stäng" }).click();
+  await editSheet(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(editSheet(page).getByText("Släng ändringarna?")).toBeVisible();
   await editSheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
   await expect(editSheet(page)).toBeHidden();
@@ -168,11 +168,11 @@ test("Ta bort recept asks first, then removes the recipe and opens the library",
 
   await openEdit(page);
   await editSheet(page).getByRole("button", { name: "Ta bort recept" }).click();
-  const confirm = page.getByRole("dialog", { name: "Ta bort recept" });
-  await expect(confirm.getByText(`Ta bort ${title}? Det går inte att ångra.`)).toBeVisible();
+  const confirm = page.getByRole("dialog", { name: `Ta bort ${title}?` });
+  await expect(confirm.getByText("Det går inte att ångra.")).toBeVisible();
 
-  // Avbryt: nothing happens, and the form is back.
-  await confirm.getByRole("button", { name: "Avbryt" }).click();
+  // Tillbaka: nothing happens, and the form is back.
+  await confirm.getByRole("button", { name: "Tillbaka" }).click();
   await expect(editSheet(page).getByLabel("Titel")).toHaveValue(title);
   await editSheet(page).getByRole("button", { name: "Ta bort recept" }).click();
   // Watch for the gone recipe's "Sidan finns inte." at any moment until the library shows.
@@ -186,7 +186,7 @@ test("Ta bort recept asks first, then removes the recipe and opens the library",
   await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
 
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(page.getByTestId("toast")).toHaveText("Receptet är borttaget.");
+  await expect(page.getByTestId("toast")).toHaveText(`Tog bort ${title}.`);
   await expect(page.getByRole("heading", { level: 1, name: "Recept" })).toBeVisible();
   await expect(page.getByRole("link", { name: title })).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { notFoundSeen: string[] }).notFoundSeen)).toEqual([]);
@@ -210,22 +210,24 @@ test("Story 13.2: the soptunna on the recipe page asks, then deletes; the librar
   const fromLibrary = uniqueTitle("Soptunna listan");
   await saveRecipe(page, fromPage);
 
-  // On the recipe page: a visible bin of at least 44 px, no menu needed.
-  const bin = page.getByRole("button", { name: "Ta bort recept", exact: true });
-  const box = await bin.boundingBox();
-  expect(box?.width).toBeGreaterThanOrEqual(44);
-  expect(box?.height).toBeGreaterThanOrEqual(44);
-  await bin.click();
-  const confirm = page.getByRole("dialog", { name: "Ta bort", exact: true });
-  await expect(confirm.getByText(`Ta bort receptet ${fromPage}? Det går inte att ångra.`)).toBeVisible();
-  await confirm.getByRole("button", { name: "Avbryt" }).click();
+  // On the recipe page (Story 19.4): Ta bort recept is last in the ⋯ menu, in muted red, not a bin beside the heart.
+  const openBin = async () => {
+    await page.getByRole("button", { name: "Fler val", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Ta bort recept" }).click();
+  };
+  await page.getByRole("button", { name: "Fler val", exact: true }).click();
+  const items = page.getByRole("menuitem");
+  await expect(items.last()).toHaveText("Ta bort recept");
+  await page.keyboard.press("Escape");
+  await openBin();
+  const confirm = page.getByRole("dialog", { name: `Ta bort ${fromPage}?` });
+  await expect(confirm.getByText("Det går inte att ångra.")).toBeVisible();
+  await confirm.getByRole("button", { name: "Tillbaka" }).click();
   await expect(page.getByRole("heading", { level: 1, name: fromPage })).toBeVisible();
-  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
-  await page.waitForTimeout(500);
-  await bin.click();
+  await openBin();
   await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(page.getByTestId("toast")).toHaveText(/Receptet är borttaget/);
+  await expect(page.getByTestId("toast")).toHaveText(`Tog bort ${fromPage}.`);
   await expect(page.getByRole("link", { name: fromPage })).toHaveCount(0);
 
   // Story 1.16: the library's cards and rows have no bin; the recipe's own page does.
