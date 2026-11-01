@@ -303,7 +303,10 @@ test("the view switch is a labelled segmented control named Vy with Kort and Lis
   await serveImages(page);
   await page.goto("/recept");
   const group = page.getByRole("radiogroup", { name: "Vy" });
-  await expect(group.getByRole("radio")).toHaveText([/Kort/, /Lista/]);
+  // Story 19.3: the segments are icons, so Kort and Lista are their names rather than their text.
+  await expect(group.getByRole("radio")).toHaveCount(2);
+  await expect(group.getByRole("radio").nth(0)).toHaveAccessibleName("Kort");
+  await expect(group.getByRole("radio").nth(1)).toHaveAccessibleName("Lista");
   await expect(group.getByRole("radio", { name: "Kort", exact: true })).toBeChecked();
   // The 44 px tap area reaches 9 px above the 26 px segment: a tap there still chooses it.
   await group.getByRole("radio", { name: "Lista", exact: true }).click({ position: { x: 10, y: -8 } });
