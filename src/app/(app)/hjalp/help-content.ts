@@ -1,182 +1,234 @@
 import { appName } from "@/app/app-info";
 import { thingNoun } from "@/lib/thing-noun";
+import type { HelpIconName } from "./help-icons";
 
-// The texts of Hjälp och tips (Story 19.2): one section per tab, in tab order,
-// then Siri and the quick add, and Boenden. They say what the app does today;
-// when a feature changes, change its tip here too (help-content.test.ts keeps
-// the ids in step with the tabs' help anchors).
+// The texts of Hjälp och tips (Story 20.2, hjalp-valkomst.html): six areas, one per
+// tab in tab order and then Konto (Boenden, Siri, the quick add and who sees the
+// data). Each area has three "Så gör du" steps and its questions. They say what the
+// app does today; when a feature changes, change its text here too
+// (help-content.test.ts keeps the ids in step with the tabs' help anchors).
 
-export type HelpTip = { title: string; text: string };
+export type HelpStep = { icon: HelpIconName; title: string; text: string };
 
-export type HelpSection = {
+export type HelpQuestion = { question: string; answer: string };
+
+export type HelpArea = {
   /** The anchor: `/hjalp#recept`. For the five tabs it is the tab's `helpId`. */
   id: string;
+  /** The chip's name, the same as the tab's. */
   title: string;
-  tips: readonly HelpTip[];
-  /** Whether the section has a chip in the row at the top (the five tabs have; the two last do not). */
-  chip: boolean;
+  steps: readonly [HelpStep, HelpStep, HelpStep];
+  faq: readonly HelpQuestion[];
 };
 
-export const helpSections: readonly HelpSection[] = [
+/** When the texts were last checked against the app: "uppdaterad 1 nov" at the bottom. */
+export const helpUpdated = { day: 1, month: 11 } as const;
+
+const things = thingNoun.plural;
+
+export const helpAreas: readonly HelpArea[] = [
   {
     id: "recept",
     title: "Recept",
-    chip: true,
-    tips: [
+    steps: [
+      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
+      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst." },
+      { icon: "steps", title: "Laga steg för steg", text: "Laga nu visar ett steg i taget och håller skärmen tänd." },
+    ],
+    faq: [
       {
-        title: "Spara ett recept",
-        text: `Tryck på + och klistra in en länk, skriv eller klistra in texten, eller fota receptet. ${appName} läser in ingredienser och steg och sparar det som alla andra recept.`,
+        question: "Kan jag spara direkt från webbläsaren?",
+        answer: `Ja, med Spara i ${appName} skickar du ett recept från en receptsajt utan att kopiera länken. Hur du slår på det står under Inställningar.`,
       },
       {
-        title: "Spara direkt från webbläsaren",
-        text: `Med Spara i ${appName} skickar du ett recept från en receptsajt utan att kopiera länken. Hur du slår på det står under Inställningar.`,
+        question: "Vad betyder märket på receptet?",
+        answer: "Vad som saknas hemma, till exempel Saknar 2 varor. Kan lagas nu betyder att allt finns.",
       },
+      { question: "Hur sparar jag en favorit?", answer: "Tryck på hjärtat på receptet." },
+      { question: "Kan jag ändra antal portioner?", answer: "Ja, innan du trycker Laga nu. Mängderna räknas om." },
       {
-        title: "Vad kan jag laga nu?",
-        text: "Kan lagas nu visar recepten med det du har hemma, de som saknar minst överst. Märket på varje recept säger vad som saknas. Hjärtat sparar ett recept som favorit.",
-      },
-      {
-        title: "Laga steg för steg",
-        text: "Öppna ett recept och tryck Laga nu: då visas ett steg i taget och skärmen hålls tänd. Du kan ändra portionerna först, så räknas mängderna om.",
-      },
-      {
-        title: "Lägg på matsedeln",
-        text: "Från ett recept väljer du en dag och lägger det på matsedeln.",
+        question: "Hur lägger jag ett recept på matsedeln?",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag den här veckan, och i Matsedel kan du flytta det till en annan dag.",
       },
     ],
   },
   {
     id: "matsedel",
     title: "Matsedel",
-    chip: true,
-    tips: [
-      {
-        title: "Planera tre veckor framåt",
-        text: "Välj denna vecka eller någon av de två nästa. Tryck + eller Lägg till rätt, välj recept och dag.",
-      },
-      {
-        title: "Se vad som finns hemma",
-        text: "Varje rätt visar hur många av ingredienserna du redan har i Matvaror, så du ser vad som behöver köpas.",
-      },
-      {
-        title: "Tidigare veckor",
-        text: "Tryck Tidigare bredvid veckans datum, så ser du matsedlarna du har haft. Där kan du hämta idéer igen.",
-      },
-      {
-        title: "Från matsedel till inköpslista",
-        text: "Du behöver inte göra något mer: Inköpslistan räknas fram från veckans matsedel.",
-      },
+    steps: [
+      { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
+      { icon: "plus", title: "Lägg till rätt", text: "Tryck + eller Lägg till rätt, välj recept och dag." },
+      { icon: "house", title: "Se vad som finns", text: "Varje rätt visar hur mycket du redan har hemma." },
+    ],
+    faq: [
+      { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
+      { question: "Kan jag flytta en rätt till en annan dag?", answer: "Ja. Tryck ⋯ på rätten och välj Flytta till annan dag." },
+      { question: "Måste jag skriva inköpslistan själv?", answer: "Nej, Inköpslistan räknas fram från veckans matsedel." },
+      { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },
     ],
   },
   {
     id: "inkopslista",
     title: "Inköpslista",
-    chip: true,
-    tips: [
+    steps: [
+      { icon: "list", title: "Listan räknas fram", text: "Från matsedeln, minus det du redan har, sorterad efter avdelning." },
+      { icon: "check", title: "Bocka av", text: "Tryck på cirkeln. Det fungerar även utan nät." },
+      { icon: "bag", title: "Lägg i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
+    ],
+    faq: [
+      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till egen vara, eller säg det till Siri." },
       {
-        title: "Listan räknas fram",
-        text: "Den bygger på matsedeln. Det du redan har i Matvaror dras av, och varorna sorteras efter avdelning i butiken.",
+        question: "Hur lägger jag det jag handlat i Matvaror?",
+        answer: `Bocka av varorna och tryck Lägg till i Matvaror. Då räknar ${appName} med att du har dem hemma nästa gång listan räknas fram.`,
       },
       {
-        title: "Bocka av när du handlar",
-        text: "Tryck på cirkeln vid en vara för att bocka av den. Det fungerar även utan nät och sparas när du är uppkopplad igen.",
+        question: "Sparas det jag bockar av utan nät?",
+        answer: "Ja, och det skickas när du är uppkopplad igen.",
       },
       {
-        title: "Egna varor",
-        text: "Tryck Lägg till egen vara för sådant som inte står på matsedeln, till exempel kaffe eller diskmedel. Du kan också säga det till Siri.",
+        question: "Var kommer erbjudandena ifrån?",
+        answer: "Från dina butiker. Pristaggen visar veckans erbjudanden: tryck Hämta veckans erbjudanden första gången och lägg de du vill ha på listan. Butikerna väljer du i Inställningar.",
       },
       {
-        title: "Lägg i Matvaror när du handlat",
-        text: "Bocka av varorna och tryck Lägg till i Matvaror, så vet Livskoll att du har dem hemma nästa gång listan räknas.",
-      },
-      {
-        title: "Erbjudanden",
-        text: "Pristaggen visar veckans erbjudanden i dina butiker. Tryck Hämta veckans erbjudanden första gången, och lägg de du vill ha på listan. Butikerna väljer du i Inställningar.",
-      },
-      {
-        title: "Så fyller du varukorgen",
-        text: "Tryck Kopiera till varukorgen. Öppna butikens webbplats och logga in, öppna Claude in Chrome och klistra in listan, och granska varukorgen och beställ själv. Dela listan skickar den som text i stället.",
+        question: "Kan jag fylla varukorgen på nätet?",
+        answer: "Tryck Kopiera till varukorgen, öppna butikens webbplats och logga in, och klistra in listan i Claude in Chrome. Du granskar varukorgen och beställer själv. Dela listan skickar den som text i stället.",
       },
     ],
   },
   {
     id: "matvaror",
     title: "Matvaror",
-    chip: true,
-    tips: [
+    steps: [
+      { icon: "fridge", title: "Välj plats", text: "Kyl, Frys eller Skafferi högst upp. Tryck + för en vara." },
+      { icon: "camera", title: "Fota kylen", text: `${appName} föreslår varorna. Inget sparas förrän du bekräftar.` },
+      { icon: "undo", title: "Ta bort och ångra", text: "Svep en rad åt vänster. Ångra finns kvar en stund." },
+    ],
+    faq: [
       {
-        title: "Kyl, Frys och Skafferi",
-        text: "Välj plats högst upp. Tryck + för att lägga till en vara, och tryck på en vara för att ändra den.",
+        question: "Varför spelar Matvaror roll?",
+        answer: "Det avgör vad som står som Kan lagas nu och vad som dras av på inköpslistan.",
       },
+      { question: "Hur ändrar jag en vara?", answer: "Tryck på varan. Där kan du också ta bort den." },
       {
-        title: "Fota för att fylla på",
-        text: `Tryck Fotografera kylen (eller frysen, skafferiet). ${appName} föreslår varor från bilden. Inget sparas förrän du bekräftar, och du kan ändra eller avvisa varje förslag.`,
+        question: "Kan jag fota frysen och skafferiet också?",
+        answer: "Ja, Fotografera finns för varje plats: kylen, frysen och skafferiet.",
       },
-      {
-        title: "Ta bort och ångra",
-        text: "Svep en rad åt vänster, eller tryck på varan och Ta bort. Ångra finns kvar en stund. Töm kylen längst ned tar bort allt på platsen efter en fråga.",
-      },
-      {
-        title: "Det styr dina recept",
-        text: "Vad du har här avgör vad som står som Kan lagas nu och vad som dras av på inköpslistan.",
-      },
+      { question: "Kan jag ändra ett förslag från bilden?", answer: "Ja. Ändra eller avvisa varje förslag innan du sparar." },
+      { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
     ],
   },
   {
     id: "forrad",
     title: "Förråd",
-    chip: true,
-    tips: [
+    steps: [
+      { icon: "door", title: "Börja med ett rum", text: "Tryck + Nytt rum, till exempel Förrådet eller Garaget." },
+      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Ta foto. ${appName} listar ${things}en på bilden.` },
+      { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
+    ],
+    faq: [
       {
-        title: `${thingNoun.plural.charAt(0).toUpperCase()}${thingNoun.plural.slice(1)}, inte mat`,
-        text: `Förråd är till för ${thingNoun.plural} som verktyg och annat som ligger i lådor och på hyllor. Maten bor i Matvaror.`,
+        question: "Ska maten in här?",
+        answer: `Nej, maten bor i Matvaror. Förråd är för ${things} som verktyg och annat som ligger i lådor och på hyllor.`,
       },
-      {
-        title: "Börja med ett rum",
-        text: "Tryck + Nytt rum längst ned, till exempel Förrådet eller Garaget. I rummet kan du lägga till lådor och egna platser.",
-      },
-      {
-        title: "Fota så hittar du igen",
-        text: `Öppna ett rum, tryck Ta foto och fota rummet, en hylla eller en låda. ${appName} listar ${thingNoun.plural}en på bilden, och du kan ta ett nytt kort när något har flyttats.`,
-      },
-      {
-        title: "Sök eller fråga",
-        text: `Skriv överst för att söka bland ${thingNoun.plural}en i alla dina boenden, eller tryck ↑ för att ställa en fråga, till exempel var skruvdragaren finns.`,
-      },
+      { question: "Kan jag dela upp ett rum?", answer: "Ja, i rummet lägger du till lådor och egna platser." },
+      { question: "Något har flyttats. Vad gör jag?", answer: "Ta ett nytt foto av platsen, så uppdateras listan." },
+      { question: "Söker den i alla boenden?", answer: `Ja, sökningen går igenom ${things}en i alla dina boenden.` },
     ],
   },
   {
-    id: "siri",
-    title: "Siri och snabbtillägg",
-    chip: false,
-    tips: [
-      {
-        title: "Lägg till varor med Siri",
-        text: `Skapa en personlig nyckel under Inställningar, Siri och genvägar, och följ stegen i appen Genvägar på iPhone. Sedan säger du "Hej Siri, ${appName}" och vad du vill lägga till, till exempel "mjölk och ägg".`,
-      },
-      {
-        title: "Snabbtillägg från hemskärmen",
-        text: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till egen vara redan öppen. Lägg den som genväg på hemskärmen när du vill skriva in en vara på en sekund.",
-      },
+    id: "konto",
+    title: "Konto",
+    steps: [
+      { icon: "pin", title: "Boenden", text: "Hemma och stugan: byt med nålmärket under rubriken." },
+      { icon: "mic", title: "Siri", text: `Säg ”Hej Siri, ${appName}” och vad du vill lägga till.` },
+      { icon: "phone", title: "Snabbtillägg", text: "En genväg på hemskärmen öppnar Lägg till egen vara direkt." },
     ],
-  },
-  {
-    id: "boenden",
-    title: "Boenden",
-    chip: false,
-    tips: [
+    faq: [
       {
-        title: "Flera boenden",
-        text: "Har du mer än ett ställe, till exempel hemma och stugan, visas ett nålmärke med namnet under rubriken på Matsedel, Inköpslista, Matvaror och Förråd. På dator finns det i sidomenyn. Tryck på det för att byta.",
+        question: "Var finns nålmärket?",
+        answer: "Har du mer än ett boende står det med namnet under rubriken på Matsedel, Inköpslista, Matvaror och Förråd. På dator finns det i sidomenyn.",
       },
       {
-        title: "Vad som hör till boendet",
-        text: `Matvaror och ${thingNoun.plural} hör till ett boende, och Inköpslistan räknar av det som finns i det valda. Recept och matsedel är gemensamma. Valet gäller i hela appen, på alla dina enheter.`,
+        question: "Vad hör till ett boende?",
+        answer: `Matvaror och ${things}. Inköpslistan räknar av det som finns i det valda. Recept och matsedel är gemensamma för alla boenden, och valet gäller i hela appen, på alla dina enheter.`,
       },
       {
-        title: "Lägg till eller ta bort",
-        text: "Under Inställningar, Boenden, lägger du till ett boende, byter namn eller tar bort ett.",
+        question: "Hur lägger jag till ett boende?",
+        answer: "Under Inställningar, Boenden, lägger du till ett boende, byter namn eller tar bort ett.",
       },
+      {
+        question: "Hur sätter jag upp Siri?",
+        answer: `Skapa en personlig nyckel under Inställningar, Siri och genvägar, och följ stegen i appen Genvägar på iPhone. Sedan säger du ”Hej Siri, ${appName}” och till exempel ”mjölk och ägg”.`,
+      },
+      {
+        question: "Hur gör jag snabbtillägget?",
+        answer: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till egen vara redan öppen. Lägg den som genväg på hemskärmen, så skriver du in en vara på en sekund.",
+      },
+      { question: "Vem kan se min data?", answer: `Den som driver ${appName} kan tekniskt se kontots data.` },
     ],
   },
 ];
+
+/** The area the address names (`#matvaror`), or Recept. */
+export function areaFromHash(hash: string): string {
+  const id = hash.replace(/^#/, "");
+  return helpAreas.some((area) => area.id === id) ? id : (helpAreas[0]?.id ?? "");
+}
+
+/**
+ * Lower case without accents, one UTF-16 unit for one, so a match's place in the folded text
+ * is its place in the text: "Öppna" → "oppna".
+ */
+export function fold(text: string): string {
+  return text
+    .split("")
+    .map((unit) => unit.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("sv-SE").charAt(0) || unit)
+    .join("");
+}
+
+/** The words of a search, folded. */
+export function searchWords(query: string): string[] {
+  return fold(query).split(/\s+/).filter(Boolean);
+}
+
+export type HelpHit = {
+  area: HelpArea;
+  kind: "step" | "question";
+  title: string;
+  text: string;
+};
+
+/** The steps and questions of every area that hold every word of `query`, ignoring case and å/ä/ö. */
+export function searchHelp(query: string): HelpHit[] {
+  const words = searchWords(query);
+  if (words.length === 0) return [];
+  const hits: HelpHit[] = [];
+  const matches = (title: string, text: string) => {
+    const folded = fold(`${title} ${text}`);
+    return words.every((word) => folded.includes(word));
+  };
+  for (const area of helpAreas) {
+    for (const step of area.steps) if (matches(step.title, step.text)) hits.push({ area, kind: "step", title: step.title, text: step.text });
+    for (const item of area.faq) if (matches(item.question, item.answer)) hits.push({ area, kind: "question", title: item.question, text: item.answer });
+  }
+  return hits;
+}
+
+/** `text` cut into plain parts and the parts that match a word of the search, for the underline. */
+export function highlightParts(text: string, query: string): { text: string; match: boolean }[] {
+  const words = searchWords(query);
+  const folded = fold(text);
+  const marked = new Array<boolean>(text.length).fill(false);
+  for (const word of words) {
+    for (let at = folded.indexOf(word); at >= 0; at = folded.indexOf(word, at + word.length)) {
+      for (let k = at; k < at + word.length; k += 1) marked[k] = true;
+    }
+  }
+  const parts: { text: string; match: boolean }[] = [];
+  for (let k = 0; k < text.length; k += 1) {
+    const last = parts[parts.length - 1];
+    if (last && last.match === marked[k]) last.text += text[k];
+    else parts.push({ text: text[k]!, match: marked[k]! });
+  }
+  return parts;
+}

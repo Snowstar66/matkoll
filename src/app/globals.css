@@ -47,6 +47,12 @@
   /* Category tiles only (Epic 11): clay for Kött, fisk & chark, lilac for Dryck. Decoration, never text. */
   --tile-clay: #F1E3DD;
   --tile-lilac: #E6E1F2;
+  /* The warm accent of the two-tone line art and the stars (Epic 20). Decoration only, never text. */
+  --warm: #D9963F;
+  /* The soft round plate behind a line drawing (the welcome tour, the help hub). Decoration. */
+  --illus-bg: #EEF4F0;
+  /* The welcome tour's background: pure white in light mode (more keynote than the app's grey), the page in dark. */
+  --tour-bg: var(--surface);
   /* Veil behind sheets and dialogs: 40 % ink (DESIGN.md, Elevation & Depth). */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
   /* Level 2, the floating frame: the tab bar and the collapsed header, 84 % surface over a blur. */
@@ -200,6 +206,9 @@
     --hot-ink: #2B1203;
     --tile-clay: #3B2C27;
     --tile-lilac: #2C2840;
+    --warm: #E9B872;
+    --illus-bg: #16211B;
+    --tour-bg: var(--bg);
     /* Dark ink is light, so the veil darkens with black instead. */
     --scrim: color-mix(in srgb, #000000 60%, transparent);
     /* No shadow in the dark (it does not show): a hairline light edge, with the lifted --surface-2. */
@@ -298,6 +307,9 @@
   --color-hot-ink: var(--hot-ink);
   --color-tile-clay: var(--tile-clay);
   --color-tile-lilac: var(--tile-lilac);
+  --color-warm: var(--warm);
+  --color-illus-bg: var(--illus-bg);
+  --color-tour-bg: var(--tour-bg);
   --color-overlay: var(--overlay);
   --color-photo-mark: var(--photo-mark);
   --color-photo-edge: var(--photo-edge);

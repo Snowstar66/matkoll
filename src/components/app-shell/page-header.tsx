@@ -32,10 +32,24 @@ export type PageHeaderProps = {
    * from several places, such as a card from search or from its room (Story 18.7).
    */
   backInHistory?: boolean;
+  /**
+   * A page under a tab that is long (Hjälp och tips, Story 20.2): once the title has scrolled
+   * out of sight the slim bar shows the title, with the back link at its left.
+   */
+  collapsing?: boolean;
 };
 
 /** Sidrubrik: 30 px semibold title with 16 px of air above it in a browser tab on mobile (below the notch on the home screen). */
-export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false, backInHistory = false }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  action,
+  tab,
+  backHref,
+  backLabel = "Tillbaka",
+  backOnlyOnMobile = false,
+  backInHistory = false,
+  collapsing = false,
+}: PageHeaderProps) {
   // 4 px up into the header's 16 px of air (.backrow in premium-look): a full -44 px, from the time
   // the header had 56 px above the title, put the link above the top of the screen (sista varvet).
   const backClasses = cx(
@@ -51,6 +65,21 @@ export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka
   const heading = (
     <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">{title}</h1>
   );
+  if (collapsing && !tab && backHref && !backInHistory) {
+    return (
+      <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
+        <CollapsingTitleRow
+          title={title}
+          heading={heading}
+          back={
+            <Link href={backHref} scroll={false} className={backClasses}>
+              {back}
+            </Link>
+          }
+        />
+      </header>
+    );
+  }
   return (
     <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
       {backHref && backInHistory ? (

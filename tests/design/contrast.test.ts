@@ -20,6 +20,8 @@ const { light, dark } = colorTokens();
 const colorNames = [
   "bg", "surface", "surface-2", "fill", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
   "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "danger", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "seg-track", "seg-on",
+  // Epic 20: decoration only (the line art, the stars), never text, so no text pair below.
+  "warm", "illus-bg",
 ];
 
 /** [text, background, where it is used] */
@@ -65,8 +67,8 @@ describe("design tokens", () => {
     );
   });
 
-  it("has no red except the ICA badge, the warm offer tags (Story 9.15) and Ta bort (Story 16.17)", () => {
-    const warm = new Set(["danger", "store-ica", "deal-ink", "hot", "deal"].flatMap((name) => [light[name], dark[name]]));
+  it("has no red except the ICA badge, the warm offer tags (Story 9.15), Ta bort (Story 16.17) and the warm line art (Epic 20)", () => {
+    const warm = new Set(["danger", "store-ica", "deal-ink", "hot", "deal", "warm"].flatMap((name) => [light[name], dark[name]]));
     for (const hex of [...Object.values(light), ...Object.values(dark)]) {
       if (warm.has(hex)) continue;
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
