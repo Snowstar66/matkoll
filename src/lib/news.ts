@@ -31,12 +31,19 @@ export const newsKey = {
   item: (id: string) => `item:${id}`,
   check: (lineKey: string) => `check:${lineKey}`,
   card: (photoId: string) => `card:${photoId}`,
+  note: (noteId: string) => `note:${noteId}`,
 } as const;
 
-/** GET /api/news?lista=<iso>&prylar=<iso>: the server's time, and the keys of each tab's news after its time. */
+/**
+ * GET /api/news?lista=<iso>&prylar=<iso>: the server's time, the keys of each
+ * tab's news after its time, and the household's notes (Story 24.1) that
+ * another member wrote and nobody has marked Klar. Notes have no tab: they
+ * count in the total (the app icon) for as long as they wait, as the P
+ * button's dot shows them.
+ */
 export const newsAnswerSchema = z.object({
   now: z.string(),
-  news: z.object({ lista: z.array(z.string()), prylar: z.array(z.string()) }),
+  news: z.object({ lista: z.array(z.string()), prylar: z.array(z.string()), notes: z.array(z.string()).default([]) }),
 });
 export type NewsAnswer = z.infer<typeof newsAnswerSchema>;
 

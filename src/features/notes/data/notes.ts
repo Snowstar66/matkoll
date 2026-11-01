@@ -61,6 +61,25 @@ export async function listOpenNotesIn(db: NotesDb, me: string, others: Others, n
   });
 }
 
+/**
+ * The ids of the household's open notes that someone else wrote, newest first,
+ * at most `limit`: the notes waiting for `me`, as the P button's dot counts
+ * them. For the news count (Brickor, Story 23.1).
+ */
+export async function listWaitingNoteIdsIn(db: NotesDb, me: string, limit: number, now: Date = new Date()): Promise<string[]> {
+  const since = new Date(now.getTime() - noteMaxDays * 24 * 60 * 60_000).toISOString();
+  const { data, error } = await db
+    .from("household_note")
+    .select("id, user_id")
+    .is("done_at", null)
+    .gt("created_at", since)
+    .order("created_at", { ascending: false })
+    .order("id")
+    .limit(readLimit);
+  if (error) throw new NoteDataError(`waiting_failed ${error.code}`);
+  return data.filter((row) => row.user_id !== me).slice(0, limit).map((row) => row.id);
+}
+
 /** Adds a note as the signed-in member. `limited` after noteDailyLimit notes in a day (MK429). */
 export async function insertNoteIn(db: NotesDb, input: ValidNoteInput): Promise<"sent" | "limited"> {
   const { error } = await db.from("household_note").insert({

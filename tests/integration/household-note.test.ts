@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { insertNoteIn, listOpenNotesIn, setNoteDoneIn } from "@/features/notes/data/notes";
+import { insertNoteIn, listOpenNotesIn, listWaitingNoteIdsIn, setNoteDoneIn } from "@/features/notes/data/notes";
 import { noteDailyLimit } from "@/features/notes";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, householdOf, moveToHousehold, type TestUser } from "./support";
 
@@ -46,6 +46,17 @@ describe("household_note", () => {
     expect((await listOpenNotesIn(a.db, a.id, new Map())).find((candidate) => candidate.id === note!.id)?.mine).toBe(true);
     expect(await listOpenNotesIn(b.db, b.id, new Map()), "B sees none of A's notes").toEqual([]);
     expect((await anonClient().from("household_note").select("id")).error?.code).toBe("42501");
+  });
+
+  // The news count (Brickor, Story 23.1): a note waits for the others in the household, never its author, until Klar.
+  it("counts as news for the other members only, until someone marks it Klar", async () => {
+    const own = await write(a, "Vem hämtar paketet?");
+    const id = own.data!.id;
+    expect(await listWaitingNoteIdsIn(a2.db, a2.id, 50)).toContain(id);
+    expect(await listWaitingNoteIdsIn(a.db, a.id, 50), "the author").not.toContain(id);
+    expect(await listWaitingNoteIdsIn(b.db, b.id, 50), "another household").toEqual([]);
+    expect(await setNoteDoneIn(a2.db, id, true)).toBe(true);
+    expect(await listWaitingNoteIdsIn(a2.db, a2.id, 50), "done").not.toContain(id);
   });
 
   it("never lets the caller name another author or household, or change a note's text", async () => {
