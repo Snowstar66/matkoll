@@ -183,6 +183,23 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Hur gör jag snabbtillägget?",
         answer: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till vara redan öppen. Lägg den som genväg på hemskärmen, så skriver du in en vara på en sekund.",
       },
+      // Story 21.2b: medlemmar och inbjudan.
+      {
+        question: "Hur bjuder jag in någon i hushållet?",
+        answer: `Under Inställningar, Medlemmar, trycker du Bjud in någon. Dela länken i ett meddelande eller läs upp koden på 6 tecken. Den gäller i 7 dagar och för en person, och inget mejl skickas. Alla i hushållet kan bjuda in.`,
+      },
+      {
+        question: "Hur går jag med i ett hushåll?",
+        answer: `Öppna länken du fått, eller tryck Har du en kod? på inloggningssidan. Välj e-post och lösenord, så får du en egen inloggning och ser samma recept, matsedel, lista, matvaror och ${things} som de andra. Har du redan egna recept eller varor i ${appName} går det inte än.`,
+      },
+      {
+        question: "Hur lämnar jag hushållet, eller tar bort någon?",
+        answer: "Under Inställningar, Medlemmar. Den som lämnar eller tas bort får ett eget, tomt hushåll, och det den lagt in stannar kvar. Bara ägaren tar bort någon och kan göra någon annan till ägare. Lämnar ägaren blir den som varit med längst ägare.",
+      },
+      {
+        question: "Var ändrar jag mitt namn?",
+        answer: "Under Inställningar, Konto. Namnet syns för de andra i hushållet.",
+      },
       { question: "Vem kan se min data?", answer: privacyText },
     ],
   },

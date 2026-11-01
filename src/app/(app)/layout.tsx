@@ -6,6 +6,8 @@ import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
 import { SavedImports } from "@/features/recipes/ui/saved-imports";
 import { accountOf } from "@/features/auth";
 import { getCurrentUser } from "@/features/auth/server";
+import { initialOf } from "@/features/household";
+import { getMe } from "@/features/household/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
 import type { PantrySite } from "@/features/pantry";
@@ -14,7 +16,7 @@ import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
 import { hasSeenWelcomeTour } from "@/features/welcome/server";
 import { loadBoendeCounts } from "./boende-counts";
-import { WelcomeGate } from "./welcome-gate";
+import { type NameAsk, WelcomeGate } from "./welcome-gate";
 
 /**
  * The boende button in the side menu (Story 16.14), read inside its own
@@ -42,11 +44,22 @@ async function SideBoende() {
 // note only after it.
 export default function AppLayout({ children }: { children: ReactNode }) {
   // Story 19.2: the P button and the side menu show who is signed in. The promise, not the session, goes down (AD-18).
-  const account = getCurrentUser()
-    .then((user) => (user ? accountOf(user.email) : null))
+  // Story 21.2b: the person's own name and shade in the household (decision 4), the address's first part until known.
+  const signedIn = getCurrentUser()
+    .then(async (user) => (user ? { user, me: await getMe() } : null))
     .catch(() => null);
+  const account = signedIn.then((current) => {
+    if (!current) return null;
+    const fallback = accountOf(current.user.email);
+    if (!current.me) return fallback;
+    return { name: current.me.name, email: fallback.email, initial: initialOf(current.me.name), tone: current.me.color };
+  });
   // Story 20.1: whether to leave the welcome tour out; a promise, read inside WelcomeGate's <Suspense>.
   const welcomeSeen = hasSeenWelcomeTour().catch(() => true);
+  // Story 21.2b: "Vad heter du?" while the person has not said their name.
+  const nameAsk: Promise<NameAsk> = signedIn.then((current) =>
+    current?.me && !current.me.named ? { suggested: current.me.name, tone: current.me.color } : null,
+  );
   return (
     <AccountProvider
       account={account}
@@ -66,7 +79,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             }
           >
             <Suspense fallback={null}>
-              <WelcomeGate seen={welcomeSeen} />
+              <WelcomeGate seen={welcomeSeen} name={nameAsk} />
             </Suspense>
             {children}
           </AppShell>

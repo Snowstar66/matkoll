@@ -53,6 +53,8 @@ import {
   thingsStorageState,
   feedbackEmail,
   feedbackStorageState,
+  householdEmail,
+  householdStorageState,
   newsEmail,
   newsStorageState,
   outsiderEmail,
@@ -185,6 +187,7 @@ export default async function globalSetup(config: FullConfig) {
       [liveListEmail, liveListStorageState],
       [offlineListEmail, offlineListStorageState],
       [feedbackEmail, feedbackStorageState],
+      [householdEmail, householdStorageState],
       [welcomeEmail, welcomeStorageState],
       [newsEmail, newsStorageState],
     ] as const) {

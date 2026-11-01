@@ -81,7 +81,7 @@ Alla värden nedan motsvarar `supabase/config.toml`, som är facit för det loka
 
 **Authentication → Sign In / Providers:**
 
-- **Allow new users to sign up: av.** Ingen kan skapa sig själv ett konto; användare skapas bara av `pnpm users:sync` (steg 5). Det här är hela "bara inbjudna".
+- **Allow new users to sign up: på, men bara med hooken (Story 21.2b).** Ingen kan skapa sig själv ett konto utan en giltig inbjudningskod: hooken **Before User Created** (`household_signup_hook`) stoppar allt annat. Nya hushåll skapas fortfarande bara av `pnpm users:sync` (steg 5). Slå på hooken **innan** du slår på sign-up; se [Medlemmar och inbjudan](#medlemmar-och-inbjudan-story-212b).
 - **Email**-leverantören: på. **Confirm email**: av (adresserna bekräftas av `users:sync`).
 - **Minimum password length:** 12 (appen kräver 12 själv, men panelen ska säga detsamma).
 - **Email OTP Length:** 6. **Email OTP Expiration:** 3600.
@@ -323,15 +323,61 @@ Från och med migreringen `20261102130000_household.sql` ägs appens data av ett
 
 Isoleringstestet (`tests/integration/household-isolation.test.ts`) läser själv tabellerna ur `information_schema` och `pg_policies` och misslyckas för en tabell det inte täcker. Det visar att två medlemmar i hushåll A delar allt, att hushåll B inte ser något av A i tabeller, funktioner eller foton, att en anonym klient inte når något och att en medlem som byter hushåll inte tar med sig något.
 
-### Kvar till 21.2b och 21.3
+### Kvar till 21.3
 
-Inget av detta märks så länge varje hushåll har en medlem, som i dag.
-
-1. **Valt boende och vald butik gäller hushållet.** Byter en medlem boende byts det för alla. Mockuppen nämner "byta som Boenden"; 21.2b avgör om valet ska bli per person.
+1. **Valt boende och vald butik gäller hushållet.** Byter en medlem boende byts det för alla (beslut 3: en person, ett hushåll; inget val per person byggdes i 21.2b).
 2. **AI-kön gäller hushållet**: en körande uppgift och högst tre i kö per hushåll.
-3. **Kvarlämnade filer hos den som lämnat.** En fil utan rad (ett borttaget kort som väntar på sopningen) i tagarens mapp kan, när tagaren lämnat, varken läsas eller tas bort av någon i appen: inte av det gamla hushållet (mappen är inte en medlems) och inte av tagaren eller det nya hushållet (filen ligger under det gamla hushållets plats). 21.2b bör städa tagarens filer vid Lämna (se 21.2b i `epics.md`). Raderas platsen blir filerna åter tagarens att sopa.
+3. ~~Kvarlämnade filer hos den som lämnat~~: löst i 21.2b, se nedan.
 4. **Konto utan hushåll.** Ett konto som av någon anledning saknar medlemskap får fel (42501) från funktionerna i stället för att skriva utan hushåll.
 5. **Triggern på `auth.users`** (`household_for_new_user`) skapas av migreringen i molnet. Kontrollera efter `db push` att ett nytt konto (`pnpm users:sync`) får ett hushåll.
+
+## Medlemmar och inbjudan (Story 21.2b)
+
+Migreringen `20261102140000_household_members.sql` ger hushållet medlemmar med egna inloggningar. Inställningar → Hushåll → **Medlemmar** listar alla, och **Bjud in någon** ger en kod på 6 tecken (utan 0/O och 1/I/L) och en länk `https://<SITE_URL>/ga-med?kod=K7Q4MP` som delas med telefonens delningsark. Den inbjudna öppnar länken, väljer e-post och lösenord direkt på sidan (inget mejl, koden är beviset) och kommer in i hushållet. Alla i hushållet kan bjuda in (beslut 2), bara ägaren tar bort någon eller gör någon annan till ägare.
+
+### Det du klickar i Supabase [Pontus]
+
+Gör det **efter** att migreringen körts i molnet (funktionen måste finnas), och i den här ordningen, så att sign-up aldrig är på utan hooken:
+
+1. **Authentication → Auth Hooks** (under Configuration) → **Add a new hook** → **Before User Created**.
+   - **Hook type:** Postgres.
+   - **Postgres Schema:** `public`. **Postgres function:** `household_signup_hook`.
+   - Tryck **Create hook** och se att den står som **Enabled**.
+2. **Authentication → Sign In / Providers → User Signups → Allow new users to sign up:** slå **på** och **Save**. Låt **Confirm email** vara **av** (den inbjudna får ingen e-post; utan session kommer hen inte in).
+3. Kontrollera i terminalen att en registrering utan kod stoppas (byt `<ref>` och `<publishable key>`, Project Settings → API Keys):
+
+   ```sh
+   curl -s -X POST "https://<ref>.supabase.co/auth/v1/signup" \
+     -H "apikey: <publishable key>" -H "content-type: application/json" \
+     -d '{"email":"prov-utan-kod@example.com","password":"ett-langt-losenord"}'
+   ```
+
+   Svaret ska vara HTTP 403 med `Inbjudan gäller inte längre.`, och inget nytt konto ska synas under Authentication → Users.
+4. Prova sedan på riktigt: Inställningar → Medlemmar → Bjud in någon, öppna länken i ett privat fönster och gå med med en ny adress. Ta bort personen igen från Medlemmar (soptunnan) om det bara var ett prov, och radera kontot under Authentication → Users.
+
+Lokalt står samma sak i `supabase/config.toml` (`[auth] enable_signup = true` och `[auth.hook.before_user_created]`); `supabase start` tar det själv.
+
+**Väg tillbaka:** slå av **Allow new users to sign up** först; då kan ingen ny gå med, men alla som redan är med loggar in som förut. Stäng sedan av hooken.
+
+### Så fungerar det
+
+- **Koden** finns bara som sha256-hash i `household_invite`. Den gäller 7 dagar och för en person, kan tas bort ("Tog bort inbjudan." med Ångra) och syns i klartext bara på enheten där den skapades (localStorage), eftersom databasen inte har den.
+- **Hooken** släpper bara igenom en registrering vars `user_metadata.invite_code` är en öppen inbjudan; allt annat stoppas, också en inloggningslänk till en okänd adress (den skulle annars skapa ett konto). `users:sync` använder admin-API:t, som inte kör hooken.
+- **Gå med** (`accept_household_invite`) tar bort medlemskapet och lägger in det på nytt, så att det gamla, tomma hushållet tas bort (`household_drop_when_empty`). Koden blir använd. 10 fel koder per konto och timme låser kontot från koder resten av timmen; förhandsvisningen på `/ga-med` utan inloggning låses för alla efter 50 fel på tio minuter.
+- **Beslut 10, med förbehåll:** den som går med och är **ensam i ett hushåll med egen data** (recept, katalog, matsedel, bockar, egna varor, produktval, matvaror, hyllfoton, Förråd, fler än ett boende eller en butik) kan inte gå med; sidan säger det i stället för knappen. Att slå ihop två hushålls data byggdes inte (katalog, boenden, veckomatsedlar och val är unika per hushåll och skulle krocka). Den som är med i ett hushåll med fler lämnar sin data där.
+- **Åtkomst:** `ALLOWED_EMAILS` är fortfarande hur ett nytt hushåll släpps in, och en adress på listan får aldrig sitt konto via `/ga-med` (bara via `users:sync`). Kör därför `pnpm users:sync` direkt när du lägger till en adress: utan e-postbekräftelse kunde annars någon med en giltig kod hinna skapa kontot för en listad adress genom att anropa Supabase direkt. En person kommer in om adressen står där, **eller** om hen är medlem i ett hushåll där någon annans adress står där (en inbjuden). `pnpm users:sync --prune` raderar inte sådana medlemmar. Den som lämnar eller tas bort får ett eget, tomt hushåll men kommer inte in i appen förrän med en ny inbjudan (sidan `/ga-med` har "Har du redan ett konto? Logga in").
+- **Lämna:** ägaren som lämnar ger ägarskapet till den som varit med längst. Den som är ensam har ingen Lämna-knapp (och funktionen vägrar). Ingen data försvinner: det den som lämnar lagt in stannar i hushållet.
+- **Namnet:** "Vad heter du?" visas en gång, första gången någon utan namn loggar in (också du efter släppet), förifyllt från e-postens början. P-knappen visar ens eget namn och nyans (mint, sky, sand, lila i den ordning man gick med).
+- **Filerna:** innan någon lämnar eller tas bort raderas deras filer utan rad under hushållets platser. En fil under en plats som hushållet fortfarande har får hushållet läsa och ta bort i vilken mapp den än ligger (bara medlemmar har någonsin kunnat lägga den där), så ett kort som en tidigare medlem tog kan tas bort och sopas som andra. Rensa och Ta bort platsen tar alla medlemmars filer, och tidigare medlemmars filer först, medan raderna finns (du har bekräftat borttagningen; misslyckas den efteråt saknar de korten sina foton). Att ta bort ett boende tar inte tidigare medlemmars filer först, eftersom boendet kanske inte får tas bort (valt eller med varor).
+
+### Risker som är kvar
+
+1. **Koder kan gissas.** 31^6 ≈ 890 miljoner koder, högst 10 öppna per hushåll, 7 dagar, en person, och spärrarna ovan. Hooken själv räknar inte fel (en spärr där skulle låta vem som helst stänga registreringen för alla); den skyddas av Supabase gräns för registreringar per IP (Authentication → Rate Limits). Förhandsvisningens spärr för alla kan på samma sätt sättas av vem som helst; då visar `/ga-med` bara formuläret utan hushållets namn, och att gå med fungerar ändå.
+2. **Konton utan e-postbekräftelse.** Adressen den inbjudna skriver kontrolleras aldrig, och "Glömt lösenordet?" fungerar inte förrän egen SMTP finns (steg 2). Tills dess hjälper du till med `pnpm users:sync`-terminalen eller Supabase-panelen.
+3. **En kod kan ge flera konton** innan den används: hooken släpper igenom varje registrering med en öppen kod, och bara den första som går med använder den. De andra kontona hamnar i egna, tomma hushåll utan åtkomst. Syns under Authentication → Users och kan raderas där.
+4. **Byter ägaren (den på `ALLOWED_EMAILS`) hushåll** eller tas bort, förlorar de andra i det gamla hushållet åtkomsten tills någon av dem står på listan.
+5. **Rätta rum (slå ihop två rum)** kopierar ett korts fil inom tagarens mapp; för ett kort som en tidigare medlem tog misslyckas det, och sammanslagningen säger "Det gick inte att byta namn".
+6. **Filer under en borttagen plats eller ett borttaget boende** i en tidigare medlems mapp, ligger kvar oläsbara för alla tills den personens konto raderas (då tar `users:sync` hela mappen).
 
 ## Vad som är provat
 

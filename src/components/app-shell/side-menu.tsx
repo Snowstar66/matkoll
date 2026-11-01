@@ -92,7 +92,7 @@ function AccountWho() {
   if (!account) return null;
   return (
     <p className="flex items-center gap-2.5 px-3 pt-1.5 pb-2" data-testid="side-account">
-      <Avatar initial={account.initial} size={28} />
+      <Avatar initial={account.initial} size={28} tone={account.tone} />
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-control text-ink">{account.name}</span>
         <span className="truncate text-badge text-ink-3">{account.email}</span>

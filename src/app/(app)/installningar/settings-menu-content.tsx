@@ -1,5 +1,7 @@
 import { accountOf } from "@/features/auth";
 import { getOwnerInbox } from "@/features/feedback/server";
+import { initialOf, memberNamesText } from "@/features/household";
+import { getHousehold, getMe } from "@/features/household/server";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listPantrySitesWithCounts } from "@/features/pantry/server";
@@ -46,13 +48,13 @@ export function sitesCountText(count: number): string {
 }
 
 /**
- * The start page of Inställningar (Story 14.7): the groups Konto, Ägare (only for the
- * app's owner, Story 20.3), Hushåll, Recept, AI (only for those it is shown to, as in
+ * The start page of Inställningar (Story 14.7): the groups Konto, Appens ägare (only for the
+ * app's owner, Story 20.3; named so in Story 21.2b), Hushåll (Medlemmar first, Story 21.2b), Recept, AI (only for those it is shown to, as in
  * Story 17.5) and Appen, with short values, and "Logga ut" last.
  */
 export async function SettingsMenuContent() {
   const user = await requireUserOrRedirect("/installningar");
-  const [housing, stores, recipeSites, ai, aiUsage, inbox] = await Promise.all([
+  const [housing, stores, recipeSites, ai, aiUsage, inbox, household, me] = await Promise.all([
     valueOf(listPantrySitesWithCounts, "housing"),
     valueOf(listStores, "stores"),
     valueOf(listRecipeSites, "recipe_sites"),
@@ -60,6 +62,9 @@ export async function SettingsMenuContent() {
     valueOf(() => getAiMonthUsage(), "ai_usage"),
     // Not there at all for anyone but the owner, not even hidden; a failure leaves it out too.
     valueOf(getOwnerInbox, "owner_inbox"),
+    // Story 21.2b: who is in the household, and the person's own name.
+    valueOf(getHousehold, "household"),
+    getMe(),
   ]);
   const selectedStore = stores?.find((store) => store.isSelected);
 
@@ -67,7 +72,8 @@ export async function SettingsMenuContent() {
     ...(inbox
       ? [
           {
-            label: "Ägare",
+            // Story 21.2b (decision 9): the app's owner, not to be mixed up with a household's.
+            label: "Appens ägare",
             rows: [{ href: settingsPageHref("inkorg"), icon: "inbox", tile: "sky", title: "Inkorg", badge: newCountText(inbox.unread) }],
           } satisfies SettingsGroupData,
         ]
@@ -75,6 +81,13 @@ export async function SettingsMenuContent() {
     {
       label: "Hushåll",
       rows: [
+        {
+          href: settingsPageHref("medlemmar"),
+          icon: "users",
+          tile: "mint",
+          title: "Medlemmar",
+          value: household ? memberNamesText(household.members) : undefined,
+        },
         {
           href: settingsPageHref("boenden"),
           icon: "pin",
@@ -137,6 +150,9 @@ export async function SettingsMenuContent() {
     },
   ];
 
-  const { name, initial } = accountOf(user.email);
-  return <SettingsMenu account={{ href: settingsPageHref("konto"), name, email: user.email, initial }} groups={groups} signOut={<SignOutButton asRow />} />;
+  const fallback = accountOf(user.email);
+  const account = me
+    ? { href: settingsPageHref("konto"), name: me.name, email: user.email, initial: initialOf(me.name), tone: me.color }
+    : { href: settingsPageHref("konto"), name: fallback.name, email: user.email, initial: fallback.initial };
+  return <SettingsMenu account={account} groups={groups} signOut={<SignOutButton asRow />} />;
 }

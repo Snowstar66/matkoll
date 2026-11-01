@@ -2,12 +2,16 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import { resetPrivacyNoteStore } from "@/features/auth/ui/privacy-note-store";
 
 let pathname = "/recept";
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ usePathname: () => pathname, useRouter: () => ({ push, replace }) }));
+let searchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({ usePathname: () => pathname, useRouter: () => ({ push, replace, refresh: vi.fn() }), useSearchParams: () => searchParams }));
+const setMyName = vi.fn();
+vi.mock("@/features/household/actions/members", () => ({ setMyName: (...args: unknown[]) => setMyName(...args) }));
 vi.mock("@/features/welcome/actions/mark-tour-seen", () => ({ markTourSeen: async () => ({ ok: true, data: null }) }));
 const requestImportSheet = vi.fn();
 vi.mock("@/features/recipes/ui/import-sheet", () => ({ requestImportSheet: () => requestImportSheet() }));
@@ -22,6 +26,8 @@ const note = "Det du sparar i Livskoll syns bara för ditt hushåll och lagras i
 
 beforeEach(() => {
   pathname = "/recept";
+  searchParams = new URLSearchParams();
+  setMyName.mockReset().mockResolvedValue({ ok: true, data: { name: "Martina" } });
   push.mockReset();
   replace.mockReset();
   requestImportSheet.mockReset();
@@ -30,13 +36,16 @@ beforeEach(() => {
   resetPrivacyNoteStore();
 });
 
-async function renderGate(seen: boolean) {
+async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" } | null = null) {
   const promise = Promise.resolve(seen);
+  const name = Promise.resolve(ask);
   await act(async () => {
     render(
-      <Suspense fallback={null}>
-        <WelcomeGate seen={promise} />
-      </Suspense>,
+      <ToastProvider>
+        <Suspense fallback={null}>
+          <WelcomeGate seen={promise} name={name} />
+        </Suspense>
+      </ToastProvider>,
     );
   });
 }
@@ -89,5 +98,28 @@ describe("WelcomeGate", () => {
     await renderGate(false);
     expect(screen.queryByTestId("welcome-tour")).not.toBeInTheDocument();
     expect(screen.queryByText(note)).not.toBeInTheDocument();
+  });
+
+  // Story 21.2b: "Vad heter du?" comes first, once, prefilled; the tour after it.
+  it("asks for the name first, prefilled, and shows the tour once it is saved", async () => {
+    const user = userEvent.setup();
+    await renderGate(false, { suggested: "Martina", tone: "sky" });
+    expect(screen.getByRole("dialog", { name: "Vad heter du?" })).toBeTruthy();
+    expect(screen.getByLabelText("Förnamn")).toHaveProperty("value", "Martina");
+    await user.clear(screen.getByLabelText("Förnamn"));
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(setMyName).not.toHaveBeenCalled();
+    expect(screen.getByText("Skriv ditt namn.")).toBeTruthy();
+    await user.type(screen.getByLabelText("Förnamn"), "Tina");
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(setMyName).toHaveBeenCalledWith({ name: "Tina" });
+    expect(screen.queryByRole("dialog", { name: "Vad heter du?" })).toBeNull();
+  });
+
+  it("says Välkommen till the household after joining, and takes the parameter away", async () => {
+    searchParams = new URLSearchParams({ valkommen: "Hushållet Hellgren" });
+    await renderGate(true);
+    expect(screen.getAllByText("Välkommen till Hushållet Hellgren.").length).toBeGreaterThan(0);
+    expect(replace).toHaveBeenCalledWith("/recept", { scroll: false });
   });
 });
