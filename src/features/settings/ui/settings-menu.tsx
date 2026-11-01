@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
+import { AppBadgeIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
@@ -17,6 +17,7 @@ export const settingsIcons = {
   sparkle: SparkleIcon,
   coin: CoinIcon,
   install: InstallIcon,
+  badge: AppBadgeIcon,
   mic: MicIcon,
   info: InfoIcon,
   inbox: InboxIcon,

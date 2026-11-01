@@ -324,15 +324,30 @@ function mockRemember(input: ThingSearchTermsInput): ThingSearchTermsResult["rem
   return { name: capital(match[1]), room: known?.room ?? capital(roomText), part, category: "Övrigt" };
 }
 
+/**
+ * Story 18.24 without a model: "jag har köpt [N] <thing>, var …?" is something bought to put away; the count is the
+ * number before the thing, the category the one mockCategories gives its name.
+ */
+const mockBought = /^(?:jag\s+)?(?:har\s+)?köpt[e]?\s+(?:(\d{1,3})\s+)?(.+?)\s*(?:,|\s+var\b)/iu;
+
+function mockRefill(input: ThingSearchTermsInput): ThingSearchTermsResult["refill"] {
+  const match = mockBought.exec(input.question.normalize("NFC").trim());
+  if (!match) return null;
+  const name = match[2].charAt(0).toLocaleUpperCase("sv") + match[2].slice(1);
+  const count = match[1] ? Number(match[1]) : null;
+  return { name, count: count !== null && count >= 1 ? count : null, category: mockCategories({ names: [name] }).categories[0] };
+}
+
 function mockSearchTerms(input: ThingSearchTermsInput): ThingSearchTermsResult {
-  const remember = mockRemember(input);
-  const source = remember ? remember.name : input.question;
+  const refill = mockRefill(input);
+  const remember = refill ? null : mockRemember(input);
+  const source = refill ? refill.name : remember ? remember.name : input.question;
   const words = source
     .normalize("NFC")
     .toLocaleLowerCase("sv")
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => [...word].length >= 2 && !mockTermStopWords.has(word));
-  return { terms: [...new Set(words)].slice(0, 8), intent: remember ? "remember" : "question", remember };
+  return { terms: [...new Set(words)].slice(0, 8), intent: refill ? "refill" : remember ? "remember" : "question", remember, refill };
 }
 
 /**

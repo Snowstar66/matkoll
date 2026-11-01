@@ -755,11 +755,11 @@ describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)",
   it("gives the words of the question that are not small words", async () => {
     expect(await service.thingSearchTerms({ question: "Har du sett min skiftnyckel?", history: [] }, signal())).toEqual({
       ok: true,
-      data: { terms: ["skiftnyckel"], intent: "question", remember: null },
+      data: { terms: ["skiftnyckel"], intent: "question", remember: null, refill: null },
     });
     expect(await service.thingSearchTerms({ question: "och tången då?", history: [{ question: "Skiftnyckel?", answer: "Ja." }] }, signal())).toEqual({
       ok: true,
-      data: { terms: ["tången"], intent: "question", remember: null },
+      data: { terms: ["tången"], intent: "question", remember: null, refill: null },
     });
     expect(await service.thingSearchTerms({ question: "var är passen?", history: [] }, signal())).toMatchObject({ data: { terms: ["passen"], intent: "question" } });
   });
@@ -769,12 +769,22 @@ describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)",
       await service.thingSearchTerms({ question: "Passen ligger i översta byrålådan i sovrummet", history: [], rooms: [{ room: "Sovrummet", parts: [] }] }, signal()),
     ).toEqual({
       ok: true,
-      data: { terms: ["passen"], intent: "remember", remember: { name: "Passen", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" } },
+      data: { terms: ["passen"], intent: "remember", remember: { name: "Passen", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" }, refill: null },
     });
     expect(await service.thingSearchTerms({ question: "Julgranskulorna står på vinden", history: [] }, signal())).toMatchObject({
       data: { intent: "remember", remember: { name: "Julgranskulorna", room: "Vinden", part: null } },
     });
     expect(await service.thingSearchTerms({ question: "Ligger passen i byrån?", history: [] }, signal())).toMatchObject({ data: { intent: "question", remember: null } });
+  });
+
+  it("takes something bought with a question of where it goes as a refill, with its count (Story 18.24)", async () => {
+    expect(await service.thingSearchTerms({ question: "jag har köpt 4 batterier, var lägger vi dem?", history: [] }, signal())).toEqual({
+      ok: true,
+      data: { terms: ["batterier"], intent: "refill", remember: null, refill: { name: "Batterier", count: 4, category: "Elektronik" } },
+    });
+    expect(await service.thingSearchTerms({ question: "Jag har köpt gravljus, var förvarar vi dem?", history: [] }, signal())).toMatchObject({
+      data: { intent: "refill", refill: { name: "Gravljus", count: null, category: "Hushåll" } },
+    });
   });
 
   it("says in the answer that Pontus wrote a place in himself (Story 18.19)", async () => {

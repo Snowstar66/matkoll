@@ -159,6 +159,40 @@ describe("the chat", () => {
     expect(screen.getByText("Fun Light läsk")).toBeInTheDocument();
   });
 
+  describe("something bought (Story 18.24)", () => {
+    const proposal = { name: "Batterier", room: "Förrådet", part: "Översta hyllan", category: "Elektronik" as const, newRoom: false, moves: null, count: 4 };
+    const remembered: Remembered = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a21", title: "Förrådet · Översta hyllan", href: `/prylar/rum/${siteId}/förrådet`, notedAt: "2026-11-03T09:00:00Z" };
+
+    it("shows the proposal with its count, and Kom ihåg saves the count", async () => {
+      askChat.mockResolvedValue(ok({ answer: "Inga batterier inskrivna än. Ska de ligga i Förrådet · Översta hyllan, som gravljusen?", refs: [], proposal }));
+      rememberThing.mockResolvedValue(ok(remembered));
+      render(withToasts(<ThingChat siteId={siteId} rooms={["Förrådet"]} />));
+      await ask("jag har köpt 4 batterier, var lägger vi dem?");
+      expect(await screen.findByTestId("proposal-where")).toHaveTextContent("Förrådet · Översta hyllan · 4 st");
+      await userEvent.click(screen.getByRole("button", { name: "Kom ihåg" }));
+      expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Batterier", room: "Förrådet", part: "Översta hyllan", category: "Elektronik", replaces: null, count: 4 });
+      expect(await screen.findByText("Klart. Batterier ligger i Förrådet · Översta hyllan.")).toBeInTheDocument();
+    });
+
+    it("has Antal (valfritt) in Ändra, where 0 is Räkna inte and is saved as no count", async () => {
+      askChat.mockResolvedValue(ok({ answer: "…", refs: [], proposal: { ...proposal, count: 1 } }));
+      rememberThing.mockResolvedValue(ok(remembered));
+      render(withToasts(<ThingChat siteId={siteId} rooms={["Förrådet"]} />));
+      await ask("jag har köpt 1 batterier, var lägger vi dem?");
+      await userEvent.click(await screen.findByRole("button", { name: "Ändra" }));
+      const sheet = await screen.findByRole("dialog");
+      const count = within(sheet).getByRole("group", { name: "Antal (valfritt)" });
+      expect(count).toHaveTextContent("1 st");
+      await userEvent.click(within(count).getByRole("button", { name: "Fler" }));
+      expect(count).toHaveTextContent("2 st");
+      await userEvent.click(within(count).getByRole("button", { name: "Färre" }));
+      await userEvent.click(within(count).getByRole("button", { name: "Färre" }));
+      expect(count).toHaveTextContent("Räkna inte");
+      await userEvent.click(within(sheet).getByRole("button", { name: "Kom ihåg" }));
+      expect(rememberThing).toHaveBeenCalledWith(expect.objectContaining({ name: "Batterier", count: null }));
+    });
+  });
+
   describe("something to remember (Story 18.19)", () => {
     const proposal = {
       name: "Pass",
@@ -195,7 +229,7 @@ describe("the chat", () => {
       render(withToasts(<ThingChat siteId={siteId} rooms={["Sovrummet"]} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       await userEvent.click(await screen.findByRole("button", { name: "Kom ihåg" }));
-      expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Pass", room: "Sovrummet", part: "Översta byrålådan", category: "Övrigt", replaces: null });
+      expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Pass", room: "Sovrummet", part: "Översta byrålådan", category: "Övrigt", replaces: null, count: null });
       expect(await screen.findByText("Klart. Pass ligger i Sovrummet · Översta byrålådan.")).toBeInTheDocument();
       expect(screen.queryByTestId("chat-proposal")).not.toBeInTheDocument();
       const ref = screen.getByTestId("chat-ref");
@@ -259,7 +293,7 @@ describe("the chat", () => {
       expect(within(sheet).getByRole("button", { name: "Skräpförrådet" })).toHaveAttribute("aria-pressed", "true");
       await userEvent.clear(within(sheet).getByLabelText("Del av rummet (valfritt)"));
       await userEvent.click(within(sheet).getByRole("button", { name: "Kom ihåg" }));
-      expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Pass och id-kort", room: "Skräpförrådet", part: "", category: "Övrigt", replaces: null });
+      expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Pass och id-kort", room: "Skräpförrådet", part: "", category: "Övrigt", replaces: null, count: null });
       expect(await screen.findByText("Klart. Pass och id-kort ligger i Skräpförrådet.")).toBeInTheDocument();
     });
 

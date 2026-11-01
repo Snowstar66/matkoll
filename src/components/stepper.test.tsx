@@ -55,6 +55,18 @@ describe("Stepper", () => {
     expect(screen.getByText("1 st")).toBeInTheDocument();
   });
 
+  it("goes down to 0 with allowZero, for a count that is not counted (Story 18.24)", async () => {
+    const user = userEvent.setup();
+    function Zero() {
+      const [value, setValue] = useState(1);
+      return <Stepper allowZero value={value} onChange={setValue} min={0} format={(n) => (n === 0 ? "Räkna inte" : `${n} st`)} />;
+    }
+    render(<Zero />);
+    await user.click(screen.getByRole("button", { name: "Färre portioner" }));
+    expect(screen.getByText("Räkna inte")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Färre portioner" })).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("never goes above max, and shows a value above it as max", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
