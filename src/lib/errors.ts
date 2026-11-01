@@ -50,6 +50,8 @@ export const errorMessages = {
   recipe_search_failed: "Det gick inte att söka bland recepten. Försök igen.",
   recipe_favorite_failed: "Det gick inte att spara favoriten.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
+  // Välkomstturen (Story 20.1): closing it could not be saved, so it may show again at the next start. Logged, never shown.
+  welcome_tour_save_failed: "Det gick inte att spara att du sett rundturen.",
   pantry_unavailable: "Det gick inte att läsa matvarorna. Försök igen.",
   pantry_save_failed: "Det gick inte att spara varan. Försök igen.",
   // Removing an item (Story 2.3). After a failed remove the row is back in

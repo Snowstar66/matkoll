@@ -101,6 +101,9 @@ import {
   suggestionsEmail,
   suggestionsStorageState,
   userStorageState,
+  markWelcomeTourSeen,
+  welcomeEmail,
+  welcomeStorageState,
 } from "./support";
 
 // Creates the test users and saves a session for each (AD-3). The E2E users sign
@@ -120,6 +123,9 @@ export default async function globalSetup(config: FullConfig) {
     env: { ...process.env, ALLOWED_EMAILS: e2eEmails.join(",") },
     stdio: ["ignore", "ignore", "inherit"],
   });
+
+  // Story 20.1: the users have seen the welcome tour, but for welcome.spec.ts's own.
+  await markWelcomeTourSeen();
 
   // A user who exists in Supabase but is not in ALLOWED_EMAILS.
   const { error } = await adminClient().auth.admin.createUser({ email: outsiderEmail, email_confirm: true });
@@ -177,6 +183,7 @@ export default async function globalSetup(config: FullConfig) {
       [liveListEmail, liveListStorageState],
       [offlineListEmail, offlineListStorageState],
       [feedbackEmail, feedbackStorageState],
+      [welcomeEmail, welcomeStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();
