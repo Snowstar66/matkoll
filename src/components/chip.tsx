@@ -27,6 +27,8 @@ export type ChipProps = Omit<ComponentProps<"button">, "children"> & {
   children: string;
   /** Dashed outline for a "new" chip that is not a choice. */
   dashed?: boolean;
+  /** A number after the label in 400 weight, e.g. "Förslag 2" in Inkorg (Story 20.3). */
+  count?: number;
 };
 
 /**
@@ -34,7 +36,7 @@ export type ChipProps = Omit<ComponentProps<"button">, "children"> & {
  * side air, a 44 px tap area. Quiet `--surface` with a hairline when not chosen, filled accent
  * with 600 text when chosen. Pass `role="radio"` + `aria-checked`, or `aria-pressed` for a toggle.
  */
-export function Chip({ selected, icon, children, dashed = false, className, type = "button", ...rest }: ChipProps) {
+export function Chip({ selected, icon, children, dashed = false, count, className, type = "button", ...rest }: ChipProps) {
   return (
     <button
       type={type}
@@ -57,6 +59,7 @@ export function Chip({ selected, icon, children, dashed = false, className, type
         </span>
       ) : null}
       <ReservedLabel>{children}</ReservedLabel>
+      {count === undefined ? null : <span className="ml-1 font-normal opacity-80">{count}</span>}
     </button>
   );
 }

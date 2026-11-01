@@ -24,6 +24,7 @@
     "dev:set-password": "node --env-file-if-exists=.env.local scripts/dev-set-password.mjs",
     "move:cloud": "node scripts/move-to-cloud.ts",
     "users:sync": "node --env-file-if-exists=.env.local scripts/users-sync.mjs",
+    "owner:sync": "node --env-file-if-exists=.env.local scripts/owner-sync.mjs",
     "prepare": "if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then lefthook install; fi"
   },
   "dependencies": {

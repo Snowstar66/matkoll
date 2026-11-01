@@ -208,6 +208,12 @@ export const errorMessages = {
   offers_limit: "Du kan ha högst 300 erbjudanden per vecka. Ta bort några först.",
   offers_failed: "Det gick inte att spara erbjudandena. Försök igen.",
   offers_unavailable: "Det gick inte att läsa erbjudandena.",
+  // Tyck till (Story 20.3): the sheet keeps the text when sending fails. More than
+  // 10 messages in an hour or 30 in a day from one person is refused by the database.
+  feedback_send_failed: "Det gick inte att skicka. Försök igen.",
+  feedback_rate_limited: "Du har skickat många meddelanden på kort tid. Försök igen senare.",
+  // The owner's inbox: a message that could not be marked read stays among Nya.
+  feedback_mark_failed: "Det gick inte att markera som läst.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.
   fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",

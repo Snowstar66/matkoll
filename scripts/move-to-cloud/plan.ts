@@ -65,6 +65,9 @@ export const TABLES: TableSpec[] = [
   // Only the sha256 hash is stored, so copying it never exposes a key and the same
   // key keeps working. `--skip-api-keys` leaves them out (then make a new key).
   { name: "api_key", pk: ["id"], deps: [] },
+  // Story 20.3: what the user sent under Tyck till. The target fills in sender_email
+  // from the cloud account and keeps read_at, so the owner's inbox comes along as it was.
+  { name: "feedback", pk: ["id"], deps: [] },
 ];
 
 export const BUCKETS = ["pantry-photo", "thing-photo"];

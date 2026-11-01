@@ -404,3 +404,13 @@ export function ImageIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A tray, an inbox: Inkorg in Inställningar (Story 20.3). */
+export function InboxIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 13l2.5-7.5h11L20 13v5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" />
+      <path d="M4 13h4.5l1 2h5l1-2H20" />
+    </Icon>
+  );
+}

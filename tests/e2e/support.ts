@@ -279,6 +279,12 @@ export const liveListEmail = "e2e-live-lista@matkoll.test";
  * 17.8): checks made offline, sent when the net is back, read on a second phone.
  */
 export const offlineListEmail = "e2e-offline-lista@matkoll.test";
+/**
+ * The E2E user of feedback.spec.ts alone (Tyck till och inkorg, Story 20.3): it sends
+ * feedback, and for the inbox tests it is made the app's owner in app_owner with the
+ * service role, and removed again after them.
+ */
+export const feedbackEmail = "e2e-tyck-till@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -327,6 +333,7 @@ export const e2eEmails = [
   thingsEmail,
   liveListEmail,
   offlineListEmail,
+  feedbackEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -375,6 +382,7 @@ export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.json";
 export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
+export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

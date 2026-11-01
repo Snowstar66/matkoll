@@ -1,4 +1,5 @@
 import { accountOf } from "@/features/auth";
+import { getOwnerInbox } from "@/features/feedback/server";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listPantrySitesWithCounts } from "@/features/pantry/server";
@@ -34,28 +35,43 @@ export function aiValueText(view: AiSettingsView): string {
   return `Claude ${model.replace(/ \d.*$/, "")} · ${aiLevelLabels[effective.effort]}`;
 }
 
+/** "3 nya" on Inkorg; nothing when all is read. */
+export function newCountText(unread: number): string | undefined {
+  return unread > 0 ? `${unread} ${unread === 1 ? "ny" : "nya"}` : undefined;
+}
+
 /** "4 sajter", "1 sajt". */
 export function sitesCountText(count: number): string {
   return `${count} ${count === 1 ? "sajt" : "sajter"}`;
 }
 
 /**
- * The start page of Inställningar (Story 14.7): the groups Konto, Hushåll,
- * Recept, AI (only for those it is shown to, as in Story 17.5) and Appen, with
- * short values, and "Logga ut" last.
+ * The start page of Inställningar (Story 14.7): the groups Konto, Ägare (only for the
+ * app's owner, Story 20.3), Hushåll, Recept, AI (only for those it is shown to, as in
+ * Story 17.5) and Appen, with short values, and "Logga ut" last.
  */
 export async function SettingsMenuContent() {
   const user = await requireUserOrRedirect("/installningar");
-  const [housing, stores, recipeSites, ai, aiUsage] = await Promise.all([
+  const [housing, stores, recipeSites, ai, aiUsage, inbox] = await Promise.all([
     valueOf(listPantrySitesWithCounts, "housing"),
     valueOf(listStores, "stores"),
     valueOf(listRecipeSites, "recipe_sites"),
     valueOf(getAiSettingsView, "ai"),
     valueOf(() => getAiMonthUsage(), "ai_usage"),
+    // Not there at all for anyone but the owner, not even hidden; a failure leaves it out too.
+    valueOf(getOwnerInbox, "owner_inbox"),
   ]);
   const selectedStore = stores?.find((store) => store.isSelected);
 
   const groups: SettingsGroupData[] = [
+    ...(inbox
+      ? [
+          {
+            label: "Ägare",
+            rows: [{ href: settingsPageHref("inkorg"), icon: "inbox", tile: "sky", title: "Inkorg", badge: newCountText(inbox.unread) }],
+          } satisfies SettingsGroupData,
+        ]
+      : []),
     {
       label: "Hushåll",
       rows: [

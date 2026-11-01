@@ -61,6 +61,34 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"app_owner": {
+                  Row: {
+                    "created_at": string,"email": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"email": string
+                  }
+                  Update: {
+                    "created_at"?: string,"email"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"feedback": {
+                  Row: {
+                    "app_version": string | null,"area": string | null,"body": string,"created_at": string,"id": string,"kind": string,"page": string | null,"read_at": string | null,"sender_email": string,"stars": number | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"id"?: string,"kind": string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
+                  }
+                  Update: {
+                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"id"?: string,"kind"?: string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
@@ -657,6 +685,9 @@ isOneToOne: false
                            },
 "hide_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: Json
+                           },
+"is_app_owner":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "mark_ai_job_seen":
 { Args: { "job_id": string }; Returns: undefined

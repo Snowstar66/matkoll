@@ -8,7 +8,9 @@ import { localSupabaseUrl } from "../local-supabase";
 // rows behind RLS's back. Every address is unique to this run.
 
 export type Db = SupabaseClient<Database>;
-export type TableName = keyof Database["public"]["Tables"];
+type Tables = Database["public"]["Tables"];
+/** The tables whose rows belong to a user (`id` and `user_id`); app_owner (Story 20.3) is the one that does not. */
+export type TableName = { [K in keyof Tables]: Tables[K]["Row"] extends { id: string; user_id: string } ? K : never }[keyof Tables];
 export type TestUser = { id: string; email: string; db: Db };
 
 const options = { auth: { autoRefreshToken: false, persistSession: false } };
