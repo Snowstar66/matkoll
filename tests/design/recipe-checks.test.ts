@@ -14,6 +14,7 @@ const migrations = fileURLToPath(new URL("../../supabase/migrations/", import.me
 const recipesMigration = readdirSync(migrations).filter((name) => /^\d+_recipes\.sql$/.test(name));
 const hardeningMigration = readdirSync(migrations).filter((name) => /^\d+_recipes_hardening\.sql$/.test(name));
 const updateMigration = readdirSync(migrations).filter((name) => /^\d+_recipes_update_conflict\.sql$/.test(name));
+const groupsMigration = readdirSync(migrations).filter((name) => /^\d+_recipe_groups\.sql$/.test(name));
 
 function recipesSql(): string {
   if (recipesMigration.length !== 1) {
@@ -36,6 +37,13 @@ function updateSql(): string {
     throw new Error(`Expected exactly one supabase/migrations/<time>_recipes_update_conflict.sql, found ${updateMigration.length}.`);
   }
   return readFileSync(join(migrations, updateMigration[0]), "utf8");
+}
+
+function groupsSql(): string {
+  if (groupsMigration.length !== 1) {
+    throw new Error(`Expected exactly one supabase/migrations/<time>_recipe_groups.sql, found ${groupsMigration.length}.`);
+  }
+  return readFileSync(join(migrations, groupsMigration[0]), "utf8");
 }
 
 /** The number in `constraint <name> check (char_length(<column>) <= <n>)`. */
@@ -79,6 +87,18 @@ describe("recipe check constraints", () => {
     ["recipe_ingredient_original_text_length_check", "original_text", draftLimits.originalTextChars],
   ] as const)("%s has the draft's limit", (constraint, column, limit) => {
     expect(lengthLimit(hardeningSql(), constraint, column)).toBe(limit);
+  });
+
+  it.each([
+    ["recipe_ingredient_section_length_check", "section", draftLimits.groupChars],
+    ["recipe_step_title_length_check", "title", draftLimits.stepTitleChars],
+  ] as const)("%s (ingredient groups and step headings) has the draft's limit", (constraint, column, limit) => {
+    expect(lengthLimit(groupsSql(), constraint, column)).toBe(limit);
+  });
+
+  it("save_recipe and update_recipe (with groups) take as many steps and lines as a draft", () => {
+    expect(countLimit(groupsSql(), "steps")).toBe(draftLimits.steps);
+    expect(countLimit(groupsSql(), "lines")).toBe(draftLimits.lines);
   });
 
   it("save_recipe takes as many steps and lines as a draft", () => {

@@ -28,7 +28,8 @@ describe("aiRecipe", () => {
     ["an empty title", { title: "" }],
     ["a whitespace-only title", { title: "   " }],
     ["no steps", { steps: [] }],
-    ["a whitespace-only step", { steps: ["Vispa.", "  "] }],
+    ["a whitespace-only step", { steps: [{ title: null, text: "Vispa." }, { title: null, text: "  " }] }],
+    ["a step as plain text, without its heading", { steps: ["Vispa.", "Stek."] }],
     ["no ingredients", { ingredients: [] }],
   ])("rejects %s", (_name, change) => {
     expect(aiRecipe.safeParse({ ...validRecipe, ...change }).success).toBe(false);
@@ -68,6 +69,37 @@ describe("aiRecipe", () => {
     const vague = validRecipe.ingredients[1];
     expect(aiRecipe.safeParse({ ...validRecipe, ingredients: [{ ...vague, amount: 1 }] }).success).toBe(false);
     expect(aiRecipe.safeParse({ ...validRecipe, ingredients: [{ ...vague, unit: "nypa" }] }).success).toBe(false);
+  });
+
+  it("keeps ingredient groups, staple marks and step headings (the Linas Matkasse format)", () => {
+    const line = { ...validRecipe.ingredients[0], group: " Rostad småpotatis ", isStapleMarked: true };
+    const parsed = aiRecipe.parse({
+      ...validRecipe,
+      ingredients: [line],
+      steps: [
+        { title: null, text: "Värm ugnen." },
+        { title: "Rostad småpotatis", text: "Rosta potatisen." },
+      ],
+    });
+    expect(parsed.ingredients[0]).toMatchObject({ group: "Rostad småpotatis", isStapleMarked: true });
+    expect(parsed.steps.map((step) => step.title)).toEqual([null, "Rostad småpotatis"]);
+  });
+
+  it("maps an empty group or step heading to null", () => {
+    const line = { ...validRecipe.ingredients[0], group: "  " };
+    const parsed = aiRecipe.parse({ ...validRecipe, ingredients: [line], steps: [{ title: "", text: "Vispa." }] });
+    expect(parsed.ingredients[0].group).toBeNull();
+    expect(parsed.steps[0].title).toBeNull();
+  });
+
+  it("requires the group, the staple mark and the step heading, as strict JSON schemas do", () => {
+    const line = validRecipe.ingredients[0];
+    for (const key of ["group", "isStapleMarked"] as const) {
+      const without: Record<string, unknown> = { ...line };
+      delete without[key];
+      expect(aiRecipe.safeParse({ ...validRecipe, ingredients: [without] }).success, key).toBe(false);
+    }
+    expect(aiRecipe.safeParse({ ...validRecipe, steps: [{ text: "Vispa." }] }).success).toBe(false);
   });
 
   it("requires step indexes, pointing at existing steps", () => {

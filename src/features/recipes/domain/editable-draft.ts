@@ -20,7 +20,7 @@ export function toEditableDraft(saved: SavedRecipe): RecipeDraft {
     imageUrl: saved.imageUrl,
     sourceKind: saved.sourceKind,
     sourceUrl: saved.sourceUrl,
-    steps: saved.steps.map(({ id, text }) => ({ id, text })),
+    steps: saved.steps.map(({ id, text, title }) => (title ? { id, text, title } : { id, text })),
     lines: saved.lines.map((line): RecipeLine => {
       const index = line.stepId === null ? undefined : stepIndex.get(line.stepId);
       return {
@@ -31,6 +31,8 @@ export function toEditableDraft(saved: SavedRecipe): RecipeDraft {
         isVague: line.isVague,
         ingredient: line.ingredientId === null ? { kind: "unmatched" } : { kind: "chosen", ingredientId: line.ingredientId },
         stepIndexes: index === undefined ? [] : [index],
+        ...(line.group ? { group: line.group } : {}),
+        ...(line.isStapleMarked ? { isStapleMarked: true } : {}),
       };
     }),
   };

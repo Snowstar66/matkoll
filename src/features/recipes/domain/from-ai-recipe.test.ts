@@ -5,6 +5,7 @@ import { recipeDraftSchema } from "./recipe-draft";
 import fiskgratang from "../../../../tests/fixtures/ai/fiskgratang.response.json";
 import kladdkaka from "../../../../tests/fixtures/ai/kladdkaka.response.json";
 import kycklinggryta from "../../../../tests/fixtures/ai/kycklinggryta.response.json";
+import linasKyckling from "../../../../tests/fixtures/ai/linas-kyckling.response.json";
 import linssoppa from "../../../../tests/fixtures/ai/linssoppa.response.json";
 import ugnspannkaka from "../../../../tests/fixtures/ai/ugnspannkaka.response.json";
 
@@ -145,12 +146,63 @@ describe("fromAiRecipe", () => {
     });
   });
 
+  it("keeps ingredient groups, staple marks and step headings, and leaves them out when there are none", () => {
+    const draft = fromAiRecipe(
+      recipe({
+        ingredients: [
+          line({ group: "Rostad småpotatis", isStapleMarked: false, stepIndexes: [1] }),
+          line({ originalText: "olivolja", amount: null, unit: null, isVague: true, group: "Rostad småpotatis", isStapleMarked: true }),
+          line({ group: null, isStapleMarked: false }),
+        ],
+        steps: [
+          { title: null, text: "Värm ugnen." },
+          { title: " Rostad småpotatis ", text: "Rosta potatisen." },
+        ],
+      }),
+      [match, match, match],
+      { kind: "photo" },
+    );
+    expect(draft.steps).toEqual(["Värm ugnen.", { text: "Rosta potatisen.", title: "Rostad småpotatis" }]);
+    expect(draft.lines.map((l) => [l.group, l.isStapleMarked])).toEqual([
+      ["Rostad småpotatis", undefined],
+      ["Rostad småpotatis", true],
+      [undefined, undefined],
+    ]);
+    expect(recipeDraftSchema.safeParse(draft).success).toBe(true);
+  });
+
+  it("cuts a long group or heading to 60 characters, whole letters, and drops a blank one", () => {
+    const long = `${"Gräddkokt spetskål ".repeat(4)}🥬 och mer`;
+    const draft = fromAiRecipe(
+      recipe({ ingredients: [line({ group: long })], steps: [{ title: long, text: "Koka." }, { title: "   ", text: "Servera." }] }),
+      [match],
+      { kind: "photo" },
+    );
+    const group = draft.lines[0].group ?? "";
+    expect(group.length).toBeLessThanOrEqual(60);
+    expect(long.startsWith(group)).toBe(true);
+    expect(draft.steps[1]).toBe("Servera.");
+    expect(recipeDraftSchema.safeParse(draft).success).toBe(true);
+  });
+
+  it("maps the Linas card to four groups, eight staples and four step headings", () => {
+    const draft = fromAiRecipe(linasKyckling, linasKyckling.ingredients.map(() => match), { kind: "photo" });
+    expect([...new Set(draft.lines.map((l) => l.group))]).toEqual([
+      "Rostad småpotatis",
+      "Örtstekt kyckling",
+      "Tryffelsky",
+      "Gräddkokt spetskål",
+    ]);
+    expect(draft.lines.filter((l) => l.isStapleMarked)).toHaveLength(8);
+    expect(draft.steps.filter((step) => typeof step !== "string")).toHaveLength(4);
+  });
+
   it("needs one match per line", () => {
     expect(() => fromAiRecipe(recipe(), [], { kind: "text" })).toThrow();
   });
 
   it("maps every recipe in the AI test set to a valid draft", () => {
-    const answers: Record<string, AiRecipeLike> = { fiskgratang, kladdkaka, kycklinggryta, linssoppa, ugnspannkaka };
+    const answers: Record<string, AiRecipeLike> = { fiskgratang, kladdkaka, kycklinggryta, linssoppa, ugnspannkaka, linasKyckling };
     for (const [name, ai] of Object.entries(answers)) {
       const draft = fromAiRecipe(ai, ai.ingredients.map(() => match), { kind: "text" });
       expect(recipeDraftSchema.safeParse(draft).success, name).toBe(true);

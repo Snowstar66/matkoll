@@ -24,8 +24,8 @@ const saved: SavedRecipe = {
   isFavorite: true,
   updatedAt: "2026-10-26T10:00:00.123456+00:00",
   steps: [
-    { id: step0, position: 0, text: "Hacka löken." },
-    { id: step1, position: 1, text: "Koka allt." },
+    { id: step0, position: 0, text: "Hacka löken.", title: null },
+    { id: step1, position: 1, text: "Koka allt.", title: null },
   ],
   lines: [
     {
@@ -129,16 +129,45 @@ describe("toEditableDraft", () => {
       expected_updated_at: "2026-10-26T10:00:00.123456+00:00",
       recipe: { title: "Röd linssoppa", original_servings: 4, total_minutes: 30 },
       steps: [
-        { id: step1, position: 0, text: "Koka allt." },
-        { id: null, position: 1, text: "Servera." },
+        { id: step1, position: 0, text: "Koka allt.", title: null },
+        { id: null, position: 1, text: "Servera.", title: null },
       ],
       lines: [
-        { id: lineA, position: 0, original_text: "1 gul lök", amount: 1, unit: "st", is_vague: false, ingredient_id: onion, step_position: 0 },
-        { id: lineC, position: 1, original_text: "något gott", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null },
-        { id: null, position: 2, original_text: "vatten", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null },
+        { id: lineA, position: 0, original_text: "1 gul lök", amount: 1, unit: "st", is_vague: false, ingredient_id: onion, step_position: 0, section: null, is_staple_marked: false },
+        { id: lineC, position: 1, original_text: "något gott", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null, section: null, is_staple_marked: false },
+        { id: null, position: 2, original_text: "vatten", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null, section: null, is_staple_marked: false },
       ],
     });
     expect(() => toUpdateRecipeArgs(recipeId, changed, [onion], saved.updatedAt)).toThrow();
+  });
+});
+
+describe("toEditableDraft with groups and headings", () => {
+  const grouped: SavedRecipe = {
+    ...saved,
+    steps: [{ ...saved.steps[0], title: "Lök" }, saved.steps[1]],
+    lines: [{ ...saved.lines[0], group: "Soppa", isStapleMarked: true }, { ...saved.lines[1], group: null }, saved.lines[2]],
+  };
+
+  it("keeps the groups, staple marks and headings, and leaves them out where there are none", () => {
+    const draft = toEditableDraft(grouped);
+    expect(draft.steps).toEqual([{ id: step0, text: "Hacka löken.", title: "Lök" }, { id: step1, text: "Koka allt." }]);
+    expect(draft.lines.map((line) => [line.group, line.isStapleMarked])).toEqual([
+      ["Soppa", true],
+      [undefined, undefined],
+      [undefined, undefined],
+    ]);
+    expect(recipeDraftSchema.safeParse(draft).success).toBe(true);
+  });
+
+  it("sends them back to update_recipe, with null and false where there are none", () => {
+    const args = toUpdateRecipeArgs(recipeId, toEditableDraft(grouped), [onion, salt, null], grouped.updatedAt);
+    expect(args.steps.map((step) => step.title)).toEqual(["Lök", null]);
+    expect(args.lines.map((line) => [line.section, line.is_staple_marked])).toEqual([
+      ["Soppa", true],
+      [null, false],
+      [null, false],
+    ]);
   });
 });
 

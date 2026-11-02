@@ -24,6 +24,9 @@ export const draftLimits = {
   lines: 200,
   offerNames: 10,
   offerNameChars: 100,
+  /** An ingredient group's name ("Rostad småpotatis") and a step's heading. */
+  groupChars: 60,
+  stepTitleChars: 60,
 } as const;
 
 const webUrl = () => z.url({ protocol: /^https?$/ }).max(draftLimits.urlChars);
@@ -65,6 +68,13 @@ export const recipeLineSchema = z
     /** Index (from 0) of the steps the line is used in. */
     stepIndexes: z.array(z.number().int().min(0)),
     hint: lineHintSchema.optional(),
+    /**
+     * The ingredient group the line is listed under ("Rostad småpotatis"), or
+     * null/missing for none. Groups come in the order of their first line.
+     */
+    group: z.string().trim().min(1).max(draftLimits.groupChars).nullable().optional(),
+    /** The source marks the line as a staple (• on a Linas Matkasse card). Only kept for now. */
+    isStapleMarked: z.boolean().optional(),
   })
   .refine((line) => line.isVague === (line.amount === null), {
     message: "A line is vague exactly when it has no amount",
@@ -79,16 +89,30 @@ export type RecipeLine = z.infer<typeof recipeLineSchema>;
 const stepTextSchema = z.string().trim().min(1).max(draftLimits.stepChars);
 
 /**
- * A step: its text, as an import makes it, or the saved step's id with its
- * text, when a saved recipe is being changed (Story 1.11): updateRecipe keeps
- * the id. Both are the same step to everything but updateRecipe.
+ * A step: its text, as an import makes it, or an object with its text, its
+ * heading (`title`, "Rostad småpotatis", or null/missing for none) and the
+ * saved step's id when a saved recipe is being changed (Story 1.11):
+ * updateRecipe keeps the id. All are the same step to everything but
+ * updateRecipe.
  */
-export const recipeStepSchema = z.union([stepTextSchema, z.object({ id: z.uuid().optional(), text: stepTextSchema })]);
+export const recipeStepSchema = z.union([
+  stepTextSchema,
+  z.object({
+    id: z.uuid().optional(),
+    text: stepTextSchema,
+    title: z.string().trim().min(1).max(draftLimits.stepTitleChars).nullable().optional(),
+  }),
+]);
 export type RecipeStep = z.infer<typeof recipeStepSchema>;
 
 /** The text of a step, with or without id. */
 export function stepText(step: RecipeStep): string {
   return typeof step === "string" ? step : step.text;
+}
+
+/** The step's heading, or `null` for a step without one. */
+export function stepTitle(step: RecipeStep): string | null {
+  return typeof step === "string" ? null : (step.title ?? null);
 }
 
 /** The saved step's id, or `null` for a step without one. */

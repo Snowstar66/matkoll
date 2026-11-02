@@ -1,10 +1,16 @@
 import type { Unit } from "@/features/catalog";
-import { stepId, stepText, type RecipeDraft, type SourceKind } from "./recipe-draft";
+import { stepId, stepText, stepTitle, type RecipeDraft, type SourceKind } from "./recipe-draft";
 
 // A saved recipe as the recipe view reads it, and the rows save_recipe and
 // update_recipe write for a draft (AD-10). Pure, so the mapping is tested without a database.
 
-export type SavedRecipeStep = { id: string; position: number; text: string };
+export type SavedRecipeStep = {
+  id: string;
+  position: number;
+  text: string;
+  /** The step's heading ("Rostad småpotatis"), or null. Optional for rows read before it existed. */
+  title?: string | null;
+};
 
 export type SavedRecipeLine = {
   id: string;
@@ -19,6 +25,10 @@ export type SavedRecipeLine = {
   ingredientName: string | null;
   /** The first step the line is used in, if any. */
   stepId: string | null;
+  /** The ingredient group the line is listed under, or null (groupLines). */
+  group?: string | null;
+  /** The source marked the line as a staple (•). */
+  isStapleMarked?: boolean;
 };
 
 export type SavedRecipe = {
@@ -57,7 +67,8 @@ export type SaveRecipeArgs = {
     source_url: string | null;
     offer_names?: string[];
   };
-  steps: { position: number; text: string }[];
+  /** `title` (Story recipe groups): missing is none, as for a caller from before it. */
+  steps: { position: number; text: string; title?: string | null }[];
   lines: {
     position: number;
     original_text: string;
@@ -66,8 +77,18 @@ export type SaveRecipeArgs = {
     is_vague: boolean;
     ingredient_id: string | null;
     step_position: number | null;
+    /** The line's ingredient group; missing is none. */
+    section?: string | null;
+    /** Missing is false. */
+    is_staple_marked?: boolean;
   }[];
 };
+
+/** A heading or group name as stored: trimmed, or null when blank. */
+function shortText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 /**
  * The rows for a validated draft, saved as the recipe `recipeId`. `ingredientIds[i]` is the catalog id of
@@ -93,7 +114,7 @@ export function toSaveRecipeArgs(
       source_url: draft.sourceUrl,
       offer_names: draft.offerNames ?? [],
     },
-    steps: draft.steps.map((step, position) => ({ position, text: stepText(step).trim() })),
+    steps: draft.steps.map((step, position) => ({ position, text: stepText(step).trim(), title: shortText(stepTitle(step)) })),
     lines: draft.lines.map((line, position) => lineRow(line, position, ingredientIds[position])),
   };
 }
@@ -107,6 +128,8 @@ function lineRow(line: RecipeDraft["lines"][number], position: number, ingredien
     is_vague: line.isVague,
     ingredient_id: ingredientId,
     step_position: line.stepIndexes.length > 0 ? Math.min(...line.stepIndexes) : null,
+    section: shortText(line.group),
+    is_staple_marked: line.isStapleMarked ?? false,
   };
 }
 
@@ -118,7 +141,7 @@ export type UpdateRecipeArgs = {
   /** The source and the image address never change. */
   recipe: { title: string; original_servings: number; total_minutes: number | null };
   /** `id`: the saved step it keeps, or `null` for a new step. */
-  steps: { id: string | null; position: number; text: string }[];
+  steps: { id: string | null; position: number; text: string; title?: string | null }[];
   /** `id`: the saved line it keeps, or `null` for a new line. */
   lines: ({ id: string | null } & SaveRecipeArgs["lines"][number])[];
 };
@@ -143,7 +166,12 @@ export function toUpdateRecipeArgs(
     id: recipeId,
     expected_updated_at: expectedUpdatedAt,
     recipe: { title: draft.title.trim(), original_servings: draft.servings, total_minutes: draft.totalMinutes },
-    steps: draft.steps.map((step, position) => ({ id: stepId(step), position, text: stepText(step).trim() })),
+    steps: draft.steps.map((step, position) => ({
+      id: stepId(step),
+      position,
+      text: stepText(step).trim(),
+      title: shortText(stepTitle(step)),
+    })),
     lines: draft.lines.map((line, position) => ({
       id: line.id ?? null,
       ...lineRow(line, position, ingredientIds[position]),

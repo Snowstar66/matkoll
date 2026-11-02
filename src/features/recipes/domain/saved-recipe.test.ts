@@ -57,8 +57,8 @@ describe("toSaveRecipeArgs", () => {
         offer_names: [],
       },
       steps: [
-        { position: 0, text: "Hacka löken." },
-        { position: 1, text: "Koka allt." },
+        { position: 0, text: "Hacka löken.", title: null },
+        { position: 1, text: "Koka allt.", title: null },
       ],
       lines: [
         {
@@ -69,6 +69,8 @@ describe("toSaveRecipeArgs", () => {
           is_vague: false,
           ingredient_id: onion,
           step_position: 0,
+          section: null,
+          is_staple_marked: false,
         },
         {
           position: 1,
@@ -78,6 +80,8 @@ describe("toSaveRecipeArgs", () => {
           is_vague: true,
           ingredient_id: salt,
           step_position: null,
+          section: null,
+          is_staple_marked: false,
         },
         {
           position: 2,
@@ -87,6 +91,8 @@ describe("toSaveRecipeArgs", () => {
           is_vague: true,
           ingredient_id: null,
           step_position: 1,
+          section: null,
+          is_staple_marked: false,
         },
       ],
     });
@@ -94,6 +100,25 @@ describe("toSaveRecipeArgs", () => {
 
   it("needs one ingredient id per line", () => {
     expect(() => toSaveRecipeArgs(recipeId, draft, [onion])).toThrow();
+  });
+
+  it("writes the lines' groups and staple marks and the steps' headings, trimmed, blank as none", () => {
+    const grouped: RecipeDraft = {
+      ...draft,
+      steps: [{ text: "Hacka löken.", title: " Lök " }, { text: "Koka allt.", title: " " }],
+      lines: [
+        { ...draft.lines[0], group: " Soppa ", isStapleMarked: true },
+        { ...draft.lines[1], group: "  " },
+        draft.lines[2],
+      ],
+    };
+    const args = toSaveRecipeArgs(recipeId, grouped, [onion, salt, null]);
+    expect(args.steps.map((step) => step.title)).toEqual(["Lök", null]);
+    expect(args.lines.map((l) => [l.section, l.is_staple_marked])).toEqual([
+      ["Soppa", true],
+      [null, false],
+      [null, false],
+    ]);
   });
 });
 
@@ -121,9 +146,9 @@ describe("a saved AI suggestion (Story 16.4)", () => {
   it("writes every step in order, the time, the portions and the offers", () => {
     const args = toSaveRecipeArgs(recipeId, { ...suggestion, offerNames: ["falukorv", "ketchup"] }, [onion, salt]);
     expect(args.steps).toEqual([
-      { position: 0, text: "Koka potatisen." },
-      { position: 1, text: "Stek korven." },
-      { position: 2, text: "Servera." },
+      { position: 0, text: "Koka potatisen.", title: null },
+      { position: 1, text: "Stek korven.", title: null },
+      { position: 2, text: "Servera.", title: null },
     ]);
     expect(args.recipe).toMatchObject({
       original_servings: 4,
