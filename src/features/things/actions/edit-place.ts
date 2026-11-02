@@ -6,7 +6,7 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
 import { copyCardFile, loadPlaceKindIn, loadRoomMergeMovesIn, removePlaceRowsIn, renamePartRowIn, renameRoomRowsIn } from "../data/place-edit";
-import { removeCardFiles } from "../data/photos";
+import { formerMembersFiles, loadMemberIdsIn, removeCardFiles } from "../data/photos";
 import { loadRoomsIn } from "../data/rooms";
 import { boxKey, cleanPlaceName, nameTooLongText, normalizePlaceName } from "../domain/thing-place";
 import {
@@ -152,13 +152,21 @@ export async function removeThingPlace(input: { placeId: string }): Promise<Resu
     const place = await loadPlaceKindIn(db, parsed.data.placeId);
     // The whole room is removed with "Rensa rummet", not here.
     if (!place || place.part === null) return fail("things_place_gone");
+    // Story 21.2b: the cards of members who have left are the household's only while their rows and
+    // the place are there, so their files go first.
+    const { data: cards } = await db.from("thing_photo").select("object_path").eq("place_id", parsed.data.placeId);
+    const former = formerMembersFiles((cards ?? []).map((card) => card.object_path), await loadMemberIdsIn(db));
+    if (former.length > 0) {
+      const { failed } = await removeCardFiles(db, former);
+      if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
+    }
     const removed = await removePlaceRowsIn(db, parsed.data.placeId);
     if (removed.kind === "gone") {
       revalidateFor("thing_place");
       return fail("things_place_gone");
     }
-    // Only the user's own folder is touched, as the bucket's policies say as well.
-    const paths = removed.paths.filter((path) => path.startsWith(`${user.data.id}/`));
+    // Every member's files (Story 21.2b); the bucket's policies keep it to the household's.
+    const paths = removed.paths.filter((path) => !former.includes(path));
     const { failed } = await removeCardFiles(db, paths);
     if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
     else void sweepCardFilesIn(db, user.data.id).catch(() => {});

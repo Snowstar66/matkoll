@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, type ReactNode, use, useContext, useMemo } from "react";
+import type { AvatarTone } from "./avatar";
 
 // The account the P button, the avatar sheet and the side menu show (Story
 // 19.2). The layout never awaits the session (AD-18), so it hands over the
@@ -14,6 +15,8 @@ export type AccountInfo = {
   email: string;
   /** "P". */
   initial: string;
+  /** Story 21.2b: the person's shade in the household; mint when not known. */
+  tone?: AvatarTone;
 };
 
 /** "Logga ut" is the auth module's button: the layout gives it, since shared code never imports a module (AD-1). */

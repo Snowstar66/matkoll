@@ -243,13 +243,31 @@ async function listFolderIn(db: ThingsDb, folder: string, kind: "files" | "folde
   return found;
 }
 
+/** Story 21.2b: the ids of the members of the caller's household, whose folders hold its card files. Throws ThingsDataError. */
+export async function loadMemberIdsIn(db: ThingsDb): Promise<string[]> {
+  const { data, error } = await db.from("household_member").select("user_id");
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  return data.map((row) => row.user_id);
+}
+
+/**
+ * Story 21.2b: the files of `paths` in the folder of someone who is no longer a
+ * member (`<user>/…`). The household reaches such a file only while a row
+ * points at it, or while its place is still the household's, so the callers
+ * that delete rows and places remove these first.
+ */
+export function formerMembersFiles(paths: readonly string[], memberIds: readonly string[]): string[] {
+  return paths.filter((path) => !memberIds.includes(path.split("/")[0] ?? ""));
+}
+
 /**
  * The files of a boende's cards, read before the boende is deleted (the
  * cascade takes the rows, not the files): the paths in thing_photo, and every
- * file in the folders of the boende's places (`<user>/<place>/`), so a file
- * without a row goes too. Throws ThingsDataError.
+ * file in the folders of the boende's places (`<member>/<place>/`, for every
+ * member of the household, Story 21.2b), so a file without a row goes too.
+ * Throws ThingsDataError.
  */
-export async function loadSiteCardFilesIn(db: ThingsDb, userId: string, siteId: string, roomKey?: string): Promise<string[]> {
+export async function loadSiteCardFilesIn(db: ThingsDb, memberIds: readonly string[], siteId: string, roomKey?: string): Promise<string[]> {
   // With `roomKey` (Story 18.15, "Rensa rummet") only the places of that room.
   const query = db.from("thing_place").select("id").eq("site_id", siteId);
   const { data: places, error: placesError } = await (roomKey === undefined ? query : query.eq("room_key", roomKey));
@@ -259,8 +277,10 @@ export async function loadSiteCardFilesIn(db: ThingsDb, userId: string, siteId: 
   const { data: rows, error } = await db.from("thing_photo").select("object_path").in("place_id", placeIds);
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   const files = new Set(rows.map((row) => row.object_path));
-  for (const placeId of placeIds) {
-    for (const file of await listFolderIn(db, `${userId}/${placeId}`, "files")) files.add(file.path);
+  for (const member of memberIds) {
+    for (const placeId of placeIds) {
+      for (const file of await listFolderIn(db, `${member}/${placeId}`, "files")) files.add(file.path);
+    }
   }
   return [...files];
 }
