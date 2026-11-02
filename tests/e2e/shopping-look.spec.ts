@@ -240,7 +240,8 @@ test("the list shows the progress row, the categories, the line under each name 
   await page.goto("/lista");
   await expect(page.getByRole("button", { name: /^Boende: / }).filter({ visible: true })).toHaveAccessibleName("Boende: Stugan");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
-  await expect(headings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
+  // One list, Att handla, above the categories; the week is a quiet menu beside it (no week tiles).
+  await expect(headings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
   // The amount after the name, and the dishes with " · " under it, without "från".
   await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Matlagningsgrädde Till 2 rätter3 dl");
   await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Till 2 rätter");
@@ -318,7 +319,7 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   await actionsAnswered(page, 1, () => check(page, "Diskmedel").click());
   await expect(progress(page)).toHaveText("Allt ligger i korgen");
   // No category; the basket row is a heading, so heading navigation finds it.
-  await expect(headings(page)).toHaveText(["I korgen (5)"]);
+  await expect(headings(page)).toHaveText(["Att handla", "I korgen (5)"]);
   // The last line left: focus on the basket row's "Dölj".
   await expect(button(page, "Dölj I korgen")).toBeFocused();
   await expect(basketRow(page)).toContainText("I korgen (5)");

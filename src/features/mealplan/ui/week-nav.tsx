@@ -3,7 +3,7 @@ import { weekRangeText } from "../domain/meal-plan";
 import { addWeeks, currentWeekStart, overviewWeeks, weekFillText, weekNumber, weeksBetween, weekQuery, weekTileLabel, weekTileName } from "../domain/week";
 
 /**
- * The week control on Matsedel and Inköpslista (Story 14.5, Stories 13.7,
+ * The week control on Matsedel (Story 14.5, Stories 13.7,
  * 13.9 and 3.10 before it): a calm segmented track with this week, next week
  * and the week after as equal segments. The viewed week is a white, slightly
  * raised segment; the others lie flat on the track. Each segment has the label
@@ -25,7 +25,7 @@ export function WeekNav({
   weekStart: string;
   counts?: Record<string, number>;
   now?: Date;
-  /** The page the segments lead to; Inköpslista reuses them (Story 3.10). */
+  /** The page the segments lead to (Inköpslista used them until it got WeekMenu). */
   basePath?: string;
   /** "Tidigare" beside the dates, which only Matsedel has. */
   showHistory?: boolean;

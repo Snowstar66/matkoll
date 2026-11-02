@@ -3,14 +3,24 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
-import { addWeeks, currentWeekStart, overviewWeeks, viewedWeek, weekName, weekQuery } from "@/features/mealplan";
+import {
+  addWeeks,
+  currentWeekStart,
+  overviewWeeks,
+  viewedWeek,
+  weekDishesText,
+  weekOffsetLabel,
+  weekParam,
+  weekQuery,
+  weeksBetween,
+} from "@/features/mealplan";
 import { getWeekCounts } from "@/features/mealplan/server";
-import { WeekNav } from "@/features/mealplan/ui/week-nav";
+import { WeekMenu } from "@/features/mealplan/ui/week-menu";
 import { searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
-import { emptyPlanText, parseListFilter } from "@/features/shopping";
+import { noDishesText, parseListFilter, planWeekText } from "@/features/shopping";
 import { loadBoendeCounts } from "../boende-counts";
 import { ShoppingListView } from "./shopping-list-view";
 
@@ -47,10 +57,11 @@ export async function ShoppingListContent({
   const vecka = params?.vecka;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
-  const tiles = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
-  if (!tiles.includes(weekStart)) tiles.push(weekStart);
-  // Dishes per week are one query; when it cannot be read the tiles show "–" and no other week is offered.
-  const countsRead = getWeekCounts(tiles).catch((): Record<string, number> => ({}));
+  const thisWeek = currentWeekStart(now);
+  const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
+  if (!weeks.includes(weekStart)) weeks.push(weekStart);
+  // Dishes per week are one query; when it cannot be read the menu says "Inga rätter".
+  const countsRead = getWeekCounts(weeks).catch((): Record<string, number> => ({}));
   const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
@@ -76,42 +87,31 @@ export async function ShoppingListContent({
     site,
     marks,
   } = result.data;
-  // The week's own state: a new key starts the list afresh, so no check, sheet or
-  // pending change of another week's plan is carried over (Story 13.7).
   const counts = await countsRead;
-  const other = tiles.find((week) => week !== weekStart && (counts[week] ?? 0) > 0);
-  const empty = other
-    ? {
-        text: `${weekName(weekStart)} har inga rätter än.`,
-        action: (
-          <Link
-            href={`/lista${weekQuery(other, now)}`}
-            scroll={false}
-            className={buttonClasses("secondary")}
-          >
-            {`Visa ${weekName(other).toLocaleLowerCase("sv-SE")} (${counts[other] === 1 ? "1 rätt" : `${counts[other]} rätter`})`}
-          </Link>
-        ),
-      }
-    : {
-        text: emptyPlanText,
-        action: (
-          <Link href="/matsedel" className={buttonClasses("secondary")}>
-            Gå till Matsedel
-          </Link>
-        ),
-      };
+  const options = weeks.map((week) => ({
+    weekStart: week,
+    label: weekOffsetLabel(weeksBetween(thisWeek, week)),
+    detail: weekDishesText(counts[week] ?? 0),
+    param: week === thisWeek ? null : weekParam(week),
+  }));
+  // A week without dishes: say so, and offer to plan that week in Matsedel.
+  const empty = {
+    text: noDishesText(weeksBetween(thisWeek, weekStart)),
+    action: (
+      <Link href={`/matsedel${weekQuery(weekStart, now)}`} className={buttonClasses("secondary")}>
+        {planWeekText}
+      </Link>
+    ),
+  };
   return (
     <>
       <ShoppingListView
+        // The week's own state: a new key starts the list afresh, so no check, sheet or
+        // pending change of another week's plan is carried over (Story 13.7).
         key={weekStart}
         sites={sites}
         loadCounts={loadBoendeCounts}
-        weekNav={
-          <div className="mb-6">
-            <WeekNav weekStart={weekStart} counts={counts} now={now} basePath="/lista" showHistory={false} />
-          </div>
-        }
+        weekMenu={<WeekMenu weekStart={weekStart} options={options} />}
         userId={user.id}
         plan={plan}
         lines={lines}

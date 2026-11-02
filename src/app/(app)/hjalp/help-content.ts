@@ -75,12 +75,16 @@ export const helpAreas: readonly HelpArea[] = [
     id: "inkopslista",
     title: "Inköpslista",
     steps: [
-      { icon: "list", title: "Listan räknas fram", text: "Från matsedeln, minus det du redan har, sorterad efter avdelning." },
+      { icon: "list", title: "Listan räknas fram", text: "Från veckans matsedel, minus det du redan har, plus dina egna varor." },
       { icon: "check", title: "Bocka av", text: "Tryck på cirkeln. Det fungerar även utan nät." },
       { icon: "bag", title: "Lägg i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
       { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till vara högst upp i listan, eller säg det till Siri." },
+      {
+        question: "Kan jag handla till nästa vecka?",
+        answer: "Ja. Tryck Denna vecka bredvid Att handla och välj vecka. Dina egna varor syns vilken vecka du än väljer.",
+      },
       {
         question: "Hur lägger jag det jag handlat i Matvaror?",
         answer: `Bocka av varorna och tryck Lägg till i Matvaror. Då räknar ${appName} med att du har dem hemma nästa gång listan räknas fram.`,

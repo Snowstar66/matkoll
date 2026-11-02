@@ -1015,7 +1015,7 @@ export function ShoppingList({
       ) : (
         <>
           {!hasLines ? (
-            // "Allt finns hemma." (or "… i Matvaror för Stugan.") only when the list has no lines at all, own items included.
+            // "Allt till veckans rätter finns redan hemma." (or "… i Matvaror för Stugan.") only when the list has no lines at all, own items included.
             hasDishes ? (
               <EmptyState>{allInStockText(siteName)}</EmptyState>
             ) : (

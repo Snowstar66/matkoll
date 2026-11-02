@@ -18,18 +18,28 @@ import type { ShoppingLine } from "./compute-list";
 // What Inköpslista says (EXPERIENCE.md, UX-DR9). Pure, so it is tested
 // without React.
 
-/** The empty list without a meal plan, or with a plan without dishes. */
-export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fram.";
+/** The empty list of a week without dishes (this week); noDishesText names the other weeks. */
+export const emptyPlanText = "Inga rätter på matsedeln den här veckan.";
+
+/** The empty list of a week without dishes: "… den här veckan.", "… nästa vecka.", "… om 2 veckor.". */
+export function noDishesText(offset: number): string {
+  const when = offset <= 0 ? "den här veckan" : offset === 1 ? "nästa vecka" : `om ${offset} veckor`;
+  return `Inga rätter på matsedeln ${when}.`;
+}
+
+/** The button under the empty list of a week without dishes; it goes to that week in Matsedel. */
+export const planWeekText = "Planera veckan";
 
 /**
- * The empty list with dishes on the plan: everything is in the pantry it is
- * counted against. "Allt finns i Matvaror för Stugan." with the place's name
- * (pantry.shownSiteName, with more than one place), also for Hemma, so the
- * text works with any name without inflection; "Allt finns hemma." without
- * one, as in 1.0 (UX-DR17, Story 8.5).
+ * The empty list with dishes on the plan: everything for them is in the pantry
+ * it is counted against. With the place's name only when there is more than
+ * one place (pantry.shownSiteName), "… i Matvaror för Stugan.", also for
+ * Hemma, so the text works with any name without inflection.
  */
 export function allInStockText(siteName: string | null): string {
-  return siteName === null ? "Allt finns hemma." : `Allt finns i Matvaror för ${siteName}.`;
+  return siteName === null
+    ? "Allt till veckans rätter finns redan hemma."
+    : `Allt till veckans rätter finns redan i Matvaror för ${siteName}.`;
 }
 
 /** Above the list when the pantry could not be read, so nothing is taken off. */

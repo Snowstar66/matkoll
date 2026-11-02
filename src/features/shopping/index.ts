@@ -52,7 +52,7 @@ export {
   exportableLines,
   exportBasket,
 } from "./domain/export-basket";
-export { emptyPlanText } from "./domain/list-text";
+export { emptyPlanText, noDishesText, planWeekText } from "./domain/list-text";
 
 export { quickAddedText } from "./domain/quick-add";
 export {
