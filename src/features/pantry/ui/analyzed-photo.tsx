@@ -30,7 +30,8 @@ import type { ReviewPhoto } from "./use-pantry-analysis";
 // on each item of a card shown, and the card the same number
 // (PhotoNumberBadge, and PhotoNumberText in its heading). The thumbnail has
 // none: at 72 px they cannot be read. A photo that cannot be shown takes the
-// numbers with it (onPhotoError).
+// numbers with it (onPhotoError). Kylfoto B: the points come with the
+// reading, from every model, so the numbers are there with the cards.
 
 export type AnalyzedPhotoButtonProps = {
   photo: ReviewPhoto;
@@ -84,15 +85,16 @@ export function AnalyzedPhotoButton({ photo, location, onOpen, onPhotoError }: A
 }
 
 /**
- * A card's number and a marker on the photo look alike (Story 6.6): a round
- * number in the accent colour. Minimum sizes and padding rather than a fixed
- * size, so "25" fits at 200 % text.
+ * A card's number and a marker on the photo (Story 6.6): a round number.
+ * Kylfoto B: the card's is small and quiet, ink-2 in a hairline circle, so
+ * it never looks like a checkbox or a button; the marker on the photo is
+ * filled with the accent colour, so it shows on any package. Minimum sizes
+ * and padding rather than a fixed size, so "25" fits at 200 % text.
  */
-const numberClasses =
-  "inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-badge leading-none text-on-accent";
-/** A card's number; Story 10.2's list of the reading has the same. */
-export const badgeClasses = cx(numberClasses, "min-h-7 min-w-7 px-1.5 py-1");
-const markerClasses = cx(numberClasses, "min-h-6 min-w-6 px-1 py-0.5");
+const numberClasses = "inline-flex shrink-0 items-center justify-center rounded-full text-badge leading-none";
+/** A card's number, 20 px; Story 10.2's list of the reading has the same. */
+export const badgeClasses = cx(numberClasses, "min-h-5 min-w-5 border border-border px-1 text-ink-2");
+const markerClasses = cx(numberClasses, "min-h-6 min-w-6 bg-accent px-1 py-0.5 text-on-accent");
 /** Half a marker and its border, at 200 % text: a marker is kept this far inside the photo's edges. */
 const markerInset = "14px";
 

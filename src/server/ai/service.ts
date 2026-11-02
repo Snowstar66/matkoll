@@ -47,21 +47,17 @@ import {
   type ThingToRemember,
   parseAskAnswer,
   listThingsAnswer,
-  locateItemsAnswer,
   locateThingAnswer,
   parseLocatedBox,
   mergeThingsAnswer,
   parseMergePairs,
-  maxPantryItemTextChars,
   parseAnalyzeItems,
-  parseItemPositions,
   parseRecipeAnswer,
   parseThings,
   suggestDishesAnswerCompactFor,
-  type AiPantryItem,
+  type PhotoItem,
   type AiRecipe,
   type AiThing,
-  type ItemPosition,
 } from "./schemas";
 import { warmImage } from "./warm-image";
 import { noThingNounText, thingNoun, thingNounCap } from "@/lib/thing-noun";
@@ -121,12 +117,13 @@ export const analyzePlaces = ["Kyl", "Frys", "Skafferi"] as const;
 export type AnalyzePlace = (typeof analyzePlaces)[number];
 
 /**
- * What analyzeImage answers: the items that passed aiPantryItem, in the
- * model's order, how many did not (`invalid`), and the most extra copies of
- * one label the model gave (`repeated`, Story 6.5): copies are merged into
- * one item, and from minLoopRepeats the answer is a repetition loop.
+ * What analyzeImage answers: the items that passed, in the model's order,
+ * each with its point on the photo when the model gave one (Kylfoto B), how
+ * many did not pass (`invalid`), and the most extra copies of one label the
+ * model gave (`repeated`, Story 6.5): copies are merged into one item, and
+ * from minLoopRepeats the answer is a repetition loop.
  */
-export type AnalyzeImageResult = { items: AiPantryItem[]; invalid: number; repeated: number };
+export type AnalyzeImageResult = { items: PhotoItem[]; invalid: number; repeated: number };
 
 export type AnalyzeImageInput = {
   /** A photo of the place, already resized in the client (AD-15). Never stored or logged. */
@@ -134,25 +131,6 @@ export type AnalyzeImageInput = {
   /** The place the photo shows. */
   place: AnalyzePlace;
 };
-
-export type LocateItemsInput = {
-  /** The same photo analyzeImage read, as the client sent it (AD-15). Never stored or logged. */
-  image: ImageInput;
-  /**
-   * The items read from it, in reading order: item n is labels[n - 1]. Text
-   * from the model on one line (cleanModelText), at most
-   * inputLimits.locate.maxLabels of at most maxPantryItemTextChars each.
-   * Data for the model, never instructions.
-   */
-  labels: string[];
-};
-
-/**
- * What locateItems answers (Story 6.6): the valid points, by number, and how
- * many the model gave that were not valid (`invalid`). Items without a point
- * are simply missing.
- */
-export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
 
 export type LocateThingInput = {
   /** The card's photo as it is stored (AD-15). Never stored or logged by the port. */
@@ -304,20 +282,6 @@ export interface AiService {
    */
   analyzeImage(input: AnalyzeImageInput, signal: AbortSignal, options?: RunOptions): Promise<Result<AnalyzeImageResult>>;
   /**
-   * Where on the photo each of the numbered labels is (Story 6.6): a second
-   * call after analyzeImage with the same photo, which never changes the
-   * reading. One point [x, y] in thousandths per label, each checked on its
-   * own (parseItemPositions): a bad one is left out and counted in
-   * `invalid`. Its own short budget (locateLimitsFrom: one attempt of at most
-   * 30 s), since the numbers are extra. Only for a target that supports
-   * grounding in thousandths (supportsGrounding: LM Studio with a Qwen model,
-   * and the mock): any other answers `ai_unavailable` at once. Fails with `validation` (an image or
-   * labels outside the limits), `ai_unavailable` (also when the deadline
-   * leaves too little time), `ai_rejected` or `ai_invalid` (the answer as a
-   * whole is broken).
-   */
-  locateItems(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateItemsResult>>;
-  /**
    * The things the model sees in a photo of a place (Story 18.2): name,
    * category, where in the photo and how sure, partly visible things too, but
    * no fixtures such as shelves. Each is checked on its own (parseThings).
@@ -332,7 +296,7 @@ export interface AiService {
    * listThings. The box is checked (boxFromThousandths): `{ box: null }` when
    * the model does not see it or gives a box that is not reasonable. Its own
    * short budget (locateLimitsFrom: one attempt of at most 30 s). Asked of
-   * any model, unlike locateItems: listThings asks every model for boxes too.
+   * any model: listThings asks every model for boxes too.
    * Fails with `validation` (an image, name or "where" outside the limits),
    * `ai_unavailable` (also when the deadline leaves too little time),
    * `ai_rejected` or `ai_invalid`.
@@ -479,17 +443,10 @@ export const inputLimits = {
    */
   merge: { maxExisting: 400, maxAdded: 60, maxChars: 30_000, maxOutputTokens: 1_500 },
   /**
-   * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
-   * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
-   * about 10 s with a warm model and 24 s on the first, cold call. At most
-   * as many labels as analyze keeps items, each a label as the port keeps it;
-   * 25 points would be about 500 tokens, and 1 600 leave room for a model
-   * that writes more around them (a cut answer is logged as
-   * locate_truncated). One attempt of at most 30 s: the numbers are extra,
-   * so failing fast is better than keeping the model busy. Only a target
-   * with supportsGrounding is asked.
+   * locateThing's one attempt (Story 6.6, 18.7): at most 30 s, since a box is
+   * extra, so failing fast is better than keeping the model busy.
    */
-  locate: { maxLabels: 25, maxLabelChars: maxPantryItemTextChars, maxOutputTokens: 1_600, attemptMs: 30_000 },
+  locate: { attemptMs: 30_000 },
 } as const;
 
 /** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */
@@ -509,11 +466,6 @@ export function isValidParseRecipeInput(input: ParseRecipeInput): boolean {
 /** True for an image within the limits and one of the three places. */
 export function isValidAnalyzeImageInput(input: AnalyzeImageInput): boolean {
   return isValidImage(input.image) && (analyzePlaces as readonly string[]).includes(input.place);
-}
-
-/** True for one label as locateItems takes it: on one line (cleanModelText leaves it as it is), not empty, at most maxLabelChars. */
-export function isValidLocateLabel(label: string): boolean {
-  return label !== "" && label === cleanModelText(label) && label.length <= inputLimits.locate.maxLabelChars;
 }
 
 /** True for a question and lists within inputLimits.ask: a question on one line, 1 to maxPlaces places, each with a title, boende and date on one line. */
@@ -589,15 +541,8 @@ export function isValidLocateThingInput(input: LocateThingInput): boolean {
   return isValidImage(input.image) && oneLine(input.name, limits.maxNameChars) && (input.where === null || oneLine(input.where, limits.maxWhereChars));
 }
 
-/** True for an image within the limits and 1 to inputLimits.locate.maxLabels valid labels. */
-export function isValidLocateItemsInput(input: LocateItemsInput): boolean {
-  const { labels } = input;
-  if (labels.length === 0 || labels.length > inputLimits.locate.maxLabels) return false;
-  return isValidImage(input.image) && labels.every(isValidLocateLabel);
-}
-
 /**
- * locateItems' budget within `limits` (Story 6.6): one attempt, of at most
+ * locateThing's budget within `limits` (Story 6.6, 18.7): one attempt, of at most
  * inputLimits.locate.attemptMs, after the health check. Shorter limits (in
  * tests) stay shorter.
  */
@@ -654,10 +599,6 @@ export function withInputValidation(service: AiService): AiService {
     async analyzeImage(input, signal, options) {
       if (!isValidAnalyzeImageInput(input)) return fail("validation");
       return service.analyzeImage(input, signal, options);
-    },
-    async locateItems(input, signal, options) {
-      if (!isValidLocateItemsInput(input)) return fail("validation");
-      return service.locateItems(input, signal, options);
     },
     async listThings(input, signal, options) {
       if (!isValidImage(input.image)) return fail("validation");
@@ -757,7 +698,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      return ok(parseAnalyzeItems(answer.data.items));
+      return ok(parseAnalyzeItems(answer.data.i, input.place));
     },
     async listThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -873,37 +814,6 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       return ok({ categories: parseCategories(answer.data, input.names.length) });
-    },
-    async locateItems(input, signal, options = {}) {
-      // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
-      if (!target.supportsGrounding) {
-        console.info("ai_unavailable", { reason: "no_grounding" });
-        return fail("ai_unavailable");
-      }
-      const within = limitsWithin(locateLimitsFrom(limits), options.deadline);
-      if (!within) {
-        console.error("ai_unavailable", { reason: "deadline" });
-        return fail("ai_unavailable");
-      }
-      const answer = await runStructured(
-        target,
-        {
-          schema: locateItemsAnswer,
-          system: prompts.locateItems,
-          messages: [{ role: "user", content: locateItemsContent(input) }],
-          maxOutputTokens: inputLimits.locate.maxOutputTokens,
-          // The same sampling as the reading of the photo (Story 6.5, quick fix: temperature 0).
-          sampling: target.imageSampling,
-          onTruncated: () => console.info("locate_truncated"),
-        },
-        signal,
-        within,
-      );
-      if (!answer.ok) return answer;
-      const located = parseItemPositions(answer.data.positions, input.labels.length);
-      // Counts only, never the labels or the points.
-      if (located.invalid > 0) console.info("locate_positions_invalid", { count: located.invalid });
-      return ok(located);
     },
     async locateThing(input, signal, options = {}) {
       const within = limitsWithin(locateLimitsFrom(limits), options.deadline);
@@ -1047,20 +957,6 @@ export function mergeThingsText(input: MergeThingsInput): string {
   const existing = input.existing.map((item, index) => line(item, index, item.card)).join("\n");
   const added = input.added.map((item, index) => line(item, index)).join("\n");
   return `Rum: ${input.room}\n\nBefintliga:\n${existing}\n\nNytt kort: ${input.addedCard}\n${added}`;
-}
-
-/**
- * The user message for locateItems (Story 6.6), as in the experiment of
- * 2026-10-26: the photo as a `file` part, then "Varorna:" with a numbered
- * line per label ("1. Arla mellanmjölk 1,5 l"). The labels are on one line,
- * so none can start a line of its own; the prompt says they are data.
- */
-export function locateItemsContent(input: LocateItemsInput) {
-  const lines = input.labels.map((label, index) => `${index + 1}. ${label}`).join("\n");
-  return [
-    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
-    { type: "text" as const, text: `Varorna:\n${lines}` },
-  ];
 }
 
 /**

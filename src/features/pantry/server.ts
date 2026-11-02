@@ -59,12 +59,6 @@ export type { ReadPhotoTimings } from "./actions/analyze-place";
 export { storedReadingSchema, type StoredReading } from "./domain/photo-job";
 
 /**
- * The points of the items on the photo of a place (Story 6.6), the second
- * step of a photo's job. Never writes (AD-2).
- */
-export { locatePlaceItems } from "./actions/locate-place-items";
-
-/**
  * The latest photo of a place (Story 10.1, AD-26), for the Route Handler
  * POST /api/pantry/photo (not a Server Action: the photo may be 1.5 MB). The
  * only Route Handler that writes (AD-2). Never asks the AI port.

@@ -49,13 +49,6 @@ export type ModelTarget = {
    * the model allows it). Every other call is unchanged.
    */
   photoReadingOptions?: ProviderOptions;
-  /**
-   * Story 6.6: the model is trained to point at things on a photo in
-   * thousandths (0–1000), as Qwen's vision models are, so locateItems may ask
-   * it. Without it, locateItems answers ai_unavailable at once and the photo
-   * is never sent a second time.
-   */
-  supportsGrounding?: boolean;
   /** Tokens added to every call's maxOutputTokens, for a model whose thinking counts against it (Claude, Story 17.5). */
   extraOutputTokens?: number;
   /**

@@ -12,10 +12,9 @@ import {
 
 // Story 12.5: the photo of a place is an AI job (AI_PROVIDER=mock, and
 // AI_MOCK_DELAY_MS=3000 from playwright.config.ts). The mock keeps a photo it
-// does not know waiting 3 s for the reading and 3 s more for the numbers, so
-// a plain PNG (plainPng) gets the default answer, the same as kyl.png (six items,
-// kyl.analyze.json, a point on each, kyl.locate.json), and can be seen in the
-// queue. The spec has an E2E user of its own (aiPhotoEmail): before each test
+// does not know waiting 3 s for the reading, so a plain PNG (plainPng) gets the
+// default answer, the same as kyl.png (six items, kyl.analyze.json, with a point
+// on each in the same answer, Kylfoto B), and can be seen in the queue. The spec has an E2E user of its own (aiPhotoEmail): before each test
 // its AI jobs, photos and pantry are removed and its catalog is made, so a
 // photo of the fridge gives the plain list of six cards. The tests run in
 // order, since they share the user.
@@ -72,7 +71,7 @@ async function photograph(page: Page, button: string, file: string | { name: str
   await (await chooser).setFiles(file);
 }
 
-/** The reading takes 3 s, the numbers 3 s more, and the page reads the jobs every 2 s. */
+/** The reading takes 3 s, with the numbers in it, and the page reads the jobs every 2 s. */
 const longWait = { timeout: 25_000 };
 
 test("the fridge and the freezer one after the other: the queue is seen, the result waits in Recept, and the fridge's numbers are confirmed", async ({

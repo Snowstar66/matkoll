@@ -6,12 +6,12 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
-import { readingLabel, readingSchema } from "../domain/photo-numbers";
+import { locateResultSchema, readingLabel, readingSchema } from "../domain/photo-numbers";
 import { listPantryIn } from "../data/queries";
 import { loadPantrySitesIn } from "../data/sites";
 import type { PantrySite, PhotoSite } from "../domain/site";
 import { compareWithPlace, placeInventorySchema, stockByIngredient, withoutComparison } from "../domain/place-inventory";
-import type { PhotoJobResult, StoredReading } from "../domain/photo-job";
+import type { PhotoJobResult, PhotoPoints, StoredReading } from "../domain/photo-job";
 import type { PantryItem } from "../domain/pantry-item";
 import {
   maxPantrySuggestions,
@@ -21,7 +21,7 @@ import {
 } from "../domain/pantry-suggestion";
 
 // The server side of "Fotografera kylen" (FR-24, AD-1, AD-2, AD-6, AD-9,
-// AD-15), as the first step of a photo's AI job (Story 12.5, AD-28): the
+// AD-15), as the photo's AI job (Story 12.5, AD-28): the
 // Route Handler /api/ai/jobs/photo calls readPhoto in the job's background
 // with the job's signal, so "Avbryt" and a newer photo of the same place stop
 // the model. It never writes: the suggestions live in the job's result and
@@ -139,8 +139,9 @@ export type ReadPhotoTimings = {
 };
 
 /**
- * The first step of a photo's job (Story 12.5): the reading. In order: the
- * AI port's analyzeImage (`validation`, `ai_unavailable`, `ai_rejected`,
+ * A photo's job (Story 12.5): the reading, and since Kylfoto B the points
+ * on the photo from the same answer (pointsOf). In order: the AI port's
+ * analyzeImage (`validation`, `ai_unavailable`, `ai_rejected`,
  * `ai_invalid`), the first 25 items (the rest logged as a count), one
  * matchIngredients call for them and the matched names
  * (`catalog_unavailable`), the items in the location of the place (read
@@ -227,8 +228,25 @@ export async function readPhoto(
     // Items that could not be read or were cut make the comparison incomplete, and so does a repetition loop (Story 6.5).
     incomplete: dropped > 0 || trimmed > 0 || repeated >= minLoopRepeats,
     ...readingOf(items),
-    points: null,
+    points: pointsOf(items),
   });
+}
+
+/**
+ * Kylfoto B: the points of the kept items, which come with the reading, by
+ * their number in it (item n is reading[n − 1]), as a numbers step gave them
+ * before; items without a point are left out. Checked with the client's
+ * schema: points that would not pass are `failed` (logged as
+ * analyze_points_invalid), never the whole answer, and the cards then have no
+ * numbers.
+ */
+function pointsOf(items: readonly { point: { x: number; y: number } | null }[]): PhotoPoints {
+  const positions = items.flatMap((item, index) => (item.point ? [{ n: index + 1, ...item.point }] : []));
+  if (positions.length < items.length) console.info("analyze_points_missing", { count: items.length - positions.length });
+  const points = locateResultSchema.safeParse({ positions });
+  if (points.success) return points.data;
+  console.error("analyze_points_invalid");
+  return "failed";
 }
 
 /**
@@ -266,8 +284,8 @@ export async function compareStoredReading(stored: StoredReading): Promise<Photo
 /**
  * Story 6.6: the kept items (the first maxPantrySuggestions) in reading
  * order, also those left out of the suggestions, so a card's number
- * (itemNumbers) is its items' place in this list; the job sends it to the
- * numbers step with the photo (locatePlaceItems). Checked with the client's schema: one that
+ * (itemNumbers) is its items' place in this list, and the number of its
+ * point (pointsOf). Checked with the client's schema: one that
  * would not pass is left out (logged as analyze_reading_invalid), never the
  * whole answer, and the cards then have no numbers.
  */

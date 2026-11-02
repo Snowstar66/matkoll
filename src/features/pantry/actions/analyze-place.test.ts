@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IngredientMatch, Location, MatchItem } from "@/features/catalog";
 import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
-import { aiPantryItem, analyzeImageAnswer } from "@/server/ai/schemas";
+import { analyzeImageAnswer, parseAnalyzeItems } from "@/server/ai/schemas";
 import { inputLimits, withInputValidation, type AnalyzeImageInput, type RunOptions } from "@/server/ai/service";
 import { analyzeResultSchema, maxPantrySuggestions } from "../domain/pantry-suggestion";
 import type { PantryItem } from "../domain/pantry-item";
@@ -52,8 +52,7 @@ vi.mock("../data/sites", () => ({ loadPantrySitesIn: (client: unknown) => loadPa
 
 const ai = withInputValidation(createMockAiService());
 const analyzeImage = vi.fn(ai.analyzeImage);
-const locateItems = vi.fn(ai.locateItems);
-vi.mock("@/features/settings/server", () => ({ getAiServiceForUser: async () => ({ analyzeImage, locateItems }) }));
+vi.mock("@/features/settings/server", () => ({ getAiServiceForUser: async () => ({ analyzeImage }) }));
 vi.mock("@/server/ai", () => ({ minLoopRepeats: 2 }));
 
 const { compareStoredReading, lookUpSite, minReadMs, postModelMarginMs, readPhoto } = await import("./analyze-place");
@@ -70,16 +69,17 @@ async function analyzePlace(
   if (!looked.ok) return looked.result;
   const read = await readPhoto({ image: input.image, location: input.location, site: looked.site }, options);
   if (!read.ok) return read;
-  // The numbers are the job's second step: not part of the old answer.
+  // The numbers on the photo are not part of the old answer.
   return ok({ ...(await compareStoredReading(read.data)), points: undefined });
 }
 
 const fixtures = new URL("../../../../tests/fixtures/ai/", import.meta.url);
 const photo = (file: string) => ({ data: new Uint8Array(readFileSync(new URL(file, fixtures))), mediaType: "image/png" });
 const kyl = photo("kyl.png");
-const fixture = analyzeImageAnswer
-  .parse(JSON.parse(readFileSync(new URL("kyl.analyze.json", fixtures), "utf8")))
-  .items.map((item) => aiPantryItem.parse(item));
+const fixture = parseAnalyzeItems(
+  analyzeImageAnswer.parse(JSON.parse(readFileSync(new URL("kyl.analyze.json", fixtures), "utf8"))).i,
+  "Kyl",
+).items;
 const answer = (items: typeof fixture, invalid = 0, repeated = 0) => ok({ items, invalid, repeated });
 
 const mjolk = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
@@ -121,7 +121,6 @@ beforeEach(() => {
   listPantryIn.mockReset().mockResolvedValue(atHome);
   loadPantrySitesIn.mockReset().mockResolvedValue(places);
   analyzeImage.mockReset().mockImplementation(ai.analyzeImage);
-  locateItems.mockReset().mockImplementation(ai.locateItems);
   commitIngredients.mockReset();
   db.from.mockReset();
   db.rpc.mockReset();
@@ -714,7 +713,17 @@ describe("a photo's reading kept by its job, and compared when it is fetched (St
     const stored = await read();
     expect(stored.site).toEqual(site);
     expect(stored.location).toBe("Kyl");
-    expect(stored.points).toBeNull();
+    // Kylfoto B: the points come with the reading, by the items' numbers in it (kyl.analyze.json).
+    expect(stored.points).toEqual({
+      positions: [
+        { n: 1, x: 193, y: 193 },
+        { n: 2, x: 432, y: 225 },
+        { n: 3, x: 661, y: 258 },
+        { n: 4, x: 291, y: 567 },
+        { n: 5, x: 694, y: 583 },
+        { n: 6, x: 146, y: 813 },
+      ],
+    });
     expect(stored.suggestions.every((suggestion) => suggestion.change === null && suggestion.replaces.length === 0)).toBe(true);
     expect([...stored.seen].sort()).toEqual([mjolk, smor].sort());
     expect(stored.incomplete).toBe(false);
@@ -723,6 +732,16 @@ describe("a photo's reading kept by its job, and compared when it is fetched (St
     expect(stored.reading?.length).toBeGreaterThan(0);
     // What the job keeps is plain data that fits a result, never a photo.
     expect(JSON.stringify(stored).length).toBeLessThan(262_144);
+  });
+
+  it("leaves out the points of items without one, and keeps the numbers of the others (Kylfoto B)", async () => {
+    const [first, second, third] = fixture;
+    analyzeImage.mockResolvedValueOnce(answer([first, { ...second, point: null }, third]));
+    const stored = await read();
+    expect(stored.points).toEqual({ positions: [{ n: 1, x: 193, y: 193 }, { n: 3, x: 661, y: 258 }] });
+    expect(console.info).toHaveBeenCalledWith("analyze_points_missing", { count: 1 });
+    analyzeImage.mockResolvedValueOnce(answer([]));
+    expect((await read()).points).toEqual({ positions: [] });
   });
 
   it("compares with the place as it is when the result is opened, not as it was when the photo was read", async () => {

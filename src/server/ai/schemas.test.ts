@@ -4,11 +4,9 @@ import {
   aiPantryItem,
   aiRecipe,
   analyzeImageAnswer,
-  locateItemsAnswer,
   maxPantryItemTextChars,
   minLoopRepeats,
   parseAnalyzeItems,
-  parseItemPositions,
   parseRecipeAnswer,
   compactDish,
   suggestDishesAnswerCompact,
@@ -238,32 +236,98 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     hint: { name: "mellanmjölk", section: "Mejeri", location: "Kyl", defaultUnit: "förp" },
   };
 
+  // Kylfoto B: the short form the model answers in.
+  const short = { l: "Arla mellanmjölk", n: "mellanmjölk", q: 1, u: "förp", s: "Mejeri", p: [157, 230], a: null };
+
   it("takes any answer with a list of items of the right shape, also one with an item that will not pass", () => {
-    const answer = { items: [item, { ...item, label: "", amount: -1 }] };
+    const answer = { i: [short, { ...short, l: "", q: -1, p: [2000] }] };
     expect(analyzeImageAnswer.parse(answer)).toEqual(answer);
-    expect(analyzeImageAnswer.parse({ items: [] })).toEqual({ items: [] });
+    expect(analyzeImageAnswer.parse({ i: [] })).toEqual({ i: [] });
   });
 
   it("refuses an answer that is broken as a whole: no list, or an item of the wrong shape", () => {
     expect(analyzeImageAnswer.safeParse({}).success).toBe(false);
-    expect(analyzeImageAnswer.safeParse({ items: null }).success).toBe(false);
-    expect(analyzeImageAnswer.safeParse({ items: [{ label: "Mjölk" }] }).success).toBe(false);
-    expect(analyzeImageAnswer.safeParse({ items: [{ ...item, amount: "1" }] }).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ i: null }).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ i: [{ l: "Mjölk" }] }).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ i: [{ ...short, q: "1" }] }).success).toBe(false);
+  });
+
+  it("turns the short form into today's item, kept in the place of the photo, with its point (Kylfoto B)", () => {
+    const result = parseAnalyzeItems([short, { ...short, l: "Ägg", n: "ägg", q: 6, u: "st", p: [291, 567] }], "Frys");
+    expect(result).toEqual({
+      items: [
+        { ...item, hint: { ...item.hint, location: "Frys" }, point: { x: 157, y: 230 }, alternatives: [] },
+        {
+          label: "Ägg",
+          confidence: "säker",
+          amount: 6,
+          unit: "st",
+          hint: { name: "ägg", section: "Mejeri", location: "Frys", defaultUnit: "st" },
+          point: { x: 291, y: 567 },
+          alternatives: [],
+        },
+      ],
+      invalid: 0,
+      repeated: 0,
+    });
+  });
+
+  it("makes an item with a list of other names unsure, keeps at most two of them, and reads `o` from a lenient model", () => {
+    const [guess, empty, flagged] = parseAnalyzeItems(
+      [
+        { ...short, l: "Gul flaska", n: "senap", a: [" dijonsenap ", "Senap", "", 3, "dijonsenap", "ketchup", "majonnäs"] },
+        { ...short, l: "Burk", n: "sylt", a: [] },
+        { ...short, l: "Påse", n: "ost", a: null, o: 1 },
+      ],
+      "Kyl",
+    ).items;
+    expect([guess.confidence, guess.alternatives]).toEqual(["osäker", ["dijonsenap", "ketchup"]]);
+    expect([empty.confidence, empty.alternatives]).toEqual(["osäker", []]);
+    expect([flagged.confidence, flagged.alternatives]).toEqual(["osäker", []]);
+  });
+
+  it("leaves out a point that is not two numbers from 0 to 1000, never the item", () => {
+    const points = [null, [500], [500, 500, 500], [-1, 10], [10, 1001], ["5", 5], [0, 1000]].map(
+      (p) => parseAnalyzeItems([{ ...short, p }], "Kyl").items[0].point,
+    );
+    expect(points).toEqual([null, null, null, null, null, null, { x: 0, y: 1000 }]);
+  });
+
+  it("gives an item without a unit no catalog unit, and refuses one without a label, a name or a section", () => {
+    const [plain] = parseAnalyzeItems([{ ...short, q: null, u: null }], "Kyl").items;
+    expect([plain.amount, plain.unit, plain.hint.defaultUnit]).toEqual([null, null, ""]);
+    const result = parseAnalyzeItems([{ ...short, l: " " }, { ...short, n: "" }, { ...short, s: null }, { ...short, q: -1 }], "Kyl");
+    expect(result).toEqual({ items: [], invalid: 4, repeated: 0 });
+  });
+
+  it("merges copies in the short form into the first, with its point", () => {
+    const result = parseAnalyzeItems([short, { ...short, p: [900, 900] }, { ...short, p: [10, 10] }], "Kyl");
+    expect(result.items.map(({ label, point }) => [label, point])).toEqual([["Arla mellanmjölk", { x: 157, y: 230 }]]);
+    expect(result.repeated).toBe(2);
+  });
+
+  it("still reads the long form of before, without a point, also next to the short form", () => {
+    const result = parseAnalyzeItems([item, { ...short, l: "Smör", n: "smör" }], "Kyl");
+    expect(result.items.map(({ label, point, alternatives }) => [label, point, alternatives])).toEqual([
+      ["Arla mellanmjölk", null, []],
+      ["Smör", { x: 157, y: 230 }, []],
+    ]);
+    expect(result.invalid).toBe(0);
   });
 
   it("checks each item on its own: valid ones in order, and a count of the others", () => {
     const smor = { ...item, label: "Smör" };
-    const result = parseAnalyzeItems([item, { ...item, label: " " }, "inte en vara", smor, { ...item, amount: -1 }]);
+    const result = parseAnalyzeItems([item, { ...item, label: " " }, "inte en vara", smor, { ...item, amount: -1 }], "Kyl");
     expect(result.items.map(({ label }) => label)).toEqual(["Arla mellanmjölk", "Smör"]);
     expect(result.invalid).toBe(3);
-    expect(parseAnalyzeItems([])).toEqual({ items: [], invalid: 0, repeated: 0 });
+    expect(parseAnalyzeItems([], "Kyl")).toEqual({ items: [], invalid: 0, repeated: 0 });
   });
 
   it("merges a loop into its first copy without adding the amounts, and counts the most repeats of one label (Story 6.5)", () => {
     const gradde = { ...item, label: "Grädde", hint: { ...item.hint, name: "grädde" } };
     // Near copies: the same label with an amount and unit, or a full stop, are the same label.
     const loop = [gradde, ...Array.from({ length: 10 }, () => gradde), { ...gradde, label: "Grädde 3 dl" }, { ...gradde, label: "grädde." }];
-    const result = parseAnalyzeItems([item, ...loop, { ...item, label: "Ägg", amount: 6, unit: "st" }]);
+    const result = parseAnalyzeItems([item, ...loop, { ...item, label: "Ägg", amount: 6, unit: "st" }], "Kyl");
     expect(result.items.map(({ label, amount }) => [label, amount])).toEqual([
       ["Arla mellanmjölk", 1],
       ["Grädde", 1],
@@ -280,7 +344,7 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
       { ...item, label: " arla  MELLANMJÖLK ", amount: 2, confidence: "osäker" },
       { ...item, label: "Ägg", amount: 6, unit: "st" },
       { ...item, label: "Ägg 6 st", amount: 1, unit: "förp" },
-    ]);
+    ], "Kyl");
     expect(result.items.map(({ label, amount, unit, confidence }) => [label, amount, unit, confidence])).toEqual([
       ["Arla mellanmjölk", 3, "förp", "osäker"],
       // Different units are not added: the first copy's amount.
@@ -291,13 +355,13 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
 
   it("takes the first amount in a loop when the first copy has none, and is unsure when any copy is", () => {
     const smor = { ...item, label: "Smör", amount: null, unit: null };
-    const result = parseAnalyzeItems([smor, { ...smor, amount: 2, unit: "förp", confidence: "osäker" }, { ...smor, amount: 3, unit: "förp" }]);
-    expect(result.items).toEqual([{ ...smor, amount: 2, unit: "förp", confidence: "osäker" }]);
+    const result = parseAnalyzeItems([smor, { ...smor, amount: 2, unit: "förp", confidence: "osäker" }, { ...smor, amount: 3, unit: "förp" }], "Kyl");
+    expect(result.items).toEqual([{ ...smor, amount: 2, unit: "förp", confidence: "osäker", point: null, alternatives: [] }]);
     expect(result.repeated).toBe(2);
   });
 
   it("does not count an invalid item as seen: a valid one with its label comes through", () => {
-    const result = parseAnalyzeItems([{ ...item, amount: -1 }, item]);
+    const result = parseAnalyzeItems([{ ...item, amount: -1 }, item], "Kyl");
     expect(result).toMatchObject({ invalid: 1, repeated: 0 });
     expect(result.items).toHaveLength(1);
   });
@@ -312,8 +376,7 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     const withoutConfidence: Partial<typeof item> = { ...item };
     delete withoutConfidence.confidence;
     const answer = { items: [{ ...item, confidence: "Osäker" }, { ...item, label: "Smör", confidence: "sure" }, { ...withoutConfidence, label: "Ost" }] };
-    expect(analyzeImageAnswer.safeParse(answer).success).toBe(true);
-    const result = parseAnalyzeItems(answer.items);
+    const result = parseAnalyzeItems(answer.items, "Kyl");
     expect(result.invalid).toBe(0);
     expect(result.items.map(({ label, confidence }) => [label, confidence])).toEqual([
       ["Arla mellanmjölk", "osäker"],
@@ -343,79 +406,18 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     expect(aiPantryItem.safeParse({ ...item, ...change }).success).toBe(false);
   });
 
-  it("has a JSON schema with every field required, no minItems or maxItems on items, and no defaults", () => {
+  it("has a JSON schema with every short field required, no minItems or maxItems on items, and no defaults", () => {
     const schema = z.toJSONSchema(analyzeImageAnswer, { io: "input" }) as unknown as {
       required: string[];
-      properties: { items: { type: string; minItems?: number; maxItems?: number; items: { required: string[] } } };
+      properties: { i: { type: string; minItems?: number; maxItems?: number; items: { required: string[]; properties: object } } };
     };
-    expect(schema.required).toEqual(["items"]);
-    const { items } = schema.properties;
+    expect(schema.required).toEqual(["i"]);
+    const { i: items } = schema.properties;
     expect(items.type).toBe("array");
     expect(items.minItems).toBeUndefined();
     expect(items.maxItems).toBeUndefined();
-    expect(items.items.required.sort()).toEqual(["amount", "confidence", "hint", "label", "unit"]);
-    expect(JSON.stringify(schema)).toContain('"enum":["säker","osäker"]');
+    expect(items.items.required).toEqual(["l", "n", "q", "u", "s", "p", "a"]);
+    expect(Object.keys(items.items.properties)).toEqual(items.items.required);
     expect(JSON.stringify(schema)).not.toMatch(/"default"|"minLength"|"maxLength"|"minimum"|"exclusiveMinimum"/);
-  });
-});
-
-describe("locateItemsAnswer and parseItemPositions (Story 6.6)", () => {
-  it("takes any list of numbers and points as a whole, so one bad point never fails the answer", () => {
-    expect(locateItemsAnswer.safeParse({ positions: [{ n: 99, position: [1, 2, 3] }] }).success).toBe(true);
-    expect(locateItemsAnswer.safeParse({ positions: [] }).success).toBe(true);
-    expect(locateItemsAnswer.safeParse({ points: [] }).success).toBe(false);
-    expect(locateItemsAnswer.safeParse({ positions: [{ n: "1", position: [1, 2] }] }).success).toBe(false);
-  });
-
-  it("has no tuple, minimum or maximum in its JSON schema, so strict providers take it", () => {
-    const schema = JSON.stringify(z.toJSONSchema(locateItemsAnswer, { io: "input" }));
-    expect(schema).not.toMatch(/prefixItems|minItems|maxItems|minimum|maximum/);
-  });
-
-  it("keeps the points with a whole number within the labels and two coordinates from 0 to 1000, sorted by number", () => {
-    expect(
-      parseItemPositions(
-        [
-          { n: 3, position: [1000, 0] },
-          { n: 1, position: [12.5, 40] },
-        ],
-        3,
-      ),
-    ).toEqual({
-      positions: [
-        { n: 1, x: 12.5, y: 40 },
-        { n: 3, x: 1000, y: 0 },
-      ],
-      invalid: 0,
-    });
-  });
-
-  it.each([
-    ["number 0", { n: 0, position: [1, 1] }],
-    ["a number beyond the labels", { n: 4, position: [1, 1] }],
-    ["a fraction", { n: 1.5, position: [1, 1] }],
-    ["a coordinate over 1000", { n: 1, position: [1001, 1] }],
-    ["a negative coordinate", { n: 1, position: [1, -1] }],
-    ["one coordinate", { n: 1, position: [1] }],
-    ["three coordinates", { n: 1, position: [1, 1, 1] }],
-    ["no position", { n: 1 }],
-    ["not an object", "1: [1, 1]"],
-  ])("leaves out a point with %s and counts it", (_name, point) => {
-    expect(parseItemPositions([point, { n: 2, position: [5, 5] }], 3)).toEqual({
-      positions: [{ n: 2, x: 5, y: 5 }],
-      invalid: 1,
-    });
-  });
-
-  it("keeps the first point for a number given twice and counts the second", () => {
-    expect(
-      parseItemPositions(
-        [
-          { n: 1, position: [1, 1] },
-          { n: 1, position: [9, 9] },
-        ],
-        1,
-      ),
-    ).toEqual({ positions: [{ n: 1, x: 1, y: 1 }], invalid: 1 });
   });
 });

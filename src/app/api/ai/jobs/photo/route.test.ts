@@ -4,11 +4,10 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { jpegHeader } from "../../../../../../tests/support/image-headers";
 
 // The Route Handler of a photo's AI job (Story 12.5) with the user check, the
-// queue, the place check and the two steps of the work stubbed: the request
-// checks, what is queued (the place, the location and the time, never the
-// photo), the 202 before any work, and the work after the response: the
-// reading first as the partial result, the numbers second, and when they are
-// skipped.
+// queue, the place check and the reading stubbed: the request checks, what is
+// queued (the place, the location and the time, never the photo), the 202
+// before any work, and the work after the response: the reading, with the
+// points of the same answer (Kylfoto B), as the job's result.
 
 const requireUserForRoute = vi.fn();
 vi.mock("@/features/auth/server", () => ({ requireUserForRoute: () => requireUserForRoute() }));
@@ -38,7 +37,6 @@ const runAiJob = vi.fn<(db: unknown, job: unknown, times: { startBy: number }, w
 vi.mock("@/features/ai-jobs/server", () => ({
   enqueueAiJob: (...args: Parameters<typeof enqueueAiJob>) => enqueueAiJob(...args),
   runAiJob: (...args: Parameters<typeof runAiJob>) => runAiJob(...args),
-  functionMs: 295_000,
 }));
 
 type Image = { data: Uint8Array; mediaType: string };
@@ -49,11 +47,9 @@ const readPhoto = vi.fn<
     options: { signal: AbortSignal; deadline?: number; timings?: Record<string, number> },
   ) => Promise<Result<unknown>>
 >();
-const locatePlaceItems = vi.fn<(input: { image: Image; labels: string[] }, options: { signal: AbortSignal; deadline?: number }) => Promise<Result<unknown>>>();
 vi.mock("@/features/pantry/server", () => ({
   lookUpSite: (id: string | undefined) => lookUpSite(id),
   readPhoto: (...args: Parameters<typeof readPhoto>) => readPhoto(...args),
-  locatePlaceItems: (...args: Parameters<typeof locatePlaceItems>) => locatePlaceItems(...args),
 }));
 
 const startImportJob = vi.fn<(source: { kind: string; image: Image }, key: string, startedAt: number) => Promise<Response>>();
@@ -113,9 +109,8 @@ const reading = {
   seen: [],
   incomplete: false,
   reading: ["Mjölk"],
-  points: null,
+  points: { positions: [{ n: 1, x: 100, y: 200 }] },
 };
-const points = { positions: [{ n: 1, x: 100, y: 200 }] };
 
 beforeEach(() => {
   afterCallbacks = [];
@@ -125,7 +120,6 @@ beforeEach(() => {
   runAiJob.mockReset().mockResolvedValue(undefined);
   startImportJob.mockReset().mockResolvedValue(Response.json(ok({ job }), { status: 202 }));
   readPhoto.mockReset().mockResolvedValue(ok(reading));
-  locatePlaceItems.mockReset().mockResolvedValue(ok(points));
 });
 
 describe("POST /api/ai/jobs/photo", () => {
@@ -166,25 +160,21 @@ describe("POST /api/ai/jobs/photo", () => {
     expect(afterCallbacks).toHaveLength(0);
   });
 
-  it("does the reading first and reports it, then looks up the numbers with the same photo, and ends with both", async () => {
+  it("reads the photo with the job's signal and deadline, and ends with the reading and its points, without a second call (Kylfoto B)", async () => {
     const signal = new AbortController().signal;
     const deadline = Date.now() + 120_000;
     const { reported, result } = await runWork(deadline, signal);
 
+    expect(readPhoto).toHaveBeenCalledTimes(1);
     const [readInput, readOptions] = readPhoto.mock.calls[0];
     expect(readInput.location).toBe("Kyl");
     expect(readInput.site).toEqual(hemma);
     expect(readInput.image.mediaType).toBe("image/png");
     expect(Buffer.from(readInput.image.data).equals(Buffer.from(png))).toBe(true);
     expect(readOptions).toEqual({ signal, deadline, timings: {} });
-    // The cards can come at once: the reading is the job's partial result, without points.
-    expect(reported).toEqual([reading]);
-    const [locateInput, locateOptions] = locatePlaceItems.mock.calls[0];
-    expect(locateInput.labels).toEqual(["Mjölk"]);
-    expect(Buffer.from(locateInput.image.data).equals(Buffer.from(png))).toBe(true);
-    expect(locateOptions.signal).toBe(signal);
-    expect(locateOptions.deadline).toBeLessThanOrEqual(Date.now() + 30_000);
-    expect(result).toEqual(ok({ ...reading, points }));
+    // The cards and their numbers come together, as the job's result.
+    expect(reported).toEqual([]);
+    expect(result).toEqual(ok(reading));
   });
 
   it("logs analyze_timing with milliseconds per step, the photo's side and bytes, and never a name (Kylfoto A)", async () => {
@@ -217,53 +207,11 @@ describe("POST /api/ai/jobs/photo", () => {
     info.mockRestore();
   });
 
-  it("ends with the reading and points `failed` when the numbers fail, never with an error", async () => {
-    locatePlaceItems.mockResolvedValue(fail("ai_unavailable"));
-    const { result } = await runWork();
-    expect(result).toEqual(ok({ ...reading, points: "failed" }));
-  });
-
   it("passes on the error of the reading, and reports nothing", async () => {
     readPhoto.mockResolvedValue(fail("ai_unavailable"));
     const { reported, result } = await runWork();
     expect(result).toEqual(fail("ai_unavailable"));
     expect(reported).toEqual([]);
-    expect(locatePlaceItems).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["less than 40 s of the function's time is left", () => Date.now() + 120_000, () => vi.setSystemTime(Date.now() + 260_000)],
-    ["less than 8 s of the job's own time is left", () => Date.now() + 2_000, () => {}],
-  ])("skips the numbers when %s after the reading", async (_name, deadline, jump) => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    try {
-      readPhoto.mockImplementation(async () => {
-        jump();
-        return ok(reading);
-      });
-      const { result } = await runWork(deadline());
-      expect(locatePlaceItems).not.toHaveBeenCalled();
-      expect(result).toEqual(ok({ ...reading, points: "skipped" }));
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("skips the numbers when no suggestion has an item to point at, or the job was stopped", async () => {
-    readPhoto.mockResolvedValue(ok({ ...reading, suggestions: [{ id: "s1", name: "mjölk" }] }));
-    expect((await runWork()).result).toEqual(ok({ ...reading, suggestions: [{ id: "s1", name: "mjölk" }], points: "skipped" }));
-    expect(locatePlaceItems).not.toHaveBeenCalled();
-
-    afterCallbacks = [];
-    runAiJob.mockClear();
-    readPhoto.mockResolvedValue(ok(reading));
-    const controller = new AbortController();
-    readPhoto.mockImplementation(async () => {
-      controller.abort();
-      return ok(reading);
-    });
-    await runWork(Date.now() + 120_000, controller.signal);
-    expect(locatePlaceItems).not.toHaveBeenCalled();
   });
 
   it("hands a photo of a recipe (`kind` import, Story 12.6) to the import job, without the place's checks", async () => {

@@ -226,7 +226,7 @@ describe("POST /api/pantry/photo", () => {
 
 // AD-26: a saved photo is never sent to the AI port. The route reaches
 // savePlacePhoto through @/features/pantry/server (AD-1), whose other exports
-// (analyzePlace, locatePlaceItems) use the port, so the walk follows only
+// (readPhoto) use the port, so the walk follows only
 // savePlacePhoto's own file there. Every other import on the way is followed.
 describe("the save path's imports", () => {
   const root = fileURLToPath(new URL("../../../../../", import.meta.url));

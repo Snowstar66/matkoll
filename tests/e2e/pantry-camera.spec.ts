@@ -10,12 +10,12 @@ import { adminClient, plainPng, cardTitles, cameraEmail, cameraStorageState, e2e
 // catalog ingredient "Mjölk" and the pantry item "Mjölk 2 förp" in Kyl, and
 // nothing else, so a photo of Kyl is compared with it (Story 6.4): mjölk is
 // "Ändrat" and the other five "Nytt". The tests run in order, since they
-// share the user. Story 6.6: the mock answers the numbers for kyl.png with
-// kyl.locate.json, a point on each of its six items. Story 12.5: a photo is an AI
-// job (POST /api/ai/jobs/photo) that is read in the background; the mock keeps a
-// photo it does not know waiting AI_MOCK_DELAY_MS for the reading and for the
-// numbers (3 s each here), so a plain PNG (plainPng) gets the default answer, the
-// same as kyl.png, and can be seen waiting, while kyl.png itself answers at once.
+// share the user. Story 6.6, Kylfoto B: kyl.analyze.json has a point on each of
+// its six items, in the same answer, so the cards come with their numbers.
+// Story 12.5: a photo is an AI job (POST /api/ai/jobs/photo) that is read in the
+// background; the mock keeps a photo it does not know waiting AI_MOCK_DELAY_MS
+// for the reading (3 s here), so a plain PNG (plainPng) gets the default answer,
+// the same as kyl.png, and can be seen waiting, while kyl.png itself answers at once.
 
 const kyl = "tests/fixtures/ai/kyl.png";
 
@@ -217,23 +217,22 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   expect(errors).toEqual([]);
 });
 
-test("the cards come first, then their numbers, and the large photo has the same numbers on the items (Story 6.6)", async ({
+test("the cards come with their numbers, and the large photo has the same numbers on the items (Story 6.6, Kylfoto B)", async ({
   page,
 }) => {
   const errors = watchErrors(page);
   const before = await rowCounts();
   await page.goto("/hemma");
-  // The reading takes 3 s and the numbers 3 s more (the mock keeps a photo it does not know waiting, AD-28).
+  // The reading takes 3 s (the mock keeps a photo it does not know waiting, AD-28); the points come in the same answer.
   await photograph(page, "Fotografera kylen", plainPng(1));
 
   await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
-  await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(0);
-  await expect(section(page).getByRole("status").filter({ hasText: "Letar upp varorna på fotot …" })).toBeVisible();
-  // Nothing waits for the numbers.
+  await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(6);
+  await expect(section(page).getByText("Letar upp varorna på fotot …")).toHaveCount(0);
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeEnabled();
 
   // Each card has the number of its item in kyl.png's reading: mellanmjölk 1, vispgrädde 2, smör 3, ägg 4, gurka 5, ketchup 6.
-  await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible({ timeout: 15_000 });
+  await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible();
   const expected = [
     ["Vispgrädde 3 dl", 2],
     ["Gurka", 5],

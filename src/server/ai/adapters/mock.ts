@@ -8,13 +8,10 @@ import {
   aiRecipe,
   analyzeImageAnswer,
   listThingsAnswer,
-  locateItemsAnswer,
   parseAnalyzeItems,
-  parseItemPositions,
   parseThings,
   suggestDishesAnswerCompact,
   type AiRecipe,
-  type LocateItemsAnswer,
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
@@ -39,15 +36,13 @@ import { labelKey } from "@/lib/label-key";
 // photo, and the reserved images give their error codes. analyzeImage answers
 // from the manifest's `analyze` part: <name>.analyze.json for the photo
 // <name>.png, keyed on the SHA-256 of the image bytes, and the default case
-// for any other photo, read through parseAnalyzeItems like a model's answer,
-// so repeated labels are merged and counted as the port does (Story 6.5);
+// for any other photo, read through parseAnalyzeItems like a model's answer
+// (Kylfoto B: the short form, with a point per item, so the numbers on the
+// photo come with the reading), so repeated labels are merged and counted as
+// the port does (Story 6.5);
 // the reserved images for ai_unavailable, ai_invalid and
 // ai_rejected give their codes (import_no_recipe means nothing to a photo of
-// a place, so it gets the default answer). locateItems (Story 6.6) answers
-// from the manifest's `locate` part the same way: <name>.locate.json for the
-// photo <name>.png, the default case for any other photo, read through
-// parseItemPositions for the labels given, like a model's answer, and the
-// same reserved images give the same codes. The suggest, analyze and locate
+// a place, so it gets the default answer). The suggest and analyze
 // fixtures are each loaded on their own, so a broken one never breaks an
 // import. locateThing (Story 18.7) answers the box the things fixture gives a
 // thing of the same name (any photo), no box for a name it does not have, and
@@ -78,8 +73,6 @@ type Manifest = {
   suggestOld?: string;
   /** analyzeImage: each case is a photo <name>.png with the answer <name>.analyze.json; `default` answers any other photo. */
   analyze?: { default: string; cases: { name: string }[] };
-  /** locateItems: each case is a photo <name>.png with the points <name>.locate.json; `default` answers any other photo. */
-  locate?: { default: string; cases: { name: string }[] };
   /** listThings (Story 18.2): the answer <things>.things.json for any photo that is not a reserved image. */
   things?: string;
 };
@@ -102,12 +95,6 @@ type AnalyzeFixtures = {
   /** SHA-256 of the image bytes → the answer or an error code. */
   byKey: Map<string, AnalyzeAnswer | { code: MockErrorCode }>;
   fallback: AnalyzeAnswer;
-};
-
-type LocateFixtures = {
-  /** SHA-256 of the image bytes → the model's points or an error code. */
-  byKey: Map<string, LocateItemsAnswer | { code: MockErrorCode }>;
-  fallback: LocateItemsAnswer;
 };
 
 type ThingsFixtures = {
@@ -195,7 +182,8 @@ function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
   const byKey: AnalyzeFixtures["byKey"] = new Map();
   const answers = new Map<string, AnalyzeAnswer>();
   for (const { name } of manifest.analyze.cases) {
-    const { items, invalid, repeated } = parseAnalyzeItems(analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items);
+    // Kylfoto B: the short form with a point per item; the items are kept where a photo of the fridge keeps them.
+    const { items, invalid, repeated } = parseAnalyzeItems(analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).i, "Kyl");
     // Every item must pass on its own: a fixture is a valid answer.
     if (invalid > 0) throw new Error("invalid analyze fixture");
     answers.set(name, { items, repeated });
@@ -207,29 +195,6 @@ function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
     }
   }
   const fallback = answers.get(manifest.analyze.default);
-  if (!fallback) throw new Error("default case missing");
-  return { byKey, fallback };
-}
-
-function loadLocateFixtures(dir: string): LocateFixtures {
-  const read = (file: string) => readFileSync(join(dir, file), "utf8");
-  const manifest = JSON.parse(read("manifest.json")) as Manifest;
-  if (!manifest.locate) throw new Error("locate missing");
-  const byKey: LocateFixtures["byKey"] = new Map();
-  const answers = new Map<string, LocateItemsAnswer>();
-  for (const { name } of manifest.locate.cases) {
-    const answer = locateItemsAnswer.parse(JSON.parse(read(`${name}.locate.json`)));
-    // Every point must pass for as many labels as it has points: a fixture is a valid answer.
-    if (parseItemPositions(answer.positions, answer.positions.length).invalid > 0) throw new Error("invalid locate fixture");
-    answers.set(name, answer);
-    byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), answer);
-  }
-  for (const { image, code } of manifest.reservedImages ?? []) {
-    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) {
-      byKey.set(sha256(readFileSync(join(dir, image))), { code });
-    }
-  }
-  const fallback = answers.get(manifest.locate.default);
   if (!fallback) throw new Error("default case missing");
   return { byKey, fallback };
 }
@@ -468,7 +433,6 @@ function countingCalls(service: AiService): AiService {
     parseRecipe: counted(service.parseRecipe),
     suggestDishes: counted(service.suggestDishes),
     analyzeImage: counted(service.analyzeImage),
-    locateItems: counted(service.locateItems),
     listThings: counted(service.listThings),
     locateThing: counted(service.locateThing),
     askThings: counted(service.askThings),
@@ -487,7 +451,6 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
-  const locateFixtures = lazily(() => loadLocateFixtures(dir));
   const thingsFixtures = lazily(() => loadThingsFixtures(dir));
   // The suggest fixtures hold the reserved texts askThings fails on (a question that contains one).
   const askErrors = lazily(() => loadSuggestFixtures(dir).errors);
@@ -540,17 +503,8 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
-      return ok({ items: structuredClone(items), invalid: 0, repeated });
-    },
-    async locateItems(input, signal) {
-      if (signal.aborted) return fail("ai_unavailable");
-      const current = logged(locateFixtures());
-      if (!current) return fail("ai_unavailable");
-      const answer = current.byKey.get(sha256(input.image.data));
-      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
-      if (answer && "code" in answer) return fail(answer.code);
-      // Like a model's answer: a point for a number beyond the labels is left out and counted.
-      return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
+      // Like the port, an item is kept where the photo was taken.
+      return ok({ items: items.map((item) => ({ ...structuredClone(item), hint: { ...item.hint, location: input.place } })), invalid: 0, repeated });
     },
     async listThings(input, signal) {
       if (signal.aborted) return fail("ai_unavailable");
