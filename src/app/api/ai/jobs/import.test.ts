@@ -28,10 +28,12 @@ type EnqueueInput = { kind: string; clientKey: string; context: Record<string, u
 const enqueueAiJob = vi.fn<(db: unknown, input: EnqueueInput) => Promise<Result<unknown>>>();
 type Work = (signal: AbortSignal, deadline: number, report: (partial: unknown) => Promise<void>) => Promise<Result<unknown>>;
 const runAiJob = vi.fn<(db: unknown, job: unknown, times: { startBy: number }, work: Work) => Promise<void>>();
+const isAiJobRunning = vi.fn<(db: unknown, id: string) => Promise<boolean>>();
 vi.mock("@/features/ai-jobs/server", () => ({
   enqueueAiJob: (...args: Parameters<typeof enqueueAiJob>) => enqueueAiJob(...args),
   listAiJobs: async () => ok([]),
   runAiJob: (...args: Parameters<typeof runAiJob>) => runAiJob(...args),
+  isAiJobRunning: (...args: Parameters<typeof isAiJobRunning>) => isAiJobRunning(...args),
 }));
 
 vi.mock("@/features/suggestions/server", () => ({ suggestFromPantry: vi.fn(), checkSuggestPantry: vi.fn() }));
@@ -87,6 +89,7 @@ beforeEach(() => {
   prepareImport.mockReset().mockResolvedValue(ok({ source: "url", domain: "koket.se" }));
   enqueueAiJob.mockReset().mockResolvedValue(ok({ job, created: true, startBy: 1_000_000 }));
   runAiJob.mockReset().mockResolvedValue(undefined);
+  isAiJobRunning.mockReset().mockResolvedValue(true);
   saveRecipe.mockReset().mockImplementation(async (_draft, id) => ok({ id }));
   importRecipe.mockReset().mockResolvedValue(ok({ draft: { title: "Soppa" }, ingredientNames: {} }));
 });
@@ -133,6 +136,24 @@ describe("POST /api/ai/jobs, kind import", () => {
     importRecipe.mockResolvedValueOnce(fail("fetch_blocked"));
     const failed = await runAiJob.mock.calls[0][3](new AbortController().signal, Date.now() + 1000, async () => {});
     expect(failed.ok).toBe(false);
+    expect(saveRecipe).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing when the job was cancelled while it was read (Avbryt before the guard saw it)", async () => {
+    prepareImport.mockResolvedValue(ok({ source: "text" }));
+    await jobs.POST(postJson({ kind: "import", clientKey, source: "text", text: "Linssoppa" }));
+    await runAfter();
+    const work = runAiJob.mock.calls[0][3];
+
+    isAiJobRunning.mockResolvedValueOnce(false);
+    const cancelled = await work(new AbortController().signal, Date.now() + 1000, async () => {});
+    expect(cancelled.ok).toBe(false);
+    expect(isAiJobRunning).toHaveBeenCalledWith({ name: "session client" }, job.id);
+    expect(saveRecipe).not.toHaveBeenCalled();
+
+    const aborted = new AbortController();
+    aborted.abort();
+    expect((await work(aborted.signal, Date.now() + 1000, async () => {})).ok).toBe(false);
     expect(saveRecipe).not.toHaveBeenCalled();
   });
 

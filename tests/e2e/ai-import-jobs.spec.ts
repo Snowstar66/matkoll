@@ -76,7 +76,38 @@ async function closeSheet(page: Page) {
   await expect(sheet(page)).toHaveCount(0);
 }
 
+/**
+ * A queued job of the user's that no server ever claims, first in the queue,
+ * so the imports wait behind it until `release` removes it. The queue then
+ * holds a known state however slow the browser is: without it, the first
+ * import (3 s) could be done before the second was sent, and "1 i kö" was
+ * never there to see. Queued, not running: only one job of the household may
+ * run, and another test's job may still be finishing.
+ */
+async function holdQueue(): Promise<{ release: () => Promise<void> }> {
+  const id = crypto.randomUUID();
+  const now = new Date();
+  const { error } = await adminClient().from("ai_job").insert({
+    id,
+    user_id: userId,
+    kind: "suggest",
+    status: "queued",
+    client_key: crypto.randomUUID(),
+    context: {},
+    created_at: new Date(now.getTime() - 60_000).toISOString(),
+    expires_at: new Date(now.getTime() + 3_600_000).toISOString(),
+  });
+  if (error) throw error;
+  return {
+    async release() {
+      const { error: deleteError } = await adminClient().from("ai_job").delete().eq("id", id);
+      if (deleteError) throw deleteError;
+    },
+  };
+}
+
 test("two texts in a row: the sheet closes, the next is read at once, both are in the job row, and each lands in the library by itself", async ({ page }) => {
+  const queue = await holdQueue();
   await openImport(page);
   await readText(page, linssoppa);
   await closeSheet(page);
@@ -89,15 +120,19 @@ test("two texts in a row: the sheet closes, the next is read at once, both are i
   await readText(page, kycklinggryta);
   await closeSheet(page);
 
-  // One runs, one waits: the job row says so, and the table holds the kind of input and nothing else.
-  await expect(jobRow(page)).toHaveText("AI: Läser receptet · 1 i kö");
-  const started = await jobs();
+  // Both wait behind the held job, and the table holds the kind of input and nothing else.
+  await expect(jobRow(page)).toHaveText("AI: Letar efter rättförslag · 2 i kö", jobTime);
+  const started = (await jobs()).filter((job) => job.kind === "import");
   expect(started).toHaveLength(2);
   for (const job of started) {
     expect(job.kind).toBe("import");
     expect(job.context).toEqual({ source: "text" });
   }
   expect(JSON.stringify(started)).not.toMatch(/linser|kyckling/i);
+
+  // One runs, one waits: the job row says so until the first is done (3 s).
+  await queue.release();
+  await expect(jobRow(page)).toHaveText("AI: Läser receptet · 1 i kö", jobTime);
 
   // Elsewhere in the app, the first is done and saved (Story 1.15): a confirmation with Öppna and Ångra.
   await page.goto("/lista");
