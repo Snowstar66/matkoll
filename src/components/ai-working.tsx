@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { cx } from "./cx";
 
 // "Väntan på AI" (Story 16.15, demo ai-vanta.html, style B and A together): a
-// small glowing orb and a shimmering text that steps through a few short
+// glowing ring and a shimmering text that steps through a few short
 // phrases about every 2.2 s and stays on the last one (it never loops, so it
 // never looks like it starts over). Used wherever the app waits on AI; not for
 // skeletons, saving or the site switch.
@@ -31,6 +31,12 @@ export function pickPlayfulSteps(random: () => number = Math.random, count = ran
   }
   return picked;
 }
+
+/** The ring's size per size of AiWorking, in px: clearly there in a row, and a little larger on its own. */
+export const aiOrbSizes = { sm: 22, md: 40 } as const;
+
+/** The ring of the magical view at the top of the sheet AI-jobb (Story 12.8), in px. */
+export const aiHeroOrbSize = 72;
 
 /** How long each step stays, in milliseconds. */
 export const aiStepMs = 2200;
@@ -66,7 +72,7 @@ export function AiWorking({
   random?: () => number;
   /** One fixed phrase instead of steps. */
   label?: string;
-  /** "sm" in a chat bubble or a row, "md" on its own. */
+  /** "sm" in a chat bubble, a card or a row, "md" on its own (the default). */
   size?: "sm" | "md";
   /** The caller already has a live region around this (the region must exist before the text); then this adds no role of its own. */
   inLiveRegion?: boolean;
@@ -87,9 +93,9 @@ export function AiWorking({
     <div
       role={inLiveRegion ? undefined : "status"}
       data-testid="ai-working"
-      className={cx("flex items-center gap-2.5 text-body text-ink-2", size === "sm" && "text-meta", className)}
+      className={cx("flex items-center text-ink-2", size === "sm" ? "gap-2.5 text-meta" : "gap-3.5 py-1 text-headline", className)}
     >
-      <span aria-hidden="true" className="ai-orb" style={{ ["--ai-orb-size" as string]: size === "sm" ? "18px" : "26px" }} />
+      <span aria-hidden="true" className="ai-orb" style={{ ["--ai-orb-size" as string]: `${aiOrbSizes[size]}px` }} />
       <span className="sr-only">{list[0]}</span>
       <span key={shown} aria-hidden="true" data-testid="ai-working-text" className="ai-shimmer motion-safe:animate-step-in">
         {shown}
@@ -99,6 +105,6 @@ export function AiWorking({
 }
 
 /** The orb alone, for a row that already has its own text (the job row). */
-export function AiOrb({ size = 14, className }: { size?: number; className?: string }) {
+export function AiOrb({ size = aiOrbSizes.sm, className }: { size?: number; className?: string }) {
   return <span aria-hidden="true" className={cx("ai-orb", className)} style={{ ["--ai-orb-size" as string]: `${size}px` }} />;
 }

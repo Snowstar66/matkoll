@@ -224,7 +224,6 @@ describe("Kopiera till ICA-varukorgen", () => {
     const text = writeText.mock.calls[0]![0];
     expect(text).not.toContain("Gul lök");
     expect(text).toContain("Antal varor: 2\n");
-    // The copy replaces the "Gul lök i korgen" toast (Story 3.9).
     await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent(`2 varor kopierade. ${copied}`));
   });
 

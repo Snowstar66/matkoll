@@ -14,7 +14,8 @@ import {
 // ALLOWED_EMAILS; non-GET requests and /api/* pass through so they can answer
 // with `unauthorized` / 401 themselves.
 
-const publicPaths = ["/logga-in", "/auth/confirm"];
+// Story 21.2b: /ga-med, where an invited person without an account makes one.
+const publicPaths = ["/logga-in", "/auth/confirm", "/ga-med"];
 
 function isPublic(pathname: string) {
   return publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));

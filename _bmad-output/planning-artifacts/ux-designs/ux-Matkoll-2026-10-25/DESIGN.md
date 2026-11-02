@@ -279,10 +279,13 @@ components:
     text: '{colors.sky-ink}'
     radius: '{rounded.md}'
   toast:
-    background: '{colors.ink}'
-    text: '{colors.surface}'
-    action: '{colors.mint}'
-    radius: '{rounded.md}'
+    background: '{colors.surface-2}'
+    text: '{colors.ink}'
+    typography: '{typography.control}, vikt 400'
+    action: '{colors.accent}'
+    radius: '{rounded.xl}'
+    shadow: '--shadow-float'
+    max-width: 360px
   category-header:
     icon-size: '{spacing.category-icon}'
     icon-box: 24px
@@ -470,7 +473,8 @@ Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` u
 - **Fast åtgärdsknapp**: en primär- eller sekundärknapp i full bredd, fäst längst ned (se Layout & Spacing).
 - **Ark** (`sheet`): glider upp nedifrån för Importera recept, Lägg till rätt, Listpostdetalj, Lagervara och bekräftelser. På dator en dialog i mitten, högst `{spacing.dialog-max}` bred.
 - **Meddelanderuta** (`notice`): `{colors.sky}`-bakgrund, `{colors.sky-ink}`-text, ikonen "i" och en åtgärdsknapp när det finns en väg vidare.
-- **Kort bekräftelse** (`toast`): mörk remsa nederst, ovanför flikfältet, med text i `{colors.surface}` och eventuell knapp "Ångra" i `{colors.mint}`.
+- **Kort bekräftelse** (`toast`): en kompakt pill nederst, centrerad ovanför flikfältet och högst 360 px bred, på `{colors.surface-2}` med `--shadow-float` (i mörkt den lyfta ytan med hårfin kant), text i `{colors.ink}` i 15 px och eventuell "Ångra" eller "Visa" som grön textknapp i `{colors.accent}`. Den glider in med en kort tona (inte med "Minska rörelse"). Bara för det som inte syns på annat sätt: borttagning med "Ångra", fel, kopiering och klara AI-jobb. En bock i Inköpslistan får ingen; att posten flyttar till I korgen räcker.
+- **Väntan på AI** (`ai-working`): en glödande ring i grönt, mint och sand som vrider sig långsamt och andas, med en text som ett ljus sveper genom. 40 px ring och rubriktext (17 px) när den står för sig själv, 22 px och metatext i en rad, ett kort, en chattbubbla och jobbraden, 72 px centrerad överst i arket AI-jobb. Med "Minska rörelse" står den still.
 - **Lagerförslag**: receptrad-liknande kort med varunamn, mängd och plats, och tre knappar i rad: Bekräfta (primär), Rätta och Avvisa (textknappar).
 
 Från Epic 11 (skisserna ovan):

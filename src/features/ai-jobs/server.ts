@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { runAiJobWith, depsFor, type AiJobWork } from "./actions/run-ai-job";
-import { loadAiJobActivityIn, AiJobsDataError } from "./data/jobs";
+import { loadAiJobActivityIn, loadAiJobStatusIn, AiJobsDataError } from "./data/jobs";
 import type { AiJob } from "./domain/ai-job";
 
 // Server-only entry (AD-1). The ai-jobs module is general: it owns ai_job
@@ -41,5 +41,19 @@ export async function getAiJobActivity(since: Date): Promise<{ active: boolean; 
     if (!(error instanceof AiJobsDataError)) throw error;
     console.error("ai_job_error", { reason: error.detail });
     return null;
+  }
+}
+
+/**
+ * Whether the job is still running, read now: a job that was cancelled
+ * (Avbryt) may finish its work before the guard sees it, so work with a
+ * lasting effect (an import's saved recipe) asks first. False when it cannot
+ * be read.
+ */
+export async function isAiJobRunning(db: Awaited<ReturnType<typeof createClient>>, id: string): Promise<boolean> {
+  try {
+    return (await loadAiJobStatusIn(db, id)) === "running";
+  } catch {
+    return false;
   }
 }

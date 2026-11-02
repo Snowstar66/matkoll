@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AiOrb, AiWorking, aiStepMs, pickPlayfulSteps, playfulWords } from "./ai-working";
+import { AiOrb, AiWorking, aiOrbSizes, aiStepMs, pickPlayfulSteps, playfulWords } from "./ai-working";
 
 function mockReduced(reduced: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -40,6 +40,17 @@ describe("AiWorking", () => {
     const status = screen.getByRole("status");
     expect(status.querySelector(".sr-only")).toHaveTextContent("Ett …");
     expect(status.querySelector("[aria-hidden='true'][data-testid='ai-working-text']")).toHaveTextContent("Två …");
+  });
+
+  it("is clearly visible: a 40 px ring and headline text on its own, a 22 px ring in a row", () => {
+    expect(aiOrbSizes).toEqual({ sm: 22, md: 40 });
+    const { rerender } = render(<AiWorking label="Läser …" />);
+    const orb = () => screen.getByTestId("ai-working").querySelector(".ai-orb") as HTMLElement;
+    expect(orb().style.getPropertyValue("--ai-orb-size")).toBe("40px");
+    expect(screen.getByTestId("ai-working")).toHaveClass("text-headline");
+    rerender(<AiWorking size="sm" label="Läser …" />);
+    expect(orb().style.getPropertyValue("--ai-orb-size")).toBe("22px");
+    expect(screen.getByTestId("ai-working")).toHaveClass("text-meta");
   });
 
   it("adds no role of its own inside a live region", () => {

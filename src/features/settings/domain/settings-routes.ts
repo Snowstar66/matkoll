@@ -4,6 +4,8 @@
 
 export const settingsPages = [
   "konto",
+  // Story 21.2b: who is in the household, and the invitations.
+  "medlemmar",
   "boenden",
   "butiker",
   "receptsajter",

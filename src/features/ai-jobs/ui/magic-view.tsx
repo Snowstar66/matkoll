@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { AiOrb, aiHeroOrbSize } from "@/components/ai-working";
 import { CheckIcon } from "@/components/icons";
 import { isActive, type AiJob, type AiJobKind } from "@/lib/ai-job-shape";
 import { subjectText } from "../domain/ai-job-text";
@@ -8,10 +9,10 @@ import { fixedStatusLine, progressText, statusLine, stepAt } from "../domain/ai-
 import "./magic.css";
 
 // The magical view at the top of the sheet AI-jobb (Story 12.8): while a job
-// runs, a slowly turning cube of glowing edges with particles in orbit, a
+// runs, the app's AI ring (AiWorking's, in a hero size) centred, a shimmering
 // status line that changes every 2.5 s, and the time so far against the usual
-// time. When nothing runs the cube gives way to a still glow and a check with
-// "Klart!". A screen reader gets one steady status that changes only when the
+// time. When nothing runs the ring gives way to a check with "Klart!", in the
+// same space so nothing jumps. A screen reader gets one steady status that changes only when the
 // state does; the cycling line is hidden from it. With "Minska rörelse"
 // nothing moves and the status line is one fixed text.
 
@@ -38,19 +39,8 @@ function leadJob(active: readonly AiJob[]): AiJob {
   return sorted[0];
 }
 
-function Cube({ size, inner = false }: { size: number; inner?: boolean }) {
-  return (
-    <div className={inner ? "magic-scene magic-scene-inner" : "magic-scene"} style={{ ["--s" as string]: `${size}px` }}>
-      {inner ? <span className="magic-core" /> : null}
-      <span className="magic-face" />
-      <span className="magic-face" />
-      <span className="magic-face" />
-      <span className="magic-face" />
-      <span className="magic-face" />
-      <span className="magic-face" />
-    </div>
-  );
-}
+/** The hero's space: as high for the ring as for the check, so nothing jumps when the job is done. */
+const heroClass = "flex h-32 items-center justify-center";
 
 function Running({ kind, since, reduced }: { kind: AiJobKind; since: number | null; reduced: boolean }) {
   const [now, setNow] = useState(() => Date.now());
@@ -64,18 +54,10 @@ function Running({ kind, since, reduced }: { kind: AiJobKind; since: number | nu
   const text = reduced ? fixedStatusLine(kind) : statusLine(kind, step);
   return (
     <>
-      <div className="magic-hero" aria-hidden="true" data-testid="magic-hero">
-        <span className="magic-glow" />
-        <Cube size={72} />
-        <Cube size={34} inner />
-        <span className="magic-orbit" style={{ ["--r" as string]: "62px" }}>
-          <span />
-        </span>
-        <span className="magic-orbit" style={{ ["--r" as string]: "50px", animationDuration: "13s", animationDirection: "reverse" }}>
-          <span />
-        </span>
+      <div className={heroClass} aria-hidden="true" data-testid="magic-hero">
+        <AiOrb size={aiHeroOrbSize} />
       </div>
-      <p key={step} aria-hidden="true" data-testid="magic-status" className="magic-status text-body text-ink">
+      <p key={step} aria-hidden="true" data-testid="magic-status" className="ai-shimmer text-headline motion-safe:animate-step-in">
         {text}
       </p>
       <p aria-hidden="true" data-testid="magic-time" className="text-meta text-ink-2">
@@ -99,13 +81,12 @@ export function MagicView({ jobs }: { jobs: readonly AiJob[] }) {
         <Running key={lead.id} kind={lead.kind} since={Number.isNaN(since) ? null : since} reduced={reduced} />
       ) : (
         <>
-          <div className="magic-hero magic-settled" aria-hidden="true">
-            <span className="magic-glow" />
-            <span className="grid size-14 place-items-center rounded-full border border-accent bg-mint text-accent">
-              <CheckIcon size={28} />
+          <div className={heroClass} aria-hidden="true">
+            <span className="grid size-16 place-items-center rounded-full bg-mint text-mint-ink">
+              <CheckIcon size={30} />
             </span>
           </div>
-          <p aria-hidden="true" className="text-body text-ink">
+          <p aria-hidden="true" className="text-headline text-ink">
             Klart!
           </p>
         </>
