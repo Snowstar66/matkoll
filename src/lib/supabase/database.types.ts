@@ -471,14 +471,14 @@ isOneToOne: false
                   ]
                 },"recipe_ingredient": {
                   Row: {
-                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"step_id": string | null,"unit": string | null,"user_id": string | null
+                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"is_staple_marked": boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"section": string | null,"step_id": string | null,"unit": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_vague"?: boolean,"original_text"?: string,"position"?: number,"recipe_id"?: string,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_vague"?: boolean,"original_text"?: string,"position"?: number,"recipe_id"?: string,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -529,14 +529,14 @@ isOneToOne: false
                   ]
                 },"recipe_step": {
                   Row: {
-                    "created_at": string,"household_id": string,"id": string,"position": number,"recipe_id": string,"text": string,"user_id": string | null
+                    "created_at": string,"household_id": string,"id": string,"position": number,"recipe_id": string,"text": string,"title": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"position": number,"recipe_id": string,"text": string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"position": number,"recipe_id": string,"text": string,"title"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"position"?: number,"recipe_id"?: string,"text"?: string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"position"?: number,"recipe_id"?: string,"text"?: string,"title"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {

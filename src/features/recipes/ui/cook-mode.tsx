@@ -62,8 +62,8 @@ const withModifier = (event: globalThis.KeyboardEvent) =>
  * (not an error, so no alert), the title and the servings, and "Klar". Then
  * "Steg N av M", focused when the step mode opens, the step's lines as in the
  * recipe view (IngredientRow, with tick or ring and the scaled amount), on
- * step 1 also the lines of no step under "Övriga ingredienser", and the step's
- * text in the step type (24 px). A change of step is announced as "Steg N av
+ * step 1 also the lines of no step under "Övriga ingredienser", the step's
+ * heading when it has one, and the step's text in the step type (24 px). A change of step is announced as "Steg N av
  * M: <text>" in a hidden live region, and focus stays where it is.
  * Föregående and Nästa are always there in the thumb zone. On step 1
  * Föregående is aria-disabled and stays in the tab order, as in the portion
@@ -136,7 +136,7 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
     if (!target || to === current) return;
     focusFinish.current = to === last && document.activeElement === nextRef.current;
     setPosition({ stepId: target.id, index: to, direction: Math.sign(to - current) });
-    setAnnouncement(`Steg ${to + 1} av ${steps.length}: ${target.text}`);
+    setAnnouncement(`Steg ${to + 1} av ${steps.length}: ${target.title ? `${target.title}. ` : ""}${target.text}`);
     if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }
 
@@ -287,6 +287,12 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
               style={{ "--step-from": `${position.direction * stepSlidePx}px` } as CSSProperties}
               className="flex flex-col gap-5 motion-safe:animate-step-in"
             >
+              {/* The step's heading (Linas Matkasse cards and the like): the part of the dish the step makes. */}
+              {step.title ? (
+                <h3 className="-mt-2 text-section-title break-words text-ink" data-testid="cook-step-title">
+                  {step.title}
+                </h3>
+              ) : null}
               {step.lines.length > 0 || step.otherLines.length > 0 ? (
                 <div className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-1">
                   {step.lines.length > 0 ? <ul className="flex flex-col">{step.lines.map(row)}</ul> : null}

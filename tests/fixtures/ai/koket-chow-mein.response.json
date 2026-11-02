@@ -16,7 +16,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk bikarbonat",
@@ -31,7 +33,9 @@
       },
       "stepIndexes": [
         0
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 msk vatten",
@@ -46,7 +50,9 @@
       },
       "stepIndexes": [
         0
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "300 g äggnudlar",
@@ -62,7 +68,9 @@
       "stepIndexes": [
         1,
         5
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "rapsolja (till stekning)",
@@ -78,7 +86,9 @@
       "stepIndexes": [
         3,
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "salt",
@@ -93,7 +103,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "vitpeppar",
@@ -108,7 +120,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 broccoli, skuren i små buketter (liten)",
@@ -123,7 +137,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 burk minimajs, avrunnen och delad",
@@ -138,7 +154,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 morot, skuren i tunna stavar",
@@ -153,7 +171,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 klyftor vitlök, finhackade",
@@ -168,7 +188,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 dl böngroddar",
@@ -183,7 +205,9 @@
       },
       "stepIndexes": [
         7
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "4 salladslökar, skurna i sneda bitar",
@@ -198,7 +222,9 @@
       },
       "stepIndexes": [
         7
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "4 msk japansk soja",
@@ -213,7 +239,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "3 msk ostronsås",
@@ -228,7 +256,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 msk sesamolja",
@@ -243,7 +273,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 tsk strösocker",
@@ -258,7 +290,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 dl vatten",
@@ -273,7 +307,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 tsk majsstärkelse",
@@ -288,18 +324,47 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Blanda den strimlade lövbiffen med bikarbonat och vatten. Låt vila i 15–30 minuter.",
-    "Skölj köttet noggrant och torka det torrt.",
-    "Koka äggnudlarna al dente enligt förpackningen. Skölj dem i kallt vatten och låt rinna av.",
-    "Blanda japansk soja, ostronsås, sesamolja, strösocker, vatten och majsstärkelse till en sås.",
-    "Hetta upp rapsolja i en wok eller stekpanna. Stek lövbiffen hastigt på hög värme tills den får fin färg. Krydda med salt och vitpeppar. Lyft upp köttet och lägg åt sidan.",
-    "Tillsätt mer olja i pannan och stek broccoli, minimajs och morot på hög värme i ett par minuter. Tillsätt vitlöken mot slutet och låt fräsa kort.",
-    "Tillsätt nudlarna och stek ytterligare någon minut.",
-    "Häll över såsen och vänd runt tills den tjocknar och fördelar sig jämnt. Lägg tillbaka lövbiffen och tillsätt böngroddar och salladslök. Woka hastigt tills allt är varmt.",
-    "Servera direkt, gärna toppad med extra salladslök."
+    {
+      "title": null,
+      "text": "Blanda den strimlade lövbiffen med bikarbonat och vatten. Låt vila i 15–30 minuter."
+    },
+    {
+      "title": null,
+      "text": "Skölj köttet noggrant och torka det torrt."
+    },
+    {
+      "title": null,
+      "text": "Koka äggnudlarna al dente enligt förpackningen. Skölj dem i kallt vatten och låt rinna av."
+    },
+    {
+      "title": null,
+      "text": "Blanda japansk soja, ostronsås, sesamolja, strösocker, vatten och majsstärkelse till en sås."
+    },
+    {
+      "title": null,
+      "text": "Hetta upp rapsolja i en wok eller stekpanna. Stek lövbiffen hastigt på hög värme tills den får fin färg. Krydda med salt och vitpeppar. Lyft upp köttet och lägg åt sidan."
+    },
+    {
+      "title": null,
+      "text": "Tillsätt mer olja i pannan och stek broccoli, minimajs och morot på hög värme i ett par minuter. Tillsätt vitlöken mot slutet och låt fräsa kort."
+    },
+    {
+      "title": null,
+      "text": "Tillsätt nudlarna och stek ytterligare någon minut."
+    },
+    {
+      "title": null,
+      "text": "Häll över såsen och vänd runt tills den tjocknar och fördelar sig jämnt. Lägg tillbaka lövbiffen och tillsätt böngroddar och salladslök. Woka hastigt tills allt är varmt."
+    },
+    {
+      "title": null,
+      "text": "Servera direkt, gärna toppad med extra salladslök."
+    }
   ]
 }

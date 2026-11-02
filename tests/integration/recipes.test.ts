@@ -27,6 +27,8 @@ import {
   createTestUser,
   deleteTestUsers,
   expectRlsIsolation,
+  householdOf,
+  moveToHousehold,
   type Db,
   type TestUser,
 } from "./support";
@@ -1118,5 +1120,184 @@ describe("update_recipe and deleting a recipe", () => {
     // A form filled before that change is a conflict, and changes nothing.
     expect(await updateRecipeIn(user.db, recipeId, { ...changed, title: "Gammal" }, ids, before.updatedAt)).toBe("conflict");
     expect((await getRecipe(user.db, recipeId, names))!.title).toBe("Röd linssoppa");
+  });
+});
+
+describe("ingredient groups, staple marks and step headings (the Linas Matkasse format)", () => {
+  /** save_recipe's arguments for a recipe in two groups, with staples and step headings. */
+  function groupedArgs(): SaveRecipeArgs {
+    return {
+      ...saveArgs(),
+      steps: [
+        { position: 0, text: "Värm ugnen.", title: null },
+        { position: 1, text: "Rosta potatisen.", title: "Rostad småpotatis" },
+        { position: 2, text: "Stek kycklingen.", title: " Örtstekt kyckling " },
+      ],
+      lines: [
+        { position: 0, original_text: "800 g småpotatis", amount: 800, unit: "g", is_vague: false, ingredient_id: null, step_position: 1, section: "Rostad småpotatis", is_staple_marked: false },
+        { position: 1, original_text: "olivolja", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: 1, section: "Rostad småpotatis", is_staple_marked: true },
+        { position: 2, original_text: "600 g kycklingfilé", amount: 600, unit: "g", is_vague: false, ingredient_id: null, step_position: 2, section: "Örtstekt kyckling", is_staple_marked: false },
+        { position: 3, original_text: "salt", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null, section: "  ", is_staple_marked: true },
+      ],
+    };
+  }
+
+  async function groupRows(id: string) {
+    const steps = await adminClient().from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position");
+    const lines = await adminClient()
+      .from("recipe_ingredient")
+      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked")
+      .eq("recipe_id", id)
+      .order("position");
+    if (steps.error) throw steps.error;
+    if (lines.error) throw lines.error;
+    return { steps: steps.data, lines: lines.data };
+  }
+
+  async function updatedAt(id: string): Promise<string> {
+    const { data, error } = await adminClient().from("recipe").select("updated_at").eq("id", id).single();
+    if (error) throw error;
+    return data.updated_at;
+  }
+
+  it("save_recipe stores groups, staple marks and headings, trimmed, a blank one as none", async () => {
+    const user = await createTestUser("groups-save");
+    const { data: id, error } = await user.db.rpc("save_recipe", groupedArgs());
+    expect(error).toBeNull();
+    const { steps, lines } = await groupRows(id!);
+    expect(steps.map((step) => step.title)).toEqual([null, "Rostad småpotatis", "Örtstekt kyckling"]);
+    expect(lines.map((line) => [line.section, line.is_staple_marked])).toEqual([
+      ["Rostad småpotatis", false],
+      ["Rostad småpotatis", true],
+      ["Örtstekt kyckling", false],
+      [null, true],
+    ]);
+  });
+
+  it("save_recipe still takes the old shape: no group, no heading, not a staple", async () => {
+    const user = await createTestUser("groups-old");
+    const { data: id, error } = await user.db.rpc("save_recipe", saveArgs());
+    expect(error).toBeNull();
+    const { steps, lines } = await groupRows(id!);
+    expect(steps.every((step) => step.title === null)).toBe(true);
+    expect(lines.every((line) => line.section === null && line.is_staple_marked === false)).toBe(true);
+  });
+
+  it("refuses a group or heading over 60 characters and saves nothing", async () => {
+    const user = await createTestUser("groups-long");
+    const long = groupedArgs();
+    long.lines[0] = { ...long.lines[0], section: "x".repeat(61) };
+    expect((await user.db.rpc("save_recipe", long)).error?.code).toBe("23514");
+    const longTitle = groupedArgs();
+    longTitle.steps[1] = { ...longTitle.steps[1], title: "x".repeat(61) };
+    expect((await user.db.rpc("save_recipe", longTitle)).error?.code).toBe("23514");
+    expect(await countAll(user)).toEqual([0, 0, 0]);
+  });
+
+  it("getRecipe reads them back, and an edit through updateRecipeIn changes and clears them", async () => {
+    const user = await createTestUser("groups-edit");
+    const { data: id } = await user.db.rpc("save_recipe", groupedArgs());
+    const names = (ids: readonly string[]) => loadIngredientNames(user.db, ids);
+    const recipe = (await getRecipe(user.db, id!, names))!;
+    expect(recipe.steps.map((step) => step.title)).toEqual([null, "Rostad småpotatis", "Örtstekt kyckling"]);
+    expect(recipe.lines.map((line) => [line.group, line.isStapleMarked])).toEqual([
+      ["Rostad småpotatis", false],
+      ["Rostad småpotatis", true],
+      ["Örtstekt kyckling", false],
+      [null, true],
+    ]);
+
+    const draft = toEditableDraft(recipe);
+    const changed: RecipeDraft = {
+      ...draft,
+      steps: draft.steps.map((step, index) => (index === 1 && typeof step !== "string" ? { ...step, title: null } : step)),
+      lines: draft.lines.map((line, index) => (index === 2 ? { ...line, group: "Kyckling" } : index === 0 ? { ...line, group: null } : line)),
+    };
+    const ids = recipe.lines.map((line) => line.ingredientId);
+    expect(await updateRecipeIn(user.db, id!, changed, ids, recipe.updatedAt)).toBe("updated");
+    const after = (await getRecipe(user.db, id!, names))!;
+    expect(after.steps.map((step) => step.title)).toEqual([null, null, "Örtstekt kyckling"]);
+    expect(after.lines.map((line) => [line.group, line.isStapleMarked])).toEqual([
+      [null, false],
+      ["Rostad småpotatis", true],
+      ["Kyckling", false],
+      [null, true],
+    ]);
+  });
+
+  it("update_recipe keeps a kept row's group, staple mark and heading when a caller from before them leaves the keys out", async () => {
+    const user = await createTestUser("groups-old-update");
+    const { data: id } = await user.db.rpc("save_recipe", groupedArgs());
+    const before = await groupRows(id!);
+    const { error } = await user.db.rpc("update_recipe", {
+      id: id!,
+      expected_updated_at: await updatedAt(id!),
+      recipe: { title: "Kyckling och potatis", original_servings: 4, total_minutes: 40 },
+      steps: before.steps.map(({ id: stepId, position, text }) => ({ id: stepId, position, text })),
+      lines: [
+        ...before.lines.map(({ id: lineId, position, original_text, amount, unit, is_vague, ingredient_id }, index) => ({
+          id: lineId,
+          position,
+          original_text,
+          amount,
+          unit: unit as SaveRecipeArgs["lines"][number]["unit"],
+          is_vague,
+          ingredient_id,
+          step_position: groupedArgs().lines[index].step_position,
+        })),
+        { id: null, position: 4, original_text: "svartpeppar", amount: null, unit: null, is_vague: true, ingredient_id: null, step_position: null },
+      ],
+    });
+    expect(error).toBeNull();
+    const after = await groupRows(id!);
+    expect(after.steps.map((step) => step.title)).toEqual(before.steps.map((step) => step.title));
+    expect(after.lines.slice(0, 4).map((line) => [line.section, line.is_staple_marked])).toEqual(
+      before.lines.map((line) => [line.section, line.is_staple_marked]),
+    );
+    expect(after.lines[4]).toMatchObject({ original_text: "svartpeppar", section: null, is_staple_marked: false });
+  });
+
+  it("is the household's: a member reads and changes them, another household neither reads nor changes them", async () => {
+    const owner = await createTestUser("groups-owner");
+    const member = await createTestUser("groups-member");
+    const outsider = await createTestUser("groups-outsider");
+    await moveToHousehold(member, await householdOf(owner.id));
+    const { data: id } = await owner.db.rpc("save_recipe", groupedArgs());
+    const names = (db: Db) => (ids: readonly string[]) => loadIngredientNames(db, ids);
+
+    const seen = (await getRecipe(member.db, id!, names(member.db)))!;
+    expect(seen.lines.map((line) => line.group)).toEqual(["Rostad småpotatis", "Rostad småpotatis", "Örtstekt kyckling", null]);
+    expect(await getRecipe(outsider.db, id!, names(outsider.db))).toBeNull();
+    const outsiderLines = await outsider.db.from("recipe_ingredient").select("section").eq("recipe_id", id!);
+    expect(outsiderLines.data).toEqual([]);
+    const outsiderSteps = await outsider.db.from("recipe_step").select("title").eq("recipe_id", id!);
+    expect(outsiderSteps.data).toEqual([]);
+
+    const before = await groupRows(id!);
+    const args: UpdateRecipeArgs = {
+      id: id!,
+      expected_updated_at: await updatedAt(id!),
+      recipe: { title: "Kapad", original_servings: 4, total_minutes: 40 },
+      steps: before.steps.map(({ id: stepId, position, text }) => ({ id: stepId, position, text, title: "Kapad" })),
+      lines: before.lines.map((line, index) => ({
+        ...groupedArgs().lines[index],
+        id: line.id,
+        section: "Kapad",
+      })),
+    };
+    const outsiderUpdate = await outsider.db.rpc("update_recipe", args);
+    expect(outsiderUpdate.error).toBeNull();
+    expect(outsiderUpdate.data).toBeNull();
+    // A direct write is refused by RLS too: no row of another household changes.
+    await outsider.db.from("recipe_ingredient").update({ section: "Kapad" }).eq("recipe_id", id!);
+    await outsider.db.from("recipe_step").update({ title: "Kapad" }).eq("recipe_id", id!);
+    expect(await groupRows(id!)).toEqual(before);
+
+    const memberUpdate = await member.db.rpc("update_recipe", args);
+    expect(memberUpdate.error).toBeNull();
+    expect(memberUpdate.data).toBe(id);
+    const after = await groupRows(id!);
+    expect(after.lines.every((line) => line.section === "Kapad")).toBe(true);
+    expect(after.steps.every((step) => step.title === "Kapad")).toBe(true);
   });
 });

@@ -11,7 +11,8 @@ export const pantryHintDefaults = { section: "Övrigt", location: "Skafferi", de
  * A compact dish as an AiRecipe: `originalText` is `text`, a line without an
  * amount is vague (and so has no unit either, as aiRecipeIngredient asks),
  * and the hint is `name` with the catalog entry in `new`, or, for an item
- * from the pantry, Övrigt, Skafferi and the line's unit or `st`.
+ * from the pantry, Övrigt, Skafferi and the line's unit or `st`. A
+ * suggested dish has no ingredient groups and no step headings.
  */
 export function fromCompactDish(dish: CompactDish): AiRecipe {
   return {
@@ -32,8 +33,10 @@ export function fromCompactDish(dish: CompactDish): AiRecipe {
           defaultUnit: line.new?.defaultUnit ?? line.unit ?? pantryHintDefaults.defaultUnit,
         },
         stepIndexes: [...line.stepIndexes],
+        group: null,
+        isStapleMarked: false,
       };
     }),
-    steps: [...dish.steps],
+    steps: dish.steps.map((text) => ({ title: null, text })),
   };
 }

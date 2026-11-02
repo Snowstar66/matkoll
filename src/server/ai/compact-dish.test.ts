@@ -20,6 +20,8 @@ describe("fromCompactDish (Story 12.3)", () => {
         isVague: false,
         hint: { name: "gul lök", section: "Övrigt", location: "Skafferi", defaultUnit: "st" },
         stepIndexes: [0],
+        group: null,
+        isStapleMarked: false,
       },
     ],
     [
@@ -39,6 +41,8 @@ describe("fromCompactDish (Story 12.3)", () => {
         isVague: false,
         hint: { name: "matlagningsgrädde", section: "Mejeri", location: "Kyl", defaultUnit: "dl" },
         stepIndexes: [0],
+        group: null,
+        isStapleMarked: false,
       },
     ],
     [
@@ -51,6 +55,8 @@ describe("fromCompactDish (Story 12.3)", () => {
         isVague: true,
         hint: { name: "salt", section: "Övrigt", location: "Skafferi", defaultUnit: "st" },
         stepIndexes: [],
+        group: null,
+        isStapleMarked: false,
       },
     ],
     [
@@ -63,6 +69,8 @@ describe("fromCompactDish (Story 12.3)", () => {
         isVague: false,
         hint: { name: "ägg", section: "Övrigt", location: "Skafferi", defaultUnit: "st" },
         stepIndexes: [0],
+        group: null,
+        isStapleMarked: false,
       },
     ],
     [
@@ -75,6 +83,8 @@ describe("fromCompactDish (Story 12.3)", () => {
         isVague: true,
         hint: { name: "olivolja", section: "Övrigt", location: "Skafferi", defaultUnit: "msk" },
         stepIndexes: [0],
+        group: null,
+        isStapleMarked: false,
       },
     ],
   ])("%s", (_name, line, expected) => {
@@ -91,7 +101,7 @@ describe("fromCompactDish (Story 12.3)", () => {
   it("takes a dish as compactDish gives it, and never shares its arrays", () => {
     const dish = compactDish.parse(validCompactDish);
     const recipe = fromCompactDish(dish);
-    recipe.steps.push("Servera.");
+    recipe.steps.push({ title: null, text: "Servera." });
     recipe.ingredients[0].stepIndexes.push(1);
     expect(dish.steps).toHaveLength(2);
     expect(dish.ingredients[0].stepIndexes).toEqual([0]);

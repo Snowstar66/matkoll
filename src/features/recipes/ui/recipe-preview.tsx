@@ -23,9 +23,11 @@ import {
   parseMinutesInput,
   withAmount,
   withChosenIngredient,
+  withGroup,
   withNewIngredient,
   withNewStep,
   withStepText,
+  withStepTitle,
   withUnit,
   withoutLine,
   withoutPendingAmount,
@@ -35,11 +37,13 @@ import {
   draftLimits,
   stepId,
   stepText,
+  stepTitle,
   type PendingFieldText,
   type RecipeDraft,
   type RecipeLine,
   type RecipeStep,
 } from "../domain/recipe-draft";
+import { groupNames, lineGroupName } from "../domain/line-groups";
 import { sourceLabel } from "../domain/source-label";
 
 export type RecipePreviewProps = {
@@ -87,6 +91,12 @@ const stepKeysOf = (steps: readonly RecipeStep[]) => steps.map((step) => stepId(
  * steps added. An uncertain match has a light-blue ring and "Kontrollera"; a
  * new catalog ingredient is marked "Ny". Focus starts in the title. Ändra
  * recept (Story 1.11) uses the same form for a saved recipe.
+ *
+ * Ingredient groups and step headings (the Linas Matkasse format): a line's
+ * group is typed under its "Ändra", with the recipe's groups suggested, and
+ * the lines show a heading where the group changes, in the draft's order (the
+ * recipe view gathers each group under its first line). Each step has a
+ * heading field above its text; blank means none.
  */
 export function RecipePreview({
   draft,
@@ -143,6 +153,7 @@ export function RecipePreview({
   }, [picking]);
 
   const update = (changes: Partial<RecipeDraft>, nextNames = names) => onChange({ ...draft, ...changes }, nextNames);
+  const suggestions = groupNames(draft.lines);
   const updateLine = (index: number, line: RecipeLine, nextNames = names) =>
     update({ lines: draft.lines.map((current, i) => (i === index ? line : current)) }, nextNames);
 
@@ -276,9 +287,21 @@ export function RecipePreview({
           Ingredienser
         </h3>
         <ul className="flex flex-col">
-          {draft.lines.map((line, index) => (
+          {draft.lines.map((line, index) => [
+            // A heading where the group changes; the rows never move, so a field being typed in keeps focus.
+            ...(startsGroup(draft.lines, index)
+              ? [
+                  <li key={`grupp-${lineKeys[index]}`} className="pt-3 first:pt-1" data-testid="recipe-line-group-heading">
+                    <h4 className="text-section-label wrap-break-word text-ink-2">
+                      {lineGroupName(line) ?? noGroupLabel}
+                    </h4>
+                  </li>,
+                ]
+              : []),
             <LineRow
               key={lineKeys[index]}
+              groupSuggestions={suggestions}
+              listId={`${ids}-groups`}
               line={line}
               name={ingredientLabel(line, names)}
               editing={editing === lineKeys[index]}
@@ -293,9 +316,14 @@ export function RecipePreview({
                 if (element) ingredientButtons.current.set(index, element);
                 else ingredientButtons.current.delete(index);
               }}
-            />
-          ))}
+            />,
+          ])}
         </ul>
+        <datalist id={`${ids}-groups`}>
+          {suggestions.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
       </section>
 
       <section aria-labelledby={`${ids}-steps`} className="flex flex-col gap-3">
@@ -313,6 +341,18 @@ export function RecipePreview({
                     Ta bort<span className="sr-only"> steg {index + 1}</span>
                   </Button>
                 </div>
+                <Input
+                  aria-label={`Stegrubrik ${index + 1}`}
+                  placeholder="Rubrik (valfri)"
+                  maxLength={draftLimits.stepTitleChars}
+                  value={stepTitle(step) ?? ""}
+                  onChange={(event) =>
+                    update({
+                      steps: draft.steps.map((current, i) => (i === index ? withStepTitle(current, event.target.value) : current)),
+                    })
+                  }
+                  data-testid="step-title-input"
+                />
                 <textarea
                   id={`${ids}-step-${index}`}
                   rows={3}
@@ -341,8 +381,22 @@ export function RecipePreview({
   );
 }
 
+/** The heading over lines without a group when they follow a group in the form. */
+const noGroupLabel = "Utan grupp";
+
+/** The line at `index` starts a run of its group: the first line with a group, or one whose group differs from the line before. */
+function startsGroup(lines: readonly RecipeLine[], index: number): boolean {
+  const name = lineGroupName(lines[index]);
+  if (index === 0) return name !== null;
+  return name !== lineGroupName(lines[index - 1]);
+}
+
 type LineRowProps = {
   line: RecipeLine;
+  /** The recipe's group names, offered when the group is typed. */
+  groupSuggestions: readonly string[];
+  /** The id of the datalist with the suggestions. */
+  listId: string;
   name: string;
   editing: boolean;
   /** Typed amount that is not a number, if any. */
@@ -358,6 +412,8 @@ type LineRowProps = {
 
 function LineRow({
   line,
+  groupSuggestions,
+  listId,
   name,
   editing,
   amountText,
@@ -421,6 +477,7 @@ function LineRow({
           onPending={onPendingAmount}
           onRemove={onRemove}
           name={name}
+          listId={groupSuggestions.length > 0 ? listId : undefined}
         />
       ) : amountError ? (
         <FieldError className="pl-[30px]">{amountError}</FieldError>
@@ -439,9 +496,11 @@ type AmountEditorProps = {
   onRemove: () => void;
   /** The line's ingredient, for the remove button's name. */
   name: string;
+  /** The datalist of the recipe's groups, when it has any. */
+  listId?: string;
 };
 
-function AmountEditor({ id, line, initialText, error, onChange, onPending, onRemove, name }: AmountEditorProps) {
+function AmountEditor({ id, line, initialText, error, onChange, onPending, onRemove, name, listId }: AmountEditorProps) {
   const [text, setText] = useState(initialText ?? (line.amount === null ? "" : formatQuantity(line.amount, null)));
 
   return (
@@ -480,6 +539,19 @@ function AmountEditor({ id, line, initialText, error, onChange, onPending, onRem
         </div>
       </div>
       {error ? <FieldError id={`${id}-amount-error`}>{error}</FieldError> : null}
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel htmlFor={`${id}-group`} optional>
+          Grupp
+        </FieldLabel>
+        <Input
+          id={`${id}-group`}
+          list={listId}
+          maxLength={draftLimits.groupChars}
+          placeholder="T.ex. Sås"
+          value={line.group ?? ""}
+          onChange={(event) => onChange(withGroup(line, event.target.value))}
+        />
+      </div>
       <Button variant="text" onClick={onRemove} className="-ml-3 self-start">
         Ta bort raden<span className="sr-only"> {name}</span>
       </Button>

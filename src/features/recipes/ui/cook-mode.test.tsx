@@ -222,6 +222,22 @@ describe("CookMode", () => {
     expect(inDialog().queryByText(wakeLockUnavailableText)).not.toBeInTheDocument();
   });
 
+  it("shows the step's heading as the step's heading, and announces it with the text", async () => {
+    installWakeLock();
+    const titled: SavedRecipe = {
+      ...recipe,
+      steps: [recipe.steps[0], { ...recipe.steps[1], title: "Gräddsås" }, recipe.steps[2]],
+    };
+    await openCookMode({ of: titled });
+    expect(inDialog().queryByTestId("cook-step-title")).not.toBeInTheDocument();
+    fireEvent.click(next());
+    const title = inDialog().getByRole("heading", { level: 3, name: "Gräddsås" });
+    expect(title).toHaveAttribute("data-testid", "cook-step-title");
+    expect(heading().compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.compareDocumentPosition(rows()[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(announcement()).toHaveTextContent("Steg 2 av 3: Gräddsås. Häll i grädden och låt puttra.");
+  });
+
   it("shows a short amount in sky-ink with a ring and what is at home, as the recipe view does", async () => {
     installWakeLock();
     await openCookMode();

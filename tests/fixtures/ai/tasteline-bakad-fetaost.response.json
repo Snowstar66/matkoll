@@ -17,7 +17,9 @@
       "stepIndexes": [
         1,
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk torkad oregano",
@@ -32,7 +34,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk salt",
@@ -47,7 +51,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 msk olivolja, Fontana Olivolja Extra Virgin",
@@ -62,7 +68,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "4 klyfta vitlök",
@@ -77,7 +85,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "600 g fetaost, Fontana Feta original",
@@ -92,7 +102,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 st citron(er)",
@@ -107,7 +119,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk chiliflakes",
@@ -122,7 +136,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "4 msk olivolja, Fontana Olivolja Extra Virgin",
@@ -138,7 +154,9 @@
       "stepIndexes": [
         3,
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "svartpeppar",
@@ -153,7 +171,9 @@
       },
       "stepIndexes": [
         5
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "100 g blandsallad",
@@ -168,7 +188,9 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 msk vinäger, al. vitvin/äppelcider/sherryvinäger",
@@ -183,7 +205,9 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 msk olivolja, Fontana Olivolja Extra Virgin",
@@ -198,7 +222,9 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "salt",
@@ -213,7 +239,9 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "svartpeppar",
@@ -228,16 +256,39 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Sätt ugnen på 200 grader varmluft.",
-    "Dela potatisen på mitten och lägg på en plåt med bakplåtspapper. Strö på torkad oregano, salt, 2 msk olivolja och vitlöksklyftor med skal.",
-    "Blanda runt med händerna. Baka i ugnen ca 30 minuter.",
-    "Riv av 4 stora ark aluminiumfolie. Häll 1/2 msk olivolja på varje ark och lägg i två tunna citronskivor.",
-    "Lägg fetaosten på citronskivorna, en i varje ark. Häll på 1/2 msk olivolja på varje, fördela chiliflakes över fetaostarna och citronskivorna.",
-    "Dra över några varv svartpeppar. Vik ihop paketen och baka i ugnen i ca 20 minuter.",
-    "Blanda salladen med 2 msk olivolja och 2 msk vinäger. Servera potatisen med fetaosten i folien och salladen."
+    {
+      "title": null,
+      "text": "Sätt ugnen på 200 grader varmluft."
+    },
+    {
+      "title": null,
+      "text": "Dela potatisen på mitten och lägg på en plåt med bakplåtspapper. Strö på torkad oregano, salt, 2 msk olivolja och vitlöksklyftor med skal."
+    },
+    {
+      "title": null,
+      "text": "Blanda runt med händerna. Baka i ugnen ca 30 minuter."
+    },
+    {
+      "title": null,
+      "text": "Riv av 4 stora ark aluminiumfolie. Häll 1/2 msk olivolja på varje ark och lägg i två tunna citronskivor."
+    },
+    {
+      "title": null,
+      "text": "Lägg fetaosten på citronskivorna, en i varje ark. Häll på 1/2 msk olivolja på varje, fördela chiliflakes över fetaostarna och citronskivorna."
+    },
+    {
+      "title": null,
+      "text": "Dra över några varv svartpeppar. Vik ihop paketen och baka i ugnen i ca 20 minuter."
+    },
+    {
+      "title": null,
+      "text": "Blanda salladen med 2 msk olivolja och 2 msk vinäger. Servera potatisen med fetaosten i folien och salladen."
+    }
   ]
 }

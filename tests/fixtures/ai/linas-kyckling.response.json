@@ -1,0 +1,322 @@
+{
+  "title": "Örtstekt kyckling med rostad småpotatis och tryffelsky",
+  "servings": 4,
+  "totalMinutes": 40,
+  "ingredients": [
+    {
+      "originalText": "800 g småpotatis",
+      "amount": 800,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "småpotatis",
+        "section": "Frukt och grönt",
+        "location": "Skafferi",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1
+      ],
+      "group": "Rostad småpotatis",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 st bakplåtspapper",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "bakplåtspapper",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        1
+      ],
+      "group": "Rostad småpotatis",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "olivolja",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "olivolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        1
+      ],
+      "group": "Rostad småpotatis",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "salt",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        1
+      ],
+      "group": "Rostad småpotatis",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "svartpeppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "svartpeppar",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        1
+      ],
+      "group": "Rostad småpotatis",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "600 g kycklingfilé",
+      "amount": 600,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "kycklingfilé",
+        "section": "Kött och fisk",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        2
+      ],
+      "group": "Örtstekt kyckling",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 kruka färsk timjan",
+      "amount": 1,
+      "unit": "kruka",
+      "isVague": false,
+      "hint": {
+        "name": "timjan",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "kruka"
+      },
+      "stepIndexes": [
+        2
+      ],
+      "group": "Örtstekt kyckling",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "2 msk smör",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "smör",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        2
+      ],
+      "group": "Örtstekt kyckling",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "salt",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        2
+      ],
+      "group": "Örtstekt kyckling",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "svartpeppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "svartpeppar",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        2
+      ],
+      "group": "Örtstekt kyckling",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "2 dl matlagningsgrädde",
+      "amount": 2,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "matlagningsgrädde",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3
+      ],
+      "group": "Tryffelsky",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 st hönsbuljongtärning",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "hönsbuljong",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        3
+      ],
+      "group": "Tryffelsky",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 msk japansk soja",
+      "amount": 1,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "japansk soja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        3
+      ],
+      "group": "Tryffelsky",
+      "isStapleMarked": true
+    },
+    {
+      "originalText": "1 tsk tryffelolja",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "tryffelolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        3
+      ],
+      "group": "Tryffelsky",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 st spetskål",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "spetskål",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        4
+      ],
+      "group": "Gräddkokt spetskål",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "1 dl vispgrädde",
+      "amount": 1,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "vispgrädde",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        4
+      ],
+      "group": "Gräddkokt spetskål",
+      "isStapleMarked": false
+    },
+    {
+      "originalText": "smör",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "smör",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        4
+      ],
+      "group": "Gräddkokt spetskål",
+      "isStapleMarked": true
+    }
+  ],
+  "steps": [
+    {
+      "title": null,
+      "text": "Sätt ugnen på 225 grader."
+    },
+    {
+      "title": "Rostad småpotatis",
+      "text": "Lägg potatisen på en plåt med bakplåtspapper. Ringla över olivolja och krydda med salt och peppar. Rosta mitt i ugnen i ca 25 minuter."
+    },
+    {
+      "title": "Örtstekt kyckling",
+      "text": "Krydda kycklingen med salt och peppar. Stek den i smör med timjankvistarna i ca 5 minuter per sida, tills den är genomstekt."
+    },
+    {
+      "title": "Tryffelsky",
+      "text": "Koka upp grädde, buljongtärning och soja. Låt sjuda i 3 minuter och smaka av med tryffelolja."
+    },
+    {
+      "title": "Gräddkokt spetskål",
+      "text": "Strimla spetskålen och fräs den i smör. Häll på grädden och låt koka ihop i 3 minuter."
+    },
+    {
+      "title": null,
+      "text": "Servera kycklingen med potatisen, spetskålen och skyn."
+    }
+  ]
+}

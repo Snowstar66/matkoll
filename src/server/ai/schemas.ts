@@ -34,6 +34,9 @@ const unit = () =>
     .nullable()
     .transform((value) => (value?.trim() ? value.trim() : null));
 
+/** A heading as written, or null; an empty heading means none. Cut to length later (fromAiRecipe). */
+const heading = unit;
+
 export const aiRecipeIngredient = z
   .object({
     originalText: text().describe("Raden ordagrant som den står i receptet"),
@@ -44,6 +47,8 @@ export const aiRecipeIngredient = z
     stepIndexes: z
       .array(z.number().int().min(0))
       .describe("Index (från 0) för de steg där ingrediensen används, tom lista om det är oklart"),
+    group: heading().describe("Rubriken för ingrediensgruppen raden står under, t.ex. Rostad småpotatis, null utan grupp"),
+    isStapleMarked: z.boolean().describe("true när källan märker raden som basvara, t.ex. med •"),
   })
   .refine((line) => !line.isVague || (line.amount === null && line.unit === null), {
     message: "A vague line has neither amount nor unit",
@@ -55,7 +60,7 @@ export const aiRecipeIngredient = z
  * issue, with the path for the model, for each entry that does not.
  */
 function checkStepIndexes(
-  recipe: { ingredients: readonly { stepIndexes: readonly number[] }[]; steps: readonly string[] },
+  recipe: { ingredients: readonly { stepIndexes: readonly number[] }[]; steps: readonly unknown[] },
   context: z.RefinementCtx,
 ) {
   recipe.ingredients.forEach((line, lineIndex) => {
@@ -71,13 +76,19 @@ function checkStepIndexes(
   });
 }
 
+/** A step of a parsed recipe: its heading, if the recipe gives one, and its text. */
+export const aiRecipeStep = z.object({
+  title: heading().describe("Stegets rubrik, t.ex. Rostad småpotatis, null utan rubrik"),
+  text: text().describe("Vad steget gör"),
+});
+
 export const aiRecipe = z
   .object({
     title: text(),
     servings: z.number().int().min(1),
     totalMinutes: z.number().int().min(0).nullable(),
     ingredients: z.array(aiRecipeIngredient).min(1),
-    steps: z.array(text()).min(1),
+    steps: z.array(aiRecipeStep).min(1),
   })
   .superRefine(checkStepIndexes);
 
@@ -749,6 +760,7 @@ export function parseLocatedBox(answer: z.output<typeof locateThingAnswer>): Thi
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
+export type AiRecipeStep = z.infer<typeof aiRecipeStep>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
 export type CompactDish = z.output<typeof compactDish>;
 export type SuggestDishesAnswerCompact = z.output<typeof suggestDishesAnswerCompact>;

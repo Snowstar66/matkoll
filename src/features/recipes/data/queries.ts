@@ -29,10 +29,10 @@ export async function getRecipe(
       .select("id, title, original_servings, total_minutes, image_url, source_kind, source_url, offer_names, is_favorite, updated_at")
       .eq("id", id)
       .maybeSingle(),
-    db.from("recipe_step").select("id, position, text").eq("recipe_id", id).order("position"),
+    db.from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position"),
     db
       .from("recipe_ingredient")
-      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id")
+      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked")
       .eq("recipe_id", id)
       .order("position"),
   ]);
@@ -73,6 +73,8 @@ export async function getRecipe(
       ingredientId: line.ingredient_id,
       ingredientName: line.ingredient_id ? (names[line.ingredient_id] ?? null) : null,
       stepId: line.step_id,
+      group: line.section,
+      isStapleMarked: line.is_staple_marked,
     })),
   };
 }

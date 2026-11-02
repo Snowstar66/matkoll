@@ -1,0 +1,57 @@
+{
+  "title": "Örtstekt kyckling med rostad småpotatis och tryffelsky",
+  "servings": 4,
+  "totalMinutes": 40,
+  "ingredientCount": 17,
+  "keyIngredients": [
+    {
+      "name": "småpotatis",
+      "amount": 800,
+      "unit": "g"
+    },
+    {
+      "name": [
+        "kycklingfilé",
+        "kyckling"
+      ],
+      "amount": 600,
+      "unit": "g"
+    },
+    {
+      "name": "matlagningsgrädde",
+      "amount": 2,
+      "unit": "dl"
+    },
+    {
+      "name": "spetskål",
+      "amount": 1,
+      "unit": "st"
+    }
+  ],
+  "vagueLines": [
+    "olivolja",
+    "salt",
+    "svartpeppar"
+  ],
+  "groups": [
+    "Rostad småpotatis",
+    "Örtstekt kyckling",
+    "Tryffelsky",
+    "Gräddkokt spetskål"
+  ],
+  "stepTitles": [
+    null,
+    "Rostad småpotatis",
+    "Örtstekt kyckling",
+    "Tryffelsky",
+    "Gräddkokt spetskål",
+    null
+  ],
+  "stapleLines": [
+    "olivolja",
+    "salt",
+    "svartpeppar",
+    "2 msk smör",
+    "smör"
+  ]
+}

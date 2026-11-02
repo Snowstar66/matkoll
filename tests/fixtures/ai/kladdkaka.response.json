@@ -16,7 +16,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 ägg",
@@ -31,7 +33,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2,5 dl strösocker",
@@ -46,7 +50,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 dl vetemjöl",
@@ -61,7 +67,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "4 msk kakao",
@@ -76,7 +84,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk vaniljsocker",
@@ -91,7 +101,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 krm flingsalt",
@@ -106,7 +118,9 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "grädde till servering",
@@ -121,14 +135,31 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Sätt ugnen på 175 grader. Smörj och bröa en form med löstagbar kant, ca 22 cm.",
-    "Smält smöret i en kastrull och ta av den från plattan.",
-    "Rör ner socker, ägg, mjöl, kakao och vaniljsocker.",
-    "Häll smeten i formen och grädda mitt i ugnen i 15–20 minuter. Kakan ska vara kladdig i mitten.",
-    "Strö över flingsalt och låt kakan kallna. Servera med vispad grädde."
+    {
+      "title": null,
+      "text": "Sätt ugnen på 175 grader. Smörj och bröa en form med löstagbar kant, ca 22 cm."
+    },
+    {
+      "title": null,
+      "text": "Smält smöret i en kastrull och ta av den från plattan."
+    },
+    {
+      "title": null,
+      "text": "Rör ner socker, ägg, mjöl, kakao och vaniljsocker."
+    },
+    {
+      "title": null,
+      "text": "Häll smeten i formen och grädda mitt i ugnen i 15–20 minuter. Kakan ska vara kladdig i mitten."
+    },
+    {
+      "title": null,
+      "text": "Strö över flingsalt och låt kakan kallna. Servera med vispad grädde."
+    }
   ]
 }

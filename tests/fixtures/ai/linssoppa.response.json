@@ -17,7 +17,9 @@
       "stepIndexes": [
         0,
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "3 vitlöksklyftor",
@@ -33,7 +35,9 @@
       "stepIndexes": [
         0,
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 bit färsk ingefära, ca 3 cm",
@@ -49,7 +53,9 @@
       "stepIndexes": [
         0,
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 morötter",
@@ -65,7 +71,9 @@
       "stepIndexes": [
         0,
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 msk olivolja",
@@ -80,7 +88,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 1/2 msk tomatpuré",
@@ -95,7 +105,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 tsk spiskummin",
@@ -110,7 +122,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "3 dl röda linser",
@@ -125,7 +139,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 burk kokosmjölk (400 ml)",
@@ -140,7 +156,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 liter grönsaksbuljong",
@@ -155,7 +173,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "saften från 1/2 citron",
@@ -170,7 +190,9 @@
       },
       "stepIndexes": [
         5
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "en näve färsk koriander",
@@ -185,16 +207,39 @@
       },
       "stepIndexes": [
         6
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Hacka lök, vitlök och ingefära. Skala morötterna och skär dem i små tärningar.",
-    "Fräs grönsakerna i oljan i en stor kastrull på medelvärme i 5 minuter utan att de tar färg.",
-    "Rör ner tomatpuré och spiskummin och fräs 1 minut till.",
-    "Skölj linserna i kallt vatten och lägg dem i kastrullen. Häll på kokosmjölk och buljong.",
-    "Låt koka under lock i 15 minuter, tills linserna är mjuka.",
-    "Mixa soppan slät med en stavmixer och smaka av med citronsaft.",
-    "Strö över hackad koriander precis innan servering."
+    {
+      "title": null,
+      "text": "Hacka lök, vitlök och ingefära. Skala morötterna och skär dem i små tärningar."
+    },
+    {
+      "title": null,
+      "text": "Fräs grönsakerna i oljan i en stor kastrull på medelvärme i 5 minuter utan att de tar färg."
+    },
+    {
+      "title": null,
+      "text": "Rör ner tomatpuré och spiskummin och fräs 1 minut till."
+    },
+    {
+      "title": null,
+      "text": "Skölj linserna i kallt vatten och lägg dem i kastrullen. Häll på kokosmjölk och buljong."
+    },
+    {
+      "title": null,
+      "text": "Låt koka under lock i 15 minuter, tills linserna är mjuka."
+    },
+    {
+      "title": null,
+      "text": "Mixa soppan slät med en stavmixer och smaka av med citronsaft."
+    },
+    {
+      "title": null,
+      "text": "Strö över hackad koriander precis innan servering."
+    }
   ]
 }

@@ -121,6 +121,32 @@ test("Ändra changes the title, a line's ingredient and the steps, and stays in 
   expect(errors).toEqual([]);
 });
 
+test("Ändra gives a line a group and a step a heading, and the recipe view shows them", async ({ page }) => {
+  const recipeId = await saveRecipe(page, uniqueTitle("Fiskgratäng"));
+  await openEdit(page);
+  const sheet = editSheet(page);
+  await expect(sheet.getByTestId("recipe-line-group-heading")).toHaveCount(0);
+
+  const leek = sheet.getByTestId("recipe-line").filter({ hasText: "1 purjolök" });
+  await leek.getByRole("button", { name: /^Ändra/ }).click();
+  await leek.getByLabel("Grupp").fill("Grönsaker");
+  await expect(sheet.getByTestId("recipe-line-group-heading").first()).toHaveText("Grönsaker");
+  await sheet.getByLabel("Stegrubrik 1").fill("Förberedelser");
+
+  await sheet.getByRole("button", { name: "Spara ändringar" }).click();
+  await expect(editSheet(page)).toBeHidden();
+  await expect(page.getByTestId("toast")).toHaveText("Ändringarna är sparade.");
+  const groups = page.getByRole("region", { name: "Ingredienser" }).getByTestId("recipe-line-group");
+  // The lines without a group first, without a heading, then the group.
+  await expect(groups).toHaveCount(2);
+  await expect(groups.nth(1).getByRole("heading", { level: 3 })).toHaveText("Grönsaker");
+  await expect(groups.nth(1).getByTestId("recipe-view-line")).toHaveText([/^Purjolök/]);
+  await expect(page.getByTestId("recipe-step-title").filter({ visible: true })).toHaveText(["Förberedelser"]);
+
+  const lines = await adminClient().from("recipe_ingredient").select("original_text, section").eq("recipe_id", recipeId);
+  expect(lines.data?.filter((line) => line.section !== null)).toEqual([{ original_text: "1 purjolök", section: "Grönsaker" }]);
+});
+
 test("closing with changes asks first, and nothing is saved", async ({ page }) => {
   const title = uniqueTitle("Fiskgratäng");
   await saveRecipe(page, title);

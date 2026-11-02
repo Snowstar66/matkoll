@@ -16,7 +16,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "3 ägg",
@@ -31,7 +33,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "6 dl mjölk",
@@ -46,7 +50,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "2 1/2 dl vetemjöl",
@@ -61,7 +67,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1/2 tsk salt",
@@ -76,7 +84,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "smör till formen",
@@ -91,7 +101,9 @@
       },
       "stepIndexes": [
         0
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "lingonsylt till servering",
@@ -106,14 +118,31 @@
       },
       "stepIndexes": [
         4
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Sätt ugnen på 225 grader och smörj en ugnsform, ca 25 x 35 cm.",
-    "Skär baconet i bitar och stek det knaprigt i en torr stekpanna. Lägg det i formen.",
-    "Vispa mjöl och hälften av mjölken till en slät smet. Vispa i resten av mjölken, äggen och saltet.",
-    "Häll smeten över baconet och grädda mitt i ugnen i 25–30 minuter, tills pannkakan är gyllenbrun och stelnad.",
-    "Låt svalna några minuter, skär i bitar och servera med lingonsylt."
+    {
+      "title": null,
+      "text": "Sätt ugnen på 225 grader och smörj en ugnsform, ca 25 x 35 cm."
+    },
+    {
+      "title": null,
+      "text": "Skär baconet i bitar och stek det knaprigt i en torr stekpanna. Lägg det i formen."
+    },
+    {
+      "title": null,
+      "text": "Vispa mjöl och hälften av mjölken till en slät smet. Vispa i resten av mjölken, äggen och saltet."
+    },
+    {
+      "title": null,
+      "text": "Häll smeten över baconet och grädda mitt i ugnen i 25–30 minuter, tills pannkakan är gyllenbrun och stelnad."
+    },
+    {
+      "title": null,
+      "text": "Låt svalna några minuter, skär i bitar och servera med lingonsylt."
+    }
   ]
 }
