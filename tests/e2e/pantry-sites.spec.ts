@@ -452,7 +452,7 @@ test("a photo's suggestions stay when another place is selected, and are saved o
   await choose(page, "Stugan");
   await expect(suggestions).toHaveCount(count);
   await expect(placeLine).toHaveText("Förslagen gäller Hemma.");
-  await page.getByRole("button", { name: "Bekräfta alla" }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: /^Lägg till \d+ var(a|or)$/ }).filter({ visible: true }).click();
   await expect(suggestions).toHaveCount(0);
   await expect.poll(async () => (await storedItems()).length).toBeGreaterThan(0);
   const stored = await storedItems();

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { confirmOnly, rejectRow } from "./suggestion-test-helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
@@ -152,7 +153,7 @@ describe("a photo's job on Hemma", () => {
     expect(fakeAi.seen).toEqual([job.id]);
 
     // Confirming saves the suggestion, but no latest photo: there is no photo to save (AD-26).
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
     await act(async () => {});
     expect(photoPosts).toHaveLength(0);
@@ -174,8 +175,8 @@ describe("a photo's job on Hemma", () => {
     // The freezer's cards wait, and its card says so.
     expect(screen.getByTestId("ready")).toHaveTextContent("Frys,Kyl");
 
-    fireEvent.click(screen.getByRole("button", { name: "Avvisa grädde" }));
-    fireEvent.click(screen.getByRole("button", { name: "Avvisa mjölk" }));
+    rejectRow("grädde");
+    rejectRow("mjölk");
     // Every card handled: the first job is closed, and the next result comes.
     await waitFor(() => expect(cardNames()).toEqual(["ärtor"]));
     expect(fakeAi.dismissed).toContain(first.id);

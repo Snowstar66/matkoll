@@ -67,9 +67,9 @@ export function confirmedItemsText(count: number): string {
   return `Lagt ${itemCountText(count)} i Matvaror.`;
 }
 
-/** The short confirmation, with "Ångra", after rejecting a lagerförslag: "ketchup är avvisad." */
+/** The short confirmation, with "Ångra", after rejecting a lagerförslag ("Inte en vara"): "Tog bort ketchup." */
 export function rejectedItemText(name: string): string {
-  return `${name} är avvisad.`;
+  return `Tog bort ${name}.`;
 }
 
 // "Töm en plats" (Story 6.3).

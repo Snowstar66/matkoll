@@ -428,16 +428,25 @@ export function savedAsText(name: string): string {
   return `Sparas som: ${catalogName(name)}`;
 }
 
+/** Kylfoto D: a row's line when the place has the item already: "finns redan 2 dl", or "finns redan". */
+export function alreadyHereText(current: PlaceStock): string {
+  if (current.unlimited || current.amounts.length === 0) return "finns redan";
+  return `finns redan ${current.amounts.map(({ amount, unit }) => formatQuantity(amount, unit)).join(", ")}`;
+}
+
+/** Kylfoto D: the button under the rows, after the ticked ones: "Lägg till 3 varor". */
+export function addCheckedText(count: number): string {
+  return `Lägg till ${count} ${count === 1 ? "vara" : "varor"}`;
+}
+
+/** Kylfoto D: the line above that button: "2 nya · 1 uppdateras", or "Inget valt". */
+export function checkedSummaryText(fresh: number, updated: number): string {
+  const parts = [fresh > 0 ? `${fresh} ${fresh === 1 ? "ny" : "nya"}` : null, updated > 0 ? `${updated} uppdateras` : null];
+  return parts.filter(Boolean).join(" · ") || "Inget valt";
+}
+
 /** The badge on a suggestion the model was unsure of (Story 6.5). */
 export const uncertainBadgeText = "Osäker";
-
-/** On a card the model was unsure of, under the amount. */
-export const uncertainSuggestionText = "AI:n är osäker på varan, så Bekräfta alla tar inte med den.";
-
-/** After "Bekräfta alla" when unsure suggestions are left: "1 osäker vara är kvar att bekräfta eller rätta." */
-export function uncertainLeftText(count: number): string {
-  return `${count} ${count === 1 ? "osäker vara är" : "osäkra varor är"} kvar att bekräfta eller rätta.`;
-}
 
 /** Whether "Bekräfta alla" takes the suggestion: never one the model was unsure of (Story 6.5). */
 export function isBulkConfirmable(suggestion: Pick<PantrySuggestion, "uncertain">): boolean {

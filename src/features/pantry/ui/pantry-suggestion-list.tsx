@@ -1,18 +1,19 @@
 "use client";
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
-import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
+import { Checkbox } from "@/components/checkbox";
+import { catalogName } from "@/features/catalog";
 import { Notice } from "@/components/notice";
 import {
+  addCheckedText,
+  alreadyHereText,
   changedPlaceText,
-  changeSpokenText,
-  changeText,
+  checkedSummaryText,
   currentAmountText,
   incompleteComparisonText,
   isBulkConfirmable,
   analyzedPhotoGoneText,
-  savedAsText,
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionInvalidText,
@@ -21,7 +22,6 @@ import {
   suggestionTitle,
   unchangedCountText,
   uncertainBadgeText,
-  uncertainSuggestionText,
   unreadPlaceText,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
@@ -92,6 +92,15 @@ const locatingSteps = ["Letar upp varorna på fotot …", "Sätter ut numren …
 // heading (a polite status, read out once when it appears); every write from
 // the cards goes to the photo's place all the same.
 
+// Kylfoto D: the cards are compact rows: the number, the name with the
+// catalog name, "finns redan 2 dl" and the place under it, the amount, and a
+// tick box, ticked from the start unless the model was unsure ("?") or the
+// suggestion cannot be saved as it is. A tap on the row opens the sheet
+// (Rätta), whose "Inte en vara" is Avvisa. One button under them, "Lägg till
+// 3 varor" with "2 nya · 1 uppdateras" above it, saves the ticked rows as
+// Bekräfta did one by one; "Fota igen" under it opens the camera again. The
+// groups "Nytt" and "Ändrat" are one list; "Syns inte längre" keeps its cards.
+
 /** No points yet. */
 const noPoints: ReadonlyMap<number, PhotoPoint> = new Map();
 
@@ -116,7 +125,6 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     confirmError,
     invalidIds,
     confirm,
-    reject,
     removeMissing,
     keepMissing,
     confirmButtonRef,
@@ -135,6 +143,8 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const [openPhotoUrl, setOpenPhotoUrl] = useState<string | null>(null);
   const photoOpen = reviewPhoto !== null && openPhotoUrl === reviewPhoto.url;
   const photoWasOpen = useRef(false);
+  // Kylfoto D: the tick boxes Pontus has changed; the others keep their start (ticked unless unsure).
+  const [ticks, setTicks] = useState<ReadonlyMap<string, boolean>>(new Map());
 
   // The photo's sheet has closed and given focus back: a focus move that waited for it happens now.
   useEffect(() => {
@@ -199,25 +209,13 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     );
   }
   const { added, changed, unchanged, missing, compared, incomplete } = groups;
-  // "Bekräfta alla" never takes a suggestion the model was unsure of (Story 6.5).
-  const confirmable = [...added, ...changed].filter(
-    (suggestion) => !invalidIds.has(suggestion.id) && isBulkConfirmable(suggestion),
-  );
-  const card = (suggestion: PantrySuggestion, level: 3 | 4) => (
-    <SuggestionCard
-      key={suggestion.id}
-      suggestion={suggestion}
-      level={level}
-      disabled={saving}
-      saving={savingIds.has(suggestion.id)}
-      invalid={invalidIds.has(suggestion.id)}
-      photoNumber={photoNumberOf(suggestion)}
-      confirmRef={confirmButtonRef(suggestion.id)}
-      onConfirm={() => confirm([suggestion.id])}
-      onCorrect={() => openSuggestion(suggestion)}
-      onReject={() => reject(suggestion.id)}
-    />
-  );
+  const rows = [...added, ...changed];
+  const isTicked = (suggestion: PantrySuggestion) =>
+    !invalidIds.has(suggestion.id) && (ticks.get(suggestion.id) ?? isBulkConfirmable(suggestion));
+  const ticked = rows.filter(isTicked);
+  const updated = ticked.filter((suggestion) => suggestion.current).length;
+  // "Fota igen": the camera's own file input (the camera on a phone, else the picker).
+  const retake = () => cameraAreaRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
   return (
     <>
       <section aria-labelledby={headingId} data-testid="pantry-suggestions" className="flex flex-col gap-3">
@@ -252,51 +250,63 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
           data-testid="pantry-photo-numbers-status"
           className={cx("text-meta text-ink-2 empty:-mt-3", numbers?.kind === "pending" && "sr-only")}
         />
-        <Button
-          ref={confirmAllRef}
-          variant="secondary"
-          // An incomplete comparison removes nothing with "Bekräfta alla".
-          disabled={saving || (confirmable.length === 0 && (missing.length === 0 || incomplete))}
-          onClick={() => confirm(confirmable.map((suggestion) => suggestion.id), { all: true })}
-          className="self-start"
-        >
-          {savingAll ? "Sparar …" : "Bekräfta alla"}
-        </Button>
         {compared && unchanged > 0 ? <p className="text-body text-ink-2">{unchangedCountText(unchanged)}</p> : null}
         {result.inventory.kind === "unread" ? (
           <p className="text-body text-ink-2">
             {result.inventory.changed ? changedPlaceText(result.location) : unreadPlaceText(result.location)}
           </p>
         ) : null}
+        {rows.length > 0 ? (
+          <ul className="flex flex-col overflow-hidden rounded-lg bg-surface">
+            {rows.map((suggestion) => (
+              <SuggestionRow
+                key={suggestion.id}
+                suggestion={suggestion}
+                disabled={saving}
+                saving={savingIds.has(suggestion.id)}
+                invalid={invalidIds.has(suggestion.id)}
+                ticked={isTicked(suggestion)}
+                onTick={(tick) => setTicks((before) => new Map(before).set(suggestion.id, tick))}
+                photoNumber={photoNumberOf(suggestion)}
+                rowRef={confirmButtonRef(suggestion.id)}
+                onCorrect={() => openSuggestion(suggestion)}
+              />
+            ))}
+          </ul>
+        ) : null}
         {compared ? (
-          <>
-            <Group title="Nytt" hidden={added.length === 0}>
-              {added.map((suggestion) => card(suggestion, 4))}
-            </Group>
-            <Group title="Ändrat" hidden={changed.length === 0}>
-              {changed.map((suggestion) => card(suggestion, 4))}
-            </Group>
-            <Group
-              title="Syns inte längre"
-              hidden={missing.length === 0}
-              note={incomplete ? incompleteComparisonText : null}
+          <Group title="Syns inte längre" hidden={missing.length === 0} note={incomplete ? incompleteComparisonText : null}>
+            {missing.map((item) => (
+              <MissingCard
+                key={item.id}
+                item={item}
+                disabled={saving}
+                saving={savingIds.has(item.id)}
+                removeRef={confirmButtonRef(item.id)}
+                onRemove={() => removeMissing(item.id)}
+                onKeep={() => keepMissing(item.id)}
+              />
+            ))}
+          </Group>
+        ) : null}
+        {rows.length > 0 ? (
+          <div className="flex flex-col gap-2 border-t border-hairline pt-3">
+            <p data-testid="pantry-suggestions-summary" className="text-center text-meta text-ink-2">
+              {checkedSummaryText(ticked.length - updated, updated)}
+            </p>
+            <Button
+              ref={confirmAllRef}
+              fullWidth
+              disabled={saving || ticked.length === 0}
+              onClick={() => confirm(ticked.map((suggestion) => suggestion.id), { all: true })}
             >
-              {missing.map((item) => (
-                <MissingCard
-                  key={item.id}
-                  item={item}
-                  disabled={saving}
-                  saving={savingIds.has(item.id)}
-                  removeRef={confirmButtonRef(item.id)}
-                  onRemove={() => removeMissing(item.id)}
-                  onKeep={() => keepMissing(item.id)}
-                />
-              ))}
-            </Group>
-          </>
-        ) : (
-          <ul className="flex flex-col gap-3">{added.map((suggestion) => card(suggestion, 3))}</ul>
-        )}
+              {savingAll ? "Sparar …" : addCheckedText(ticked.length)}
+            </Button>
+            <Button variant="text" fullWidth disabled={saving} onClick={retake}>
+              Fota igen
+            </Button>
+          </div>
+        ) : null}
       </section>
       {photoSheet}
     </>
@@ -325,88 +335,83 @@ function Group({
   );
 }
 
-type SuggestionCardProps = {
+type SuggestionRowProps = {
   suggestion: PantrySuggestion;
-  /** The heading level of the name: 3 in the plain list, 4 under a group's h3. */
-  level: 3 | 4;
-  /** A confirmation is being saved: no button works. */
+  /** A confirmation is being saved: nothing here works. */
   disabled: boolean;
   /** This suggestion is being saved. */
   saving: boolean;
-  /** It cannot be confirmed as it is: only Rätta and Avvisa. */
+  /** It cannot be saved as it is: the box stays empty until Rätta. */
   invalid: boolean;
+  ticked: boolean;
+  onTick: (ticked: boolean) => void;
   /** Story 6.6: its number on the photo, "pending" while the numbers are looked up (its place is kept), or `null`. */
   photoNumber: number | "pending" | null;
-  confirmRef: (button: HTMLButtonElement) => () => void;
-  onConfirm: () => void;
+  rowRef: (button: HTMLButtonElement) => () => void;
   onCorrect: () => void;
-  onReject: () => void;
 };
 
-function SuggestionCard({
+/**
+ * Kylfoto D: one suggestion as a compact row. The whole row is the button
+ * that opens the sheet ("Rätta Mjölk"); the tick box sits above it.
+ */
+function SuggestionRow({
   suggestion,
-  level,
   disabled,
   saving,
   invalid,
+  ticked,
+  onTick,
   photoNumber,
-  confirmRef,
-  onConfirm,
+  rowRef,
   onCorrect,
-  onReject,
-}: SuggestionCardProps) {
-  const { name, ingredient, location, current, change, uncertain } = suggestion;
+}: SuggestionRowProps) {
+  const { name, location, current, uncertain } = suggestion;
   const { title, ingredientName } = suggestionTitle(suggestion);
-  const Heading = level === 3 ? "h3" : "h4";
-  let now = null;
-  if (current && change === "changed") {
-    // The arrow is not read out; the screen reader hears "I kylen nu: 2 förp. På bilden: 1 förp."
-    now = (
-      <p className="text-meta text-ink-2">
-        <span className="sr-only">{changeSpokenText(location, current, suggestion)}</span>
-        <span aria-hidden="true">{changeText(current, suggestion)}</span>
-      </p>
-    );
-  } else if (current) {
-    now = <p className="text-meta text-ink-2">{currentAmountText(location, current)}</p>;
-  }
+  const line = [ingredientName ? catalogName(ingredientName) : null, current ? alreadyHereText(current) : null, location].filter(Boolean).join(" · ");
   return (
-    <li data-testid="pantry-suggestion" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
-      <div className="flex items-start gap-3">
-        {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber === "pending" ? null : photoNumber} />}
-        <Heading className="min-w-0 flex-1 text-row-title break-words text-ink">
-          {title}
+    <li
+      data-testid="pantry-suggestion"
+      className="relative flex min-h-[60px] items-center gap-3 border-t border-hairline py-2 pr-1 pl-4 first:border-t-0"
+    >
+      <button
+        ref={rowRef}
+        type="button"
+        disabled={disabled}
+        onClick={onCorrect}
+        aria-label={`Rätta ${name}`}
+        className="absolute inset-0 -outline-offset-2"
+      />
+      {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber === "pending" ? null : photoNumber} />}
+      <div className="min-w-0 flex-1">
+        <h3 className={cx("flex items-center gap-1.5 text-row-title break-words", ticked ? "text-ink" : "text-ink-2")}>
+          <span className="min-w-0">{title}</span>
+          {uncertain ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-sand text-[12px] font-bold text-sand-ink"
+              >
+                ?
+              </span>
+              <span className="sr-only">, {uncertainBadgeText.toLowerCase()}</span>
+            </>
+          ) : null}
           {typeof photoNumber === "number" ? <PhotoNumberText number={photoNumber} /> : null}
-        </Heading>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1">
-          {uncertain ? <Badge tone="sky">{uncertainBadgeText}</Badge> : null}
-          {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}
-        </div>
+        </h3>
+        <p className="text-meta break-words text-ink-2">{line}</p>
+        {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}
       </div>
-      {ingredientName ? <p className="text-meta break-words text-ink-2">{savedAsText(ingredientName)}</p> : null}
-      <p className="text-body text-ink-2">
-        <span>{suggestionAmountText(suggestion)}</span> · <span>{location}</span>
-      </p>
-      {now}
-      {uncertain ? <p className="text-meta text-ink-2">{uncertainSuggestionText}</p> : null}
-      {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}
-      {/* The buttons wrap at 200 % text; the names say which suggestion they are for. */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Button
-          ref={confirmRef}
-          disabled={disabled || invalid}
-          onClick={onConfirm}
-          {...(saving ? {} : { "aria-label": `Bekräfta ${name}` })}
-        >
-          {saving ? "Sparar …" : "Bekräfta"}
-        </Button>
-        <Button variant="text" disabled={disabled} onClick={onCorrect} aria-label={`Rätta ${name}`}>
-          Rätta
-        </Button>
-        <Button variant="text" disabled={disabled} onClick={onReject} aria-label={`Avvisa ${name}`}>
-          Avvisa
-        </Button>
-      </div>
+      <span className={cx("shrink-0 text-meta", ticked ? "text-ink-2" : "text-ink-3")}>
+        {saving ? "Sparar …" : suggestionAmountText(suggestion)}
+      </span>
+      <Checkbox
+        checked={ticked}
+        onCheckedChange={onTick}
+        label={`Ta med ${name}`}
+        disabled={disabled || invalid}
+        className="relative z-10"
+      />
     </li>
   );
 }
@@ -432,6 +437,7 @@ function MissingCard({ item, disabled, saving, removeRef, onRemove, onKeep }: Mi
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <Button
           ref={removeRef}
+          variant="secondary"
           disabled={disabled}
           onClick={onRemove}
           {...(saving ? {} : { "aria-label": `Ta bort ${name}` })}

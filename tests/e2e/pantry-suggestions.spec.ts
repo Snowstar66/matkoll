@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog";
-import { adminClient, cardTitles, e2eUserId, suggestionsEmail, suggestionsStorageState, chooseUnit, expectUnit } from "./support";
+import { addOnly, addTicked, adminClient, cardTitles, notAnItem, e2eUserId, suggestionsEmail, suggestionsStorageState, chooseUnit, expectUnit } from "./support";
 
 // Story 6.2: confirming, correcting and rejecting lagerförslag on Hemma, with
 // AI_PROVIDER=mock. kyl.png gives six suggestions (kyl.analyze.json): grädde,
@@ -88,7 +88,7 @@ const cameraButton = (page: Page) => camera(page).getByRole("button", { name: "F
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const cards = (page: Page) => section(page).getByTestId("pantry-suggestion");
 /** The cards' names: h4 under the groups of a compared photo, h3 in the plain list. */
-const cardNames = (page: Page, level: 3 | 4 = 4) => cards(page).getByRole("heading", { level });
+const cardNames = (page: Page, level: 3 | 4 = 3) => cards(page).getByRole("heading", { level });
 const kylCard = (page: Page) => page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Kyl/ });
 const skafferiCard = (page: Page) =>
   page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Skafferi/ });
@@ -115,35 +115,36 @@ async function photographPantry(page: Page) {
   await expect(cards(page)).toHaveCount(6);
 }
 
-test("confirm, correct, reject and Bekräfta alla save only what Pontus confirmed", async ({ page }) => {
+test("ticking, correcting, Inte en vara and Lägg till save only what Pontus chose", async ({ page }) => {
   const errors = watchErrors(page);
   await photographFridge(page);
 
-  // Five cards, each with its three buttons, and Bekräfta alla; smör matches the fridge and is only counted.
+  // Five rows, each a button to correct it and a tick box, and Lägg till; smör matches the fridge and is only counted.
   // Story 6.5: the title is the label on the package; the buttons keep the catalog name.
   await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg", "Mellanmjölk 1,5 %"]));
   await expect(section(page).getByText("1 vara stämmer med matvarorna.")).toBeVisible();
-  await expect(cards(page).filter({ hasText: "Mjölk" }).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
+  await expect(cards(page).filter({ hasText: "Mjölk" })).toContainText("finns redan 2 förp");
   // Story 10.4: new catalog names start with a capital; mjölk is seeded as it was before.
   for (const name of ["Grädde", "Gurka", "Ketchup", "Ägg", "Mjölk"]) {
-    const card = cards(page).filter({ has: page.getByRole("button", { name: `Bekräfta ${name}`, exact: true }) });
-    await expect(card).toContainText("· Kyl");
-    for (const verb of ["Bekräfta", "Rätta", "Avvisa"]) {
-      const button = card.getByRole("button", { name: `${verb} ${name}`, exact: true });
-      await expect(button).toBeVisible();
-      const box = await button.boundingBox();
+    const card = cards(page).filter({ has: page.getByRole("button", { name: `Rätta ${name}`, exact: true }) });
+    await expect(card).toContainText("Kyl");
+    for (const control of [
+      card.getByRole("button", { name: `Rätta ${name}`, exact: true }),
+      card.getByRole("checkbox", { name: `Ta med ${name}`, exact: true }),
+    ]) {
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
   }
-  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeVisible();
+  await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("4 nya · 1 uppdateras");
+  await expect(section(page).getByRole("button", { name: "Lägg till 5 varor" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  // Bekräfta mjölk: set to 1 förp, not added to; Kyl has as many items as before.
-  await section(page).getByRole("button", { name: "Bekräfta Mjölk" }).click();
+  // Only mjölk ticked: set to 1 förp, not added to; Kyl has as many items as before.
+  await addOnly(section(page), ["Mjölk"]);
   await expect(toast(page)).toHaveText("Mjölk är sparad i kylen.");
   await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg"]));
-  // mjölk was the last card: focus goes to the one before it.
-  await expect(section(page).getByRole("button", { name: "Bekräfta Ägg" })).toBeFocused();
   await expect(rows(page).filter({ hasText: /^Mjölk(?:\s|$)/ })).toHaveCount(1);
   await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*2 varor(\s?Förslag klara)?$/);
 
@@ -153,7 +154,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(sheet(page).getByLabel("Mängd")).toHaveValue("1");
   await expectUnit(sheet(page), "förp");
   await expect(sheet(page).getByRole("button", { name: "Ligger i Kyl · Flytta" })).toBeVisible();
-  await expect(sheet(page).getByRole("button", { name: "Avvisa" })).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: "Inte en vara" })).toBeVisible();
   await sheet(page).getByRole("button", { name: "Byt vara" }).click();
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("Matlagningsgrädde");
   // New on a first run; already in the catalog on a retry.
@@ -170,17 +171,17 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(rows(page).filter({ hasText: /^Matlagningsgrädde(?:\s|$)/ })).toHaveCount(1);
   await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*3 varor(\s?Förslag klara)?$/);
 
-  // Avvisa ketchup, Ångra, and Avvisa again: nothing asks the server.
-  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
-  await expect(toast(page)).toContainText("Ketchup är avvisad.");
+  // Inte en vara for ketchup, Ångra, and again: nothing asks the server.
+  await notAnItem(page, section(page), "Ketchup");
+  await expect(toast(page)).toContainText("Tog bort Ketchup.");
   await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ägg"]));
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ketchup", "Ägg"]));
-  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
+  await notAnItem(page, section(page), "Ketchup");
   await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ägg"]));
 
-  // Bekräfta alla: the two left in one call; smör, which matches, is left as it is.
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  // Lägg till: the two left, ticked again, in one call; smör, which matches, is left as it is.
+  await addOnly(section(page), ["Gurka", "Ägg"]);
   await expect(toast(page)).toHaveText("Kylen är uppdaterad: 2 nya.");
   await expect(section(page)).toHaveCount(0);
   await expect(cameraButton(page)).toBeFocused();
@@ -204,16 +205,16 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
 
   // The Server Action's request fails, as without a connection.
   await page.route("**/hemma**", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  await addTicked(section(page));
   await expect(section(page).getByRole("alert")).toHaveText("Det gick inte att lägga förslagen i Matvaror. Försök igen.");
   await expect(cards(page)).toHaveCount(6);
-  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeEnabled();
+  await expect(section(page).getByRole("button", { name: "Lägg till 6 varor" })).toBeEnabled();
   expect(await saved()).toEqual(before);
 
   await page.unroute("**/hemma**");
-  await section(page).getByRole("button", { name: "Avvisa Grädde" }).click();
-  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  await notAnItem(page, section(page), "Grädde");
+  await notAnItem(page, section(page), "Ketchup");
+  await addTicked(section(page));
   await expect(toast(page)).toHaveText("Lagt 4 varor i Matvaror.");
   await expect(section(page)).toHaveCount(0);
   await expect(skafferiCard(page)).toHaveText(/^\S*Skafferi\s*4 varor(\s?Förslag klara)?$/);

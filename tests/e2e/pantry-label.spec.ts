@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, labelEmail, labelStorageState } from "./support";
+import { addOnly, adminClient, e2eUserId, labelEmail, labelStorageState } from "./support";
 
 // Story 11.2 (FR-42): the brand or kind of a pantry item and the time it was
 // added, with AI_PROVIDER=mock. kyl.png gives six suggestions
@@ -80,7 +80,8 @@ test("a confirmed suggestion keeps its first label, which the sheet shows and Po
   const errors = watchErrors(page);
   await photographFridge(page);
 
-  await section(page).getByRole("button", { name: /^Bekräfta mjölk$/i }).click();
+  const milk = (await section(page).getByRole("checkbox", { name: /^Ta med mjölk$/i }).getAttribute("aria-label"))!;
+  await addOnly(section(page), [milk.slice("Ta med ".length)]);
   await expect(toast(page)).toHaveText(/^mjölk är sparad i kylen\.$/i);
   await expect.poll(async () => (await saved(/^mjölk$/i)).map((row) => row.label)).toEqual(["Mellanmjölk 1,5 %"]);
 

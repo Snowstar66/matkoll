@@ -25,16 +25,13 @@ import {
   changesLeftText,
   confirmItemFromForm,
   confirmItemFromSuggestion,
-  isBulkConfirmable,
   isConfirmable,
   photoSiteId,
-  uncertainLeftText,
   withConfirmedStock,
   type AnalyzeResult,
   type ConfirmItemInput,
   type InventoryConfirmInput,
   type PantrySuggestion,
-  undoRemovalLabel,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, inventoryRequest, type InventoryRequest, type MissingItem } from "../domain/place-inventory";
 import {
@@ -72,6 +69,10 @@ import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantr
 // inte längre" card out here alone, like Avvisa. Focus after a change is
 // moved from here, so a list or camera button mounted anew under another
 // location card still gets a move that was asked for while they were away.
+//
+// Kylfoto D: the cards are compact rows with a tick box; "Lägg till N
+// varor" saves the ticked ones (`all`), the sheet's "Inte en vara" is Avvisa,
+// and "Syns inte längre" items are removed only by their own "Ta bort".
 //
 // Places (Story 8.4, FR-33, AD-24): the provider has no key on the place
 // either, so the suggestions stay when Hemma switches place. Every write from
@@ -118,9 +119,8 @@ export type PantryReview = {
   /** The suggestions that cannot be confirmed as they are (checked here, or refused by the server): "Bekräfta alla" leaves them out. */
   invalidIds: ReadonlySet<string>;
   /**
-   * Bekräfta (one id) or "Bekräfta alla" (`all`): saves the suggestions as
-   * they are; for a compared photo, `all` also removes every "Syns inte
-   * längre" item left.
+   * Saves the suggestions as they are: one id, or the ticked rows with
+   * "Lägg till N varor" (`all`, Kylfoto D), which removes nothing.
    */
   confirm: (ids: readonly string[], options?: { all?: boolean }) => void;
   /**
@@ -599,30 +599,20 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const generation = analysis.generation();
     const result = analysis.latestResult(generation);
     if (!result) return;
-    const groups = groupSuggestions(result);
-    const { compared, incomplete, missing: allMissing } = groups;
-    // "Bekräfta alla" never takes a suggestion the model was unsure of (Story 6.5): its card stays, the
-    // confirmation says how many such cards that can be confirmed are left, and focus goes to the first.
-    const chosen = chosenSuggestions(generation, result, ids).filter((suggestion) => !all || isBulkConfirmable(suggestion));
-    const uncertain = all
-      ? [...groups.added, ...groups.changed].filter(
-          (suggestion) => !isBulkConfirmable(suggestion) && isConfirmable(suggestion) && !isRefused(generation, suggestion.id),
-        )
-      : [];
-    const withUncertain = (text: string) => (uncertain.length > 0 ? `${text} ${uncertainLeftText(uncertain.length)}` : text);
-    const uncertainFocus: SuggestionFocus | null = uncertain.length > 0 ? { kind: "confirm", id: uncertain[0].id } : null;
+    const { compared } = groupSuggestions(result);
+    // Kylfoto D: "Lägg till N varor" (`all`) saves the rows that are ticked, unsure ones too when ticked; the
+    // "Syns inte längre" items keep their own "Ta bort", so nothing is removed here.
+    const chosen = chosenSuggestions(generation, result, ids);
     if (!compared) {
-      await confirmPlain(generation, photoSiteId(result), chosen, all, { withUncertain, uncertainFocus });
+      await confirmPlain(generation, photoSiteId(result), chosen, all);
       return;
     }
-    // An incomplete comparison removes nothing with "Bekräfta alla": only "Ta bort" does.
-    const missing = all && !incomplete ? allMissing : [];
-    if (chosen.length === 0 && missing.length === 0) return;
-    const request = inventoryRequest({ location: result.location, suggestions: chosen, missing });
+    if (chosen.length === 0) return;
+    const request = inventoryRequest({ location: result.location, suggestions: chosen, missing: [] });
     const saved = chosen.filter((suggestion) => request.included.includes(suggestion.id));
     const savedIds = saved.map((suggestion) => suggestion.id);
     const siteId = photoSiteId(result);
-    const answer = await saveInventory(generation, [...savedIds, ...missing.map(({ id }) => id)], all, siteId, request);
+    const answer = await saveInventory(generation, savedIds, all, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) {
@@ -635,46 +625,35 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (current) {
       takeOut(
         generation,
-        [...savedIds, ...missing.map(({ id }) => id)],
-        (all ? uncertainFocus : null) ?? (all && request.left.length === 0 ? null : (savedIds[0] ?? null)),
+        savedIds,
+        all && request.left.length === 0 ? null : (savedIds[0] ?? null),
         request.items,
         data.setIngredientIds,
       );
     }
-    if (!all) {
+    // One saved, by itself or as the only ticked row: its name, as for a plain photo.
+    if (!all || (saved.length === 1 && request.left.length === 0)) {
       showToast(current ? savedItemText(saved[0].name, saved[0].location) : confirmedItemsText(1));
     } else {
-      const removals = answer.operationId
-        ? removalsOf(data, answer.operationId, missing, siteId, result.location, generation, answer.joined, answer.before)
-        : null;
       const counts = inventoryAppliedText(result.location, {
         added: saved.filter((suggestion) => suggestion.change !== "changed").length,
         changed: saved.filter((suggestion) => suggestion.change === "changed").length,
-        // This call's removals only; "Ångra borttagning" may put back earlier ones too.
-        removed: removals?.items.length ?? 0,
+        removed: 0,
       });
-      const text = withUncertain(request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts);
-      if (removals && removals.batch.undoable > 0) showRemovals(removals.batch, text, undoRemovalLabel);
-      else showToast(text);
+      showToast(request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts);
     }
     runDeferred();
   }
 
   /**
-   * Bekräfta and "Bekräfta alla" for a photo of an empty place, or one that
-   * could not be read (Story 6.2). For "Bekräfta alla" with unsure
-   * suggestions left (Story 6.5), `withUncertain` adds how many to the
-   * confirmation and `uncertainFocus` is where focus goes.
+   * The ticked rows (`all`) or one corrected suggestion for a photo of an
+   * empty place, or one that could not be read (Story 6.2).
    */
   async function confirmPlain(
     generation: number,
     siteId: string | null,
     chosen: readonly PantrySuggestion[],
     all: boolean,
-    {
-      withUncertain = (text: string) => text,
-      uncertainFocus = null,
-    }: { withUncertain?: (text: string) => string; uncertainFocus?: SuggestionFocus | null } = {},
   ) {
     if (chosen.length === 0) return;
     const chosenIds = chosen.map((suggestion) => suggestion.id);
@@ -693,11 +672,9 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       failed(generation, result.error, chosenIds, all ? { kind: "confirmAll" } : { kind: "confirm", id: chosen[0].id });
     } else {
       // The action revalidated Hemma, so the location cards and the list show the new items.
-      takeOut(generation, chosenIds, all ? uncertainFocus : chosen[0].id, items);
+      takeOut(generation, chosenIds, all ? null : chosen[0].id, items);
       showToast(
-        withUncertain(
-          chosen.length === 1 ? savedItemText(chosen[0].name, chosen[0].location) : confirmedItemsText(chosen.length),
-        ),
+        chosen.length === 1 ? savedItemText(chosen[0].name, chosen[0].location) : confirmedItemsText(chosen.length),
       );
     }
     runDeferred();

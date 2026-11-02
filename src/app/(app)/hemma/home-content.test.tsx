@@ -138,16 +138,16 @@ describe("HomeContent", () => {
     await act(async () => fakeAi.calls[0].answer(ok({ site: { id: site.id, name: site.name }, location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
 
     const section = screen.getByRole("region", { name: "Lagerförslag från kylen" });
-    expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaNy2 st · Kyl");
+    expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaKyl2 st");
     const notice = screen.getByRole("alert");
     expect(notice.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    for (const name of ["Bekräfta alla", "Bekräfta gurka", "Rätta gurka", "Avvisa gurka"]) {
-      expect(within(section).getByRole("button", { name })).toBeEnabled();
+    for (const [role, name] of [["button", "Lägg till 1 vara"], ["button", "Rätta gurka"], ["checkbox", "Ta med gurka"]] as const) {
+      expect(within(section).getByRole(role, { name })).toBeEnabled();
     }
 
     // Confirming still works: the suggestion goes, and the notice stays.
     confirmPantrySuggestions.mockResolvedValue(ok({ count: 1 }));
-    await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Bekräfta gurka" })));
+    await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Lägg till 1 vara" })));
     expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
     expect(screen.getByRole("alert")).toHaveTextContent(unavailable);

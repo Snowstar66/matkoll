@@ -526,7 +526,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     expect(unitOf(sheet())).toBe("förp");
     expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
     expect(within(sheet()).getByRole("button", { name: "Bekräfta" })).toBeInTheDocument();
-    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeInTheDocument();
+    expect(within(sheet()).getByRole("button", { name: "Inte en vara" })).toBeInTheDocument();
     expect(within(sheet()).queryByRole("button", { name: "Lägg till vara" })).toBeNull();
     expect(within(sheet()).queryByRole("button", { name: "Ta bort" })).toBeNull();
   });
@@ -614,7 +614,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     open(mjolkSuggestion);
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
-    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeDisabled();
+    expect(within(sheet()).getByRole("button", { name: "Inte en vara" })).toBeDisabled();
     // A second submit (Enter) while saving sends nothing more.
     fireEvent.submit(within(sheet()).getByLabelText("Mängd").closest("form")!);
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -642,7 +642,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
 
     onReject.mockReturnValue("gone");
     fireEvent.click(screen.getByRole("button", { name: "Rätta" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Inte en vara" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onReject).toHaveBeenCalledWith("s4", 7);
     expect(screen.getByTestId("toast")).toHaveTextContent("Förslaget finns inte längre.");
@@ -653,7 +653,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     onReject.mockReturnValue("busy");
     open(mjolkSuggestion);
     await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Inte en vara" }));
     expect(sheet()).toBeInTheDocument();
     expect(within(sheet()).queryByRole("alert")).toBeNull();
     expect(screen.queryByTestId("toast")).toBeNull();
@@ -663,7 +663,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     reviewSaving = true;
     open(mjolkSuggestion);
     expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
-    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeDisabled();
+    expect(within(sheet()).getByRole("button", { name: "Inte en vara" })).toBeDisabled();
   });
 
   it("refuses an amount at the field and confirms nothing", async () => {
@@ -677,7 +677,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
   it("Avvisa closes without asking, also with changes, and rejects the suggestion", () => {
     open(mjolkSuggestion);
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Inte en vara" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onReject).toHaveBeenCalledWith("s4", 7);
     expect(onConfirm).not.toHaveBeenCalled();

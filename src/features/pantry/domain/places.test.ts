@@ -98,7 +98,7 @@ describe("confirmedItemsText and rejectedItemText", () => {
   });
 
   it("names the rejected suggestion", () => {
-    expect(rejectedItemText("ketchup")).toBe("ketchup är avvisad.");
+    expect(rejectedItemText("ketchup")).toBe("Tog bort ketchup.");
   });
 });
 
