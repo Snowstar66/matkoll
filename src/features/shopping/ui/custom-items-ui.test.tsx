@@ -1,4 +1,4 @@
-import { act, render as renderBare, type RenderOptions, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as renderBare, type RenderOptions, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -259,6 +259,26 @@ describe("removing an own item", () => {
     expect(screen.getByRole("button", { name: "Svep bort diskmedel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Svep bort Kaffe" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Svep bort Grädde" })).toBeInTheDocument();
+  });
+
+  it("keeps the bin beside the swipe, and a swipe that starts on the tick removes without checking the line", async () => {
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
+    expect(screen.getByRole("button", { name: "Ta bort diskmedel" })).toBeInTheDocument();
+    const tick = screen.getByRole("checkbox", { name: "diskmedel" });
+    const touch = { pointerId: 1, pointerType: "touch", isPrimary: true, buttons: 1 };
+    fireEvent.pointerDown(tick, { ...touch, clientX: 30, clientY: 20 });
+    fireEvent.pointerMove(tick, { ...touch, clientX: -50, clientY: 22 });
+    fireEvent.pointerUp(tick, { ...touch, clientX: -70, clientY: 22 });
+    // The click that ends the swipe belongs to the swipe, not to the tick.
+    fireEvent.click(tick, { detail: 1 });
+    expect(tick).not.toBeChecked();
+    expect(setChecked).not.toHaveBeenCalled();
+    const front = tick.closest<HTMLElement>("[data-testid='swipe-row-front']")!;
+    expect(front.style.transform).toBe("translateX(-96px)");
+    fireEvent.click(screen.getByRole("button", { name: "Svep bort diskmedel" }), { detail: 1 });
+    expect(removeCustomItem).toHaveBeenCalledWith(diskId);
+    expect((await screen.findAllByText("Tog bort Diskmedel.")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
   it("removes the item at once, and Ångra puts it back with the same row and check", async () => {

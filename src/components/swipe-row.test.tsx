@@ -39,6 +39,10 @@ describe("SwipeRow", () => {
   it("shows the row with the action hidden behind it, named for screen readers", () => {
     const { front, action } = setup();
     expect(action).toHaveTextContent("Ta bort");
+    // The Ta bort rule (Story 19.4): muted red text and bin on the field fill, never a red fill.
+    expect(action).toHaveClass("text-danger", "bg-fill");
+    expect(action.className).not.toMatch(/bg-danger/);
+    expect(action.querySelector("svg")).not.toBeNull();
     expect(front.style.transform).toBe("");
     expect(front).toHaveClass("touch-pan-y");
   });
