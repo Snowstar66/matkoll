@@ -4,7 +4,8 @@ import { adminClient, e2eUserId, householdEmail, householdStorageState } from ".
 // Medlemmar och inbjudan (Story 21.2b): the owner invites from Inställningar → Medlemmar, a
 // second browser opens the link, makes an account with e-mail and password (no mail, the sign-up
 // hook lets the code through), says its name and sees the same list; then it leaves, and is
-// signed out (it is let in only through the household).
+// signed out (it is let in only through the household). Story 21.3: what the guest checks off
+// shows her initial on the owner's list.
 
 test.use({ viewport: { width: 390, height: 844 } });
 test.describe.configure({ mode: "serial" });
@@ -72,7 +73,19 @@ test("invite, join in a second browser, share the list, then leave", async ({ br
   await guest.goto("/lista");
   await expect(guest.getByText("Hushållsmjölk").filter({ visible: true })).toBeVisible();
 
-  await owner.reload();
+  // Story 21.3: Martina checks it off; the owner's list shows her initial on the row, said as "bockad av Martina".
+  await guest.getByRole("checkbox", { name: /Hushållsmjölk/ }).filter({ visible: true }).click();
+  await expect
+    .poll(async () => (await adminClient().from("shopping_check").select("user_id").eq("household_id", household)).data?.map((row) => row.user_id))
+    .toHaveLength(1);
+  await owner.goto("/lista");
+  const showBasket = owner.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
+  if (await showBasket.count()) await showBasket.click();
+  const milk = owner.getByTestId("shopping-line").filter({ hasText: "Hushållsmjölk" }).filter({ visible: true });
+  await expect(milk.getByTestId("line-mark")).toHaveText("M");
+  await expect(milk).toContainText("i korgen, bockad av Martina");
+
+  await owner.goto("/installningar/medlemmar");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(1)).toContainText("Martina");
   await expect(owner.getByTestId("invite-row").filter({ visible: true })).toHaveCount(0);

@@ -530,7 +530,7 @@ describe("shopping_custom_item", () => {
       expect(await addCustomItemIn(user.db, { ...disk, ...changed }), JSON.stringify(changed)).toBe("plan_changed");
     }
     expect(await listCustomItemsIn(user.db)).toEqual([
-      { id: disk.id, label: "diskmedel", ingredientId: null, amount: 2, unit: "förp" },
+      { id: disk.id, label: "diskmedel", ingredientId: null, amount: 2, unit: "förp", by: user.id, at: expect.any(String) },
     ]);
     // 2 and 2.0 are the same amount.
     const same = await user.db.rpc("add_shopping_custom_item", {
@@ -674,7 +674,7 @@ describe("shopping_custom_item", () => {
     expect(await deletePlanIn(user.db, planId)).toBe(true);
     expect(await countRows("shopping_custom_item", user.id)).toBe(1);
     expect(await listCustomItemsIn(user.db)).toEqual([
-      { id: disk.id, label: "diskmedel", ingredientId: null, amount: null, unit: null },
+      { id: disk.id, label: "diskmedel", ingredientId: null, amount: null, unit: null, by: user.id, at: expect.any(String) },
     ]);
   });
 

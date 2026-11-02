@@ -26,3 +26,15 @@ export {
   type MemberColor,
   type PendingInvite,
 } from "./domain/member";
+export {
+  dayText,
+  doerOf,
+  lastChangeOf,
+  lastChangeText,
+  noOthers,
+  othersOf,
+  whenText,
+  type Doer,
+  type LastChange,
+  type Others,
+} from "./domain/who";

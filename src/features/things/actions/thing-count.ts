@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
+import { getOthers } from "@/features/household/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
@@ -120,7 +121,9 @@ export async function loadThingCount(itemId: string): Promise<Result<ThingCount>
   const parsed = idSchema.safeParse(itemId);
   if (!parsed.success) return fail("validation");
   try {
-    const count = await loadCountIn(await createClient(), parsed.data);
+    // Story 21.3: who else made each change, and last changed the föremål.
+    const [db, others] = await Promise.all([createClient(), getOthers()]);
+    const count = await loadCountIn(db, parsed.data, others);
     return count ? ok(count) : fail("things_item_gone");
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;

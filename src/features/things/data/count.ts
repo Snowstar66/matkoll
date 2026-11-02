@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lastChangeOf, noOthers, type Others } from "@/features/household";
 import type { Json } from "@/lib/supabase/database.types";
 import { changeRowSchema, countSnapshotSchema, newestFirst, toChange, type Changed, type CountSnapshot, type ThingChange, type ThingCount } from "../domain/thing-count";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
@@ -105,13 +106,13 @@ export async function restoreCountIn(db: ThingsDb, snapshot: CountSnapshot): Pro
 const maxChanges = 50;
 
 /** The histories of `itemIds` (each newest first, at most 50). Throws ThingsDataError `query_failed <code>` or `invalid_row`. */
-export async function loadChangesIn(db: ThingsDb, itemIds: readonly string[]): Promise<Map<string, ThingChange[]>> {
+export async function loadChangesIn(db: ThingsDb, itemIds: readonly string[], others: Others = noOthers): Promise<Map<string, ThingChange[]>> {
   const histories = new Map<string, ThingChange[]>();
   if (itemIds.length === 0) return histories;
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_change")
-      .select("id, item_id, kind, delta, quantity_after, cleared, created_at")
+      .select("id, item_id, kind, delta, quantity_after, cleared, created_at, user_id")
       .in("item_id", [...new Set(itemIds)])
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
@@ -120,7 +121,7 @@ export async function loadChangesIn(db: ThingsDb, itemIds: readonly string[]): P
     for (const row of data) {
       const parsed = changeRowSchema.safeParse(row);
       if (!parsed.success) throw new ThingsDataError("invalid_row");
-      histories.set(parsed.data.item_id, [...(histories.get(parsed.data.item_id) ?? []), toChange(parsed.data)]);
+      histories.set(parsed.data.item_id, [...(histories.get(parsed.data.item_id) ?? []), toChange(parsed.data, others)]);
     }
     for (const [id, changes] of histories) histories.set(id, newestFirst(changes));
     return histories;
@@ -128,25 +129,34 @@ export async function loadChangesIn(db: ThingsDb, itemIds: readonly string[]): P
 }
 
 
-const countRowSchema = z.object({ id: z.uuid(), same_as: z.uuid().nullable(), quantity: z.number().int().nullable() });
+const countRowSchema = z.object({
+  id: z.uuid(),
+  same_as: z.uuid().nullable(),
+  quantity: z.number().int().nullable(),
+  user_id: z.uuid().nullable(),
+  created_at: z.string(),
+  updated_by: z.uuid().nullable(),
+  updated_at: z.string().nullable(),
+});
+const countColumns = "id, same_as, quantity, user_id, created_at, updated_by, updated_at";
 
 /** The count of `itemId`, or `null` when it is gone or not the user's. Throws ThingsDataError `query_failed <code>` or `invalid_row`. */
-export async function loadCountIn(db: ThingsDb, itemId: string): Promise<ThingCount | null> {
+export async function loadCountIn(db: ThingsDb, itemId: string, others: Others = noOthers): Promise<ThingCount | null> {
   return guarded("query", async () => {
-    const first = await db.from("thing_item").select("id, same_as, quantity").eq("id", itemId).maybeSingle();
+    const first = await db.from("thing_item").select(countColumns).eq("id", itemId).maybeSingle();
     if (first.error) throw new ThingsDataError(`query_failed ${first.error.code}`);
     if (!first.data) return null;
     let row = countRowSchema.safeParse(first.data);
     if (!row.success) throw new ThingsDataError("invalid_row");
     if (row.data.same_as) {
       // Merged into another föremål (Story 18.6): that one holds the count.
-      const kept = await db.from("thing_item").select("id, same_as, quantity").eq("id", row.data.same_as).maybeSingle();
+      const kept = await db.from("thing_item").select(countColumns).eq("id", row.data.same_as).maybeSingle();
       if (kept.error) throw new ThingsDataError(`query_failed ${kept.error.code}`);
       if (!kept.data) return null;
       row = countRowSchema.safeParse(kept.data);
       if (!row.success) throw new ThingsDataError("invalid_row");
     }
-    const changes = row.data.quantity === null ? [] : ((await loadChangesIn(db, [row.data.id])).get(row.data.id) ?? []);
-    return { itemId: row.data.id, quantity: row.data.quantity, changes };
+    const changes = row.data.quantity === null ? [] : ((await loadChangesIn(db, [row.data.id], others)).get(row.data.id) ?? []);
+    return { itemId: row.data.id, quantity: row.data.quantity, changes, lastChange: lastChangeOf(others, row.data) };
   });
 }

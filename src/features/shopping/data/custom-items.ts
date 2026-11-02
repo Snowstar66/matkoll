@@ -25,7 +25,8 @@ type DbRow = {
   unit: string | null;
 };
 
-const columns = "id, meal_plan_id, label, ingredient_id, amount, unit";
+/** The list's columns; since Story 21.3 also who added each item, and when. */
+const listColumns = "id, meal_plan_id, label, ingredient_id, amount, unit, user_id, created_at";
 
 /** A row from the database as the domain's CustomItemRow; the checks equal the table's. */
 function toRow(row: DbRow): CustomItemRow {
@@ -56,7 +57,7 @@ export async function listCustomItemsIn(
   const thisWeek = currentWeekStart();
   const hideCheckedBefore = weekStart < thisWeek ? weekStart : thisWeek;
   const [{ data, error }, checkedAt] = await Promise.all([
-    db.from("shopping_custom_item").select(columns).order("created_at").order("id"),
+    db.from("shopping_custom_item").select(listColumns).order("created_at").order("id"),
     listOwnCheckTimesIn(db),
   ]);
   if (error) throw new ShoppingDataError(`list_custom_items_failed ${error.code}`, error.code);
@@ -65,7 +66,7 @@ export async function listCustomItemsIn(
     if (checked && currentWeekStart(checked) < hideCheckedBefore) return [];
     try {
       const { id, label, ingredientId, amount, unit } = toRow(row);
-      return [{ id, label, ingredientId, amount, unit }];
+      return [{ id, label, ingredientId, amount, unit, by: row.user_id, at: row.created_at }];
     } catch (error) {
       if (!(error instanceof ShoppingDataError)) throw error;
       console.error("shopping_custom_item_unreadable", { reason: error.detail });

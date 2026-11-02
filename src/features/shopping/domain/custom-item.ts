@@ -128,7 +128,11 @@ export const customItemRowSchema = z
 export type CustomItemRow = z.infer<typeof customItemRowSchema>;
 
 /** An own item as the list reads it: computeList's overlay.customItems. */
-export type CustomListItem = Pick<CustomItemRow, "id" | "label" | "ingredientId" | "amount" | "unit">;
+export type CustomListItem = Pick<CustomItemRow, "id" | "label" | "ingredientId" | "amount" | "unit"> & {
+  /** Story 21.3: who added it and when, where they were read. */
+  by?: string | null;
+  at?: string;
+};
 
 /** What addCustomItem stores: an own item without a plan (it belongs to the household, Story 17.10). */
 export type NewCustomItem = Omit<CustomItemRow, "planId"> & { planId?: string | null };

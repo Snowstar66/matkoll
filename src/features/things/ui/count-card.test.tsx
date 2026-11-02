@@ -159,6 +159,25 @@ describe("the count card in a föremål's sheet (Story 18.23)", () => {
     expect(screen.getByRole("button", { name: "Sluta räkna" })).toBeInTheDocument();
   });
 
+  it("names someone else before the verb and leaves my own changes as they were (Story 21.3)", async () => {
+    const martina = { name: "Martina", tone: "sky" as const };
+    loadThingCount.mockResolvedValue(
+      ok({ itemId, quantity: 3, changes: [{ ...change("take", "2026-11-04T10:00:00Z", 3, -2), who: martina }, change("refill", "2026-11-03T10:00:00Z", 5, 2)] }),
+    );
+    render(<CountCard itemId={itemId} name="Gravljus" initial={3} />);
+    await waitFor(() => expect(screen.getAllByTestId("count-change")).toHaveLength(2));
+    expect(screen.getAllByTestId("count-change")[0]).toHaveTextContent("−2Martina tog4 nov");
+    expect(screen.getAllByTestId("count-change")[1]).toHaveTextContent("+2Fyllde på3 nov");
+  });
+
+  it("says who else last changed a föremål without a count (Story 21.3)", async () => {
+    loadThingCount.mockResolvedValue(
+      ok({ itemId, quantity: null, changes: [], lastChange: { name: "Martina", tone: "sky", at: "2026-10-20T10:00:00.000Z", added: false } }),
+    );
+    render(<CountCard itemId={itemId} name="Hammare" initial={null} />);
+    expect(await screen.findByTestId("thing-last-change")).toHaveTextContent("Martina ändrade · 20 okt");
+  });
+
   it("takes in the card at once and says so there with Ångra, since a toast would be behind the sheet", async () => {
     loadThingCount.mockResolvedValueOnce(ok({ itemId, quantity: 3, changes: history }));
     loadThingCount.mockResolvedValue(ok({ itemId, quantity: 2, changes: [change("take", new Date().toISOString(), 2, -1), ...history] }));

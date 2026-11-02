@@ -10,26 +10,35 @@ const tones: Record<AvatarTone, string> = {
   lila: "bg-tile-lilac text-ink",
 };
 
-/** The round avatar with the person's initial (Story 19.2), in their shade; decoration, the button around it carries the name. */
+/**
+ * The round avatar with the person's initial (Story 19.2), in their shade; decoration, the button around it carries the name.
+ * 20 px is the mark on a list row for what someone else did (Story 21.3); the row says the name.
+ */
 export function Avatar({
   initial,
   size = 32,
   tone = "mint",
   className,
+  title,
+  "data-testid": testId,
 }: {
   initial: string;
-  size?: 28 | 32 | 36 | 40 | 72;
+  size?: 20 | 28 | 32 | 36 | 40 | 72;
   tone?: AvatarTone;
   className?: string;
+  title?: string;
+  "data-testid"?: string;
 }) {
   return (
     <span
       aria-hidden="true"
+      title={title}
+      data-testid={testId}
       style={{ width: size, height: size }}
       className={cx(
         "inline-flex shrink-0 items-center justify-center rounded-full font-semibold select-none",
         tones[tone],
-        size === 72 ? "text-[32px]" : size === 40 ? "text-[19px]" : size >= 32 ? "text-[15px]" : "text-[13px]",
+        size === 72 ? "text-[32px]" : size === 40 ? "text-[19px]" : size >= 32 ? "text-[15px]" : size === 20 ? "text-[11px] leading-none" : "text-[13px]",
         className,
       )}
     >

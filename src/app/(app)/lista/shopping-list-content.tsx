@@ -74,6 +74,7 @@ export async function ShoppingListContent({
     productChoicesUnavailable,
     unreadableChoices,
     site,
+    marks,
   } = result.data;
   // The week's own state: a new key starts the list afresh, so no check, sheet or
   // pending change of another week's plan is carried over (Story 13.7).
@@ -125,6 +126,7 @@ export async function ShoppingListContent({
         productChoicesUnavailable={productChoicesUnavailable}
         unreadableChoices={unreadableChoices}
         site={site}
+        marks={marks}
         empty={empty}
         openAddOnStart={quickAdd}
         filter={parseListFilter(params?.visa)}
