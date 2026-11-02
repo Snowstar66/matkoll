@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { FilterPills } from "@/components/filter-pills";
+import { ChoiceRows } from "@/components/choice-rows";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
@@ -36,6 +36,11 @@ import { CountCard } from "./count-card";
 // category and where on the picture (Spara), and last "Ta bort föremålet" in
 // the muted red, which goes at once with "Tog bort X." and Ångra (the count and
 // its history come back too).
+//
+// The category is one calm row, "Kategori  🛍️ Övrigt ›" (Pontus 2 Nov: most
+// often only the name is fixed): tapping it goes one level deeper in the same
+// sheet, "‹ Tillbaka" with the nine categories as rows and a check on the
+// chosen one; picking one goes back to the form with the row updated.
 
 /** What the sheet needs of a föremål. */
 export type SheetThing = Pick<Thing, "id" | "name" | "category" | "whereHint" | "confidence"> & Pick<Partial<Thing>, "seenOn" | "noted" | "quantity">;
@@ -73,10 +78,22 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // One level deeper: the categories to pick from (the form stays mounted, hidden, so the count is not read again).
+  const [choosing, setChoosing] = useState(false);
   // Each opening starts from the föremål as it is now, with its count read again.
   const [session, setSession] = useState<{ id: string; at: number } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLButtonElement>(null);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const wasChoosing = useRef(false);
   const ids = useId();
+
+  // Focus follows the step: the chosen category when going deeper, the Kategori row when coming back.
+  useEffect(() => {
+    if (choosing) categoriesRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+    else if (wasChoosing.current) categoryRef.current?.focus();
+    wasChoosing.current = choosing;
+  }, [choosing]);
 
   if (open && thing && session?.id !== thing.id) {
     setSession({ id: thing.id, at: (session?.at ?? 0) + 1 });
@@ -87,8 +104,13 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
     setWhereError(null);
     setError(null);
     setNotice(null);
+    setChoosing(false);
   }
-  if (!open && session !== null && session.id !== "") setSession({ id: "", at: session.at });
+  if (!open && session !== null && session.id !== "") {
+    setSession({ id: "", at: session.at });
+    // Closed one level deeper (Esc, a swipe): the next opening starts in the form.
+    setChoosing(false);
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -177,12 +199,27 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
     <Sheet
       open={open}
       onClose={onClose}
-      title={thing?.name ?? thingNounCap.singular}
-      subtitle={thing ? (subtitle ?? defaultSubtitle(thing)) : undefined}
+      title={choosing ? categoryLabelText : (thing?.name ?? thingNounCap.singular)}
+      subtitle={thing && !choosing ? (subtitle ?? defaultSubtitle(thing)) : undefined}
+      onBack={choosing ? () => setChoosing(false) : undefined}
       closeLabel="Avbryt"
       preventClose={saving}
     >
-      <form onSubmit={save} noValidate aria-busy={saving || undefined} className="flex flex-col gap-4">
+      {choosing ? (
+        <div ref={categoriesRef}>
+          <ChoiceRows<ThingCategory>
+            label={categoryLabelText}
+            options={thingCategories.map((value) => ({ value, label: value, icon: thingTiles[value].icon, testId: "thing-category-option" }))}
+            value={category}
+            onChange={setCategory}
+            onPick={(value) => {
+              setCategory(value);
+              setChoosing(false);
+            }}
+          />
+        </div>
+      ) : null}
+      <form onSubmit={save} noValidate aria-busy={saving || undefined} hidden={choosing} className="flex flex-col gap-4">
         {notice ? <Notice role="alert">{notice}</Notice> : null}
         {/* Story 18.23: the count first, saved at once (no Spara); read again each time the sheet opens. */}
         {thing ? (
@@ -223,16 +260,22 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
           />
           {error ? <FieldError id={`${ids}-name-error`}>{error}</FieldError> : null}
         </div>
-        <div className="flex flex-col gap-2">
-          <p className="text-body font-medium text-ink">{categoryLabelText}</p>
-          <FilterPills<ThingCategory>
-            label={categoryLabelText}
-            value={category}
-            onChange={setCategory}
-            options={thingCategories.map((value) => ({ value, label: value, icon: thingTiles[value].icon }))}
-            className="[&>button]:min-h-tap"
-          />
-        </div>
+        {/* iOS-settings style: the name on the left, the value on the right, one level deeper on a tap. */}
+        <button
+          ref={categoryRef}
+          type="button"
+          aria-label={`${categoryLabelText}, ${category}`}
+          onClick={() => setChoosing(true)}
+          className="flex h-12 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface pr-3 pl-4 text-left text-body"
+          data-testid="thing-category"
+        >
+          <span className="shrink-0 text-control text-ink">{categoryLabelText}</span>
+          <span className="flex min-w-0 items-center gap-1.5 text-ink-2">
+            <span aria-hidden="true">{thingTiles[category].icon}</span>
+            <span className="truncate">{category}</span>
+            <ChevronRightIcon size={16} className="shrink-0 text-ink-3" />
+          </span>
+        </button>
         {/* A noted thing (Story 18.19) has no picture to say where on. */}
         {thing?.noted ? null : (
           <div className="flex flex-col gap-2">
