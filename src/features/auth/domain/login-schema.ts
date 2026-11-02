@@ -53,7 +53,7 @@ export const emailCodeSchema = loginSchema.extend({
 export type EmailCodeInput = z.input<typeof emailCodeSchema>;
 
 /** The shortest password the app accepts when one is chosen (Story 17.2); Supabase's own minimum is lower. */
-export const minPasswordLength = 12;
+export const minPasswordLength = 6;
 /** bcrypt, which Supabase uses, stops at 72 bytes; Swedish letters take two, so this is counted in bytes. */
 export const maxPasswordBytes = 72;
 

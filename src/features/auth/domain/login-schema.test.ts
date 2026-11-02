@@ -76,11 +76,11 @@ describe("passwordLoginSchema", () => {
 });
 
 describe("newPasswordSchema", () => {
-  it("needs at least 12 characters, in Swedish", () => {
-    const result = newPasswordSchema.safeParse("elvatecken");
+  it("needs at least 6 characters, in Swedish", () => {
+    const result = newPasswordSchema.safeParse("fem12");
     expect(result.success).toBe(false);
-    expect(!result.success && result.error.issues[0].message).toBe("Lösenordet måste vara minst 12 tecken.");
-    expect(newPasswordSchema.safeParse("123456789012").success).toBe(true);
+    expect(!result.success && result.error.issues[0].message).toBe("Lösenordet måste vara minst 6 tecken.");
+    expect(newPasswordSchema.safeParse("123456").success).toBe(true);
   });
 
   it("stops at 72 bytes, not 72 characters", () => {
