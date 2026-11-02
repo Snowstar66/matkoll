@@ -1,6 +1,7 @@
 import "server-only";
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { createClient, removeSessionCookies } from "@/lib/supabase/server";
+import { householdLetsIn } from "./household-access";
 
 /** Outcome of a Supabase call; `code` is Supabase's error code or HTTP status, never user data. */
 export type SupabaseOutcome = { ok: true } | { ok: false; code: string };
@@ -20,7 +21,7 @@ export async function requestMagicLink(email: string, redirectTo: string): Promi
 
 /** Outcome of the password calls; `code` is Supabase's error code, never user data. */
 export type PasswordOutcome =
-  | { result: "signed_in"; email: string | undefined }
+  | { result: "signed_in"; email: string | undefined; viaHousehold: boolean }
   | { result: "invalid" | "rate_limited" | "failed"; code: string };
 
 function passwordFailure(error: { code?: string; status?: number }): PasswordOutcome {
@@ -30,16 +31,21 @@ function passwordFailure(error: { code?: string; status?: number }): PasswordOut
   return { result: "failed", code };
 }
 
-/** Signs in with e-mail and password, which sets the session cookies. */
+/**
+ * Signs in with e-mail and password, which sets the session cookies. With
+ * `household` (ALLOWED_EMAILS), `viaHousehold` says whether the person is let
+ * in through their household (Story 21.2b), asked with the new session.
+ */
 export async function signInWithPassword(
   email: string,
   password: string,
-  { forwardedFor }: { forwardedFor?: string | null } = {},
+  { forwardedFor, household }: { forwardedFor?: string | null; household?: readonly string[] } = {},
 ): Promise<PasswordOutcome> {
   const supabase = await createClient({ forwardedFor });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return passwordFailure(error);
-  return { result: "signed_in", email: data.user?.email };
+  const viaHousehold = household ? await householdLetsIn(supabase, household) : false;
+  return { result: "signed_in", email: data.user?.email, viaHousehold };
 }
 
 /** Asks Supabase to e-mail a password-reset link; the link goes to `redirectTo` with a token_hash. */

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createCodeAttempts } from "../domain/code-attempts";
 
 // loginWithPassword with Supabase stubbed (Story 17.2): the limit first, the
-// allowlist before Supabase, every failure the same auth_password_invalid.
+// allowlist (or, Story 21.2b, the household) after Supabase, every failure the
+// same auth_password_invalid.
 
 const signIn = vi.fn();
 const dropSession = vi.fn();
@@ -55,11 +56,13 @@ describe("loginWithPassword", () => {
     );
   });
 
-  it("gives the same answer for a wrong password, an address outside the list and a bad input, and only asks Supabase for the first", async () => {
+  it("gives the same answer for a wrong password, an address outside the list and a bad input", async () => {
     expect(await loginWithPassword({ email: pontus, password: "fel" })).toMatchObject(invalid);
     expect(await loginWithPassword({ email: "annan@example.com", password: "x" })).toMatchObject(invalid);
+    expect(await loginWithPassword({ email: "inte en adress", password: "x" })).toMatchObject(invalid);
+    expect(signIn).toHaveBeenCalledTimes(2);
     expect(await loginWithPassword({ email: pontus, password: "" })).toMatchObject(invalid);
-    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(signIn).toHaveBeenCalledTimes(2);
   });
 
   it("blocks after five failures, without asking Supabase, and a success resets the count", async () => {
@@ -79,8 +82,16 @@ describe("loginWithPassword", () => {
     });
   });
 
+  // Story 21.2b: an invited member is not on the list; the session tells whether their household lets them in.
+  it("lets an invited member in through their household, asking with the list", async () => {
+    signIn.mockResolvedValue({ result: "signed_in", email: "martina@example.com", viaHousehold: true });
+    await expect(loginWithPassword({ email: "martina@example.com", password: "x" })).rejects.toThrow("NEXT_REDIRECT /recept");
+    expect(signIn).toHaveBeenCalledWith("martina@example.com", "x", { forwardedFor: "203.0.113.7", household: ["pontus@example.com"] });
+    expect(dropSession).not.toHaveBeenCalled();
+  });
+
   it("signs out a session for an address that is not allowed after all", async () => {
-    signIn.mockResolvedValue({ result: "signed_in", email: "annan@example.com" });
+    signIn.mockResolvedValue({ result: "signed_in", email: "annan@example.com", viaHousehold: false });
     expect(await loginWithPassword({ email: pontus, password: "x" })).toMatchObject(invalid);
     expect(dropSession).toHaveBeenCalledTimes(1);
     expect(redirect).not.toHaveBeenCalled();

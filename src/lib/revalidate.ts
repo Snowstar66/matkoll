@@ -96,6 +96,11 @@ const routesByTable = {
   product_choice: [{ path: "/lista", type: "page" }],
   // Tyck till (Story 20.3): the owner's Inkorg row (its count of new) and the inbox under Inställningar.
   feedback: [{ path: "/installningar", type: "layout" }],
+  // Story 21.2b: who is in the household. Every page shows the member's own name (the P button), and
+  // joining or leaving changes all the data a page shows, so the whole app.
+  household_member: [{ path: "/", type: "layout" }],
+  // The household's name, on Medlemmar and the start page of Inställningar.
+  household: [{ path: "/installningar", type: "layout" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

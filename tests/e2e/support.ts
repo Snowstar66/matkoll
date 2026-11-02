@@ -286,6 +286,11 @@ export const offlineListEmail = "e2e-offline-lista@matkoll.test";
  */
 export const feedbackEmail = "e2e-tyck-till@matkoll.test";
 /**
+ * The E2E user of household.spec.ts alone (Medlemmar och inbjudan, Story 21.2b): it owns a
+ * household, invites, and a second browser makes an account on /ga-med and joins it.
+ */
+export const householdEmail = "e2e-hushall@matkoll.test";
+/**
  * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
  * that has not seen the welcome tour, so it shows. Every other E2E user is
  * marked as having seen it (markWelcomeTourSeen), so it never covers their pages.
@@ -345,6 +350,7 @@ export const e2eEmails = [
   liveListEmail,
   offlineListEmail,
   feedbackEmail,
+  householdEmail,
   welcomeEmail,
   newsEmail,
 ] as const;
@@ -396,6 +402,7 @@ export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.j
 export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
+export const householdStorageState = "tests/e2e/.auth/household.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
@@ -445,6 +452,13 @@ export async function markWelcomeTourSeen(emails: readonly string[] = e2eEmails)
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;
   const wanted = new Set(emails.filter((email) => email !== welcomeEmail));
+  // Story 21.2b: every E2E user has said their name too, so "Vad heter du?" never covers a page.
+  const all = new Set(emails);
+  const named = data.users.filter((user) => user.email && all.has(user.email)).map((user) => user.id);
+  if (named.length > 0) {
+    const saved = await adminClient().from("household_member").update({ named_at: new Date().toISOString() }).in("user_id", named).is("named_at", null);
+    if (saved.error) throw saved.error;
+  }
   const rows = data.users
     .filter((user) => user.email && wanted.has(user.email))
     .map((user) => ({ user_id: user.id, tour_seen_at: new Date().toISOString() }));

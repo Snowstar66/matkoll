@@ -25,19 +25,38 @@ export function parseAllowedEmails(raw) {
 }
 
 /**
- * Decides which users to create, keep, warn about and delete. Users are only
- * deleted when `prune` is set.
+ * Story 21.2b: the users let in through their household, not ALLOWED_EMAILS:
+ * every member of a household in which someone's address is on the list (an
+ * invited member). They are kept, never pruned.
  * @param {string[]} allowed normalised addresses from parseAllowedEmails
  * @param {{ id: string, email?: string | null }[]} existing users in Supabase Auth
- * @param {{ prune?: boolean }} [options]
+ * @param {{ household_id: string, user_id: string }[]} memberships rows of household_member
+ * @returns {Set<string>} the user ids
  */
-export function planUserSync(allowed, existing, { prune = false } = {}) {
+export function householdMembersLetIn(allowed, existing, memberships) {
+  const allowedSet = new Set(allowed);
+  const emailOf = new Map(existing.map((user) => [user.id, (user.email ?? "").toLowerCase()]));
+  const letIn = new Set(memberships.filter((row) => allowedSet.has(emailOf.get(row.user_id) ?? "")).map((row) => row.household_id));
+  return new Set(memberships.filter((row) => letIn.has(row.household_id)).map((row) => row.user_id));
+}
+
+/**
+ * Decides which users to create, keep, warn about and delete. Users are only
+ * deleted when `prune` is set. `members` (householdMembersLetIn) are kept as
+ * the household's, not warned about and never deleted.
+ * @param {string[]} allowed normalised addresses from parseAllowedEmails
+ * @param {{ id: string, email?: string | null }[]} existing users in Supabase Auth
+ * @param {{ prune?: boolean, members?: Set<string> }} [options]
+ */
+export function planUserSync(allowed, existing, { prune = false, members = new Set() } = {}) {
   const existingEmails = new Set(existing.map((user) => (user.email ?? "").toLowerCase()));
   const allowedSet = new Set(allowed);
   const create = allowed.filter((email) => !existingEmails.has(email));
   const keep = existing.filter((user) => allowedSet.has((user.email ?? "").toLowerCase()));
-  const extra = existing.filter((user) => !allowedSet.has((user.email ?? "").toLowerCase()));
-  return { create, keep, extra, remove: prune ? extra : [] };
+  const outside = existing.filter((user) => !allowedSet.has((user.email ?? "").toLowerCase()));
+  const household = outside.filter((user) => members.has(user.id));
+  const extra = outside.filter((user) => !members.has(user.id));
+  return { create, keep, household, extra, remove: prune ? extra : [] };
 }
 
 /** How long a pruned user is banned: for good (Supabase takes a Go duration). */

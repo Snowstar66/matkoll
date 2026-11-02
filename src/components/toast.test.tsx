@@ -114,6 +114,14 @@ describe("ToastProvider", () => {
     expect(liveRegion()).not.toContainElement(screen.getByRole("button", { name: "Ångra" }));
   });
 
+  it("is a compact pill on the lifted surface, with Ångra as a green text button", () => {
+    renderToasts();
+    fireEvent.click(screen.getByRole("button", { name: "Tog bort Mjölk." }));
+    expect(screen.getByTestId("toast")).toHaveClass("bg-surface-2", "text-ink", "text-control", "max-w-toast", "rounded-xl", "shadow-float");
+    expect(screen.getByTestId("toast")).not.toHaveClass("bg-ink");
+    expect(screen.getByRole("button", { name: "Ångra" })).toHaveClass("text-accent");
+  });
+
   it("stands still while hovered and runs on afterwards", () => {
     renderToasts();
     fireEvent.click(screen.getByRole("button", { name: "Tog bort Mjölk." }));

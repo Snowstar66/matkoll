@@ -151,7 +151,7 @@ describe("endSession", () => {
 describe("password calls", () => {
   it("maps Supabase's answers to a small set of results", async () => {
     signInWithPasswordMock.mockResolvedValue({ data: { user: { email: "a@b.se" } }, error: null });
-    expect(await signInWithPassword("a@b.se", "x")).toEqual({ result: "signed_in", email: "a@b.se" });
+    expect(await signInWithPassword("a@b.se", "x")).toEqual({ result: "signed_in", email: "a@b.se", viaHousehold: false });
     for (const [error, result] of [
       [{ code: "invalid_credentials", status: 400 }, "invalid"],
       [{ code: "over_request_rate_limit", status: 429 }, "rate_limited"],
