@@ -126,6 +126,16 @@ export type ReadPhotoOptions = {
   signal: AbortSignal;
   /** When the job must be done (Date.now() milliseconds); the model gets the time left but postModelMarginMs. */
   deadline?: number;
+  /** Kylfoto A: filled in with how long the steps took, for the caller's analyze_timing log. */
+  timings?: ReadPhotoTimings;
+};
+
+/** Kylfoto A: milliseconds per step of readPhoto; a step that was not reached is left out. */
+export type ReadPhotoTimings = {
+  /** The AI port's analyzeImage, with its new attempts. */
+  modelMs?: number;
+  /** From the model's answer to the reading: the matching, the names and the wait for the place; only for a reading. */
+  postMs?: number;
 };
 
 /**
@@ -133,9 +143,10 @@ export type ReadPhotoOptions = {
  * AI port's analyzeImage (`validation`, `ai_unavailable`, `ai_rejected`,
  * `ai_invalid`), the first 25 items (the rest logged as a count), one
  * matchIngredients call for them and the matched names
- * (`catalog_unavailable`), the items in the location of the place (a failed
- * read is logged and leaves them out; skipped when the deadline is near, for
- * "I kylen nu" in the amounts), toPantrySuggestions, and
+ * (`catalog_unavailable`), the items in the location of the place (read
+ * while the model works, Kylfoto A; a failed read is logged and leaves them
+ * out; not waited for when the deadline is near, for "I kylen nu" in the
+ * amounts), toPantrySuggestions, and
  * pantrySuggestionSchema for each suggestion. Items and suggestions left out
  * are counted in `dropped` and logged as counts. The result is kept by the
  * job: the suggestions outside any comparison, the ingredients the AI named
@@ -148,11 +159,21 @@ export type ReadPhotoOptions = {
  */
 export async function readPhoto(
   { image, location, site }: ReadPhotoInput,
-  { signal, deadline }: ReadPhotoOptions,
+  { signal, deadline, timings = {} }: ReadPhotoOptions,
 ): Promise<Result<StoredReading>> {
-  const analyzed = await (await getAiServiceForUser()).analyzeImage({ image, place: location }, signal, {
+  const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
+  // Kylfoto A: "I kylen nu" is read while the model works, not after it. A read that is not
+  // waited for (the model failed, the job stopped) is let go; its errors are handled where it is awaited.
+  const placeRead = timeLeft() >= minReadMs ? readPlace(location, site?.id) : null;
+  placeRead?.catch(() => {});
+
+  const service = await getAiServiceForUser();
+  const modelStarted = performance.now();
+  const analyzed = await service.analyzeImage({ image, place: location }, signal, {
     deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
   });
+  const postStarted = performance.now();
+  timings.modelMs = Math.round(postStarted - modelStarted);
   if (!analyzed.ok) return analyzed;
   if (signal.aborted) return stopped();
 
@@ -161,7 +182,6 @@ export async function readPhoto(
   const trimmed = analyzed.data.items.length - items.length;
   if (trimmed > 0) console.info("analyze_items_trimmed", { dropped: trimmed });
   if (repeated > 0) console.info("analyze_items_repeated", { count: repeated });
-  const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
   // No item: nothing to match, but the place is still compared (everything there is "Syns inte längre").
   let matched: IngredientMatch[] = [];
   let names: Record<string, string> = {};
@@ -182,9 +202,9 @@ export async function readPhoto(
     names = found.data;
   }
 
-  // "I kylen nu" is extra: near the deadline the suggestions come without it.
+  // "I kylen nu" is extra: near the deadline the suggestions come without it, and the read is not waited for.
   let current: PantryItem[] | null = null;
-  if (timeLeft() >= minReadMs) current = await readPlace(location, site?.id);
+  if (placeRead && timeLeft() >= minReadMs) current = await placeRead;
   else console.info("analyze_place_skipped", { reason: "deadline" });
 
   const built = toPantrySuggestions(items, matched, { location, names, current });
@@ -197,6 +217,7 @@ export async function readPhoto(
   if (outputInvalid > 0) console.error("analyze_output_invalid", { count: outputInvalid });
   const { unmatched, unnamed, unusable } = built.dropped;
   const dropped = invalid + unmatched + unnamed + unusable + outputInvalid;
+  timings.postMs = Math.round(performance.now() - postStarted);
   return ok({
     site,
     location,

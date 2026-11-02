@@ -119,6 +119,15 @@ export async function getAiChoice(): Promise<AiSetting | null> {
 }
 
 /**
+ * Kylfoto A: the provider that reads the signed-in user's next photo (their
+ * choice, or AI_PROVIDER without one), so Hemma can make the photo the size
+ * that provider reads best. Never throws (getAiChoice does not).
+ */
+export async function getAiPhotoProvider(): Promise<string> {
+  return (await getAiChoice())?.provider ?? env.AI_PROVIDER;
+}
+
+/**
  * Story 17.6: this month's AI calls and cost for the signed-in user (the
  * calendar month in Stockholm), or `null` when the section AI is not shown
  * to them. Local models and the mock count as calls at 0 kr. Throws

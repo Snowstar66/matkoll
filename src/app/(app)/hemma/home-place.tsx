@@ -8,8 +8,10 @@ import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/se
 import { AddPantryItemButton, PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
+import { getAiPhotoProvider } from "@/features/settings/server";
 import { SiteSwitch } from "@/features/pantry/ui/site-switch";
 import { errorMessages } from "@/lib/errors";
+import { placePhotoSizeFor } from "@/lib/images";
 import { loadBoendeCounts } from "../boende-counts";
 import { HomeContent } from "./home-content";
 
@@ -33,6 +35,8 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
   const next = plats === undefined ? "/hemma" : `/hemma?plats=${placeSlug(location)}`;
   await requireUserOrRedirect(next);
 
+  // Kylfoto A: the provider is read beside the places, for the size the camera makes its photo.
+  const photoProvider = getAiPhotoProvider();
   let sites: PantrySiteWithCount[] | null = null;
   try {
     sites = await listPantrySitesWithCounts();
@@ -54,9 +58,10 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
     );
   }
   const site: SelectedSite = { id: selected.id, name: selected.name, siteCount: sites.length };
+  const photoSize = placePhotoSizeFor(await photoProvider);
 
   return (
-    <PantrySuggestionsProvider>
+    <PantrySuggestionsProvider photoSize={photoSize}>
         <PantrySheetProvider location={location} site={site}>
           <PageHeader title="Matvaror" tab="/hemma" action={<AddPantryItemButton variant="icon" />} />
           {/* A phone has no side menu: the boende is under the title (Story 16.14). */}

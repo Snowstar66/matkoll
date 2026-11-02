@@ -8,7 +8,7 @@ import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
-import { imageSizeOf, maxPlacePhotoSide, type ImageSize } from "@/lib/images";
+import { imageSizeOf, placePhotoForQwen, type ImageSize, type PlacePhotoSize } from "@/lib/images";
 import { analyzeRetryCodes, type AnalyzeResult, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { photoJobResultSchema, type PhotoPoints } from "../domain/photo-job";
 import { hasNumberableCards, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
@@ -214,7 +214,12 @@ function numbersOf(points: PhotoPoints | undefined, labels: readonly string[]): 
   return { kind: "ready", points: pointsByNumber(points, labels) };
 }
 
-export function usePantryAnalysis(): PantryAnalysis {
+/**
+ * `photoSize` is how the photo is made small before it is sent (Kylfoto A:
+ * 1600 px at 0.8 when Claude reads it, from the page); 2048 px at 0.85
+ * without it.
+ */
+export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize?: PlacePhotoSize } = {}): PantryAnalysis {
   const router = useRouter();
   const { jobs, loaded, start, cancel: cancelJob, markSeen, dismiss, fetchResult } = useAiJobs();
   const [result, setResultState] = useState<AnalyzeResult | null>(null);
@@ -404,7 +409,7 @@ export function usePantryAnalysis(): PantryAnalysis {
   }
 
   /** Sends the photo as a job; the answer is the job in the list, whose result is taken up when it is there. */
-  async function post(kept: KeptPhoto, token: number): Promise<boolean> {
+  async function post(kept: KeptPhoto, token: number, downscaleMs?: number): Promise<boolean> {
     const key = placeKey(kept.site.id, kept.location);
     const form = new FormData();
     form.append("image", kept.image, "photo");
@@ -412,6 +417,8 @@ export function usePantryAnalysis(): PantryAnalysis {
     form.append("location", kept.location);
     form.append("site", kept.site.id);
     form.append("takenAt", kept.takenAt.toISOString());
+    // Kylfoto A: how long the resize took, for the server's analyze_timing log (a number, never the photo).
+    if (downscaleMs !== undefined) form.append("downscaleMs", String(downscaleMs));
     // One key per photo: a retry after a network error would be a new photo, so a new key.
     const answer = await start("/api/ai/jobs/photo", form, crypto.randomUUID());
     const stillOwned = startOwner(key) === token;
@@ -452,11 +459,13 @@ export function usePantryAnalysis(): PantryAnalysis {
     setPhoto(null);
     setAnnouncement("");
     let prepared: Result<Blob>;
+    const resizeStarted = performance.now();
     try {
-      prepared = await downscaleImage(file, { maxSide: maxPlacePhotoSide });
+      prepared = await downscaleImage(file, photoSize);
     } catch {
       prepared = fail("image_unsupported");
     }
+    const downscaleMs = Math.round(performance.now() - resizeStarted);
     if (startOwner(key) !== token) return;
     if (!prepared.ok) {
       endStarting(key, token);
@@ -465,7 +474,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     }
     const size = await photoSizeOf(prepared.data);
     if (startOwner(key) !== token) return;
-    await post({ image: prepared.data, location, site: { id: site.id, name: site.name }, size, takenAt }, token);
+    await post({ image: prepared.data, location, site: { id: site.id, name: site.name }, size, takenAt }, token, downscaleMs);
   }
 
   function retry() {

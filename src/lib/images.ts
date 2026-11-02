@@ -13,6 +13,24 @@ export const maxImageSide = 1600;
  */
 export const maxPlacePhotoSide = 2048;
 
+/** How the client makes a photo of a place small: the longest side, and the JPEG quality it tries first. */
+export type PlacePhotoSize = { maxSide: number; quality: number };
+
+/** Story 6.5: Qwen in LM Studio (and the mock) reads small print at 2048 px, quality 0.85. */
+export const placePhotoForQwen: PlacePhotoSize = { maxSide: maxPlacePhotoSide, quality: 0.85 };
+
+/**
+ * Kylfoto A: Claude gets the fridge photo at 1600 px, quality 0.8, about 40 %
+ * fewer bytes to upload. Haiku 5.5 takes up to 2576 px, so it reads the
+ * photo as sent, without scaling it down again.
+ */
+export const placePhotoForClaude: PlacePhotoSize = { maxSide: 1600, quality: 0.8 };
+
+/** The size of a fridge photo for the provider that reads it (the AI choice's, or AI_PROVIDER). */
+export function placePhotoSizeFor(provider: string | null | undefined): PlacePhotoSize {
+  return provider === "anthropic" ? placePhotoForClaude : placePhotoForQwen;
+}
+
 /** What the server lets a longest side exceed maxImageSide by, for rounding in other clients. */
 export const imageSideTolerance = 16;
 

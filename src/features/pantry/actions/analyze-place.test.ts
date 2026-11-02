@@ -526,8 +526,15 @@ describe("analyzePlace", () => {
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.suggestions).toHaveLength(6);
       expect(result.data.suggestions.every((suggestion) => suggestion.current === null)).toBe(true);
-      expect(listPantryIn).not.toHaveBeenCalled();
+      // Kylfoto A: the read started with the model, but is not waited for.
+      expect(listPantryIn).toHaveBeenCalledTimes(1);
       expect(console.info).toHaveBeenCalledWith("analyze_place_skipped", { reason: "deadline" });
+    });
+
+    it("does not start the read of the place when the deadline is already near (Kylfoto A)", async () => {
+      const deadline = Date.now() + minReadMs - 1;
+      await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal(), deadline });
+      expect(listPantryIn).not.toHaveBeenCalled();
     });
   });
 
@@ -565,7 +572,8 @@ describe("analyzePlace", () => {
       });
       expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
       expect(getIngredientNames).not.toHaveBeenCalled();
-      expect(listPantryIn).not.toHaveBeenCalled();
+      // Only the read started with the model (Kylfoto A); the comparison's read never comes.
+      expect(listPantryIn).toHaveBeenCalledTimes(1);
     });
 
     it("stops after the names, before the pantry is read", async () => {
@@ -575,7 +583,48 @@ describe("analyzePlace", () => {
         return catalogNames;
       });
       expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
-      expect(listPantryIn).not.toHaveBeenCalled();
+      // Only the read started with the model (Kylfoto A); the comparison's read never comes.
+      expect(listPantryIn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("speed (Kylfoto A)", () => {
+    it("reads the place while the model works, not after it", async () => {
+      let placeReadBeforeAnswer = false;
+      analyzeImage.mockImplementationOnce(async (input: AnalyzeImageInput, aiSignal: AbortSignal) => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        placeReadBeforeAnswer = listPantryIn.mock.calls.length === 1;
+        return ai.analyzeImage(input, aiSignal);
+      });
+      const result = await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal() });
+      expect(result.ok).toBe(true);
+      expect(placeReadBeforeAnswer).toBe(true);
+      expect(listPantryIn).toHaveBeenCalledTimes(1);
+      expect(listPantryIn.mock.calls[0][3]).toBe(hemma);
+    });
+
+    it("lets a failed read of the place go when the model fails, without an unhandled rejection", async () => {
+      listPantryIn.mockRejectedValue(new TypeError("bug"));
+      analyzeImage.mockResolvedValueOnce(fail("ai_unavailable"));
+      const result = await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal() });
+      expect(result).toEqual(fail("ai_unavailable"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it("fills in the milliseconds of the model and of the steps after it, as whole numbers", async () => {
+      const timings: { modelMs?: number; postMs?: number } = {};
+      await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal(), timings });
+      expect(Number.isInteger(timings.modelMs)).toBe(true);
+      expect(Number.isInteger(timings.postMs)).toBe(true);
+      expect(timings.modelMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("gives the model's time but no post time when the model fails", async () => {
+      const timings: { modelMs?: number; postMs?: number } = {};
+      analyzeImage.mockResolvedValueOnce(fail("ai_invalid"));
+      await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal(), timings });
+      expect(timings.modelMs).toBeGreaterThanOrEqual(0);
+      expect(timings.postMs).toBeUndefined();
     });
   });
 

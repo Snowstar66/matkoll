@@ -27,6 +27,7 @@ import {
   defaultLimits,
   runStructured,
   runWarmUp,
+  withProviderOptions,
   type Limits,
   type ModelTarget,
   type WarmUpOptions,
@@ -749,7 +750,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           messages: [{ role: "user", content: analyzeImageContent(input) }],
           maxOutputTokens: inputLimits.analyze.maxOutputTokens,
           // Story 6.5: the adapter's sampling for photos (LM Studio: Qwen's settings against repetition loops).
-          sampling: target.imageSampling,
+          // Kylfoto A: with the fridge photo's own provider options (Claude: effort low, thinking off where allowed).
+          sampling: withProviderOptions(target.imageSampling, target.photoReadingOptions),
         },
         signal,
         within,
@@ -1123,6 +1125,12 @@ export type AiServiceOptions = {
   /** For tests: where the mock reads its fixtures. */
   fixturesDir?: string;
   limits?: Limits;
+  /**
+   * Kylfoto A, for the before/after eval: the fridge photo is read with the
+   * same settings as every other call (the level from Inställningar, thinking
+   * on), as before. The app never sets it.
+   */
+  plainPhotoReading?: boolean;
 };
 
 /**
@@ -1161,7 +1169,10 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
     case "anthropic":
       if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set");
       return createModelAiService(
-        createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: model(env.AI_MODEL), effort, fetch: options.fetch }),
+        withoutPhotoReading(
+          createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: model(env.AI_MODEL), effort, fetch: options.fetch }),
+          options.plainPhotoReading,
+        ),
         options.limits,
       );
     case "openai":
@@ -1171,4 +1182,9 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
         options.limits,
       );
   }
+}
+
+/** The target without its fridge photo options when `plain` (the eval's "before"). */
+function withoutPhotoReading(target: ModelTarget, plain: boolean | undefined): ModelTarget {
+  return plain ? { ...target, photoReadingOptions: undefined } : target;
 }

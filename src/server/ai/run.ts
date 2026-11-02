@@ -44,6 +44,12 @@ export type ModelTarget = {
   /** Sampling for analyzeImage (Story 6.5); without it, the provider's defaults. */
   imageSampling?: Sampling;
   /**
+   * Kylfoto A: provider options for the fridge photo's reading (analyzeImage)
+   * only, over the target's own (Claude: effort `low`, and thinking off where
+   * the model allows it). Every other call is unchanged.
+   */
+  photoReadingOptions?: ProviderOptions;
+  /**
    * Story 6.6: the model is trained to point at things on a photo in
    * thousandths (0–1000), as Qwen's vision models are, so locateItems may ask
    * it. Without it, locateItems answers ai_unavailable at once and the photo
@@ -314,6 +320,12 @@ export function mergeProviderOptions(
   const merged: ProviderOptions = { ...base };
   for (const [provider, options] of Object.entries(extra)) merged[provider] = { ...merged[provider], ...options };
   return merged;
+}
+
+/** `sampling` with `extra` added to its provider options (extra's win on the same key). */
+export function withProviderOptions(sampling: Sampling | undefined, extra: ProviderOptions | undefined): Sampling | undefined {
+  if (!extra) return sampling;
+  return { ...sampling, providerOptions: mergeProviderOptions(sampling?.providerOptions, extra) };
 }
 
 /** The model answered, but its text is not JSON matching the schema. */

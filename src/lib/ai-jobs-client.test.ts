@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiJob } from "./ai-job-shape";
-import { createAiJobsClient, pollIntervalMs, type AiJobsEnv } from "./ai-jobs-client";
+import { createAiJobsClient, photoPollIntervalMs, pollIntervalFor, pollIntervalMs, type AiJobsEnv } from "./ai-jobs-client";
 import { fail, ok, type Result } from "./errors";
 
 // The client's store with a fake clock, a fake document and a fake server:
@@ -116,6 +116,38 @@ describe("polling", () => {
     expect(reads()).toBe(4);
     await advance(60_000);
     expect(reads()).toBe(4);
+  });
+
+  it("reads every second while a photo of a place is read, and every two seconds again after (Kylfoto A)", async () => {
+    list = ok({ jobs: [job(1, { kind: "analyze" }), job(2)] });
+    const client = createAiJobsClient(env);
+    client.init();
+    await flush();
+    expect(reads()).toBe(1);
+    await advance(photoPollIntervalMs - 1);
+    expect(reads()).toBe(1);
+    await advance(1);
+    expect(reads()).toBe(2);
+    await advance(photoPollIntervalMs);
+    expect(reads()).toBe(3);
+
+    // The photo is read; the other job still runs, so the list is read every two seconds again.
+    list = ok({ jobs: [job(1, { kind: "analyze", status: "done", count: 4 }), job(2)] });
+    await advance(photoPollIntervalMs);
+    expect(reads()).toBe(4);
+    await advance(pollIntervalMs - 1);
+    expect(reads()).toBe(4);
+    await advance(1);
+    expect(reads()).toBe(5);
+  });
+
+  it("picks a second only for an active photo job of a place", () => {
+    expect(photoPollIntervalMs).toBe(1_000);
+    expect(pollIntervalMs).toBe(2_000);
+    expect(pollIntervalFor([])).toBe(pollIntervalMs);
+    expect(pollIntervalFor([job(1, { kind: "analyze", status: "queued" })])).toBe(photoPollIntervalMs);
+    expect(pollIntervalFor([job(1, { kind: "analyze", status: "done", count: 2 })])).toBe(pollIntervalMs);
+    for (const kind of ["suggest", "import", "things"] as const) expect(pollIntervalFor([job(1, { kind })])).toBe(pollIntervalMs);
   });
 
   it("does not read while the tab is hidden, and reads once at once when it is shown again", async () => {
