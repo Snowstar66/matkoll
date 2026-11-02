@@ -802,16 +802,8 @@ export function ShoppingList({
       pendingFocus.current = { target, area: targetArea, key: line.key, checked, viaPointer };
     }
     toggle(line.key, checked);
+    // No toast: the line moving to I korgen and its check are the feedback, and a tap there takes it back.
     announce(checked ? inBasketAnnouncement(lineName(line)) : backOnListAnnouncement(lineName(line)));
-    // Story 3.9: a check can be taken back from the toast; only the latest one is shown.
-    if (checked) {
-      showToast(inBasketAnnouncement(lineName(line)).replace(/\.$/, ""), {
-        onUndo: () => {
-          toggle(line.key, false);
-          announce(backOnListAnnouncement(lineName(line)));
-        },
-      });
-    }
   };
   /** The saved checks of the latest taps, by line, to compare with the list once every save has settled. */
   const savedChecks = useRef(new Map<string, boolean>());

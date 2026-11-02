@@ -46,6 +46,15 @@ describe("MagicView", () => {
     expect(screen.getByText("AI arbetar med rättförslag.")).toBeInTheDocument();
   });
 
+  it("shows the AI ring in a hero size, not a cube", () => {
+    stubMotion(false);
+    render(<MagicView jobs={[job()]} />);
+    const ring = screen.getByTestId("magic-hero").querySelector(".ai-orb") as HTMLElement;
+    expect(ring.style.getPropertyValue("--ai-orb-size")).toBe("72px");
+    expect(screen.getByTestId("magic-hero").querySelector(".magic-face")).toBeNull();
+    expect(screen.getByTestId("magic-status")).toHaveClass("ai-shimmer");
+  });
+
   it("shows one fixed text with reduced motion", () => {
     stubMotion(true);
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });

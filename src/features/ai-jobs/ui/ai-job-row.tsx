@@ -14,7 +14,7 @@ import { AiOrb } from "@/components/ai-working";
 // opens the sheet AI-jobb. It has a name of its own for a screen reader
 // ("AI-jobb: Letar efter rättförslag, 2 i kö"), is at least 44 px high, and
 // says nothing by itself when it is polled (the provider's live region says
-// when a job starts). The dot pulses calmly, and stands still with "Minska
+// when a job starts). The ring turns and breathes calmly, and stands still with "Minska
 // rörelse".
 
 /**
@@ -57,7 +57,7 @@ export function AiJobRow({ variant }: { variant: "bar" | "side" }) {
         variant === "bar" ? "border-b border-hairline px-page" : "rounded-md border border-hairline px-3",
       )}
     >
-      <AiOrb size={16} />
+      <AiOrb />
       <span className="min-w-0 flex-1 truncate">{row.text}</span>
       <ChevronLeftIcon size={18} className="shrink-0 rotate-180 text-ink-3" />
     </button>
