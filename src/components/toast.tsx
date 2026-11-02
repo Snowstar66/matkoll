@@ -63,8 +63,10 @@ export function useToast(): ToastApi {
 }
 
 /**
- * Kort bekräftelse: a dark strip at the bottom, above the tab bar and above a
- * FixedAction when there is one. The message is announced through a live region
+ * Kort bekräftelse: a compact pill at the bottom, centred above the tab bar
+ * and above a FixedAction when there is one, on the lifted surface with the
+ * one float shadow (light) or a hairline edge (dark), and ink text; "Ångra"
+ * and "Visa" are green text buttons. The message is announced through a live region
  * that is always in the page, or as an alert for a failure; "Ångra" sits
  * outside it. At most one at a time; a
  * new one replaces the old. The time stands still while the strip is hovered or
@@ -173,10 +175,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusedId(null);
             }}
-            className="pointer-events-auto flex min-h-tap w-full max-w-content items-center gap-3 rounded-md bg-ink py-1 pr-1 pl-4 text-body text-surface shadow-float"
+            className="pointer-events-auto flex min-h-tap w-full max-w-toast items-center gap-1 rounded-xl bg-surface-2 py-0.5 pr-1 pl-5 text-control font-normal text-ink shadow-float motion-safe:animate-toast-in"
           >
             {/* The live region above already reads the message out. */}
-            <p aria-hidden="true" className="flex-1 py-2">
+            <p aria-hidden="true" className="flex-1 py-2.5 wrap-break-word">
               {toast.message}
             </p>
             {toast.show ? (
@@ -187,7 +189,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   replaceToast(null);
                   onShow?.();
                 }}
-                className="min-h-tap shrink-0 rounded-md px-3 text-body font-medium text-mint"
+                className="min-h-tap shrink-0 rounded-pill px-3.5 text-control font-semibold text-accent"
               >
                 {toast.show.label}
               </button>
@@ -200,7 +202,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   replaceToast(null, true);
                   undo?.();
                 }}
-                className="min-h-tap shrink-0 rounded-md px-3 text-body font-medium text-mint"
+                className="min-h-tap shrink-0 rounded-pill px-3.5 text-control font-semibold text-accent"
               >
                 {toast.undoLabel ?? "Ångra"}
               </button>

@@ -334,26 +334,19 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   expect(errors).toEqual([]);
 });
 
-test("a checked line stays visible and struck through, Ångra in the toast takes the check back, and a tap on it unchecks it (Story 3.9)", async ({ page }) => {
+test("a checked line stays visible and struck through in I korgen without a toast, and a tap on it unchecks it (Story 3.9)", async ({ page }) => {
   await seed();
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^5 varor kvar/);
 
-  // Check, then Ångra in the toast.
-  await actionsAnswered(page, 1, () => check(page, "Gul lök, 1 st").click());
-  const toast = page.getByTestId("toast").filter({ visible: true });
-  await expect(toast).toContainText("Gul lök i korgen");
-  await actionsAnswered(page, 1, () => toast.getByRole("button", { name: "Ångra" }).click());
-  await expect(region(page, "Frukt & grönt").getByRole("checkbox", { name: "Gul lök, 1 st" })).not.toBeChecked();
-  await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
-  expect(await storedChecks()).toEqual([]);
-
-  // Check again: the line is visible in I korgen, struck through, with a checked box.
+  // Check: the line moves to I korgen, struck through, with a checked box; no toast (the move is the feedback).
   await actionsAnswered(page, 1, () => check(page, "Gul lök, 1 st").click());
   const basket = region(page, "I korgen (1)");
   await expect(basket.getByText("Gul lök", { exact: true }).locator("..")).toHaveCSS("text-decoration-line", "line-through");
   await expect(basket.getByRole("checkbox", { name: "Gul lök, 1 st" })).toBeChecked();
+  await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
+  await expect(page.getByTestId("toast")).toHaveCount(0);
   // A tap on its box unchecks it, and it is back in its category.
   await actionsAnswered(page, 1, () => basket.getByRole("checkbox", { name: "Gul lök, 1 st" }).click());
   await expect(region(page, "Frukt & grönt").getByRole("checkbox", { name: "Gul lök, 1 st" })).not.toBeChecked();
