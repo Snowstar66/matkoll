@@ -1,10 +1,9 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
-import { enqueueAiJob, functionMs, runAiJob } from "@/features/ai-jobs/server";
+import { enqueueAiJob, runAiJob } from "@/features/ai-jobs/server";
 import { locationSchema } from "@/features/catalog";
-import { locatePlaceItems, lookUpSite, readPhoto } from "@/features/pantry/server";
-import { readingSchema } from "@/features/pantry";
+import { lookUpSite, readPhoto } from "@/features/pantry/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { imageSideTolerance, imageSizeOf, maxImageSide, maxPlacePhotoSide } from "@/lib/images";
 import { createClient } from "@/lib/supabase/server";
@@ -18,11 +17,11 @@ import { startImportJob } from "../start-import";
 // `kind` (analyze), `clientKey`, `location` (Kyl, Frys or Skafferi), `site`
 // (the id of the place Hemma showed, Story 8.4) and `takenAt`, and gets the job
 // back at once (202). In the background of this request, when it is the job's
-// turn in the queue, the job reads the photo and then looks up the numbers on
-// it; the reading is written as a partial result as soon as it is there (the
-// cards come first), the numbers with the end. A newer photo of the same place
-// replaces the job (`superseded`, enqueue_ai_job), and the guard of the job
-// stops it, so the numbers of a replaced photo are never looked up.
+// turn in the queue, the job reads the photo; since Kylfoto B the points of
+// the items on the photo come in the same answer, so the cards and their
+// numbers are the job's result together, with every model. A newer photo of
+// the same place replaces the job (`superseded`, enqueue_ai_job), and the
+// guard of the job stops it.
 //
 // The photo is only in this request's memory, in the closure of the job: never
 // in ai_job (its context is the place, the location and the time), on disk, in
@@ -35,13 +34,6 @@ import { startImportJob } from "../start-import";
 
 // The function lives as long as the longest job can wait and run (AD-28).
 export const maxDuration = 300;
-
-/** The numbers have at most this long (the AI port's locate attempt, AD-9). */
-const locateMs = 30_000;
-/** Less than this left of the function's time after the reading: the numbers are skipped. */
-const minLocateLeftMs = 40_000;
-/** Less than this left of the job's own time after the reading: the numbers are skipped. */
-const minLocateRunMs = 8_000;
 
 /** Story 12.6: a photo of a recipe to read; the fields are only its kind and key. */
 const importSchema = z.object({ kind: z.literal("import"), clientKey: z.uuid() });
@@ -114,32 +106,11 @@ export async function POST(request: Request): Promise<Response> {
   if (created) {
     const image = form.image;
     after(() =>
-      runAiJob(db, job, { startBy }, async (signal, deadline, report): Promise<Result<Json>> => {
+      runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
+        // Kylfoto B: the points on the photo come with the reading, so the cards and their numbers come together.
         const read = await readPhoto({ image, location, site: photoSite }, { signal, deadline });
         if (!read.ok) return read;
-        const reading = read.data;
-        // The cards first: the reading is the job's result as soon as it is there.
-        await report(asJson(reading));
-
-        // Numbers only when some card has an item to point at (Story 6.6); the comparison, made later, only hides some.
-        const parsedLabels = readingSchema.safeParse(reading.reading);
-        const labels = parsedLabels.success ? parsedLabels.data : [];
-        const numberable =
-          labels.length > 0 &&
-          reading.suggestions.some((suggestion) => (suggestion.itemNumbers ?? []).length > 0);
-        const functionLeft = requestStartedAt + functionMs - Date.now();
-        const runLeft = deadline - Date.now();
-        let points: Json = "skipped";
-        if (numberable && functionLeft >= minLocateLeftMs && runLeft >= minLocateRunMs && !signal.aborted) {
-          const located = await locatePlaceItems(
-            { image, labels },
-            { signal, deadline: Math.min(Date.now() + locateMs, deadline) },
-          );
-          // A lookup that fails leaves the cards without numbers; the job has still read the photo.
-          points = located.ok ? asJson(located.data) : "failed";
-          if (!located.ok) console.info("locate_failed", { code: located.error.code });
-        }
-        return ok(asJson({ ...reading, points }));
+        return ok(asJson(read.data));
       }),
     );
   }

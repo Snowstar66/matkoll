@@ -241,31 +241,16 @@ const itemText = () =>
     message: `At most ${maxPantryItemTextChars} characters`,
   });
 
-const pantryHintDescriptions = {
-  name: "Varan i grundform, t.ex. mellanmjölk",
-  section: "Avdelning i butiken",
-  location: "Plats hemma: Kyl, Frys eller Skafferi",
-  defaultUnit: "Enheten varan oftast köps i",
-} as const;
-
-/**
- * The shape the model answers per item in analyzeImage: types and fields
- * only, so strict JSON schemas take it, and one bad item never makes the
- * whole answer invalid. Each item is then checked on its own against
- * aiPantryItem (parseAnalyzeItems).
- */
 /** How sure the model is of an item (Story 6.5): "osäker" for a likely guess, e.g. a package partly hidden. */
 export const pantryItemConfidences = ["säker", "osäker"] as const;
-const confidenceDescription = "säker när du ser vad varan är, osäker när det är en trolig gissning";
 /** What reads as sure; anything else, or nothing, is "osäker". */
 const sureWords = new Set(["säker", "saker", "sure", "certain"]);
 
 /**
  * The confidence as the port keeps it: "säker" for säker, saker, sure or
- * certain (trimmed, any case), "osäker" for anything else or nothing. The
- * JSON schema still asks for the enum, so a strict provider decodes one of
- * the two, but an odd value or a missing field never makes an answer or an
- * item invalid: it only makes the item unsure.
+ * certain (trimmed, any case), "osäker" for anything else or nothing. An odd
+ * value or a missing field never makes an item invalid: it only makes the
+ * item unsure.
  */
 const confidence = () =>
   z.preprocess(
@@ -273,31 +258,45 @@ const confidence = () =>
     z.enum(pantryItemConfidences),
   );
 
-const aiPantryItemShape = z.object({
-  label: z.string().describe("Varan som den står på förpackningen, med märke, sort och storlek, t.ex. Arla mellanmjölk 1,5 l"),
-  confidence: confidence().describe(confidenceDescription),
-  amount: z
-    .number()
+/** The most other names the model gives for an item it is unsure of (Kylfoto B). */
+export const maxPantryAlternatives = 2;
+
+/**
+ * Kylfoto B: what the model answers per item in analyzeImage, in a short
+ * form, since every token of the answer takes time: the label (`l`), the
+ * name in base form (`n`), amount and unit (`q`, `u`), the store section
+ * (`s`), the item's middle on the photo (`p`, [x, y] in thousandths, so the
+ * numbers on the photo need no second call) and, only for an item the model
+ * is unsure of, other names it may be (`a`; null for a sure item, so `a`
+ * also says how sure it is). Where the item is kept comes from the place
+ * the photo shows, and the catalog's unit from `u`. Every property is
+ * required (nullable where it may be missing), so strict JSON schemas take
+ * it; types only, so one bad item never makes the whole answer invalid.
+ * Each item is then checked on its own (parseAnalyzeItems).
+ */
+const pantryPhotoItemShape = z.object({
+  l: z.string().describe("Varan som på förpackningen, med märke, sort och storlek"),
+  n: z.string().describe("Varan i grundform, t.ex. mellanmjölk"),
+  q: z.number().nullable().describe("Antal förpackningar eller styck, eller mängden som står; null om okänt"),
+  u: z.string().nullable().describe("Enheten till q, t.ex. förp eller st; null utan q"),
+  s: z.string().describe("Avdelning i butiken"),
+  p: z.array(z.number()).nullable().describe("[x, y] för varans mitt i tusendelar (0–1000) från bildens övre vänstra hörn"),
+  a: z
+    .array(z.string())
     .nullable()
-    .describe("Antal synliga förpackningar eller styck, eller mängden som står tydligt, annars null"),
-  unit: z.string().nullable().describe("Enheten till mängden, t.ex. förp eller st, null om mängden saknas"),
-  hint: z.object({
-    name: z.string().describe(pantryHintDescriptions.name),
-    section: z.string().describe(pantryHintDescriptions.section),
-    location: z.string().describe(pantryHintDescriptions.location),
-    defaultUnit: z.string().describe(pantryHintDescriptions.defaultUnit),
-  }),
+    .describe("null när du ser vad varan är; vid en trolig gissning högst två andra namn den kan vara, annars []"),
 });
 
 /**
- * What the model answers to analyzeImage: the food items it sees, an empty
- * list when there are none. No maxItems: strict JSON schemas do not take it,
- * so the prompt asks for at most inputLimits.analyze.maxItems and the caller
- * keeps the first ones. Only a broken answer as a whole (no list, a field of
- * the wrong type) is invalid and retried.
+ * What the model answers to analyzeImage: the food items it sees in the
+ * short form (pantryPhotoItemShape), an empty list when there are none. No
+ * maxItems: strict JSON schemas do not take it, so the prompt asks for at
+ * most inputLimits.analyze.maxItems and the caller keeps the first ones.
+ * Only a broken answer as a whole (no list, a field of the wrong type) is
+ * invalid and retried.
  */
 export const analyzeImageAnswer = z.object({
-  items: z.array(aiPantryItemShape).describe("Matvarorna som syns på bilden, tom lista om inga syns"),
+  i: z.array(pantryPhotoItemShape).describe("Matvarorna som syns på bilden, tom lista om inga syns"),
 });
 
 /**
@@ -324,9 +323,20 @@ export const minLoopRepeats = 2;
 /** Whether two units are the same as the model wrote them (trimmed, any case; none equals none). */
 const sameUnit = (a: string | null, b: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 
+/** Kylfoto B: an item's middle on the photo, in thousandths (0–1000) of its width and height from the top left corner. */
+export type ItemPoint = { x: number; y: number };
+
+/**
+ * Kylfoto B: an item of a photo as analyzeImage returns it: today's
+ * AiPantryItem, its point on the photo (`null` when the model gave none, or
+ * one that is not two numbers from 0 to 1000) and, for an unsure item, the
+ * other names the model gave (at most maxPantryAlternatives, else empty).
+ */
+export type PhotoItem = AiPantryItem & { point: ItemPoint | null; alternatives: string[] };
+
 /**
  * One item for copies with the same label key (labelKey): the first copy's
- * label and hint, "osäker" when any copy is, and its amount:
+ * label, hint and point, "osäker" when any copy is, and its amount:
  * - a single duplicate (two copies) adds the amounts when both have one in
  *   the same unit, since it may be two packages;
  * - a loop (minLoopRepeats repeats or more) keeps one amount, never the sum:
@@ -334,10 +344,10 @@ const sameUnit = (a: string | null, b: string | null) => (a ?? "").trim().toLowe
  * - otherwise, and in a loop, the first copy's amount, or the first one that
  *   has an amount when the first has none.
  */
-function mergeCopies(copies: readonly AiPantryItem[]): AiPantryItem {
+function mergeCopies(copies: readonly PhotoItem[]): PhotoItem {
   const [first] = copies;
   if (copies.length === 1) return first;
-  const merged: AiPantryItem = { ...first, confidence: copies.some((copy) => copy.confidence === "osäker") ? "osäker" : "säker" };
+  const merged: PhotoItem = { ...first, confidence: copies.some((copy) => copy.confidence === "osäker") ? "osäker" : "säker" };
   const [, second] = copies;
   if (copies.length === 2 && first.amount !== null && second.amount !== null && sameUnit(first.unit, second.unit)) {
     return { ...merged, amount: first.amount + second.amount };
@@ -347,27 +357,91 @@ function mergeCopies(copies: readonly AiPantryItem[]): AiPantryItem {
   return measured ? { ...merged, amount: measured.amount, unit: measured.unit } : merged;
 }
 
+const thousandth = z.number().min(0).max(1000);
+
+/** A point as [x, y] in thousandths, or `null` for anything else: a bad point never makes the item invalid. */
+function pointOf(value: unknown): ItemPoint | null {
+  const parsed = z.tuple([thousandth, thousandth]).safeParse(value);
+  return parsed.success ? { x: parsed.data[0], y: parsed.data[1] } : null;
+}
+
+/** The other names of an unsure item: one line each, not empty, not the item's own name, once each, the first maxPantryAlternatives. */
+function alternativesOf(value: unknown, name: string): string[] {
+  if (!Array.isArray(value)) return [];
+  const names: string[] = [];
+  const seen = new Set([labelKey(name)]);
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const cleaned = cleanModelText(entry);
+    const key = labelKey(cleaned);
+    if (cleaned === "" || cleaned.length > maxPantryItemTextChars || seen.has(key)) continue;
+    seen.add(key);
+    names.push(cleaned);
+  }
+  return names.slice(0, maxPantryAlternatives);
+}
+
+/** An item in the short form (Kylfoto B): its catalog unit comes from `u`, and may be empty, which the catalog reads as none. */
+const shortPantryItem = aiPantryItem.extend({
+  hint: z.object({ name: itemText(), section: itemText(), location: itemText(), defaultUnit: z.string().trim() }),
+});
+
 /**
- * The items of an answer that pass aiPantryItem, in order, how many did not
- * (`invalid`), and how often the model repeated one label (`repeated`, Story
- * 6.5: the most extra copies of one label key). Copies with the same
- * labelKey are one item (mergeCopies), at the first copy's place. A single
- * duplicate (`repeated` 1) is merged quietly; from minLoopRepeats it is a
- * repetition loop, and the caller decides what that means.
+ * One item of an answer as a PhotoItem, or `null` when it does not pass.
+ * The short form of Kylfoto B (`l`, `n`, `q`, `u`, `s`, `p`, `a`) is turned
+ * into today's AiPantryItem: an `a` list (or `o` set, as a lenient model may
+ * write it) makes it unsure, `place` is where it is kept, and `u` is the
+ * catalog's unit. The long form of before (`label`, `confidence`, `hint`, …)
+ * is still read, without a point, so an answer kept from before never breaks.
  */
-export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryItem[]; invalid: number; repeated: number } {
-  const byKey = new Map<string, AiPantryItem[]>();
+function toPhotoItem(value: unknown, place: string): PhotoItem | null {
+  if (typeof value !== "object" || value === null) return null;
+  const entry = value as Record<string, unknown>;
+  if ("label" in entry) {
+    const parsed = aiPantryItem.safeParse(entry);
+    return parsed.success ? { ...parsed.data, point: null, alternatives: [] } : null;
+  }
+  const unsure = Array.isArray(entry.a) || entry.o === 1 || entry.o === true;
+  const parsed = shortPantryItem.safeParse({
+    label: entry.l,
+    confidence: unsure ? "osäker" : "säker",
+    amount: entry.q ?? null,
+    unit: entry.u ?? null,
+    hint: { name: entry.n, section: entry.s, location: place, defaultUnit: typeof entry.u === "string" ? entry.u : "" },
+  });
+  if (!parsed.success) return null;
+  return {
+    ...parsed.data,
+    point: pointOf(entry.p),
+    alternatives: unsure ? alternativesOf(entry.a, parsed.data.hint.name) : [],
+  };
+}
+
+/**
+ * The items of an answer that pass, in order, as PhotoItems (toPhotoItem,
+ * with `place` as where they are kept), how many did not (`invalid`), and
+ * how often the model repeated one label (`repeated`, Story 6.5: the most
+ * extra copies of one label key). Copies with the same labelKey are one item
+ * (mergeCopies), at the first copy's place. A single duplicate (`repeated`
+ * 1) is merged quietly; from minLoopRepeats it is a repetition loop, and the
+ * caller decides what that means.
+ */
+export function parseAnalyzeItems(
+  items: readonly unknown[],
+  place: string,
+): { items: PhotoItem[]; invalid: number; repeated: number } {
+  const byKey = new Map<string, PhotoItem[]>();
   let invalid = 0;
   for (const item of items) {
-    const parsed = aiPantryItem.safeParse(item);
-    if (!parsed.success) {
+    const parsed = toPhotoItem(item, place);
+    if (!parsed) {
       invalid++;
       continue;
     }
-    const key = labelKey(parsed.data.label);
+    const key = labelKey(parsed.label);
     const copies = byKey.get(key);
-    if (copies) copies.push(parsed.data);
-    else byKey.set(key, [parsed.data]);
+    if (copies) copies.push(parsed);
+    else byKey.set(key, [parsed]);
   }
   const groups = [...byKey.values()];
   const repeated = groups.reduce((most, copies) => Math.max(most, copies.length - 1), 0);

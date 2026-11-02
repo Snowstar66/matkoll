@@ -39,8 +39,10 @@ import { labelKey } from "@/lib/label-key";
 // photo, and the reserved images give their error codes. analyzeImage answers
 // from the manifest's `analyze` part: <name>.analyze.json for the photo
 // <name>.png, keyed on the SHA-256 of the image bytes, and the default case
-// for any other photo, read through parseAnalyzeItems like a model's answer,
-// so repeated labels are merged and counted as the port does (Story 6.5);
+// for any other photo, read through parseAnalyzeItems like a model's answer
+// (Kylfoto B: the short form, with a point per item, so the numbers on the
+// photo come with the reading), so repeated labels are merged and counted as
+// the port does (Story 6.5);
 // the reserved images for ai_unavailable, ai_invalid and
 // ai_rejected give their codes (import_no_recipe means nothing to a photo of
 // a place, so it gets the default answer). locateItems (Story 6.6) answers
@@ -195,7 +197,8 @@ function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
   const byKey: AnalyzeFixtures["byKey"] = new Map();
   const answers = new Map<string, AnalyzeAnswer>();
   for (const { name } of manifest.analyze.cases) {
-    const { items, invalid, repeated } = parseAnalyzeItems(analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items);
+    // Kylfoto B: the short form with a point per item; the items are kept where a photo of the fridge keeps them.
+    const { items, invalid, repeated } = parseAnalyzeItems(analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).i, "Kyl");
     // Every item must pass on its own: a fixture is a valid answer.
     if (invalid > 0) throw new Error("invalid analyze fixture");
     answers.set(name, { items, repeated });
@@ -540,7 +543,8 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
-      return ok({ items: structuredClone(items), invalid: 0, repeated });
+      // Like the port, an item is kept where the photo was taken.
+      return ok({ items: items.map((item) => ({ ...structuredClone(item), hint: { ...item.hint, location: input.place } })), invalid: 0, repeated });
     },
     async locateItems(input, signal) {
       if (signal.aborted) return fail("ai_unavailable");

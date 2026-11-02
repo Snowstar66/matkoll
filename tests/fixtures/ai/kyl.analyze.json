@@ -1,46 +1,10 @@
 {
-  "items": [
-    {
-      "label": "Mellanmjölk 1,5 %",
-      "confidence": "säker",
-      "amount": 1,
-      "unit": "förp",
-      "hint": { "name": "mjölk", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
-    },
-    {
-      "label": "Vispgrädde 3 dl",
-      "confidence": "säker",
-      "amount": 1,
-      "unit": "förp",
-      "hint": { "name": "grädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
-    },
-    {
-      "label": "Smör 500 g",
-      "confidence": "säker",
-      "amount": 1,
-      "unit": "förp",
-      "hint": { "name": "smör", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
-    },
-    {
-      "label": "Ägg",
-      "confidence": "säker",
-      "amount": 6,
-      "unit": "st",
-      "hint": { "name": "ägg", "section": "Mejeri", "location": "Kyl", "defaultUnit": "st" }
-    },
-    {
-      "label": "Gurka",
-      "confidence": "säker",
-      "amount": 2,
-      "unit": null,
-      "hint": { "name": "gurka", "section": "Frukt och grönt", "location": "Kyl", "defaultUnit": "st" }
-    },
-    {
-      "label": "Ketchup",
-      "confidence": "säker",
-      "amount": 1,
-      "unit": "tub",
-      "hint": { "name": "ketchup", "section": "Skafferi", "location": "Skafferi", "defaultUnit": "förp" }
-    }
+  "i": [
+    {"l": "Mellanmjölk 1,5 %", "n": "mjölk", "q": 1, "u": "förp", "s": "Mejeri", "p": [193, 193], "a": null},
+    {"l": "Vispgrädde 3 dl", "n": "grädde", "q": 1, "u": "förp", "s": "Mejeri", "p": [432, 225], "a": null},
+    {"l": "Smör 500 g", "n": "smör", "q": 1, "u": "förp", "s": "Mejeri", "p": [661, 258], "a": null},
+    {"l": "Ägg", "n": "ägg", "q": 6, "u": "st", "s": "Mejeri", "p": [291, 567], "a": null},
+    {"l": "Gurka", "n": "gurka", "q": 2, "u": null, "s": "Frukt och grönt", "p": [694, 583], "a": null},
+    {"l": "Ketchup", "n": "ketchup", "q": 1, "u": "tub", "s": "Skafferi", "p": [146, 813], "a": null}
   ]
 }

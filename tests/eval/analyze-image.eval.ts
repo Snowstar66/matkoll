@@ -3,8 +3,7 @@ import { extname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
 import { maxPantrySuggestions } from "@/features/pantry/domain/pantry-suggestion";
-import { readingLabel } from "@/features/pantry/domain/photo-numbers";
-import { minLoopRepeats, type AiPantryItem } from "@/server/ai/schemas";
+import { minLoopRepeats, type AiPantryItem, type PhotoItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
 import { photoTypes, preparePhoto } from "./photos";
@@ -44,15 +43,13 @@ import {
 // (the lowest pairwise Jaccard when not), which never fails a run: at
 // temperature 0 they should agree (2026-10-26).
 //
-// Story 6.6: after each reading with items, the run also asks locateItems
-// for the points of the items on the same photo, as the app does after the
-// cards are shown: the first 25 items, as one-line labels (readingLabel).
-// The report gives the time of the reading, the time of the points and their
-// sum, and how many items got a point. A failed lookup fails the run; a
-// missing point does not.
+// Kylfoto B: the points of the items on the photo come in the same answer
+// (no second call), so the report says how many of the kept items (the first
+// 25) got a point, and how long the answer was in characters per item
+// (compact JSON, as the model writes it). A missing point never fails a run.
 //
-// Story 12.1: both calls are also timed the shared way (timing.ts): a row
-// "bildanalys <photo>" and a row "nummer <photo>" per run, with the tokens in
+// Story 12.1: the call is also timed the shared way (timing.ts): a row
+// "bildanalys <photo>" per run, with the tokens in
 // and out, under EVAL_LABEL, in tests/eval/reports/. Refuses to run
 // against the mock. Photos of a home only go to a model on this computer (LM
 // Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
@@ -72,9 +69,7 @@ type CaseResult = {
   wrong: string[];
   invalid?: number;
   repeated?: number;
-  items?: AiPantryItem[];
-  /** Story 6.6: the lookup of the points after the reading, when it had items. */
-  locate?: { seconds: number; error?: string; located?: number; labels: number; invalid?: number };
+  items?: PhotoItem[];
 };
 
 /** How many times each photo is sent: EVAL_RUNS, default 3 (Story 6.5), so the report shows whether the runs agree. */
@@ -182,33 +177,13 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
           startedAt,
         ),
       );
-      if (result.ok && result.data.items.length > 0) entry.locate = await locate(name, run, photo, result.data.items);
     }
     results.push(entry);
     expect(entry.error).toBeUndefined();
-    expect(entry.locate?.error).toBeUndefined();
     expect(isLoop(entry)).toBe(false);
     expect(entry.seconds).toBeLessThanOrEqual(maxRunSeconds);
   });
 });
-
-/** Story 6.6: the points of the items on the photo, timed, as the app asks for them after the reading. */
-async function locate(
-  name: string,
-  run: number,
-  photo: { data: Uint8Array; mediaType: string },
-  items: AiPantryItem[],
-): Promise<NonNullable<CaseResult["locate"]>> {
-  const labels = items.slice(0, maxPantrySuggestions).map((item) => readingLabel(item.label));
-  const state = machineState(env.AI_MODEL);
-  const startedAt = new Date();
-  const measured = await meter.measure(() => service.locateItems({ image: photo, labels }, AbortSignal.timeout(60_000)));
-  const { value: result, seconds } = measured;
-  timings.push(timingRow(`nummer ${name}`, run, state, measured, result.ok, startedAt));
-  return result.ok
-    ? { seconds, labels: labels.length, located: result.data.positions.length, invalid: result.data.invalid }
-    : { seconds, labels: labels.length, error: result.error.code };
-}
 
 afterAll(() => {
   if (results.length === 0) return;
@@ -230,8 +205,8 @@ afterAll(() => {
 function renderReport(): string {
   const timed = results.filter((result) => !result.error);
   const slowest = timed.length > 0 ? Math.max(...timed.map((result) => result.seconds)) : 0;
-  const locatedRuns = results.filter((result) => result.locate && !result.locate.error);
-  const slowestLocate = locatedRuns.length > 0 ? Math.max(...locatedRuns.map((result) => result.locate!.seconds)) : 0;
+  const kept = results.flatMap((result) => (result.items ?? []).slice(0, maxPantrySuggestions));
+  const pointed = kept.filter((item) => item.point !== null).length;
   const hits = results.reduce((sum, result) => sum + result.hits.length, 0);
   const expected = results.reduce((sum, result) => sum + result.hits.length + result.misses.length, 0);
   const lines = [
@@ -244,17 +219,17 @@ function renderReport(): string {
     `- Körningar: ${results.length}, varav ${results.filter((result) => result.error).length} med fel och ${results.filter(isLoop).length} med upprepningsslinga`,
     `- Träffar: ${hits} av ${expected} förväntade varor`,
     `- Längsta tid: ${slowest.toFixed(1)} s${slowest > maxRunSeconds ? ` (över ${maxRunSeconds} s: lägg frågan i docs/oppna-fragor.md)` : ""}`,
-    `- Punkter på fotot (Story 6.6): ${locatedRuns.length} av ${results.filter((result) => result.locate).length} uppslag lyckades, längsta ${slowestLocate.toFixed(1)} s`,
+    `- Punkter på fotot (Kylfoto B, i samma svar): ${pointed} av ${kept.length} varor`,
     "",
-    "| Foto | Körning | Plats | Tid (s) | Punkter (s) | Summa (s) | Punkter | Varor | Osäkra | Ogiltiga | Upprepningar | Slinga | Träffar | Missar | Felgissningar |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Foto | Körning | Plats | Tid (s) | Punkter | Tecken per vara | Varor | Osäkra | Ogiltiga | Upprepningar | Slinga | Träffar | Missar | Felgissningar |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...results.map((result) =>
       [
         result.name,
         String(result.run),
         result.place,
         result.error ? `Fel: ${result.error}` : result.seconds.toFixed(1),
-        ...locateCells(result),
+        ...pointCells(result),
         String(result.items?.length ?? "–"),
         String(result.items?.filter((item) => item.confidence === "osäker").length ?? "–"),
         String(result.invalid ?? "–"),
@@ -279,12 +254,12 @@ function renderReport(): string {
     lines.push(
       `## ${result.name}, körning ${result.run}`,
       "",
-      "| Som den syns | Grundform | Säkerhet | Mängd | Enhet |",
-      "| --- | --- | --- | --- | --- |",
+      "| Som den syns | Grundform | Säkerhet | Mängd | Enhet | Punkt |",
+      "| --- | --- | --- | --- | --- | --- |",
     );
     for (const item of result.items ?? []) {
       lines.push(
-        `| ${escapeCell(item.label)} | ${escapeCell(item.hint.name)} | ${item.confidence} | ${item.amount ?? "–"} | ${escapeCell(item.unit ?? "–")} |`,
+        `| ${escapeCell(item.label)} | ${escapeCell(item.hint.name)} | ${item.confidence} | ${item.amount ?? "–"} | ${escapeCell(item.unit ?? "–")} | ${item.point ? `${item.point.x}, ${item.point.y}` : "–"} |`,
       );
     }
     lines.push("");
@@ -292,15 +267,23 @@ function renderReport(): string {
   return `${lines.join("\n")}\n`;
 }
 
-/** Story 6.6: the lookup's time, the sum with the reading, and how many items got a point ("alla" when every one did). */
-function locateCells(result: CaseResult): string[] {
-  const { locate: located } = result;
-  if (!located) return ["–", "–", "–"];
-  if (located.error) return [`Fel: ${located.error}`, "–", "–"];
-  const count = located.located ?? 0;
-  const points = count === located.labels ? `alla ${count}` : `${count} av ${located.labels}`;
-  const invalid = located.invalid ? `, ${located.invalid} ogiltiga` : "";
-  return [located.seconds.toFixed(1), (result.seconds + located.seconds).toFixed(1), `${points}${invalid}`];
+/** Kylfoto B: how many kept items got a point ("alla" when every one did), and the answer's characters per item. */
+function pointCells(result: CaseResult): string[] {
+  if (!result.items || result.items.length === 0) return ["–", "–"];
+  const kept = result.items.slice(0, maxPantrySuggestions);
+  const count = kept.filter((item) => item.point !== null).length;
+  return [count === kept.length ? `alla ${count}` : `${count} av ${kept.length}`, String(Math.round(answerChars(kept) / kept.length))];
+}
+
+/** The items as the model writes them in the short form, in compact JSON: an estimate of the answer's length (merged copies are not counted). */
+function answerChars(items: readonly PhotoItem[]): number {
+  return JSON.stringify({ i: items.map(shortForm) }).length;
+}
+
+function shortForm(item: PhotoItem) {
+  const point = item.point ? [item.point.x, item.point.y] : null;
+  const alternatives = item.confidence === "osäker" ? item.alternatives : null;
+  return { l: item.label, n: item.hint.name, q: item.amount, u: item.unit, s: item.hint.section, p: point, a: alternatives };
 }
 
 /** The item names of a run as a set: the labels as they are seen, normalised. */

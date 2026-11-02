@@ -57,7 +57,7 @@ import {
   parseRecipeAnswer,
   parseThings,
   suggestDishesAnswerCompactFor,
-  type AiPantryItem,
+  type PhotoItem,
   type AiRecipe,
   type AiThing,
   type ItemPosition,
@@ -120,12 +120,13 @@ export const analyzePlaces = ["Kyl", "Frys", "Skafferi"] as const;
 export type AnalyzePlace = (typeof analyzePlaces)[number];
 
 /**
- * What analyzeImage answers: the items that passed aiPantryItem, in the
- * model's order, how many did not (`invalid`), and the most extra copies of
- * one label the model gave (`repeated`, Story 6.5): copies are merged into
- * one item, and from minLoopRepeats the answer is a repetition loop.
+ * What analyzeImage answers: the items that passed, in the model's order,
+ * each with its point on the photo when the model gave one (Kylfoto B), how
+ * many did not pass (`invalid`), and the most extra copies of one label the
+ * model gave (`repeated`, Story 6.5): copies are merged into one item, and
+ * from minLoopRepeats the answer is a repetition loop.
  */
-export type AnalyzeImageResult = { items: AiPantryItem[]; invalid: number; repeated: number };
+export type AnalyzeImageResult = { items: PhotoItem[]; invalid: number; repeated: number };
 
 export type AnalyzeImageInput = {
   /** A photo of the place, already resized in the client (AD-15). Never stored or logged. */
@@ -305,7 +306,8 @@ export interface AiService {
   /**
    * Where on the photo each of the numbered labels is (Story 6.6): a second
    * call after analyzeImage with the same photo, which never changes the
-   * reading. One point [x, y] in thousandths per label, each checked on its
+   * reading. Since Kylfoto B no photo job asks it: analyzeImage gives each
+   * item's point in the same answer, with every model. One point [x, y] in thousandths per label, each checked on its
    * own (parseItemPositions): a bad one is left out and counted in
    * `invalid`. Its own short budget (locateLimitsFrom: one attempt of at most
    * 30 s), since the numbers are extra. Only for a target that supports
@@ -755,7 +757,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      return ok(parseAnalyzeItems(answer.data.items));
+      return ok(parseAnalyzeItems(answer.data.i, input.place));
     },
     async listThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);

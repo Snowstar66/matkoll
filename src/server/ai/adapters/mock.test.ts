@@ -7,7 +7,7 @@ import { answerShape, checkSuggestions, type SuggestExpected } from "../../../..
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
 import { fromCompactDish } from "../compact-dish";
 import {
-  aiPantryItem,
+  locateItemsAnswer,
   aiRecipe,
   analyzeImageAnswer,
   listThingsAnswer,
@@ -367,17 +367,25 @@ describe("mock suggestDishes", () => {
 describe("mock analyzeImage", () => {
   const service = createMockAiService();
   const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
-  const raw = (name: string) => analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items;
-  const answer = (name: string) => raw(name).map((item) => aiPantryItem.parse(item));
-  const answered = (name: string) => ({ ok: true, data: parseAnalyzeItems(raw(name)) });
+  const raw = (name: string) => analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).i;
+  const answered = (name: string, place = "Kyl") => ({ ok: true, data: parseAnalyzeItems(raw(name), place) });
+  const answer = (name: string) => answered(name).data.items;
 
   it.each(manifest.analyze.cases.map(({ name }) => [name]))("answers the photo %s.png with its fixture", async (name) => {
     expect(await service.analyzeImage({ image: photo(`${name}.png`), place: "Kyl" }, signal())).toEqual(answered(name));
   });
 
-  it("answers any other photo with the default case, whatever the place", async () => {
+  it("answers any other photo with the default case, kept in the place of the photo", async () => {
     const other = { data: new Uint8Array([1, 2, 3]), mediaType: "image/jpeg" };
-    expect(await service.analyzeImage({ image: other, place: "Frys" }, signal())).toEqual(answered(manifest.analyze.default));
+    expect(await service.analyzeImage({ image: other, place: "Frys" }, signal())).toEqual(answered(manifest.analyze.default, "Frys"));
+  });
+
+  it("gives every item of the fixtures a point in the short form (Kylfoto B), the ones of kyl as kyl.locate.json has them", () => {
+    for (const { name } of manifest.analyze.cases) {
+      for (const item of raw(name)) expect(item.p).toHaveLength(2);
+    }
+    const located = locateItemsAnswer.parse(JSON.parse(read("kyl.locate.json"))).positions;
+    expect(answer("kyl").map((item) => item.point)).toEqual(located.map(({ position: [x, y] }) => ({ x, y })));
   });
 
   it("has the six items of Flöde 3 in kyl, and none in tom-hylla", () => {
@@ -402,6 +410,11 @@ describe("mock analyzeImage", () => {
       ["Lantmejeriet vispgrädde 36 % 3 dl", "vispgrädde", "säker"],
       ["Solgården apelsinjuice 1 l", "apelsinjuice", "säker"],
       ["Gul flaska, troligen senap", "senap", "osäker"],
+    ]);
+    expect(result.data.items.map(({ point, alternatives }) => [point, alternatives])).toEqual([
+      [{ x: 238, y: 229 }, []],
+      [{ x: 193, y: 500 }, []],
+      [{ x: 138, y: 200 }, ["dijonsenap"]],
     ]);
     expect(result.data).toMatchObject({ invalid: 0, repeated: 3 });
   });
@@ -453,8 +466,8 @@ describe("mock analyzeImage", () => {
     try {
       cpSync(dir, copy, { recursive: true });
       // Of the right shape, but an item that does not pass on its own: a fixture must be a valid answer.
-      const fixture = JSON.parse(read("kyl.analyze.json")) as { items: { amount: number | null }[] };
-      fixture.items[0].amount = -1;
+      const fixture = JSON.parse(read("kyl.analyze.json")) as { i: { q: number | null }[] };
+      fixture.i[0].q = -1;
       writeFileSync(join(copy, "kyl.analyze.json"), JSON.stringify(fixture));
       const broken = createMockAiService(copy);
       expect(await broken.parseRecipe({ text: read("linssoppa.txt") }, signal())).toEqual({ ok: true, data: response("linssoppa") });
@@ -511,14 +524,6 @@ describe("mock locateItems (Story 6.6)", () => {
         invalid: 4,
       },
     });
-  });
-
-  it("has a locate case for every analyze case with items", () => {
-    const located = new Set(manifest.locate.cases.map(({ name }) => name));
-    for (const { name } of manifest.analyze.cases) {
-      const items = analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items;
-      if (items.length > 0) expect(located.has(name)).toBe(true);
-    }
   });
 
   it.each(mockAnalyzeErrorCodes.map((code) => [code]))("fails with %s for its reserved image", async (code) => {
