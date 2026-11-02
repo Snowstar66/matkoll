@@ -55,8 +55,9 @@ type Coverage = {
 const coveredInFeedbackTest = ["app_owner", "feedback"];
 
 // Story 21.2a: the household itself, its members and its invitations. Covered
-// below in "the household and its members".
-const householdTables = ["household", "household_invite", "household_member"];
+// below in "the household and its members". Story 21.2b: the count of wrong
+// invitation codes, which no client reads or writes (household-members.test.ts).
+const householdTables = ["household", "household_code_attempt", "household_invite", "household_member"];
 
 // Story 21.2a: the tables that stay a person's own, not the household's: a
 // co-member sees none of their rows. Every other covered table is the
@@ -907,12 +908,17 @@ describe("household isolation", () => {
       "rename_thing_room", "replace_box_things", "restore_thing_count", "search_things", "set_thing_quantity", "stop_thing_count",
       "thing_clear_counts", "thing_place_counts", "thing_room_merge_moves", "thing_room_things", "thing_room_written",
       "thing_unseen_by_room", "undo_thing_change", "my_household_id", "is_household_member",
+      // Story 21.2b: tried with A's ids below ("the household's functions") and in household-members.test.ts.
+      "revoke_household_invite", "restore_household_invite", "remove_household_member", "make_household_owner",
+      "accept_household_invite", "household_invite_preview",
     ];
     const ownHouseholdOnly = [
       // Locks, defaults and sweeps of the caller's own household, and reads without arguments.
       "ai_job_expire", "ai_job_lock", "meal_plan_lock", "pantry_lock", "store_lock", "meal_plan_close_past", "ensure_pantry_defaults",
       "ensure_user_defaults", "pantry_photo_orphans", "pantry_site_item_counts", "pantry_session_site", "ai_usage_month",
       "clear_other_store_offers", "enqueue_ai_job", "commit_ingredients", "is_app_owner",
+      // Story 21.2b: the caller's own household and name (household-members.test.ts tries each).
+      "create_household_invite", "household_invites", "household_members", "leave_household", "rename_household", "set_my_display_name",
       // Pure functions of their arguments.
       "catalog_display_name", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
@@ -1023,6 +1029,53 @@ describe("household isolation", () => {
   });
 
   // Story 21.2a: who made a row and whose it is never change under RLS.
+  // Story 21.2b: B tries the household's functions with A's ids and A's invitation; nothing of A's
+  // changes, and B's own household and name are B's. household-members.test.ts tries each in depth.
+  describe("the household's functions with A's ids", () => {
+    it("give B nothing of A's and change nothing of A's", async () => {
+      const made = await a.db.rpc("create_household_invite");
+      expect(made.error).toBeNull();
+      const invite = made.data![0]!;
+      const before = JSON.stringify([
+        (await adminClient().from("household").select("*").eq("id", householdA)).data,
+        (await adminClient().from("household_member").select("*").eq("household_id", householdA).order("user_id")).data,
+        (await adminClient().from("household_invite").select("*").eq("household_id", householdA).order("id")).data,
+      ]);
+      expect((await b.db.rpc("revoke_household_invite", { invite_id: invite.id })).data, "b revokes A's invitation").toBe(false);
+      expect((await b.db.rpc("restore_household_invite", { invite_id: invite.id })).data).toBe(false);
+      expect((await b.db.rpc("remove_household_member", { member: a2.id })).error?.code, "b removes a2").toBe("MK455");
+      expect((await b.db.rpc("make_household_owner", { member: a2.id })).error?.code, "b makes a2 owner").toBe("MK455");
+      expect((await b.db.rpc("household_invites")).data?.some((row) => row.id === invite.id) ?? false).toBe(false);
+      expect((await b.db.rpc("household_members")).data?.map((row) => row.user_id)).toEqual([b.id]);
+      expect((await b.db.rpc("rename_household", { new_name: "Kapat" })).error).toBeNull();
+      expect((await b.db.rpc("set_my_display_name", { new_name: "Bertil" })).error).toBeNull();
+      const after = JSON.stringify([
+        (await adminClient().from("household").select("*").eq("id", householdA)).data,
+        (await adminClient().from("household_member").select("*").eq("household_id", householdA).order("user_id")).data,
+        (await adminClient().from("household_invite").select("*").eq("household_id", householdA).order("id")).data,
+      ]);
+      expect(after, "A unchanged").toBe(before);
+      expect((await adminClient().from("household").select("name").eq("id", householdB).single()).data?.name).toBe("Kapat");
+      const anon = anonClient();
+      for (const [name, args] of [
+        ["create_household_invite", {}],
+        ["revoke_household_invite", { invite_id: invite.id }],
+        ["restore_household_invite", { invite_id: invite.id }],
+        ["household_invites", {}],
+        ["household_members", {}],
+        ["accept_household_invite", { code: invite.code }],
+        ["leave_household", {}],
+        ["remove_household_member", { member: a2.id }],
+        ["make_household_owner", { member: a2.id }],
+        ["rename_household", { new_name: "Kapat" }],
+        ["set_my_display_name", { new_name: "Kapat" }],
+      ] as const) {
+        expect((await anon.rpc(name, args as never)).error?.code, `anon calls ${name}`).toBe("42501");
+      }
+      expect((await a.db.rpc("revoke_household_invite", { invite_id: invite.id })).data).toBe(true);
+    });
+  });
+
   describe("the maker and the household of a row", () => {
     it("are refused to a co-member and to the maker, and a photo keeps its folder", async () => {
       const recipe = aSeed.recipeId;

@@ -4,6 +4,7 @@ import { errorMessages } from "@/lib/errors";
 import { resumeDevAutoLogin } from "@/features/auth/server";
 import { devAutoLoginApplies } from "@/lib/supabase/dev-auto-login-server";
 import { LoginForm } from "@/features/auth/ui/login-form";
+import { CodeEntry } from "@/features/household/ui/code-entry";
 import { AppLogo } from "@/components/app-logo";
 import { appName, appTagline } from "@/app/app-info";
 
@@ -34,12 +35,16 @@ async function LoginFormWithParams({ searchParams }: Pick<PageProps<"/logga-in">
   const notices: Record<string, string> = {
     lank: errorMessages.auth_link_invalid,
     atkomst: errorMessages.auth_not_allowed,
+    // Story 21.2b: after Lämna hushållet, for someone let in only through the household.
+    lamnat: "Du har lämnat hushållet. Tillbaka kommer du med en ny inbjudan.",
   };
   const notice = typeof params.fel === "string" ? notices[params.fel] : undefined;
   const showResume = await devAutoLoginApplies();
   return (
     <>
       <LoginForm next={next} notice={notice} />
+      {/* Story 21.2b: someone invited without the link types the code here and goes on to /ga-med. */}
+      <CodeEntry collapsed />
       {showResume ? (
         <form action={resumeDevAutoLogin}>
           <button type="submit" className="text-body text-accent underline">
