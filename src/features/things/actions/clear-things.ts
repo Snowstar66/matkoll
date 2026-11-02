@@ -6,13 +6,14 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
 import { clearThingsIn } from "../data/clear";
-import { loadSiteCardFilesIn, removeCardFiles } from "../data/photos";
+import { formerMembersFiles, loadMemberIdsIn, loadSiteCardFilesIn, removeCardFiles } from "../data/photos";
 import { loadRoomIn } from "../data/rooms";
 import { clearInputSchema, clearSiteWord, matchesClearWord, type ClearCounts } from "../domain/thing-clear";
 import { sweepCardFilesIn } from "./sweep-card-files";
 
 // "Rensa rummet" and "Rensa förrådet" (Story 18.15): everything of Förråd in a
-// room, or in a boende, is removed for the signed-in user only. The rows go in
+// room, or in a boende, is removed for the signed-in user's household, the
+// files of every member's cards too (Story 21.2b). The rows go in
 // one database function (clear_things, under the user's lock); the files go
 // with the Storage API (AD-26), once more on a failure, and a file that is left
 // anyway has no row, so the sweep of the next card takes it. Matvaror is never
@@ -46,11 +47,20 @@ async function clear(input: ClearInput): Promise<Result<ClearCounts>> {
 
   // The files are listed first, to take those without a row too (the rows are gone after the call).
   let listed: string[] = [];
+  let members: string[] = [user.data.id];
   try {
-    listed = await loadSiteCardFilesIn(db, user.data.id, siteId, roomKey);
+    members = await loadMemberIdsIn(db);
+    listed = await loadSiteCardFilesIn(db, members, siteId, roomKey);
   } catch (error) {
     // The function's own list of removed cards is still used; the sweep takes the rest.
     console.error("things_photo_remove_failed", { reason: error instanceof ThingsDataError ? error.detail : "list_threw" });
+  }
+  // Story 21.2b: the files of members who have left are the household's only while their rows and
+  // places are there, so they go first.
+  const former = formerMembersFiles(listed, members);
+  if (former.length > 0) {
+    const { failed } = await removeCardFiles(db, former);
+    if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
   }
 
   let removed;
@@ -66,8 +76,8 @@ async function clear(input: ClearInput): Promise<Result<ClearCounts>> {
     return fail("things_place_gone");
   }
 
-  // Only the user's own folder is touched, as the bucket's policies say as well.
-  const paths = [...new Set([...listed, ...removed.paths])].filter((path) => path.startsWith(`${user.data.id}/`));
+  // Every member's files (Story 21.2b); the bucket's policies keep it to the household's.
+  const paths = [...new Set([...listed, ...removed.paths])].filter((path) => !former.includes(path));
   const { failed } = await removeCardFiles(db, paths);
   if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
   else void sweepCardFilesIn(db, user.data.id).catch(() => {});

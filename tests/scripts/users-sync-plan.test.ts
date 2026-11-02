@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  householdMembersLetIn,
   parseAllowedEmails,
   planUserSync,
   pruneBanDuration,
@@ -49,6 +50,22 @@ describe("planUserSync", () => {
   it("deletes users outside the list with prune", () => {
     const plan = planUserSync(["pontus@example.com"], existing, { prune: true });
     expect(plan.remove).toEqual([existing[1]]);
+  });
+
+  // Story 21.2b: an invited member of an allowed household is the household's, not an extra user.
+  it("keeps the members of a household with someone on the list, also with prune", () => {
+    const users = [...existing, { id: "3", email: "martina@example.com" }, { id: "4", email: "alone@example.com" }];
+    const memberships = [
+      { household_id: "h1", user_id: "1" },
+      { household_id: "h1", user_id: "3" },
+      { household_id: "h2", user_id: "2" },
+      { household_id: "h3", user_id: "4" },
+    ];
+    const members = householdMembersLetIn(["pontus@example.com"], users, memberships);
+    expect([...members].sort()).toEqual(["1", "3"]);
+    const plan = planUserSync(["pontus@example.com"], users, { prune: true, members });
+    expect(plan.household).toEqual([users[2]]);
+    expect(plan.remove).toEqual([users[1], users[3]]);
   });
 
   it("is idempotent: a second run creates nothing", () => {

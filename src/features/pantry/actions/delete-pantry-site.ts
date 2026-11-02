@@ -50,7 +50,7 @@ export async function deletePantrySite(input: { id: string }): Promise<Result<{ 
     const db = await createClient();
     const photoPaths = await sitePhotoPaths(db, parsed.data.id);
     // Prylar's card files (Story 18.2): the cascade takes the rows of the boende's cards, not their files.
-    const cardFiles = await loadSiteCardFiles(parsed.data.id, user.data.id);
+    const cardFiles = await loadSiteCardFiles(parsed.data.id);
     const outcome = await deleteSiteIn(db, parsed.data.id);
     revalidateFor("pantry_site");
     if (outcome.kind === "in_use") return fail("pantry_site_in_use");

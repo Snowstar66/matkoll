@@ -121,6 +121,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"household_code_attempt": {
+                  Row: {
+                    "attempted_at": string,"id": number,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempted_at"?: string,"id"?: never,"user_id"?: string | null
+                  }
+                  Update: {
+                    "attempted_at"?: string,"id"?: never,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"household_invite": {
                   Row: {
                     "code_hash": string,"created_at": string,"created_by": string | null,"expires_at": string,"household_id": string,"id": string,"revoked_at": string | null,"used_at": string | null,"used_by": string | null
@@ -143,14 +157,14 @@ isOneToOne: false
                   ]
                 },"household_member": {
                   Row: {
-                    "color": string,"display_name": string,"household_id": string,"joined_at": string,"role": string,"user_id": string
+                    "color": string,"display_name": string,"household_id": string,"joined_at": string,"named_at": string | null,"role": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "color"?: string,"display_name": string,"household_id": string,"joined_at"?: string,"role"?: string,"user_id": string
+                    "color"?: string,"display_name": string,"household_id": string,"joined_at"?: string,"named_at"?: string | null,"role"?: string,"user_id": string
                   }
                   Update: {
-                    "color"?: string,"display_name"?: string,"household_id"?: string,"joined_at"?: string,"role"?: string,"user_id"?: string
+                    "color"?: string,"display_name"?: string,"household_id"?: string,"joined_at"?: string,"named_at"?: string | null,"role"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -791,7 +805,12 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "add_card_things":
+            "accept_household_invite":
+{ Args: { "code": string }; Returns: {
+              "household_id": string,"household_name": string
+            }[]
+                           },
+"add_card_things":
 { Args: { "photo": string,"things": Json }; Returns: number
                            },
 "add_items_by_api_key":
@@ -905,6 +924,11 @@ isOneToOne: false
 "copy_meal_plan":
 { Args: { "source_plan": string,"target_week": string }; Returns: number
                            },
+"create_household_invite":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "code": string,"expires_at": string,"id": string
+            }[]
+                           },
 "delete_expired_pantry_photos":
 { Args: { "photo_ids": (string)[],"taken_before": string }; Returns: string[]
                            },
@@ -938,17 +962,63 @@ isOneToOne: false
 "hide_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: Json
                            },
+"household_code_limit":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"household_code_locked":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "household_default_name":
 { Args: { "display_name": string }; Returns: string
                            },
 "household_display_name":
 { Args: { "email": string }; Returns: string
                            },
+"household_has_data":
+{ Args: { "hid": string }; Returns: boolean
+                           },
+"household_invite_hash":
+{ Args: { "code": string }; Returns: string
+                           },
+"household_invite_preview":
+{ Args: { "code": string }; Returns: Json
+                           },
+"household_invites":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "created_at": string,"created_by_name": string,"expires_at": string,"id": string
+            }[]
+                           },
+"household_member_out":
+{ Args: { "who": string }; Returns: Record<string, unknown>
+                           },
+"household_members":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "color": string,"display_name": string,"email": string,"is_me": boolean,"joined_at": string,"named": boolean,"role": string,"user_id": string
+            }[]
+                           },
+"household_new_for":
+{ Args: { "named": string,"shown": string,"who": string }; Returns: string
+                           },
+"household_next_color":
+{ Args: { "hid": string }; Returns: string
+                           },
+"household_open_invite":
+{ Args: { "code": string }; Returns: string
+                           },
+"household_signup_hook":
+{ Args: { "event": Json }; Returns: Json
+                           },
 "is_app_owner":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "is_household_member":
 { Args: { "hid": string }; Returns: boolean
+                           },
+"leave_household":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"make_household_owner":
+{ Args: { "member": string }; Returns: undefined
                            },
 "mark_ai_job_seen":
 { Args: { "job_id": string }; Returns: undefined
@@ -1018,6 +1088,9 @@ isOneToOne: false
 "remember_thing":
 { Args: { "place": string,"replaces"?: string,"thing_category": string,"thing_name": string }; Returns: string
                            },
+"remove_household_member":
+{ Args: { "member": string }; Returns: undefined
+                           },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {
               "amount": number | null,
@@ -1039,11 +1112,17 @@ isOneToOne: false
 "remove_thing_place":
 { Args: { "place": string }; Returns: Json
                            },
+"rename_household":
+{ Args: { "new_name": string }; Returns: string
+                           },
 "rename_thing_room":
 { Args: { "in_room": string,"new_key": string,"new_name": string,"site": string }; Returns: Json
                            },
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
+                           },
+"restore_household_invite":
+{ Args: { "invite_id": string }; Returns: boolean
                            },
 "restore_pantry_item":
 { Args: { "item": Json,"site"?: string }; Returns: {
@@ -1093,6 +1172,9 @@ isOneToOne: false
                            },
 "restore_thing_count":
 { Args: { "amount": number,"changes": Json,"item": string }; Returns: undefined
+                           },
+"revoke_household_invite":
+{ Args: { "invite_id": string }; Returns: boolean
                            },
 "save_pantry_photo":
 { Args: { "photo_height": number,"photo_id": string,"photo_path": string,"photo_points"?: Json,"photo_reading": Json,"photo_taken_at": string,"photo_type": string,"photo_width": number,"place": string,"site": string }; Returns: {
@@ -1210,6 +1292,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"set_my_display_name":
+{ Args: { "new_name": string }; Returns: string
+                           },
 "set_pantry_items":
 { Args: { "items": Json,"replace_id"?: string,"site"?: string }; Returns: {
               "amount": number | null,

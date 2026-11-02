@@ -249,7 +249,7 @@ describe("deletePantrySite", () => {
       // Read before the delete, removed after it.
       expect(loadSiteCardFiles.mock.invocationCallOrder[0]).toBeLessThan(deleteSiteIn.mock.invocationCallOrder[0]);
       expect(removeSiteCardFiles.mock.invocationCallOrder[0]).toBeGreaterThan(deleteSiteIn.mock.invocationCallOrder[0]);
-      expect(loadSiteCardFiles).toHaveBeenCalledWith(stugan, "user");
+      expect(loadSiteCardFiles).toHaveBeenCalledWith(stugan);
       expect(removeSiteCardFiles).toHaveBeenCalledWith(cards);
     });
 
