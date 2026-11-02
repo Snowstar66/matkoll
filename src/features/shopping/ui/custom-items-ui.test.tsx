@@ -345,7 +345,7 @@ describe("removing an own item", () => {
     await waitFor(() => expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toHaveFocus());
 
     rerender(<ShoppingList plan={plan} lines={[disk]} pantryUnavailable={false} />);
-    await waitFor(() => expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument());
   });
 
   it("focuses Lägg till vara when the last line goes", async () => {
@@ -354,7 +354,7 @@ describe("removing an own item", () => {
     act(() => screen.getByRole("button", { name: "Svep bort diskmedel" }).focus());
     await user.keyboard("{Enter}");
     await waitFor(() => expect(screen.getByRole("button", { name: "Lägg till vara" })).toHaveFocus());
-    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
   });
 });
 

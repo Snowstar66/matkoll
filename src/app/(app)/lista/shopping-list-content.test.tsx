@@ -12,7 +12,12 @@ vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
 const redirect = vi.fn((url: string) => {
   throw new Error(`redirect ${url}`);
 });
-vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url), useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => redirect(url),
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+const getWeekCounts = vi.hoisted(() => vi.fn<(weeks: string[]) => Promise<Record<string, number>>>());
+vi.mock("@/features/mealplan/server", () => ({ getWeekCounts: (weeks: string[]) => getWeekCounts(weeks) }));
 vi.mock("@/features/shopping/actions/set-checked", () => ({ setChecked: vi.fn() }));
 vi.mock("@/features/shopping/actions/add-custom-item", () => ({ addCustomItem: vi.fn() }));
 vi.mock("@/features/shopping/actions/remove-custom-item", () => ({ removeCustomItem: vi.fn() }));
@@ -44,6 +49,7 @@ const stuganSite: PantrySite = { id: "55555555-5555-4555-8555-555555555555", nam
 
 beforeEach(() => {
   listPantrySites.mockReset().mockResolvedValue([hemmaSite, stuganSite]);
+  getWeekCounts.mockReset().mockResolvedValue({});
 });
 
 /** A list with one dish whose needs are all in the pantry, counted against `site`. */
@@ -98,10 +104,41 @@ describe("ShoppingListContent", () => {
       }),
     );
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
-    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     // Checks an interrupted "Lägg till i Matvaror" left behind keep the button reachable.
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
+  });
+
+  it("shows one list, Att handla, with the week as a quiet menu, and a week without dishes offers to plan it", async () => {
+    const now = new Date();
+    const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
+    const thisWeek = currentWeekStart(now);
+    const nextWeek = addWeeks(thisWeek, 1);
+    getWeekCounts.mockResolvedValue({ [thisWeek]: 2 });
+    vi.mocked(getShoppingList).mockResolvedValue(
+      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0, ...noChoices }),
+    );
+    const { unmount } = render(
+      <ToastProvider>{await ShoppingListContent({ searchParams: Promise.resolve({ vecka: weekParam(nextWeek) }) })}</ToastProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "Att handla" })).toBeInTheDocument();
+    expect(screen.queryByTestId("week-nav")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vecka: Nästa vecka, inga rätter" })).toBeInTheDocument();
+    expect(getShoppingList).toHaveBeenLastCalledWith(nextWeek);
+    expect(screen.getByText("Inga rätter på matsedeln nästa vecka.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", `/matsedel?vecka=${weekParam(nextWeek)}`);
+    await userEvent.click(screen.getByRole("button", { name: /^Vecka:/ }));
+    expect((await screen.findAllByTestId("week-menu-option")).map((row) => row.textContent)).toEqual([
+      "Denna vecka2 rätter",
+      "Nästa veckaInga rätter",
+      "Om 2 veckorInga rätter",
+    ]);
+    unmount();
+
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", "/matsedel");
   });
 
   it("passes the selected store and its product choices on to the line's detail", async () => {
@@ -250,10 +287,10 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     const { container } = render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
-    expect(screen.getByText("Allt finns i Matvaror för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.")).toBeInTheDocument();
     // The button comes before the week picker and the list (Story 19.2: directly under the title).
     const line = screen.getByRole("button", { name: /^Boende: / });
-    const list = screen.getByText("Allt finns i Matvaror för Stugan.");
+    const list = screen.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.");
     expect(container).toContainElement(line);
     expect(line.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -264,7 +301,7 @@ describe("ShoppingListContent", () => {
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
-    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
   });
 
   it("shows the list without a line when the places cannot be read", async () => {
@@ -272,7 +309,7 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
-    expect(screen.getByText("Allt finns i Matvaror för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.")).toBeInTheDocument();
   });
 
   it("shows the list without a line, and logs only the error's name, when the places fail unexpectedly", async () => {
@@ -281,7 +318,7 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByRole("button", { name: /^Boende: / })).toBeNull();
-    expect(screen.getByText("Allt finns i Matvaror för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.")).toBeInTheDocument();
     expect(log).toHaveBeenCalledWith("pantry_sites_unavailable", { reason: "TypeError" });
     log.mockRestore();
   });

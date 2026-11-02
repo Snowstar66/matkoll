@@ -165,6 +165,11 @@ export function weekFillText(count: number): string {
   return count === 0 ? "Tom" : count === 1 ? "1 rätt" : `${count} rätter`;
 }
 
+/** A week's dishes in the week menu on Inköpslista: "Inga rätter", "1 rätt", "3 rätter". */
+export function weekDishesText(count: number): string {
+  return count === 0 ? "Inga rätter" : count === 1 ? "1 rätt" : `${count} rätter`;
+}
+
 /** "Kopierade 5 rätter till vecka 46". */
 export function copiedText(count: number, weekStart: string): string {
   return `Kopierade ${count === 1 ? "1 rätt" : `${count} rätter`} till vecka ${weekNumber(weekStart)}`;

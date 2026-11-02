@@ -151,7 +151,7 @@ test("Lägg till i Matvaror puts the checked lines in the pantry, takes them off
   await putButton(page).click();
   await expect(toast(page)).toContainText("Lagt 4 varor: 2 i kyl, 2 i skafferi.");
   await expect(lines(page)).toHaveCount(0);
-  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Allt till veckans rätter finns redan hemma.").filter({ visible: true })).toBeVisible();
   await expect(putButton(page)).toHaveCount(0);
 
   // Matvaror: the catalog's locations, increased or created, and unlimited for salt and kaffe.
