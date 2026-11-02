@@ -495,6 +495,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   // The card, with its date, is untouched.
   const cardAfter = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
   expect(cardAfter).toEqual(cardBefore);
+
 });
 
 test("search finds a thing in every room and boende, and the chat answers a question with a card to tap", async ({ page }) => {
@@ -931,10 +932,16 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await page.getByRole("button", { name: "Verktyg · 1" }).click();
   await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog");
-  await expect(sheet.getByRole("radio", { name: /Verktyg/ })).toBeChecked();
+  // The category is one row (Pontus 2 Nov); a tap goes one level deeper in the same sheet, and a pick comes back.
+  await expect(sheet.getByRole("radio")).toHaveCount(0);
   await expect(sheet.getByLabel("Var på bilden")).toHaveValue("på väggen");
   await shot(page, "1-thing-sheet");
-  await sheet.getByRole("radio", { name: /Trädgård/ }).click();
+  await sheet.getByRole("button", { name: "Kategori, Verktyg" }).click();
+  await expect(sheet.getByRole("button", { name: "Tillbaka" })).toBeVisible();
+  await expect(sheet.getByRole("radio")).toHaveCount(9);
+  await expect(sheet.getByRole("radio", { name: "Verktyg" })).toBeChecked();
+  await sheet.getByRole("radio", { name: "Trädgård" }).click();
+  await expect(sheet.getByRole("button", { name: "Kategori, Trädgård" })).toBeFocused();
   await sheet.getByLabel("Var på bilden").fill("översta hyllan");
   await sheet.getByRole("button", { name: "Spara" }).click();
   await expect(page.getByRole("button", { name: "Trädgård · 1" })).toBeVisible();
