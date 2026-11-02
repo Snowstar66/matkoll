@@ -397,6 +397,8 @@ describe("ShoppingList checks", () => {
     await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Grädde i korgen."));
     // Pontus's own check is not a recount.
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
+    // No toast: the move and the check are the feedback.
+    expect(screen.queryByTestId("toast")).not.toBeInTheDocument();
 
     const show = screen.getByRole("button", { name: /^Visa I korgen/ });
     expect(show).toHaveAttribute("aria-expanded", "false");

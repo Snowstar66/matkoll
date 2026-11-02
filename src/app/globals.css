@@ -172,6 +172,8 @@
   --glass: rgba(255, 255, 255, 0.78);
   --settings-menu-width: 320px;
   --dialog-max: 560px;
+  /* Kort bekräftelse: a compact pill, never wider than this. */
+  --toast-max: 360px;
   --thumb-list: 72px;
   --button-height: 52px;
   --fixed-action-gap: 12px;
@@ -277,6 +279,19 @@
    * round the check that fades. An outline, since there are no shadows. Only
    * used with motion-safe; with "Minska rörelse" the ring stands still.
    */
+  /* Kort bekräftelse rises a little and fades in. Only used with motion-safe. */
+  --animate-toast-in: toast-in 180ms ease-out;
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   --animate-ignored-tap: ignored-tap 400ms ease-out;
   @keyframes ignored-tap {
     from {
@@ -420,6 +435,7 @@
   --container-frame-wide: var(--frame-wide);
   --color-glass: var(--glass);
   --container-dialog: var(--dialog-max);
+  --container-toast: var(--toast-max);
 }
 
 @layer base {
@@ -477,30 +493,30 @@
 }
 
 /*
- * AiWorking (Story 16.15, demo ai-vanta.html B + A): a small glowing orb that
- * turns and breathes, and a text a light sweeps through. The colours of the
- * orb are the brand's green, mint and sand in both themes. With "Minska
- * rörelse" (no-preference is the only case that animates) the orb and the text
- * stand still.
+ * AiWorking (Story 16.15, demo ai-vanta.html B + A): a glowing ring that turns
+ * slowly and breathes, and a text a light sweeps through. The ring is the
+ * brand's green, mint and sand in both themes; its middle is see-through (a
+ * mask, not a painted hole), so it sits on any surface. The glow grows with
+ * the size. With "Minska rörelse" (no-preference is the only case that
+ * animates) the ring and the text stand still.
  */
 .ai-orb {
-  --ai-orb-size: 26px;
+  --ai-orb-size: 40px;
   width: var(--ai-orb-size);
   height: var(--ai-orb-size);
   flex: none;
   position: relative;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #3e7c62, #8fd3b0, #e9b872, #3e7c62);
-  filter: blur(0.3px);
-  box-shadow: 0 0 14px rgba(62, 124, 98, 0.55);
+  box-shadow: 0 0 calc(var(--ai-orb-size) * 0.4) color-mix(in srgb, var(--accent) 45%, transparent);
 }
-.ai-orb::after {
+.ai-orb::before {
   content: "";
   position: absolute;
-  inset: 20%;
+  inset: 0;
   border-radius: 50%;
-  background: var(--ai-orb-hole, var(--bg));
-  opacity: 0.55;
+  background: conic-gradient(from 0deg, #3e7c62, #8fd3b0, #e9b872, #3e7c62);
+  -webkit-mask: radial-gradient(closest-side, rgb(0 0 0 / 0.18) 56%, #000 60%);
+  mask: radial-gradient(closest-side, rgb(0 0 0 / 0.18) 56%, #000 60%);
 }
 .ai-shimmer {
   font-weight: 600;
@@ -508,9 +524,10 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .ai-orb {
-    animation:
-      ai-spin 2.4s linear infinite,
-      ai-breathe 1.6s ease-in-out infinite;
+    animation: ai-breathe 3s ease-in-out infinite;
+  }
+  .ai-orb::before {
+    animation: ai-spin 4s linear infinite;
   }
   .ai-shimmer {
     background: linear-gradient(90deg, var(--ink-2) 0%, var(--ink-2) 40%, var(--accent) 50%, var(--ink-2) 60%, var(--ink-2) 100%);
@@ -518,7 +535,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: ai-sweep 1.8s linear infinite;
+    animation: ai-sweep 2.2s linear infinite;
   }
 }
 @keyframes ai-spin {
@@ -528,8 +545,8 @@
 }
 @keyframes ai-breathe {
   50% {
-    box-shadow: 0 0 22px rgba(233, 184, 114, 0.75);
-    scale: 1.08;
+    box-shadow: 0 0 calc(var(--ai-orb-size) * 0.6) color-mix(in srgb, var(--warm) 60%, transparent);
+    scale: 1.05;
   }
 }
 @keyframes ai-sweep {

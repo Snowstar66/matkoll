@@ -47,8 +47,8 @@ const textPairs: [string, string, string][] = [
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
   ["accent", "surface", "active tab label, heart, text button in a sheet"],
   ["accent", "bg", "text button on the page"],
-  ["surface", "ink", "toast text"],
-  ["mint", "ink", "Ångra in the toast"],
+  ["ink", "surface-2", "toast text (a compact pill since fix/lugnare-ui)"],
+  ["accent", "surface-2", "Ångra and Visa in the toast"],
 ];
 
 describe("design tokens", () => {
