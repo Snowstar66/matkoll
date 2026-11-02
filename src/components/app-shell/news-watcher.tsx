@@ -4,11 +4,11 @@ import { usePathname } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { badgeOptedIn, showAppBadge } from "@/lib/app-badge";
 import { newsTabOf } from "@/lib/news";
-import { newsClient, useNews } from "@/lib/news-client";
+import { newsClient, useNews, useNoteNews } from "@/lib/news-client";
 import { idleAfterMs, idleRefreshMs } from "../use-live-refresh";
 
 // Brickor (Story 23.1) and the app icon's number (Story 23.2): reads what is
-// new on Inköpslista and in Förråd when the app opens, when it is shown again
+// new on Inköpslista and in Förråd, and the notes waiting (Story 24.1), when the app opens, when it is shown again
 // or back online, on every move between pages, and every half minute while it
 // is visible (once a minute when nobody has used it for a while). One small
 // GET, much slower than the live pages' own reads. Renders nothing.
@@ -29,7 +29,9 @@ export function NewsWatcher() {
 function Watcher() {
   const pathname = usePathname();
   const news = useNews();
-  const total = news.lista.length + news.prylar.length;
+  // Story 24.1: a note from another member that waits counts too, until someone marks it Klar.
+  const notes = useNoteNews();
+  const total = news.lista.length + news.prylar.length + notes.length;
 
   // The tab open now counts as seen, and so does the one just left.
   useEffect(() => {

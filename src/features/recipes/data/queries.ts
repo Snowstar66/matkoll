@@ -161,6 +161,13 @@ async function allPages<Row>(page: (from: number, to: number) => Page<Row>): Pro
   }
 }
 
+/** Every recipe's id and title, newest first, for finding a dish named in a note (Story 24.1). Throws RecipeDataError. */
+export async function listRecipeTitlesIn(db: RecipesDb): Promise<{ id: string; title: string }[]> {
+  return allPages((from, to) =>
+    db.from("recipe").select("id, title").order("created_at", { ascending: false }).order("id").range(from, to),
+  );
+}
+
 export type ListOptions = { favoritesOnly?: boolean };
 
 /**

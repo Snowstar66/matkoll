@@ -10,6 +10,8 @@ import { initialOf } from "@/features/household";
 import { getMe } from "@/features/household/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
+import { addToCurrentPlan } from "@/features/mealplan/server";
+import { NotesProvider } from "@/features/notes/ui/notes-provider";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
@@ -41,7 +43,7 @@ async function SideBoende() {
 // is part of the shell, above the tabs and in the side menu. Story 17.2: the
 // one-time privacy note sits above every page until Okej is pressed on the device.
 // Story 20.1: the first time, the welcome tour comes first (WelcomeGate), and the
-// note only after it.
+// note only after it. Story 24.1: a note from someone in the household lies under each tab's title.
 export default function AppLayout({ children }: { children: ReactNode }) {
   // Story 19.2: the P button and the side menu show who is signed in. The promise, not the session, goes down (AD-18).
   // Story 21.2b: the person's own name and shade in the household (decision 4), the address's first part until known.
@@ -68,6 +70,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <ToastProvider>
       <AiJobsProvider>
         <SavedImports />
+        {/* Story 24.1: the household's notes, read by the client (the layout never waits for them), under each tab's title. */}
+        <NotesProvider addToPlan={addToCurrentPlan}>
         {/* Story 16.14: the boende is selected in the side menu or under the page title, so what waits while it is saved is above both. */}
         <SiteSwitchProvider>
           <AppShell
@@ -84,6 +88,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {children}
           </AppShell>
         </SiteSwitchProvider>
+        </NotesProvider>
       </AiJobsProvider>
     </ToastProvider>
     </AccountProvider>
