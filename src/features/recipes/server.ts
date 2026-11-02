@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getRecipe as getRecipeIn,
   getRecipesByIdsIn,
+  listRecipeTitlesIn,
   listRecipes as listRecipesIn,
   type ListOptions,
 } from "./data/queries";
@@ -132,4 +133,12 @@ export async function getIngredientRecipeCounts(): Promise<Map<string, number>> 
  */
 export async function listRecipeRows(): Promise<RecipeListRow[]> {
   return listRecipesIn(await createClient());
+}
+
+/**
+ * The household's recipes as id and title only, newest first, for the rules
+ * that find a dish named in a note (Story 24.1). Throws RecipeDataError.
+ */
+export async function listRecipeTitles(): Promise<{ id: string; title: string }[]> {
+  return listRecipeTitlesIn(await createClient());
 }

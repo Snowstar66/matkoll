@@ -10,7 +10,7 @@ const serverNow = Date.UTC(2026, 10, 1, 9);
 
 function setup(news: { lista?: string[]; prylar?: string[] } = {}, deviceNow = serverNow - 2_000) {
   const storage = new Map<string, string>();
-  const answers: { lista: string[]; prylar: string[] }[] = [];
+  const answers: { lista: string[]; prylar: string[]; notes?: string[] }[] = [];
   const asked: string[] = [];
   let pending: ((response: Response) => void)[] = [];
   let hold = false;
@@ -116,5 +116,26 @@ describe("the news client", () => {
     await failing.refresh();
     expect(failing.getSnapshot()).toEqual({ lista: [], prylar: [] });
     expect(client.getSnapshot().lista).toEqual(["item:1"]);
+  });
+
+  // Story 24.1: a note another member wrote counts in the total until someone marks it Klar.
+  it("keeps the household's waiting notes apart from the tabs, also while a tab is open, and drops them once Klar", async () => {
+    const { client, answers } = setup();
+    expect(client.getNotes()).toEqual([]);
+    await client.refresh();
+    expect(client.getNotes()).toEqual([]);
+    client.setCurrent("lista");
+    answers.push({ lista: ["item:a"], prylar: [], notes: ["note:n1", "note:n2"] });
+    await client.refresh();
+    expect(client.getSnapshot()).toEqual({ lista: [], prylar: [] });
+    expect(client.getNotes()).toEqual(["note:n1", "note:n2"]);
+    // The same answer again keeps the same list, so nothing renders anew.
+    const shown = client.getNotes();
+    answers.push({ lista: [], prylar: [], notes: ["note:n1", "note:n2"] });
+    await client.refresh();
+    expect(client.getNotes()).toBe(shown);
+    // An answer without notes (Klar for both) takes them away.
+    await client.refresh();
+    expect(client.getNotes()).toEqual([]);
   });
 });

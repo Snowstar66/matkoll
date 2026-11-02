@@ -33,14 +33,21 @@ export type LiveRefreshOptions = {
   busy: boolean;
   /** True when the page knows the connection is poor (e.g. queued offline ticks wait): no reads until it is false again. */
   paused?: boolean;
+  /**
+   * What a read is, when it is not the page's own (router.refresh): Story 24.1's note card
+   * reads GET /api/notes on the same pace, without reading the whole page again.
+   */
+  refresh?: () => void;
 };
 
-export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = false }: LiveRefreshOptions): void {
+export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = false, refresh }: LiveRefreshOptions): void {
   const router = useRouter();
   const busyRef = useRef(busy);
+  const refreshRef = useRef(refresh);
   useEffect(() => {
     busyRef.current = busy;
-  }, [busy]);
+    refreshRef.current = refresh;
+  }, [busy, refresh]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,7 +58,9 @@ export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = fals
       isBusy: () => busyRef.current,
       // A read that fails offline would fall back to a full page load (Story 17.8): never try one then.
       refresh: () => {
-        if (navigator.onLine) router.refresh();
+        if (!navigator.onLine) return;
+        if (refreshRef.current) refreshRef.current();
+        else router.refresh();
       },
     });
 

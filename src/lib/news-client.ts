@@ -32,6 +32,7 @@ const ownStorageKey = "livskoll.news.own";
 export type NewsSnapshot = Readonly<Record<NewsTab, readonly string[]>>;
 
 const emptySnapshot: NewsSnapshot = { lista: [], prylar: [] };
+const noNotes: readonly string[] = [];
 
 /** What the client needs from the browser, so it can be tried without one. */
 export type NewsEnv = {
@@ -46,6 +47,8 @@ export type NewsClient = ReturnType<typeof createNewsClient>;
 
 export function createNewsClient(env: NewsEnv) {
   let snapshot: NewsSnapshot = emptySnapshot;
+  /** The household's notes from someone else that wait (Story 24.1): no tab, only the total. */
+  let notes: readonly string[] = noNotes;
   const listeners = new Set<() => void>();
   /** Server time minus this device's time, from the last answer, so last seen is in the server's time. */
   let skewMs = 0;
@@ -85,6 +88,7 @@ export function createNewsClient(env: NewsEnv) {
       return () => listeners.delete(listener);
     },
     getSnapshot: () => snapshot,
+    getNotes: () => notes,
 
     /** The tab now open (null for any other page). The tab left and the tab opened both count as seen. */
     setCurrent(tab: NewsTab | null) {
@@ -128,6 +132,8 @@ export function createNewsClient(env: NewsEnv) {
       const serverNow = Date.parse(answer.now);
       if (Number.isFinite(serverNow)) skewMs = serverNow - env.now();
       const mine = own();
+      const waiting = answer.news.notes;
+      if (waiting.length !== notes.length || waiting.some((key, index) => key !== notes[index])) notes = waiting.length > 0 ? waiting : noNotes;
       for (const tab of newsTabs) {
         // A tab never seen here starts now: what was there before is not news.
         if (seen[tab] === undefined && lastSeen()[tab] === undefined && Number.isFinite(serverNow)) storeSeen(tab, serverNow);
@@ -179,9 +185,16 @@ export function noteOwnNews(key: string): void {
 }
 
 const noSubscribe = () => () => {};
+const noNotesSnapshot = () => noNotes;
 
 /** Each tab's news from someone else since this device last looked; nothing on the server. */
 export function useNews(): NewsSnapshot {
   const client = newsClient();
   return useSyncExternalStore(client?.subscribe ?? noSubscribe, client?.getSnapshot ?? (() => emptySnapshot), () => emptySnapshot);
+}
+
+/** The household's notes from someone else that nobody has marked Klar (Story 24.1): they add to the total, not to a tab. */
+export function useNoteNews(): readonly string[] {
+  const client = newsClient();
+  return useSyncExternalStore(client?.subscribe ?? noSubscribe, client?.getNotes ?? noNotesSnapshot, noNotesSnapshot);
 }
