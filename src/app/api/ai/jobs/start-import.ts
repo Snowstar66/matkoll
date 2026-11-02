@@ -1,8 +1,8 @@
 import { after } from "next/server";
-import { enqueueAiJob, runAiJob } from "@/features/ai-jobs/server";
+import { enqueueAiJob, isAiJobRunning, runAiJob } from "@/features/ai-jobs/server";
 import type { ImportInput } from "@/features/recipes";
 import { importRecipe, prepareImport, saveRecipe } from "@/features/recipes/server";
-import { ok, type Result } from "@/lib/errors";
+import { fail, ok, type Result } from "@/lib/errors";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { respond } from "../route-support";
@@ -36,6 +36,8 @@ export async function startImportJob(input: ImportInput, clientKey: string, requ
       runAiJob(db, job, { startBy }, async (signal): Promise<Result<Json>> => {
         const result = await importRecipe(input, { signal });
         if (!result.ok) return result;
+        // Cancelled while it was read (the guard only looks every few seconds): nothing is saved.
+        if (signal.aborted || !(await isAiJobRunning(db, job.id))) return fail("ai_unavailable");
         // Story 1.15: the recipe is saved as it finishes, with the preview's own defaults (the
         // catalog's matches and the new ingredients' proposals). The recipe's id is the job's id, so
         // a retry or a second run never makes a copy. A save that fails leaves the draft in the
