@@ -41,7 +41,12 @@ vi.mock("@/features/ai-jobs/server", () => ({
 
 type Image = { data: Uint8Array; mediaType: string };
 const lookUpSite = vi.fn<(siteId: string | undefined) => Promise<unknown>>();
-const readPhoto = vi.fn<(input: { image: Image; location: string; site: unknown }, options: { signal: AbortSignal; deadline?: number }) => Promise<Result<unknown>>>();
+const readPhoto = vi.fn<
+  (
+    input: { image: Image; location: string; site: unknown },
+    options: { signal: AbortSignal; deadline?: number; timings?: Record<string, number> },
+  ) => Promise<Result<unknown>>
+>();
 vi.mock("@/features/pantry/server", () => ({
   lookUpSite: (id: string | undefined) => lookUpSite(id),
   readPhoto: (...args: Parameters<typeof readPhoto>) => readPhoto(...args),
@@ -64,7 +69,7 @@ const hemma = { id: siteId, name: "Hemma" };
 
 function form(
   data: Uint8Array | null,
-  fields: Partial<Record<"kind" | "clientKey" | "location" | "site" | "takenAt", string | null>> = {},
+  fields: Partial<Record<"kind" | "clientKey" | "location" | "site" | "takenAt" | "downscaleMs", string | null>> = {},
 ): FormData {
   const values = { kind: "analyze", clientKey, location: "Kyl", site: siteId, takenAt, ...fields };
   const body = new FormData();
@@ -86,8 +91,8 @@ async function post(init: { body?: BodyInit; headers?: Record<string, string> } 
 }
 
 /** Runs the work the route gave runAiJob, with a fresh signal and `deadline`, and says what it reported and returned. */
-async function runWork(deadline = Date.now() + 120_000, signal = new AbortController().signal) {
-  await POST(await post());
+async function runWork(deadline = Date.now() + 120_000, signal = new AbortController().signal, body?: FormData) {
+  await POST(await post(body ? { body } : {}));
   for (const callback of afterCallbacks) await callback();
   afterCallbacks = [];
   const work = runAiJob.mock.calls[0][3];
@@ -166,10 +171,40 @@ describe("POST /api/ai/jobs/photo", () => {
     expect(readInput.site).toEqual(hemma);
     expect(readInput.image.mediaType).toBe("image/png");
     expect(Buffer.from(readInput.image.data).equals(Buffer.from(png))).toBe(true);
-    expect(readOptions).toEqual({ signal, deadline });
+    expect(readOptions).toEqual({ signal, deadline, timings: {} });
     // The cards and their numbers come together, as the job's result.
     expect(reported).toEqual([]);
     expect(result).toEqual(ok(reading));
+  });
+
+  it("logs analyze_timing with milliseconds per step, the photo's side and bytes, and never a name (Kylfoto A)", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    readPhoto.mockImplementation(async (_input, options) => {
+      Object.assign(options.timings ?? {}, { modelMs: 4_200, postMs: 120 });
+      return ok(reading);
+    });
+    await runWork(undefined, undefined, form(png, { downscaleMs: "310" }));
+    const logged = info.mock.calls.filter(([event]) => event === "analyze_timing");
+    expect(logged).toHaveLength(1);
+    const timing = logged[0][1] as Record<string, unknown>;
+    expect(timing).toMatchObject({ downscaleMs: 310, modelMs: 4_200, postMs: 120, outcome: "ok", bytes: png.byteLength });
+    expect(Object.keys(timing).sort()).toEqual(
+      ["bytes", "downscaleMs", "modelMs", "outcome", "postMs", "queueMs", "side", "totalMs", "uploadMs"].sort(),
+    );
+    expect(timing.side).toBeGreaterThan(0);
+    for (const key of ["uploadMs", "queueMs", "totalMs"]) expect(Number.isInteger(timing[key])).toBe(true);
+    expect(JSON.stringify(info.mock.calls)).not.toMatch(/Mjölk|mjölk|Hemma|Kyl/);
+    info.mockRestore();
+  });
+
+  it("logs analyze_timing with the error code when the reading fails, and without the client's time when it sent none", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    readPhoto.mockResolvedValue(fail("ai_invalid"));
+    await runWork();
+    const timing = info.mock.calls.find(([event]) => event === "analyze_timing")?.[1] as Record<string, unknown>;
+    expect(timing).toMatchObject({ outcome: "ai_invalid" });
+    expect(timing).not.toHaveProperty("downscaleMs");
+    info.mockRestore();
   });
 
   it("passes on the error of the reading, and reports nothing", async () => {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { errorMessages, fail, ok, type ErrorCode, type Result } from "@/lib/errors";
+import { placePhotoSizeFor, type PlacePhotoSize } from "@/lib/images";
 import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
@@ -19,9 +20,9 @@ const photoSite = { id: testSite.id, name: "Hemma" };
 // for errors and an empty answer. The AI jobs and the resizing are stubbed.
 
 vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
-const downscaled = vi.hoisted(() => [] as { maxSide?: number }[]);
+const downscaled = vi.hoisted(() => [] as { maxSide?: number; quality?: number }[]);
 vi.mock("@/lib/downscale-image", () => ({
-  downscaleImage: async (file: Blob, options: { maxSide?: number } = {}): Promise<Result<Blob>> => {
+  downscaleImage: async (file: Blob, options: { maxSide?: number; quality?: number } = {}): Promise<Result<Blob>> => {
     downscaled.push(options);
     return ok(file);
   },
@@ -49,10 +50,10 @@ function pointer(coarse: boolean) {
   );
 }
 
-function Hemma({ location = "Kyl" }: { location?: Location }) {
+function Hemma({ location = "Kyl", photoSize }: { location?: Location; photoSize?: PlacePhotoSize }) {
   return (
     <ToastProvider>
-      <PantrySuggestionsProvider>
+      <PantrySuggestionsProvider photoSize={photoSize}>
         <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts it anew under the same provider. */}
           <PantryCamera key={location} site={photoSite} location={location} />
@@ -137,7 +138,16 @@ describe("PantryCamera", () => {
   it("resizes the photo of a place to at most 2048 px (Story 6.5)", async () => {
     render(<Hemma />);
     await photograph();
-    expect(downscaled).toEqual([{ maxSide: 2048 }]);
+    expect(downscaled).toEqual([{ maxSide: 2048, quality: 0.85 }]);
+  });
+
+  it("resizes the photo to 1600 px at quality 0.8 when Claude reads it, and sends how long that took (Kylfoto A)", async () => {
+    render(<Hemma photoSize={placePhotoSizeFor("anthropic")} />);
+    await photograph();
+    expect(downscaled).toEqual([{ maxSide: 1600, quality: 0.8 }]);
+    const sent = fakeAi.calls[0].form.get("downscaleMs");
+    expect(typeof sent).toBe("string");
+    expect(sent).toMatch(/^\d+$/);
   });
 
   it("shows Tittar på bilden … with Avbryt in the button's place, and the button takes focus after Avbryt", async () => {

@@ -55,6 +55,7 @@ export { PantryDataError } from "./data/client";
  * /api/ai/jobs (not Server Actions). Never writes (AD-2).
  */
 export { compareStoredReading, lookUpSite, readPhoto } from "./actions/analyze-place";
+export type { ReadPhotoTimings } from "./actions/analyze-place";
 export { storedReadingSchema, type StoredReading } from "./domain/photo-job";
 
 /**

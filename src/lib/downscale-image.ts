@@ -27,6 +27,12 @@ import {
 /** JPEG qualities to try, best first, until the photo fits in maxImageBytes. */
 export const jpegQualities = [0.85, 0.75, 0.65, 0.5] as const;
 
+/** The qualities tried, from `first` (Kylfoto A: 0.8 for Claude) down through the lower ones of jpegQualities. */
+export function qualitiesFrom(first: number | undefined): number[] {
+  if (first === undefined) return [...jpegQualities];
+  return [first, ...jpegQualities.filter((quality) => quality < first)];
+}
+
 /** How much of the file is read for its header (size and EXIF orientation). */
 const headerBytes = 128 * 1024;
 
@@ -171,7 +177,7 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 /**
  * The photo as it is sent: a JPEG of at most `maxSide` px on the longest side
  * (maxImageSide, 1600, unless given) and
- * at most 1.5 MB, with lower quality tried until it fits. A PNG that already
+ * at most 1.5 MB, from `quality` (0.85 unless given) down to lower ones until it fits. A PNG that already
  * fits, and that the browser shows at the size in its header (no rotation),
  * is sent with only its image chunks (stripPngMetadata: no text, EXIF or
  * time), since re-encoding only loses detail; one whose chunks cannot be
@@ -182,7 +188,7 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
  */
 export async function downscaleImage(
   file: Blob,
-  { maxSide = maxImageSide }: { maxSide?: number } = {},
+  { maxSide = maxImageSide, quality }: { maxSide?: number; quality?: number } = {},
 ): Promise<Result<Blob>> {
   const head = new Uint8Array(await file.slice(0, headerBytes).arrayBuffer());
   const type = imageTypeOf(head);
@@ -227,8 +233,8 @@ export async function downscaleImage(
     // No canvas, or no JPEG from it: the browser is out of memory for this photo.
     if (!canvas) return fail("image_too_large");
 
-    for (const quality of jpegQualities) {
-      const blob = await toJpeg(canvas, quality);
+    for (const tried of qualitiesFrom(quality)) {
+      const blob = await toJpeg(canvas, tried);
       if (!blob) return fail("image_too_large");
       if (blob.size <= maxImageBytes) return ok(blob);
     }

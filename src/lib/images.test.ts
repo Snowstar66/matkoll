@@ -18,7 +18,16 @@ import {
   webpVp8lHeader,
   webpVp8xHeader,
 } from "../../tests/support/image-headers";
-import { imageSizeOf, imageTypeOf, jpegOrientation, stripJpegMetadata, stripPngMetadata } from "./images";
+import {
+  imageSizeOf,
+  imageTypeOf,
+  jpegOrientation,
+  placePhotoForClaude,
+  placePhotoForQwen,
+  placePhotoSizeFor,
+  stripJpegMetadata,
+  stripPngMetadata,
+} from "./images";
 
 const bytes = (...values: (number | string)[]) =>
   new Uint8Array(values.flatMap((value) => (typeof value === "string" ? [...value].map((char) => char.charCodeAt(0)) : [value])));
@@ -218,5 +227,17 @@ describe("stripJpegMetadata", () => {
     ["only SOI and EOI", bytes(0xff, 0xd8, 0xff, 0xd9)],
   ])("gives null for %s", (_name, bytes) => {
     expect(stripJpegMetadata(bytes)).toBeNull();
+  });
+});
+
+describe("placePhotoSizeFor (Kylfoto A)", () => {
+  it("makes a fridge photo for Claude 1600 px at quality 0.8", () => {
+    expect(placePhotoSizeFor("anthropic")).toEqual({ maxSide: 1600, quality: 0.8 });
+    expect(placePhotoSizeFor("anthropic")).toBe(placePhotoForClaude);
+  });
+
+  it.each(["lmstudio", "mock", "openai", null, undefined])("keeps 2048 px at quality 0.85 for %s", (provider) => {
+    expect(placePhotoSizeFor(provider)).toEqual({ maxSide: 2048, quality: 0.85 });
+    expect(placePhotoSizeFor(provider)).toBe(placePhotoForQwen);
   });
 });

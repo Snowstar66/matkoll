@@ -15,6 +15,7 @@ import {
 import { useToast } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { fail, type AppError, type ErrorCode, type Result } from "@/lib/errors";
+import type { PlacePhotoSize } from "@/lib/images";
 import { newId } from "@/lib/new-id";
 import { confirmPantryInventory, type ConfirmedInventory } from "../actions/confirm-pantry-inventory";
 import { confirmPantrySuggestions } from "../actions/confirm-pantry-suggestions";
@@ -194,8 +195,8 @@ export function visibleCards(result: AnalyzeResult): { id: string }[] {
 }
 
 /** Holds the camera's analysis and its suggestions for Hemma. Put it above PantrySheetProvider; needs a ToastProvider above. */
-export function PantrySuggestionsProvider({ children }: { children: ReactNode }) {
-  const analysis = usePantryAnalysis();
+export function PantrySuggestionsProvider({ children, photoSize }: { children: ReactNode; photoSize?: PlacePhotoSize }) {
+  const analysis = usePantryAnalysis({ photoSize });
   const review = usePantryReview(analysis);
   return (
     <PantrySuggestionsContext.Provider value={{ ...analysis, ...review }}>{children}</PantrySuggestionsContext.Provider>

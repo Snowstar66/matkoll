@@ -10,13 +10,22 @@ import { fail, ok, type Result } from "./errors";
 // with POST /api/ai/jobs, and keeps the list of the jobs the app shows with
 // polling. No Supabase client in the browser and no Realtime (AD-2): the list
 // is read with GET /api/ai/jobs every two seconds while some job is queued or
-// running and the tab is visible, once when the tab is shown again, and once
+// running and the tab is visible (every second while a photo of a place is
+// read, Kylfoto A), once when the tab is shown again, and once
 // when the app loads. A result is fetched once with GET /api/ai/jobs/[id].
 // The state is shared by every component with useAiJobs() (useSyncExternalStore).
 // Nothing of a job is kept in localStorage, sessionStorage or IndexedDB.
 
 /** How often the list is read while a job is active. */
 export const pollIntervalMs = 2_000;
+
+/** Kylfoto A: how often while a photo of a place is read (`analyze`), so its cards show up to a second sooner. */
+export const photoPollIntervalMs = 1_000;
+
+/** The time to the next read: a second while a photo job is active, otherwise pollIntervalMs. */
+export function pollIntervalFor(jobs: readonly AiJob[]): number {
+  return jobs.some((job) => job.kind === "analyze" && isActive(job)) ? photoPollIntervalMs : pollIntervalMs;
+}
 
 /** A job that was just started is kept in the list this long, if a read that was on its way misses it. */
 const justStartedMs = 10_000;
@@ -95,7 +104,7 @@ export function createAiJobsClient(env: AiJobsEnv) {
     timer = env.setTimeout(() => {
       timer = null;
       void refresh().then(schedule);
-    }, pollIntervalMs);
+    }, pollIntervalFor(snapshot.jobs));
   }
 
   function stopTimer() {

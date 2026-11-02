@@ -12,6 +12,7 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/pantry/server")>()),
   listPantrySitesWithCounts: () => listPantrySitesWithCounts(),
 }));
+vi.mock("@/features/settings/server", () => ({ getAiPhotoProvider: vi.fn(async () => "mock") }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const searchParams = (plats?: string) => Promise.resolve(plats ? { plats } : {});

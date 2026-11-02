@@ -7,7 +7,6 @@ import { answerShape, checkSuggestions, type SuggestExpected } from "../../../..
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
 import { fromCompactDish } from "../compact-dish";
 import {
-  locateItemsAnswer,
   aiRecipe,
   analyzeImageAnswer,
   listThingsAnswer,
@@ -39,7 +38,6 @@ type Manifest = {
   suggest: string;
   suggestAlternatives: string[];
   analyze: { default: string; cases: { name: string }[] };
-  locate: { default: string; cases: { name: string }[] };
   things: string;
 };
 const manifest = JSON.parse(read("manifest.json")) as Manifest;
@@ -269,22 +267,20 @@ describe("mock suggestDishes", () => {
       expect(await stopped).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     });
 
-    it("delays a photo it does not know, for the reading and the numbers each (Story 12.5), but not the photos of its cases", async () => {
+    it("delays a photo it does not know (Story 12.5), but not the photos of its cases", async () => {
       vi.useFakeTimers();
       const slow = createMockAiService(dir, { delayMs: 3000 });
       const known = { data: new Uint8Array(readFileSync(join(dir, "kyl.png"))), mediaType: "image/png" };
       // Bytes after the image's end change what the mock keys on, not what the image is.
       const unknown = { data: new Uint8Array([...known.data, 0]), mediaType: "image/png" };
       expect((await slow.analyzeImage({ image: known, place: "Kyl" }, signal())).ok).toBe(true);
-      expect((await slow.locateItems({ image: known, labels: ["Mjölk"] }, signal())).ok).toBe(true);
 
       let answered = 0;
       void slow.analyzeImage({ image: unknown, place: "Kyl" }, signal()).then(() => (answered += 1));
-      void slow.locateItems({ image: unknown, labels: ["Mjölk"] }, signal()).then(() => (answered += 1));
       await vi.advanceTimersByTimeAsync(2999);
       expect(answered).toBe(0);
       await vi.advanceTimersByTimeAsync(1);
-      expect(answered).toBe(2);
+      expect(answered).toBe(1);
     });
 
     it("stops waiting for a photo it does not know when the signal aborts", async () => {
@@ -380,12 +376,18 @@ describe("mock analyzeImage", () => {
     expect(await service.analyzeImage({ image: other, place: "Frys" }, signal())).toEqual(answered(manifest.analyze.default, "Frys"));
   });
 
-  it("gives every item of the fixtures a point in the short form (Kylfoto B), the ones of kyl as kyl.locate.json has them", () => {
+  it("gives every item of the fixtures a point in the short form (Kylfoto B), on its drawn package in kyl", () => {
     for (const { name } of manifest.analyze.cases) {
       for (const item of raw(name)) expect(item.p).toHaveLength(2);
     }
-    const located = locateItemsAnswer.parse(JSON.parse(read("kyl.locate.json"))).positions;
-    expect(answer("kyl").map((item) => item.point)).toEqual(located.map(({ position: [x, y] }) => ({ x, y })));
+    expect(answer("kyl").map((item) => item.point)).toEqual([
+      { x: 193, y: 193 },
+      { x: 432, y: 225 },
+      { x: 661, y: 258 },
+      { x: 291, y: 567 },
+      { x: 694, y: 583 },
+      { x: 146, y: 813 },
+    ]);
   });
 
   it("has the six items of Flöde 3 in kyl, and none in tom-hylla", () => {
@@ -474,85 +476,6 @@ describe("mock analyzeImage", () => {
       expect((await broken.suggestDishes(JSON.parse(read(`${manifest.suggest}.pantry.json`)), signal())).ok).toBe(true);
       expect(errors).not.toHaveBeenCalled();
       expect(await broken.analyzeImage({ image: photo("kyl.png"), place: "Kyl" }, signal())).toMatchObject({
-        ok: false,
-        error: { code: "ai_unavailable" },
-      });
-      expect(errors).toHaveBeenCalledWith("ai_unavailable", { reason: "fixtures" });
-    } finally {
-      rmSync(copy, { recursive: true, force: true });
-    }
-  });
-});
-
-describe("mock locateItems (Story 6.6)", () => {
-  const service = createMockAiService();
-  const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
-  const labels = (count: number) => Array.from({ length: count }, (_, index) => `Vara ${index + 1}`);
-
-  it("answers kyl.png with a point on each of its six items, in the reading order", async () => {
-    expect(await service.locateItems({ image: photo("kyl.png"), labels: labels(6) }, signal())).toEqual({
-      ok: true,
-      data: {
-        positions: [
-          { n: 1, x: 193, y: 193 },
-          { n: 2, x: 432, y: 225 },
-          { n: 3, x: 661, y: 258 },
-          { n: 4, x: 291, y: 567 },
-          { n: 5, x: 694, y: 583 },
-          { n: 6, x: 146, y: 813 },
-        ],
-        invalid: 0,
-      },
-    });
-  });
-
-  it("answers kyl-dorr.png with its three items after the merge", async () => {
-    const result = await service.locateItems({ image: photo("kyl-dorr.png"), labels: labels(3) }, signal());
-    expect(result.ok && result.data.positions.map(({ n }) => n)).toEqual([1, 2, 3]);
-  });
-
-  it("answers any other photo with the default case, and leaves out points beyond the labels like a model's", async () => {
-    const other = { data: new Uint8Array([1, 2, 3]), mediaType: "image/jpeg" };
-    const result = await service.locateItems({ image: other, labels: labels(2) }, signal());
-    expect(result).toEqual({
-      ok: true,
-      data: {
-        positions: [
-          { n: 1, x: 193, y: 193 },
-          { n: 2, x: 432, y: 225 },
-        ],
-        invalid: 4,
-      },
-    });
-  });
-
-  it.each(mockAnalyzeErrorCodes.map((code) => [code]))("fails with %s for its reserved image", async (code) => {
-    const image = manifest.reservedImages.find((entry) => entry.code === code)!.image;
-    expect(await service.locateItems({ image: photo(image), labels: labels(1) }, signal())).toMatchObject({
-      ok: false,
-      error: { code },
-    });
-  });
-
-  it("gives ai_unavailable when the signal is aborted", async () => {
-    const controller = new AbortController();
-    controller.abort();
-    expect(await service.locateItems({ image: photo("kyl.png"), labels: labels(6) }, controller.signal)).toMatchObject({
-      ok: false,
-      error: { code: "ai_unavailable" },
-    });
-  });
-
-  it("keeps the analysis working when a locate fixture is broken", async () => {
-    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-    const copy = mkdtempSync(join(tmpdir(), "matkoll-mock-"));
-    try {
-      cpSync(dir, copy, { recursive: true });
-      writeFileSync(join(copy, "kyl.locate.json"), JSON.stringify({ positions: [{ n: 1, position: [2000, 1] }] }));
-      const broken = createMockAiService(copy);
-      expect((await broken.analyzeImage({ image: photo("kyl.png"), place: "Kyl" }, signal())).ok).toBe(true);
-      expect(errors).not.toHaveBeenCalled();
-      expect(await broken.locateItems({ image: photo("kyl.png"), labels: labels(6) }, signal())).toMatchObject({
         ok: false,
         error: { code: "ai_unavailable" },
       });
