@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail } from "@/lib/errors";
-import { maxImageBytes, maxPlacePhotoSide } from "@/lib/images";
+import { maxImageBytes, maxPlacePhotoSide, placePhotoForClaude } from "@/lib/images";
 import { jpegHeader, pngChunk, pngFile, pngHeader } from "../../tests/support/image-headers";
-import { downscaleImage, fitWithin, halvingSteps, jpegQualities } from "./downscale-image";
+import { downscaleImage, fitWithin, halvingSteps, jpegQualities, qualitiesFrom } from "./downscale-image";
 
 // jsdom decodes no images and draws nothing, so createImageBitmap and the
 // canvas are fakes: the bitmap has the size the test gives it (or the size
@@ -142,6 +142,15 @@ describe("downscaleImage", () => {
     expect(maxPlacePhotoSide).toBe(2048);
     expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
     expect(drawn.at(-1)?.canvas).toEqual({ width: 1536, height: 2048 });
+    expect(result.ok).toBe(true);
+  });
+
+  it("makes a fridge photo for Claude 1600 px at quality 0.8 first, then the lower qualities (Kylfoto A)", async () => {
+    jpegSizeFor = (quality) => (quality > 0.65 ? maxImageBytes + 1 : maxImageBytes);
+    const result = await downscaleImage(cameraJpeg(6), placePhotoForClaude);
+    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1200, resizeHeight: 1600 });
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
+    expect(qualities).toEqual([0.8, 0.75, 0.65]);
     expect(result.ok).toBe(true);
   });
 
@@ -290,5 +299,16 @@ describe("downscaleImage", () => {
     expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
     expect(result.ok).toBe(true);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:photo");
+  });
+});
+
+describe("qualitiesFrom (Kylfoto A)", () => {
+  it("is jpegQualities without a first quality", () => {
+    expect(qualitiesFrom(undefined)).toEqual([...jpegQualities]);
+  });
+
+  it("starts at the given quality and goes on with the lower ones", () => {
+    expect(qualitiesFrom(0.8)).toEqual([0.8, 0.75, 0.65, 0.5]);
+    expect(qualitiesFrom(0.85)).toEqual([0.85, 0.75, 0.65, 0.5]);
   });
 });

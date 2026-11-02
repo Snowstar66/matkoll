@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
 import { enqueueAiJob, functionMs, runAiJob } from "@/features/ai-jobs/server";
 import { locationSchema } from "@/features/catalog";
-import { locatePlaceItems, lookUpSite, readPhoto } from "@/features/pantry/server";
+import { locatePlaceItems, lookUpSite, readPhoto, type ReadPhotoTimings } from "@/features/pantry/server";
 import { readingSchema } from "@/features/pantry";
 import { fail, ok, type Result } from "@/lib/errors";
 import { imageSideTolerance, imageSizeOf, maxImageSide, maxPlacePhotoSide } from "@/lib/images";
@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../route-support";
 import { startImportJob } from "../start-import";
+import { clientMs, logAnalyzeTiming } from "./timing";
 
 // The AI job of a photo of a place (Story 12.5, FR-24, FR-46-FR-49, AD-9,
 // AD-15, AD-28). The client resizes the photo (to at most maxPlacePhotoSide,
@@ -26,7 +27,9 @@ import { startImportJob } from "../start-import";
 //
 // The photo is only in this request's memory, in the closure of the job: never
 // in ai_job (its context is the place, the location and the time), on disk, in
-// a log or in a cache. Nothing of it, its reading or its names is logged.
+// a log or in a cache. Nothing of it, its reading or its names is logged. The
+// optional field `downscaleMs` (the client's resize) goes only into the job's
+// `analyze_timing` log (Kylfoto A), with the milliseconds of the other steps.
 //
 // A multipart form can be posted cross-site without a preflight, so the origin
 // checks carry more weight here than for JSON; the session cookies are
@@ -56,6 +59,12 @@ const formSchema = z.object({
   takenAt: z.iso.datetime(),
 });
 
+/** The photo's longest side in pixels, for the timing log; 0 when it cannot be read (readImageForm already checked it). */
+function longestSide(data: Uint8Array): number {
+  const size = imageSizeOf(data);
+  return size ? Math.max(size.width, size.height) : 0;
+}
+
 /** A value that is plain data, as the job keeps it. */
 function asJson(value: unknown): Json {
   return JSON.parse(JSON.stringify(value)) as Json;
@@ -70,10 +79,11 @@ export async function POST(request: Request): Promise<Response> {
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
   // Size, type and pixels of the photo, checked on its own bytes (AD-15).
-  const form = await readImageForm(request, ["kind", "clientKey", "location", "site", "takenAt"], {
+  const form = await readImageForm(request, ["kind", "clientKey", "location", "site", "takenAt", "downscaleMs"], {
     maxSide: maxPlacePhotoSide,
   });
   if (!form.ok) return form.response;
+  const formReadAt = Date.now();
 
   // Story 12.6: a photo of a recipe is read as an import job; it is held to the smaller size of a recipe photo.
   if (form.fields.kind === "import") {
@@ -113,13 +123,26 @@ export async function POST(request: Request): Promise<Response> {
   // A job that was given back (a double tap, another tab) is run by the request that made it.
   if (created) {
     const image = form.image;
+    const timing = {
+      downscaleMs: clientMs(form.fields.downscaleMs),
+      uploadMs: formReadAt - requestStartedAt,
+      side: longestSide(image.data),
+      bytes: image.data.byteLength,
+    };
     after(() =>
       runAiJob(db, job, { startBy }, async (signal, deadline, report): Promise<Result<Json>> => {
-        const read = await readPhoto({ image, location, site: photoSite }, { signal, deadline });
-        if (!read.ok) return read;
+        const queueMs = Date.now() - formReadAt;
+        const timings: ReadPhotoTimings = {};
+        const read = await readPhoto({ image, location, site: photoSite }, { signal, deadline, timings });
+        const steps = { ...timing, queueMs, ...timings };
+        if (!read.ok) {
+          logAnalyzeTiming({ ...steps, totalMs: Date.now() - requestStartedAt, outcome: read.error.code });
+          return read;
+        }
         const reading = read.data;
         // The cards first: the reading is the job's result as soon as it is there.
         await report(asJson(reading));
+        logAnalyzeTiming({ ...steps, totalMs: Date.now() - requestStartedAt, outcome: "ok" });
 
         // Numbers only when some card has an item to point at (Story 6.6); the comparison, made later, only hides some.
         const parsedLabels = readingSchema.safeParse(reading.reading);

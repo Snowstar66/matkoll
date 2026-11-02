@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
 import { maxPantrySuggestions } from "@/features/pantry/domain/pantry-suggestion";
 import { readingLabel } from "@/features/pantry/domain/photo-numbers";
+import { placePhotoForQwen, placePhotoSizeFor } from "@/lib/images";
 import { minLoopRepeats, type AiPantryItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
@@ -57,6 +58,13 @@ import {
 // against the mock. Photos of a home only go to a model on this computer (LM
 // Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
 // With no photos it says so and skips. Nothing of the photo is printed.
+//
+// Kylfoto A: EVAL_PHOTO_READING=before reads each photo as the app did before
+// (2048 px at quality 85, and the model's own level with thinking on); without
+// it, as the app does now (for Claude: 1600 px at 80, effort low, and thinking
+// off on Haiku 5.5). Run both with an EVAL_LABEL each to compare the time and
+// the hits. A model that cannot point at things (Claude) gets no lookup of the
+// points, as in the app.
 
 type Expected = { place: AnalyzePlace; items: string[] };
 type CaseResult = {
@@ -92,7 +100,12 @@ if (env.AI_PROVIDER === "mock") {
     "pnpm eval:ai needs a real model: set AI_PROVIDER to lmstudio, anthropic or openai (the mock only repeats its fixtures).",
   );
 }
-const service = createAiService(env);
+/** Kylfoto A: `before` reads the photo as the app did before the story, otherwise as it does now. */
+const photoReading = process.env.EVAL_PHOTO_READING === "before" ? "before" : "after";
+const photoSize = photoReading === "before" ? placePhotoForQwen : placePhotoSizeFor(env.AI_PROVIDER);
+const service = createAiService(env, { plainPhotoReading: photoReading === "before" });
+/** Claude is not asked for the points (supportsGrounding), so the app never looks them up for it. */
+const locates = env.AI_PROVIDER !== "anthropic";
 const results: CaseResult[] = [];
 const meter = installUsageMeter();
 const timings: TimingRow[] = [];
@@ -148,7 +161,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
   it.each(cases)("$name, körning $run", async ({ name, file, run }) => {
     const expected = JSON.parse(readFileSync(join(photosDir, `${name}.expected.json`), "utf8")) as Expected;
     if (!(analyzePlaces as readonly string[]).includes(expected.place)) throw new Error(`${name}: place must be Kyl, Frys or Skafferi`);
-    const photo = preparePhoto(join(photosDir, file));
+    const photo = preparePhoto(join(photosDir, file), photoSize);
     let entry: CaseResult;
     if ("error" in photo) {
       entry = { name, file, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
@@ -182,7 +195,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
           startedAt,
         ),
       );
-      if (result.ok && result.data.items.length > 0) entry.locate = await locate(name, run, photo, result.data.items);
+      if (locates && result.ok && result.data.items.length > 0) entry.locate = await locate(name, run, photo, result.data.items);
     }
     results.push(entry);
     expect(entry.error).toBeUndefined();
@@ -221,6 +234,7 @@ afterAll(() => {
       `Modell: ${env.AI_MODEL ?? "–"}`,
       `LM Studio: ${lmStudioSettings(env.AI_MODEL)}`,
       `Läge: ${evalLabel()}`,
+      `Kylfoto: ${photoReading === "before" ? "som före Kylfoto A" : "som nu"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
       `Körningar per foto: ${runs}`,
     ],
     timings,
@@ -240,6 +254,7 @@ function renderReport(): string {
     `- Tid: ${new Date().toISOString()}`,
     `- Leverantör: ${env.AI_PROVIDER}`,
     `- Modell: ${env.AI_MODEL ?? "–"}`,
+    `- Kylfoto (Kylfoto A): ${photoReading === "before" ? "som före" : "som nu"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
     `- Körningar per foto: ${runs}`,
     `- Körningar: ${results.length}, varav ${results.filter((result) => result.error).length} med fel och ${results.filter(isLoop).length} med upprepningsslinga`,
     `- Träffar: ${hits} av ${expected} förväntade varor`,
