@@ -16,6 +16,8 @@ export type DeleteRequest = {
   detail?: ReactNode;
   /** The confirm button; "Ta bort" by default. */
   confirmLabel?: string;
+  /** The header button that keeps everything; "Avbryt" by default (e.g. "Fortsätt fota"). */
+  cancelLabel?: string;
 };
 
 /**
@@ -53,7 +55,7 @@ export function useConfirmDelete(): { requestDelete: (request: DeleteRequest) =>
       onClose={() => setAsking(null)}
       // A question sheet (Story 19.4): the question is the title, the consequence stands under it.
       title={shown?.question ?? label}
-      closeLabel="Avbryt"
+      closeLabel={shown?.cancelLabel ?? "Avbryt"}
       initialFocus="close"
       footer={
         <Button

@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { CameraIcon, CloseIcon } from "@/components/icons";
 import {
   cameraProblem,
   cameraProblemText,
+  discardShotsQuestion,
+  discardShotsText,
   fallbackCameraText,
+  keepShootingText,
   quickCameraText,
   removeShotText,
   sendQueue,
@@ -26,7 +30,9 @@ import {
 // shutter shows the shots, an × drops one, and "Klar" hands them over in order;
 // the caller sends them as cards the usual way (downscaled, one at a time).
 // The camera stops on Avbryt, on Klar and while the page is hidden. Without a
-// camera or permission a calm line offers today's "Ta foto" instead.
+// camera or permission a calm line offers today's "Ta foto" instead. With shots
+// in the strip, Avbryt and Esc first ask "Kasta 3 kort?" (Kasta, Fortsätt fota),
+// while the camera keeps running behind the question.
 
 export type QuickCameraProps = {
   /** The room the cards are taken in, shown at the top. */
@@ -70,6 +76,7 @@ export function QuickCamera({ room, onCancel, onDone, onFallback }: QuickCameraP
   // A browser without getUserMedia (an old one, or a page that is not https) has no camera to start.
   const [problem, setProblem] = useState<CameraProblem | null>(() => (cameraApi() ? null : "missing"));
   const [flash, setFlash] = useState(0);
+  const { requestDelete: askDiscard, dialog: discardQuestion } = useConfirmDelete();
 
   useEffect(() => {
     shotsRef.current = shots;
@@ -148,6 +155,20 @@ export function QuickCamera({ room, onCancel, onDone, onFallback }: QuickCameraP
     onCancel();
   }
 
+  /** Avbryt and Esc: closes at once with no shots, else asks before the shots are thrown away. */
+  function requestCancel() {
+    if (shots.length === 0) {
+      cancel();
+      return;
+    }
+    askDiscard({
+      question: discardShotsQuestion(shots.length),
+      confirmLabel: discardShotsText,
+      cancelLabel: keepShootingText,
+      onConfirm: cancel,
+    });
+  }
+
   function done() {
     if (shots.length === 0) return;
     const photos = sendQueue(shots);
@@ -194,97 +215,101 @@ export function QuickCamera({ room, onCancel, onDone, onFallback }: QuickCameraP
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-label={`${quickCameraText}, ${room}`}
-      onCancel={(event) => {
-        // Esc is Avbryt.
-        event.preventDefault();
-        cancel();
-      }}
-      className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none flex-col bg-camera-bg p-0 text-camera-ink open:flex backdrop:bg-camera-bg"
-      data-testid="quick-camera"
-    >
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 pt-[max(8px,env(safe-area-inset-top))] pb-2">
-        <button
-          type="button"
-          onClick={cancel}
-          className="flex min-h-tap items-center justify-self-start rounded-md px-3 text-row-title focus-visible:outline-2 focus-visible:outline-camera-ring"
-        >
-          Avbryt
-        </button>
-        <h2 className="max-w-[50vw] truncate text-headline">{room}</h2>
-        <p role="status" className="justify-self-end px-3 text-row-title tabular-nums" data-testid="quick-camera-count">
-          {shotCountText(shots.length)}
-        </p>
-      </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          autoPlay
-          aria-hidden="true"
-          onLoadedMetadata={() => setReady(true)}
-          className="absolute inset-0 h-full w-full object-contain"
-          data-testid="quick-camera-video"
-        />
-        {/* A new element per shot, so the flash plays again; with "Minska rörelse" it is never seen. */}
-        {flash > 0 ? <div key={flash} aria-hidden="true" className="camera-flash pointer-events-none absolute inset-0 bg-camera-ink opacity-0" /> : null}
-        {problem ? (
-          <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center" data-testid="quick-camera-problem">
-            <CameraIcon size={40} aria-hidden="true" />
-            <p className="max-w-sm text-body">{cameraProblemText(problem)}</p>
-            <Button variant="primary" onClick={fallback} data-testid="quick-camera-fallback">
-              {fallbackCameraText}
-            </Button>
-          </div>
-        ) : !ready ? (
-          <p className="absolute inset-0 flex items-center justify-center text-body">{startingCameraText}</p>
-        ) : null}
-      </div>
-      <div className="flex flex-col gap-3 pb-[max(16px,env(safe-area-inset-bottom))]">
-        <ul ref={stripRef} aria-label="Tagna kort" className="flex min-h-[76px] gap-3 overflow-x-auto px-4 pt-3 pr-6" data-testid="quick-camera-strip">
-          {shots.map((shot, index) => (
-            <li key={shot.id} className="relative size-16 shrink-0">
-              {/* An object URL of the shot: next/image cannot show it. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={shot.thumb} alt={`Kort ${index + 1}`} className="size-16 rounded-sm object-cover" />
-              <button
-                type="button"
-                aria-label={removeShotText(index)}
-                onClick={() => remove(shot)}
-                className="absolute -top-2.5 -right-2.5 flex size-7 items-center justify-center rounded-full bg-photo-chip text-camera-ink ring-1 ring-camera-ring before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-camera-ring"
-              >
-                <CloseIcon size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
-          <span />
+    <>
+      <dialog
+        ref={dialogRef}
+        aria-label={`${quickCameraText}, ${room}`}
+        onCancel={(event) => {
+          // Esc is Avbryt.
+          event.preventDefault();
+          requestCancel();
+        }}
+        className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none flex-col bg-camera-bg p-0 text-camera-ink open:flex backdrop:bg-camera-bg"
+        data-testid="quick-camera"
+      >
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 pt-[max(8px,env(safe-area-inset-top))] pb-2">
           <button
             type="button"
-            aria-label={shutterText}
-            onClick={shoot}
-            disabled={!ready}
-            className="flex size-[76px] items-center justify-center rounded-full border-4 border-camera-ring disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-camera-ring"
-            data-testid="quick-camera-shutter"
+            onClick={requestCancel}
+            className="flex min-h-tap items-center justify-self-start rounded-md px-3 text-row-title focus-visible:outline-2 focus-visible:outline-camera-ring"
           >
-            <span className="size-[60px] rounded-full bg-camera-ink transition-transform active:scale-90" />
+            Avbryt
           </button>
-          <button
-            type="button"
-            onClick={done}
-            disabled={shots.length === 0}
-            aria-label={sendShotsLabel(shots.length)}
-            className="h-11 justify-self-end rounded-pill bg-accent px-5 text-headline text-on-accent disabled:bg-camera-control disabled:text-camera-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-camera-ring"
-            data-testid="quick-camera-done"
-          >
-            Klar
-          </button>
+          <h2 className="max-w-[50vw] truncate text-headline">{room}</h2>
+          <p role="status" className="justify-self-end px-3 text-row-title tabular-nums" data-testid="quick-camera-count">
+            {shotCountText(shots.length)}
+          </p>
         </div>
-      </div>
-    </dialog>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            autoPlay
+            aria-hidden="true"
+            onLoadedMetadata={() => setReady(true)}
+            className="absolute inset-0 h-full w-full object-contain"
+            data-testid="quick-camera-video"
+          />
+          {/* A new element per shot, so the flash plays again; with "Minska rörelse" it is never seen. */}
+          {flash > 0 ? <div key={flash} aria-hidden="true" className="camera-flash pointer-events-none absolute inset-0 bg-camera-ink opacity-0" /> : null}
+          {problem ? (
+            <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center" data-testid="quick-camera-problem">
+              <CameraIcon size={40} aria-hidden="true" />
+              <p className="max-w-sm text-body">{cameraProblemText(problem)}</p>
+              <Button variant="primary" onClick={fallback} data-testid="quick-camera-fallback">
+                {fallbackCameraText}
+              </Button>
+            </div>
+          ) : !ready ? (
+            <p className="absolute inset-0 flex items-center justify-center text-body">{startingCameraText}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <ul ref={stripRef} aria-label="Tagna kort" className="flex min-h-[76px] gap-3 overflow-x-auto px-4 pt-3 pr-6" data-testid="quick-camera-strip">
+            {shots.map((shot, index) => (
+              <li key={shot.id} className="relative size-16 shrink-0">
+                {/* An object URL of the shot: next/image cannot show it. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={shot.thumb} alt={`Kort ${index + 1}`} className="size-16 rounded-sm object-cover" />
+                <button
+                  type="button"
+                  aria-label={removeShotText(index)}
+                  onClick={() => remove(shot)}
+                  className="absolute -top-2.5 -right-2.5 flex size-7 items-center justify-center rounded-full bg-photo-chip text-camera-ink ring-1 ring-camera-ring before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-camera-ring"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+            <span />
+            <button
+              type="button"
+              aria-label={shutterText}
+              onClick={shoot}
+              disabled={!ready}
+              className="flex size-[76px] items-center justify-center rounded-full border-4 border-camera-ring disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-camera-ring"
+              data-testid="quick-camera-shutter"
+            >
+              <span className="size-[60px] rounded-full bg-camera-ink transition-transform active:scale-90" />
+            </button>
+            <button
+              type="button"
+              onClick={done}
+              disabled={shots.length === 0}
+              aria-label={sendShotsLabel(shots.length)}
+              className="h-11 justify-self-end rounded-pill bg-accent px-5 text-headline text-on-accent disabled:bg-camera-control disabled:text-camera-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-camera-ring"
+              data-testid="quick-camera-done"
+            >
+              Klar
+            </button>
+          </div>
+        </div>
+      </dialog>
+      {/* A sibling, not a child, so its Esc and close never reach the camera's dialog; it opens above it in the top layer. */}
+      {discardQuestion}
+    </>
   );
 }

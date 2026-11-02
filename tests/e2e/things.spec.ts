@@ -1673,6 +1673,14 @@ test("Snabbkamera: tap, tap, tap, drop one with ×, and Klar sends each shot as 
   await expect(camera.getByTestId("quick-camera-count")).toHaveText("3 kort");
   await expect(camera.getByRole("img")).toHaveCount(3);
   await shot(page, "camera-390");
+  // Avbryt with shots asks first; "Fortsätt fota" keeps them and the camera.
+  await camera.getByRole("button", { name: "Avbryt" }).click();
+  const question = page.getByRole("dialog", { name: "Kasta 3 kort?" });
+  await expect(question.getByRole("button", { name: "Kasta" })).toBeVisible();
+  await question.getByRole("button", { name: "Fortsätt fota" }).click();
+  await expect(question).toBeHidden();
+  await expect(camera.getByTestId("quick-camera-count")).toHaveText("3 kort");
+  await expect(shutter).toBeEnabled();
   await camera.getByRole("button", { name: "Ta bort kort 2" }).click();
   await expect(camera.getByTestId("quick-camera-count")).toHaveText("2 kort");
   await camera.getByRole("button", { name: "Klar, skicka 2 kort" }).click();
