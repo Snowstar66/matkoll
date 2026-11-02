@@ -46,4 +46,26 @@ describe("useConfirmDelete (Story 19.4)", () => {
     expect(deleted).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("dialog", { name: "Ta bort Pannkakor?" })).toBeInTheDocument();
   });
+
+  it("takes its own button labels, e.g. Kasta and Fortsätt fota", () => {
+    function Labelled() {
+      const { requestDelete, dialog } = useConfirmDelete();
+      return (
+        <>
+          <button type="button" onClick={() => requestDelete({ question: "Kasta 3 kort?", confirmLabel: "Kasta", cancelLabel: "Fortsätt fota", onConfirm: () => deleted("kort") })}>
+            Avbryt kamera
+          </button>
+          {dialog}
+        </>
+      );
+    }
+    render(<Labelled />);
+    fireEvent.click(screen.getByText("Avbryt kamera"));
+    expect(screen.queryByRole("button", { name: "Avbryt" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Fortsätt fota" }));
+    expect(deleted).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Avbryt kamera"));
+    fireEvent.click(screen.getByRole("button", { name: "Kasta" }));
+    expect(deleted).toHaveBeenCalledWith("kort");
+  });
 });

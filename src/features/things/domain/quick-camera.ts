@@ -43,6 +43,14 @@ export function shotCountText(count: number): string {
   return `${count} kort`;
 }
 
+/** Avbryt or Esc with shots in the strip asks first: "Kasta 3 kort?". */
+export function discardShotsQuestion(count: number): string {
+  return `Kasta ${shotCountText(count)}?`;
+}
+
+export const discardShotsText = "Kasta";
+export const keepShootingText = "Fortsätt fota";
+
 /** The × on a thumbnail. */
 export function removeShotText(index: number): string {
   return `Ta bort kort ${index + 1}`;
