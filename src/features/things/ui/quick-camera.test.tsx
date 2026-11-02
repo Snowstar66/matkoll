@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ok } from "@/lib/errors";
@@ -91,13 +91,54 @@ describe("Snabbkamera", () => {
     expect(trackStop).toHaveBeenCalled();
   });
 
-  it("stops the camera on Avbryt", async () => {
+  it("closes at once on Avbryt with no shots, and stops the camera", async () => {
     const { onCancel, onDone } = await openCamera();
-    await userEvent.click(shutter());
     await userEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+    expect(screen.queryByRole("dialog", { name: /Kasta/ })).toBeNull();
     expect(trackStop).toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("asks \"Kasta 3 kort?\" on Avbryt with shots; Fortsätt fota keeps them and the camera", async () => {
+    const { onCancel } = await openCamera();
+    for (let i = 0; i < 3; i++) await userEvent.click(shutter());
+    await userEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+    const question = screen.getByRole("dialog", { name: "Kasta 3 kort?" });
+    expect(question).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(trackStop).not.toHaveBeenCalled();
+    await userEvent.click(within(question).getByRole("button", { name: "Fortsätt fota" }));
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(trackStop).not.toHaveBeenCalled();
+    expect(screen.getByTestId("quick-camera-count")).toHaveTextContent("3 kort");
+    expect(shutter()).toBeEnabled();
+  });
+
+  it("throws the shots away and stops the camera on Kasta", async () => {
+    const { onCancel, onDone } = await openCamera();
+    await userEvent.click(shutter());
+    await userEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+    const question = screen.getByRole("dialog", { name: "Kasta 1 kort?" });
+    await userEvent.click(within(question).getByRole("button", { name: "Kasta" }));
+    await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
+    expect(trackStop).toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("asks on Esc too when there are shots, and closes at once without", async () => {
+    const { onCancel } = await openCamera();
+    const camera = screen.getByTestId("quick-camera");
+    await userEvent.click(shutter());
+    await userEvent.click(shutter());
+    fireEvent(camera, new Event("cancel", { cancelable: true }));
+    expect(screen.getByRole("dialog", { name: "Kasta 2 kort?" })).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt fota" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ta bort kort 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ta bort kort 1" }));
+    fireEvent(camera, new Event("cancel", { cancelable: true }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it("stops the camera while the page is hidden and starts it again when it shows", async () => {
