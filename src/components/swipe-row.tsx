@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { cx } from "./cx";
+import { TrashIcon } from "./icons";
 
 /** How wide the revealed action is; the row slides this far to the left. */
 export const swipeActionWidthPx = 96;
@@ -51,7 +52,9 @@ type Drag = {
  * row to the left, with a finger or a mouse, reveals one action to its right,
  * e.g. "Ta bort"; a tap on it runs the action. A swipe past half the action's
  * width opens the row, a shorter one slides back. The swipe is a shortcut,
- * so the same action must be elsewhere too (the item's sheet).
+ * so the same action must be elsewhere too (the item's sheet, a bin).
+ * The action is "Ta bort" by the Ta bort rule (Story 19.4): muted red text
+ * and bin on the field fill, never a red fill.
  *
  * The action is a real button after the row in the tab order, named for
  * screen readers (`actionName`): focusing it opens the row, so it is reached
@@ -185,8 +188,9 @@ export function SwipeRow({ children, actionLabel, actionName, onAction, classNam
           onAction(event.detail === 0 ? "keyboard" : "pointer");
         }}
         style={{ width: swipeActionWidthPx }}
-        className="absolute inset-y-0 right-0 z-0 flex items-center justify-center bg-sky text-row-title text-sky-ink"
+        className="absolute inset-y-0 right-0 z-0 flex flex-col items-center justify-center gap-0.5 bg-fill text-meta font-semibold text-danger"
       >
+        <TrashIcon size={20} />
         {actionLabel}
       </button>
     </div>
