@@ -2,7 +2,8 @@
 // Renders a recipe text from tests/fixtures/ai/ as a cookbook-like page and saves
 // a PNG next to it, for the image cases of the AI test set (`pnpm eval:ai`) and
 // the mock. The first line is the title, lines that end a section ("Ingredienser",
-// "Gör så här" …) become headings, and list markers are dropped.
+// "Gör så här" …) become headings, a line that ends with a colon an ingredient
+// group's heading ("Rostad småpotatis:"), and list markers are dropped.
 //
 //   node scripts/render-recipe-image.mjs [name]     # default: ugnspannkaka
 //
@@ -31,6 +32,7 @@ const body = rest
   .filter(Boolean)
   .map((line) => {
     if (headings.test(line)) return `<h2>${escape(line.replace(/:$/, ""))}</h2>`;
+    if (line.endsWith(":")) return `<h3>${escape(line.slice(0, -1))}</h3>`;
     return `<p>${escape(line.replace(/^[*-]\s+/, ""))}</p>`;
   })
   .join("\n");
@@ -41,6 +43,7 @@ const html = `<!doctype html>
   main { width: 640px; padding: 56px 64px; font: 19px/1.5 Georgia, "Times New Roman", serif; color: #2b2620; }
   h1 { font-size: 34px; line-height: 1.2; margin: 0 0 24px; }
   h2 { font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; margin: 28px 0 8px; }
+  h3 { font-size: 19px; margin: 18px 0 4px; }
   p { margin: 0 0 6px; }
 </style></head>
 <body><main><h1>${escape(title.trim())}</h1>

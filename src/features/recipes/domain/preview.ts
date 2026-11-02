@@ -94,9 +94,24 @@ export function withNewStep(draft: RecipeDraft): RecipeDraft {
   return { ...draft, steps: [...draft.steps, ""] };
 }
 
-/** New text for a step; a saved step keeps its id. */
+/** New text for a step; a saved step keeps its id and its heading. */
 export function withStepText(step: RecipeStep, text: string): RecipeStep {
   return typeof step === "string" ? text : { ...step, text };
+}
+
+/**
+ * A new heading for a step, as typed: blank removes it. A saved step keeps
+ * its id; a step that was only text becomes one with a heading.
+ */
+export function withStepTitle(step: RecipeStep, title: string): RecipeStep {
+  const heading = title.trim() ? title : null;
+  if (typeof step === "string") return heading === null ? step : { text: step, title: heading };
+  return { ...step, title: heading };
+}
+
+/** A new ingredient group for the line, as typed: blank means no group. */
+export function withGroup(line: RecipeLine, group: string): RecipeLine {
+  return { ...line, group: group.trim() ? group : null };
 }
 
 /**

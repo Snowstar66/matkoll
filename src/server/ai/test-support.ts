@@ -17,6 +17,8 @@ export const validRecipe: AiRecipe = {
       isVague: false,
       hint: { name: "mjölk", section: "Mejeri", location: "Kyl", defaultUnit: "dl" },
       stepIndexes: [0],
+      group: null,
+      isStapleMarked: false,
     },
     {
       originalText: "salt",
@@ -25,9 +27,14 @@ export const validRecipe: AiRecipe = {
       isVague: true,
       hint: { name: "salt", section: "Skafferi", location: "Skafferi", defaultUnit: "krm" },
       stepIndexes: [],
+      group: null,
+      isStapleMarked: false,
     },
   ],
-  steps: ["Vispa ihop smeten.", "Stek pannkakorna."],
+  steps: [
+    { title: null, text: "Vispa ihop smeten." },
+    { title: null, text: "Stek pannkakorna." },
+  ],
 };
 
 /**

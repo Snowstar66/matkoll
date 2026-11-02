@@ -21,6 +21,12 @@ export type Expected = {
   keyIngredients: ExpectedIngredient[];
   /** originalText of lines that must be vague; every line with that text must be. */
   vagueLines: string[];
+  /** Checked when present: the ingredient groups in order of their first line (empty: none). */
+  groups?: string[];
+  /** Checked when present: each step's heading, null for none. */
+  stepTitles?: (string | null)[];
+  /** Checked when present: originalText of lines marked as staples (•); every line with that text must be. */
+  stapleLines?: string[];
 };
 
 export type Check = { name: string; ok: boolean; expected: string; actual: string };
@@ -90,6 +96,38 @@ export function compare(recipe: AiRecipe, expected: Expected): Check[] {
         lines.length === 0
           ? "raden saknas"
           : lines.map((line) => `isVague=${line.isVague}, mängd=${show(line.amount)}, enhet=${show(line.unit)}`).join("; "),
+    });
+  }
+  if (expected.groups !== undefined) {
+    const groups = [...new Set(recipe.ingredients.flatMap((line) => (line.group ? [line.group] : [])))];
+    checks.push({
+      name: "Ingrediensgrupper",
+      ok: groups.length === expected.groups.length && groups.every((group, index) => normalize(group) === normalize(expected.groups?.[index] ?? "")),
+      expected: expected.groups.join(", ") || "–",
+      actual: groups.join(", ") || "–",
+    });
+  }
+  if (expected.stepTitles !== undefined) {
+    const titles = recipe.steps.map((step) => step.title);
+    checks.push({
+      name: "Stegrubriker",
+      ok:
+        titles.length === expected.stepTitles.length &&
+        titles.every((title, index) => {
+          const wanted = expected.stepTitles?.[index] ?? null;
+          return wanted === null ? title === null : title !== null && normalize(title) === normalize(wanted);
+        }),
+      expected: expected.stepTitles.map(show).join(" | "),
+      actual: titles.map(show).join(" | "),
+    });
+  }
+  for (const staple of expected.stapleLines ?? []) {
+    const lines = recipe.ingredients.filter((candidate) => normalize(candidate.originalText) === normalize(staple));
+    checks.push({
+      name: `Basvara "${staple}"`,
+      ok: lines.length > 0 && lines.every((line) => line.isStapleMarked),
+      expected: "isStapleMarked",
+      actual: lines.length === 0 ? "raden saknas" : lines.map((line) => `isStapleMarked=${line.isStapleMarked}`).join("; "),
     });
   }
   return checks;

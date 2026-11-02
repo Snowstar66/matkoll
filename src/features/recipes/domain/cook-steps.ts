@@ -9,6 +9,8 @@ export type StepLine = { stepId: string | null };
 export type CookStep<L extends StepLine> = {
   id: string;
   text: string;
+  /** The step's heading ("Rostad småpotatis"), or null: the step mode shows it as the step's heading. */
+  title: string | null;
   /** The lines whose first step this is, in the recipe's order; empty when none is. */
   lines: L[];
   /**
@@ -43,9 +45,8 @@ export function cookSteps<L extends StepLine>(
   const noneLinked = without.length === lines.length;
   return ordered.map((step, index) => {
     const own = byStep.get(step.id) ?? [];
-    if (index > 0) return { id: step.id, text: step.text, lines: own, otherLines: [] };
-    return noneLinked
-      ? { id: step.id, text: step.text, lines: [...without], otherLines: [] }
-      : { id: step.id, text: step.text, lines: own, otherLines: without };
+    const base = { id: step.id, text: step.text, title: step.title?.trim() || null };
+    if (index > 0) return { ...base, lines: own, otherLines: [] };
+    return noneLinked ? { ...base, lines: [...without], otherLines: [] } : { ...base, lines: own, otherLines: without };
   });
 }

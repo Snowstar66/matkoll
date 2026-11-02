@@ -14,10 +14,19 @@ describe("cookSteps", () => {
   it("gives each step its text and the lines of that step, in the recipe's order", () => {
     const lines = [line("a", "s2"), line("b", "s1"), line("c", "s2"), line("d", "s1")];
     expect(cookSteps(steps, lines)).toEqual([
-      { id: "s1", text: "Fräs löken.", lines: [line("b", "s1"), line("d", "s1")], otherLines: [] },
-      { id: "s2", text: "Häll i grädden.", lines: [line("a", "s2"), line("c", "s2")], otherLines: [] },
-      { id: "s3", text: "Servera.", lines: [], otherLines: [] },
+      { id: "s1", text: "Fräs löken.", title: null, lines: [line("b", "s1"), line("d", "s1")], otherLines: [] },
+      { id: "s2", text: "Häll i grädden.", title: null, lines: [line("a", "s2"), line("c", "s2")], otherLines: [] },
+      { id: "s3", text: "Servera.", title: null, lines: [], otherLines: [] },
     ]);
+  });
+
+  it("gives each step its heading, and null for a step without one or with a blank one", () => {
+    const titled = [
+      { id: "s1", position: 0, text: "Värm ugnen.", title: null },
+      { id: "s2", position: 1, text: "Lägg potatisen på en plåt.", title: "Rostad småpotatis" },
+      { id: "s3", position: 2, text: "Servera.", title: "  " },
+    ];
+    expect(cookSteps(titled, []).map((step) => step.title)).toEqual([null, "Rostad småpotatis", null]);
   });
 
   it("orders the steps by position, whatever order they come in", () => {

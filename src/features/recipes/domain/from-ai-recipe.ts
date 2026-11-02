@@ -1,5 +1,5 @@
 import { normalizeUnit, type IngredientMatch } from "@/features/catalog";
-import type { LineHint, RecipeDraft, RecipeLine } from "./recipe-draft";
+import { draftLimits, type LineHint, type RecipeDraft, type RecipeLine, type RecipeStep } from "./recipe-draft";
 
 // The only mapping from the AI port's answer to a RecipeDraft (AD-10), for
 // link, text, photo and AI suggestions alike. Units are read with the
@@ -20,9 +20,29 @@ export type AiRecipeLike = {
     isVague: boolean;
     stepIndexes: readonly number[];
     hint?: LineHint | null;
+    /** The ingredient group the line stands under ("Rostad småpotatis"), or null. */
+    group?: string | null;
+    /** The source marks the line as a staple (•). */
+    isStapleMarked?: boolean;
   }[];
-  steps: readonly string[];
+  /** A step's text, or its text with its heading ("Rostad småpotatis"), title null for none. */
+  steps: readonly (string | { title?: string | null; text: string })[];
 };
+
+/**
+ * A group name or step heading for the draft: trimmed, cut to `max`
+ * characters (whole code points), or null when blank.
+ */
+export function shortHeading(value: string | null | undefined, max: number): string | null {
+  const trimmed = value?.trim().replace(/\s+/g, " ");
+  if (!trimmed) return null;
+  let cut = "";
+  for (const point of trimmed) {
+    if (cut.length + point.length > max) break;
+    cut += point;
+  }
+  return cut.trim() || null;
+}
 
 /** Where the recipe came from. Only a link has a source URL, and only a page can give an image. */
 export type RecipeSource =
@@ -44,10 +64,13 @@ function toLine(
   const stepIndexes = [...new Set(kept)].sort((a, b) => a - b);
   const amount = line.amount !== null && Number.isFinite(line.amount) && line.amount > 0 ? line.amount : null;
   const unit = normalizeUnit(line.unit);
+  const group = shortHeading(line.group, draftLimits.groupChars);
   const base = {
     originalText: line.originalText,
     ingredient,
     stepIndexes,
+    ...(group ? { group } : {}),
+    ...(line.isStapleMarked ? { isStapleMarked: true } : {}),
     ...(line.hint
       ? {
           hint: {
@@ -81,12 +104,15 @@ export function fromAiRecipe(
     throw new Error("fromAiRecipe needs one match per ingredient line");
   }
   // Empty steps are dropped, and the lines' step indexes follow the steps that are kept.
-  const steps: string[] = [];
+  // A step with a heading keeps it; one without stays plain text.
+  const steps: RecipeStep[] = [];
   const stepIndex = new Map<number, number>();
   aiRecipe.steps.forEach((step, index) => {
-    if (!step.trim()) return;
+    const text = (typeof step === "string" ? step : step.text).trim();
+    if (!text) return;
+    const title = typeof step === "string" ? null : shortHeading(step.title, draftLimits.stepTitleChars);
     stepIndex.set(index, steps.length);
-    steps.push(step.trim());
+    steps.push(title ? { text, title } : text);
   });
   return {
     title: aiRecipe.title.trim(),

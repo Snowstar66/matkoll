@@ -10,6 +10,8 @@ import {
   withUnit,
   withNewStep,
   withStepText,
+  withStepTitle,
+  withGroup,
   withoutLine,
   withoutPendingAmount,
   withoutStep,
@@ -17,7 +19,7 @@ import {
   isDraftDirty,
   isShownField,
 } from "./preview";
-import type { RecipeDraft, RecipeLine } from "./recipe-draft";
+import { recipeDraftSchema, validateDraft, type RecipeDraft, type RecipeLine } from "./recipe-draft";
 
 const id = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const other = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
@@ -127,6 +129,43 @@ describe("ingredientLabel", () => {
 
   it("says when there is no ingredient", () => {
     expect(ingredientLabel({ ...line, ingredient: { kind: "unmatched" } }, names)).toBe("Ingen ingrediens");
+  });
+});
+
+describe("ingredient groups and step headings", () => {
+  const stepId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03";
+
+  it("gives a plain step a heading, keeps a saved step's id, and removes a blank heading", () => {
+    expect(withStepTitle("Rosta.", "Rostad småpotatis")).toEqual({ text: "Rosta.", title: "Rostad småpotatis" });
+    expect(withStepTitle("Rosta.", "  ")).toBe("Rosta.");
+    expect(withStepTitle({ id: stepId, text: "Rosta." }, "Potatis")).toEqual({ id: stepId, text: "Rosta.", title: "Potatis" });
+    expect(withStepTitle({ id: stepId, text: "Rosta.", title: "Potatis" }, "")).toEqual({ id: stepId, text: "Rosta.", title: null });
+  });
+
+  it("keeps a step's heading when its text changes", () => {
+    expect(withStepText({ text: "Rosta.", title: "Potatis" }, "Rosta länge.")).toEqual({ text: "Rosta länge.", title: "Potatis" });
+  });
+
+  it("sets a line's group as typed, and a blank one as none", () => {
+    expect(withGroup(line, "Sås ").group).toBe("Sås ");
+    expect(withGroup({ ...line, group: "Sås" }, " ").group).toBeNull();
+  });
+
+  it("validates a draft with groups and headings, trimmed, and flags one over 60 characters", () => {
+    const draft: RecipeDraft = {
+      title: "Kyckling",
+      servings: 4,
+      totalMinutes: null,
+      imageUrl: null,
+      sourceKind: "photo",
+      sourceUrl: null,
+      steps: [{ text: "Stek.", title: " Örtstekt kyckling " }],
+      lines: [{ ...line, group: " Örtstekt kyckling ", isStapleMarked: true }],
+    };
+    const parsed = recipeDraftSchema.parse(draft);
+    expect(parsed.lines[0].group).toBe("Örtstekt kyckling");
+    expect(parsed.steps[0]).toEqual({ text: "Stek.", title: "Örtstekt kyckling" });
+    expect(Object.keys(validateDraft({ ...draft, lines: [{ ...line, group: "x".repeat(61) }] }))).toEqual(["lines.0.group"]);
   });
 });
 

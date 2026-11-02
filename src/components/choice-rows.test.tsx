@@ -30,6 +30,20 @@ describe("ChoiceRows (Story 19.5)", () => {
     expect(onChange).toHaveBeenLastCalledWith("b");
   });
 
+  it("shows an icon before the label and calls onPick on a tap, even on the chosen row", () => {
+    const onChange = vi.fn();
+    const onPick = vi.fn();
+    render(<ChoiceRows label="Kategori" options={[{ value: "a", label: "Verktyg", icon: "🔨" }, { value: "b", label: "Övrigt", icon: "🛍️" }]} value="a" onChange={onChange} onPick={onPick} />);
+    // The icon is decoration: the row's name is the label.
+    expect(screen.getByRole("radio", { name: "Verktyg" })).toHaveTextContent("🔨");
+    fireEvent.click(screen.getByRole("radio", { name: "Verktyg" }));
+    expect(onPick).toHaveBeenLastCalledWith("a");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("radio", { name: "Verktyg" }), { key: "ArrowDown" });
+    expect(onChange).toHaveBeenLastCalledWith("b");
+    expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
   it("acts at once with kind=action, without radios or checks", () => {
     const onChange = vi.fn();
     render(<ChoiceRows kind="action" label="Kopiera till" options={options} value={null} onChange={onChange} />);

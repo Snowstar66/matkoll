@@ -16,7 +16,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "200 g skalade räkor",
@@ -31,7 +33,9 @@
       },
       "stepIndexes": [
         1
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 purjolök",
@@ -46,7 +50,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "3 dl matlagningsgrädde",
@@ -61,7 +67,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 dl riven ost",
@@ -76,7 +84,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "1 msk smör",
@@ -91,7 +101,9 @@
       },
       "stepIndexes": [
         2
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "salt",
@@ -106,7 +118,9 @@
       },
       "stepIndexes": [
         3
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     },
     {
       "originalText": "färsk dill",
@@ -121,15 +135,35 @@
       },
       "stepIndexes": [
         5
-      ]
+      ],
+      "group": null,
+      "isStapleMarked": false
     }
   ],
   "steps": [
-    "Sätt ugnen på 200 grader och smörj en ugnsform.",
-    "Skär fisken i bitar och lägg dem i formen. Strö räkorna över.",
-    "Strimla purjolöken, fräs den mjuk i smöret och lägg den över fisken.",
-    "Häll över grädden, salta lätt och strö över osten.",
-    "Gratinera mitt i ugnen i 25 minuter, tills fisken är genomkokt.",
-    "Toppa med hackad dill."
+    {
+      "title": null,
+      "text": "Sätt ugnen på 200 grader och smörj en ugnsform."
+    },
+    {
+      "title": null,
+      "text": "Skär fisken i bitar och lägg dem i formen. Strö räkorna över."
+    },
+    {
+      "title": null,
+      "text": "Strimla purjolöken, fräs den mjuk i smöret och lägg den över fisken."
+    },
+    {
+      "title": null,
+      "text": "Häll över grädden, salta lätt och strö över osten."
+    },
+    {
+      "title": null,
+      "text": "Gratinera mitt i ugnen i 25 minuter, tills fisken är genomkokt."
+    },
+    {
+      "title": null,
+      "text": "Toppa med hackad dill."
+    }
   ]
 }

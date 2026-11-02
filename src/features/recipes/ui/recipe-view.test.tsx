@@ -140,6 +140,40 @@ describe("RecipeView", () => {
     expect(rows()[3]).toHaveTextContent(/^salt och peppar$/);
   });
 
+  it("has no group headings or step headings for a recipe without them", () => {
+    render(<RecipeView recipe={recipe} snapshot={allHome} />);
+    expect(screen.getAllByTestId("recipe-line-group")).toHaveLength(1);
+    expect(screen.queryAllByRole("heading", { level: 3 })).toEqual([]);
+  });
+
+  it("lists the lines under their group's heading, scaled, and the steps with their headings (the Linas Matkasse format)", async () => {
+    const user = userEvent.setup();
+    const grouped: SavedRecipe = {
+      ...recipe,
+      steps: [{ ...recipe.steps[0], title: "Kyckling" }, recipe.steps[1]],
+      lines: [
+        { ...recipe.lines[0], group: "Kyckling" },
+        { ...recipe.lines[1], group: "Gryta" },
+        { ...recipe.lines[2], group: "Kyckling" },
+        { ...recipe.lines[3], group: "Gryta", isStapleMarked: true },
+      ],
+    };
+    render(<RecipeView recipe={grouped} snapshot={allHome} />);
+    const groups = screen.getAllByTestId("recipe-line-group");
+    expect(groups.map((group) => within(group).getByRole("heading", { level: 3 }).textContent)).toEqual(["Kyckling", "Gryta"]);
+    expect(within(groups[0]).getByRole("heading", { level: 3 })).toHaveClass("text-section-label");
+    expect(within(groups[0]).getAllByTestId("recipe-view-line").map((row) => row.textContent)).toEqual([
+      "Kycklinglårfilé600 g",
+      "2 nävar spenat",
+    ]);
+    expect(within(groups[1]).getAllByTestId("recipe-view-line")).toHaveLength(2);
+    const stepTitles = screen.getAllByTestId("recipe-step-title");
+    expect(stepTitles.map((title) => title.textContent)).toEqual(["Kyckling"]);
+    expect(stepTitles[0]).toHaveClass("text-headline");
+    await user.click(stepper.more());
+    expect(within(groups[0]).getAllByTestId("recipe-view-line")[0]).toHaveTextContent(/^Kycklinglårfilé750 g/);
+  });
+
   it("says Kan lagas nu and X av Y hemma, and ticks every line when everything is at home; a line without ingredient is neutral", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     expect(screen.getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");

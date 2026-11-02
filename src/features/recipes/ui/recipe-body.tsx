@@ -16,6 +16,7 @@ import {
   type StapleRules,
 } from "@/features/pantry";
 import { cookSteps } from "../domain/cook-steps";
+import { groupLines } from "../domain/line-groups";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
 import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
@@ -200,17 +201,25 @@ export function RecipeBody({ recipe, snapshot, site = null, staples = noStaples,
               Ingredienser
             </h2>
             {lines.length > 0 ? (
-              <ul className="flex flex-col">
-                {lines.map((line) => (
-                  <IngredientRow
-                    key={line.id}
-                    line={line}
-                    coverage={status ? lineCoverage(status, line.id) : null}
-                    factor={factor}
-                    anchorId={`recipe-line-${line.id}`}
-                  />
-                ))}
-              </ul>
+              // Ingredient groups (Linas Matkasse cards and the like) each get a small heading; a recipe without groups is one list, as before.
+              groupLines(lines).map((group, index) => (
+                <div key={group.name ?? ""} className="flex flex-col" data-testid="recipe-line-group">
+                  {group.name !== null ? (
+                    <h3 className={cx("text-section-label wrap-break-word text-ink-2", index > 0 ? "pt-4" : "pt-2")}>{group.name}</h3>
+                  ) : null}
+                  <ul className="flex flex-col">
+                    {group.lines.map((line) => (
+                      <IngredientRow
+                        key={line.id}
+                        line={line}
+                        coverage={status ? lineCoverage(status, line.id) : null}
+                        factor={factor}
+                        anchorId={`recipe-line-${line.id}`}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))
             ) : (
               <p className="py-2 text-body text-ink-2">Receptet har inga ingredienser.</p>
             )}
@@ -228,7 +237,14 @@ export function RecipeBody({ recipe, snapshot, site = null, staples = noStaples,
                   <span aria-hidden="true" className="w-6 shrink-0 text-row-title text-accent">
                     {index + 1}
                   </span>
-                  <p className="text-body text-ink">{step.text}</p>
+                  <div className="flex min-w-0 flex-col">
+                    {step.title ? (
+                      <h3 className="text-headline text-ink" data-testid="recipe-step-title">
+                        {step.title}
+                      </h3>
+                    ) : null}
+                    <p className="text-body text-ink">{step.text}</p>
+                  </div>
                 </li>
               ))}
             </ol>
