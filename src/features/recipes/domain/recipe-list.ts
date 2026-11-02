@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { recipeStatus, type PantrySnapshot, type SelectedSite, type StatusLine } from "@/features/pantry";
+import {
+  noStaples,
+  recipeStatus,
+  type PantrySnapshot,
+  type SelectedSite,
+  type StapleRules,
+  type StatusLine,
+} from "@/features/pantry";
 import { recipeCategories, type RecipeCategory } from "./recipe-category";
 
 // The recipe library (FR-8, FR-9, FR-22): what a recipe row shows, the search
@@ -44,12 +51,14 @@ export type RecipeListRow = Omit<RecipeListItem, "missingCount"> & { lines: Reci
 /**
  * The rows with their status against the whole pantry, for the recipes' own
  * servings (AD-7: the library never scales), in the same order. Without a
- * snapshot (the pantry could not be read) every row has no status.
+ * snapshot (the pantry could not be read) every row has no status. The
+ * household's Basvaror count as at home (pantry.isStaple).
  */
 export function withStatus(
   rows: readonly RecipeListRow[],
   snapshot: PantrySnapshot | null,
   names: Readonly<Record<string, string>> = {},
+  staples: StapleRules = noStaples,
 ): RecipeListItem[] {
   return rows.map(({ lines, ...row }) => {
     const categories = recipeCategories({
@@ -58,7 +67,7 @@ export function withStatus(
       totalMinutes: row.totalMinutes,
     });
     if (!snapshot) return { ...row, categories, missingCount: null };
-    const status = recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot);
+    const status = recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot, staples);
     return {
       ...row,
       categories,
@@ -69,11 +78,15 @@ export function withStatus(
 }
 
 /** The ids of the ingredients any of the rows is missing, for looking their names up (Story 4.3). */
-export function missingIngredientIds(rows: readonly RecipeListRow[], snapshot: PantrySnapshot | null): string[] {
+export function missingIngredientIds(
+  rows: readonly RecipeListRow[],
+  snapshot: PantrySnapshot | null,
+  staples: StapleRules = noStaples,
+): string[] {
   if (!snapshot) return [];
   const ids = new Set<string>();
   for (const { originalServings, lines } of rows) {
-    for (const id of recipeStatus({ servings: originalServings, lines }, originalServings, snapshot).missingIngredientIds) {
+    for (const id of recipeStatus({ servings: originalServings, lines }, originalServings, snapshot, staples).missingIngredientIds) {
       ids.add(id);
     }
   }
@@ -96,8 +109,13 @@ export function toLibrary(
   snapshot: PantrySnapshot | null,
   site: SelectedSite | null,
   names: Readonly<Record<string, string>> = {},
+  staples: StapleRules = noStaples,
 ): RecipeLibrary {
-  return { recipes: withStatus(rows, snapshot, names), pantryUnavailable: snapshot === null, site: snapshot ? site : null };
+  return {
+    recipes: withStatus(rows, snapshot, names, staples),
+    pantryUnavailable: snapshot === null,
+    site: snapshot ? site : null,
+  };
 }
 
 /** What searchRecipes takes: the text typed so far, at most 100 characters. */

@@ -35,8 +35,9 @@ export function lineCoverage(status: RecipeStatus, lineId: string): LineCoverage
  */
 function LineMark({ coverage }: { coverage: LineCoverage }) {
   if (coverage.kind === "covered") {
+    // A staple (Basvaror) is at home by the household's own list, not by the pantry.
     return (
-      <Mark label="finns hemma" className="text-accent">
+      <Mark label={coverage.staple ? "basvara, finns hemma" : "finns hemma"} className="text-accent">
         <CheckIcon size={18} />
       </Mark>
     );

@@ -1,9 +1,10 @@
 import "server-only";
 import type { IngredientDefaults } from "@/features/catalog";
 import type { MealPlan } from "@/features/mealplan";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot, StapleRules } from "@/features/pantry";
 import {
   computeList,
+  countList,
   countedDishIds,
   emptyOverlay,
   hiddenLines,
@@ -45,6 +46,12 @@ export type ShoppingSources = {
   customItems: (planId: string | null) => Promise<readonly CustomListItem[]>;
   /** The plan's corrected amounts and hidden lines (data/overrides.ts, listOverridesIn). */
   overrides: (planId: string) => Promise<readonly LineOverride[]>;
+  /**
+   * The household's Basvaror (pantry.getStapleRules), left out of the list
+   * within their limits; read only with a dish whose recipe is left. Without
+   * it, nothing is left out.
+   */
+  staples?: () => Promise<StapleRules>;
 };
 
 /** What Inköpslista shows. */
@@ -71,6 +78,11 @@ export type ShoppingList = {
   pantryUnavailable: boolean;
   /** The checks could not be read: no line is shown checked, and checking is off. */
   checksUnavailable: boolean;
+  /**
+   * How many recipe lines were left out as Basvaror: the footer "Basvaror
+   * räknas inte med · Ändra" shows only when some were. 0 when left out.
+   */
+  staplesSkipped?: number;
 };
 
 /**
@@ -103,17 +115,18 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
       catalog: { names, defaults },
       overlay: { ...emptyOverlay, checks: checks ?? [], customItems },
     });
-    return { plan: null, lines, hiddenLines: [], pantryUnavailable: false, checksUnavailable: checks === null };
+    return { plan: null, lines, hiddenLines: [], pantryUnavailable: false, checksUnavailable: checks === null, staplesSkipped: 0 };
   }
 
   const recipeIds = [...new Set(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])))];
   const withRecipes = recipeIds.length > 0;
-  const [recipes, pantry, checks, customItems, overrides] = await Promise.all([
+  const [recipes, pantry, checks, customItems, overrides, staples] = await Promise.all([
     withRecipes ? sources.recipesByIds(recipeIds) : [],
     withRecipes ? sources.pantry() : new Map(),
     sources.checks(plan.id),
     sources.customItems(plan.id),
     sources.overrides(plan.id),
+    withRecipes && sources.staples ? sources.staples() : undefined,
   ]);
   const ingredientIds = [
     ...new Set([
@@ -132,8 +145,9 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
     snapshot: pantry ?? new Map(),
     catalog: { names, defaults },
     overlay: { ...emptyOverlay, checks: checks ?? [], customItems, overrides },
+    staples,
   };
-  const lines = computeList(input);
+  const { lines, staplesSkipped } = countList(input);
   const counted = countedDishIds(plan, recipes).length;
   return {
     plan: {
@@ -147,5 +161,6 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
     hiddenLines: hiddenLines(input),
     pantryUnavailable: pantry === null,
     checksUnavailable: checks === null,
+    staplesSkipped,
   };
 }

@@ -46,6 +46,7 @@ vi.mock("@/features/pantry/server", () => ({
   findPantryAdditions: (keys: unknown) => findPantryAdditions(keys),
   forgetPantryAdditions: (keys: unknown) => forgetPantryAdditions(keys),
   getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
+  getStapleRules: async () => ({ byIngredient: {}, byName: {} }),
   listPantrySites: () => listPantrySites(),
 }));
 vi.mock("@/features/mealplan/server", () => ({ MealPlanDataError, getCurrentPlan: vi.fn(), getPlan: vi.fn() }));

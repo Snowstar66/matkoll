@@ -163,6 +163,8 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
       currentPlan: weekStart && weekStart !== currentWeekStart() ? () => getPlanForWeek(weekStart) : getCurrentPlan,
       recipesByIds: getRecipesByIds,
       pantry: async () => (await forStatus).snapshot,
+      // Basvaror (Pontus 2026-11-02): read with the pantry, none when they cannot be read.
+      staples: async () => (await forStatus).staples,
       ingredientNames: getIngredientNames,
       ingredientDefaults: getIngredientDefaults,
       checks: async (planId) => {

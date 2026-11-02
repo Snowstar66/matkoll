@@ -11,6 +11,7 @@ import {
   forgetPantryAdditions,
   getPantrySnapshot,
   getSelectedSite,
+  getStapleRules,
   isPantrySiteGone,
   listPantrySites,
   PantryDataError,
@@ -112,6 +113,8 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
           ingredientDefaults: getIngredientDefaults,
           customItems: () => listCustomItemsIn(db),
           overrides: (id) => listOverridesIn(db, id),
+          // The list as it was shown: without the household's Basvaror.
+          staples: getStapleRules,
         },
         checkRows: (id) => listCheckRowsIn(db, id),
         findAdditions: findPantryAdditions,

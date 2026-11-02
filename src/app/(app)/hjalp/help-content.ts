@@ -82,6 +82,11 @@ export const helpAreas: readonly HelpArea[] = [
     faq: [
       { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till vara högst upp i listan, eller säg det till Siri." },
       {
+        // Basvaror (Pontus 2026-11-02).
+        question: "Varför står inte salt på listan?",
+        answer: "Salt, peppar, vatten och vanliga kryddor är basvaror, som räknas som att ni alltid har hemma. Socker, mjöl, smör och olja räknas bara i små mängder, så 5 dl mjöl till en kaka hamnar på listan. Ändra listan i Inställningar → Basvaror.",
+      },
+      {
         question: "Kan jag handla till nästa vecka?",
         answer: "Ja. Tryck Denna vecka bredvid Att handla och välj vecka. Dina egna varor syns vilken vecka du än väljer.",
       },

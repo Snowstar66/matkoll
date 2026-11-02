@@ -1,4 +1,5 @@
-import { normalizeIngredientText } from "@/features/catalog";
+import { normalizeIngredientText, type Unit } from "@/features/catalog";
+import { isStaple, noStaples, type StapleRules } from "@/features/pantry";
 import {
   cleanModelText,
   cutCodePoints,
@@ -66,23 +67,25 @@ export function atHomeText({ have, total }: { have: number; total: number }): st
   return `${have} av ${total} hemma`;
 }
 
-/** Pantry basics left out of "köp till": nobody shops for them for one dish (Story 16.2). */
-const trivialStaples = new Set(["salt", "peppar", "svartpeppar", "vatten", "olja", "matolja", "rapsolja", "socker"]);
-
-/** True for salt, pepper, water, oil and sugar, compared normalised. */
-export function isTrivialStaple(name: string): boolean {
-  return trivialStaples.has(normalizeIngredientText(name));
-}
-
-/** One line of a dish, as toBuyNames reads it. */
-export type DishLine = { name: string; ingredientId: string | null; atHome: boolean };
+/**
+ * One line of a dish, as toBuyNames reads it. `amount` and `unit` are for the
+ * household's Basvaror's limits; without them the line counts as a small
+ * amount.
+ */
+export type DishLine = { name: string; ingredientId: string | null; atHome: boolean; amount?: number | null; unit?: Unit | null };
 
 /**
  * The names of the lines Pontus has to buy: not at home, not an offer the
  * dish uses (by catalog ingredient, or by name for an offer without one) and
- * not a trivial staple. Each once, in the dish's order.
+ * not one of the household's Basvaror within its limit (pantry.isStaple,
+ * which replaced Story 16.2's fixed list of trivial staples). Each once, in
+ * the dish's order.
  */
-export function toBuyNames(offers: readonly OfferInfo[], lines: readonly DishLine[]): string[] {
+export function toBuyNames(
+  offers: readonly OfferInfo[],
+  lines: readonly DishLine[],
+  staples: StapleRules = noStaples,
+): string[] {
   const offeredIds = new Set(offers.flatMap((offer) => (offer.ingredientId ? [offer.ingredientId] : [])));
   const offeredNames = new Set(
     offers.filter((offer) => !offer.ingredientId).map((offer) => normalizeIngredientText(offer.name)),
@@ -92,7 +95,13 @@ export function toBuyNames(offers: readonly OfferInfo[], lines: readonly DishLin
   for (const line of lines) {
     const key = normalizeIngredientText(line.name) || line.name;
     const onOffer = line.ingredientId ? offeredIds.has(line.ingredientId) : offeredNames.has(key);
-    if (line.atHome || onOffer || !line.name || isTrivialStaple(line.name) || seen.has(key)) continue;
+    const staple = isStaple(staples, {
+      ingredientId: line.ingredientId,
+      name: line.name,
+      amount: line.amount ?? null,
+      unit: line.unit ?? null,
+    });
+    if (line.atHome || onOffer || !line.name || staple || seen.has(key)) continue;
     seen.add(key);
     names.push(line.name);
   }

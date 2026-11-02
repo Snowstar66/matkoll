@@ -311,6 +311,7 @@ Från och med migreringen `20261102130000_household.sql` ägs appens data av ett
 | `store`, `store_offer` | Hushållets | En vald butik per hushåll; erbjudandena hör till butiken. |
 | `pantry_site`, `pantry_item`, `pantry_addition`, `pantry_removal`, `pantry_photo` | Hushållets | Boenden, matvaror, kvitton för "Lägg i Matvaror", "Ångra" och hyllfoton. Ett valt boende per hushåll. |
 | `thing_place`, `thing_photo`, `thing_item`, `thing_change` | Hushållets | Förrådet med kort, föremål och antal. |
+| `household_staple` | Hushållets | Basvaror: det hushållet alltid har hemma (salt, peppar, små mängder mjöl …). Varje hushåll får standardlistan när det skapas. |
 | `ai_setting` | Hushållets | AI-valet gäller hushållet (ett per hushåll). |
 | `ai_usage` | Hushållets | Kostnaden visas per hushåll, vilket räcker. |
 | `ai_job` | Hushållets | Kön och "en körande uppgift" gäller hushållet. |

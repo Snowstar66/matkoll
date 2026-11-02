@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { atHomeText, isTrivialStaple, offersUsed, toBuyNames, toOfferNames, whyText } from "./offer-input";
+import { stapleRules, type Staple } from "@/features/pantry";
+import { atHomeText, offersUsed, toBuyNames, toOfferNames, whyText } from "./offer-input";
 
 const offer = (name: string, ingredientId: string | null = null, label = name) => ({ label, name, ingredientId });
 
@@ -65,23 +66,39 @@ describe("toBuyNames", () => {
     { label: "Scan Falukorv", name: "falukorv", ingredientId: "f" },
     { label: "Kryddmix", name: "kryddmix", ingredientId: null },
   ];
-  it("leaves out what is at home, on offer, trivial staples and repeats", () => {
+  const staple = (name: string, maxAmount: number | null = null, maxUnit: "dl" | null = null): Staple =>
+    ({ id: name, name, normalizedName: name.toLowerCase(), maxAmount, maxUnit }) as Staple;
+  const staples = stapleRules([staple("Salt"), staple("Vatten"), staple("Vetemjöl", 1, "dl")], { salt: ["s"] });
+  it("leaves out what is at home, on offer, the household's staples and repeats", () => {
     const line = (name: string, ingredientId: string | null, atHome = false) => ({ name, ingredientId, atHome });
     expect(
-      toBuyNames(offers, [
-        line("falukorv", "f"),
-        line("kryddmix", null),
-        line("mjölk", "m", true),
-        line("Salt", "s"),
-        line("potatis", "p"),
-        line("Potatis", null),
-        line("vatten", null),
-      ]),
+      toBuyNames(
+        offers,
+        [
+          line("falukorv", "f"),
+          line("kryddmix", null),
+          line("mjölk", "m", true),
+          line("Salt", "s"),
+          line("potatis", "p"),
+          line("Potatis", null),
+          line("vatten", null),
+        ],
+        staples,
+      ),
     ).toEqual(["potatis"]);
   });
-  it("knows the staples", () => {
-    expect(isTrivialStaple("Peppar")).toBe(true);
-    expect(isTrivialStaple("potatis")).toBe(false);
+  it("buys a staple above its limit, and every staple without the household's list", () => {
+    expect(
+      toBuyNames(
+        [],
+        [
+          { name: "vetemjöl", ingredientId: "v", atHome: false, amount: 5, unit: "dl" },
+          { name: "Vetemjöl", ingredientId: "v2", atHome: false, amount: 2, unit: "msk" },
+        ],
+        staples,
+      ),
+    ).toEqual(["vetemjöl"]);
+    expect(toBuyNames([], [{ name: "Salt", ingredientId: "s", atHome: false }])).toEqual(["Salt"]);
   });
 });
 

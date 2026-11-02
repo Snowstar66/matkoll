@@ -205,6 +205,12 @@ export const errorMessages = {
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
   settings_duplicate_domain: "Sajten finns redan.",
   settings_save_failed: "Det gick inte att spara ändringen. Försök igen.",
+  // Basvaror under Inställningar (Pontus 2026-11-02). "Salt finns redan." is in `fields.name`.
+  staples_unavailable: "Det gick inte att läsa basvarorna. Försök igen.",
+  staples_save_failed: "Det gick inte att spara basvarorna. Försök igen.",
+  staples_duplicate: "Den finns redan bland basvarorna.",
+  staples_invalid_limit: "Skriv en mängd i g, dl, msk eller tsk, t.ex. 1 dl. Lämna tomt för alltid.",
+  staples_limit: "Du kan ha högst 200 basvaror. Ta bort någon först.",
   // Siri och genvägar (Story 17.9): five working keys at most.
   settings_key_limit: "Du kan ha högst 5 nycklar. Återkalla en först.",
   // The section Butik in Inställningar (Story 7.1). When the stores cannot be

@@ -2,7 +2,7 @@ import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { nameInSentence } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot, StapleRules } from "@/features/pantry";
 import type { OldPantryItem } from "@/features/pantry";
 import { getPantryForStatus, listOldPantryItems, PantryDataError } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
@@ -47,9 +47,9 @@ async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
  * them for its status (pantry.getPantryForStatus, AD-24); a place or pantry
  * that cannot be read (logged there) becomes `pantry_unavailable`.
  */
-async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: string | null }>> {
-  const { site, snapshot } = await getPantryForStatus();
-  return snapshot ? ok({ snapshot, siteId: site?.id ?? null }) : fail("pantry_unavailable");
+async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: string | null; staples: StapleRules }>> {
+  const { site, snapshot, staples } = await getPantryForStatus();
+  return snapshot ? ok({ snapshot, siteId: site?.id ?? null, staples }) : fail("pantry_unavailable");
 }
 
 /**
@@ -282,8 +282,11 @@ async function suggest(
               name: linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim(),
               ingredientId: id,
               atHome: isLinkedAtHome(ingredient, snapshot),
+              amount: line.amount,
+              unit: line.unit,
             };
           }),
+          pantry.data.staples,
         ),
       };
     }),

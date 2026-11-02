@@ -9,7 +9,7 @@ import { getPantryForStatus } from "@/features/pantry/server";
 import { listRecipeRows, RecipeDataError } from "@/features/recipes/server";
 import { getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
-import { rankOwnRecipes, type OwnRecipeMatch } from "../domain/own-recipes";
+import { maxOwnRecipes, rankOwnRecipes, type OwnRecipeMatch } from "../domain/own-recipes";
 
 // "Från dina recept" (Story 16.3): the signed-in user's own recipes that use
 // this week's offers of a store, ranked without AI (rankOwnRecipes). A read:
@@ -35,7 +35,11 @@ export async function ownRecipesWithOffers(storeId?: string): Promise<Result<Own
       ? ((await listStores()).find((candidate) => candidate.id === parsed.data) ?? null)
       : await getSelectedStore();
     if (!store) return ok([]);
-    const [offers, rows, { snapshot }] = await Promise.all([getActiveOffers(store.id), listRecipeRows(), getPantryForStatus()]);
+    const [offers, rows, { snapshot, staples }] = await Promise.all([
+      getActiveOffers(store.id),
+      listRecipeRows(),
+      getPantryForStatus(),
+    ]);
     if (offers.length === 0 || rows.length === 0) return ok([]);
     const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
     const names = ids.length > 0 ? await getIngredientNames(ids) : {};
@@ -57,8 +61,12 @@ export async function ownRecipesWithOffers(storeId?: string): Promise<Result<Own
             name: lineName(line),
             ingredientId: line.ingredientId,
             atHome: line.ingredientId !== null && (snapshot?.has(line.ingredientId) ?? false),
+            amount: line.amount,
+            unit: line.unit,
           })),
         })),
+        maxOwnRecipes,
+        staples,
       ),
     );
   } catch (error) {

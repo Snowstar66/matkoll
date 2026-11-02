@@ -44,7 +44,7 @@ async function RecipeContent({ params, searchParams }: Pick<PageProps<"/recept/[
   const planning = planningTarget(Array.isArray(planera) ? planera[0] : planera);
   const found = await getRecipeWithPantry(id);
   if (!found) notFound();
-  const { recipe, snapshot, site } = found;
+  const { recipe, snapshot, site, staples } = found;
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   const plan = await getCurrentPlan().catch(() => null);
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
@@ -58,6 +58,7 @@ async function RecipeContent({ params, searchParams }: Pick<PageProps<"/recept/[
       recipe={recipe}
       snapshot={snapshot}
       site={site}
+      staples={staples}
       menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} />}
       addToPlan={addToCurrentPlan}
       planning={planning ?? undefined}

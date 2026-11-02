@@ -7,8 +7,12 @@ import { roundSum, type PantryAmount, type PantrySnapshot } from "./pantry-item"
 // between recipes. Pure, so it is tested without a database.
 
 export type Coverage =
-  /** Enough at home: an unlimited item, enough in the need's unit, or any form for a vague need. */
-  | { kind: "covered" }
+  /**
+   * Enough at home: an unlimited item, enough in the need's unit, or any form
+   * for a vague need. `staple`: not in the pantry, but one of the household's
+   * Basvaror within its limit, so it counts as at home (staples.isStaple).
+   */
+  | { kind: "covered"; staple?: true }
   /**
    * Some at home in the need's unit, but not enough; `remaining` is what is
    * short, `amounts` everything at home of the ingredient, in every unit.

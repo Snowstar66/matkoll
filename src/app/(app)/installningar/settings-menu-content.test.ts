@@ -3,7 +3,7 @@ import type { AiSettingsView } from "@/features/settings";
 
 vi.mock("@/features/auth/server", () => ({ requireUserOrRedirect: vi.fn(async () => ({ id: "u", email: "pontus@example.se" })) }));
 vi.mock("@/features/auth/ui/sign-out-button", () => ({ SignOutButton: () => null }));
-vi.mock("@/features/pantry/server", () => ({ listPantrySitesWithCounts: vi.fn(async () => []) }));
+vi.mock("@/features/pantry/server", () => ({ listPantrySitesWithCounts: vi.fn(async () => []), listStaples: vi.fn(async () => []) }));
 vi.mock("@/features/settings/server", () => ({
   getAiSettingsView: vi.fn(async () => null),
   getAiMonthUsage: vi.fn(async () => null),

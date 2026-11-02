@@ -4,7 +4,8 @@ import { initialOf, memberNamesText } from "@/features/household";
 import { getHousehold, getMe } from "@/features/household/server";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
-import { listPantrySitesWithCounts } from "@/features/pantry/server";
+import { staplesCountText } from "@/features/pantry";
+import { listPantrySitesWithCounts, listStaples } from "@/features/pantry/server";
 import {
   aiLevelLabels,
   aiProviderLabels,
@@ -54,7 +55,7 @@ export function sitesCountText(count: number): string {
  */
 export async function SettingsMenuContent() {
   const user = await requireUserOrRedirect("/installningar");
-  const [housing, stores, recipeSites, ai, aiUsage, inbox, household, me] = await Promise.all([
+  const [housing, stores, recipeSites, ai, aiUsage, inbox, household, me, staples] = await Promise.all([
     valueOf(listPantrySitesWithCounts, "housing"),
     valueOf(listStores, "stores"),
     valueOf(listRecipeSites, "recipe_sites"),
@@ -65,6 +66,7 @@ export async function SettingsMenuContent() {
     // Story 21.2b: who is in the household, and the person's own name.
     valueOf(getHousehold, "household"),
     getMe(),
+    valueOf(listStaples, "staples"),
   ]);
   const selectedStore = stores?.find((store) => store.isSelected);
 
@@ -101,6 +103,14 @@ export async function SettingsMenuContent() {
           tile: "sky",
           title: "Butiker",
           value: selectedStore?.name,
+        },
+        {
+          // Basvaror (Pontus 2026-11-02): what the household always has, never on the list.
+          href: settingsPageHref("basvaror"),
+          icon: "pantry",
+          tile: "sand",
+          title: "Basvaror",
+          value: staples ? staplesCountText(staples.length) : undefined,
         },
       ],
     },

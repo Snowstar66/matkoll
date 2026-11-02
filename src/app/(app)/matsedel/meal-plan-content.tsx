@@ -118,6 +118,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         planName={view.plan?.name ?? null}
         dishes={view.dishes}
         snapshot={view.snapshot}
+        staples={view.staples}
         names={view.names ?? {}}
         siteId={view.site?.id ?? null}
         nextWeek={{ weekStart: addWeeks(weekStart, 1), count: counts[addWeeks(weekStart, 1)] ?? 0 }}

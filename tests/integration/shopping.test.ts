@@ -163,6 +163,7 @@ describe("loadShoppingList", () => {
       hiddenLines: [],
       pantryUnavailable: false,
       checksUnavailable: false,
+      staplesSkipped: 0,
     });
   });
 

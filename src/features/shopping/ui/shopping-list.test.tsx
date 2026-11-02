@@ -167,6 +167,18 @@ describe("ShoppingList", () => {
     expect(screen.queryByTestId("list-progress")).not.toBeInTheDocument();
   });
 
+  it("says Basvaror are not counted, with Ändra to them, only when some were left out", () => {
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} staplesSkipped={3} />);
+    const footer = screen.getByTestId("staples-footer");
+    expect(footer).toHaveTextContent("Basvaror räknas inte med · Ändra");
+    expect(within(footer).getByRole("link", { name: "Ändra" })).toHaveAttribute("href", "/installningar/basvaror");
+    rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} staplesSkipped={2} />);
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
+    expect(screen.getByTestId("staples-footer")).toBeInTheDocument();
+    rerender(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} staplesSkipped={0} />);
+    expect(screen.queryByTestId("staples-footer")).not.toBeInTheDocument();
+  });
+
   it("says nothing is taken off when the pantry could not be read, as a status, and only with dishes", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable />);
     const notice = screen.getByText("Det gick inte att läsa matvarorna, så inget är avdraget från listan.");

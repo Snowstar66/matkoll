@@ -146,6 +146,8 @@ const coverage: Record<IsolatedTable, Coverage> = {
   },
   // Story 24.1: a note to the others in the household (the author and household come from the session).
   household_note: { row: () => ({ text: "Sugen på fisksoppa idag, kan du handla?", mood: "love", actions: [{ kind: "list" }] }) },
+  // Basvaror: one staple the household always has (the defaults have no maker; this one is a's).
+  household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
   // Story 20.1: one row per user, the time the welcome tour was closed.
   welcome_tour: { row: () => ({ tour_seen_at: new Date().toISOString() }) },
 };
@@ -180,6 +182,7 @@ const seedOrder: IsolatedTable[] = [
   "thing_item",
   "thing_change",
   "household_note",
+  "household_staple",
   "welcome_tour",
 ];
 
@@ -922,8 +925,10 @@ describe("household isolation", () => {
       "clear_other_store_offers", "enqueue_ai_job", "commit_ingredients", "is_app_owner",
       // Story 21.2b: the caller's own household and name (household-members.test.ts tries each).
       "create_household_invite", "household_invites", "household_members", "leave_household", "rename_household", "set_my_display_name",
+      // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
+      "reset_household_staples",
       // Pure functions of their arguments.
-      "catalog_display_name", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
+      "catalog_display_name", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
 
     /** What B is calling, with A's ids. */

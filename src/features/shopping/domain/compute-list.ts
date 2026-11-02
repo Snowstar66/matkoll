@@ -10,11 +10,14 @@ import {
   aggregateNeedsWithOrigins,
   atHomeText,
   coverage,
+  isStaple,
+  noStaples,
   type Coverage,
   type LineCoverage,
   type NeedLine,
   type OriginLine,
   type PantrySnapshot,
+  type StapleRules,
 } from "@/features/pantry";
 import { scaleFactor, scaleLines } from "@/features/recipes";
 import type { CustomListItem } from "./custom-item";
@@ -135,7 +138,15 @@ export type ShoppingListInput = {
     defaults: Readonly<Record<string, { section: string }>>;
   };
   overlay: Overlay;
+  /**
+   * The household's Basvaror (pantry.getStapleRules): a recipe line that is one
+   * of them, within its limit, is left out of the list. None when left out.
+   */
+  staples?: StapleRules;
 };
+
+/** The list's lines, and how many recipe lines were left out as Basvaror. */
+export type CountedList = { lines: ShoppingLine[]; staplesSkipped: number };
 
 const nameOrder = new Intl.Collator("sv-SE", { sensitivity: "base", numeric: true });
 const sectionRank = (section: Section) => SECTIONS.indexOf(section);
@@ -242,14 +253,31 @@ export function countedDishIds(plan: ShoppingListInput["plan"], recipes: readonl
  *   override whose key has no line, because the pantry covers it or the need
  *   is in another unit now, does nothing until the key is back (decision
  *   2026-10-26).
+ * - Basvaror (`staples`, Pontus 2026-11-02): a need the pantry does not cover
+ *   but that is one of the household's staples is left out, silently, when
+ *   its amount over all dishes is within the staple's limit (pantry.isStaple:
+ *   salt always, vetemjöl up to 1 dl, a vague line always), matched by its
+ *   catalog ingredient or its name; above the limit (baking) it is a line as
+ *   before. A line without a catalog ingredient is matched by its text. A
+ *   vague staple line still folds into the same ingredient's line with an
+ *   amount when that one is on the list. Own items are never left out.
  */
-export function computeList({ plan, recipes, snapshot, catalog, overlay }: ShoppingListInput): ShoppingLine[] {
-  if (!plan) return [];
+export function computeList(input: ShoppingListInput): ShoppingLine[] {
+  return countList(input).lines;
+}
+
+/** computeList's lines, with how many recipe lines were left out as Basvaror (for the list's footer). */
+export function countList({ plan, recipes, snapshot, catalog, overlay, staples = noStaples }: ShoppingListInput): CountedList {
+  if (!plan) return { lines: [], staplesSkipped: 0 };
   const checks = new Set(overlay.checks);
-  return [
-    ...applyOverrides(recipeLines({ plan, recipes, snapshot, catalog }, checks), overlay.overrides),
-    ...customLines(overlay.customItems, catalog, checks),
-  ].sort(compareShoppingLines);
+  const counted = recipeLines({ plan, recipes, snapshot, catalog }, checks, staples);
+  return {
+    lines: [
+      ...applyOverrides(counted.lines, overlay.overrides),
+      ...customLines(overlay.customItems, catalog, checks),
+    ].sort(compareShoppingLines),
+    staplesSkipped: counted.staplesSkipped,
+  };
 }
 
 /** The recipe lines with Pontus's corrected amounts, without their hidden ones; see computeList. */
@@ -315,9 +343,13 @@ function customLines(
 
 /** The lines the plan's recipes give, unsorted; see computeList. */
 function recipeLines(
-  { plan, recipes, snapshot, catalog }: Omit<ShoppingListInput, "overlay" | "plan"> & { plan: NonNullable<ShoppingListInput["plan"]> },
+  { plan, recipes, snapshot, catalog }: Omit<ShoppingListInput, "overlay" | "plan" | "staples"> & {
+    plan: NonNullable<ShoppingListInput["plan"]>;
+  },
   checks: ReadonlySet<string>,
-): ShoppingLine[] {
+  staples: StapleRules,
+): { lines: ShoppingLine[]; staplesSkipped: number } {
+  let staplesSkipped = 0;
   const recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   const dishOrder = new Map(plan.recipes.map((dish, index) => [dish.id, index]));
   const linked: OriginLine[] = [];
@@ -331,6 +363,11 @@ function recipeLines(
     const factor = scaleFactor(dish.servings, recipe.originalServings);
     for (const line of scaleLines(recipe.lines, factor)) {
       if (line.ingredientId === null) {
+        // A line without a catalog ingredient is matched by its own text ("Salt", "2 msk olivolja").
+        if (isStaple(staples, { ingredientId: null, name: line.originalText, amount: line.amount, unit: line.unit })) {
+          staplesSkipped++;
+          continue;
+        }
         const key = textLineKey(line.originalText);
         const text = texts.get(key) ?? {
           label: collapse(line.originalText) || unknownItemLabel,
@@ -353,11 +390,22 @@ function recipeLines(
   const lines: ShoppingLine[] = [];
   /** The ingredients' first line with an amount, which a missing vague line of the same ingredient joins. */
   const withAmount = new Map<string, ShoppingLine>();
-  const vagueMissing: { ingredientId: string; origins: string[]; line: ShoppingLine }[] = [];
+  const vagueMissing: { ingredientId: string; origins: string[]; line: ShoppingLine; staple: boolean }[] = [];
   for (const need of aggregateNeedsWithOrigins(linked)) {
     const covered = coverage(need, snapshot);
     const short = shortfall(covered, need);
     if (!short) continue;
+    const staple = isStaple(staples, {
+      ingredientId: need.ingredientId,
+      name: catalog.names[need.ingredientId] || writtenLabels.get(need.ingredientId),
+      amount: need.amount,
+      unit: need.unit,
+    });
+    // A vague staple line waits: it may fold into the ingredient's line with an amount below.
+    if (staple && !short.isVague) {
+      staplesSkipped++;
+      continue;
+    }
     const key = recipeLineKey(need.ingredientId, need.unit);
     const unit = short.amount === null ? null : need.unit;
     const line: ShoppingLine = {
@@ -375,7 +423,7 @@ function recipeLines(
       isCustom: false,
     };
     if (short.isVague) {
-      vagueMissing.push({ ingredientId: need.ingredientId, origins: need.origins, line });
+      vagueMissing.push({ ingredientId: need.ingredientId, origins: need.origins, line, staple });
     } else if (!withAmount.has(need.ingredientId)) {
       withAmount.set(need.ingredientId, line);
     }
@@ -383,9 +431,16 @@ function recipeLines(
   }
   // A missing vague line folds into the same ingredient's line with an amount (decision 2026-10-26).
   const folded = new Set<ShoppingLine>();
-  for (const { ingredientId, origins, line } of vagueMissing) {
+  for (const { ingredientId, origins, line, staple } of vagueMissing) {
     const target = withAmount.get(ingredientId);
-    if (!target) continue;
+    if (!target) {
+      // "salt efter smak" with no line of salt to join: a staple, left out.
+      if (staple) {
+        staplesSkipped++;
+        folded.add(line);
+      }
+      continue;
+    }
     target.origins = [...new Set([...target.origins, ...origins])].sort(
       (a, b) => (dishOrder.get(a) ?? 0) - (dishOrder.get(b) ?? 0),
     );
@@ -407,5 +462,5 @@ function recipeLines(
       isCustom: false,
     });
   }
-  return lines.filter((line) => !folded.has(line));
+  return { lines: lines.filter((line) => !folded.has(line)), staplesSkipped };
 }

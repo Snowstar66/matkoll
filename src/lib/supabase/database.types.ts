@@ -201,6 +201,26 @@ isOneToOne: false
       referencedColumns: ["id","household_id"]
     }
                   ]
+                },"household_staple": {
+                  Row: {
+                    "created_at": string,"household_id": string,"id": string,"max_amount": number | null,"max_unit": string | null,"name": string,"normalized_name": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"max_amount"?: number | null,"max_unit"?: string | null,"name": string,"normalized_name": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"max_amount"?: number | null,"max_unit"?: string | null,"name"?: string,"normalized_name"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "household_staple_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"household_id": string,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string | null
@@ -1037,6 +1057,14 @@ isOneToOne: false
 "household_signup_hook":
 { Args: { "event": Json }; Returns: Json
                            },
+"household_staple_defaults":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "max_amount": number,"max_unit": string,"name": string,"normalized_name": string
+            }[]
+                           },
+"household_staple_seed":
+{ Args: { "hid": string }; Returns: undefined
+                           },
 "is_app_owner":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
@@ -1152,6 +1180,9 @@ isOneToOne: false
                            },
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
+                           },
+"reset_household_staples":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "restore_household_invite":
 { Args: { "invite_id": string }; Returns: boolean

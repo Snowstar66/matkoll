@@ -295,6 +295,11 @@ export const householdEmail = "e2e-hushall@matkoll.test";
  * the second in the first one's household with the service role, and one writes to the other.
  */
 export const notesEmail = "e2e-lappar@matkoll.test";
+/**
+ * The E2E user of staples.spec.ts alone (Basvaror): a household with the default staples,
+ * a meal plan and a baking recipe, so the list, Saknar and Inställningar → Basvaror agree.
+ */
+export const staplesEmail = "e2e-basvaror@matkoll.test";
 export const notesPartnerEmail = "e2e-lappar-2@matkoll.test";
 /**
  * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
@@ -361,6 +366,7 @@ export const e2eEmails = [
   notesPartnerEmail,
   welcomeEmail,
   newsEmail,
+  staplesEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -414,6 +420,7 @@ export const householdStorageState = "tests/e2e/.auth/household.json";
 export const notesStorageState = "tests/e2e/.auth/notes.json";
 export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";
+export const staplesStorageState = "tests/e2e/.auth/staples.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 
