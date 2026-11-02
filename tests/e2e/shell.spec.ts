@@ -8,7 +8,7 @@ test.use({ storageState: userStorageState });
 const surfaces = [
   { tab: "Recept", path: "/recept", title: "Recept", empty: "Inga recept än. Klistra in en länk till ett recept du gillar." },
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Den här veckan är tom." },
-  { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
+  { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Inga rätter på matsedeln den här veckan." },
   { tab: "Matvaror", path: "/hemma", title: "Matvaror", empty: "Inget i kylen än." },
   { tab: "Förråd", path: "/prylar", title: "Förråd", empty: "Börja med ett rum, som Förrådet eller Garaget." },
 ] as const;

@@ -298,7 +298,7 @@ test("Ta bort never asks, every removal goes at once and the list follows", asyn
   await expect.poll(dishCount).toBe(0);
 
   await page.goto("/lista");
-  await expect(page.getByText("Lägg rätter på matsedeln så räknas listan fram.").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Inga rätter på matsedeln den här veckan.").filter({ visible: true })).toBeVisible();
 
   // Put the dishes back for the tests that follow.
   const admin = adminClient();
@@ -658,21 +658,23 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(dishes(page)).toHaveCount(thisWeekDishes);
   await expect(dish(page, "Våffelsmet")).toHaveCount(0);
 
-  // Inköpslista counts this week by default; its week tiles (Story 3.10) move it to next week.
+  // Inköpslista counts this week by default; its quiet week menu moves it to next week (no week tiles there).
   await page.goto("/lista");
-  const listTiles = page.getByTestId("week-nav").filter({ visible: true });
-  await expect(listTiles.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
-  await expect(listTiles.getByRole("link", { name: "Tidigare veckor" })).toHaveCount(0);
+  const weekMenu = page.getByTestId("week-menu").filter({ visible: true });
+  await expect(weekMenu).toHaveText("Denna vecka");
+  await expect(page.getByTestId("week-nav").filter({ visible: true })).toHaveCount(0);
   await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
-  await listTiles.getByRole("link", { name: /nästa vecka/i }).click();
+  await weekMenu.click();
+  await page.getByRole("dialog", { name: "Vilken vecka?" }).getByRole("radio", { name: /Nästa vecka/ }).click();
   await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
+  await expect(page.getByTestId("week-menu").filter({ visible: true })).toHaveText("Nästa vecka");
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("an empty week in Inköpslista offers the week that has dishes (Story 3.10)", async ({ page }) => {
+test("an empty week in Inköpslista says so and offers to plan it; the week menu counts the dishes", async ({ page }) => {
   const errors = watchErrors(page);
-  // A dish on next week, so a week with dishes is among the tiles; a week five ahead, reached by its address, has none.
+  // A dish on next week, so the menu has a week with dishes; a week five ahead, reached by its address, has none.
   const ids = await seedIngredients(["Mjölk"]);
   await seedRecipe("Pannkaksmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
   await page.goto("/matsedel");
@@ -685,11 +687,19 @@ test("an empty week in Inköpslista offers the week that has dishes (Story 3.10)
   const ahead = new Date(Date.now() + 35 * 86_400_000);
   const thursday = new Date(Date.UTC(ahead.getFullYear(), ahead.getMonth(), ahead.getDate() + 3 - ((ahead.getDay() + 6) % 7)));
   const week = Math.floor((thursday.getTime() - Date.UTC(thursday.getUTCFullYear(), 0, 1)) / 604_800_000) + 1;
-  await page.goto(`/lista?vecka=${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`);
-  await expect(page.getByText(/^Vecka \d{1,2} har inga rätter än\.$/).filter({ visible: true })).toBeVisible();
-  await page.getByRole("link", { name: new RegExp(`^Visa vecka \\d{1,2} \\(\\d+ rätt(er)?\\)$`) }).filter({ visible: true }).click();
-  await expect(page).toHaveURL(/\/lista(\?vecka=\d{4}-W\d{2})?$/);
-  await expect(page.getByText(/har inga rätter än/)).toHaveCount(0);
+  const param = `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+  await page.goto(`/lista?vecka=${param}`);
+  await expect(page.getByText("Inga rätter på matsedeln om 5 veckor.").filter({ visible: true })).toBeVisible();
+  const weekMenu = page.getByTestId("week-menu").filter({ visible: true });
+  await expect(weekMenu).toHaveText("Om 5 veckor");
+  await weekMenu.click();
+  const sheet = page.getByRole("dialog", { name: "Vilken vecka?" });
+  await expect(sheet.getByRole("radio", { name: /Nästa vecka/ })).toContainText(/\d+ rätt(er)?/);
+  await expect(sheet.getByRole("radio", { name: /Om 5 veckor/ })).toContainText("Inga rätter");
+  await expect(sheet.getByRole("radio", { name: /Om 5 veckor/ })).toHaveAttribute("aria-checked", "true");
+  await sheet.getByRole("button", { name: "Klar" }).click();
+  await page.getByRole("link", { name: "Planera veckan" }).filter({ visible: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/matsedel\\?vecka=${param}$`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });

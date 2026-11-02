@@ -156,14 +156,14 @@ describe("ShoppingList", () => {
 
   it("says to put dishes on the plan without a plan, or with an empty one", () => {
     const { rerender } = render(<ShoppingList plan={null} lines={[]} pantryUnavailable={false} />);
-    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} />);
-    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
   });
 
   it("says everything is at home when the dishes need nothing", () => {
     render(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} />);
-    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
     expect(screen.queryByTestId("list-progress")).not.toBeInTheDocument();
   });
 
@@ -181,10 +181,10 @@ describe("ShoppingList", () => {
   it("counts only dishes with a recipe, and says how many were left out", () => {
     const { rerender } = render(<ShoppingList plan={{ ...plan, dishCount: 1, skippedCount: 1 }} lines={lines} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-skipped")).toHaveTextContent("1 rätt med borttaget recept räknas inte.");
-    // No dish counted: the empty plan's text, never "Allt finns hemma.".
+    // No dish counted: the empty plan's text, never "Allt till veckans rätter finns redan hemma.".
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0, skippedCount: 2 }} lines={[]} pantryUnavailable={false} />);
-    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
-    expect(screen.queryByText("Allt finns hemma.")).not.toBeInTheDocument();
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
+    expect(screen.queryByText("Allt till veckans rätter finns redan hemma.")).not.toBeInTheDocument();
     expect(screen.getByTestId("list-skipped")).toHaveTextContent("2 rätter med borttagna recept räknas inte.");
   });
 
@@ -251,17 +251,17 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
 
   it("names the place when everything is in stock with more than one place, also Hemma", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={stugan} />);
-    expect(screen.getByText("Allt finns i Matvaror för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.")).toBeInTheDocument();
     rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={hemma} />);
-    expect(screen.getByText("Allt finns i Matvaror för Hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan i Matvaror för Hemma.")).toBeInTheDocument();
     // One place, or one that could not be read: as in 1.0.
     rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={{ ...hemma, siteCount: 1 }} />);
-    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
     rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={null} />);
-    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
     // Without dishes, the empty plan's text, whatever the place.
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} site={stugan} />);
-    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
+    expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
   });
 
   it("keeps quiet once for a switch made in the list's own sheet, and announces the next recount on that place", () => {

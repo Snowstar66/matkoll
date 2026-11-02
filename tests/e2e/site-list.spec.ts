@@ -423,7 +423,7 @@ test("the empty list names Stugan when everything is in stock there", async ({ p
   await page.goto("/lista");
   await expect(lineCheck(page, "Senap")).toBeVisible();
   await countAgainst(page, "Stugan");
-  await expect(page.getByText("Allt finns i Matvaror för Stugan.").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Allt till veckans rätter finns redan i Matvaror för Stugan.").filter({ visible: true })).toBeVisible();
   await expect(progress(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -446,13 +446,13 @@ test("Kopiera till ICA-varukorgen against Stugan copies the export of Stugan's l
   expect(errors).toEqual([]);
 });
 
-test("with Stugan removed there is no line, and the empty list says Allt finns hemma. as in 1.0", async ({ page }) => {
+test("with Stugan removed there is no line, and the empty list says Allt till veckans rätter finns redan hemma. as in 1.0", async ({ page }) => {
   const errors = watchErrors(page);
   await removeStugan();
   await addPantry(hemma, "Senap", 1, "förp");
   await addPantry(hemma, "Korv", 8, "st");
   await page.goto("/lista");
-  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Allt till veckans rätter finns redan hemma.").filter({ visible: true })).toBeVisible();
   await expect(siteLine(page)).toHaveCount(0);
   await expect(bytButton(page)).toHaveCount(0);
   await expect(page.getByText(/^Boende:/)).toHaveCount(0);

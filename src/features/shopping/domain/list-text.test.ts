@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
   allInStockText,
+  noDishesText,
   placedText,
   chainSite,
   openSiteText,
@@ -126,10 +127,16 @@ describe("list texts", () => {
   });
 
   it("says everything is in stock, naming the place only when there is a name to show", () => {
-    expect(allInStockText(null)).toBe("Allt finns hemma.");
-    expect(allInStockText("Stugan")).toBe("Allt finns i Matvaror för Stugan.");
+    expect(allInStockText(null)).toBe("Allt till veckans rätter finns redan hemma.");
+    expect(allInStockText("Stugan")).toBe("Allt till veckans rätter finns redan i Matvaror för Stugan.");
     // Without inflection, so Hemma reads the same way with several places.
-    expect(allInStockText("Hemma")).toBe("Allt finns i Matvaror för Hemma.");
+    expect(allInStockText("Hemma")).toBe("Allt till veckans rätter finns redan i Matvaror för Hemma.");
+  });
+
+  it("says a week has no dishes, naming which week", () => {
+    expect(noDishesText(0)).toBe("Inga rätter på matsedeln den här veckan.");
+    expect(noDishesText(1)).toBe("Inga rätter på matsedeln nästa vecka.");
+    expect(noDishesText(2)).toBe("Inga rätter på matsedeln om 2 veckor.");
   });
 
   it("names the dishes a line comes from, each title once", () => {

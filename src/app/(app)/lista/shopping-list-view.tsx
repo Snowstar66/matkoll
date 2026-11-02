@@ -11,18 +11,22 @@ export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "o
   sites: readonly PantrySite[] | null;
   /** What each boende holds, read when the boende sheet opens (a Server Action); the page gives it. */
   loadCounts?: () => Promise<Record<string, BoendeCounts> | null>;
-  /** The week tiles, which come under the boende button and above the list (Story 19.2). */
-  weekNav?: ReactNode;
+  /** The quiet week choice ("Denna vecka ⌄"), beside the heading Att handla above the list. */
+  weekMenu?: ReactNode;
 };
+
+/** The list's heading: one list of what to buy, whichever week it is counted for. */
+export const listHeadingText = "Att handla";
 
 /**
  * Inköpslista as the page shows it: the boende button "📍 Stugan ⌄"
- * (pantry/ui) above the list (shopping/ui), which never import each other
+ * (pantry/ui), then the heading Att handla with the week choice beside it
+ * (mealplan/ui), above the list (shopping/ui), which never import each other
  * (AD-24). What they share passes through here: the button waits while the list
  * saves something, and a switch made from the sheet is not announced twice
  * (the list keeps quiet once for the place the sheet is switching to).
  */
-export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: ShoppingListViewProps) {
+export function ShoppingListView({ sites, loadCounts, weekMenu, ...list }: ShoppingListViewProps) {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   // Story 17.7, polled since 17.12: another phone on the account changes the
@@ -46,7 +50,10 @@ export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: Shoppi
       {sites ? (
         <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
       ) : null}
-      {weekNav}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="min-w-0 text-section-title text-ink">{listHeadingText}</h2>
+        {weekMenu}
+      </div>
       <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} onOfflineChange={setOffline} />
     </>
   );
