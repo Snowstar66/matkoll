@@ -49,8 +49,9 @@ import {
   savedAsText,
   suggestionTitle,
   uncertainBadgeText,
-  uncertainLeftText,
-  uncertainSuggestionText,
+  alreadyHereText,
+  addCheckedText,
+  checkedSummaryText,
   type AiPantryItemLike,
   type ConfirmItem,
   type ConfirmItemInput,
@@ -499,11 +500,18 @@ describe("texts", () => {
     expect(savedAsText("vispgrädde")).toBe("Sparas som: Vispgrädde");
   });
 
-  it("says when the AI was unsure, and how many unsure suggestions are left (Story 6.5)", () => {
+  it("says when the AI was unsure (Story 6.5)", () => {
     expect(uncertainBadgeText).toBe("Osäker");
-    expect(uncertainSuggestionText).toBe("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
-    expect(uncertainLeftText(1)).toBe("1 osäker vara är kvar att bekräfta eller rätta.");
-    expect(uncertainLeftText(2)).toBe("2 osäkra varor är kvar att bekräfta eller rätta.");
+  });
+
+  it("words the compact rows and their button (Kylfoto D)", () => {
+    expect(alreadyHereText({ unlimited: false, amounts: [{ amount: 2, unit: "dl" }] })).toBe("finns redan 2 dl");
+    expect(alreadyHereText({ unlimited: true, amounts: [] })).toBe("finns redan");
+    expect(addCheckedText(1)).toBe("Lägg till 1 vara");
+    expect(addCheckedText(3)).toBe("Lägg till 3 varor");
+    expect(checkedSummaryText(2, 1)).toBe("2 nya · 1 uppdateras");
+    expect(checkedSummaryText(1, 0)).toBe("1 ny");
+    expect(checkedSummaryText(0, 0)).toBe("Inget valt");
   });
 
   it("names the place on the camera button and the heading", () => {

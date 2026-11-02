@@ -444,7 +444,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         {target.kind === "suggestion" ? (
           <div className="mt-3 border-t border-border pt-1">
             <Button variant="quiet" fullWidth disabled={saving} onClick={rejectSuggestion}>
-              Avvisa
+              Inte en vara
             </Button>
           </div>
         ) : null}

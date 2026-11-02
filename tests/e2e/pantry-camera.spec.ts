@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, plainPng, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
+import { adminClient, notAnItem, plainPng, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
 
 // Story 6.1: the camera button on Hemma and lagerförslag from a photo, with
 // AI_PROVIDER=mock. The fixture photos are synthetic PNGs that already fit
@@ -150,10 +150,9 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   const heading = section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" });
   await expect(heading).toBeFocused();
   await expect(cards(page)).toHaveCount(6);
-  // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk is "Ändrat" and the rest "Nytt".
-  await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat"]);
-  // Story 6.5: a card's title is the label on the package, with the catalog ingredient under it when it differs.
-  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText(cardTitles([
+  // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk "finns redan" and comes last (Kylfoto D: one list).
+  // Story 6.5: a row's title is the label on the package, with the catalog ingredient under it when it differs.
+  await expect(cards(page).getByRole("heading", { level: 3 })).toHaveText(cardTitles([
     "Vispgrädde 3 dl",
     "Gurka",
     "Ketchup",
@@ -161,25 +160,26 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
     "Ägg",
     "Mellanmjölk 1,5 %",
   ]));
-  const expected: [string, string | null, string, boolean, string | null][] = [
-    ["Vispgrädde 3 dl", "Grädde", "1 förp · Kyl", true, null],
-    ["Gurka", null, "2 st · Kyl", true, null],
-    ["Ketchup", null, "Finns hemma · Kyl", true, null],
-    ["Smör 500 g", "Smör", "1 förp · Kyl", true, null],
-    ["Ägg", null, "6 st · Kyl", true, null],
-    // Story 10.4: "Sparas som" shows the name as the catalog stores it, with a capital.
-    ["Mellanmjölk 1,5 %", "Mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
+  // Kylfoto D: the line under the title, and the amount on the right; every row is ticked.
+  // Story 10.4: the catalog name shows as the catalog stores it, with a capital.
+  const expected: [string, string, string][] = [
+    ["Vispgrädde 3 dl", "Grädde · Kyl", "1 förp"],
+    ["Gurka", "Kyl", "2 st"],
+    ["Ketchup", "Kyl", "Finns hemma"],
+    ["Smör 500 g", "Smör · Kyl", "1 förp"],
+    ["Ägg", "Kyl", "6 st"],
+    ["Mellanmjölk 1,5 %", "Mjölk · finns redan 2 förp · Kyl", "1 förp"],
   ];
-  for (const [index, [title, name, amount, isNew, now]] of expected.entries()) {
+  for (const [index, [title, line, amount]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(cardTitles([title]));
-    if (name) await expect(shown.getByText(`Sparas som: ${name}`, { exact: true })).toBeVisible();
-    await expect(shown.getByText("Osäker", { exact: true })).toHaveCount(0);
+    await expect(shown.getByRole("heading", { level: 3 })).toHaveText(cardTitles([title]));
+    await expect(shown.getByText(line, { exact: true })).toBeVisible();
     await expect(shown.getByText(amount, { exact: true })).toBeVisible();
-    await expect(shown.getByText("Ny", { exact: true })).toHaveCount(isNew ? 1 : 0);
-    if (now) await expect(shown.getByText(now, { exact: true })).toBeVisible();
-    else await expect(shown.getByText(/ nu: /)).toHaveCount(0);
+    await expect(shown.getByRole("checkbox")).toBeChecked();
   }
+  await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("5 nya · 1 uppdateras");
+  await expect(section(page).getByRole("button", { name: "Lägg till 6 varor" })).toBeVisible();
+  await expect(section(page).getByRole("button", { name: "Fota igen" })).toBeVisible();
   // The photo that was read sits under the heading as an object URL in the browser only (AD-15), and opens larger.
   const photo = section(page).getByRole("button", { name: "Fotot av kylen, visa större" });
   await expect(photo).toBeVisible();
@@ -211,7 +211,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await expect(cameraButton(page, "Fotografera frysen")).toBeVisible();
   await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från kylen");
   await expect(cards(page)).toHaveCount(6);
-  await expect(cards(page).first().getByText("1 förp · Kyl", { exact: true })).toBeVisible();
+  await expect(cards(page).first().getByText("Grädde · Kyl", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(analyses()).toBe(1);
   expect(errors).toEqual([]);
@@ -229,7 +229,7 @@ test("the cards come with their numbers, and the large photo has the same number
   await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(6);
   await expect(section(page).getByText("Letar upp varorna på fotot …")).toHaveCount(0);
-  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeEnabled();
+  await expect(section(page).getByRole("button", { name: "Lägg till 6 varor" })).toBeEnabled();
 
   // Each card has the number of its item in kyl.png's reading: mellanmjölk 1, vispgrädde 2, smör 3, ägg 4, gurka 5, ketchup 6.
   await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible();
@@ -243,7 +243,7 @@ test("the cards come with their numbers, and the large photo has the same number
   ] as const;
   for (const [index, [title, number]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(cardTitles([title]));
+    await expect(shown.getByRole("heading", { level: 3 })).toHaveText(cardTitles([title]));
     await expect(shown.getByText(`Nummer ${number} på fotot`, { exact: true })).toBeAttached();
     await expect(shown.getByTestId("pantry-photo-number")).toHaveText(String(number));
   }
@@ -274,7 +274,7 @@ test("the cards come with their numbers, and the large photo has the same number
   await expect(photoSheet).toBeHidden();
 
   // A card handled takes its number off the photo; nothing was saved by the lookup.
-  await section(page).getByRole("button", { name: "Avvisa Gurka" }).click();
+  await notAnItem(page, section(page), "Gurka");
   await expect(cards(page)).toHaveCount(5);
   await section(page).getByRole("button", { name: "Fotot av kylen, visa större" }).click();
   await expect(photoSheet.getByTestId("pantry-photo-marker")).toHaveText(["2", "6", "3", "4", "1"]);

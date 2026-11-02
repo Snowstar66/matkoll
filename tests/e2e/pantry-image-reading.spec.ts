@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, cardTitles, e2eUserId, imageReadingEmail, imageReadingStorageState } from "./support";
+import { addTicked, adminClient, cardTitles, e2eUserId, imageReadingEmail, imageReadingStorageState } from "./support";
 
 // Story 6.5: a photo is read with labels and confidence, with
 // AI_PROVIDER=mock: kyl-dorr.png gives "Lantmejeriet vispgrädde 36 % 3 dl"
@@ -79,7 +79,7 @@ async function photographDoor(page: Page) {
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" })).toBeVisible();
 }
 
-test("labels are the cards' titles, a repeat is one card, and an unsure item waits for its own Bekräfta", async ({ page }) => {
+test("labels are the rows' titles, a repeat is one row, and an unsure item starts unticked", async ({ page }) => {
   const errors = watchErrors(page);
   await photographDoor(page);
 
@@ -90,28 +90,29 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
     "Lantmejeriet vispgrädde 36 % 3 dl",
   ]));
   const cream = cards(page).filter({ hasText: "Lantmejeriet" });
-  await expect(cream.getByText("Sparas som: Vispgrädde", { exact: true })).toBeVisible();
-  await expect(cream.getByText("1 förp · Kyl", { exact: true })).toBeVisible();
+  await expect(cream.getByText("Vispgrädde · Kyl", { exact: true })).toBeVisible();
+  await expect(cream.getByText("1 förp", { exact: true })).toBeVisible();
   const mustard = cards(page).filter({ hasText: "Gul flaska" });
-  await expect(mustard.getByText("Sparas som: Senap", { exact: true })).toBeVisible();
-  await expect(mustard.getByText("Osäker", { exact: true })).toBeVisible();
-  await expect(mustard.getByText("AI:n är osäker på varan, så Bekräfta alla tar inte med den.")).toBeVisible();
-  await expect(section(page).getByText("Osäker", { exact: true })).toHaveCount(1);
-  await expect(section(page).getByText("Ny", { exact: true })).toHaveCount(0);
+  await expect(mustard.getByText("Senap · Kyl", { exact: true })).toBeVisible();
+  // Kylfoto D: the unsure one has a "?" and starts unticked; the others are ticked.
+  await expect(mustard.getByText("?", { exact: true })).toBeVisible();
+  await expect(mustard.getByRole("checkbox", { name: "Ta med Senap" })).not.toBeChecked();
+  await expect(cream.getByRole("checkbox", { name: "Ta med Vispgrädde" })).toBeChecked();
+  await expect(section(page).getByText("?", { exact: true })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // The analysis writes nothing.
   expect(await pantry()).toEqual([]);
 
-  // Bekräfta alla saves the two sure ones, and the unsure card stays.
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(toast(page)).toHaveText("Lagt 2 varor i Matvaror. 1 osäker vara är kvar att bekräfta eller rätta.");
+  // Lägg till saves the two ticked ones, and the unsure row stays.
+  await addTicked(section(page));
+  await expect(toast(page)).toHaveText("Lagt 2 varor i Matvaror.");
   await expect(titles(page)).toHaveText(cardTitles(["Gul flaska, troligen senap"]));
-  await expect(section(page).getByRole("button", { name: "Bekräfta Senap" })).toBeFocused();
-  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();
+  await expect(section(page).getByRole("button", { name: "Lägg till 0 varor" })).toBeDisabled();
   await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
 
-  // Its own Bekräfta saves it.
-  await section(page).getByRole("button", { name: "Bekräfta Senap" }).click();
+  // Ticked, it is saved too.
+  await section(page).getByRole("checkbox", { name: "Ta med Senap" }).click();
+  await addTicked(section(page));
   await expect(toast(page)).toHaveText("Senap är sparad i kylen.");
   await expect(section(page)).toHaveCount(0);
   await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*3 varor$/);

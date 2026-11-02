@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog";
-import { adminClient, cardTitles, e2eUserId, sitePhotoEmail, sitePhotoStorageState, boendeButton, pickBoende, } from "./support";
+import { addOnly, addTicked, adminClient, e2eUserId, sitePhotoEmail, sitePhotoStorageState, boendeButton, pickBoende, } from "./support";
 
 // Story 8.4: a photo, its inventory and "Töm kylen" stay with the place they
 // were for, with AI_PROVIDER=mock: kyl.png gives grädde, gurka, ketchup,
@@ -190,8 +190,9 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   await photograph(page, "Fotografera kylen");
 
   expect(await analyzeSites(page)).toEqual([sites.Stugan]);
-  await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
-  await expect(section(page).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
+  await expect(section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" })).toContainText(
+    "finns redan 2 förp",
+  );
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
   await expect(section(page).getByText("Yoghurt")).toHaveCount(0);
   // Hemma shows the photo's place: no line about another.
@@ -200,27 +201,27 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   expect(errors).toEqual([]);
 });
 
-test("Bekräfta alla changes only Stugan's rows, and Hemma's keep their ids, amounts and units", async ({ page }) => {
+test("Lägg till changes only Stugan's rows, and Hemma's keep their ids, amounts and units", async ({ page }) => {
   const errors = watchErrors(page);
   const before = await pantry();
   await openHemma(page);
   await choose(page, "Stugan");
   await photograph(page, "Fotografera kylen");
 
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  await addTicked(section(page));
   await expect(toast(page)).toContainText("Kylen är uppdaterad:");
-  await expect(section(page)).toHaveCount(0);
+  await expect(section(page).getByTestId("pantry-suggestion")).toHaveCount(0);
   const after = await pantry();
   expect(on(after, "Hemma")).toEqual(on(before, "Hemma"));
   const stugan = on(after, "Stugan").filter((row) => row.location === "Kyl");
   expect(stugan.find((row) => row.name === "Mjölk")).toMatchObject({ amount: 1, unit: "förp" });
-  // mjölk is changed in its own row, and senap is gone.
+  // mjölk is changed in its own row; senap, not seen, stays until its own Ta bort.
   expect(stugan.find((row) => row.name === "Mjölk")!.id).toBe(before.find((row) => row.site === "Stugan" && row.name === "Mjölk")!.id);
-  expect(stugan.find((row) => row.name === "Senap")).toBeUndefined();
+  expect(stugan.find((row) => row.name === "Senap")).toBeDefined();
   expect(errors).toEqual([]);
 });
 
-test("selecting Hemma while Stugan's suggestions show says so, and Bekräfta still saves on Stugan", async ({ page }) => {
+test("selecting Hemma while Stugan's suggestions show says so, and Lägg till still saves on Stugan", async ({ page }) => {
   const errors = watchErrors(page);
   const before = await pantry();
   await openHemma(page);
@@ -230,10 +231,11 @@ test("selecting Hemma while Stugan's suggestions show says so, and Bekräfta sti
 
   await choose(page, "Hemma");
   await expect(placeLine(page)).toHaveText("Förslagen gäller Stugan.");
-  await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
-  await section(page).getByRole("button", { name: "Bekräfta Mjölk" }).click();
+  const milk = section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" });
+  await expect(milk).toHaveCount(1);
+  await addOnly(section(page), ["Mjölk"]);
   await expect(toast(page)).toContainText("Mjölk är sparad i kylen.");
-  await expect(group(page, "Ändrat")).toHaveCount(0);
+  await expect(milk).toHaveCount(0);
 
   const after = await pantry();
   expect(on(after, "Hemma")).toEqual(on(before, "Hemma"));
@@ -288,7 +290,7 @@ test("an empty freezer on Stugan gives the plain list, although Hemma's freezer 
   await expect(section(page).getByTestId("pantry-missing")).toHaveCount(0);
   await expect(section(page).getByText("Ärtor")).toHaveCount(0);
 
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  await addTicked(section(page));
   await expect(section(page)).toHaveCount(0);
   await expect.poll(async () => on(await pantry(), "Stugan").filter((row) => row.location === "Frys").length).toBe(6);
   expect(on(await pantry(), "Hemma")).toEqual(on(before, "Hemma"));

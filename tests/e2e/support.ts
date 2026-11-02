@@ -613,7 +613,39 @@ export async function mailHtml(id: string): Promise<string> {
  * screen readers after it.
  */
 export function cardTitles(titles: readonly string[]): RegExp[] {
-  return titles.map((title) => new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s?Nummer \\d+ på fotot)?$`));
+  // Kylfoto D: an unsure row's title has "?" and ", osäker" for screen readers after it.
+  return titles.map(
+    (title) =>
+      new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?, osäker)?(\\s?Nummer \\d+ på fotot)?$`),
+  );
+}
+
+/**
+ * Kylfoto D: ticks exactly the rows named (by catalog name) in the review
+ * `section`, unticks the others, and presses "Lägg till N varor".
+ */
+export async function addOnly(section: Locator, names: readonly string[] | "all") {
+  const boxes = section.getByRole("checkbox", { name: /^Ta med / });
+  const count = await boxes.count();
+  for (let index = 0; index < count; index += 1) {
+    const box = boxes.nth(index);
+    if (await box.isDisabled()) continue;
+    const name = (await box.getAttribute("aria-label"))!.slice("Ta med ".length);
+    const ticked = (await box.getAttribute("aria-checked")) === "true";
+    if (ticked !== (names === "all" || names.includes(name))) await box.click();
+  }
+  await section.getByRole("button", { name: /^Lägg till \d+ var(a|or)$/ }).click();
+}
+
+/** Kylfoto D: presses "Lägg till N varor" with the rows as they are ticked. */
+export async function addTicked(section: Locator) {
+  await section.getByRole("button", { name: /^Lägg till \d+ var(a|or)$/ }).click();
+}
+
+/** Kylfoto D: "Inte en vara" for a suggestion: its row opens the sheet, which has the button. */
+export async function notAnItem(page: Page, section: Locator, name: string) {
+  await section.getByRole("button", { name: `Rätta ${name}`, exact: true }).click();
+  await page.getByRole("dialog").filter({ visible: true }).getByRole("button", { name: "Inte en vara" }).click();
 }
 
 /** The private bucket of the latest photo per place (Story 10.1, AD-26). */

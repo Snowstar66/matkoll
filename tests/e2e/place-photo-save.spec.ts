@@ -1,7 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 import {
+  addOnly,
   adminClient,
   e2eUserId,
+  notAnItem,
   photoSaveEmail,
   photoSaveStorageState,
   placePhotoBucket,
@@ -147,19 +149,20 @@ async function photograph(page: Page) {
   await expect(section(page).getByRole("heading", { level: 2 })).toBeVisible();
 }
 
-/** Avvisa on every card, which writes nothing, until the section is gone. */
+/** "Inte en vara" on every row, which writes nothing, until the section is gone. */
 async function rejectAll(page: Page) {
-  const reject = section(page).getByRole("button", { name: /^Avvisa(?:\s|$)/ });
-  while ((await reject.count()) > 0) {
-    const left = await reject.count();
-    await reject.first().click();
-    await expect(reject).toHaveCount(left - 1);
+  const rows = section(page).getByRole("button", { name: /^Rätta / });
+  while ((await rows.count()) > 0) {
+    const left = await rows.count();
+    const name = (await rows.first().getAttribute("aria-label"))!.slice("Rätta ".length);
+    await notAnItem(page, section(page), name);
+    await expect(rows).toHaveCount(left - 1);
   }
   await expect(section(page)).toHaveCount(0);
 }
 
 async function confirm(page: Page, name: string) {
-  await section(page).getByRole("button", { name: `Bekräfta ${name}`, exact: true }).click();
+  await addOnly(section(page), [name]);
   await expect(toast(page)).toContainText(`${name} är sparad i kylen.`);
 }
 
@@ -188,7 +191,7 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   await expect.poll(async () => (await photos())[0].points).not.toBeNull();
 
   await confirm(page, "Ägg");
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
+  await addOnly(section(page), "all");
   await expect(toast(page)).toBeVisible();
   await expect.poll(async () => (await photos()).map((photo) => photo.id)).toEqual([saved.id]);
   expect(saves.count()).toBe(1);

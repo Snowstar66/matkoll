@@ -128,11 +128,14 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
   await photographFridge(page);
 
   await expect(section(page).getByText("2 varor stämmer med matvarorna.")).toBeVisible();
-  await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat", "Syns inte längre"]);
-  // Story 6.5: the titles are the labels on the packages.
-  await expect(group(page, "Nytt")).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup"]));
-  await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
-  await expect(section(page).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
+  // Kylfoto D: new and changed are one list of rows; Story 6.5: the titles are the labels on the packages.
+  await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText(
+    cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Mellanmjölk 1,5 %"]),
+  );
+  await expect(section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mjölk" })).toContainText(
+    "finns redan 2 förp",
+  );
+  await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("3 nya · 1 uppdateras");
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
   const missing = section(page).getByTestId("pantry-missing");
   await expect(missing.filter({ hasText: "Senap" })).toContainText("I kylen nu: finns hemma");
@@ -163,23 +166,26 @@ test("Behåll takes a card out without writing, and Ångra puts it back", async 
   expect(await pantry()).toEqual(before);
 });
 
-test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back the removed rows with their ids", async ({
+test("Lägg till adds and changes the ticked rows in one go, and Syns inte längre stays for its own Ta bort", async ({
   page,
 }) => {
   const errors = watchErrors(page);
   const before = await pantry();
-  const removedBefore = before.filter((row) => row.name === "Senap" || row.name === "Yoghurt");
+  const missingBefore = before.filter((row) => row.name === "Senap" || row.name === "Yoghurt");
   await photographFridge(page);
 
-  await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna.");
-  await expect(section(page)).toHaveCount(0);
-  await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*6 varor(\s?Förslag klara)?$/);
-  await expect.poll(() => rowNames(page)).toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Ägg", "Ketchup"]);
-  await expect(page.getByText("Yoghurt").filter({ visible: true })).toHaveCount(0);
+  await section(page).getByRole("button", { name: "Lägg till 4 varor" }).click();
+  await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya och 1 ändrad.");
+  await expect(section(page).getByTestId("pantry-suggestion")).toHaveCount(0);
+  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
+  await expect
+    .poll(() => rowNames(page))
+    .toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Yoghurt", "Ägg", "Ketchup", "Senap"]);
   const after = await pantry();
-  expect(after.map(({ name, amount, unit }) => [name, amount, unit])).toEqual([
+  expect(
+    after.filter((row) => row.name !== "Senap" && row.name !== "Yoghurt").map(({ name, amount, unit }) => [name, amount, unit]),
+  ).toEqual([
     ["Grädde", 1, "förp"],
     ["Gurka", 2, "st"],
     ["Ketchup", null, null],
@@ -187,19 +193,9 @@ test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back t
     ["Smör", null, null],
     ["Ägg", 6, "st"],
   ]);
-  // mjölk is changed in its own row.
+  // mjölk is changed in its own row; nothing is removed.
   expect(after.find((row) => row.name === "Mjölk")!.id).toBe(before.find((row) => row.name === "Mjölk")!.id);
-
-  // The undo puts back the removals only, and says so.
-  await toast(page).getByRole("button", { name: "Ångra borttagning" }).click();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
-  await expect
-    .poll(() => rowNames(page))
-    .toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Yoghurt", "Ägg", "Ketchup", "Senap"]);
-  await expect
-    .poll(async () => (await pantry()).filter((row) => row.name === "Senap" || row.name === "Yoghurt"))
-    .toEqual(removedBefore);
+  expect(after.filter((row) => row.name === "Senap" || row.name === "Yoghurt")).toEqual(missingBefore);
   expect(errors).toEqual([]);
 });
 

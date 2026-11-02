@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { addAllButton, confirmOnly, rejectRow } from "./suggestion-test-helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
@@ -396,7 +397,7 @@ describe("the photo's place (Story 8.4)", () => {
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveAttribute("role", "status");
 
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
     expect(confirmPantrySuggestions.mock.calls[0][0]).toMatchObject({ siteId: stugan.id });
   });
@@ -412,7 +413,7 @@ describe("the photo's place (Story 8.4)", () => {
     confirmPantrySuggestions.mockReset().mockResolvedValue(fail("pantry_site_gone"));
     render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(cardNames()).toEqual([]));
     expect(within(screen.getByTestId("pantry-camera")).getByRole("alert")).toHaveTextContent(errorMessages.pantry_site_gone);
     expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
@@ -441,7 +442,7 @@ describe("Senaste foto (Story 10.1)", () => {
     // Nothing is saved at the analysis.
     expect(photoPosts()).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
     const { form } = photoPosts()[0];
     expect(await (form.get("image") as Blob).text()).toBe("analysed");
@@ -452,24 +453,24 @@ describe("Senaste foto (Story 10.1)", () => {
     expect(JSON.parse(String(form.get("reading")))).toEqual(reading);
     expect(form.get("points")).toBeNull();
 
-    await screen.findByRole("button", { name: "Bekräfta mjölk" });
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta mjölk" }));
+    await screen.findByRole("checkbox", { name: "Ta med mjölk" });
+    confirmOnly("mjölk");
     await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(2));
     expect(photoPosts()).toHaveLength(1);
   });
 
-  it("saves once with Bekräfta alla", async () => {
+  it("saves once with Lägg till", async () => {
     render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta alla" }));
+    fireEvent.click(addAllButton());
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
   });
 
   it("saves nothing for a photo whose suggestions are only rejected", async () => {
     render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Avvisa grädde" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Avvisa mjölk" }));
+    rejectRow("grädde");
+    rejectRow("mjölk");
     await waitFor(() => expect(cardNames()).toEqual([]));
     expect(photoPosts()).toHaveLength(0);
   });
@@ -484,11 +485,11 @@ describe("Senaste foto (Story 10.1)", () => {
     confirmPantrySuggestions.mockResolvedValueOnce(fail("pantry_confirm_failed"));
     render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await screen.findByText(errorMessages.pantry_confirm_failed);
     expect(photoPosts()).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
   });
 
@@ -496,7 +497,7 @@ describe("Senaste foto (Story 10.1)", () => {
     const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyzeWith(ok({ ...fridge, site: stugan }));
     rerender(<Hemma shownSite={photoSite} />);
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
     expect(photoPosts()[0].form.get("site")).toBe(stugan.id);
   });
@@ -504,7 +505,7 @@ describe("Senaste foto (Story 10.1)", () => {
   it("never stops a started save: not for a new photo, Avbryt or Hemma going away", async () => {
     const { unmount } = render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
 
     choose();
@@ -520,10 +521,10 @@ describe("Senaste foto (Story 10.1)", () => {
   it("sends the photo once more at the next write after no answer, and not after a refusal", async () => {
     render(<Hemma />);
     await analyzeWith();
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
     await act(async () => photoPosts()[0].answer({ kind: "retry" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Bekräfta mjölk" }));
+    confirmOnly("mjölk");
     await waitFor(() => expect(photoPosts()).toHaveLength(2));
     await act(async () => photoPosts()[1].answer({ kind: "final" }));
   });
@@ -533,7 +534,7 @@ describe("Senaste foto (Story 10.1)", () => {
     confirmPantrySuggestions.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     render(<Hemma />);
     await analyzeWith(ok({ ...fridge, site: photoSite }));
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    confirmOnly("grädde");
     await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
     // A new photo's answer replaces the suggestions while the write is on its way.
     choose(photo("IMG_2.jpg"));

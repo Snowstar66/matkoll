@@ -259,7 +259,7 @@ describe("lagerförslag when the location is emptied", () => {
       ...change,
     }) satisfies PantrySuggestion;
 
-  it("keeps the suggestions, without I kylen nu for the emptied location", async () => {
+  it("keeps the suggestions, without finns redan for the emptied location", async () => {
     const result: AnalyzeResult = {
       site: photoOfHemma,
       location: "Kyl",
@@ -276,16 +276,16 @@ describe("lagerförslag when the location is emptied", () => {
     });
     await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
-    expect(await screen.findByText("I kylen nu: 2 förp")).toBeInTheDocument();
-    expect(screen.getByText("I frysen nu: 2 förp")).toBeInTheDocument();
+    expect(await screen.findByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
+    expect(screen.getByText("finns redan 2 förp · Frys")).toBeInTheDocument();
 
     fireEvent.click(emptyButton()!);
     fireEvent.click(sheetConfirm());
-    await waitFor(() => expect(screen.queryByText("I kylen nu: 2 förp")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("finns redan 2 förp · Kyl")).toBeNull());
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2);
-    expect(screen.getByText("I frysen nu: 2 förp")).toBeInTheDocument();
+    expect(screen.getByText("finns redan 2 förp · Frys")).toBeInTheDocument();
 
-    // Ångra gives the rows back, and I kylen nu with them.
+    // Ångra gives the rows back, and "finns redan" with them.
     restorePantryRemoval.mockResolvedValueOnce(
       ok({
         restoredIds: [kyl[0].id],
@@ -294,7 +294,7 @@ describe("lagerförslag when the location is emptied", () => {
       }),
     );
     await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
-    expect(await screen.findByText("I kylen nu: 3 förp")).toBeInTheDocument();
+    expect(await screen.findByText("finns redan 3 förp · Kyl")).toBeInTheDocument();
   });
 
   it("turns a photo compared with the emptied location into the plain list, without Syns inte längre", async () => {
@@ -331,7 +331,7 @@ describe("lagerförslag when the location is emptied", () => {
     });
     await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
-    expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(await screen.findByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-missing")).toHaveLength(1);
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(1);
 
@@ -340,7 +340,6 @@ describe("lagerförslag when the location is emptied", () => {
     // Every suggestion is a card again, as for an empty place, and nothing is offered for removal.
     await waitFor(() => expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2));
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Ändrat" })).toBeNull();
     expect(screen.queryByText(/stämmer med matvarorna/)).toBeNull();
     expect(screen.queryByText(/→/)).toBeNull();
 
@@ -408,7 +407,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     });
     await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
-    expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(await screen.findByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
     rerender(<Hemma initial={kyl} site={stugan} />);
     expect(screen.getByText("Förslagen gäller Hemma.")).toBeInTheDocument();
 
@@ -416,10 +415,10 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     fireEvent.click(sheetConfirm());
     await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort 2 varor ur kylen för Stugan."));
     // Hemma's fridge was not emptied: the comparison with it stands.
-    expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ändrat" })).toBeInTheDocument();
+    expect(screen.getByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
+    expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(1);
 
-    // Ångra puts Stugan's rows back, the same ingredient among them: the Hemma photo's "I kylen nu" is unchanged.
+    // Ångra puts Stugan's rows back, the same ingredient among them: the Hemma photo's "finns redan" is unchanged.
     restorePantryRemoval.mockResolvedValueOnce(
       ok({
         restoredIds: [kyl[0].id],
@@ -431,7 +430,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     );
     await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
     await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(screen.getByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
     expect(screen.queryByText(/5 förp/)).toBeNull();
     expect(screen.queryByText("Matvarorna i kylen har ändrats sedan bilden togs.")).toBeNull();
   });
