@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
 import { addWeeks, weekQuery } from "../../src/features/mealplan/domain/week";
-import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday, chooseUnit } from "./support";
+import { adminClient, clearStaples, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday, chooseUnit } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
 // the pantry every time it is read. Story 3.4: checking lines off, saved at
@@ -93,6 +93,8 @@ async function addPantry(ingredient: string, amount: number | null, unit: string
 
 test.beforeAll(async () => {
   userId = await e2eUserId(shoppingEmail);
+  // Counted as before Basvaror: salt, smör and mjöl are on the list here (staples.spec.ts has them).
+  await clearStaples(userId);
   const admin = adminClient();
   // A retry starts again from no plan, no recipes and an empty pantry.
   for (const table of ["shopping_custom_item", "shopping_check", "meal_plan", "pantry_item", "recipe"] as const) {

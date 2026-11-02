@@ -508,6 +508,18 @@ export async function recreateE2eUser(email: (typeof e2eEmails)[number]): Promis
 }
 
 /** The id of an E2E user; global-setup has created it. */
+/**
+ * Takes away every Basvara of `userId`'s household, for a spec that counts the list and
+ * "Saknar N varor" as before Basvaror (salt efter smak on the list); staples.spec.ts covers them.
+ */
+export async function clearStaples(userId: string): Promise<void> {
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  if (member.error) throw member.error;
+  const { error } = await admin.from("household_staple").delete().eq("household_id", member.data.household_id);
+  if (error) throw error;
+}
+
 export async function e2eUserId(email: string): Promise<string> {
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;

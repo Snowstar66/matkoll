@@ -5,7 +5,7 @@ import {
   basketPreamble,
   basketStartMarker,
 } from "@/features/shopping/domain/export-basket";
-import { adminClient, basketExportEmail, basketExportStorageState, e2eUserId, thisMonday } from "./support";
+import { adminClient, clearStaples, basketExportEmail, basketExportStorageState, e2eUserId, thisMonday } from "./support";
 
 // Story 7.3: "Kopiera till ICA-varukorgen" copies the basket export to the clipboard.
 // The spec has a user of its own (basketExportEmail), and each test makes
@@ -87,6 +87,8 @@ const expectedExport = [
 
 test.beforeAll(async () => {
   userId = await e2eUserId(basketExportEmail);
+  // Counted as before Basvaror: salt, smör and mjöl are on the list here (staples.spec.ts has them).
+  await clearStaples(userId);
   // Catalog ingredients are never deleted: upserted, so a retry finds the same ones.
   const { data, error } = await adminClient()
     .from("ingredient")

@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, e2eUserId, recipeViewEmail, recipeViewStorageState } from "./support";
+import { adminClient, clearStaples, e2eUserId, recipeViewEmail, recipeViewStorageState } from "./support";
 
 // Story 4.1: the portion selector and "X av Y hemma" in the recipe view. The
 // spec has an E2E user of its own (recipeViewEmail). Before each test the
@@ -44,6 +44,8 @@ async function seedIngredients(names: string[]): Promise<Map<string, string>> {
 
 test.beforeEach(async () => {
   userId = await e2eUserId(recipeViewEmail);
+  // Counted as before Basvaror: salt, smör and mjöl are on the list here (staples.spec.ts has them).
+  await clearStaples(userId);
   const admin = adminClient();
   for (const table of ["meal_plan", "pantry_item", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);

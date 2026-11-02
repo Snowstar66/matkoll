@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState, thisMonday } from "./support";
+import { adminClient, clearStaples, e2eUserId, putInPantryEmail, putInPantryStorageState, thisMonday } from "./support";
 
 // Story 3.7: "Lägg till i Matvaror". The spec has an E2E user of its own
 // (putInPantryEmail), and each test makes its state with the service role:
@@ -27,6 +27,8 @@ const catalog = [
 
 test.beforeAll(async () => {
   userId = await e2eUserId(putInPantryEmail);
+  // Counted as before Basvaror: salt, smör and mjöl are on the list here (staples.spec.ts has them).
+  await clearStaples(userId);
   // Catalog ingredients are never deleted: upserted, so a retry finds the same ones.
   const { data, error } = await adminClient()
     .from("ingredient")

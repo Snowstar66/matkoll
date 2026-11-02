@@ -193,7 +193,7 @@ export function StaplesSettings({ staples }: StaplesSettingsProps) {
             }}
             aria-invalid={nameError ? true : undefined}
             aria-describedby={nameError ? nameErrorId : undefined}
-            className="min-w-0 flex-1"
+            className="w-full min-w-0 desktop:w-auto desktop:flex-1"
           />
           <div className="flex gap-2">
             <label htmlFor={limitId} className="sr-only">
