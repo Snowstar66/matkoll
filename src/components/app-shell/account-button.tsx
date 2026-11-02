@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { type ReactNode, Suspense, useState } from "react";
-import { HelpIcon, SettingsIcon, ChevronRightIcon } from "../icons";
+import { HelpIcon, SettingsIcon, ChevronRightIcon, PenIcon } from "../icons";
 import { Sheet } from "../sheet";
 import { useAccount, useHasAccount, useSignOutSlots } from "./account";
 import { Avatar } from "./avatar";
+import { useShellNote } from "./note-slot";
 import { type Destination, helpDestination, helpHref as helpHrefFor, mainDestinations, settingsDestination } from "./destinations";
 
 /** The tabs that have a P button in their header, by address. */
@@ -29,9 +30,28 @@ function SheetRow({ href, Icon, label, value, onClick }: { href: string; Icon: D
   );
 }
 
+/** Skriv en lapp (Story 24.1): a button, as it opens a sheet and goes nowhere. */
+function WriteNoteRow({ onClick }: { onClick: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-h-[52px] w-full items-center gap-3 pr-2 pl-3.5 text-left text-item text-ink focus-visible:-outline-offset-2"
+      >
+        <PenIcon size={22} className="shrink-0 text-ink-2" />
+        <span className="min-w-0 flex-1">Skriv en lapp</span>
+        <ChevronRightIcon size={16} className="mx-1.5 shrink-0 text-ink-3" />
+      </button>
+    </li>
+  );
+}
+
 function AccountSheetButton({ tab }: { tab?: HeaderTab }) {
   const account = useAccount();
   const signOut = useSignOutSlots();
+  const note = useShellNote();
+  const write = note?.write ?? null;
   const [open, setOpen] = useState(false);
   if (!account) return null;
   const from = mainDestinations.find((destination) => destination.href === tab);
@@ -51,15 +71,27 @@ function AccountSheetButton({ tab }: { tab?: HeaderTab }) {
     <>
       <button
         type="button"
-        aria-label="Konto"
+        aria-label={note?.waiting ? "Konto, en lapp väntar" : "Konto"}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="flex size-tap shrink-0 items-center justify-center rounded-full"
+        className="relative flex size-tap shrink-0 items-center justify-center rounded-full"
       >
         <Avatar initial={account.initial} tone={account.tone} />
+        {/* Story 24.1: a note from someone else waits. */}
+        {note?.waiting ? (
+          <span aria-hidden="true" data-testid="note-dot" className="absolute top-[7px] right-[7px] size-2.5 rounded-full bg-accent shadow-[0_0_0_2px_var(--bg)]" />
+        ) : null}
       </button>
       <Sheet open={open} onClose={close} title={title} initialFocus="title">
         <ul className="mt-1 flex flex-col divide-y divide-hairline overflow-hidden rounded-[14px] bg-fill" role="list">
+          {write ? (
+            <WriteNoteRow
+              onClick={() => {
+                close();
+                write();
+              }}
+            />
+          ) : null}
           <SheetRow href={settingsDestination.href} Icon={SettingsIcon} label={settingsDestination.label} onClick={close} />
           <SheetRow
             href={helpHref}
