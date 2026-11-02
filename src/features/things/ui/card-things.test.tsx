@@ -81,17 +81,46 @@ describe("the things of a card", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
-  it("changes the category with the chips and where on the picture, and keeps the thing on its card", async () => {
+  it("changes the category one level deeper and where on the picture, and keeps the thing on its card", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
+    // Pontus 2 Nov: one compact row, not nine chips.
+    expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
+    // The same sheet, one level deeper: "‹ Tillbaka" and the nine categories with a check on the chosen one.
+    expect(screen.getByRole("dialog", { name: "Kategori" })).toBe(dialog);
+    expect(within(dialog).getByRole("button", { name: "Tillbaka" })).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(9);
     expect(within(dialog).getByRole("radio", { name: /Verktyg/ })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /Verktyg/ })).toHaveFocus();
+    expect(within(dialog).getByLabelText("Byt namn")).not.toBeVisible();
     await userEvent.click(within(dialog).getByRole("radio", { name: /Trädgård/ }));
+    // Back in the form, the row says the new category and has focus.
+    const row = within(dialog).getByRole("button", { name: "Kategori, Trädgård" });
+    expect(row).toHaveTextContent("Trädgård");
+    expect(row).toHaveFocus();
     const where = within(dialog).getByLabelText("Var på bilden");
     expect(where).toHaveValue("på väggen");
     await userEvent.clear(where);
     await userEvent.type(where, "översta hyllan");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Trädgård", whereHint: "översta hyllan" }));
+  });
+
+  it("moves the check with the arrow keys, picks with Enter, and Tillbaka keeps the category", async () => {
+    updateThing.mockResolvedValue(ok(null));
+    const dialog = await openHammer();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Tillbaka" }));
+    expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{ArrowDown}");
+    // The arrow moves the check and stays in the list; Enter picks it.
+    expect(within(dialog).getByRole("radio", { name: /Sport/ })).toBeChecked();
+    await userEvent.keyboard("{Enter}");
+    expect(within(dialog).getByRole("button", { name: "Kategori, Sport & fritid" })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Sport & fritid", whereHint: "på väggen" }));
   });
 
   it("clears the where with an empty field and saves a changed category alone", async () => {
@@ -171,6 +200,7 @@ describe("a thing written in with where it is (Story 18.19)", () => {
   it("changes the name and category without writing its hint as a 'where'", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openPass();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Övrigt" }));
     await userEvent.click(within(dialog).getByRole("radio", { name: /Kläder/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: pass.id, name: "Pass", category: "Kläder & textil", whereHint: null }));

@@ -7,6 +7,8 @@ import { cx } from "./cx";
 export type ChoiceRowOption<T extends string> = {
   value: T;
   label: string;
+  /** An emoji or icon before the label, e.g. a föremål's category (🔨 Verktyg). */
+  icon?: ReactNode;
   /** A quiet second line, e.g. what a choice means or how much is in it. */
   detail?: ReactNode;
   disabled?: boolean;
@@ -21,6 +23,11 @@ export type ChoiceRowsProps<T extends string> = {
   /** The chosen option; `null` when none is (e.g. "Kopiera till", where a tap acts at once). */
   value: T | null;
   onChange: (value: T) => void;
+  /**
+   * A row tapped, or Enter or Space on it, even the chosen one: e.g. a choice one level deeper in
+   * a sheet that goes back once picked. The arrow keys still only move the choice (`onChange`).
+   */
+  onPick?: (value: T) => void;
   disabled?: boolean;
   /** "action": each row is a plain button that does something when tapped; no check, no radio. */
   kind?: "choice" | "action";
@@ -40,6 +47,7 @@ export function ChoiceRows<T extends string>({
   options,
   value,
   onChange,
+  onPick,
   disabled = false,
   kind = "choice",
   className,
@@ -94,24 +102,37 @@ export function ChoiceRows<T extends string>({
             tabIndex={isChoice ? (index === chosenIndex ? 0 : -1) : undefined}
             disabled={disabled || option.disabled}
             data-testid={option.testId}
-            onClick={() => choose(index)}
+            onClick={() => {
+              choose(index);
+              if (!option.disabled) onPick?.(option.value);
+            }}
             onKeyDown={(event) => onKeyDown(event, index)}
             className="flex min-h-row w-full items-center justify-between gap-3 px-4 py-2 text-left outline-none focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="flex min-w-0 flex-col">
-              <span
-                className={cx(
-                  "text-item break-words text-ink",
-                  selected && "font-medium",
-                )}
-              >
-                {option.label}
-              </span>
-              {option.detail ? (
-                <span className="text-meta break-words text-ink-2">
-                  {option.detail}
+            <span className="flex min-w-0 items-center gap-3">
+              {option.icon ? (
+                <span
+                  aria-hidden="true"
+                  className="flex w-6 shrink-0 justify-center text-[20px] leading-none"
+                >
+                  {option.icon}
                 </span>
               ) : null}
+              <span className="flex min-w-0 flex-col">
+                <span
+                  className={cx(
+                    "text-item break-words text-ink",
+                    selected && "font-medium",
+                  )}
+                >
+                  {option.label}
+                </span>
+                {option.detail ? (
+                  <span className="text-meta break-words text-ink-2">
+                    {option.detail}
+                  </span>
+                ) : null}
+              </span>
             </span>
             {selected ? (
               <CheckIcon
