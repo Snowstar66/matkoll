@@ -1,6 +1,6 @@
 import "server-only";
 import { getIngredientNames } from "@/features/catalog/server";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot, StapleRules } from "@/features/pantry";
 import { missingIngredientIds, type RecipeListRow } from "../domain/recipe-list";
 
 /**
@@ -10,7 +10,8 @@ import { missingIngredientIds, type RecipeListRow } from "../domain/recipe-list"
 export async function missingNames(
   rows: readonly RecipeListRow[],
   snapshot: PantrySnapshot | null,
+  staples?: StapleRules,
 ): Promise<Record<string, string>> {
-  const ids = missingIngredientIds(rows, snapshot);
+  const ids = missingIngredientIds(rows, snapshot, staples);
   return ids.length > 0 ? getIngredientNames(ids) : {};
 }

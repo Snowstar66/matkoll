@@ -20,7 +20,7 @@ import { SwipeRow } from "@/components/swipe-row";
 import { TrashButton, type TrashPress } from "@/components/trash-button";
 import type { Category } from "@/features/catalog";
 import { initialOf } from "@/features/household";
-import { type SelectedSite, shownSiteName } from "@/features/pantry";
+import { type SelectedSite, shownSiteName, staplesFooterText } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
@@ -130,6 +130,12 @@ export type ShoppingListProps = {
   hiddenLines?: readonly ShoppingLine[];
   /** The pantry could not be read, so nothing is taken off. */
   pantryUnavailable: boolean;
+  /**
+   * How many recipe lines were left out as the household's Basvaror: then a
+   * small footer says "Basvaror räknas inte med · Ändra", which opens them in
+   * Inställningar. Nothing when none were.
+   */
+  staplesSkipped?: number;
   /** The checks could not be read: no line is shown checked, and checking is off. */
   checksUnavailable?: boolean;
   /**
@@ -643,6 +649,7 @@ export function ShoppingList({
   lines: savedLines,
   hiddenLines = noLines,
   pantryUnavailable,
+  staplesSkipped = 0,
   checksUnavailable = false,
   pendingClear = 0,
   searchIngredients = noSuggestions,
@@ -1063,6 +1070,18 @@ export function ShoppingList({
               </Button>
               {/* Story 19.2: "Så funkar det" lives in Hjälp och tips, under Inköpslista. */}
             </div>
+          ) : null}
+          {staplesSkipped > 0 ? (
+            // Basvaror (Pontus 2026-11-02): left out silently, said once, small, at the end.
+            <p data-testid="staples-footer" className="text-center text-meta text-ink-3">
+              {staplesFooterText} ·{" "}
+              <Link
+                href="/installningar/basvaror"
+                className="inline-flex min-h-tap items-center text-accent underline-offset-2 hover:underline"
+              >
+                Ändra
+              </Link>
+            </p>
           ) : null}
           <ListActions
             // Room for both buttons while the list has lines, so the page does not move when the first check adds one.

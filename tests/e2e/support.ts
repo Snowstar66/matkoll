@@ -295,6 +295,11 @@ export const householdEmail = "e2e-hushall@matkoll.test";
  * the second in the first one's household with the service role, and one writes to the other.
  */
 export const notesEmail = "e2e-lappar@matkoll.test";
+/**
+ * The E2E user of staples.spec.ts alone (Basvaror): a household with the default staples,
+ * a meal plan and a baking recipe, so the list, Saknar and Inställningar → Basvaror agree.
+ */
+export const staplesEmail = "e2e-basvaror@matkoll.test";
 export const notesPartnerEmail = "e2e-lappar-2@matkoll.test";
 /**
  * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
@@ -361,6 +366,7 @@ export const e2eEmails = [
   notesPartnerEmail,
   welcomeEmail,
   newsEmail,
+  staplesEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -414,6 +420,7 @@ export const householdStorageState = "tests/e2e/.auth/household.json";
 export const notesStorageState = "tests/e2e/.auth/notes.json";
 export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";
+export const staplesStorageState = "tests/e2e/.auth/staples.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 
@@ -501,6 +508,18 @@ export async function recreateE2eUser(email: (typeof e2eEmails)[number]): Promis
 }
 
 /** The id of an E2E user; global-setup has created it. */
+/**
+ * Takes away every Basvara of `userId`'s household, for a spec that counts the list and
+ * "Saknar N varor" as before Basvaror (salt efter smak on the list); staples.spec.ts covers them.
+ */
+export async function clearStaples(userId: string): Promise<void> {
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  if (member.error) throw member.error;
+  const { error } = await admin.from("household_staple").delete().eq("household_id", member.data.household_id);
+  if (error) throw error;
+}
+
 export async function e2eUserId(email: string): Promise<string> {
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;

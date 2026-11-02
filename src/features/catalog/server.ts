@@ -2,7 +2,13 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { matchIngredientsIn } from "./actions/match-ingredients";
 import { commitIngredients as commitIngredientsIn } from "./data/commit";
-import { findIngredientIdsIn, loadIngredientDefaults, loadIngredientNames, loadIngredientSummaries } from "./data/queries";
+import {
+  findIngredientIdsIn,
+  loadCatalogSnapshot,
+  loadIngredientDefaults,
+  loadIngredientNames,
+  loadIngredientSummaries,
+} from "./data/queries";
 import { searchText } from "./domain/search";
 
 /** What the catalog functions throw when Supabase fails; `code` says why, never user data. */
@@ -32,6 +38,22 @@ export async function matchIngredients(items: readonly MatchItem[]): Promise<Ing
  */
 export async function commitIngredients(choices: readonly IngredientChoice[]): Promise<(string | null)[]> {
   return commitIngredientsIn(await createClient(), choices);
+}
+
+/**
+ * The ingredients of the user's catalog named by each of `normalizedNames`
+ * (already normalised, catalog.normalizeIngredientText): the one whose name it
+ * is and the one it is a synonym of, by name. A name without either is left
+ * out. For Basvaror (pantry.stapleRules). Throws CatalogDataError.
+ */
+export async function getIngredientIdsByNames(normalizedNames: readonly string[]): Promise<Record<string, string[]>> {
+  const { ingredients, synonyms } = await loadCatalogSnapshot(await createClient(), normalizedNames);
+  const ids: Record<string, string[]> = {};
+  for (const [name, id] of [...ingredients, ...synonyms]) {
+    const list = Object.hasOwn(ids, name) ? ids[name] : (ids[name] = []);
+    if (!list.includes(id)) list.push(id);
+  }
+  return ids;
 }
 
 /** The names of the ingredients among `ids` in the user's catalog, by id. Ids not found are left out. */

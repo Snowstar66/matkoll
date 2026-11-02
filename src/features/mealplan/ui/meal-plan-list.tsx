@@ -11,7 +11,7 @@ import { CartIcon, MoreIcon, TrashIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot, StapleRules } from "@/features/pantry";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
 import { restorePlanRecipe } from "../actions/restore-plan-recipe";
@@ -122,6 +122,8 @@ export type MealPlanListProps = {
   dishes: readonly PlanDish[];
   /** The whole pantry for the status, or `null` when it could not be read: no status then. */
   snapshot: PantrySnapshot | null;
+  /** The household's Basvaror, at home within their limits (pantry.isStaple); none when left out. */
+  staples?: StapleRules;
   /**
    * The boende button (Story 16.14), the place the status is counted against,
    * shown first in the list; `null` with one place.
@@ -160,6 +162,7 @@ export function MealPlanList({
   planName,
   dishes,
   snapshot,
+  staples,
   siteSlot = null,
   siteId = null,
   names = {},
@@ -560,6 +563,7 @@ export function MealPlanList({
                       past={past}
                       servings={servings[dish.id] ?? dish.servings}
                       snapshot={snapshot}
+                      staples={staples}
                       siteId={siteId}
                       names={names}
                       onUnmark={() => void unmark(dish)}
@@ -594,6 +598,7 @@ type DishRowProps = {
   /** The servings shown now, optimistic included. */
   servings: number;
   snapshot: PantrySnapshot | null;
+  staples?: StapleRules;
   siteId: string | null;
   names: Readonly<Record<string, string>>;
   onUnmark: () => void;
@@ -626,6 +631,7 @@ function DishRow({
   past,
   servings,
   snapshot,
+  staples,
   siteId,
   names,
   onUnmark,
@@ -637,7 +643,7 @@ function DishRow({
   const [panel, setPanel] = useState<Panel>(null);
   const cooked = Boolean(dish.cookedAt);
   // A cooked dish has no status: it is done (Story 13.4).
-  const status = cooked ? null : dishStatus(recipe, servings, snapshot);
+  const status = cooked ? null : dishStatus(recipe, servings, snapshot, staples);
   const progress = status ? dishProgress(status) : null;
   const missing = progress !== null && progress.value < 1;
   const close = () => setPanel(null);

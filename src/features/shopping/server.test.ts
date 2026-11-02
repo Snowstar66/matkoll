@@ -49,6 +49,8 @@ vi.mock("@/features/recipes/server", () => ({
 const getPantrySnapshot = vi.fn();
 const getSelectedSite = vi.fn();
 const findPantryAdditions = vi.fn();
+/** The household's Basvaror as getPantryForStatus gives them; none unless a test sets some. */
+const staples = vi.hoisted(() => ({ current: { byIngredient: {}, byName: {} } as Record<string, Record<string, unknown>> }));
 vi.mock("@/features/pantry/server", () => ({
   PantryDataError,
   // pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
@@ -56,11 +58,11 @@ vi.mock("@/features/pantry/server", () => ({
   getPantryForStatus: async () => {
     try {
       const site = await getSelectedSite();
-      return { site, snapshot: await getPantrySnapshot(site?.id) };
+      return { site, snapshot: await getPantrySnapshot(site?.id), staples: staples.current };
     } catch (error) {
       if (!(error instanceof PantryDataError)) throw error;
       console.error("pantry_unavailable", { reason: error.detail });
-      return { site: null, snapshot: null };
+      return { site: null, snapshot: null, staples: { byIngredient: {}, byName: {} } };
     }
   },
   findPantryAdditions: (keys: string[]) => findPantryAdditions(keys),
@@ -184,6 +186,7 @@ describe("getShoppingList", () => {
         hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
+        staplesSkipped: 0,
         pendingClear: 0,
         ...withStore,
         marks: {},
@@ -194,6 +197,17 @@ describe("getShoppingList", () => {
     // The pantry of exactly the place the list names (AD-24), read once.
     expect(getPantrySnapshot).toHaveBeenCalledTimes(1);
     expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
+  });
+
+  it("leaves the household's Basvaror out and counts them, for the footer", async () => {
+    staples.current = { byIngredient: { [gradde]: { maxAmount: null, maxUnit: null } }, byName: {} };
+    try {
+      const result = await getShoppingList();
+      expect(result.ok && result.data.lines).toEqual([]);
+      expect(result.ok && result.data.staplesSkipped).toBe(1);
+    } finally {
+      staples.current = { byIngredient: {}, byName: {} };
+    }
   });
 
   it("gives the list with nothing taken off and site null, logged, when the place cannot be read", async () => {
@@ -226,6 +240,7 @@ describe("getShoppingList", () => {
         hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
+        staplesSkipped: 0,
         pendingClear: 0,
         ...withStore,
         marks: {},

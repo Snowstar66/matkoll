@@ -4,6 +4,7 @@ import {
   recipeStatus,
   type PantrySnapshot,
   type RecipeStatus,
+  type StapleRules,
   type StatusLine,
 } from "@/features/pantry";
 import { weekAnchorDate, weekStartSchema } from "./week";
@@ -121,16 +122,18 @@ export function toPlanDishes(
 }
 
 /**
- * The dish's status against the whole pantry for its own servings (AD-7):
+ * The dish's status against the whole pantry for its own servings (AD-7),
+ * with the household's Basvaror at home within their limits:
  * `null` without a pantry (it could not be read) or without a recipe.
  */
 export function dishStatus(
   recipe: DishRecipe | null,
   servings: number,
   snapshot: PantrySnapshot | null,
+  staples?: StapleRules,
 ): RecipeStatus | null {
   if (!recipe || !snapshot) return null;
-  return recipeStatus({ servings: recipe.originalServings, lines: recipe.lines }, servings, snapshot);
+  return recipeStatus({ servings: recipe.originalServings, lines: recipe.lines }, servings, snapshot, staples);
 }
 
 /** What a dish card says about its status, and how full its meter is. */

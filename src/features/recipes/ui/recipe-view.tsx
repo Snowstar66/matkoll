@@ -3,7 +3,7 @@ import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
 import type { PlanningTarget } from "@/features/mealplan";
-import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
+import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
 import { dishEmoji, offerSavedText } from "../domain/dish-emoji";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
@@ -32,6 +32,8 @@ export type RecipeViewProps = {
    * hemma" (AD-24); `null`, or left out, without a status or with one place.
    */
   site?: SelectedSite | null;
+  /** The household's Basvaror, which count as at home (pantry.isStaple); none when left out. */
+  staples?: StapleRules;
   /** The menu (⋯) with "Ändra", from the page, which has what its form needs. */
   menu?: ReactNode;
   /**
@@ -45,7 +47,7 @@ export type RecipeViewProps = {
   planning?: PlanningTarget;
 };
 
-export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, finish, planning }: RecipeViewProps) {
+export function RecipeView({ recipe, snapshot, site = null, staples, menu, addToPlan, finish, planning }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
@@ -109,6 +111,7 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, fin
         recipe={recipe}
         snapshot={snapshot}
         site={site}
+        staples={staples}
         addToPlan={addToPlan}
         finish={finish}
         planning={planning}

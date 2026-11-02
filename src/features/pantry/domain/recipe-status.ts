@@ -1,6 +1,7 @@
 import { aggregateNeeds, lineNeedKey, needKey, type NeedLine } from "./aggregate-needs";
 import { coverage, isShort, type Coverage } from "./coverage";
 import type { PantrySnapshot } from "./pantry-item";
+import { isStaple, noStaples, type StapleRules } from "./staples";
 
 // Lagningsstatus (FR-8, FR-20, AD-7): whether a recipe can be cooked with what
 // is at home, how many ingredients are short, and what each line shows in the
@@ -58,9 +59,14 @@ const isServings = (value: number) => Number.isFinite(value) && value > 0;
  * servings is not a positive number the recipe's own amounts are compared
  * (factor 1), never NaN or Infinity, as recipes.scaleFactor does.
  */
-export function recipeStatus(recipe: StatusRecipe, servings: number, snapshot: PantrySnapshot): RecipeStatus {
+export function recipeStatus(
+  recipe: StatusRecipe,
+  servings: number,
+  snapshot: PantrySnapshot,
+  staples: StapleRules = noStaples,
+): RecipeStatus {
   const factor = isServings(servings) && isServings(recipe.servings) ? servings / recipe.servings : 1;
-  return recipeStatusForFactor(recipe.lines, factor, snapshot);
+  return recipeStatusForFactor(recipe.lines, factor, snapshot, staples);
 }
 
 /**
@@ -68,19 +74,24 @@ export function recipeStatus(recipe: StatusRecipe, servings: number, snapshot: P
  * against the whole pantry: needs summed with aggregateNeeds, each compared
  * with coverage. The recipe view passes the factor it scales its lines with
  * (recipes.scaleFactor), so the status and the amounts shown never differ.
- * A factor that is not a positive number is 1.
+ * A factor that is not a positive number is 1. A need the pantry does not
+ * cover but that is one of the household's `staples` within its limit
+ * (Basvaror) is covered, with `staple`: it is at home and never in N.
  */
 export function recipeStatusForFactor(
   lines: readonly StatusLine[],
   factor: number,
   snapshot: PantrySnapshot,
+  staples: StapleRules = noStaples,
 ): RecipeStatus {
   const byKey = new Map<string, Coverage>();
   const ingredients = new Set<string>();
   const short = new Set<string>();
   const notAtHome = new Set<string>();
   for (const need of aggregateNeeds(lines, isServings(factor) ? factor : 1)) {
-    const covered = coverage(need, snapshot);
+    const counted = coverage(need, snapshot);
+    const covered: Coverage =
+      counted.kind !== "covered" && isStaple(staples, need) ? { kind: "covered", staple: true } : counted;
     byKey.set(needKey(need), covered);
     ingredients.add(need.ingredientId);
     if (isShort(covered)) short.add(need.ingredientId);

@@ -3,7 +3,12 @@ import { cache } from "react";
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
-import { CatalogDataError, getIngredientDefaults, getIngredientSummaries } from "@/features/catalog/server";
+import {
+  CatalogDataError,
+  getIngredientDefaults,
+  getIngredientIdsByNames,
+  getIngredientSummaries,
+} from "@/features/catalog/server";
 import { getOthers } from "@/features/household/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -15,6 +20,8 @@ import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFile
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { removePantryItemIn } from "./data/remove";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
+import { listStaplesIn } from "./data/staples";
+import { compareStaples, noStaples, stapleRules, type Staple, type StapleRules } from "./domain/staples";
 import { planMove, type MovedItem } from "./domain/move-amount";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
@@ -238,8 +245,46 @@ export async function hasPlacePhoto(id: string): Promise<boolean> {
   return file ? placePhotoFileExists(db, file.objectPath) : false;
 }
 
-/** The pantry a view counts its status against, and the place it is of; see getPantryForStatus. */
-export type PantryForStatus = { site: SelectedSite | null; snapshot: PantrySnapshot | null };
+/**
+ * The pantry a view counts its status against, the place it is of, and the
+ * household's Basvaror (getStapleRules); see getPantryForStatus.
+ */
+export type PantryForStatus = { site: SelectedSite | null; snapshot: PantrySnapshot | null; staples: StapleRules };
+
+const staplesOfHousehold = cache(async (): Promise<Staple[]> => listStaplesIn(await createClient()));
+
+/**
+ * The household's Basvaror, sorted for Inställningar → Basvaror (always first,
+ * then by name). Memoised per request. Throws PantryDataError.
+ */
+export async function listStaples(): Promise<Staple[]> {
+  return [...(await staplesOfHousehold())].sort(compareStaples);
+}
+
+/**
+ * The household's Basvaror as the counting reads them (pantry.isStaple): by
+ * the catalog ingredients named by them, and by name. A help, not the page:
+ * when they cannot be read (logged as `staples_unavailable`, with the reason
+ * only), there are none, and everything is counted as before Basvaror.
+ * Memoised per request.
+ */
+export const getStapleRules = cache(async (): Promise<StapleRules> => {
+  try {
+    const staples = await staplesOfHousehold();
+    if (staples.length === 0) return noStaples;
+    const ids = await getIngredientIdsByNames(staples.map((staple) => staple.normalizedName));
+    return stapleRules(staples, ids);
+  } catch (error) {
+    if (error instanceof PantryDataError) {
+      console.error("staples_unavailable", { reason: error.detail });
+    } else if (error instanceof CatalogDataError) {
+      console.error("staples_unavailable", { reason: error.code });
+    } else {
+      throw error;
+    }
+    return noStaples;
+  }
+});
 
 /**
  * The selected place and its pantry, for the cooking status and the line
@@ -248,20 +293,22 @@ export type PantryForStatus = { site: SelectedSite | null; snapshot: PantrySnaps
  * was counted against. The two reads follow each other rather than relying
  * on React `cache`, so it holds in a Server Action too, where nothing is
  * memoised. A user without places has `site: null` and an empty pantry.
- * When the place or the pantry cannot be read (logged as
- * `pantry_unavailable`, with the reason only), both are `null`: no status
- * and no line. Other errors are bugs and are thrown.
+ * The household's Basvaror (getStapleRules) are read alongside the pantry,
+ * and are none when they cannot be read. When the place or the pantry cannot
+ * be read (logged as `pantry_unavailable`, with the reason only), both are
+ * `null`: no status and no line. Other errors are bugs and are thrown.
  */
 export async function getPantryForStatus(): Promise<PantryForStatus> {
   try {
     const site = await getSelectedSite();
     // The place is one of the user's, just read, so its pantry is read without
     // placeToRead's second read of the places (Story 8.2).
-    return { site, snapshot: site ? await snapshotOn(site.id) : toSnapshot([]) };
+    const [snapshot, staples] = await Promise.all([site ? snapshotOn(site.id) : toSnapshot([]), getStapleRules()]);
+    return { site, snapshot, staples };
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
     console.error("pantry_unavailable", { reason: error.detail });
-    return { site: null, snapshot: null };
+    return { site: null, snapshot: null, staples: noStaples };
   }
 }
 

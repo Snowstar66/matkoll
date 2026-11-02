@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Section, Unit } from "@/features/catalog";
-import { toSnapshot, type PantryAmountRow } from "@/features/pantry";
+import { stapleRules, toSnapshot, type PantryAmountRow, type Staple } from "@/features/pantry";
 import {
   computeList,
+  countList,
   countedDishIds,
   emptyOverlay,
   hiddenLines,
@@ -650,5 +651,80 @@ describe("computeList with overrides (Story 3.6)", () => {
       "r:salt:-",
     ]);
     expect(hiddenLines(input([corrected("r:gradde:dl", 2)]))).toEqual([]);
+  });
+});
+
+describe("Basvaror (staples)", () => {
+  const staple = (name: string, maxAmount: number | null = null, maxUnit: Staple["maxUnit"] = null): Staple =>
+    ({ id: name, name, normalizedName: name.toLocaleLowerCase("sv-SE"), maxAmount, maxUnit }) as Staple;
+  // Salt always; mjöl up to 1 dl; olivolja by name only (no catalog ingredient here).
+  const staples = stapleRules([staple("Salt"), staple("Mjöl", 1, "dl"), staple("Olivolja", 1, "dl")], {
+    salt: ["salt"],
+    mjöl: ["mjol"],
+  });
+  const counted = (dishes: ListDish[], recipes: ListRecipe[], pantry: PantryAmountRow[] = []) =>
+    countList({
+      plan: { recipes: dishes },
+      recipes,
+      snapshot: toSnapshot(pantry),
+      catalog: {
+        names,
+        defaults: Object.fromEntries(Object.entries(sections).map(([id, section]) => [id, { section }])),
+      },
+      overlay: emptyOverlay,
+      staples,
+    });
+
+  it("leaves out salt, a small amount of flour and olive oil by its text, and counts them", () => {
+    const { lines, staplesSkipped } = counted(
+      [dish("d1", "gryta")],
+      [
+        recipe("gryta", [
+          amount("salt", 1, "tsk"),
+          vague("salt"),
+          amount("mjol", 2, "msk"),
+          amount(null, 2, "msk", "2 msk olivolja"),
+          amount("gradde", 2, "dl"),
+        ]),
+      ],
+    );
+    expect(shown(lines)).toEqual([["Grädde", 2, "dl", null, false]]);
+    // Salt with an amount and its vague line are two needs; flour and the oil one each.
+    expect(staplesSkipped).toBe(4);
+  });
+
+  it("puts flour above the limit on the list as before (baking), summed over the dishes", () => {
+    expect(shown(counted([dish("d1", "kaka")], [recipe("kaka", [amount("mjol", 5, "dl")])]).lines)).toEqual([["Mjöl", 5, "dl", null, false]]);
+    // 0,6 dl in each of two dishes is 1,2 dl in all: over the limit.
+    const twice = counted([dish("d1", "a"), dish("d2", "b")], [recipe("a", [amount("mjol", 0.6, "dl")]), recipe("b", [amount("mjol", 0.6, "dl")])]);
+    expect(shown(twice.lines)).toEqual([["Mjöl", 1.2, "dl", null, false]]);
+    expect(twice.staplesSkipped).toBe(0);
+  });
+
+  it("folds a vague staple line into the same ingredient's line on the list", () => {
+    const { lines, staplesSkipped } = counted(
+      [dish("d1", "kaka"), dish("d2", "sas")],
+      [recipe("kaka", [amount("mjol", 5, "dl")]), recipe("sas", [vague("mjol", "mjöl till redning")])],
+    );
+    expect(lines.map((line) => [line.label, line.amount, line.origins])).toEqual([["Mjöl", 5, ["d1", "d2"]]]);
+    expect(staplesSkipped).toBe(0);
+  });
+
+  it("counts nothing as left out when the pantry covers it, and never leaves out own items", () => {
+    const covered = counted([dish("d1", "gryta")], [recipe("gryta", [amount("salt", 1, "tsk")])], [{ ingredientId: "salt", amount: null, unit: null }]);
+    expect(covered).toEqual({ lines: [], staplesSkipped: 0 });
+    const own = countList({
+      plan: { recipes: [] },
+      recipes: [],
+      snapshot: toSnapshot([]),
+      catalog: { names, defaults: {} },
+      overlay: { ...emptyOverlay, customItems: [{ id: "c1", label: "Salt", amount: null, unit: null, ingredientId: "salt" }] },
+      staples,
+    });
+    expect(own.lines.map((line) => line.label)).toEqual(["Salt"]);
+  });
+
+  it("leaves nothing out without the household's staples", () => {
+    expect(shown(list([dish("d1", "gryta")], [recipe("gryta", [amount("salt", 1, "tsk")])]))).toEqual([["Salt", 1, "tsk", null, false]]);
   });
 });

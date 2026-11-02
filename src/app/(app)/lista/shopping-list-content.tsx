@@ -77,6 +77,7 @@ export async function ShoppingListContent({
     lines,
     hiddenLines,
     pantryUnavailable,
+    staplesSkipped,
     checksUnavailable,
     pendingClear,
     store,
@@ -117,6 +118,7 @@ export async function ShoppingListContent({
         lines={lines}
         hiddenLines={hiddenLines}
         pantryUnavailable={pantryUnavailable}
+        staplesSkipped={staplesSkipped}
         checksUnavailable={checksUnavailable}
         pendingClear={pendingClear}
         searchIngredients={searchIngredients}

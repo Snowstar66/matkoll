@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState, chooseUnit } from "./support";
+import { adminClient, clearStaples, e2eUserId, openSavedImport, statusEmail, statusStorageState, chooseUnit } from "./support";
 
 // Story 2.4: "Kan lagas nu" or "Saknar N varor" in the library and the recipe
 // view, with a tick or ring on every line, counted again when the pantry
@@ -24,6 +24,8 @@ let userId = "";
 
 test.beforeAll(async () => {
   userId = await e2eUserId(statusEmail);
+  // Counted as before Basvaror: salt, smör and mjöl are on the list here (staples.spec.ts has them).
+  await clearStaples(userId);
   // A retry starts again from no recipes and an empty pantry.
   for (const table of ["pantry_item", "recipe"] as const) {
     const { error } = await adminClient().from(table).delete().eq("user_id", userId);

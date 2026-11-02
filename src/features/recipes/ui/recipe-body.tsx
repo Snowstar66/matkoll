@@ -8,10 +8,12 @@ import { Stepper } from "@/components/stepper";
 import { clampServings, maxServings, type PlanningTarget } from "@/features/mealplan";
 import {
   atHomeSummaryText,
+  noStaples,
   recipeStatusForFactor,
   shownSiteName,
   type PantrySnapshot,
   type SelectedSite,
+  type StapleRules,
 } from "@/features/pantry";
 import { cookSteps } from "../domain/cook-steps";
 import { groupLines } from "../domain/line-groups";
@@ -47,6 +49,8 @@ export type RecipeBodyProps = {
   snapshot: PantrySnapshot | null;
   /** The place the snapshot is of: "Boende: Stugan" under "X av Y hemma" with more than one place. */
   site?: SelectedSite | null;
+  /** The household's Basvaror: at home within their limits (pantry.isStaple); none when left out. */
+  staples?: StapleRules;
   /** mealplan.addToCurrentPlan from the page (AD-1): "Lägg på matsedeln" pinned to the bottom. */
   addToPlan?: AddToPlan;
   /** mealplan's "Markera som lagad" for this recipe's dish, from the page: shown at the end of the step mode (Story 13.4). */
@@ -77,13 +81,13 @@ export type RecipeBodyProps = {
  * servings shown, and closing it leaves the servings and the scroll as they
  * were. It closes if the steps go while it is open (a re-read after "Ändra").
  */
-export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, planning }: RecipeBodyProps) {
+export function RecipeBody({ recipe, snapshot, site = null, staples = noStaples, addToPlan, finish, planning }: RecipeBodyProps) {
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
   const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
   const status = useMemo(
-    () => (snapshot ? recipeStatusForFactor(recipe.lines, factor, snapshot) : null),
-    [recipe.lines, factor, snapshot],
+    () => (snapshot ? recipeStatusForFactor(recipe.lines, factor, snapshot, staples) : null),
+    [recipe.lines, factor, snapshot, staples],
   );
   // Story 4.3: the missing ingredients' names (the line's catalog name) and the first line that misses one.
   const missing = useMemo(() => {

@@ -8,6 +8,8 @@ export const settingsPages = [
   "medlemmar",
   "boenden",
   "butiker",
+  // Basvaror (Pontus 2026-11-02): what the household always has at home.
+  "basvaror",
   "receptsajter",
   "spara-i-matkoll",
   "ai",

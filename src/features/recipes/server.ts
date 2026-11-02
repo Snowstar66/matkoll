@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { z } from "zod";
 import { getIngredientNames } from "@/features/catalog/server";
-import { snapshotFor, type PantrySnapshot, type SelectedSite } from "@/features/pantry";
+import { snapshotFor, type PantrySnapshot, type SelectedSite, type StapleRules } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -57,8 +57,8 @@ export const getRecipe = cache(async (id: string): Promise<SavedRecipe | null> =
  * inside <Suspense> (AD-18). Throws RecipeDataError.
  */
 export async function listRecipes(options?: ListOptions): Promise<RecipeListItem[]> {
-  const [rows, { snapshot }] = await Promise.all([listRecipesIn(await createClient(), options), getPantryForStatus()]);
-  return withStatus(rows, snapshot, await missingNames(rows, snapshot));
+  const [rows, { snapshot, staples }] = await Promise.all([listRecipesIn(await createClient(), options), getPantryForStatus()]);
+  return withStatus(rows, snapshot, await missingNames(rows, snapshot, staples), staples);
 }
 
 /**
@@ -69,8 +69,8 @@ export async function listRecipes(options?: ListOptions): Promise<RecipeListItem
  * (AD-18). Throws RecipeDataError.
  */
 export async function listLibrary(): Promise<RecipeLibrary> {
-  const [rows, { snapshot, site }] = await Promise.all([listRecipesIn(await createClient()), getPantryForStatus()]);
-  return toLibrary(rows, snapshot, site, await missingNames(rows, snapshot));
+  const [rows, { snapshot, site, staples }] = await Promise.all([listRecipesIn(await createClient()), getPantryForStatus()]);
+  return toLibrary(rows, snapshot, site, await missingNames(rows, snapshot, staples), staples);
 }
 
 /**
@@ -83,19 +83,26 @@ export async function listLibrary(): Promise<RecipeLibrary> {
  * `pantry_unavailable`), and then `site` is `null` too: the recipe is shown
  * without status and without the line. `site` is the place the pantry is of
  * (pantry.getPantryForStatus), for "Boende: Stugan" under "X av Y hemma"
- * (AD-24). `null` for a
+ * (AD-24). `staples` are the household's Basvaror, which count as at home
+ * (pantry.isStaple). `null` for a
  * recipe getRecipe does not find. Throws RecipeDataError.
  */
 export async function getRecipeWithPantry(
   id: string,
-): Promise<{ recipe: SavedRecipe; snapshot: PantrySnapshot | null; site: SelectedSite | null } | null> {
+): Promise<{
+  recipe: SavedRecipe;
+  snapshot: PantrySnapshot | null;
+  site: SelectedSite | null;
+  staples: StapleRules;
+} | null> {
   if (!recipeIdSchema.safeParse(id).success) return null;
-  const [recipe, { snapshot, site }] = await Promise.all([getRecipe(id), getPantryForStatus()]);
+  const [recipe, { snapshot, site, staples }] = await Promise.all([getRecipe(id), getPantryForStatus()]);
   if (!recipe) return null;
   return {
     recipe,
     snapshot: snapshot ? snapshotFor(snapshot, recipe.lines.map((line) => line.ingredientId)) : null,
     site,
+    staples,
   };
 }
 

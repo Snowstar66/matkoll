@@ -99,6 +99,14 @@ const routesByTable = {
   // Story 21.2b: who is in the household. Every page shows the member's own name (the P button), and
   // joining or leaving changes all the data a page shows, so the whole app.
   household_member: [{ path: "/", type: "layout" }],
+  // Basvaror (Pontus 2026-11-02): the page under Inställningar and its value on the start page,
+  // and everything counted with them: the recipes' status, the meal plan's and the shopping list.
+  household_staple: [
+    { path: "/installningar", type: "layout" },
+    { path: "/recept", type: "layout" },
+    { path: "/matsedel", type: "layout" },
+    { path: "/lista", type: "page" },
+  ],
   // The household's name, on Medlemmar and the start page of Inställningar.
   household: [{ path: "/installningar", type: "layout" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;

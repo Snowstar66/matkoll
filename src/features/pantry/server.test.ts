@@ -20,11 +20,15 @@ const { CatalogDataError } = vi.hoisted(() => ({
 const requireUser = vi.fn();
 vi.mock("@/features/auth/server", () => ({ requireUser: () => requireUser() }));
 const getIngredientDefaults = vi.fn();
+const getIngredientIdsByNames = vi.fn();
 vi.mock("@/features/catalog/server", () => ({
   CatalogDataError,
   getIngredientNames: vi.fn(),
   getIngredientDefaults: (ids: string[]) => getIngredientDefaults(ids),
+  getIngredientIdsByNames: (names: string[]) => getIngredientIdsByNames(names),
 }));
+const listStaplesIn = vi.fn();
+vi.mock("./data/staples", () => ({ listStaplesIn: (...args: unknown[]) => listStaplesIn(...args) }));
 const db = { session: true };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const addToPantryIn = vi.fn();
@@ -53,7 +57,10 @@ vi.mock("./data/photos", () => ({
   downloadPlacePhoto: (...args: unknown[]) => downloadPlacePhoto(...args),
 }));
 
-const { addToPantry, getPantryForStatus, hasPlacePhoto, listPlacePhotos, readPlacePhotoImage } = await import("./server");
+const { addToPantry, getPantryForStatus, hasPlacePhoto, listPlacePhotos, listStaples, readPlacePhotoImage } = await import(
+  "./server"
+);
+const { noStaples } = await import("./domain/staples");
 
 const item = {
   key: "33333333-3333-4333-8333-333333333333",
@@ -132,36 +139,73 @@ describe("getPantryForStatus", () => {
   beforeEach(() => {
     loadPantrySitesIn.mockReset().mockResolvedValue([hemma, stuganSite]);
     loadPantrySnapshot.mockReset().mockResolvedValue(snapshot);
+    listStaplesIn.mockReset().mockResolvedValue([]);
+    getIngredientIdsByNames.mockReset().mockResolvedValue({});
   });
 
   it("reads the selected place once, then the pantry of exactly that place", async () => {
-    expect(await getPantryForStatus()).toEqual({ site: { id: stugan, name: "Stugan", siteCount: 2 }, snapshot });
+    expect(await getPantryForStatus()).toEqual({ site: { id: stugan, name: "Stugan", siteCount: 2 }, snapshot, staples: noStaples });
     expect(loadPantrySitesIn).toHaveBeenCalledTimes(1);
     expect(loadPantrySnapshot).toHaveBeenCalledWith(db, stugan);
   });
 
   it("gives no place and an empty pantry to a user without places, reading no pantry", async () => {
     loadPantrySitesIn.mockResolvedValue([]);
-    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: new Map() });
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: new Map(), staples: noStaples });
     expect(loadPantrySnapshot).not.toHaveBeenCalled();
   });
 
   it("gives neither place nor pantry, logged, when the place cannot be read", async () => {
     loadPantrySitesIn.mockRejectedValue(new PantryDataError("sites_failed 08006"));
-    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null });
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null, staples: noStaples });
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
     expect(loadPantrySnapshot).not.toHaveBeenCalled();
   });
 
   it("gives neither place nor pantry, logged, when the pantry cannot be read", async () => {
     loadPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
-    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null });
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null, staples: noStaples });
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 
   it("throws what it does not expect", async () => {
     loadPantrySnapshot.mockRejectedValue(new TypeError("bug"));
     await expect(getPantryForStatus()).rejects.toThrow("bug");
+  });
+
+  // Basvaror: read with the pantry, matched by the catalog ingredients named by them and by name.
+  const salt = { id: "s1", name: "Salt", normalizedName: "salt", maxAmount: null, maxUnit: null };
+  const flour = { id: "s2", name: "Vetemjöl", normalizedName: "vetemjöl", maxAmount: 1, maxUnit: "dl" };
+
+  it("gives the household's Basvaror, by the catalog's ingredients and by name", async () => {
+    listStaplesIn.mockResolvedValue([salt, flour]);
+    getIngredientIdsByNames.mockResolvedValue({ salt: ["id-salt"], vetemjöl: ["id-mjol", "id-vetemjol"] });
+    const { staples } = await getPantryForStatus();
+    expect(getIngredientIdsByNames).toHaveBeenCalledWith(["salt", "vetemjöl"]);
+    expect(staples).toEqual({
+      byIngredient: {
+        "id-salt": { maxAmount: null, maxUnit: null },
+        "id-mjol": { maxAmount: 1, maxUnit: "dl" },
+        "id-vetemjol": { maxAmount: 1, maxUnit: "dl" },
+      },
+      byName: { salt: { maxAmount: null, maxUnit: null }, vetemjöl: { maxAmount: 1, maxUnit: "dl" } },
+    });
+  });
+
+  it("gives the pantry without Basvaror, logged, when they cannot be read", async () => {
+    listStaplesIn.mockRejectedValue(new PantryDataError("staples_query_failed 08006"));
+    expect(await getPantryForStatus()).toEqual({ site: { id: stugan, name: "Stugan", siteCount: 2 }, snapshot, staples: noStaples });
+    expect(log).toHaveBeenCalledWith("staples_unavailable", { reason: "staples_query_failed 08006" });
+    listStaplesIn.mockResolvedValue([salt]);
+    getIngredientIdsByNames.mockRejectedValue(new CatalogDataError("query_failed", "08006"));
+    expect((await getPantryForStatus()).staples).toEqual(noStaples);
+    expect(log).toHaveBeenCalledWith("staples_unavailable", { reason: "query_failed" });
+  });
+
+  it("lists the Basvaror for Inställningar, always first, then by name", async () => {
+    const sugar = { id: "s3", name: "Socker", normalizedName: "socker", maxAmount: 1, maxUnit: "dl" };
+    listStaplesIn.mockResolvedValue([flour, sugar, salt]);
+    expect((await listStaples()).map((staple) => staple.name)).toEqual(["Salt", "Socker", "Vetemjöl"]);
   });
 });
 

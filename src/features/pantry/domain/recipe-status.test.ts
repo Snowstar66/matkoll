@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toSnapshot } from "./pantry-item";
+import { stapleRules, type Staple } from "./staples";
 import { atHomeSummaryText, missingNamesText, recipeStatus, recipeStatusForFactor, recipeStatusText, type LineCoverage, type StatusLine } from "./recipe-status";
 
 let lineId = 0;
@@ -230,5 +231,46 @@ describe("missingNamesText", () => {
 
   it("is null without names", () => {
     expect(missingNamesText([])).toBeNull();
+  });
+});
+
+describe("recipeStatus with the household's Basvaror", () => {
+  const staple = (name: string, maxAmount: number | null = null, maxUnit: Staple["maxUnit"] = null): Staple =>
+    ({ id: name, name, normalizedName: name, maxAmount, maxUnit }) as Staple;
+  const staples = stapleRules([staple("peppar"), staple("smör", 50, "g"), staple("vetemjöl", 1, "dl")], {
+    peppar: ["peppar"],
+    smör: ["smor"],
+    vetemjöl: ["vetemjol"],
+  });
+  const empty = toSnapshot([]);
+
+  it("counts a staple within its limit as at home, never in N", () => {
+    const lines = [line({ ingredientId: "peppar", amount: 1, unit: "krm" }), vague("peppar"), line({ ingredientId: "smor", amount: 2, unit: "msk" }), line({ ingredientId: "lok", amount: 1 })];
+    const status = recipeStatus({ servings: 4, lines }, 4, empty, staples);
+    expect(status.missingCount).toBe(1);
+    expect(status.missingIngredientIds).toEqual(["lok"]);
+    expect(status.atHomeCount).toBe(2);
+    expect(inOrder(lines, status.lines)).toEqual([
+      { kind: "covered", staple: true },
+      { kind: "covered", staple: true },
+      { kind: "covered", staple: true },
+      { kind: "missing" },
+    ]);
+    expect(recipeStatusText(status.missingCount)).toBe("Saknar 1 vara");
+    // Without the staples, peppar and smör count too.
+    expect(recipeStatus({ servings: 4, lines }, 4, empty).missingCount).toBe(3);
+  });
+
+  it("counts flour above its limit as missing, also when doubled servings take it over", () => {
+    const lines = [line({ ingredientId: "vetemjol", amount: 0.75, unit: "dl" })];
+    expect(recipeStatus({ servings: 4, lines }, 4, empty, staples).missingCount).toBe(0);
+    expect(recipeStatus({ servings: 4, lines }, 8, empty, staples).missingCount).toBe(1);
+    expect(recipeStatusForFactor([line({ ingredientId: "vetemjol", amount: 5, unit: "dl" })], 1, empty, staples).missingCount).toBe(1);
+  });
+
+  it("keeps what the pantry covers as covered, without the staple mark", () => {
+    const lines = [line({ ingredientId: "salt", amount: 1, unit: "tsk" })];
+    const withSalt = stapleRules([staple("salt")], { salt: ["salt"] });
+    expect(inOrder(lines, recipeStatus({ servings: 4, lines }, 4, snapshot, withSalt).lines)).toEqual([{ kind: "covered" }]);
   });
 });

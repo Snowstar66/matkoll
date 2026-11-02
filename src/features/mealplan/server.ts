@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { getIngredientNames } from "@/features/catalog/server";
-import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
+import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
@@ -93,6 +93,8 @@ export type MealPlanView = {
    * title (AD-24); `null` without a status, or when it cannot be read.
    */
   site: SelectedSite | null;
+  /** The household's Basvaror, which count as at home (pantry.isStaple); none when left out. */
+  staples?: StapleRules;
 };
 
 /**
@@ -123,11 +125,11 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  * `site: null`. Throws MealPlanDataError.
  */
 export async function getMealPlanView(weekStart?: string): Promise<MealPlanView> {
-  const [plan, { snapshot, site }] = await Promise.all([
+  const [plan, { snapshot, site, staples }] = await Promise.all([
     weekStart && weekStart !== currentWeekStart() ? getPlanForWeek(weekStart) : getCurrentPlan(),
     getPantryForStatus(),
   ]);
-  if (!plan) return { plan: null, dishes: [], names: {}, snapshot, site };
+  if (!plan) return { plan: null, dishes: [], names: {}, snapshot, site, staples };
   const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
   const byId = new Map<string, DishRecipe>(
     recipes.map((recipe) => [
@@ -144,7 +146,7 @@ export async function getMealPlanView(weekStart?: string): Promise<MealPlanView>
     ...new Set(recipes.flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))),
   ];
   const names = ingredientIds.length > 0 ? await getIngredientNames(ingredientIds).catch(() => ({})) : {};
-  return { plan: { id: plan.id, name: plan.name }, dishes: toPlanDishes(plan.recipes, byId), names, snapshot, site };
+  return { plan: { id: plan.id, name: plan.name }, dishes: toPlanDishes(plan.recipes, byId), names, snapshot, site, staples };
 }
 
 /**
