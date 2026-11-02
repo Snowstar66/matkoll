@@ -728,8 +728,9 @@ describe("shopping_custom_item", () => {
     expect(await labels(thisWeek)).toEqual(["kaffe", "diskmedel"]);
     expect(await labels(nextWeek)).toEqual(["kaffe", "diskmedel"]);
 
-    // Checked in an earlier week, as an item checked last week would be.
-    const lastWeek = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    // Checked in an earlier week, as an item checked last week would be: last week's Wednesday at noon,
+    // so it is last week whatever day the test runs (now minus 8 days is two weeks back on a Monday).
+    const lastWeek = new Date(Date.parse(`${addWeeks(thisWeek, -1)}T12:00:00Z`) + 2 * 86_400_000).toISOString();
     const aged = await adminClient()
       .from("shopping_check")
       .update({ created_at: lastWeek })
