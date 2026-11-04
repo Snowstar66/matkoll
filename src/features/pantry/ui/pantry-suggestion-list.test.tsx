@@ -231,6 +231,37 @@ describe("PantrySuggestionList", () => {
     expect(click).toHaveBeenCalled();
   });
 
+  it("throws the whole reading away with Förkasta inläsningen, closes its job, and brings it back with Ångra", async () => {
+    render(<Hemma />);
+    await analyze();
+    const discard = button("Förkasta inläsningen");
+    // Under "Fota igen", quiet and muted red.
+    expect(button("Fota igen").compareDocumentPosition(discard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(discard).toHaveClass("text-danger");
+    const jobId = fakeAi.jobs[0].id;
+    fireEvent.click(discard);
+    expect(screen.queryByRole("region", { name: "Lagerförslag från kylen" })).toBeNull();
+    expect(confirms).toEqual([]);
+    // The job is closed, so no badge or "Förslag klara" stays.
+    await waitFor(() => expect(fakeAi.dismissed).toContain(jobId));
+    await waitFor(() => expect(cameraButton()).toHaveFocus());
+    expect(toast()).toHaveTextContent("Förkastade inläsningen.");
+
+    fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
+    expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
+    expect(confirms).toEqual([]);
+  });
+
+  it("does not bring a discarded reading back over a newer one", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Förkasta inläsningen"));
+    const undo = within(toast()).getByRole("button", { name: "Ångra" });
+    await analyze({ ...fridge, suggestions: fridge.suggestions.slice(0, 1) });
+    fireEvent.click(undo);
+    expect(cardNames()).toEqual(["gurka"]);
+  });
+
   it("moves focus to the heading when suggestions arrive, but not again when it mounts under another card", async () => {
     const { rerender } = render(<Hemma />);
     await analyze();
@@ -1014,6 +1045,11 @@ describe("numbers on the photo (Story 6.6)", () => {
   /** The numbers to see on the cards, in their order. */
   const badges = () => within(section()).queryAllByTestId("pantry-photo-number").map((badge) => badge.textContent);
   const slots = () => within(section()).queryAllByTestId("pantry-photo-number-slot");
+  const unpointed = () =>
+    within(section())
+      .queryAllByTestId("pantry-photo-number")
+      .filter((badge) => badge.dataset.pointed === "false")
+      .map((badge) => badge.textContent);
   const thumbnail = () => within(section()).getByRole("button", { name: "Fotot av kylen, visa större" });
   const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
   const markers = () => within(photoSheet()).queryAllByTestId("pantry-photo-marker");
@@ -1156,7 +1192,11 @@ describe("numbers on the photo (Story 6.6)", () => {
       ),
     });
     await answerLocate(ok({ positions: [{ n: 5, x: 500, y: 500 }, located.positions[0]] }));
-    await waitFor(() => expect(badges()).toEqual(["5", "1"]));
+    // Kylfoto: the rows without a point keep their number, with a dashed ring, and no marker.
+    await waitFor(() => expect(badges()).toEqual(["5", "4", "1", "2"]));
+    expect(unpointed()).toEqual(["4", "2"]);
+    expect(within(cards()[1]).getByRole("heading", { level: 3 })).toHaveTextContent("Nummer 4, inte utpekad på fotot");
+    expect(within(cards()[0]).getByRole("heading", { level: 3 })).toHaveTextContent("Nummer 5 på fotot");
     fireEvent.click(thumbnail());
     decode();
     expect(markers().map((marker) => marker.textContent)).toEqual(["5", "1"]);
@@ -1166,7 +1206,9 @@ describe("numbers on the photo (Story 6.6)", () => {
     render(<Hemma />);
     await analyzeNumbered({ ...numbered, reading: ["Mellanmjölk 1,5 %", "Smör 500 g", "vara", "Ketchup"] });
     await answerLocate(ok(located));
-    await waitFor(() => expect(badges()).toEqual(["4", "1", "2"]));
+    // Kylfoto: the placeholder item's row keeps its number, not pointed out.
+    await waitFor(() => expect(badges()).toEqual(["3", "4", "1", "2"]));
+    expect(unpointed()).toEqual(["3"]);
   });
 
   it.each([

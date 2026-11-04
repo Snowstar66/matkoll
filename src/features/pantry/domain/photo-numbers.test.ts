@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { maxPantrySuggestions, maxSuggestionLabelChars } from "./pantry-suggestion";
 import {
   cardNumber,
+  markerGap,
+  notPointedText,
+  rowNumber,
+  spreadMarkers,
   locateLabelsSchema,
   locateResultSchema,
   locatingText,
@@ -169,5 +173,71 @@ describe("texts", () => {
     // No numbers, or none on the cards left: nothing is said.
     expect(photoNumbersStatus({ kind: "ready", points: new Map() }, false)).toBe("");
     expect(photoNumbersStatus({ kind: "none" }, false)).toBe("");
+  });
+});
+
+describe("rowNumber (Kylfoto)", () => {
+  const points = new Map([[2, { n: 2, x: 100, y: 100 }]]);
+
+  it("is the number on the photo when an item of the row has a point", () => {
+    expect(rowNumber({ itemNumbers: [1, 2] }, points)).toBe(2);
+  });
+
+  it("is the row's first item number when none of its items was pointed out", () => {
+    expect(rowNumber({ itemNumbers: [4, 5] }, points)).toBe(4);
+  });
+
+  it("is null for a row that is not from the reading", () => {
+    expect(rowNumber({ itemNumbers: [] }, points)).toBeNull();
+    expect(rowNumber({}, points)).toBeNull();
+  });
+
+  it("says a row without a point is not pointed out", () => {
+    expect(notPointedText(4)).toBe("Nummer 4, inte utpekad på fotot");
+  });
+});
+
+describe("spreadMarkers (Kylfoto)", () => {
+  const box = { width: 400, height: 300 };
+  const marker = (key: number, left: number, top: number) => ({ key, label: key, left, top });
+  const distance = (a: { left: number; top: number }, b: { left: number; top: number }) =>
+    Math.hypot(((a.left - b.left) / 100) * box.width, ((a.top - b.top) / 100) * box.height);
+
+  it("leaves markers that are far apart where they are", () => {
+    const markers = [marker(1, 10, 10), marker(2, 80, 80)];
+    expect(spreadMarkers(markers, box)).toEqual(markers);
+  });
+
+  it("nudges two markers on the same spot apart sideways, so both can be tapped", () => {
+    const [a, b] = spreadMarkers([marker(1, 50, 50), marker(2, 50, 50)], box);
+    expect(distance(a, b)).toBeGreaterThanOrEqual(markerGap - 0.1);
+    expect(a.top).toBeCloseTo(50);
+    expect(b.top).toBeCloseTo(50);
+    expect(a.left).toBeLessThan(50);
+    expect(b.left).toBeGreaterThan(50);
+  });
+
+  it("pushes close markers apart along the line between them, half each", () => {
+    const [a, b] = spreadMarkers([marker(1, 50, 50), marker(2, 50, 52)], box);
+    expect(distance(a, b)).toBeGreaterThanOrEqual(markerGap - 0.1);
+    expect(a.left).toBeCloseTo(50);
+    expect(a.top).toBeLessThan(50);
+    expect(b.top).toBeGreaterThan(52);
+  });
+
+  it("spreads a cluster of three, keeps them on the photo, and keeps their keys and labels", () => {
+    const spread = spreadMarkers([marker(1, 0, 0), marker(2, 1, 1), marker(3, 2, 0)], box);
+    expect(spread.map((m) => [m.key, m.label])).toEqual([[1, 1], [2, 2], [3, 3]]);
+    for (const m of spread) {
+      expect(m.left).toBeGreaterThanOrEqual(0);
+      expect(m.top).toBeGreaterThanOrEqual(0);
+    }
+    expect(distance(spread[0], spread[1])).toBeGreaterThan(markerGap * 0.8);
+    expect(distance(spread[1], spread[2])).toBeGreaterThan(markerGap * 0.8);
+  });
+
+  it("does nothing without a box", () => {
+    const markers = [marker(1, 50, 50), marker(2, 50, 50)];
+    expect(spreadMarkers(markers, { width: 0, height: 0 })).toEqual(markers);
   });
 });

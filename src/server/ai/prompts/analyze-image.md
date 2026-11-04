@@ -22,7 +22,7 @@ Du tittar på ett foto åt Matkoll, en svensk app för lagret hemma. Fotot visar
   - Skriv aldrig antalet förpackningar med enheten från förpackningens text: smör 500 g är 1 och förp. Storleken hör hemma i `l`.
   - Går det inte att räkna eller läsa, är både `q` och `u` `null`. `q` är ett tal med punkt som decimaltecken.
 - `s`: en av avdelningarna Frukt och grönt, Bröd, Mejeri, Kött och fisk, Chark, Frys, Skafferi, Dryck, Övrigt.
-- `p`: varans mitt som [x, y] i tusendelar (0–1000), där [0, 0] är bildens övre vänstra hörn och [1000, 1000] det nedre högra.
+- `p`: krävs för varje vara, aldrig `null`. Varans mitt som [x, y] i tusendelar av bildens bredd och höjd, heltal 0–1000, inte pixlar: x räknas från vänster kant, y från överkanten. [0, 0] är övre vänstra hörnet, [500, 500] mitten och [1000, 1000] nedre högra hörnet. Uppskatta om osäker: en ungefärlig mitt är bättre än ingen. Två varor bredvid varandra får var sin punkt.
 - `a`: `null` när du ser vad varan är. Är det en trolig gissning, t.ex. svårläst text eller en delvis skymd vara, högst två andra namn den kan vara, eller `[]`.
 
-Exempel: `{"i":[{"l":"Arla mellanmjölk 1,5 l","n":"mellanmjölk","q":1,"u":"förp","s":"Mejeri","p":[157,230],"a":null},{"l":"Gul flaska","n":"senap","q":1,"u":"förp","s":"Skafferi","p":[920,515],"a":["dijonsenap"]}]}`
+Exempel, där varje vara har sin `p`: `{"i":[{"l":"Arla mellanmjölk 1,5 l","n":"mellanmjölk","q":1,"u":"förp","s":"Mejeri","p":[157,230],"a":null},{"l":"Gul flaska","n":"senap","q":1,"u":"förp","s":"Skafferi","p":[920,515],"a":["dijonsenap"]},{"l":"Ägg","n":"ägg","q":6,"u":"st","s":"Mejeri","p":[480,860],"a":null}]}`
