@@ -21,6 +21,7 @@ import type { PhotoSite } from "../domain/site";
 import { focusIsFree } from "./use-pantry-analysis";
 import { takeHandedOverPhoto, useHandedOverLocation } from "./photo-handover";
 import { AiWorking } from "@/components/ai-working";
+import { StreamingReading } from "./streaming-reading";
 
 // Kameraknappen (FR-24, UX-DR10, DESIGN.md camera-button): a light blue
 // button across the width under the location cards, "Fotografera kylen"
@@ -155,6 +156,8 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
           <span className="sr-only">{announcement}</span>
         ) : null}
       </div>
+      {/* Kylfoto C: the items read so far, as the model writes them (outside the live region, which only says the step). */}
+      {looks?.streaming ? <StreamingReading view={looks.streaming} /> : null}
       {analyzing ? (
         // Kylfoto, flera foton: more photos of the same place while it is read go into the same reading.
         <div className="-ml-3 flex flex-wrap items-center gap-x-1">

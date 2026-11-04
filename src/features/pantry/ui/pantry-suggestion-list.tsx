@@ -444,7 +444,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
           </p>
         ) : null}
         {rows.length > 0 ? (
-          <ul onKeyDown={rowKeyDown} className="flex flex-col overflow-hidden rounded-lg bg-surface">
+          <ul onKeyDown={rowKeyDown} className="flex flex-col overflow-hidden rounded-lg bg-surface motion-safe:animate-row-in">
             {rows.map((suggestion) => (
               <SuggestionRow
                 key={suggestion.id}

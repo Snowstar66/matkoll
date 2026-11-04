@@ -181,6 +181,33 @@ test("the jobs keep only the place, the location and the time, and the photo is 
   expect(files.data ?? []).toEqual([]);
 });
 
+test("the rows drop in while the photo is read: the count grows, the numbers pop up, and the review comes when it is done (Kylfoto C)", async ({
+  page,
+}) => {
+  await page.goto("/hemma");
+  await photograph(page, "Fotografera kylen", plainPng(6));
+
+  // The mock hands out its six items over its 3 s, and the job reports them about once a second.
+  const streaming = camera(page).getByTestId("pantry-streaming");
+  await expect(streaming).toBeVisible(longWait);
+  await expect(streaming.getByTestId("pantry-streaming-count")).toHaveText(/^\d hittills$/);
+  await expect(streaming.getByTestId("pantry-streaming-placeholder")).toHaveCount(2);
+  // The photo is there with a number for each row that has come.
+  const rows = await streaming.getByTestId("pantry-streaming-row").count();
+  expect(rows).toBeGreaterThan(0);
+  await expect(streaming.getByTestId("pantry-streaming-marker").first()).toBeVisible();
+  // No review yet, and the job is still running.
+  await expect(cards(page)).toHaveCount(0);
+  await expect(camera(page).getByRole("button", { name: "Avbryt" })).toBeVisible();
+
+  // Then the whole reading is taken up as the review, and the preview is gone.
+  await expect(cards(page)).toHaveCount(6, longWait);
+  await expect(camera(page).getByTestId("pantry-streaming")).toHaveCount(0);
+  await expect.poll(async () => (await jobs()).map((job) => job.status), longWait).toEqual(["done"]);
+  const [row] = await jobs();
+  expect(JSON.stringify(row.result)).not.toContain("streaming");
+});
+
 test("a photo as a job survives a reload: the cards come back, without the photo, and no latest photo is saved", async ({ page }) => {
   await page.goto("/hemma");
   await photograph(page, "Fotografera kylen", plainPng(5));
