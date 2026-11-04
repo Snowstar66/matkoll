@@ -1,9 +1,17 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 import { securityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
+  // The version, build time and commit for Om Livskoll (src/app/build-info.ts),
+  // fixed in the bundle when the app is built (or the dev server starts).
+  env: {
+    LIVSKOLL_VERSION: version,
+    LIVSKOLL_BUILT_AT: new Date().toISOString(),
+    LIVSKOLL_COMMIT: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
+  },
   // The tab bar fills the bottom edge on mobile; the dev indicator would cover the Recept tab.
   devIndicators: { position: "top-left" },
   // The recipe library is the start page. Runs before the proxy, so "/" without a

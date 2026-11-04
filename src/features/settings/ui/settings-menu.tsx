@@ -7,6 +7,7 @@ import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
 import { AppBadgeIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PantryIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
+import { NewsDot } from "./news-seen";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
 export const settingsIcons = {
@@ -47,6 +48,8 @@ export type SettingsRowData = {
   value?: string;
   /** A green capsule at the right instead of a value, e.g. "3 nya" on Inkorg (Story 20.3). */
   badge?: string;
+  /** The newest Nyheter entry's date: a small accent dot while this device has not seen it. */
+  newsSince?: string;
 };
 
 export type SettingsGroupData = {
@@ -84,6 +87,7 @@ function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
           {row.badge}
         </span>
       ) : null}
+      {row.newsSince ? <NewsDot latest={row.newsSince} /> : null}
       {row.href ? <ChevronRightIcon size={16} className="-mr-1 shrink-0 text-ink-3" /> : null}
     </>
   );

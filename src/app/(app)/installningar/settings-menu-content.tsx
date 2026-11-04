@@ -18,6 +18,8 @@ import {
 import { getAiMonthUsage, getAiSettingsView, listRecipeSites, listStores } from "@/features/settings/server";
 import { SettingsMenu, type SettingsGroupData } from "@/features/settings/ui/settings-menu";
 import { appName } from "@/app/app-info";
+import { readBuildInfo, versionLine } from "@/app/build-info";
+import { latestReleaseDate } from "./nyheter/releases";
 
 /** Reads one value for the start page; a failure shows the row without its value, and is logged by reason only. */
 async function valueOf<T>(read: () => Promise<T>, reason: string): Promise<T | null> {
@@ -155,7 +157,8 @@ export async function SettingsMenuContent() {
         { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
         { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen" },
         { href: settingsPageHref("siri"), icon: "mic", tile: "lilac", title: "Siri och genvägar" },
-        { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}` },
+        { href: settingsPageHref("nyheter"), icon: "sparkle", tile: "mint", title: "Nyheter", newsSince: latestReleaseDate },
+        { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}`, value: versionLine(readBuildInfo()) },
       ],
     },
   ];

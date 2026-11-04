@@ -39,7 +39,7 @@ describe("HelpView", () => {
       if (this.getAttribute("role") === "group") return box(0, 350);
       return this.textContent === "Förråd" ? box(400, 480) : box(0, 80);
     });
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     expect(chip("Förråd")).toHaveAttribute("aria-pressed", "true");
     expect(chip("Recept")).toHaveAttribute("aria-pressed", "false");
     expect(chip("Förråd")).toHaveClass("bg-accent");
@@ -50,7 +50,7 @@ describe("HelpView", () => {
 
   it("shows one area at a time: a chip swaps the steps and the questions and names the area in the address", async () => {
     window.history.replaceState(null, "", "/hjalp#matsedel");
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     const area = screen.getByRole("region", { name: "Matsedel" });
     expect(within(area).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Välj vecka", "Lägg till rätt", "Se vad som finns"]);
     await userEvent.click(chip("Konto"));
@@ -61,7 +61,7 @@ describe("HelpView", () => {
   });
 
   it("has the questions as <details> with ⊕ that open on a tap", async () => {
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     const question = screen.getByText("Kan jag ändra antal portioner?");
     const details = question.closest("details")!;
     expect(details).not.toHaveAttribute("open");
@@ -71,18 +71,19 @@ describe("HelpView", () => {
   });
 
   it("has the tour card, the Tyck till rows with their test ids and the version line", () => {
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     expect(screen.getByRole("link", { name: /Så funkar Livskoll/ })).toHaveAttribute("href", "/valkomst?fran=hjalp");
     expect(screen.getByTestId("feedback-idea")).toHaveTextContent("Föreslå en funktion");
     expect(screen.getByTestId("feedback-rate")).toHaveTextContent("Betygsätt Livskoll");
     expect(screen.getByTestId("feedback-problem")).toHaveTextContent("Något som inte funkar?");
     expect(screen.getByTestId("feedback-rate")).toHaveAttribute("href", "/hjalp?tyck=rate");
     expect(screen.getByText("Livskoll 0.1 · uppdaterad 1 nov")).toBeInTheDocument();
+    expect(screen.getByTestId("help-news")).toHaveAttribute("href", "/installningar/nyheter");
   });
 
   it("opens the Tyck till sheet the address asks for, with the area chosen, and closing it takes the parameter away (Story 20.3)", async () => {
     window.history.replaceState(null, "", "/hjalp?tyck=problem#matvaror");
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     const dialog = screen.getByRole("dialog", { name: "Något som inte funkar?" });
     expect(within(dialog).getByRole("button", { name: "Matvaror" })).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByText(/så Pontus kan se vad som hände/)).toBeInTheDocument();
@@ -92,13 +93,13 @@ describe("HelpView", () => {
 
   it("starts Föreslå en funktion with the search word from the address (Story 20.3)", () => {
     window.history.replaceState(null, "", "/hjalp?tyck=idea&q=dela%20lista#inkopslista");
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     expect(within(screen.getByRole("dialog", { name: "Föreslå en funktion" })).getByRole("textbox")).toHaveValue("dela lista");
   });
 
   it("opens a sheet from a Tyck till row without leaving the page, keeping the area (Story 20.3)", async () => {
     window.history.replaceState(null, "", "/hjalp#forrad");
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     await userEvent.click(screen.getByTestId("feedback-rate"));
     expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe("/hjalp?tyck=rate#forrad");
   });
@@ -111,7 +112,7 @@ describe("HelpView", () => {
   });
 
   it("searches every area while typing, hides the rest, and with no hit offers Föreslå with the word", async () => {
-    render(<HelpView version="0.1" ownerName="Pontus" />);
+    render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     const field = screen.getByRole("searchbox", { name: "Sök i hjälpen" });
     await userEvent.type(field, "FÖRRÅD");
     expect(screen.getByRole("status")).toHaveTextContent(/träff/);
