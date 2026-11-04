@@ -3,7 +3,7 @@ import { extname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
 import { maxPantrySuggestions } from "@/features/pantry/domain/pantry-suggestion";
-import { placePhotoForQwen, placePhotoSizeFor } from "@/lib/images";
+import { placePhotoSizeFor, type PlacePhotoSize } from "@/lib/images";
 import { minLoopRepeats, type AiPantryItem, type PhotoItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
@@ -56,12 +56,14 @@ import {
 // Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
 // With no photos it says so and skips. Nothing of the photo is printed.
 //
-// Kylfoto A: EVAL_PHOTO_READING=before reads each photo as the app did before
-// (2048 px at quality 85, and the model's own level with thinking on); without
-// it, as the app does now (for Claude: 1600 px at 80, effort low, and thinking
-// off on Haiku 5.5). Run both with an EVAL_LABEL each to compare the time and
-// the hits. A model that cannot point at things (Claude) gets no lookup of the
-// points, as in the app.
+// Kylfoto A: without EVAL_PHOTO_READING (or with `before`) each photo is read
+// as the app does: 2048 px at quality 85, and the level from Inställningar with
+// thinking on. The app went back to that on 2026-11-04, when Pontus found the
+// fast mode read worse. EVAL_PHOTO_READING=after measures that fast mode
+// instead (for Claude: 1600 px at 80, effort low, and thinking off on Haiku
+// 5.5). Run both with an EVAL_LABEL each to compare the time and the hits. A
+// model that cannot point at things (Claude) gets no lookup of the points, as
+// in the app.
 
 type Expected = { place: AnalyzePlace; items: string[] };
 type CaseResult = {
@@ -95,10 +97,13 @@ if (env.AI_PROVIDER === "mock") {
     "pnpm eval:ai needs a real model: set AI_PROVIDER to lmstudio, anthropic or openai (the mock only repeats its fixtures).",
   );
 }
-/** Kylfoto A: `before` reads the photo as the app did before the story, otherwise as it does now. */
-const photoReading = process.env.EVAL_PHOTO_READING === "before" ? "before" : "after";
-const photoSize = photoReading === "before" ? placePhotoForQwen : placePhotoSizeFor(env.AI_PROVIDER);
-const service = createAiService(env, { plainPhotoReading: photoReading === "before" });
+/** Kylfoto A: `after` reads the photo in the fast mode, otherwise as the app does now. */
+const photoReading = process.env.EVAL_PHOTO_READING === "after" ? "after" : "before";
+/** The fast mode's photo for Claude (Kylfoto A, 2026-11-02 to 2026-11-04). */
+const fastClaudePhoto: PlacePhotoSize = { maxSide: 1600, quality: 0.8 };
+const photoSize =
+  photoReading === "after" && env.AI_PROVIDER === "anthropic" ? fastClaudePhoto : placePhotoSizeFor(env.AI_PROVIDER);
+const service = createAiService(env, { fastPhotoReading: photoReading === "after" });
 const results: CaseResult[] = [];
 const meter = installUsageMeter();
 const timings: TimingRow[] = [];
@@ -207,7 +212,7 @@ afterAll(() => {
       `Modell: ${env.AI_MODEL ?? "–"}`,
       `LM Studio: ${lmStudioSettings(env.AI_MODEL)}`,
       `Läge: ${evalLabel()}`,
-      `Kylfoto: ${photoReading === "before" ? "som före Kylfoto A" : "som nu"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
+      `Kylfoto: ${photoReading === "after" ? "snabbläget från Kylfoto A" : "som i appen"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
       `Körningar per foto: ${runs}`,
     ],
     timings,
@@ -227,7 +232,7 @@ function renderReport(): string {
     `- Tid: ${new Date().toISOString()}`,
     `- Leverantör: ${env.AI_PROVIDER}`,
     `- Modell: ${env.AI_MODEL ?? "–"}`,
-    `- Kylfoto (Kylfoto A): ${photoReading === "before" ? "som före" : "som nu"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
+    `- Kylfoto (Kylfoto A): ${photoReading === "after" ? "snabbläget" : "som i appen"}, ${photoSize.maxSide} px, kvalitet ${photoSize.quality}`,
     `- Körningar per foto: ${runs}`,
     `- Körningar: ${results.length}, varav ${results.filter((result) => result.error).length} med fel och ${results.filter(isLoop).length} med upprepningsslinga`,
     `- Träffar: ${hits} av ${expected} förväntade varor`,

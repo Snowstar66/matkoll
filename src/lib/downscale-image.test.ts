@@ -145,12 +145,12 @@ describe("downscaleImage", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("makes a fridge photo for Claude 1600 px at quality 0.8 first, then the lower qualities (Kylfoto A)", async () => {
+  it("makes a fridge photo for Claude 2048 px at quality 0.85 first, then the lower qualities (Kylfoto A)", async () => {
     jpegSizeFor = (quality) => (quality > 0.65 ? maxImageBytes + 1 : maxImageBytes);
     const result = await downscaleImage(cameraJpeg(6), placePhotoForClaude);
-    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1200, resizeHeight: 1600 });
-    expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
-    expect(qualities).toEqual([0.8, 0.75, 0.65]);
+    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1536, height: 2048 });
+    expect(qualities).toEqual([0.85, 0.75, 0.65]);
     expect(result.ok).toBe(true);
   });
 

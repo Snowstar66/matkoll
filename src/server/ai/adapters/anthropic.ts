@@ -36,6 +36,8 @@ const thinkingCanBeOff = ["claude-haiku-5-5"];
  * and it is the text the model writes that takes the time. With thinking off
  * the request also asks for JSON output without tools, which the docs say
  * works on Haiku 5.5 (the caveat there is about a tool call it may skip).
+ * Since 2026-11-04 only the eval's fast mode (EVAL_PHOTO_READING=after) uses
+ * it; the app reads the photo at the level from Inställningar.
  */
 export function photoReadingOptionsFor(model: string): ProviderOptions {
   const off = thinkingCanBeOff.some((id) => model === id || model.startsWith(`${id}-`));
@@ -54,7 +56,10 @@ export function createAnthropicTarget(config: AnthropicConfig): ModelTarget {
   return {
     model: provider(config.model),
     providerOptions: config.effort ? { anthropic: { effort: config.effort } } : undefined,
-    photoReadingOptions: photoReadingOptionsFor(config.model),
+    // Pontus 2026-11-04: the fridge photo read worse with thinking off at effort low than
+    // with the level from Inställningar, so it uses that level again. photoReadingOptionsFor
+    // stays for the eval (EVAL_PHOTO_READING) until a measurement says otherwise.
+    photoReadingOptions: undefined,
     extraOutputTokens: anthropicThinkingRoom,
   };
 }

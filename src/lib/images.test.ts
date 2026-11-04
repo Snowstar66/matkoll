@@ -231,8 +231,8 @@ describe("stripJpegMetadata", () => {
 });
 
 describe("placePhotoSizeFor (Kylfoto A)", () => {
-  it("makes a fridge photo for Claude 1600 px at quality 0.8", () => {
-    expect(placePhotoSizeFor("anthropic")).toEqual({ maxSide: 1600, quality: 0.8 });
+  it("makes a fridge photo for Claude 2048 px at quality 0.85, as for Qwen", () => {
+    expect(placePhotoSizeFor("anthropic")).toEqual({ maxSide: 2048, quality: 0.85 });
     expect(placePhotoSizeFor("anthropic")).toBe(placePhotoForClaude);
   });
 

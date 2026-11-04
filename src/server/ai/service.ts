@@ -17,7 +17,7 @@ import {
   type SuggestPantryEntry,
 } from "@/lib/suggest-input";
 import type { Env } from "@/server/env-schema";
-import { createAnthropicTarget } from "./adapters/anthropic";
+import { createAnthropicTarget, photoReadingOptionsFor } from "./adapters/anthropic";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
@@ -30,6 +30,7 @@ import {
   withProviderOptions,
   type Limits,
   type ModelTarget,
+  type ProviderOptions,
   type WarmUpOptions,
   type WarmUpResult,
 } from "./run";
@@ -691,7 +692,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           messages: [{ role: "user", content: analyzeImageContent(input) }],
           maxOutputTokens: inputLimits.analyze.maxOutputTokens,
           // Story 6.5: the adapter's sampling for photos (LM Studio: Qwen's settings against repetition loops).
-          // Kylfoto A: with the fridge photo's own provider options (Claude: effort low, thinking off where allowed).
+          // Kylfoto A: with the fridge photo's own provider options, when the target has them (only the eval's fast mode).
           sampling: withProviderOptions(target.imageSampling, target.photoReadingOptions),
         },
         signal,
@@ -1022,11 +1023,12 @@ export type AiServiceOptions = {
   fixturesDir?: string;
   limits?: Limits;
   /**
-   * Kylfoto A, for the before/after eval: the fridge photo is read with the
-   * same settings as every other call (the level from Inställningar, thinking
-   * on), as before. The app never sets it.
+   * Kylfoto A, for the eval only (EVAL_PHOTO_READING=after): the fridge photo
+   * is read with photoReadingOptionsFor (Claude: effort low, thinking off where
+   * allowed). The app never sets it, so the photo keeps the level from
+   * Inställningar, like every other call (Pontus 2026-11-04).
    */
-  plainPhotoReading?: boolean;
+  fastPhotoReading?: boolean;
 };
 
 /**
@@ -1065,9 +1067,9 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
     case "anthropic":
       if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set");
       return createModelAiService(
-        withoutPhotoReading(
+        withFastPhotoReading(
           createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: model(env.AI_MODEL), effort, fetch: options.fetch }),
-          options.plainPhotoReading,
+          options.fastPhotoReading ? photoReadingOptionsFor(model(env.AI_MODEL)) : undefined,
         ),
         options.limits,
       );
@@ -1080,7 +1082,7 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
   }
 }
 
-/** The target without its fridge photo options when `plain` (the eval's "before"). */
-function withoutPhotoReading(target: ModelTarget, plain: boolean | undefined): ModelTarget {
-  return plain ? { ...target, photoReadingOptions: undefined } : target;
+/** The target with the fridge photo's fast options when given (the eval's "after"). */
+function withFastPhotoReading(target: ModelTarget, fast: ProviderOptions | undefined): ModelTarget {
+  return fast ? { ...target, photoReadingOptions: fast } : target;
 }
