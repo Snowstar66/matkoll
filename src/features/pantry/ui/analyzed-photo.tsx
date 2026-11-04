@@ -15,7 +15,7 @@ import {
   analyzedPhotoTitle,
   markerLabel,
 } from "../domain/pantry-suggestion";
-import { photoNumberText, type PhotoMarker } from "../domain/photo-numbers";
+import { notPointedText, photoNumberText, spreadMarkers, type PhotoMarker } from "../domain/photo-numbers";
 import type { ReviewPhoto } from "./use-pantry-analysis";
 
 // The photo during review (quick fix after Story 6.5): at the top of
@@ -92,6 +92,18 @@ export function ReviewPhotoPanel({
   const [mini, setMini] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Kylfoto: the stage's width, so markers that would overlap on the photo as shown are nudged apart.
+  const [stageWidth, setStageWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    setStageWidth(stage.clientWidth || null);
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(() => setStageWidth(stage.clientWidth || null));
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
 
   // Shrinks once the panel sticks (the line above it has scrolled past where it sticks, under the page's slim bar on
   // a phone), and grows back when it is in its place again.
@@ -112,6 +124,12 @@ export function ReviewPhotoPanel({
   const decodedSize = decoded?.url === photo.url ? decoded.size : null;
   const size = decodedSize ?? photo.size ?? null;
   const height = mini ? reviewPhotoHeight.mini : reviewPhotoHeight.full;
+  // The photo's box as shown: as high as the stage, or narrower when the stage is narrower than the photo is wide.
+  let shownMarkers: readonly ReviewMarker[] = markers;
+  if (decodedSize) {
+    const width = Math.min(stageWidth ?? Infinity, (height * decodedSize.width) / decodedSize.height);
+    shownMarkers = spreadMarkers(markers, { width, height: (width * decodedSize.height) / decodedSize.width });
+  }
   return (
     <>
       {/* Takes no room: the section's gap stays as it was. */}
@@ -124,6 +142,7 @@ export function ReviewPhotoPanel({
         className="sticky top-[calc(52px+env(safe-area-inset-top))] z-20 -mx-page bg-bg px-page pt-1 pb-1 desktop:top-0 desktop:mx-0 desktop:px-0 desktop:pt-2"
       >
         <div
+          ref={stageRef}
           style={{ height }}
           className="relative flex items-center justify-center overflow-hidden rounded-[16px] bg-photo-stage transition-[height] duration-[260ms] ease-[cubic-bezier(.22,.8,.24,1)] motion-reduce:transition-none"
         >
@@ -170,7 +189,7 @@ export function ReviewPhotoPanel({
               className={cx("block max-w-none object-contain", size ? "size-full" : "h-full w-auto")}
             />
             {decodedSize
-              ? markers.map((marker) => {
+              ? shownMarkers.map((marker) => {
                   const lit = selected === marker.label;
                   return (
                     <button
@@ -293,22 +312,29 @@ const markerInset = "14px";
  * A card's number on the photo (Story 6.6), as seen; hidden from screen
  * readers, since the card's heading says "Nummer 3 på fotot" (PhotoNumberText).
  * `null` keeps its place empty while the numbers are looked up, so the title
- * does not move when they come.
+ * does not move when they come. Kylfoto: a number the model did not point
+ * out on the photo (`pointed` false) has a dashed ring, so it is not looked
+ * for there.
  */
-export function PhotoNumberBadge({ number }: { number: number | null }) {
+export function PhotoNumberBadge({ number, pointed = true }: { number: number | null; pointed?: boolean }) {
   if (number === null) {
     return <span aria-hidden="true" data-testid="pantry-photo-number-slot" className={cx(badgeClasses, "invisible")} />;
   }
   return (
-    <span aria-hidden="true" data-testid="pantry-photo-number" className={badgeClasses}>
+    <span
+      aria-hidden="true"
+      data-testid="pantry-photo-number"
+      data-pointed={pointed ? undefined : "false"}
+      className={cx(badgeClasses, !pointed && "border-dashed text-ink-3")}
+    >
       {number}
     </span>
   );
 }
 
-/** The card's number for a screen reader, inside its heading after the title: "Nummer 3 på fotot". */
-export function PhotoNumberText({ number }: { number: number }) {
-  return <span className="sr-only"> {photoNumberText(number)}</span>;
+/** The card's number for a screen reader, inside its heading after the title: "Nummer 3 på fotot", or "Nummer 3, inte utpekad på fotot". */
+export function PhotoNumberText({ number, pointed = true }: { number: number; pointed?: boolean }) {
+  return <span className="sr-only"> {pointed ? photoNumberText(number) : notPointedText(number)}</span>;
 }
 
 export type AnalyzedPhotoSheetProps = {

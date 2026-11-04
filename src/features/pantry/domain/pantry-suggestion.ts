@@ -1040,3 +1040,9 @@ export function withRestoredStock(
     };
   });
 }
+
+/** Kylfoto: the quiet button under "Fota igen" that throws the whole reading away, nothing applied. */
+export const discardReadingText = "Förkasta inläsningen";
+
+/** Kylfoto: the toast after "Förkasta inläsningen", with "Ångra". */
+export const discardedReadingText = "Förkastade inläsningen.";
