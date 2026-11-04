@@ -212,7 +212,9 @@ test("the list groups the lines by category, with the dishes under each name and
   await expect(sectionHeadings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
   await expect(lines(page)).toHaveCount(5);
   // An amount without unit counts as st.
-  await expect(lineOf(page, "Paprika")).toContainText(`Paprika Till ${gryta}1 st`);
+  // The dishes were just planned: every line has the mint "Ny", said "ny" after the name.
+  await expect(lineOf(page, "Paprika")).toContainText(`PaprikaNy ny Till ${gryta}1 st`);
+  await expect(lineOf(page, "Paprika").getByTestId("line-new")).toHaveText("Ny");
   // 2 dl and 1 dl from two dishes is one line: "Till 2 rätter" (Story 19.7).
   await expect(lineOf(page, "Grädde")).toContainText("Till 2 rätter");
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
@@ -224,7 +226,7 @@ test("the list groups the lines by category, with the dishes under each name and
   // A line without a catalog ingredient, with its own text, under Övrigt.
   const other = page.getByRole("list", { name: "Övrigt" }).filter({ visible: true });
   // Every line's row also holds its "Ta bort", behind the row until it is swiped (Story 3.6).
-  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja\\s*Till ${paj}\\s*Ta bort$`)]);
+  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persiljaNy ny\\s*Till ${paj}\\s*Ta bort$`)]);
   expect(errors).toEqual([]);
 });
 
@@ -441,11 +443,11 @@ test("an own item without a catalog ingredient goes under Övrigt, and shows alt
   await expect(sheet.getByRole("textbox", { name: "Vara" })).toBeFocused();
   await sheet.getByRole("button", { name: "Klar" }).click();
   await expect(customSheet(page)).toHaveCount(0);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*Ta bort$/]);
   await expect(page.getByText("Allt till veckans rätter finns redan hemma.").filter({ visible: true })).toHaveCount(0);
   await expect(progress(page)).toHaveText(/^1 vara kvar\s*0 av 1 i korgen$/);
   await page.reload();
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*Ta bort$/]);
   expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["diskmedel", null]]);
   expect(errors).toEqual([]);
 });
@@ -478,7 +480,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await expect(customSheet(page)).toHaveCount(0);
     const mejeri = region(page, "Mejeri & ägg").getByTestId("shopping-line");
     await expect(mejeri).toHaveCount(2);
-    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*Egen\s*2 förp\s*Ta bort$/);
+    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^GräddeNy ny\s*Egen\s*2 förp\s*Ta bort$/);
     await expect(mejeri.filter({ hasText: "1 dl" })).toContainText("Till 2 rätter");
     expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["Grädde", ids.get("Grädde")]]);
     expect(errors).toEqual([]);
@@ -493,8 +495,8 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
-  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^KaffeNy ny\s*Egen\s*Ta bort$/]);
 
   await actionsAnswered(page, 1, () => check(page, "diskmedel").click());
   // Moved to I korgen (Story 11.4): Övrigt had only diskmedel.
@@ -537,7 +539,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*2 förp\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*2 förp\s*Ta bort$/]);
 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
@@ -551,7 +553,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await expect(page).toHaveURL(/\/lista$/);
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
   await expect(region(page, "Mejeri & ägg").getByTestId("shopping-line")).toContainText(["Grädde"]);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*2 förp\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*2 förp\s*Ta bort$/]);
   expect(errors).toEqual([]);
 });
 
@@ -560,7 +562,7 @@ test("Lägg till vara is a floating + on a phone and in the header on a desktop,
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*Ta bort$/]);
 
   // A phone: the round + at the bottom right, above the pinned buttons and the tab bar; none in the header.
   const fab = addCustomButton(page);
@@ -879,7 +881,7 @@ test("an own item stays on the list in another week, also one without a plan, un
 
   // Next week has no plan: the item is on its list all the same, and can be checked off there.
   await page.goto(nextWeek);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^tvättmedel\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^tvättmedelNy ny\s*Egen\s*Ta bort$/]);
   await expect(addCustomButton(page)).toBeVisible();
   await actionsAnswered(page, 1, () => check(page, "tvättmedel").click());
   await expect.poll(async () => {

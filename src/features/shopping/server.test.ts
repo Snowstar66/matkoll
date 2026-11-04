@@ -190,6 +190,7 @@ describe("getShoppingList", () => {
         pendingClear: 0,
         ...withStore,
         marks: {},
+        addedAt: {},
       }),
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
@@ -244,6 +245,7 @@ describe("getShoppingList", () => {
         pendingClear: 0,
         ...withStore,
         marks: {},
+        addedAt: {},
       }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();

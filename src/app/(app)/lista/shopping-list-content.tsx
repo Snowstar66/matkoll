@@ -87,6 +87,7 @@ export async function ShoppingListContent({
     unreadableChoices,
     site,
     marks,
+    addedAt,
   } = result.data;
   const counts = await countsRead;
   const options = weeks.map((week) => ({
@@ -129,6 +130,9 @@ export async function ShoppingListContent({
         unreadableChoices={unreadableChoices}
         site={site}
         marks={marks}
+        addedAt={addedAt}
+        // "Ny" is counted against the server's now, so every render agrees.
+        now={now.toISOString()}
         empty={empty}
         openAddOnStart={quickAdd}
         filter={parseListFilter(params?.visa)}

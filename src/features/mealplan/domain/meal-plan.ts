@@ -25,6 +25,8 @@ export type PlanRecipe = {
   cookedAt?: string | null;
   /** The day the dish is planned for, 1 (måndag) to 7 (söndag), or `null`/left out for "Ingen dag än" (Story 13.5). */
   weekday?: number | null;
+  /** When the dish was added to the plan (ISO 8601), where it was read: Inköpslista's "Ny". */
+  addedAt?: string;
 };
 
 /** The current meal plan: its name ("Vecka 44") and its dishes in order. */

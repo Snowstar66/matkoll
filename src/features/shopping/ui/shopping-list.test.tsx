@@ -118,6 +118,37 @@ describe("ShoppingList", () => {
     expect(within(row("r:smor:st")).queryByTestId("line-mark")).toBeNull();
   });
 
+  it("labels a line added within 48 h \"Ny\" beside someone else's initial, says it, and none when ticked", async () => {
+    const now = "2026-11-04T12:00:00.000Z";
+    const at = "2026-11-04T10:00:00.000Z";
+    render(
+      <ShoppingList
+        plan={plan}
+        lines={[
+          line({ key: "c:gradde", label: "Grädde", section: "Mejeri", isCustom: true, origins: [] }),
+          line({ key: "r:smor:st", label: "Smör", section: "Mejeri", amount: 1, unit: "st" }),
+          line({ key: "r:mjolk:l", label: "Mjölk", section: "Mejeri", amount: 1, unit: "l" }),
+          line({ key: "r:agg:st", label: "Ägg", section: "Mejeri", amount: 6, unit: "st", checked: true }),
+        ]}
+        pantryUnavailable={false}
+        marks={{ "c:gradde": { addedBy: { name: "Martina", tone: "sky", at } } }}
+        addedAt={{ "c:gradde": at, "r:smor:st": at, "r:mjolk:l": "2026-11-02T12:00:00.000Z", "r:agg:st": at }}
+        now={now}
+      />,
+    );
+    const row = (key: string) => document.querySelector(`[data-line-key="${key}"]`) as HTMLElement;
+    expect(within(row("c:gradde")).getByTestId("line-new")).toHaveTextContent("Ny");
+    expect(within(row("c:gradde")).getByTestId("line-mark")).toHaveTextContent("M");
+    expect(within(row("c:gradde")).getByText("ny, tillagd av Martina")).toBeInTheDocument();
+    expect(within(row("r:smor:st")).getByText("ny")).toBeInTheDocument();
+    // Exactly 48 h: no longer new.
+    expect(within(row("r:mjolk:l")).queryByTestId("line-new")).toBeNull();
+    // Ticked (in I korgen): no "Ny", however new.
+    const show = screen.queryByRole("button", { name: /^Visa I korgen/ });
+    if (show) await userEvent.click(show);
+    expect(within(row("r:agg:st")).queryByTestId("line-new")).toBeNull();
+  });
+
   it("shows the summary, the progress row and the lines per category in the store's order", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 0 av 6 i korgen");

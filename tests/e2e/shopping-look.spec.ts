@@ -243,7 +243,7 @@ test("the list shows the progress row, the categories, the line under each name 
   // One list, Att handla, above the categories; the week is a quiet menu beside it (no week tiles).
   await expect(headings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
   // The amount after the name, and the dishes with " · " under it, without "från".
-  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Matlagningsgrädde Till 2 rätter3 dl");
+  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("MatlagningsgräddeNy ny Till 2 rätter3 dl");
   await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Till 2 rätter");
   await expect(lineOf(page, "Gul lök")).toContainText(stroganoff);
   // The vague line counted against Stugan, and the own item.
