@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { ok } from "@/lib/errors";
 import type { ThingChange } from "../domain/thing-count";
@@ -60,6 +60,13 @@ const change = (kind: ThingChange["kind"], at: string, quantityAfter: number, de
 
 beforeEach(() => {
   for (const mock of [changeThingCount, undoThingChange, setThingCount, stopThingCount, restoreThingCount, loadThingCount, refresh]) mock.mockReset();
+  // The history's dates read "i dag" on their own day, so the clock is pinned after them.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-20T12:00:00Z"));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function hits(hit: ThingHit) {
