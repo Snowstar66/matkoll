@@ -299,6 +299,43 @@ test("the cards come with their numbers, and the large photo has the same number
   expect(errors).toEqual([]);
 });
 
+test("two photos of the fridge are one reading: read one after the other, one list, and Mjölk seen on one is not missing (Kylfoto, flera foton)", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const before = await rowCounts();
+  await page.goto("/hemma");
+  // The shelves: a photo the mock keeps waiting 3 s (kyl.png's answer), so another can be added while it is read.
+  await photograph(page, "Fotografera kylen", plainPng(7));
+  await expect(camera(page).getByText("Tittar på bilden …").first()).toBeVisible();
+  // The door, from the file picker, into the same reading.
+  const chooser = page.waitForEvent("filechooser");
+  await camera(page).getByRole("button", { name: "Välj fler foton" }).click();
+  await (await chooser).setFiles("tests/fixtures/ai/kyl-dorr.png");
+  await expect(camera(page).getByText(/^Läser foto [12] av 2 …$/)).toBeVisible();
+  // Sent one at a time: the household's queue never holds both.
+  await expect.poll(async () => (await jobs()).length).toBeLessThanOrEqual(1);
+
+  // One list: kyl.png's six items and the door's apelsinjuice and senap; the cream of both photos is one row each by name.
+  await expect(section(page).getByTestId("pantry-review-thumb")).toHaveCount(2, { timeout: 20_000 });
+  const titles = await cards(page).getByRole("heading", { level: 3 }).evaluateAll((all) => all.map((one) => one.querySelector("span")?.textContent));
+  expect(titles).toEqual(expect.arrayContaining(["Mellanmjölk 1,5 %", "Ketchup", "Solgården apelsinjuice 1 l"]));
+  expect(new Set(titles).size).toBe(titles.length);
+  // Mjölk is on the shelves, so it is not "Syns inte längre", although the door does not show it.
+  await expect(section(page).getByTestId("pantry-missing-toggle")).toHaveCount(0);
+  // The shelves are large with their markers; a row of the door shows the door.
+  const thumbs = section(page).getByTestId("pantry-review-thumb");
+  await expect(thumbs.first()).toHaveAttribute("aria-pressed", "true");
+  await expect(section(page).getByTestId("pantry-review-marker")).toHaveCount(6);
+  await section(page).getByRole("button", { name: /^Rätta apelsinjuice$/i }).click();
+  const sheet = page.getByRole("dialog").filter({ visible: true });
+  await sheet.getByRole("button", { name: "Avbryt" }).click();
+  await expect(thumbs.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(section(page).getByTestId("pantry-review-marker")).toHaveCount(3);
+  expect(await rowCounts()).toEqual(before);
+  expect(errors).toEqual([]);
+});
+
 test("the suggestions go when Matvaror is left through the tab bar and opened again", async ({ page }) => {
   await page.goto("/hemma");
   await photograph(page, "Fotografera kylen", kyl);
