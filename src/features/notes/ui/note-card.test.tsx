@@ -47,8 +47,12 @@ describe("NoteCard", () => {
 });
 
 describe("OwnNoteLine", () => {
-  it("shows the author's own note quietly, waiting", () => {
-    render(<OwnNoteLine note={note("a", "Kan du handla?", { mine: true })} />);
-    expect(screen.getByTestId("own-note").textContent).toBe("Din lapp: Kan du handla?Väntar");
+  it("shows the author's own note quietly, waiting, with Ta bort", () => {
+    const onRemove = vi.fn();
+    const own = note("a", "Kan du handla?", { mine: true });
+    render(<OwnNoteLine note={own} onRemove={onRemove} />);
+    expect(screen.getByTestId("own-note").textContent).toBe("Din lapp: Kan du handla?VäntarTa bort");
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    expect(onRemove).toHaveBeenCalledWith(own);
   });
 });

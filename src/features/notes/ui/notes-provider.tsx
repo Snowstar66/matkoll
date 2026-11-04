@@ -79,7 +79,7 @@ export function NotesProvider({ addToPlan, children }: { addToPlan: AddToPlan; c
   }, []);
 
   const done = useCallback(
-    async (note: NoteView) => {
+    async (note: NoteView, message = "Lappen är klar.") => {
       hide(note.id, true);
       setBusy((count) => count + 1);
       const result = await setNoteDone(note.id, true);
@@ -89,7 +89,7 @@ export function NotesProvider({ addToPlan, children }: { addToPlan: AddToPlan; c
         showToast(result.error.message, { role: "alert" });
         return;
       }
-      showToast("Lappen är klar.", {
+      showToast(message, {
         onUndo: async () => {
           const undone = await setNoteDone(note.id, false);
           if (!undone.ok) {
@@ -132,7 +132,7 @@ export function NotesProvider({ addToPlan, children }: { addToPlan: AddToPlan; c
       received.length > 0 ? (
         <NoteCard notes={received} onAction={act} onDone={done} onReply={reply} />
       ) : ownNewest ? (
-        <OwnNoteLine note={ownNewest} />
+        <OwnNoteLine note={ownNewest} onRemove={(note) => void done(note, "Tog bort lappen.")} />
       ) : null,
     [received, ownNewest, act, done, reply],
   );

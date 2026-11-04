@@ -88,16 +88,26 @@ export function NoteCard({ notes, onAction, onDone, onReply }: NoteCardProps) {
   );
 }
 
-/** The author's own note, quieter, with "Väntar" until someone presses Klar (hushallet.html, section 6). */
-export function OwnNoteLine({ note }: { note: NoteView }) {
+/**
+ * The author's own note, quieter, with "Väntar" until someone presses Klar
+ * (hushallet.html, section 6), and "Ta bort" so the author can take it back.
+ */
+export function OwnNoteLine({ note, onRemove }: { note: NoteView; onRemove: (note: NoteView) => void }) {
   return (
-    <p data-testid="own-note" className="flex min-h-11 items-center gap-2.5 rounded-[12px] bg-sand px-3.5 py-2 text-[15px] leading-5 text-ink">
+    <div data-testid="own-note" className="flex min-h-11 items-center gap-2.5 rounded-[12px] bg-sand px-3.5 py-2 text-[15px] leading-5 text-ink">
       <PenIcon size={18} className="shrink-0 text-sand-ink" />
       <span className="min-w-0 flex-1 truncate">
         <span className="sr-only">Din lapp: </span>
         {noteText(note)}
       </span>
       <span className="shrink-0 text-[13px] leading-[18px] text-sand-ink">Väntar</span>
-    </p>
+      <button
+        type="button"
+        onClick={() => onRemove(note)}
+        className={cx("-mr-1 shrink-0 rounded-md px-1 text-[13px] leading-[18px] font-medium text-danger", tapArea)}
+      >
+        Ta bort
+      </button>
+    </div>
   );
 }
