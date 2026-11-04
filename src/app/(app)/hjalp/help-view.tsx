@@ -13,7 +13,7 @@ import { SearchField } from "@/components/search-field";
 import { mainDestinations } from "@/components/app-shell/destinations";
 import { type FeedbackAreaId, type FeedbackSheetKind, isFeedbackArea, isFeedbackSheetKind } from "@/features/feedback";
 import { FeedbackSheet } from "@/features/feedback/ui/feedback-sheet";
-import { type HelpArea, areaFromHash, helpAreas, helpUpdated, highlightParts, searchHelp } from "./help-content";
+import { type HelpArea, areaFromHash, helpAreas, highlightParts, searchHelp } from "./help-content";
 import { HelpIcon, type HelpIconName, PlayIcon, PlusMinusIcon } from "./help-icons";
 
 /** Where the back link goes: the tab the page was opened from (`#matsedel`), else Recept. */
@@ -21,6 +21,9 @@ export function parentOf(hash: string): { href: string; label: string } {
   const tab = mainDestinations.find((destination) => destination.helpId === hash.replace(/^#/, ""));
   return { href: tab?.href ?? "/recept", label: tab?.label ?? "Recept" };
 }
+
+/** Nyheter under Inställningar: what is new in the app. */
+const newsHref = "/installningar/nyheter";
 
 /** Where the tour is played again from Hjälp (Story 20.1): closing it comes back here. */
 export const tourHref = "/valkomst?fran=hjalp";
@@ -57,8 +60,6 @@ function openFeedback(event: MouseEvent<HTMLAnchorElement>) {
   window.history.replaceState(null, "", `${event.currentTarget.getAttribute("href")}${window.location.hash}`);
 }
 
-const months = ["jan", "feb", "mars", "apr", "maj", "juni", "juli", "aug", "sep", "okt", "nov", "dec"];
-
 const sectionLabel = "mx-1 mt-6 mb-2 text-section-label text-ink-2";
 /** The line under a step and an answer: 15 px in ink-2 (hjalp-valkomst.html). */
 const smallText = "text-[15px] leading-[21px] text-ink-2";
@@ -70,7 +71,7 @@ const rowFocus = "outline-none focus-visible:outline-2 focus-visible:-outline-of
  * till. Opened from a tab (`#matvaror`) the tab's area is chosen. While there is a search,
  * the hits in every area take the place of all that.
  */
-export function HelpView({ version, ownerName }: { version: string; ownerName: string | null }) {
+export function HelpView({ version, updated, ownerName }: { version: string; updated: string | null; ownerName: string | null }) {
   const [areaId, setAreaId] = useState(helpAreas[0]!.id);
   const [parent, setParent] = useState(() => parentOf(""));
   const [query, setQuery] = useState("");
@@ -109,7 +110,6 @@ export function HelpView({ version, ownerName }: { version: string; ownerName: s
 
   const area = helpAreas.find((candidate) => candidate.id === areaId) ?? helpAreas[0]!;
   const search = query.trim();
-  const { day, month } = helpUpdated;
 
   return (
     <div className="pb-4">
@@ -171,7 +171,13 @@ export function HelpView({ version, ownerName }: { version: string; ownerName: s
             ))}
           </ListGroup>
           <p className="mt-6 text-center text-[13px] leading-[18px] text-ink-3">
-            {appName} {version} · uppdaterad {day} {months[month - 1]}
+            {appName} {version}
+            {updated ? ` · uppdaterad ${updated}` : ""}
+          </p>
+          <p className="mt-1 text-center text-[13px] leading-[18px]">
+            <Link href={newsHref} className={cx("rounded-sm font-medium text-accent", rowFocus)} data-testid="help-news">
+              Nyheter i {appName}
+            </Link>
           </p>
         </>
       )}
