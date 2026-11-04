@@ -216,7 +216,7 @@ function numbersOf(points: PhotoPoints | undefined, labels: readonly string[]): 
 
 /**
  * `photoSize` is how the photo is made small before it is sent (Kylfoto A:
- * 1600 px at 0.8 when Claude reads it, from the page); 2048 px at 0.85
+ * the size for the provider that reads it, from the page); 2048 px at 0.85
  * without it.
  */
 export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize?: PlacePhotoSize } = {}): PantryAnalysis {

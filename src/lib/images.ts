@@ -20,11 +20,10 @@ export type PlacePhotoSize = { maxSide: number; quality: number };
 export const placePhotoForQwen: PlacePhotoSize = { maxSide: maxPlacePhotoSide, quality: 0.85 };
 
 /**
- * Kylfoto A: Claude gets the fridge photo at 1600 px, quality 0.8, about 40 %
- * fewer bytes to upload. Haiku 5.5 takes up to 2576 px, so it reads the
- * photo as sent, without scaling it down again.
+ * Kylfoto A tried 1600 px at quality 0.8 for Claude; Pontus found the reading
+ * worse (2026-11-04), so Claude gets the same 2048 px, quality 0.85, as Qwen.
  */
-export const placePhotoForClaude: PlacePhotoSize = { maxSide: 1600, quality: 0.8 };
+export const placePhotoForClaude: PlacePhotoSize = placePhotoForQwen;
 
 /** The size of a fridge photo for the provider that reads it (the AI choice's, or AI_PROVIDER). */
 export function placePhotoSizeFor(provider: string | null | undefined): PlacePhotoSize {

@@ -27,7 +27,7 @@ import {
 /** JPEG qualities to try, best first, until the photo fits in maxImageBytes. */
 export const jpegQualities = [0.85, 0.75, 0.65, 0.5] as const;
 
-/** The qualities tried, from `first` (Kylfoto A: 0.8 for Claude) down through the lower ones of jpegQualities. */
+/** The qualities tried, from `first` (Kylfoto A: the provider's photo quality) down through the lower ones of jpegQualities. */
 export function qualitiesFrom(first: number | undefined): number[] {
   if (first === undefined) return [...jpegQualities];
   return [first, ...jpegQualities.filter((quality) => quality < first)];
