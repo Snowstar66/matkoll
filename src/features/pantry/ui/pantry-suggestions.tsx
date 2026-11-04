@@ -105,7 +105,12 @@ export type CorrectOutcome =
   | { kind: "busy" };
 
 /** "Lägg till N varor" (`all`) and the "Syns inte längre" items ticked to go (`remove`, their ids). */
-export type ConfirmOptions = { all?: boolean; remove?: readonly string[] };
+export type ConfirmOptions = {
+  all?: boolean;
+  remove?: readonly string[];
+  /** Kylfoto D: amounts Pontus set with the row's − / + (by suggestion id); they replace the read amounts when saved. */
+  amounts?: ReadonlyMap<string, number>;
+};
 
 /** How Avvisa ended: taken out, no longer there, or not now (a confirmation is being saved). */
 export type RejectOutcome = "rejected" | "gone" | "busy";
@@ -602,7 +607,10 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const groups = groupSuggestions(result);
     // Kylfoto D: "Lägg till N varor" (`all`) saves the rows that are ticked, unsure ones too when ticked, and
     // removes the "Syns inte längre" items ticked to go; nothing else is removed (decision 4).
-    const chosen = chosenSuggestions(generation, result, ids);
+    const chosen = chosenSuggestions(generation, result, ids).map((suggestion) => {
+      const amount = options?.amounts?.get(suggestion.id);
+      return amount !== undefined && suggestion.amount !== null ? { ...suggestion, amount } : suggestion;
+    });
     if (!groups.compared) {
       await confirmPlain(generation, photoSiteId(result), chosen, all);
       return;
