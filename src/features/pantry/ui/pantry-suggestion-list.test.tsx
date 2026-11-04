@@ -188,7 +188,12 @@ describe("PantrySuggestionList", () => {
     await analyze();
     for (const card of cards()) {
       const name = within(card).getByRole("heading", { level: 3 }).textContent;
-      expect(within(card).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([`Rätta ${name}`]);
+      // "Finns hemma" has no amount to change.
+      const hasAmount = !card.textContent?.includes("Finns hemma");
+      expect(within(card).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
+        `Rätta ${name}`,
+        ...(hasAmount ? [expect.stringMatching(new RegExp(`^Ändra mängd för ${name}, `))] : []),
+      ]);
       expect(within(card).getByRole("checkbox", { name: `Ta med ${name}` })).toBeChecked();
     }
     expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("2 nya · 2 uppdateras");
@@ -220,6 +225,51 @@ describe("PantrySuggestionList", () => {
     fireEvent.click(box("smör"));
     expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("Inget valt");
     expect(addButton()).toBeDisabled();
+  });
+
+  it("turns the amount into − / + in the row, saves the changed amount, and closes on a tap outside", async () => {
+    render(<Hemma />);
+    await analyze();
+    const gurka = cards()[0];
+    fireEvent.click(within(gurka).getByRole("button", { name: "Ändra mängd för gurka, 2 st" }));
+    // No sheet opened; the group has accessible names and the value is read out politely.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const group = within(gurka).getByRole("group", { name: "Mängd för gurka" });
+    expect(within(group).getByRole("status")).toHaveTextContent("2 st");
+    fireEvent.click(within(group).getByRole("button", { name: "Öka mängd för gurka" }));
+    fireEvent.click(within(group).getByRole("button", { name: "Öka mängd för gurka" }));
+    expect(within(group).getByRole("status")).toHaveTextContent("4 st");
+    fireEvent.click(within(group).getByRole("button", { name: "Minska mängd för gurka" }));
+    expect(within(group).getByRole("status")).toHaveTextContent("3 st");
+    // A tap outside closes it, and the row shows the new amount.
+    fireEvent.pointerDown(document.body);
+    expect(within(gurka).queryByRole("group")).toBeNull();
+    expect(within(gurka).getByRole("button", { name: "Ändra mängd för gurka, 3 st" })).toBeInTheDocument();
+    fireEvent.click(addButton());
+    await waitFor(() => expect(confirms).toHaveLength(1));
+    expect(confirms[0].items.find((item) => item.ingredient.kind === "new" && item.ingredient.name === "gurka")).toMatchObject({
+      amount: 3,
+      unit: "st",
+    });
+  });
+
+  it("closes the open amount with Escape, and stops − at zero", async () => {
+    render(<Hemma />);
+    await analyze();
+    const gurka = cards()[0];
+    fireEvent.click(within(gurka).getByRole("button", { name: "Ändra mängd för gurka, 2 st" }));
+    fireEvent.click(screen.getByRole("button", { name: "Minska mängd för gurka" }));
+    expect(screen.getByRole("button", { name: "Minska mängd för gurka" })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("group", { name: "Mängd för gurka" }), { key: "Escape" });
+    expect(within(gurka).queryByRole("group")).toBeNull();
+    expect(within(gurka).getByRole("button", { name: "Ändra mängd för gurka, 1 st" })).toHaveFocus();
+  });
+
+  it("opens Rätta from a tap elsewhere on the row", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Rätta gurka"));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("opens the camera's file picker from Fota igen", async () => {
@@ -830,8 +880,9 @@ describe("the photo during review", () => {
     const placeLine = within(section()).getByRole("heading", { level: 2 }).nextElementSibling;
     expect(placeLine).toHaveAttribute("data-testid", "pantry-suggestions-site");
     expect(placeLine).toBeEmptyDOMElement();
-    // After an empty line that tells when the photo sticks.
-    expect(placeLine?.nextElementSibling?.nextElementSibling).toBe(within(section()).getByTestId("pantry-review-photo"));
+    // First in the photo's column (two columns on a desktop), after an empty line that tells when the photo sticks.
+    const photoColumn = placeLine?.nextElementSibling?.firstElementChild;
+    expect(photoColumn?.firstElementChild?.nextElementSibling).toBe(within(section()).getByTestId("pantry-review-photo"));
     expect(within(section()).getByTestId("pantry-review-photo")).toContainElement(thumbnail());
     expectNoRevokedImage();
   });

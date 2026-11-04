@@ -248,7 +248,7 @@ describe("the groups", () => {
     expect(mjolk).toHaveTextContent("finns redan 2 förp · Kyl");
     expect(mjolk).toHaveTextContent("1 förp");
     expect(mjolk).not.toHaveTextContent("→");
-    expect(within(mjolk).getAllByRole("button").map((shown) => shown.getAttribute("aria-label"))).toEqual(["Rätta mjölk"]);
+    expect(within(mjolk).getAllByRole("button").map((shown) => shown.getAttribute("aria-label"))).toEqual(["Rätta mjölk", "Ändra mängd för mjölk, 1 förp"]);
     expect(within(mjolk).getByRole("checkbox", { name: "Ta med mjölk" })).toBeChecked();
   });
 
