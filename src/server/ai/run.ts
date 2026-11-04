@@ -45,8 +45,8 @@ export type ModelTarget = {
   imageSampling?: Sampling;
   /**
    * Kylfoto A: provider options for the fridge photo's reading (analyzeImage)
-   * only, over the target's own (Claude: effort `low`, and thinking off where
-   * the model allows it). Every other call is unchanged.
+   * only, over the target's own. Unset in the app since 2026-11-04; the eval
+   * sets it to measure the fast mode (photoReadingOptionsFor).
    */
   photoReadingOptions?: ProviderOptions;
   /** Tokens added to every call's maxOutputTokens, for a model whose thinking counts against it (Claude, Story 17.5). */

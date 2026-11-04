@@ -141,10 +141,10 @@ describe("PantryCamera", () => {
     expect(downscaled).toEqual([{ maxSide: 2048, quality: 0.85 }]);
   });
 
-  it("resizes the photo to 1600 px at quality 0.8 when Claude reads it, and sends how long that took (Kylfoto A)", async () => {
+  it("resizes the photo to 2048 px at quality 0.85 when Claude reads it, and sends how long that took (Kylfoto A)", async () => {
     render(<Hemma photoSize={placePhotoSizeFor("anthropic")} />);
     await photograph();
-    expect(downscaled).toEqual([{ maxSide: 1600, quality: 0.8 }]);
+    expect(downscaled).toEqual([{ maxSide: 2048, quality: 0.85 }]);
     const sent = fakeAi.calls[0].form.get("downscaleMs");
     expect(typeof sent).toBe("string");
     expect(sent).toMatch(/^\d+$/);
