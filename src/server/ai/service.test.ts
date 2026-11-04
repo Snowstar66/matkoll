@@ -721,7 +721,11 @@ describe("analyzeImage on a model", () => {
     expect(prompts.analyzeImage).toContain("Upprepa aldrig samma post");
     expect(prompts.analyzeImage).toContain("Storleken hör hemma i `l`");
     // Kylfoto B: each item's middle in the same answer.
-    expect(prompts.analyzeImage).toContain("varans mitt som [x, y] i tusendelar");
+    expect(prompts.analyzeImage).toContain("Varans mitt som [x, y] i tusendelar");
+    // Kylfoto: a point for every item, in thousandths and not pixels, estimated when unsure.
+    expect(prompts.analyzeImage).toContain("`p`: krävs för varje vara, aldrig `null`");
+    expect(prompts.analyzeImage).toContain("inte pixlar");
+    expect(prompts.analyzeImage).toContain("Uppskatta om osäker");
     expect(prompts.analyzeImage).toContain("utan märke");
   });
 });

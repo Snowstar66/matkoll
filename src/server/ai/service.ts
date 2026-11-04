@@ -1,6 +1,6 @@
 import "server-only";
 import { fail, ok, type Result } from "@/lib/errors";
-import { imageMediaTypes, maxImageBytes } from "@/lib/images";
+import { imageMediaTypes, imageSizeOf, maxImageBytes } from "@/lib/images";
 import {
   avoidTitleLines,
   cleanModelText,
@@ -699,7 +699,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      return ok(parseAnalyzeItems(answer.data.i, input.place));
+      // Kylfoto: the photo's size, for a model that gives its points in pixels.
+      return ok(parseAnalyzeItems(answer.data.i, input.place, imageSizeOf(input.image.data)));
     },
     async listThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);

@@ -6,12 +6,15 @@ import { Checkbox } from "@/components/checkbox";
 import { ChevronRightIcon } from "@/components/icons";
 import { catalogName } from "@/features/catalog";
 import { Notice } from "@/components/notice";
+import { useToast } from "@/components/toast";
 import {
   addCheckedText,
   alreadyHereText,
   changedPlaceText,
   checkedSummaryText,
   currentAmountText,
+  discardedReadingText,
+  discardReadingText,
   incompleteComparisonText,
   isBulkConfirmable,
   analyzedPhotoGoneText,
@@ -31,7 +34,7 @@ import {
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
-import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, type PhotoPoint } from "../domain/photo-numbers";
+import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, rowNumber, type PhotoPoint } from "../domain/photo-numbers";
 import {
   AnalyzedPhotoSheet,
   PhotoNumberBadge,
@@ -121,6 +124,13 @@ const locatingSteps = ["Letar upp varorna på fotot …", "Sätter ut numren …
 // folded row, "Syns inte längre (2)"; unfolded, each item has a tick box,
 // empty from the start, and the ticked ones are removed by the same button,
 // whose line then says "1 tas bort". Nothing is removed without a tick.
+//
+// Kylfoto: every row from the reading has its number, also one the model did
+// not point out on the photo (a dashed ring, "inte utpekad på fotot" for a
+// screen reader); markers that would overlap are nudged apart. Under "Fota
+// igen", "Förkasta inläsningen" (muted red) throws the whole reading away
+// without applying anything, closes its job, and says "Förkastade
+// inläsningen." with "Ångra", which brings it back as it was.
 
 /** No points yet. */
 const noPoints: ReadonlyMap<number, PhotoPoint> = new Map();
@@ -152,7 +162,10 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     confirmAllRef,
     flushFocus,
     dropPhotoNumbers,
+    discard,
+    cameraButtonRef,
   } = usePantrySuggestions();
+  const { showToast } = useToast();
   const { openSuggestion } = usePantrySheet();
   // What this mount has already moved focus for: a remount (another location
   // card) does not take focus for suggestions that came earlier.
@@ -223,11 +236,18 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   useEffect(() => {
     if (statusRef.current && statusRef.current.textContent !== statusTarget) statusRef.current.textContent = statusTarget;
   });
-  /** A card's number, the empty place of one being looked up, or nothing. */
-  const photoNumberOf = (suggestion: PantrySuggestion): number | "pending" | null => {
+  /**
+   * A card's number, the empty place of one being looked up, or nothing. Kylfoto: once some row is on the photo, a
+   * row the model gave no point for keeps its number, marked as not pointed out on the photo.
+   */
+  const photoNumberOf = (suggestion: PantrySuggestion): RowPhotoNumber => {
     if (!numbers || (suggestion.itemNumbers ?? []).length === 0) return null;
     if (numbers.kind === "pending") return "pending";
-    return cardNumber(suggestion, points);
+    // No point at all (none came, or none could be read): no numbers, as there is nothing on the photo to match.
+    if (!hasNumbers) return null;
+    const number = rowNumber(suggestion, points);
+    if (number === null) return null;
+    return { number, pointed: cardNumber(suggestion, points) !== null };
   };
 
   // Always in the same place of the tree, with or without the section, so an open sheet stays open.
@@ -309,6 +329,13 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
       if (point) crop = { url: onPhoto.url, x: point.x, y: point.y, number };
     }
     openSuggestion(suggestion, crop);
+  };
+  // Kylfoto: "Förkasta inläsningen": the whole reading goes, nothing applied; "Ångra" in the toast brings it back.
+  const discardReading = () => {
+    const undo = discard();
+    if (!undo) return;
+    cameraButtonRef.current?.focus();
+    showToast(discardedReadingText, { onUndo: () => void undo() });
   };
   // "Fota igen": the camera's own file input (the camera on a phone, else the picker).
   const retake = () => cameraAreaRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
@@ -447,6 +474,9 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
             <Button variant="text" fullWidth disabled={saving} onClick={retake}>
               Fota igen
             </Button>
+            <Button variant="danger" fullWidth disabled={saving} onClick={discardReading} data-testid="pantry-discard-reading">
+              {discardReadingText}
+            </Button>
           </div>
         ) : null}
       </section>
@@ -454,6 +484,9 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     </>
   );
 }
+
+/** Kylfoto: a row's number, and whether the model pointed its item out on the photo; "pending" while they are looked up. */
+type RowPhotoNumber = { number: number; pointed: boolean } | "pending" | null;
 
 type SuggestionRowProps = {
   suggestion: PantrySuggestion;
@@ -470,7 +503,7 @@ type SuggestionRowProps = {
   ticked: boolean;
   onTick: (ticked: boolean) => void;
   /** Story 6.6: its number on the photo, "pending" while the numbers are looked up (its place is kept), or `null`. */
-  photoNumber: number | "pending" | null;
+  photoNumber: RowPhotoNumber;
   rowRef: (button: HTMLButtonElement) => () => void;
   onCorrect: () => void;
 };
@@ -514,7 +547,12 @@ function SuggestionRow({
         aria-label={`Rätta ${name}`}
         className="absolute inset-0 -outline-offset-2"
       />
-      {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber === "pending" ? null : photoNumber} />}
+      {photoNumber === null ? null : (
+        <PhotoNumberBadge
+          number={photoNumber === "pending" ? null : photoNumber.number}
+          pointed={photoNumber === "pending" || photoNumber.pointed}
+        />
+      )}
       <div className="min-w-0 flex-1">
         <h3 className={cx("flex items-center gap-1.5 text-row-title break-words", ticked ? "text-ink" : "text-ink-2")}>
           <span className="min-w-0">{title}</span>
@@ -529,7 +567,9 @@ function SuggestionRow({
               <span className="sr-only">, {uncertainBadgeText.toLowerCase()}</span>
             </>
           ) : null}
-          {typeof photoNumber === "number" ? <PhotoNumberText number={photoNumber} /> : null}
+          {photoNumber !== null && photoNumber !== "pending" ? (
+            <PhotoNumberText number={photoNumber.number} pointed={photoNumber.pointed} />
+          ) : null}
         </h3>
         <p className="text-meta break-words text-ink-2">{line}</p>
         {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}

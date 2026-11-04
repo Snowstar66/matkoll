@@ -213,6 +213,13 @@ export type PantryAnalysis = {
   /** Story 6.6: the photo at this URL cannot be shown, so its numbers go (`none`). */
   dropPhotoNumbers: (url: string) => void;
   /**
+   * Kylfoto: "Förkasta inläsningen": the result shown goes as a whole, with
+   * its photo, and nothing of it is applied; its job is closed, so no badge
+   * or "Förslag klara" stays. Returns "Ångra", which brings it back as it was
+   * (true) while nothing newer has come, or `null` when there was none.
+   */
+  discard: () => (() => boolean) | null;
+  /**
    * Story 10.1: the save of the photo behind the suggestions of `generation`,
    * while they are the current ones, or `null` (no photo, no place, or newer
    * suggestions). A write takes it before it starts and calls `written` once
@@ -393,6 +400,35 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     setError(fail("pantry_site_gone").error);
     setSettles((count) => count + 1);
     return true;
+  }
+
+  function discard(): (() => boolean) | null {
+    const before = latest.current;
+    if (!before) return null;
+    const job = shown.current;
+    const numbers = reviewPhoto?.numbers ?? noNumbers;
+    const save = currentSave.current?.save ?? null;
+    const gone = photoGone;
+    closeShown();
+    setResult(null);
+    setReviewPhotoState(null);
+    setPhotoGone(false);
+    setEmpty(null);
+    setError(null);
+    const discarded = generation.current;
+    return () => {
+      // Something newer is shown, or Hemma was left: the old result stays gone.
+      if (!mounted.current || generation.current !== discarded || latest.current !== null) return false;
+      setResult(before);
+      // The job is closed and its photo let go from the store, but the photo itself is still here.
+      const url = setReviewPhoto(job?.kept ?? null, numbers);
+      setPhotoGone(gone);
+      if (save) currentSave.current = { generation: generation.current, save };
+      shown.current = job ? { ...job, jobId: "", url, numbersPending: false } : null;
+      shownAt.current = Date.now();
+      setArrivals((count) => count + 1);
+      return true;
+    };
   }
 
   /** The photo at `url` cannot be shown (Story 6.6): its numbers go. */
@@ -944,6 +980,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     editMissing,
     editResult,
     dropPhotoNumbers,
+    discard,
     photoSaver: (expected) => (currentSave.current?.generation === expected ? currentSave.current.save : null),
   };
 }

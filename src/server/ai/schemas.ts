@@ -280,7 +280,10 @@ const pantryPhotoItemShape = z.object({
   q: z.number().nullable().describe("Antal förpackningar eller styck, eller mängden som står; null om okänt"),
   u: z.string().nullable().describe("Enheten till q, t.ex. förp eller st; null utan q"),
   s: z.string().describe("Avdelning i butiken"),
-  p: z.array(z.number()).nullable().describe("[x, y] för varans mitt i tusendelar (0–1000) från bildens övre vänstra hörn"),
+  p: z
+    .array(z.number())
+    .nullable()
+    .describe("Krävs: [x, y] för varans mitt i tusendelar (heltal 0–1000, inte pixlar) från bildens övre vänstra hörn; uppskatta om osäker"),
   a: z
     .array(z.string())
     .nullable()
@@ -357,12 +360,61 @@ function mergeCopies(copies: readonly PhotoItem[]): PhotoItem {
   return measured ? { ...merged, amount: measured.amount, unit: measured.unit } : merged;
 }
 
-const thousandth = z.number().min(0).max(1000);
+/** Kylfoto: how far past 0–1000 a coordinate may go and still be read, at the edge (a model rounds a middle near the edge outwards). */
+export const pointOvershoot = 25;
 
-/** A point as [x, y] in thousandths, or `null` for anything else: a bad point never makes the item invalid. */
-function pointOf(value: unknown): ItemPoint | null {
-  const parsed = z.tuple([thousandth, thousandth]).safeParse(value);
-  return parsed.success ? { x: parsed.data[0], y: parsed.data[1] } : null;
+/** A photo's size in pixels, for points a model gives in pixels instead of thousandths. */
+export type PointImageSize = { width: number; height: number };
+
+/**
+ * The raw point of an answer's `p`: [x, y], or the middle of a box [x1, y1,
+ * x2, y2] (a model used to boxes may give one); finite numbers only, else
+ * `null`. Not yet checked against any scale.
+ */
+function rawPointOf(value: unknown): ItemPoint | null {
+  if (!Array.isArray(value) || !value.every((n) => typeof n === "number" && Number.isFinite(n))) return null;
+  const numbers = value as number[];
+  if (numbers.length === 2) return { x: numbers[0], y: numbers[1] };
+  if (numbers.length === 4) return { x: (numbers[0] + numbers[2]) / 2, y: (numbers[1] + numbers[3]) / 2 };
+  return null;
+}
+
+/**
+ * Kylfoto: what an answer's points are in, judged from all of them at once:
+ * thousandths as asked; fractions (0–1, as some models answer) when every
+ * coordinate is at most 1 and some are not whole; or the photo's pixels when
+ * some coordinate is past 1000 + pointOvershoot and every point fits the
+ * photo (`size`). Returns the factors that make them thousandths.
+ */
+export function pointScale(points: readonly (ItemPoint | null)[], size?: PointImageSize | null): { x: number; y: number } {
+  const given = points.filter((point): point is ItemPoint => point !== null);
+  if (given.length === 0) return { x: 1, y: 1 };
+  const maxX = Math.max(...given.map((point) => point.x));
+  const maxY = Math.max(...given.map((point) => point.y));
+  const fractional = given.some((point) => !Number.isInteger(point.x) || !Number.isInteger(point.y));
+  if (maxX <= 1 && maxY <= 1 && fractional) return { x: 1000, y: 1000 };
+  const limit = 1000 + pointOvershoot;
+  if ((maxX > limit || maxY > limit) && size && size.width > 0 && size.height > 0) {
+    const fits = maxX <= size.width * 1.02 && maxY <= size.height * 1.02;
+    if (fits) return { x: 1000 / size.width, y: 1000 / size.height };
+  }
+  return { x: 1, y: 1 };
+}
+
+/**
+ * A raw point in thousandths (`scale` from pointScale), rounded and kept on
+ * the photo: a coordinate up to pointOvershoot outside 0–1000 is moved to
+ * the edge, one further out makes it `null`. A bad point never makes the
+ * item invalid.
+ */
+function pointOf(raw: ItemPoint | null, scale: { x: number; y: number }): ItemPoint | null {
+  if (!raw) return null;
+  const x = Math.round(raw.x * scale.x);
+  const y = Math.round(raw.y * scale.y);
+  const off = (value: number) => value < -pointOvershoot || value > 1000 + pointOvershoot;
+  if (off(x) || off(y)) return null;
+  const edge = (value: number) => Math.min(1000, Math.max(0, value));
+  return { x: edge(x), y: edge(y) };
 }
 
 /** The other names of an unsure item: one line each, not empty, not the item's own name, once each, the first maxPantryAlternatives. */
@@ -394,7 +446,7 @@ const shortPantryItem = aiPantryItem.extend({
  * catalog's unit. The long form of before (`label`, `confidence`, `hint`, …)
  * is still read, without a point, so an answer kept from before never breaks.
  */
-function toPhotoItem(value: unknown, place: string): PhotoItem | null {
+function toPhotoItem(value: unknown, place: string, scale: { x: number; y: number }): PhotoItem | null {
   if (typeof value !== "object" || value === null) return null;
   const entry = value as Record<string, unknown>;
   if ("label" in entry) {
@@ -412,7 +464,7 @@ function toPhotoItem(value: unknown, place: string): PhotoItem | null {
   if (!parsed.success) return null;
   return {
     ...parsed.data,
-    point: pointOf(entry.p),
+    point: pointOf(rawPointOf(entry.p), scale),
     alternatives: unsure ? alternativesOf(entry.a, parsed.data.hint.name) : [],
   };
 }
@@ -424,16 +476,25 @@ function toPhotoItem(value: unknown, place: string): PhotoItem | null {
  * extra copies of one label key). Copies with the same labelKey are one item
  * (mergeCopies), at the first copy's place. A single duplicate (`repeated`
  * 1) is merged quietly; from minLoopRepeats it is a repetition loop, and the
- * caller decides what that means.
+ * caller decides what that means. Kylfoto: the points are read in the
+ * scale the whole answer uses (pointScale, with the photo's `imageSize` for
+ * pixels), so a model that answers in fractions or pixels still gets its
+ * numbers on the photo.
  */
 export function parseAnalyzeItems(
   items: readonly unknown[],
   place: string,
+  imageSize?: PointImageSize | null,
 ): { items: PhotoItem[]; invalid: number; repeated: number } {
   const byKey = new Map<string, PhotoItem[]>();
   let invalid = 0;
+  // Kylfoto: the scale of the points is judged from the whole answer (pointScale).
+  const scale = pointScale(
+    items.map((item) => (typeof item === "object" && item !== null ? rawPointOf((item as { p?: unknown }).p) : null)),
+    imageSize,
+  );
   for (const item of items) {
-    const parsed = toPhotoItem(item, place);
+    const parsed = toPhotoItem(item, place, scale);
     if (!parsed) {
       invalid++;
       continue;
