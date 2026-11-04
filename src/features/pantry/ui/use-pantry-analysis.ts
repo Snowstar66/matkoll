@@ -131,6 +131,8 @@ type ShownJob = {
   save: PhotoSave | null;
   /** The numbers are still being looked up: the job runs after its reading. */
   numbersPending: boolean;
+  /** Kylfoto, flera foton: the photos of a reading of several, with their item numbers. */
+  photos?: readonly { kept: KeptPhoto | null; range?: PhotoRange }[];
 };
 
 export type PantryAnalysis = {
@@ -411,7 +413,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     const gone = photoGone;
     closeShown();
     setResult(null);
-    setReviewPhotoState(null);
+    setReviewPhotosState([]);
     setPhotoGone(false);
     setEmpty(null);
     setError(null);
@@ -421,7 +423,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       if (!mounted.current || generation.current !== discarded || latest.current !== null) return false;
       setResult(before);
       // The job is closed and its photo let go from the store, but the photo itself is still here.
-      const url = setReviewPhoto(job?.kept ?? null, numbers);
+      // Kylfoto, flera foton: every photo of the reading comes back, with its item numbers.
+      const url = setReviewPhotos(job?.photos ?? (job?.kept ? [{ kept: job.kept }] : []), numbers)[0] ?? null;
       setPhotoGone(gone);
       if (save) currentSave.current = { generation: generation.current, save };
       shown.current = job ? { ...job, jobId: "", url, numbersPending: false } : null;
@@ -728,7 +731,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       const own = [...merged.points.values()].filter((point) => point.n <= firstReading.length);
       if (numbered && own.length > 0) save.located(own);
     }
-    shown.current = { jobId, kept: first.kept, url: urls[0] ?? null, labels: reading, save, numbersPending: false };
+    shown.current = { jobId, kept: first.kept, url: urls[0] ?? null, labels: reading, save, numbersPending: false, photos };
     shownAt.current = Date.now();
     if (jobId !== "") void markSeen(jobId);
     if (hasCards) {
