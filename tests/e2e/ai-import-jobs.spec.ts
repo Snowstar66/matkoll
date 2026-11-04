@@ -58,17 +58,23 @@ async function openImport(page: Page) {
   await expect(sheet(page)).toBeVisible();
 }
 
+/**
+ * The sheet's status once the import is sent: "Läser receptet …", or "I kö, 1 före." as soon as the
+ * page has polled and the job waits behind another (the held queue); a slow runner may only see the latter.
+ */
+const sent = (page: Page) => sheet(page).getByRole("status").filter({ hasText: /Läser receptet …|I kö, \d+ före\./ }).first();
+
 async function readText(page: Page, text: string) {
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
+  await expect(sent(page)).toBeVisible();
 }
 
 async function readLink(page: Page, url: string) {
   await sheet(page).getByLabel("Länk till receptet").fill(url);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
+  await expect(sent(page)).toBeVisible();
 }
 
 async function closeSheet(page: Page) {

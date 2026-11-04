@@ -890,13 +890,20 @@ test("an own item stays on the list in another week, also one without a plan, un
     return data;
   }).toEqual([{ line_key: `c:${itemId}`, meal_plan_id: null }]);
 
-  // This week's list shows it checked, the week it was bought in; every later week no longer shows it.
-  await page.goto("/lista");
-  await showBasket(page);
-  await expect(check(page, "tvättmedel")).toBeChecked();
-  await page.goto(nextWeek);
-  await expect(page.getByTestId("shopping-line").filter({ visible: true })).toHaveCount(0);
-  await page.goto(weekAfter);
-  await expect(page.getByTestId("shopping-line").filter({ visible: true })).toHaveCount(0);
+  // This week's list shows it checked, the week it was bought in. A coming week counts from this
+  // week (listCustomItemsIn), so there it is bought too: nothing left to buy, only in I korgen.
+  // The basket opens after hydration, so wait for its "Dölj" before counting (a count of 0 right
+  // after load once passed before the list had opened).
+  for (const week of ["/lista", nextWeek, weekAfter]) {
+    await page.goto(week);
+    await showBasket(page);
+    await expect(page.getByRole("button", { name: /^Dölj I korgen/ }).filter({ visible: true })).toBeVisible();
+    await expect(check(page, "tvättmedel")).toBeChecked();
+    // The coming weeks have no plan: the item is all there is, and it is bought.
+    if (week !== "/lista") {
+      await expect(lines(page)).toHaveCount(1);
+      await expect(progress(page)).toHaveText("Allt ligger i korgen");
+    }
+  }
   expect(errors).toEqual([]);
 });
