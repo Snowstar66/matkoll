@@ -120,7 +120,7 @@ export type CompareOptions = {
  * otherwise the same amount in every unit, and nothing unlimited at the
  * place.
  */
-function sameStock(photo: PlaceStock, place: PlaceStock): boolean {
+export function sameStock(photo: PlaceStock, place: PlaceStock): boolean {
   if (photo.unlimited) return true;
   if (place.unlimited) return false;
   return (

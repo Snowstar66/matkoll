@@ -227,18 +227,44 @@ describe("PantrySuggestionsProvider", () => {
     expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
   });
 
-  it("lets a new photo stop the one on its way, whose late answer is not used", async () => {
+  it("adds a photo chosen while the first is read to the same reading: read after it, then one list (Kylfoto, flera foton)", async () => {
     render(<Hemma />);
     choose();
     await resize();
     const first = lastCall();
     choose(photo("IMG_2.jpg"));
+    // Sent only once the first is read: the household's queue holds one photo of the reading at a time.
+    expect(fakeAi.calls).toHaveLength(1);
+    expect(screen.getByText("Läser foto 1 av 2 …")).toBeInTheDocument();
+    await act(async () => first.answer(ok(fridge)));
+    await act(async () => first.finish());
+    // The first's result is kept here, and its job closed; nothing is shown yet.
+    expect(fakeAi.dismissed).toEqual([first.job.id]);
+    expect(cardNames()).toEqual([]);
     await resize();
-    // The server made a job of the first photo too: it is cancelled as soon as it has an id, and never shown (Story 12.5).
-    await act(async () => first.answer(ok(freezer)));
-    expect(fakeAi.cancelled).toEqual([first.job.id]);
+    expect(fakeAi.calls).toHaveLength(2);
+    expect(screen.getByText("Läser foto 2 av 2 …")).toBeInTheDocument();
+    await answer(ok({ ...fridge, suggestions: [suggestion("s1", "smör"), suggestion("s2", "grädde")] }));
+    await act(async () => lastCall().finish());
+    expect(cardNames()).toEqual(["grädde", "mjölk", "smör"]);
+    expect(fakeAi.cancelled).toEqual([]);
+  });
+
+  it("reads several photos chosen at once one after the other, and leaves out one that fails", async () => {
+    render(<Hemma />);
+    fireEvent.change(picker(), { target: { files: [photo(), photo("IMG_2.jpg"), photo("IMG_3.jpg")] } });
+    await resize();
+    expect(screen.getByText("Läser foto 1 av 3 …")).toBeInTheDocument();
     await answer(ok(fridge));
-    expect(cardNames()).toEqual(["grädde", "mjölk"]);
+    await act(async () => lastCall().finish());
+    await resize();
+    await answer(fail("ai_unavailable"));
+    await resize();
+    expect(screen.getByText("Läser foto 3 av 3 …")).toBeInTheDocument();
+    await answer(ok({ ...fridge, suggestions: [suggestion("s1", "smör")] }));
+    await act(async () => lastCall().finish());
+    expect(cardNames()).toEqual(["grädde", "mjölk", "smör"]);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("shows the empty text for an empty answer, the earlier suggestions go, and the camera button takes focus", async () => {
