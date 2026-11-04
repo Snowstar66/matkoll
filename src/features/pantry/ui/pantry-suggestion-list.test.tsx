@@ -1354,6 +1354,45 @@ describe("numbers on the photo (Story 6.6)", () => {
       vi.unstubAllGlobals();
     });
 
+    it("shows the photos of a reading of several as a strip, the chosen one large with its own markers (Kylfoto, flera foton)", async () => {
+      render(<Hemma />);
+      const inputs = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
+      fireEvent.change(inputs[inputs.length - 1], { target: { files: [png(), png()] } });
+      await waitFor(() => expect(fakeAi.calls).toHaveLength(1));
+      // The shelves: mjölk and smör; the door: gurka and ketchup.
+      const shelves = numbered.suggestions.filter((one) => one.name === "mjölk" || one.name === "smör");
+      await act(async () => fakeAi.calls[0].answer(ok({ ...numbered, reading: reading.slice(0, 2), suggestions: shelves })));
+      await answerLocate(ok({ positions: located.positions.slice(0, 2) }), 0);
+      await waitFor(() => expect(fakeAi.calls).toHaveLength(2));
+      const door = numbered.suggestions
+        .filter((one) => one.name === "gurka" || one.name === "ketchup")
+        .map((one) => ({ ...one, itemNumbers: one.itemNumbers!.map((n) => n - 2) }));
+      await act(async () => fakeAi.calls[1].answer(ok({ ...numbered, reading: reading.slice(2), suggestions: door })));
+      await answerLocate(ok({ positions: [{ n: 1, x: 694, y: 583 }, { n: 2, x: 146, y: 813 }] }), 1);
+
+      await waitFor(() => expect(cardNames()).toEqual(["mjölk", "smör", "gurka", "ketchup"]));
+      expect(badges()).toEqual(["1", "2", "3", "4"]);
+      const thumbs = within(reviewPhoto()).getAllByTestId("pantry-review-thumb");
+      expect(thumbs.map((thumb) => thumb.getAttribute("aria-label"))).toEqual(["Foto 1 av 2", "Foto 2 av 2"]);
+      expect(thumbs[0]).toHaveAttribute("aria-pressed", "true");
+      decodeReview();
+      expect(reviewMarkers().map((shown) => shown.textContent)).toEqual(["1", "2"]);
+
+      // A tap on a row of the door shows the door large, with its markers, and lights up the row's.
+      fireEvent.click(button("Rätta gurka"));
+      fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
+      const [, doorThumb] = within(reviewPhoto()).getAllByTestId("pantry-review-thumb");
+      expect(doorThumb).toHaveAttribute("aria-pressed", "true");
+      decodeReview();
+      expect(reviewMarkers().map((shown) => shown.textContent)).toEqual(["3", "4"]);
+      expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "true");
+
+      // A tap on the strip shows the shelves again.
+      fireEvent.click(within(reviewPhoto()).getAllByTestId("pantry-review-thumb")[0]);
+      decodeReview();
+      expect(reviewMarkers().map((shown) => shown.textContent)).toEqual(["1", "2"]);
+    });
+
     it("puts the rows' numbers on the photo as buttons named after their row, once it is decoded", async () => {
       render(<Hemma />);
       await analyzeNumbered();

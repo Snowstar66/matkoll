@@ -146,6 +146,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const {
     result,
     reviewPhoto,
+    reviewPhotos,
     photoGone,
     arrivals,
     announce,
@@ -174,7 +175,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
 
   // Which photo's sheet is open: a new photo's starts closed.
   const [openPhotoUrl, setOpenPhotoUrl] = useState<string | null>(null);
-  const photoOpen = reviewPhoto !== null && openPhotoUrl === reviewPhoto.url;
+  const photoOpen = openPhotoUrl !== null && reviewPhotos.some((photo) => photo.url === openPhotoUrl);
   const photoWasOpen = useRef(false);
   // Kylfoto D: the tick boxes Pontus has changed; the others keep their start (ticked unless unsure).
   const [ticks, setTicks] = useState<ReadonlyMap<string, boolean>>(new Map());
@@ -187,6 +188,9 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const missingListId = useId();
   // Kylfoto D: the number lit up on the photo and in the list, for one photo.
   const [selection, setSelection] = useState<{ url: string; number: number } | null>(null);
+  // Kylfoto, flera foton: the photo shown large, by its URL; the first unless another is chosen.
+  const [chosenUrl, setChosenUrl] = useState<string | null>(null);
+  const shownPhoto = reviewPhotos.find((photo) => photo.url === chosenUrl) ?? reviewPhoto;
   const selected = selection && selection.url === reviewPhoto?.url ? selection.number : null;
   /** Said politely when a marker lights up its row. */
   const [selectedNote, setSelectedNote] = useState("");
@@ -214,10 +218,16 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
 
   // Story 6.6: the photo's points, once they have come. One list of cards, the ones shown, gives the badges, the
   // markers and the status, as it gives the lookup (usePantryAnalysis).
-  const numbers = reviewPhoto?.numbers ?? null;
+  // Kylfoto, flera foton: the numbers run on over the photos, so every photo has the same; one that cannot be shown has none.
+  const numbers = (reviewPhotos.find((photo) => photo.numbers.kind !== "none") ?? reviewPhoto)?.numbers ?? null;
   const points: ReadonlyMap<number, PhotoPoint> = numbers?.kind === "ready" ? numbers.points : noPoints;
   const shownCards = groups ? numberedCards(groups) : [];
-  const markers = photoMarkers(shownCards, points);
+  const allMarkers = photoMarkers(shownCards, points);
+  /** The markers on the photo shown: those of its item numbers (all of them for a reading of one photo). */
+  const markers = allMarkers.filter((marker) => {
+    const range = shownPhoto?.range;
+    return shownPhoto?.numbers.kind !== "none" && (!range || (marker.key >= range.first && marker.key <= range.last));
+  });
   const hasNumbers = shownCards.some((card) => cardNumber(card, points) !== null);
   const statusTarget = numbers ? photoNumbersStatus(numbers, hasNumbers) : "";
   // The status region is there, empty, before its text: the text is written after the commit that mounted it, so
@@ -242,15 +252,15 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
 
   // Always in the same place of the tree, with or without the section, so an open sheet stays open.
   const photoSheet =
-    reviewPhoto && result ? (
+    shownPhoto && result ? (
       <AnalyzedPhotoSheet
-        key={reviewPhoto.url}
-        photo={reviewPhoto}
+        key={shownPhoto.url}
+        photo={shownPhoto}
         location={result.location}
         open={photoOpen}
         onClose={() => setOpenPhotoUrl(null)}
         markers={markers}
-        onPhotoError={() => dropPhotoNumbers(reviewPhoto.url)}
+        onPhotoError={() => dropPhotoNumbers(shownPhoto.url)}
       />
     ) : null;
   if (!result || !groups || cardCount === 0) {
@@ -303,15 +313,20 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     setSelectedNote(markerSelectedText(number, row.name));
     rowElements.current.get(number)?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
-  /** A tap on a row: lights up its marker and opens the sheet, with the photo around the item. */
+  /**
+   * A tap on a row: lights up its marker and opens the sheet, with the photo around the item. Kylfoto, flera foton:
+   * the photo its marker is on is shown large.
+   */
   const openRow = (suggestion: PantrySuggestion) => {
     const number = cardNumber(suggestion, points);
     let crop: PhotoCropProps | undefined;
     if (reviewPhoto && number !== null) {
+      const onPhoto = reviewPhotos.find((photo) => photo.range && number >= photo.range.first && number <= photo.range.last) ?? reviewPhoto;
+      setChosenUrl(onPhoto.url);
       setSelection({ url: reviewPhoto.url, number });
       setSelectedNote("");
       const point = points.get(number);
-      if (point) crop = { url: reviewPhoto.url, x: point.x, y: point.y, number };
+      if (point) crop = { url: onPhoto.url, x: point.x, y: point.y, number };
     }
     openSuggestion(suggestion, crop);
   };
@@ -337,15 +352,17 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
         </p>
         {/* Story 12.5: the cards came without the photo (after a reload): nothing to compare with, and no latest photo is saved. */}
         {photoGone ? <p className="text-meta text-ink-2">{analyzedPhotoGoneText}</p> : null}
-        {reviewPhoto ? (
+        {shownPhoto ? (
           <ReviewPhotoPanel
-            photo={reviewPhoto}
+            photo={shownPhoto}
+            photos={reviewPhotos}
+            onChoosePhoto={setChosenUrl}
             location={result.location}
             markers={reviewMarkers}
             selected={selected}
             onSelectMarker={selectMarker}
-            onOpen={() => setOpenPhotoUrl(reviewPhoto.url)}
-            onPhotoError={() => dropPhotoNumbers(reviewPhoto.url)}
+            onOpen={() => setOpenPhotoUrl(shownPhoto.url)}
+            onPhotoError={() => dropPhotoNumbers(shownPhoto.url)}
           />
         ) : null}
         {/* Kylfoto D: mounted with the section, so a marker's tap is said when its row lights up. */}
