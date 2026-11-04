@@ -15,7 +15,7 @@ import {
   analyzedPhotoTitle,
   markerLabel,
 } from "../domain/pantry-suggestion";
-import { photoNumberText, type PhotoMarker } from "../domain/photo-numbers";
+import { notPointedText, photoNumberText, spreadMarkers, type PhotoMarker } from "../domain/photo-numbers";
 import type { ReviewPhoto } from "./use-pantry-analysis";
 
 // The photo during review (quick fix after Story 6.5): at the top of
@@ -49,7 +49,12 @@ export type ReviewMarker = PhotoMarker & {
 };
 
 export type ReviewPhotoProps = {
+  /** The photo shown large. */
   photo: ReviewPhoto;
+  /** Kylfoto, flera foton: every photo of the reading, as a strip under the large one when there are several. */
+  photos?: readonly ReviewPhoto[];
+  /** A tap on a photo of the strip: it is shown large. */
+  onChoosePhoto?: (url: string) => void;
   /** The place the photo shows. */
   location: Location;
   /** The rows' numbers on the photo; none before they have come. */
@@ -63,6 +68,14 @@ export type ReviewPhotoProps = {
   /** Story 6.6: the photo cannot be shown, so its numbers go. */
   onPhotoError?: () => void;
 };
+
+/** Kylfoto, flera foton: the strip of the reading's photos, for a screen reader. */
+const photoStripLabel = "Fotona i inläsningen";
+
+/** Kylfoto, flera foton: a photo of the strip: "Foto 2 av 3". */
+export function photoOfText(n: number, total: number): string {
+  return `Foto ${n} av ${total}`;
+}
 
 /** The photo's height at the top of the review, and once the list has scrolled under it (decision 11). */
 const reviewPhotoHeight = { full: 330, mini: 200 };
@@ -79,6 +92,8 @@ const reviewPhotoHeight = { full: 330, mini: 200 };
  */
 export function ReviewPhotoPanel({
   photo,
+  photos = [],
+  onChoosePhoto,
   location,
   markers,
   selected,
@@ -92,6 +107,18 @@ export function ReviewPhotoPanel({
   const [mini, setMini] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Kylfoto: the stage's width, so markers that would overlap on the photo as shown are nudged apart.
+  const [stageWidth, setStageWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    setStageWidth(stage.clientWidth || null);
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(() => setStageWidth(stage.clientWidth || null));
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
 
   // Shrinks once the panel sticks (the line above it has scrolled past where it sticks, under the page's slim bar on
   // a phone), and grows back when it is in its place again.
@@ -112,6 +139,12 @@ export function ReviewPhotoPanel({
   const decodedSize = decoded?.url === photo.url ? decoded.size : null;
   const size = decodedSize ?? photo.size ?? null;
   const height = mini ? reviewPhotoHeight.mini : reviewPhotoHeight.full;
+  // The photo's box as shown: as high as the stage, or narrower when the stage is narrower than the photo is wide.
+  let shownMarkers: readonly ReviewMarker[] = markers;
+  if (decodedSize) {
+    const width = Math.min(stageWidth ?? Infinity, (height * decodedSize.width) / decodedSize.height);
+    shownMarkers = spreadMarkers(markers, { width, height: (width * decodedSize.height) / decodedSize.width });
+  }
   return (
     <>
       {/* Takes no room: the section's gap stays as it was. */}
@@ -124,6 +157,7 @@ export function ReviewPhotoPanel({
         className="sticky top-[calc(52px+env(safe-area-inset-top))] z-20 -mx-page bg-bg px-page pt-1 pb-1 desktop:top-0 desktop:mx-0 desktop:px-0 desktop:pt-2"
       >
         <div
+          ref={stageRef}
           style={{ height }}
           className="relative flex items-center justify-center overflow-hidden rounded-[16px] bg-photo-stage transition-[height] duration-[260ms] ease-[cubic-bezier(.22,.8,.24,1)] motion-reduce:transition-none"
         >
@@ -170,7 +204,7 @@ export function ReviewPhotoPanel({
               className={cx("block max-w-none object-contain", size ? "size-full" : "h-full w-auto")}
             />
             {decodedSize
-              ? markers.map((marker) => {
+              ? shownMarkers.map((marker) => {
                   const lit = selected === marker.label;
                   return (
                     <button
@@ -209,6 +243,41 @@ export function ReviewPhotoPanel({
             <ExpandIcon size={18} />
           </span>
         </div>
+        {photos.length > 1 ? (
+          // Kylfoto, flera foton: the reading's photos as a strip; the one shown large is ringed. Once the list has
+          // scrolled under the photo it is small, and the strip folds away, so the rows keep their room.
+          <div
+            role="group"
+            aria-label={photoStripLabel}
+            data-testid="pantry-review-strip"
+            hidden={mini}
+            className={mini ? "hidden" : "flex gap-2 overflow-x-auto pt-2 pb-1"}
+          >
+            {photos.map((other, index) => {
+              const shown = other.url === photo.url;
+              return (
+                <button
+                  key={other.url}
+                  type="button"
+                  aria-pressed={shown}
+                  aria-label={photoOfText(index + 1, photos.length)}
+                  data-testid="pantry-review-thumb"
+                  onClick={() => onChoosePhoto?.(other.url)}
+                  className={cx(
+                    "relative h-11 w-14 shrink-0 overflow-hidden rounded-[10px] bg-photo-stage outline-offset-2",
+                    shown ? "ring-2 ring-accent" : "opacity-70",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={other.url} alt="" draggable={false} className="size-full object-cover" />
+                  <span className="absolute right-1 bottom-0.5 text-[11px] font-semibold text-photo-mark [text-shadow:0_1px_2px_rgb(0_0_0/0.7)]">
+                    {index + 1}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </>
   );
@@ -293,22 +362,29 @@ const markerInset = "14px";
  * A card's number on the photo (Story 6.6), as seen; hidden from screen
  * readers, since the card's heading says "Nummer 3 på fotot" (PhotoNumberText).
  * `null` keeps its place empty while the numbers are looked up, so the title
- * does not move when they come.
+ * does not move when they come. Kylfoto: a number the model did not point
+ * out on the photo (`pointed` false) has a dashed ring, so it is not looked
+ * for there.
  */
-export function PhotoNumberBadge({ number }: { number: number | null }) {
+export function PhotoNumberBadge({ number, pointed = true }: { number: number | null; pointed?: boolean }) {
   if (number === null) {
     return <span aria-hidden="true" data-testid="pantry-photo-number-slot" className={cx(badgeClasses, "invisible")} />;
   }
   return (
-    <span aria-hidden="true" data-testid="pantry-photo-number" className={badgeClasses}>
+    <span
+      aria-hidden="true"
+      data-testid="pantry-photo-number"
+      data-pointed={pointed ? undefined : "false"}
+      className={cx(badgeClasses, !pointed && "border-dashed text-ink-3")}
+    >
       {number}
     </span>
   );
 }
 
-/** The card's number for a screen reader, inside its heading after the title: "Nummer 3 på fotot". */
-export function PhotoNumberText({ number }: { number: number }) {
-  return <span className="sr-only"> {photoNumberText(number)}</span>;
+/** The card's number for a screen reader, inside its heading after the title: "Nummer 3 på fotot", or "Nummer 3, inte utpekad på fotot". */
+export function PhotoNumberText({ number, pointed = true }: { number: number; pointed?: boolean }) {
+  return <span className="sr-only"> {pointed ? photoNumberText(number) : notPointedText(number)}</span>;
 }
 
 export type AnalyzedPhotoSheetProps = {

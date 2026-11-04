@@ -21,9 +21,6 @@ export type HelpArea = {
   faq: readonly HelpQuestion[];
 };
 
-/** When the texts were last checked against the app: "uppdaterad 1 nov" at the bottom. */
-export const helpUpdated = { day: 1, month: 11 } as const;
-
 const things = thingNoun.plural;
 
 export const helpAreas: readonly HelpArea[] = [

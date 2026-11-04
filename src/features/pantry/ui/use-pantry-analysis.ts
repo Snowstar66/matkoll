@@ -10,7 +10,8 @@ import { downscaleImage } from "@/lib/downscale-image";
 import { fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
 import { imageSizeOf, placePhotoForQwen, type ImageSize, type PlacePhotoSize } from "@/lib/images";
 import { analyzeRetryCodes, type AnalyzeResult, type PantrySuggestion } from "../domain/pantry-suggestion";
-import { photoJobResultSchema, type PhotoPoints } from "../domain/photo-job";
+import { mergeReadings, type PhotoRange } from "../domain/merge-readings";
+import { photoJobResultSchema, type PhotoJobResult, type PhotoPoints } from "../domain/photo-job";
 import { hasNumberableCards, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 import type { PhotoSite } from "../domain/site";
@@ -67,7 +68,13 @@ import { photoSave, type PhotoSave } from "./place-photo-save";
  * pixels when known, and its numbers (Story 6.6): being looked up, none, or
  * the points by item number.
  */
-export type ReviewPhoto = { url: string; size: ImageSize | null; numbers: PhotoNumbers };
+export type ReviewPhoto = {
+  url: string;
+  size: ImageSize | null;
+  numbers: PhotoNumbers;
+  /** Kylfoto, flera foton: the item numbers on this photo of a reading of several; none for a reading of one photo. */
+  range?: PhotoRange;
+};
 
 const noNumbers: PhotoNumbers = { kind: "none" };
 
@@ -79,8 +86,41 @@ const noNumbers: PhotoNumbers = { kind: "none" };
  */
 export type EmptyAnswer = "none" | "unreadable" | "unchanged" | "partlyUnchanged";
 
-/** What the camera area says about a place whose photo is being read: that it waits behind others, or nothing more. */
-export type Looking = { waiting: string | null };
+/**
+ * What the camera area says about a place whose photo is being read: that it
+ * waits behind others, or nothing more; and for a reading of several photos
+ * which one is read ("Läser foto 2 av 3 …").
+ */
+export type Looking = { waiting: string | null; progress?: string | null };
+
+/** Kylfoto, flera foton: which photo of a reading is read now. */
+export function readingProgressText(current: number, total: number): string {
+  return `Läser foto ${current} av ${total} …`;
+}
+
+/**
+ * Kylfoto, flera foton: the photos of one reading of a place. They are sent
+ * one at a time, each as its own AI job (so the household's queue holds at
+ * most one of them), and each result is kept here until the last one has
+ * come; then they are shown as one review list (mergeReadings).
+ */
+type Batch = {
+  key: string;
+  site: PhotoSite;
+  location: Location;
+  /** The files still to send, in order. */
+  queue: Blob[];
+  /** The photos read so far, with their results, in order. */
+  parts: { kept: KeptPhoto | null; result: PhotoJobResult }[];
+  /** Photos that could not be read: left out, the others go on. */
+  skipped: number;
+  /** Every photo of the reading so far. */
+  total: number;
+  /** A photo of it is being resized, sent or read. */
+  busy: boolean;
+  /** The jobs of its photos. */
+  jobIds: Set<string>;
+};
 
 /** The result shown now: its job, and what is kept for it. */
 type ShownJob = {
@@ -91,11 +131,15 @@ type ShownJob = {
   save: PhotoSave | null;
   /** The numbers are still being looked up: the job runs after its reading. */
   numbersPending: boolean;
+  /** Kylfoto, flera foton: the photos of a reading of several, with their item numbers. */
+  photos?: readonly { kept: KeptPhoto | null; range?: PhotoRange }[];
 };
 
 export type PantryAnalysis = {
   /** The latest suggestions and the place they are from, or `null` before any. */
   result: AnalyzeResult | null;
+  /** Kylfoto, flera foton: every photo `result` was read from, in order; `reviewPhoto` is the first. Empty without one. */
+  reviewPhotos: readonly ReviewPhoto[];
   /**
    * The resized photo `result` was read from, when that answer had cards and
    * the photo is still in memory; `null` otherwise. It stays when the cards
@@ -130,8 +174,11 @@ export type PantryAnalysis = {
    * A photo from the camera or the file picker: resized, then read as a job
    * for `location` of the place `site`, the one Hemma shows as it is taken
    * (Story 8.4): the answer and every write from it stay with that place.
+   * Kylfoto, flera foton: several files, or a photo taken while the place's
+   * reading is still going, are one reading: read one at a time and shown as
+   * one review list.
    */
-  analyze: (file: Blob, location: Location, site: PhotoSite) => void;
+  analyze: (file: Blob | readonly Blob[], location: Location, site: PhotoSite) => void;
   /**
    * Story 8.4: drops the suggestions of `generation`, whose place is gone,
    * and says so in the camera area; returns whether they were still there.
@@ -167,6 +214,13 @@ export type PantryAnalysis = {
   editResult: (generation: number, edit: (result: AnalyzeResult) => AnalyzeResult) => boolean;
   /** Story 6.6: the photo at this URL cannot be shown, so its numbers go (`none`). */
   dropPhotoNumbers: (url: string) => void;
+  /**
+   * Kylfoto: "Förkasta inläsningen": the result shown goes as a whole, with
+   * its photo, and nothing of it is applied; its job is closed, so no badge
+   * or "Förslag klara" stays. Returns "Ångra", which brings it back as it was
+   * (true) while nothing newer has come, or `null` when there was none.
+   */
+  discard: () => (() => boolean) | null;
   /**
    * Story 10.1: the save of the photo behind the suggestions of `generation`,
    * while they are the current ones, or `null` (no photo, no place, or newer
@@ -234,7 +288,12 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   const [empty, setEmpty] = useState<EmptyAnswer | null>(null);
   /** The photo of a job that failed in a way "Försök igen" can help with. */
   const [photo, setPhoto] = useState<KeptPhoto | null>(null);
-  const [reviewPhoto, setReviewPhotoState] = useState<ReviewPhoto | null>(null);
+  const [reviewPhotos, setReviewPhotosState] = useState<readonly ReviewPhoto[]>([]);
+  const reviewPhoto = reviewPhotos[0] ?? null;
+  /** Kylfoto, flera foton: the reading of each place that is still going, by placeKey. */
+  const batches = useRef(new Map<string, Batch>());
+  /** Counts changes to the readings, so the progress is shown again. */
+  const [, setBatchCount] = useState(0);
   const [photoGone, setPhotoGone] = useState(false);
   const [arrivals, setArrivals] = useState(0);
   const [cancels, setCancels] = useState(0);
@@ -270,15 +329,26 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
    * Returns its URL, or `null` when there is no photo to show.
    */
   function setReviewPhoto(kept: KeptPhoto | null, numbers: PhotoNumbers): string | null {
+    return setReviewPhotos(kept ? [{ kept }] : [], numbers)[0] ?? null;
+  }
+
+  /** Kylfoto, flera foton: the photos of a reading, each with its item numbers; returns their URLs. */
+  function setReviewPhotos(photos: readonly { kept: KeptPhoto | null; range?: PhotoRange }[], numbers: PhotoNumbers): string[] {
     // A browser without object URLs shows the suggestions without the photo.
-    const url = kept && typeof URL.createObjectURL === "function" ? URL.createObjectURL(kept.image) : null;
-    setReviewPhotoState(url ? { url, size: kept?.size ?? null, numbers } : null);
-    return url;
+    const shown = typeof URL.createObjectURL === "function" ? photos.filter((photo) => photo.kept !== null) : [];
+    const next = shown.map(({ kept, range }): ReviewPhoto => ({
+      url: URL.createObjectURL(kept!.image),
+      size: kept!.size ?? null,
+      numbers,
+      ...(range ? { range } : {}),
+    }));
+    setReviewPhotosState(next);
+    return next.map((photo) => photo.url);
   }
 
   /** Sets the numbers of the photo at `url`, unless another photo has taken its place. */
   function setNumbers(url: string, numbers: PhotoNumbers) {
-    setReviewPhotoState((current) => (current && current.url === url ? { ...current, numbers } : current));
+    setReviewPhotosState((current) => current.map((photo) => (photo.url === url ? { ...photo, numbers } : photo)));
   }
 
   /** The job whose photo "Försök igen" sends again, so retry can let its photo go. */
@@ -326,12 +396,42 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (generation.current !== expected || !latest.current) return false;
     closeShown();
     setResult(null);
-    setReviewPhotoState(null);
+    setReviewPhotosState([]);
     setEmpty(null);
     setPhoto(null);
     setError(fail("pantry_site_gone").error);
     setSettles((count) => count + 1);
     return true;
+  }
+
+  function discard(): (() => boolean) | null {
+    const before = latest.current;
+    if (!before) return null;
+    const job = shown.current;
+    const numbers = reviewPhoto?.numbers ?? noNumbers;
+    const save = currentSave.current?.save ?? null;
+    const gone = photoGone;
+    closeShown();
+    setResult(null);
+    setReviewPhotosState([]);
+    setPhotoGone(false);
+    setEmpty(null);
+    setError(null);
+    const discarded = generation.current;
+    return () => {
+      // Something newer is shown, or Hemma was left: the old result stays gone.
+      if (!mounted.current || generation.current !== discarded || latest.current !== null) return false;
+      setResult(before);
+      // The job is closed and its photo let go from the store, but the photo itself is still here.
+      // Kylfoto, flera foton: every photo of the reading comes back, with its item numbers.
+      const url = setReviewPhotos(job?.photos ?? (job?.kept ? [{ kept: job.kept }] : []), numbers)[0] ?? null;
+      setPhotoGone(gone);
+      if (save) currentSave.current = { generation: generation.current, save };
+      shown.current = job ? { ...job, jobId: "", url, numbersPending: false } : null;
+      shownAt.current = Date.now();
+      setArrivals((count) => count + 1);
+      return true;
+    };
   }
 
   /** The photo at `url` cannot be shown (Story 6.6): its numbers go. */
@@ -340,11 +440,13 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   }
 
   // Each URL is revoked exactly once: after the commit that replaced it, or when Hemma is left.
-  const reviewUrl = reviewPhoto?.url ?? null;
+  const reviewUrls = reviewPhotos.map((photo) => photo.url).join(" ");
   useEffect(() => {
-    if (!reviewUrl) return;
-    return () => URL.revokeObjectURL(reviewUrl);
-  }, [reviewUrl]);
+    if (!reviewUrls) return;
+    return () => {
+      for (const url of reviewUrls.split(" ")) URL.revokeObjectURL(url);
+    };
+  }, [reviewUrls]);
 
   /** New suggestions (or none): a new generation, whose photo has no save until one is made for it. */
   function setResult(next: AnalyzeResult | null) {
@@ -396,7 +498,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       setEmpty(null);
       setPhoto(null);
       setPhotoGone(false);
-      setReviewPhotoState(null);
+      setReviewPhotosState([]);
       setAnnouncement("");
     };
   }, []);
@@ -409,7 +511,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   }
 
   /** Sends the photo as a job; the answer is the job in the list, whose result is taken up when it is there. */
-  async function post(kept: KeptPhoto, token: number, downscaleMs?: number): Promise<boolean> {
+  async function post(kept: KeptPhoto, token: number, downscaleMs?: number, batch?: Batch): Promise<boolean> {
     const key = placeKey(kept.site.id, kept.location);
     const form = new FormData();
     form.append("image", kept.image, "photo");
@@ -427,6 +529,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (!answer.ok) {
       cancelledStarts.current.delete(key);
       if (!stillOwned) return false;
+      // Kylfoto, flera foton: a photo of a reading that could not be sent is left out; the others go on.
+      if (batch && batches.current.get(key) === batch && skipPhoto(batch)) return false;
       // An expired session: the page sends Pontus to sign in. A place that is gone
       // (Story 8.4): the page is read again, so Hemma shows one that is there.
       if (answer.error.code === "unauthorized" || answer.error.code === "pantry_site_gone") router.refresh();
@@ -443,13 +547,77 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       return false;
     }
     keepPhoto(job.id, kept);
+    batch?.jobIds.add(job.id);
     startedAt.current.set(job.id, Date.now());
     setTick((count) => count + 1);
     return true;
   }
 
+  /**
+   * Kylfoto, flera foton: the photos for `location` of the place `site`. While
+   * the place's reading is still going they are added to it; otherwise they
+   * start a new one. Its photos are sent one at a time.
+   */
+  function analyze(files: Blob | readonly Blob[], location: Location, site: PhotoSite) {
+    const list = files instanceof Blob ? [files] : [...files];
+    if (list.length === 0) return;
+    const key = placeKey(site.id, location);
+    const going = batches.current.get(key);
+    if (going) {
+      going.queue.push(...list);
+      going.total += list.length;
+      setBatchCount((count) => count + 1);
+      if (!going.busy) sendNext(going);
+      return;
+    }
+    const batch: Batch = {
+      key,
+      site: { id: site.id, name: site.name },
+      location,
+      queue: list,
+      parts: [],
+      skipped: 0,
+      total: list.length,
+      busy: false,
+      jobIds: new Set(),
+    };
+    batches.current.set(key, batch);
+    setBatchCount((count) => count + 1);
+    sendNext(batch);
+  }
+
+  /** Kylfoto, flera foton: the reading's next photo is resized and sent. */
+  function sendNext(batch: Batch) {
+    const file = batch.queue.shift();
+    if (!file) return;
+    batch.busy = true;
+    setBatchCount((count) => count + 1);
+    void analyzeOne(file, batch);
+  }
+
+  /**
+   * Kylfoto, flera foton: a photo of `batch` could not be read: it is left
+   * out, and the reading goes on with the next one, or is shown with the
+   * photos read so far. Returns false when there is nothing to go on with (the
+   * caller shows the error).
+   */
+  function skipPhoto(batch: Batch): boolean {
+    batch.busy = false;
+    batch.skipped += 1;
+    setBatchCount((count) => count + 1);
+    if (batch.queue.length > 0) {
+      sendNext(batch);
+      return true;
+    }
+    batches.current.delete(batch.key);
+    if (batch.parts.length === 0) return false;
+    showParts(batch, "");
+    return true;
+  }
+
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
-  async function analyze(file: Blob, location: Location, site: PhotoSite) {
+  async function analyzeOne(file: Blob, batch: Batch) {
+    const { location, site } = batch;
     // Story 10.1: the time Pontus recognises for the photo is when it was taken or chosen.
     const takenAt = new Date();
     const key = placeKey(site.id, location);
@@ -469,12 +637,22 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (startOwner(key) !== token) return;
     if (!prepared.ok) {
       endStarting(key, token);
+      if (batches.current.get(key) === batch && skipPhoto(batch)) return;
       failWith(prepared.error, null);
       return;
     }
     const size = await photoSizeOf(prepared.data);
     if (startOwner(key) !== token) return;
-    await post({ image: prepared.data, location, site: { id: site.id, name: site.name }, size, takenAt }, token, downscaleMs);
+    await post({ image: prepared.data, location, site: { id: site.id, name: site.name }, size, takenAt }, token, downscaleMs, batch);
+  }
+
+  /** The reading is still the place's own (not cancelled or replaced). */
+  const ownsBatch = (batch: Batch) => batches.current.get(batch.key) === batch;
+
+  /** The reading of the place `key` that the job belongs to, if it is still going. */
+  function batchOfJob(jobId: string): Batch | undefined {
+    for (const batch of batches.current.values()) if (batch.jobIds.has(jobId)) return batch;
+    return undefined;
   }
 
   function retry() {
@@ -504,6 +682,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
 
   function cancel(siteId: string, location: Location) {
     const key = placeKey(siteId, location);
+    // Kylfoto, flera foton: the whole reading stops, also the photos not sent yet.
+    if (batches.current.delete(key)) setBatchCount((count) => count + 1);
     // A photo that is still being resized or sent: its start is let go, and its job (if it gets one) is cancelled.
     if (startOwners.current.delete(key)) {
       cancelledStarts.current.add(key);
@@ -518,10 +698,67 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     setCancels((count) => count + 1);
   }
 
+  /**
+   * Kylfoto, flera foton: the photos of a finished reading as one review
+   * list (mergeReadings): every photo with its item numbers, the points of
+   * all of them, and the first photo saved as the place's latest, with its
+   * own reading and points. `jobId` is the last photo's job, closed with the
+   * result; the others were closed as their results came.
+   */
+  function showParts(batch: Batch, jobId: string) {
+    const merged = mergeReadings(batch.parts.map((part) => part.result));
+    const data = merged.result;
+    closeShown();
+    setResult(data);
+    setPhoto(null);
+    setError(null);
+    const groups = groupSuggestions(data);
+    const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
+    const reading = data.reading ?? [];
+    const [first] = batch.parts;
+    const numbered = hasNumberableCards(groups, reading) && batch.parts.some((part) => part.kept?.size != null);
+    const numbers: PhotoNumbers = numbered ? { kind: "ready", points: merged.points } : noNumbers;
+    const photos = batch.parts.map((part, index) => ({ kept: part.kept, range: merged.ranges[index] }));
+    const urls = setReviewPhotos(hasCards ? photos : [], numbers);
+    setPhotoGone(hasCards && first.kept === null);
+    const firstReading = first.result.reading ?? [];
+    const save =
+      hasCards && first.kept !== null && data.site !== null
+        ? photoSave({ image: first.kept.image, siteId: data.site.id, location: data.location, takenAt: first.kept.takenAt, reading: firstReading })
+        : null;
+    if (save) {
+      currentSave.current = { generation: generation.current, save };
+      const own = [...merged.points.values()].filter((point) => point.n <= firstReading.length);
+      if (numbered && own.length > 0) save.located(own);
+    }
+    shown.current = { jobId, kept: first.kept, url: urls[0] ?? null, labels: reading, save, numbersPending: false, photos };
+    shownAt.current = Date.now();
+    if (jobId !== "") void markSeen(jobId);
+    if (hasCards) {
+      setArrivals((count) => count + 1);
+    } else {
+      if (data.suggestions.length === 0) setEmpty(data.dropped > 0 ? "unreadable" : "none");
+      else setEmpty(groups.incomplete || data.dropped > 0 ? "partlyUnchanged" : "unchanged");
+      setSettles((count) => count + 1);
+      closeShown();
+    }
+  }
+
   /** Takes up a job's failure or its reading: shows it, counts it as seen and closes what has no use. */
   async function present(job: AiJob) {
+    const batch = batchOfJob(job.id);
     if (job.status === "failed") {
       const code = job.errorCode !== null && isErrorCode(job.errorCode) ? job.errorCode : "ai_unavailable";
+      // Kylfoto, flera foton: a photo of a reading that failed is left out while there are others.
+      if (batch && ownsBatch(batch) && code !== "pantry_site_gone" && code !== "unauthorized" && skipPhoto(batch)) {
+        releasePhoto(job.id);
+        void dismiss(job.id);
+        return;
+      }
+      if (batch && ownsBatch(batch)) {
+        batches.current.delete(batch.key);
+        setBatchCount((count) => count + 1);
+      }
       failWith(fail(code).error, keptPhoto(job.id));
       photoJobId.current = job.id;
       // A job lost is not retried from memory: its photo goes at once.
@@ -541,16 +778,34 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       // (the network) is tried again with the next read of the jobs.
       if (fetched.error.code === "ai_job_gone") void markSeen(job.id);
       else handled.current.delete(job.id);
-      if (fetched.error.code === "ai_job_gone") setError(fetched.error);
+      if (fetched.error.code === "ai_job_gone" && !(batch && ownsBatch(batch) && skipPhoto(batch))) setError(fetched.error);
       return;
     }
     const parsed = photoJobResultSchema.safeParse(fetched.data.result);
     const kept = keptPhoto(job.id);
     // Story 8.4: a result for another place than the one sent is not this photo's.
     if (!parsed.success || (parsed.data.site !== null && kept !== null && parsed.data.site.id !== kept.site.id)) {
-      failWith(fail("ai_invalid").error, kept);
+      // Kylfoto, flera foton: left out of a reading with other photos.
+      if (!(batch && ownsBatch(batch) && skipPhoto(batch))) failWith(fail("ai_invalid").error, kept);
       void dismiss(job.id);
       return;
+    }
+    if (batch && ownsBatch(batch)) {
+      batch.parts.push({ kept, result: parsed.data });
+      batch.busy = false;
+      setBatchCount((count) => count + 1);
+      if (batch.queue.length > 0) {
+        // Kylfoto, flera foton: more photos to read; this one's result is kept here, and its job has done its part.
+        releasePhoto(job.id);
+        void dismiss(job.id);
+        sendNext(batch);
+        return;
+      }
+      batches.current.delete(batch.key);
+      if (batch.parts.length > 1) {
+        showParts(batch, job.id);
+        return;
+      }
     }
     const { points, ...answer } = parsed.data;
     const data: AnalyzeResult = answer;
@@ -612,6 +867,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     };
     const next = candidates.find((job) => {
       if (job.status === "failed") return !job.seen;
+      // Kylfoto, flera foton: a photo of a reading of several is taken up once its job is done, with its points.
+      if (job.status === "running" && (batchOfJob(job.id)?.total ?? 1) > 1) return false;
       return (job.status === "running" || job.status === "done") && job.count !== null && free(job);
     });
     if (!next) return;
@@ -632,6 +889,12 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       if (job.kind !== "analyze") continue;
       if (job.status === "superseded" || job.status === "cancelled" || (job.status === "failed" && job.errorCode === "ai_job_lost" && handled.current.has(job.id))) {
         releasePhoto(job.id);
+        // Kylfoto, flera foton: a photo of the place taken elsewhere replaced the reading's photo: the reading ends.
+        const batch = job.status === "superseded" ? batchOfJob(job.id) : undefined;
+        if (batch && batches.current.get(batch.key) === batch) {
+          batches.current.delete(batch.key);
+          setBatchCount((count) => count + 1);
+        }
       }
     }
   }, [jobs]);
@@ -668,9 +931,15 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   }, [jobs, tick]);
 
   const looking = (siteId: string, location: Location): Looking | null => {
-    if (startings.has(placeKey(siteId, location))) return { waiting: null };
+    const batch = batches.current.get(placeKey(siteId, location));
+    // Kylfoto, flera foton: "Läser foto 2 av 3 …" while a reading of several photos goes on.
+    const progress =
+      batch && batch.total > 1 ? readingProgressText(Math.min(batch.parts.length + batch.skipped + 1, batch.total), batch.total) : null;
+    if (startings.has(placeKey(siteId, location))) return { waiting: null, progress };
     const job = waitingJob(siteId, location);
-    return job ? { waiting: waitingText(job) } : null;
+    if (job) return { waiting: waitingText(job), progress };
+    // Between two photos of a reading: the next one is about to be sent.
+    return batch?.busy ? { waiting: null, progress } : null;
   };
 
   const readyLocations = (siteId: string): Location[] => {
@@ -687,6 +956,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   return {
     result,
     reviewPhoto,
+    reviewPhotos,
     photoGone,
     looking,
     error,
@@ -699,7 +969,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     announce: setAnnouncement,
     cameraAreaRef,
     cameraButtonRef,
-    analyze: (file, location, site) => void analyze(file, location, site),
+    analyze: (file, location, site) => analyze(file, location, site),
     dropForGoneSite,
     retry,
     cancel,
@@ -713,6 +983,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     editMissing,
     editResult,
     dropPhotoNumbers,
+    discard,
     photoSaver: (expected) => (currentSave.current?.generation === expected ? currentSave.current.save : null),
   };
 }

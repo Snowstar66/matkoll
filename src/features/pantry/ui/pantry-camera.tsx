@@ -102,11 +102,15 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
     if (file) analyze(file, location, site);
   }, [waiting, location, site, switching, analyze]);
 
-  /** The chosen file; the field is emptied so the same photo can be chosen again. */
+  /**
+   * The chosen files; the field is emptied so the same photo can be chosen
+   * again. Kylfoto, flera foton: several files, or a photo taken while this
+   * place's reading goes on, are one reading.
+   */
   function onChosen(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
-    if (file) analyze(file, location, site);
+    if (files.length > 0) analyze(files, location, site);
   }
 
   let notice = null;
@@ -145,12 +149,27 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
       {notice}
       {/* Mounted empty, so the text is announced when it appears. */}
       <div role="status" className="empty:-my-1.5">
-        {looks ? <Looking waiting={looks.waiting} /> : announcement ? <span className="sr-only">{announcement}</span> : null}
+        {looks ? (
+          <Looking waiting={looks.waiting} progress={looks.progress ?? null} />
+        ) : announcement ? (
+          <span className="sr-only">{announcement}</span>
+        ) : null}
       </div>
       {analyzing ? (
-        <Button variant="text" onClick={() => cancel(site.id, location)} className="-ml-3 self-start">
-          Avbryt
-        </Button>
+        // Kylfoto, flera foton: more photos of the same place while it is read go into the same reading.
+        <div className="-ml-3 flex flex-wrap items-center gap-x-1">
+          {touch ? (
+            <Button variant="text" disabled={switching} onClick={() => cameraRef.current?.click()}>
+              {anotherPhotoText}
+            </Button>
+          ) : null}
+          <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()}>
+            {touch ? morePhotosText : morePhotosDesktopText}
+          </Button>
+          <Button variant="quiet" onClick={() => cancel(site.id, location)}>
+            Avbryt
+          </Button>
+        </div>
       ) : null}
       {/* Story 14.6: a quiet row like the shopping row in Matsedel. The camera button covers the card (stretched);
           the line under it, with "Visa", sits above that. While a photo is read it is hidden, not unmounted. */}
@@ -192,6 +211,7 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
         ref={pickerRef}
         type="file"
         accept="image/*"
+        multiple
         tabIndex={-1}
         aria-hidden="true"
         className="sr-only"
@@ -209,9 +229,17 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
 /** The input is always the photo of the place. */
 const photoSteps = ["Tittar på bilden …", "Hittar varorna …", "Jämför med det du har …"];
 
-function Looking({ waiting }: { waiting: string | null }) {
+/** Kylfoto, flera foton: another photo of the place with the camera, while it is read. */
+export const anotherPhotoText = "Ta ett till";
+/** Kylfoto, flera foton: more photos from the library (several at once), while it is read. */
+export const morePhotosText = "Välj fler från Bilder";
+/** The same on a desktop, where it is the file picker. */
+export const morePhotosDesktopText = "Välj fler foton";
+
+function Looking({ waiting, progress }: { waiting: string | null; progress: string | null }) {
   return (
     <div className="flex flex-col gap-2">
+      {progress ? <p className="text-meta font-medium text-ink">{progress}</p> : null}
       <AiWorking inLiveRegion steps={photoSteps} />
       <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       {waiting ? <p className="text-meta text-ink-2">{waiting}</p> : null}

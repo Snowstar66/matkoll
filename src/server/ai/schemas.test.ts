@@ -7,6 +7,7 @@ import {
   maxPantryItemTextChars,
   minLoopRepeats,
   parseAnalyzeItems,
+  pointScale,
   parseRecipeAnswer,
   compactDish,
   suggestDishesAnswerCompact,
@@ -286,11 +287,56 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     expect([flagged.confidence, flagged.alternatives]).toEqual(["osäker", []]);
   });
 
-  it("leaves out a point that is not two numbers from 0 to 1000, never the item", () => {
-    const points = [null, [500], [500, 500, 500], [-1, 10], [10, 1001], ["5", 5], [0, 1000]].map(
+  it("leaves out a point that is not two numbers on the photo, never the item", () => {
+    const points = [null, [500], [500, 500, 500], [-30, 10], [10, 1030], ["5", 5], [0, 1000], [Number.NaN, 5]].map(
       (p) => parseAnalyzeItems([{ ...short, p }], "Kyl").items[0].point,
     );
-    expect(points).toEqual([null, null, null, null, null, null, { x: 0, y: 1000 }]);
+    expect(points).toEqual([null, null, null, null, null, null, { x: 0, y: 1000 }, null]);
+  });
+
+  // Kylfoto: why few items had numbers: a point a little outside 0–1000, in fractions or in pixels was left out.
+  it("keeps a point a little past the edge on the edge, and rounds it", () => {
+    const points = [[-1, 10], [10, 1001], [1020.4, 499.6]].map((p) => parseAnalyzeItems([{ ...short, p }], "Kyl").items[0].point);
+    expect(points).toEqual([{ x: 0, y: 10 }, { x: 10, y: 1000 }, { x: 1000, y: 500 }]);
+  });
+
+  it("reads the middle of a box [x1, y1, x2, y2]", () => {
+    expect(parseAnalyzeItems([{ ...short, p: [100, 200, 300, 400] }], "Kyl").items[0].point).toEqual({ x: 200, y: 300 });
+  });
+
+  it("reads an answer in fractions (0–1) as thousandths, judged from all its points", () => {
+    const answer = [
+      { ...short, p: [0.25, 0.5] },
+      { ...short, l: "Ägg", n: "ägg", p: [1, 0] },
+    ];
+    expect(parseAnalyzeItems(answer, "Kyl").items.map((item) => item.point)).toEqual([
+      { x: 250, y: 500 },
+      { x: 1000, y: 0 },
+    ]);
+    // Whole numbers 0 and 1 alone are thousandths, as asked.
+    expect(parseAnalyzeItems([{ ...short, p: [1, 1] }], "Kyl").items[0].point).toEqual({ x: 1, y: 1 });
+  });
+
+  it("reads an answer in the photo's pixels as thousandths when its points are past 1000 and fit the photo", () => {
+    const answer = [
+      { ...short, p: [1536, 300] },
+      { ...short, l: "Ägg", n: "ägg", p: [512, 1152] },
+    ];
+    const size = { width: 2048, height: 1536 };
+    expect(parseAnalyzeItems(answer, "Kyl", size).items.map((item) => item.point)).toEqual([
+      { x: 750, y: 195 },
+      { x: 250, y: 750 },
+    ]);
+    // Without the photo's size, or past it, they cannot be read, and are left out.
+    expect(parseAnalyzeItems(answer, "Kyl").items.map((item) => item.point)).toEqual([null, null]);
+    expect(parseAnalyzeItems(answer, "Kyl", { width: 800, height: 600 }).items.map((item) => item.point)).toEqual([null, null]);
+  });
+
+  it("judges the scale of an answer from all its points (pointScale)", () => {
+    expect(pointScale([])).toEqual({ x: 1, y: 1 });
+    expect(pointScale([null, { x: 500, y: 500 }])).toEqual({ x: 1, y: 1 });
+    expect(pointScale([{ x: 0.5, y: 0.5 }])).toEqual({ x: 1000, y: 1000 });
+    expect(pointScale([{ x: 2000, y: 100 }], { width: 2000, height: 1000 })).toEqual({ x: 0.5, y: 1 });
   });
 
   it("gives an item without a unit no catalog unit, and refuses one without a label, a name or a section", () => {

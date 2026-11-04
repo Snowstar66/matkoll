@@ -17,6 +17,8 @@ export const settingsPages = [
   // Story 23.2: the number on the app's icon, opt-in per device.
   "appikon",
   "siri",
+  // What is new in the app, newest first.
+  "nyheter",
   "om",
   // Story 20.3: the owner's inbox; its row shows only for the owner.
   "inkorg",
