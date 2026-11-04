@@ -11,7 +11,7 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
-import { addAllButton, confirmOnly, rejectRow } from "./suggestion-test-helpers";
+import { addAllButton, confirmOnly, openMissing, rejectRow, removeOnly } from "./suggestion-test-helpers";
 import { chooseUnit } from "./unit-test-helpers";
 
 /** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
@@ -182,8 +182,11 @@ const button = (name: string) => within(section()).getByRole("button", { name })
 const toast = () => screen.getByTestId("toast");
 const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fotografera kylen" });
 const lastSave = () => saves[saves.length - 1];
-/** The names of the cards in a group, by its h3. */
+/** The names of the cards in a group, by its h3; Kylfoto D: "Syns inte längre", folded or not. */
 function groupNames(title: string): string[] {
+  if (title === "Syns inte längre") {
+    return screen.queryAllByTestId("pantry-missing").map((item) => item.querySelector("h4")?.textContent ?? "");
+  }
   const heading = within(section()).queryByRole("heading", { level: 3, name: title });
   if (!heading) return [];
   return within(heading.parentElement!)
@@ -249,16 +252,29 @@ describe("the groups", () => {
     expect(within(mjolk).getByRole("checkbox", { name: "Ta med mjölk" })).toBeChecked();
   });
 
-  it("gives a Syns inte längre card what the place has, Ta bort and Behåll, and no Rätta", async () => {
+  it("folds Syns inte längre into one row; unfolded, each item has what the place has and an empty tick box", async () => {
     render(<Hemma />);
     await analyze();
+    const toggle = within(section()).getByRole("button", { name: "Syns inte längre (2)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(section()).queryByRole("checkbox", { name: "Ta bort senap" })).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     const [senap, yoghurt] = screen.getAllByTestId("pantry-missing");
-    expect(senap).toHaveTextContent("senapI kylen nu: finns hemmaTa bortBehåll");
-    expect(yoghurt).toHaveTextContent("yoghurtI kylen nu: 2 förpTa bortBehåll");
-    expect(within(yoghurt).getAllByRole("button").map((shown) => shown.getAttribute("aria-label"))).toEqual([
-      "Ta bort yoghurt",
-      "Behåll yoghurt",
-    ]);
+    expect(senap).toHaveTextContent("senapI kylen nu: finns hemma");
+    expect(yoghurt).toHaveTextContent("yoghurtI kylen nu: 2 förp");
+    // Nothing is removed without a tick (decision 4): the boxes start empty, and the only control is the box.
+    expect(within(yoghurt).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual(["Ta bort yoghurt"]);
+    expect(within(yoghurt).getByRole("checkbox")).not.toBeChecked();
+    expect(within(section()).getByText("Kryssa i det som är slut. Det tas bort när du trycker på knappen.")).toBeVisible();
+    // A tick counts in the line and the button; unticked, it is out again.
+    fireEvent.click(within(yoghurt).getByRole("checkbox"));
+    expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("3 nya · 1 uppdateras · 1 tas bort");
+    expect(addAllButton()).toHaveTextContent("Lägg till 4 · ta bort 1");
+    fireEvent.click(within(yoghurt).getByRole("checkbox"));
+    expect(addAllButton()).toHaveTextContent("Lägg till 4 varor");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
     // There is no text under the group heading.
     expect(within(section()).queryByText(/gick inte att tolka/)).toBeNull();
   });
@@ -273,8 +289,8 @@ describe("the groups", () => {
     });
     expect(rowNames()).toEqual(["mjölk"]);
     expect(within(section()).queryByRole("heading", { name: "Nytt" })).toBeNull();
-    expect(within(section()).getByRole("heading", { level: 3, name: "Syns inte längre" })).toBeInTheDocument();
-    const missing = within(section()).getByRole("heading", { level: 3, name: "Syns inte längre" }).parentElement!;
+    openMissing();
+    const missing = within(section()).getByRole("heading", { level: 3, name: "Syns inte längre (2)" }).parentElement!;
     expect(within(missing).getByText("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.")).toBeInTheDocument();
   });
 
@@ -331,9 +347,12 @@ describe("Bekräfta on a compared photo", () => {
     });
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     for (const shown of within(section()).getAllByRole("button")) {
-      // Only the photo can still be looked at: it changes nothing.
-      if (shown.dataset.testid === "pantry-analyzed-photo") expect(shown).toBeEnabled();
-      else expect(shown).toBeDisabled();
+      // Only the photo and the fold of Syns inte längre can still be used: they change nothing.
+      if (shown.dataset.testid === "pantry-analyzed-photo" || shown.dataset.testid === "pantry-missing-toggle") {
+        expect(shown).toBeEnabled();
+      } else {
+        expect(shown).toBeDisabled();
+      }
     }
     await answerSave(answered({ set: 1 }));
     expect(rowNames()).toEqual(["grädde", "gurka", "ketchup"]);
@@ -410,7 +429,7 @@ describe("the photo's place (Story 8.4)", () => {
     await answerSave(answered({ set: 1 }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ siteId: stugan.id, removeRowIds: [yoghurtRow] });
   });
@@ -418,7 +437,7 @@ describe("the photo's place (Story 8.4)", () => {
   it("never sends the operation id of one place's failed removal with another place's", async () => {
     const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyze({ ...fridge, site: stugan });
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     const stuganOperation = lastSave().input.operationId;
     // No answer: the id is kept for the next removal on the same place and location only.
@@ -426,7 +445,7 @@ describe("the photo's place (Story 8.4)", () => {
 
     rerender(<Hemma shownSite={photoSite} />);
     await analyze({ ...fridge, site: photoSite });
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input.siteId).toBe(testSite.id);
     expect(lastSave().input.operationId).not.toBe(stuganOperation);
@@ -435,7 +454,7 @@ describe("the photo's place (Story 8.4)", () => {
   it("keeps separate batches per place: a Hemma photo's removal never joins Stugan's confirmation that shows", async () => {
     const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyze({ ...fridge, site: stugan });
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     const stuganOperation = lastSave().input.operationId;
     expect(lastSave().input.joinsOperation).toBe(false);
@@ -445,7 +464,7 @@ describe("the photo's place (Story 8.4)", () => {
 
     rerender(<Hemma shownSite={photoSite} />);
     await analyze({ ...fridge, site: photoSite });
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ siteId: photoSite.id, joinsOperation: false });
     expect(lastSave().input.operationId).not.toBe(stuganOperation);
@@ -454,11 +473,11 @@ describe("the photo's place (Story 8.4)", () => {
   it("sends the batch it joins with joinsOperation, so a taken id is never swapped in silence", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     const operation = lastSave().input.operationId;
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1, operationId: operation }));
-    fireEvent.click(button("Ta bort senap"));
+    removeOnly("senap");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ operationId: operation, joinsOperation: true });
   });
@@ -466,7 +485,7 @@ describe("the photo's place (Story 8.4)", () => {
   it("drops the suggestions when their place is gone, and says so in the camera area", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(fail("pantry_site_gone"));
     await waitFor(() => expect(screen.queryByTestId("pantry-suggestions")).toBeNull());
@@ -481,7 +500,7 @@ describe("Ta bort, Behåll and Ångra", () => {
   it("removes the rows at once with Ångra, which puts them back by the operation id", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     const { input } = lastSave();
     expect(input).toMatchObject({ location: "Kyl", items: [], replaceRowIds: [], removeRowIds: [yoghurtRow] });
@@ -501,10 +520,10 @@ describe("Ta bort, Behåll and Ångra", () => {
   it("joins removals while the confirmation shows, and one Ångra puts them all back", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
-    fireEvent.click(button("Ta bort senap"));
+    removeOnly("senap");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
@@ -520,7 +539,7 @@ describe("Ta bort, Behåll and Ångra", () => {
   it("says an item was gone already, without Ångra", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(answered());
     expect(toast()).toHaveTextContent("yoghurt är redan borttagen.");
@@ -531,12 +550,12 @@ describe("Ta bort, Behåll and Ångra", () => {
   it("sends the same operation id again after a removal without an answer, so Ångra finds what it took", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await act(async () => lastSave().reject(new Error("offline")));
     expect(await within(section()).findByRole("alert")).toHaveTextContent(errorMessages.pantry_inventory_failed);
     expect(groupNames("Syns inte längre")).toEqual(["senap", "yoghurt"]);
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     // The rows went with the first call: nothing more now, but the server keeps them for Ångra.
@@ -545,17 +564,25 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
-  it("Behåll takes the card out without saving, and Ångra puts it back with focus on its Ta bort", async () => {
+  it("removes ticked items with the added rows in one call, with Ångra borttagning", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Behåll senap"));
-    expect(groupNames("Syns inte längre")).toEqual(["yoghurt"]);
-    expect(toast()).toHaveTextContent("senap står kvar i kylen.");
-    await waitFor(() => expect(button("Ta bort yoghurt")).toHaveFocus());
-    fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
-    expect(groupNames("Syns inte längre")).toEqual(["senap", "yoghurt"]);
-    await waitFor(() => expect(button("Ta bort senap")).toHaveFocus());
-    expect(saves).toEqual([]);
+    openMissing();
+    fireEvent.click(within(section()).getByRole("checkbox", { name: "Ta bort yoghurt" }));
+    fireEvent.click(addAllButton());
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const { input } = lastSave();
+    expect(input.items).toHaveLength(4);
+    expect(input.removeRowIds).toEqual([yoghurtRow]);
+    expect(input.operationId).toMatch(/^[0-9a-f-]{36}$/);
+    await answerSave(answered({ set: 4, removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
+    expect(rowNames()).toEqual([]);
+    expect(groupNames("Syns inte längre")).toEqual(["senap"]);
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya, 1 ändrad och 1 borttagen.");
+    restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 0 }));
+    fireEvent.click(within(toast()).getByRole("button", { name: "Ångra borttagning" }));
+    await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledExactlyOnceWith(input.operationId));
+    await waitFor(() => expect(groupNames("Syns inte längre")).toEqual(["senap", "yoghurt"]));
   });
 });
 
@@ -568,7 +595,7 @@ describe("Lägg till on a compared photo", () => {
     const { input } = lastSave();
     expect(input.items.map((item) => item.ingredient)).toEqual(fridge.suggestions.slice(0, 4).map(({ ingredient }) => ingredient));
     expect(input.replaceRowIds).toEqual([mjolkLiterRow]);
-    // The removals keep their own Ta bort: nothing is removed here.
+    // Nothing in Syns inte längre is ticked, so nothing is removed.
     expect(input.removeRowIds).toEqual([]);
     expect(input.operationId).toBeNull();
     expect(addAllButton()).toHaveTextContent("Sparar …");
@@ -578,17 +605,16 @@ describe("Lägg till on a compared photo", () => {
     expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya och 1 ändrad.");
     expect(within(toast()).queryByRole("button", { name: /^Ångra/ })).toBeNull();
     await waitFor(() => expect(cameraButton()).toHaveFocus());
-    // Their cards stay, with their own Ta bort.
+    // Their items stay, unticked, and the button now only removes.
     expect(groupNames("Syns inte längre")).toEqual(["senap", "yoghurt"]);
-    expect(button("Ta bort senap")).toBeEnabled();
+    expect(addAllButton()).toHaveTextContent("Ta bort 0 varor");
+    expect(addAllButton()).toBeDisabled();
   });
 
   it("leaves out rejected rows, and offers no Ångra", async () => {
     render(<Hemma />);
     await analyze();
     rejectRow("ketchup");
-    fireEvent.click(button("Behåll senap"));
-    fireEvent.click(button("Behåll yoghurt"));
     fireEvent.click(addAllButton());
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input).toMatchObject({ removeRowIds: [], operationId: null });
@@ -738,10 +764,10 @@ describe("review patches", () => {
   it("waits with Ångra tapped while a removal is saved, and puts back once, after the answer", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
-    fireEvent.click(button("Ta bort senap"));
+    removeOnly("senap");
     await waitFor(() => expect(saves).toHaveLength(2));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
     expect(restorePantryRemoval).not.toHaveBeenCalled();
@@ -752,9 +778,10 @@ describe("review patches", () => {
   it("never joins Lägg till to a removal whose confirmation shows: and offers no Ångra for removals", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
+    for (const box of within(section()).getAllByRole("checkbox", { name: /^Ta med / })) fireEvent.click(box);
     fireEvent.click(addAllButton());
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.removeRowIds).toEqual([]);
@@ -772,7 +799,7 @@ describe("Senaste foto (Story 10.1)", () => {
     const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyze({ ...fridge, site: stugan });
     rerender(<Hemma shownSite={photoSite} />);
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(photoPosts).toHaveLength(0);
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
@@ -780,7 +807,7 @@ describe("Senaste foto (Story 10.1)", () => {
     expect(photoPosts[0].get("site")).toBe(stugan.id);
     expect(photoPosts[0].get("location")).toBe("Kyl");
 
-    fireEvent.click(button("Ta bort senap"));
+    removeOnly("senap");
     await waitFor(() => expect(saves).toHaveLength(2));
     await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
     expect(photoPosts).toHaveLength(1);
@@ -825,11 +852,10 @@ describe("Senaste foto (Story 10.1)", () => {
     expect(photoPosts[0].get("location")).toBe("Kyl");
   });
 
-  it("saves nothing for Behåll, nor after a removal that failed", async () => {
+  it("saves nothing after a removal that failed", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Behåll senap"));
-    fireEvent.click(button("Ta bort yoghurt"));
+    removeOnly("yoghurt");
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(fail("pantry_inventory_failed"));
     await screen.findByText(errorMessages.pantry_inventory_failed);

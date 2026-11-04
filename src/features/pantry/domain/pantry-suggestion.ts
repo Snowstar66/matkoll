@@ -434,15 +434,48 @@ export function alreadyHereText(current: PlaceStock): string {
   return `finns redan ${current.amounts.map(({ amount, unit }) => formatQuantity(amount, unit)).join(", ")}`;
 }
 
-/** Kylfoto D: the button under the rows, after the ticked ones: "Lägg till 3 varor". */
-export function addCheckedText(count: number): string {
+/**
+ * Kylfoto D: the button under the rows, after the ticked ones: "Lägg till 3
+ * varor", "Lägg till 3 · ta bort 1" with ticked "Syns inte längre" items, or
+ * "Ta bort 1 vara" with only those.
+ */
+export function addCheckedText(count: number, removed = 0): string {
+  if (removed > 0 && count > 0) return `Lägg till ${count} · ta bort ${removed}`;
+  if (removed > 0) return removeCheckedText(removed);
   return `Lägg till ${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
-/** Kylfoto D: the line above that button: "2 nya · 1 uppdateras", or "Inget valt". */
-export function checkedSummaryText(fresh: number, updated: number): string {
-  const parts = [fresh > 0 ? `${fresh} ${fresh === 1 ? "ny" : "nya"}` : null, updated > 0 ? `${updated} uppdateras` : null];
+/** Kylfoto D: the button when only "Syns inte längre" is left: "Ta bort 1 vara". */
+export function removeCheckedText(count: number): string {
+  return `Ta bort ${count} ${count === 1 ? "vara" : "varor"}`;
+}
+
+/** Kylfoto D: the line above that button: "2 nya · 1 uppdateras · 1 tas bort", or "Inget valt". */
+export function checkedSummaryText(fresh: number, updated: number, removed = 0): string {
+  const parts = [
+    fresh > 0 ? `${fresh} ${fresh === 1 ? "ny" : "nya"}` : null,
+    updated > 0 ? `${updated} uppdateras` : null,
+    removed > 0 ? `${removed} tas bort` : null,
+  ];
   return parts.filter(Boolean).join(" · ") || "Inget valt";
+}
+
+/** Kylfoto D: the folded row for what the photo no longer shows: "Syns inte längre (2)". */
+export function missingToggleText(count: number): string {
+  return `Syns inte längre (${count})`;
+}
+
+/** Kylfoto D: under the unfolded "Syns inte längre". */
+export const missingHintText = "Kryssa i det som är slut. Det tas bort när du trycker på knappen.";
+
+/** Kylfoto D: a marker on the photo, as a button: "Vara 3: Grädde". */
+export function markerLabel(number: number, name: string): string {
+  return `Vara ${number}: ${catalogName(name)}`;
+}
+
+/** Kylfoto D: said politely when a marker lights up its row: "Vara 3: Grädde är markerad i listan." */
+export function markerSelectedText(number: number, name: string): string {
+  return `${markerLabel(number, name)} är markerad i listan.`;
 }
 
 /** The badge on a suggestion the model was unsure of (Story 6.5). */

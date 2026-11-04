@@ -133,12 +133,8 @@ const placeCard = (page: Page, name: "Kyl" | "Frys") =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-/** The cards' names under a group heading ("Nytt", "Ändrat", "Syns inte längre"). */
-const group = (page: Page, title: string) =>
-  section(page)
-    .locator("div")
-    .filter({ has: page.getByRole("heading", { level: 3, name: title, exact: true }) })
-    .getByRole("heading", { level: 4 });
+/** Kylfoto D: the names under the folded "Syns inte längre", shown or not. */
+const missingNames = (page: Page) => section(page).getByTestId("pantry-missing").locator("h4");
 
 /** Hemma, once React runs. */
 async function openHemma(page: Page, path = "/hemma") {
@@ -193,7 +189,8 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   await expect(section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" })).toContainText(
     "finns redan 2 förp",
   );
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
+  await expect(section(page).getByRole("button", { name: "Syns inte längre (1)" })).toBeVisible();
+  await expect(missingNames(page)).toHaveText(["Senap"]);
   await expect(section(page).getByText("Yoghurt")).toHaveCount(0);
   // Hemma shows the photo's place: no line about another.
   await expect(placeLine(page)).toHaveCount(0);

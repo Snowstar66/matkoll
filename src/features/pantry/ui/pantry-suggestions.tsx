@@ -27,6 +27,7 @@ import {
   confirmItemFromSuggestion,
   isConfirmable,
   photoSiteId,
+  undoRemovalLabel,
   withConfirmedStock,
   type AnalyzeResult,
   type ConfirmItemInput,
@@ -38,7 +39,6 @@ import {
   alreadyRemovedText,
   confirmedItemsText,
   inventoryAppliedText,
-  keptItemText,
   notRestoredText,
   rejectedItemText,
   removedItemsText,
@@ -61,18 +61,18 @@ import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantr
 // an empty place (or one that could not be read) saves through
 // confirmPantrySuggestions (Story 6.2); a photo compared with its place
 // (Story 6.4) through confirmPantryInventory, which also replaces other
-// units ("Ändrat") and removes what is no longer seen ("Ta bort", and
-// "Bekräfta alla" with every "Syns inte längre" card left). Removals keep
-// their rows on the server under an operation id, and the short
+// units ("Ändrat") and removes what is no longer seen and ticked. Removals
+// keep their rows on the server under an operation id, and the short
 // confirmation's "Ångra" puts them back by it (restorePantryRemoval);
-// removals while that confirmation shows join it. "Behåll" takes a "Syns
-// inte längre" card out here alone, like Avvisa. Focus after a change is
+// removals while that confirmation shows join it. Focus after a change is
 // moved from here, so a list or camera button mounted anew under another
 // location card still gets a move that was asked for while they were away.
 //
 // Kylfoto D: the cards are compact rows with a tick box; "Lägg till N
-// varor" saves the ticked ones (`all`), the sheet's "Inte en vara" is Avvisa,
-// and "Syns inte längre" items are removed only by their own "Ta bort".
+// varor" saves the ticked ones (`all`), the sheet's "Inte en vara" is Avvisa.
+// "Syns inte längre" is one folded row whose items start unticked: the ones
+// ticked are removed by the same call (`remove`), with "Ångra borttagning";
+// nothing is removed without a tick (decision 4).
 //
 // Places (Story 8.4, FR-33, AD-24): the provider has no key on the place
 // either, so the suggestions stay when Hemma switches place. Every write from
@@ -104,6 +104,9 @@ export type CorrectOutcome =
   /** Another confirmation is being saved: nothing was sent. */
   | { kind: "busy" };
 
+/** "Lägg till N varor" (`all`) and the "Syns inte längre" items ticked to go (`remove`, their ids). */
+export type ConfirmOptions = { all?: boolean; remove?: readonly string[] };
+
 /** How Avvisa ended: taken out, no longer there, or not now (a confirmation is being saved). */
 export type RejectOutcome = "rejected" | "gone" | "busy";
 
@@ -120,9 +123,10 @@ export type PantryReview = {
   invalidIds: ReadonlySet<string>;
   /**
    * Saves the suggestions as they are: one id, or the ticked rows with
-   * "Lägg till N varor" (`all`, Kylfoto D), which removes nothing.
+   * "Lägg till N varor" (`all`, Kylfoto D), which also removes the ticked
+   * "Syns inte längre" items (`remove`), and only those.
    */
-  confirm: (ids: readonly string[], options?: { all?: boolean }) => void;
+  confirm: (ids: readonly string[], options?: ConfirmOptions) => void;
   /**
    * The sheet's "Bekräfta" for a corrected suggestion of `generation`.
    * `onSaved` runs just before the card goes, in the same update, so the
@@ -136,11 +140,7 @@ export type PantryReview = {
   ) => Promise<CorrectOutcome>;
   /** Avvisa: takes the suggestion out, with "Ångra"; `generation` defaults to the current one. */
   reject: (id: string, generation?: number) => RejectOutcome;
-  /** "Ta bort" on a "Syns inte längre" card: removes its rows at once, with "Ångra". */
-  removeMissing: (id: string) => void;
-  /** "Behåll" on a "Syns inte längre" card: takes it out without writing, with "Ångra". */
-  keepMissing: (id: string) => void;
-  /** A ref callback for a card's first button (Bekräfta, or "Ta bort"), so focus can be moved to it. */
+  /** A ref callback for a row's button, so focus can be moved to it. */
   confirmButtonRef: (id: string) => (button: HTMLButtonElement) => () => void;
   /** "Bekräfta alla". */
   confirmAllRef: RefObject<HTMLButtonElement | null>;
@@ -593,26 +593,29 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     };
   }
 
-  async function confirm(ids: readonly string[], options?: { all?: boolean }) {
+  async function confirm(ids: readonly string[], options?: ConfirmOptions) {
     if (busy.current) return;
     const all = options?.all ?? false;
     const generation = analysis.generation();
     const result = analysis.latestResult(generation);
     if (!result) return;
-    const { compared } = groupSuggestions(result);
-    // Kylfoto D: "Lägg till N varor" (`all`) saves the rows that are ticked, unsure ones too when ticked; the
-    // "Syns inte längre" items keep their own "Ta bort", so nothing is removed here.
+    const groups = groupSuggestions(result);
+    // Kylfoto D: "Lägg till N varor" (`all`) saves the rows that are ticked, unsure ones too when ticked, and
+    // removes the "Syns inte längre" items ticked to go; nothing else is removed (decision 4).
     const chosen = chosenSuggestions(generation, result, ids);
-    if (!compared) {
+    if (!groups.compared) {
       await confirmPlain(generation, photoSiteId(result), chosen, all);
       return;
     }
-    if (chosen.length === 0) return;
-    const request = inventoryRequest({ location: result.location, suggestions: chosen, missing: [] });
+    const removeIds = new Set(all ? (options?.remove ?? []) : []);
+    const missing = groups.missing.filter((item) => removeIds.has(item.id));
+    if (chosen.length === 0 && missing.length === 0) return;
+    const request = inventoryRequest({ location: result.location, suggestions: chosen, missing });
     const saved = chosen.filter((suggestion) => request.included.includes(suggestion.id));
     const savedIds = saved.map((suggestion) => suggestion.id);
+    const missingIds = missing.map(({ id }) => id);
     const siteId = photoSiteId(result);
-    const answer = await saveInventory(generation, savedIds, all, siteId, request);
+    const answer = await saveInventory(generation, [...savedIds, ...missingIds], all, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) {
@@ -625,22 +628,37 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (current) {
       takeOut(
         generation,
-        savedIds,
+        [...savedIds, ...missingIds],
         all && request.left.length === 0 ? null : (savedIds[0] ?? null),
         request.items,
         data.setIngredientIds,
       );
     }
-    // One saved, by itself or as the only ticked row: its name, as for a plain photo.
-    if (!all || (saved.length === 1 && request.left.length === 0)) {
+    const removals =
+      answer.operationId && missing.length > 0
+        ? removalsOf(data, answer.operationId, missing, siteId, result.location, generation, answer.joined, answer.before)
+        : null;
+    if (saved.length === 0) {
+      // Only removals: their names, with "Ångra", as "Ta bort" said them one by one.
+      if (removals && removals.added > 0) {
+        showRemovals(removals.batch, removedItemsText(removals.batch.items.map(({ name }) => name)));
+      } else if (!batch.current) {
+        // Another tab removed them already: nothing to undo. A confirmation with "Ångra" that shows stays.
+        showToast(alreadyRemovedText(missing[0].name));
+      }
+    } else if (!all || (saved.length === 1 && request.left.length === 0 && missing.length === 0)) {
+      // One saved, by itself or as the only ticked row: its name, as for a plain photo.
       showToast(current ? savedItemText(saved[0].name, saved[0].location) : confirmedItemsText(1));
     } else {
       const counts = inventoryAppliedText(result.location, {
         added: saved.filter((suggestion) => suggestion.change !== "changed").length,
         changed: saved.filter((suggestion) => suggestion.change === "changed").length,
-        removed: 0,
+        // This call's removals only; "Ångra borttagning" may put back earlier ones too.
+        removed: removals?.items.length ?? 0,
       });
-      showToast(request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts);
+      const text = request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts;
+      if (removals && removals.batch.undoable > 0) showRemovals(removals.batch, text, undoRemovalLabel);
+      else showToast(text);
     }
     runDeferred();
   }
@@ -757,72 +775,6 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     return "rejected";
   }
 
-  /** The "Syns inte längre" items of `generation`, or `null`. */
-  function missingOf(generation: number): readonly MissingItem[] | null {
-    const result = analysis.latestResult(generation);
-    return result?.inventory.kind === "compared" ? result.inventory.missing : null;
-  }
-
-  async function removeMissing(id: string) {
-    if (busy.current) return;
-    const generation = analysis.generation();
-    const result = analysis.latestResult(generation);
-    const item = missingOf(generation)?.find((other) => other.id === id);
-    if (!result || !item) return;
-    const request = inventoryRequest({ location: result.location, suggestions: [], missing: [item] });
-    const siteId = photoSiteId(result);
-    const answer = await saveInventory(generation, [id], false, siteId, request);
-    const current = analysis.generation() === generation;
-    if (!answer.result.ok) {
-      if (current) failed(generation, answer.result.error, [], { kind: "confirm", id });
-      runDeferred();
-      return;
-    }
-    if (current) takeOut(generation, [id], id, []);
-    const removals = answer.operationId
-      ? removalsOf(
-          answer.result.data,
-          answer.operationId,
-          [item],
-          siteId,
-          result.location,
-          generation,
-          answer.joined,
-          answer.before,
-        )
-      : null;
-    // Rows kept for "Ångra" now that were not before: removed by this call, or by one with the same id that got no answer.
-    if (removals && removals.added > 0) {
-      showRemovals(removals.batch, removedItemsText(removals.batch.items.map(({ name }) => name)));
-    } else if (!batch.current) {
-      // Another tab removed it already: nothing to undo. A confirmation with "Ångra" that shows stays.
-      showToast(alreadyRemovedText(item.name));
-    }
-    runDeferred();
-  }
-
-  function keepMissing(id: string) {
-    if (busy.current) return;
-    const generation = analysis.generation();
-    const missing = missingOf(generation);
-    const index = missing?.findIndex((item) => item.id === id) ?? -1;
-    if (!missing || index < 0) return;
-    const item = missing[index];
-    const neighbours = { before: missing[index - 1]?.id ?? null, after: missing[index + 1]?.id ?? null, index };
-    setError(null);
-    takeOut(generation, [id], id, []);
-    const undo = () => {
-      const back = analysis.editMissing(generation, (current) => putBack(current, item, neighbours));
-      if (back) requestFocus({ kind: "confirm", id });
-    };
-    showToast(keptItemText(item.name, item.location), {
-      onUndo: () => {
-        if (busy.current) deferred.current.push(undo);
-        else undo();
-      },
-    });
-  }
-
   const { result, resultGeneration } = analysis;
   const invalidIds = useMemo(() => {
     const ids = new Set<string>();
@@ -843,8 +795,6 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     confirm: (ids, options) => void confirm(ids, options),
     confirmCorrected,
     reject,
-    removeMissing: (id) => void removeMissing(id),
-    keepMissing,
     confirmButtonRef,
     confirmAllRef,
     flushFocus,
