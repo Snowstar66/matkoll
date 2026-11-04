@@ -30,6 +30,11 @@ export const aiJobSchema = z.object({
   ahead: z.number().int().min(0),
   /** How much there is in a finished result, for "3 rättförslag är klara."; null when there is no result. */
   count: z.number().int().min(0).nullable(),
+  /**
+   * Kylfoto C: a running photo job whose result is its reading so far, as the model writes it. It is not
+   * a result to take up yet (`count` is how many suggestions it has); missing for every other job.
+   */
+  streaming: z.boolean().optional(),
   /** The title of a finished import's recipe, for "Receptet Linssoppa är inläst."; null or missing for other jobs. */
   title: z.string().nullable().optional(),
 });

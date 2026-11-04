@@ -61,5 +61,7 @@ export function createAnthropicTarget(config: AnthropicConfig): ModelTarget {
     // stays for the eval (EVAL_PHOTO_READING) until a measurement says otherwise.
     photoReadingOptions: undefined,
     extraOutputTokens: anthropicThinkingRoom,
+    // Kylfoto C: the fridge photo's items are read while the model writes them.
+    streaming: true,
   };
 }

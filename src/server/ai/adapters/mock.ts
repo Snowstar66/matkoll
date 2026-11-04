@@ -495,16 +495,29 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));
       return set ? ok(structuredClone(set)) : fail("ai_invalid");
     },
-    async analyzeImage(input, signal) {
+    async analyzeImage(input, signal, options) {
       if (signal.aborted) return fail("ai_unavailable");
       const current = logged(analyzeFixtures());
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
-      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
       // Like the port, an item is kept where the photo was taken.
-      return ok({ items: items.map((item) => ({ ...structuredClone(item), hint: { ...item.hint, location: input.place } })), invalid: 0, repeated });
+      const kept = items.map((item) => ({ ...structuredClone(item), hint: { ...item.hint, location: input.place } }));
+      const total = clampedDelay(delayMs);
+      if (options?.onItems && total > 0 && !answer) {
+        // Kylfoto C: like a model that streams, the items come one after another over the delay, so a reading can be
+        // seen in progress; the last step is the time the model takes to finish.
+        const step = total / (kept.length + 1);
+        for (let count = 1; count <= kept.length; count++) {
+          if (!(await wait(step, signal))) return fail("ai_unavailable");
+          options.onItems(structuredClone(kept.slice(0, count)));
+        }
+        if (!(await wait(step, signal))) return fail("ai_unavailable");
+      } else if (!answer && !(await wait(total, signal))) {
+        return fail("ai_unavailable");
+      }
+      return ok({ items: kept, invalid: 0, repeated });
     },
     async listThings(input, signal) {
       if (signal.aborted) return fail("ai_unavailable");

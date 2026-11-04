@@ -5,6 +5,7 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
   Output,
+  streamText,
   type LanguageModel,
   type ModelMessage,
 } from "ai";
@@ -49,6 +50,13 @@ export type ModelTarget = {
    * sets it to measure the fast mode (photoReadingOptionsFor).
    */
   photoReadingOptions?: ProviderOptions;
+  /**
+   * Kylfoto C: the model's answer can be read while it is written (streamText
+   * with partial output). Set for the cloud adapters; without it a request
+   * that asks for streaming (StructuredRequest.stream) is answered as one,
+   * as before (LM Studio and local models).
+   */
+  streaming?: boolean;
   /** Tokens added to every call's maxOutputTokens, for a model whose thinking counts against it (Claude, Story 17.5). */
   extraOutputTokens?: number;
   /**
@@ -104,6 +112,20 @@ export type StructuredRequest<SCHEMA extends z.ZodType> = {
   sampling?: Sampling;
   /** Called when the model stopped at maxOutputTokens (finish reason `length`), with or without a valid answer. */
   onTruncated?: () => void;
+  /**
+   * Kylfoto C: read the answer while the model writes it, on a target that
+   * can (ModelTarget.streaming). `onPartial` gets the answer as far as it is
+   * written (parsed, not validated, so each part is checked by the caller);
+   * `read` turns the finished answer into the result, or `undefined` when
+   * nothing in it can be used, which is an invalid answer (a new attempt).
+   * The answer is not validated as a whole against `schema` then: the caller
+   * validates each part on its own. Without streaming support the request is
+   * an ordinary one, and `schema` validates the whole answer.
+   */
+  stream?: {
+    onPartial: (partial: unknown) => void;
+    read: (answer: unknown) => z.infer<SCHEMA> | undefined;
+  };
 };
 
 type FailCode = "ai_unavailable" | "ai_invalid" | "ai_rejected";
@@ -176,6 +198,19 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
     if (attempt > 1 && limits.totalMs - (performance.now() - started) < limits.minRetryMs) break;
     const attemptSignal = AbortSignal.any([total, AbortSignal.timeout(limits.attemptMs)]);
     try {
+      if (request.stream && target.streaming) {
+        const streamed = await streamAttempt(
+          target,
+          request,
+          request.stream,
+          { system: request.system, messages: feedback ? [...request.messages, feedback] : request.messages, providerOptions, sampling, attempt, attemptSignal },
+          tally,
+        );
+        if (streamed.kind === "answer") return ok(streamed.value);
+        // The model answered, but nothing in the answer could be read: tell it and try again.
+        feedback = { role: "user", content: schemaFeedback(undefined) };
+        continue;
+      }
       const result = await generateText({
         model: target.model,
         system: request.system,
@@ -212,6 +247,66 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
 
   if (total.aborted) return failWith("ai_unavailable", stopReason());
   return failWith("ai_invalid", "invalid");
+}
+
+type StreamAttemptInput = {
+  system: string;
+  messages: ModelMessage[];
+  providerOptions: ProviderOptions | undefined;
+  sampling: Omit<Sampling, "providerOptions">;
+  attempt: number;
+  attemptSignal: AbortSignal;
+};
+
+/**
+ * Kylfoto C: one attempt that reads the answer while it is written
+ * (streamText). The last partial answer is the whole one; `stream.read`
+ * judges it. A failure of the stream (the provider's error, the network) is
+ * thrown, so the loop above treats it as it does one of generateText.
+ */
+async function streamAttempt<SCHEMA extends z.ZodType>(
+  target: ModelTarget,
+  request: StructuredRequest<SCHEMA>,
+  stream: NonNullable<StructuredRequest<SCHEMA>["stream"]>,
+  input: StreamAttemptInput,
+  tally: Tally,
+): Promise<{ kind: "answer"; value: z.infer<SCHEMA> } | { kind: "unreadable" }> {
+  let streamError: unknown;
+  const result = streamText({
+    model: target.model,
+    system: input.system,
+    messages: input.messages,
+    output: Output.object({ schema: request.schema }),
+    providerOptions: input.providerOptions,
+    maxOutputTokens:
+      request.maxOutputTokens === undefined ? undefined : request.maxOutputTokens + (target.extraOutputTokens ?? 0),
+    ...input.sampling,
+    ...(input.attempt > 1 && input.sampling.temperature === 0 ? { temperature: retryTemperature } : {}),
+    maxRetries: 0,
+    abortSignal: input.attemptSignal,
+    onError: ({ error }) => {
+      streamError = error;
+    },
+  });
+  let last: unknown;
+  try {
+    for await (const partial of result.partialOutputStream) {
+      // Nothing is reported once the run is stopped.
+      if (input.attemptSignal.aborted) break;
+      last = partial;
+      stream.onPartial(partial);
+    }
+  } catch (error) {
+    streamError ??= error;
+  }
+  if (streamError !== undefined) throw streamError;
+  if (input.attemptSignal.aborted) throw new Error("aborted");
+  const usage = await Promise.resolve(result.usage).catch(() => undefined);
+  count(tally, usage);
+  const finishReason = await Promise.resolve(result.finishReason).catch(() => undefined);
+  if (finishReason === "length") request.onTruncated?.();
+  const value = stream.read(last);
+  return value === undefined ? { kind: "unreadable" } : { kind: "answer", value };
 }
 
 /** Adds one attempt's usage; an attempt that failed before an answer (network, timeout) is not counted. */

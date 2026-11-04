@@ -219,3 +219,63 @@ describe("Förslag klara on a location card (Story 12.5)", () => {
     expect(screen.queryByText("Förslag klara")).toBeNull();
   });
 });
+
+describe("the rows drop in while the model reads (Kylfoto C)", () => {
+  const streamedReading = (labels: string[]) => ({
+    ...reading("Kyl", labels.map((label, index) => suggestion(`s${index + 1}`, label.toLowerCase(), "Kyl")), null),
+    reading: labels,
+    streaming: true,
+  });
+  const points = { positions: [{ n: 1, x: 250, y: 400 }] };
+
+  it("shows the items so far with grey rows for more and \"2 hittills\", and no cards until the job is done", async () => {
+    const job = fakeAi.add({
+      status: "running",
+      streaming: true,
+      count: 2,
+      context: context("Kyl"),
+      result: { ...streamedReading(["Grädde", "Mjölk"]), points },
+    });
+    render(<Hemma />);
+    const streaming = await screen.findByTestId("pantry-streaming");
+    expect(within(streaming).getByText("2 hittills")).toBeInTheDocument();
+    expect(within(streaming).getAllByTestId("pantry-streaming-row").map((row) => row.textContent)).toEqual(["1Grädde", "2Mjölk"]);
+    expect(within(streaming).getAllByTestId("pantry-streaming-placeholder")).toHaveLength(2);
+    // Still being read: Avbryt is there, and no card and no "Förslag klara" yet.
+    expect(within(area()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
+    expect(cardNames()).toEqual([]);
+    expect(screen.getByTestId("ready")).toHaveTextContent("");
+
+    // More comes with the next report.
+    act(() =>
+      fakeAi.update(job.id, {
+        count: 3,
+        result: { ...streamedReading(["Grädde", "Mjölk", "Smör"]), points },
+      } as never),
+    );
+    await waitFor(() => expect(screen.getAllByTestId("pantry-streaming-row")).toHaveLength(3));
+    expect(screen.getByText("3 hittills")).toBeInTheDocument();
+
+    // The job is done: the rows are taken up as the review, the preview is gone.
+    act(() =>
+      fakeAi.update(job.id, {
+        status: "done",
+        streaming: undefined,
+        count: 3,
+        result: {
+          ...reading("Kyl", [suggestion("s1", "grädde", "Kyl"), suggestion("s2", "mjölk", "Kyl"), suggestion("s3", "smör", "Kyl")]),
+          reading: ["Grädde", "Mjölk", "Smör"],
+        },
+      } as never),
+    );
+    await waitFor(() => expect(cardNames()).toEqual(["grädde", "mjölk", "smör"]));
+    expect(screen.queryByTestId("pantry-streaming")).toBeNull();
+  });
+
+  it("shows nothing of it for a job that does not stream: the scanning view, then the review", () => {
+    fakeAi.add({ status: "running", context: context("Kyl") });
+    render(<Hemma />);
+    expect(screen.queryByTestId("pantry-streaming")).toBeNull();
+    expect(within(area()).getByText("Du kan göra annat under tiden.")).toBeInTheDocument();
+  });
+});
