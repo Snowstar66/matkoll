@@ -52,6 +52,9 @@ import {
   alreadyHereText,
   addCheckedText,
   checkedSummaryText,
+  markerLabel,
+  markerSelectedText,
+  missingToggleText,
   type AiPantryItemLike,
   type ConfirmItem,
   type ConfirmItemInput,
@@ -512,6 +515,14 @@ describe("texts", () => {
     expect(checkedSummaryText(2, 1)).toBe("2 nya · 1 uppdateras");
     expect(checkedSummaryText(1, 0)).toBe("1 ny");
     expect(checkedSummaryText(0, 0)).toBe("Inget valt");
+    expect(addCheckedText(3, 1)).toBe("Lägg till 3 · ta bort 1");
+    expect(addCheckedText(0, 2)).toBe("Ta bort 2 varor");
+    expect(addCheckedText(0, 1)).toBe("Ta bort 1 vara");
+    expect(checkedSummaryText(2, 1, 1)).toBe("2 nya · 1 uppdateras · 1 tas bort");
+    expect(checkedSummaryText(0, 0, 2)).toBe("2 tas bort");
+    expect(missingToggleText(2)).toBe("Syns inte längre (2)");
+    expect(markerLabel(3, "grädde")).toBe("Vara 3: Grädde");
+    expect(markerSelectedText(3, "grädde")).toBe("Vara 3: Grädde är markerad i listan.");
   });
 
   it("names the place on the camera button and the heading", () => {

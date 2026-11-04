@@ -771,7 +771,9 @@ describe("the photo during review", () => {
     for (const image of document.querySelectorAll("img")) expect(revoked.has(image.getAttribute("src") ?? "")).toBe(false);
   };
   const thumbnail = () => within(section()).getByRole("button", { name: "Fotot av kylen, visa större" });
-  const thumbnailSrc = () => thumbnail().querySelector("img")?.getAttribute("src");
+  // Kylfoto D: the photo on top of the review; its image sits beside the button that opens it full screen.
+  const reviewImage = () => within(section()).getByTestId("pantry-review-photo").querySelector("img")!;
+  const thumbnailSrc = () => reviewImage().getAttribute("src");
   const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
   const ketchupOnly = { ...fridge, suggestions: fridge.suggestions.slice(1, 2) };
 
@@ -797,7 +799,9 @@ describe("the photo during review", () => {
     const placeLine = within(section()).getByRole("heading", { level: 2 }).nextElementSibling;
     expect(placeLine).toHaveAttribute("data-testid", "pantry-suggestions-site");
     expect(placeLine).toBeEmptyDOMElement();
-    expect(placeLine?.nextElementSibling).toBe(thumbnail());
+    // After an empty line that tells when the photo sticks.
+    expect(placeLine?.nextElementSibling?.nextElementSibling).toBe(within(section()).getByTestId("pantry-review-photo"));
+    expect(within(section()).getByTestId("pantry-review-photo")).toContainElement(thumbnail());
     expectNoRevokedImage();
   });
 
@@ -866,7 +870,7 @@ describe("the photo during review", () => {
     expect(within(photoSheet()).queryByRole("img")).toBeNull();
     fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    fireEvent.error(thumbnail().querySelector("img")!);
+    fireEvent.error(within(section()).getByTestId("pantry-review-photo").querySelector("img")!);
     expect(within(section()).getByText("Fotot kunde inte visas.")).toBeVisible();
     expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
   });
@@ -1115,7 +1119,7 @@ describe("numbers on the photo (Story 6.6)", () => {
   it("drops the numbers when the thumbnail cannot be shown", async () => {
     render(<Hemma />);
     await analyzeNumbered();
-    fireEvent.error(thumbnail().querySelector("img")!);
+    fireEvent.error(within(section()).getByTestId("pantry-review-photo").querySelector("img")!);
     expect(slots()).toHaveLength(0);
     await waitFor(() => expect(status()).toBeEmptyDOMElement());
   });
@@ -1282,6 +1286,120 @@ describe("numbers on the photo (Story 6.6)", () => {
     decode();
     // Smör (item 2) is unchanged: it has a point, but no card and so no marker.
     expect(markers().map((marker) => marker.textContent)).toEqual(["3"]);
+  });
+
+  describe("the photo and the rows are linked (Kylfoto D)", () => {
+    const reviewPhoto = () => within(section()).getByTestId("pantry-review-photo");
+    const reviewMarkers = () => within(reviewPhoto()).queryAllByTestId("pantry-review-marker");
+    const marker = (name: string) => within(reviewPhoto()).getByRole("button", { name });
+    const row = (name: string) =>
+      within(section())
+        .getAllByTestId("pantry-suggestion")
+        .find((shown) => within(shown).getByRole("heading", { level: 3 }).querySelector("span:not([aria-hidden])")?.textContent === name)!;
+    /** The review photo as the browser decodes it. */
+    const decodeReview = (width = 720, height = 900) => {
+      const image = reviewPhoto().querySelector("img")!;
+      Object.defineProperty(image, "naturalWidth", { configurable: true, value: width });
+      Object.defineProperty(image, "naturalHeight", { configurable: true, value: height });
+      fireEvent.load(image);
+    };
+    const scrollIntoView = vi.fn();
+    beforeEach(() => {
+      scrollIntoView.mockReset();
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("puts the rows' numbers on the photo as buttons named after their row, once it is decoded", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(ok(located));
+      expect(reviewMarkers()).toEqual([]);
+      decodeReview();
+      expect(reviewMarkers().map((shown) => shown.getAttribute("aria-label"))).toEqual([
+        "Vara 3: Gurka",
+        "Vara 4: Ketchup",
+        "Vara 1: Mjölk",
+        "Vara 2: Smör",
+      ]);
+      expect(marker("Vara 3: Gurka").tagName).toBe("BUTTON");
+      expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "false");
+      expect(marker("Vara 3: Gurka").style.left).toMatch(/^clamp\(14px, 69.4%, (calc\()?100% - 14px\)?\)$/);
+      // Accent while ticked; dark grey once the row is not.
+      expect(marker("Vara 4: Ketchup")).toHaveAttribute("data-tone", "on");
+      fireEvent.click(within(row("ketchup")).getByRole("checkbox", { name: "Ta med ketchup" }));
+      expect(marker("Vara 4: Ketchup")).toHaveAttribute("data-tone", "off");
+    });
+
+    it("lights up the row of a tapped marker, scrolls it into view and says so; a second tap puts it out", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(ok(located));
+      decodeReview();
+      fireEvent.click(marker("Vara 3: Gurka"));
+      expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "true");
+      expect(marker("Vara 3: Gurka")).toHaveClass("scale-140");
+      expect(marker("Vara 4: Ketchup")).toHaveClass("opacity-35");
+      expect(row("gurka")).toHaveAttribute("data-selected", "true");
+      expect(row("gurka")).toHaveClass("bg-mint/60");
+      expect(row("ketchup")).not.toHaveAttribute("data-selected");
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(row("gurka"));
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "smooth" });
+      expect(within(section()).getByTestId("pantry-review-selected")).toHaveTextContent("Vara 3: Gurka är markerad i listan.");
+      expect(within(section()).getByTestId("pantry-review-selected")).toHaveAttribute("role", "status");
+      // No sheet opens from the photo.
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(marker("Vara 3: Gurka"));
+      expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "false");
+      expect(row("gurka")).not.toHaveAttribute("data-selected");
+      expect(marker("Vara 4: Ketchup")).not.toHaveClass("opacity-35");
+    });
+
+    it("jumps to the row without animation when less motion is asked for", async () => {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }));
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(ok(located));
+      decodeReview();
+      fireEvent.click(marker("Vara 1: Mjölk"));
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "auto" });
+    });
+
+    it("lights up the marker of a tapped row and opens the sheet with the photo around the item", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(ok(located));
+      decodeReview();
+      fireEvent.click(button("Rätta gurka"));
+      const dialog = screen.getByRole("dialog");
+      const crop = within(dialog).getByTestId("pantry-sheet-crop");
+      expect(crop).toHaveAttribute("aria-hidden", "true");
+      expect(crop.style.backgroundImage).toContain("blob:photo-1");
+      expect(crop.style.backgroundPosition).toBe("69.4% 58.3%");
+      expect(crop).toHaveTextContent("3");
+      // At the top of the sheet's form, before "Fel vara?".
+      expect(crop.compareDocumentPosition(within(dialog).getByText(/Fel vara\?/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Avbryt" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "true");
+      expect(row("gurka")).toHaveAttribute("data-selected", "true");
+    });
+
+    it("opens the sheet without a crop for a row without a number", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(fail("ai_unavailable"));
+      fireEvent.click(button("Rätta gurka"));
+      expect(within(screen.getByRole("dialog")).queryByTestId("pantry-sheet-crop")).toBeNull();
+    });
   });
 
   describe("with the saved photo (Story 10.1)", () => {

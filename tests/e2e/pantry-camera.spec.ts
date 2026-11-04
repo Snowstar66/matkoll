@@ -180,11 +180,11 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("5 nya · 1 uppdateras");
   await expect(section(page).getByRole("button", { name: "Lägg till 6 varor" })).toBeVisible();
   await expect(section(page).getByRole("button", { name: "Fota igen" })).toBeVisible();
-  // The photo that was read sits under the heading as an object URL in the browser only (AD-15), and opens larger.
+  // The photo that was read sits on top of the review as an object URL in the browser only (AD-15), and opens larger.
   const photo = section(page).getByRole("button", { name: "Fotot av kylen, visa större" });
   await expect(photo).toBeVisible();
-  await expect(photo.locator("img")).toHaveAttribute("src", /^blob:/);
-  // At 375 px the thumbnail fits inside the viewport.
+  await expect(section(page).getByTestId("pantry-review-photo").locator("img")).toHaveAttribute("src", /^blob:/);
+  // At 375 px the photo fits inside the viewport.
   expect(page.viewportSize()?.width).toBe(375);
   const photoBox = await photo.boundingBox();
   expect(photoBox!.x).toBeGreaterThanOrEqual(0);
@@ -248,6 +248,23 @@ test("the cards come with their numbers, and the large photo has the same number
     await expect(shown.getByTestId("pantry-photo-number")).toHaveText(String(number));
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Kylfoto D: the same numbers sit on the photo on top of the review, as buttons named after their row. A tap on
+  // one lights up its row; a tap on a row lights up its marker and opens the sheet with the photo around the item.
+  await expect(section(page).getByTestId("pantry-review-marker")).toHaveText(["2", "5", "6", "3", "4", "1"]);
+  const gurkaMarker = section(page).getByRole("button", { name: "Vara 5: Gurka", exact: true });
+  await gurkaMarker.click();
+  await expect(gurkaMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(cards(page).nth(1)).toHaveAttribute("data-selected", "true");
+  await expect(section(page).getByTestId("pantry-review-selected")).toHaveText("Vara 5: Gurka är markerad i listan.");
+  await section(page).getByRole("button", { name: "Rätta Ketchup", exact: true }).click();
+  const correctSheet = page.getByRole("dialog").filter({ visible: true });
+  await expect(correctSheet.getByTestId("pantry-sheet-crop")).toBeVisible();
+  await expect(correctSheet.getByTestId("pantry-sheet-crop")).toHaveText("6");
+  await correctSheet.getByRole("button", { name: "Avbryt" }).click();
+  await expect(correctSheet).toBeHidden();
+  await expect(section(page).getByRole("button", { name: "Vara 6: Ketchup", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(cards(page).nth(2)).toHaveAttribute("data-selected", "true");
 
   await section(page).getByRole("button", { name: "Fotot av kylen, visa större" }).click();
   const photoSheet = page.getByRole("dialog", { name: "Fotot av kylen" });

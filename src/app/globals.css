@@ -67,6 +67,13 @@
   --photo-shade: color-mix(in srgb, #000000 45%, transparent);
   --photo-veil: color-mix(in srgb, #000000 25%, transparent);
   --photo-chip: color-mix(in srgb, #141A17 78%, transparent);
+  /* Kylfoto D: the dark stage the review photo sits on, its numbered markers (white edge, a soft shadow, a ring when lit), and a not-ticked or unsure one. */
+  --photo-stage: color-mix(in srgb, #0E1210 100%, transparent);
+  --marker-edge: color-mix(in srgb, #FFFFFF 100%, transparent);
+  --marker-off: color-mix(in srgb, #181E1B 78%, transparent);
+  --on-warm: color-mix(in srgb, #1B2420 100%, transparent);
+  --marker-shadow: 0 1px 4px color-mix(in srgb, #000000 35%, transparent);
+  --marker-lit: 0 0 0 5px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 8px color-mix(in srgb, #000000 40%, transparent);
   /* Snabbkamera (Story 18.10): always dark, like any camera; the same in both modes. */
   --camera-bg: color-mix(in srgb, #000000 100%, transparent);
   --camera-ink: color-mix(in srgb, #FFFFFF 100%, transparent);
@@ -225,6 +232,8 @@
     --tile-lilac: #2C2840;
     --warm: #E9B872;
     --illus-bg: #16211B;
+    --photo-stage: color-mix(in srgb, #1A201C 100%, transparent);
+    --marker-edge: color-mix(in srgb, #0F1311 100%, transparent);
     --tour-bg: var(--bg);
     /* Dark ink is light, so the veil darkens with black instead. */
     --scrim: color-mix(in srgb, #000000 60%, transparent);
@@ -346,6 +355,10 @@
   --color-photo-shade: var(--photo-shade);
   --color-photo-veil: var(--photo-veil);
   --color-photo-chip: var(--photo-chip);
+  --color-photo-stage: var(--photo-stage);
+  --color-marker-edge: var(--marker-edge);
+  --color-marker-off: var(--marker-off);
+  --color-on-warm: var(--on-warm);
   --color-camera-bg: var(--camera-bg);
   --color-camera-ink: var(--camera-ink);
   --color-camera-control: var(--camera-control);

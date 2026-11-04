@@ -1,8 +1,9 @@
 "use client";
 
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
+import { ChevronRightIcon } from "@/components/icons";
 import { catalogName } from "@/features/catalog";
 import { Notice } from "@/components/notice";
 import {
@@ -14,6 +15,10 @@ import {
   incompleteComparisonText,
   isBulkConfirmable,
   analyzedPhotoGoneText,
+  markerSelectedText,
+  missingHintText,
+  missingToggleText,
+  removeCheckedText,
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionInvalidText,
@@ -27,7 +32,14 @@ import {
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, type PhotoPoint } from "../domain/photo-numbers";
-import { AnalyzedPhotoButton, AnalyzedPhotoSheet, PhotoNumberBadge, PhotoNumberText } from "./analyzed-photo";
+import {
+  AnalyzedPhotoSheet,
+  PhotoNumberBadge,
+  PhotoNumberText,
+  type PhotoCropProps,
+  type ReviewMarker,
+  ReviewPhotoPanel,
+} from "./analyzed-photo";
 import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
@@ -99,7 +111,16 @@ const locatingSteps = ["Letar upp varorna på fotot …", "Sätter ut numren …
 // (Rätta), whose "Inte en vara" is Avvisa. One button under them, "Lägg till
 // 3 varor" with "2 nya · 1 uppdateras" above it, saves the ticked rows as
 // Bekräfta did one by one; "Fota igen" under it opens the camera again. The
-// groups "Nytt" and "Ändrat" are one list; "Syns inte längre" keeps its cards.
+// groups "Nytt" and "Ändrat" are one list.
+//
+// Kylfoto D, the rest: the photo sits on top with the rows' numbers
+// (ReviewPhotoPanel), sticks while the list scrolls and shrinks. A tap on a
+// marker lights up its row (soft mint) and scrolls it into view, and says so
+// politely; a tap on a row lights up its marker and opens the sheet, with the
+// photo around the item at its top (PhotoCrop). "Syns inte längre" is one
+// folded row, "Syns inte längre (2)"; unfolded, each item has a tick box,
+// empty from the start, and the ticked ones are removed by the same button,
+// whose line then says "1 tas bort". Nothing is removed without a tick.
 
 /** No points yet. */
 const noPoints: ReadonlyMap<number, PhotoPoint> = new Map();
@@ -125,8 +146,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     confirmError,
     invalidIds,
     confirm,
-    removeMissing,
-    keepMissing,
+    resultGeneration,
     confirmButtonRef,
     confirmAllRef,
     flushFocus,
@@ -145,6 +165,19 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const photoWasOpen = useRef(false);
   // Kylfoto D: the tick boxes Pontus has changed; the others keep their start (ticked unless unsure).
   const [ticks, setTicks] = useState<ReadonlyMap<string, boolean>>(new Map());
+  // Kylfoto D: the "Syns inte längre" items ticked to go, for one generation of suggestions; none from the start.
+  const [removals, setRemovals] = useState<{ generation: number; ids: ReadonlySet<string> }>({
+    generation: resultGeneration,
+    ids: new Set(),
+  });
+  const [missingOpen, setMissingOpen] = useState(false);
+  const missingListId = useId();
+  // Kylfoto D: the number lit up on the photo and in the list, for one photo.
+  const [selection, setSelection] = useState<{ url: string; number: number } | null>(null);
+  const selected = selection && selection.url === reviewPhoto?.url ? selection.number : null;
+  /** Said politely when a marker lights up its row. */
+  const [selectedNote, setSelectedNote] = useState("");
+  const rowElements = useRef(new Map<number, HTMLLIElement>());
 
   // The photo's sheet has closed and given focus back: a focus move that waited for it happens now.
   useEffect(() => {
@@ -214,6 +247,54 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     !invalidIds.has(suggestion.id) && (ticks.get(suggestion.id) ?? isBulkConfirmable(suggestion));
   const ticked = rows.filter(isTicked);
   const updated = ticked.filter((suggestion) => suggestion.current).length;
+  const removalIds = removals.generation === resultGeneration ? removals.ids : noIds;
+  const removing = compared ? missing.filter((item) => removalIds.has(item.id)) : [];
+  const tickRemoval = (id: string, tick: boolean) =>
+    setRemovals((before) => {
+      const ids = new Set(before.generation === resultGeneration ? before.ids : []);
+      if (tick) ids.add(id);
+      else ids.delete(id);
+      return { generation: resultGeneration, ids };
+    });
+  const showsButton = rows.length > 0 || (compared && missing.length > 0);
+
+  // Kylfoto D: the rows by their number, and the markers with their row's name and tick.
+  const rowByNumber = new Map<number, PantrySuggestion>();
+  for (const suggestion of rows) {
+    const number = cardNumber(suggestion, points);
+    if (number !== null && !rowByNumber.has(number)) rowByNumber.set(number, suggestion);
+  }
+  const reviewMarkers: ReviewMarker[] = markers.flatMap((marker) => {
+    const row = rowByNumber.get(marker.label);
+    if (!row) return [];
+    const tone = isTicked(row) ? "on" : row.uncertain ? "unsure" : "off";
+    return [{ ...marker, name: row.name, tone }];
+  });
+  /** A tap on a marker: lights up its row (or puts it out), scrolls it into view, and says so. */
+  const selectMarker = (number: number) => {
+    if (!reviewPhoto) return;
+    const row = rowByNumber.get(number);
+    if (selected === number || !row) {
+      setSelection(null);
+      setSelectedNote("");
+      return;
+    }
+    setSelection({ url: reviewPhoto.url, number });
+    setSelectedNote(markerSelectedText(number, row.name));
+    rowElements.current.get(number)?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  };
+  /** A tap on a row: lights up its marker and opens the sheet, with the photo around the item. */
+  const openRow = (suggestion: PantrySuggestion) => {
+    const number = cardNumber(suggestion, points);
+    let crop: PhotoCropProps | undefined;
+    if (reviewPhoto && number !== null) {
+      setSelection({ url: reviewPhoto.url, number });
+      setSelectedNote("");
+      const point = points.get(number);
+      if (point) crop = { url: reviewPhoto.url, x: point.x, y: point.y, number };
+    }
+    openSuggestion(suggestion, crop);
+  };
   // "Fota igen": the camera's own file input (the camera on a phone, else the picker).
   const retake = () => cameraAreaRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
   return (
@@ -230,13 +311,20 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
         {/* Story 12.5: the cards came without the photo (after a reload): nothing to compare with, and no latest photo is saved. */}
         {photoGone ? <p className="text-meta text-ink-2">{analyzedPhotoGoneText}</p> : null}
         {reviewPhoto ? (
-          <AnalyzedPhotoButton
+          <ReviewPhotoPanel
             photo={reviewPhoto}
             location={result.location}
+            markers={reviewMarkers}
+            selected={selected}
+            onSelectMarker={selectMarker}
             onOpen={() => setOpenPhotoUrl(reviewPhoto.url)}
             onPhotoError={() => dropPhotoNumbers(reviewPhoto.url)}
           />
         ) : null}
+        {/* Kylfoto D: mounted with the section, so a marker's tap is said when its row lights up. */}
+        <p role="status" data-testid="pantry-review-selected" className="sr-only">
+          {selectedNote}
+        </p>
         {/* Story 6.6: says politely that the numbers are looked up, and that they have come. Always there with the
             section, empty and taking no room otherwise, so a screen reader hears the text when it comes. */}
         {numbers?.kind === "pending" ? (
@@ -262,6 +350,13 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
               <SuggestionRow
                 key={suggestion.id}
                 suggestion={suggestion}
+                selected={selected !== null && cardNumber(suggestion, points) === selected}
+                itemRef={(element) => {
+                  const number = cardNumber(suggestion, points);
+                  if (number === null) return;
+                  if (element) rowElements.current.set(number, element);
+                  else if (rowElements.current.get(number)?.isConnected === false) rowElements.current.delete(number);
+                }}
                 disabled={saving}
                 saving={savingIds.has(suggestion.id)}
                 invalid={invalidIds.has(suggestion.id)}
@@ -269,38 +364,68 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
                 onTick={(tick) => setTicks((before) => new Map(before).set(suggestion.id, tick))}
                 photoNumber={photoNumberOf(suggestion)}
                 rowRef={confirmButtonRef(suggestion.id)}
-                onCorrect={() => openSuggestion(suggestion)}
+                onCorrect={() => openRow(suggestion)}
               />
             ))}
           </ul>
         ) : null}
-        {compared ? (
-          <Group title="Syns inte längre" hidden={missing.length === 0} note={incomplete ? incompleteComparisonText : null}>
-            {missing.map((item) => (
-              <MissingCard
-                key={item.id}
-                item={item}
-                disabled={saving}
-                saving={savingIds.has(item.id)}
-                removeRef={confirmButtonRef(item.id)}
-                onRemove={() => removeMissing(item.id)}
-                onKeep={() => keepMissing(item.id)}
-              />
-            ))}
-          </Group>
+        {compared && missing.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <h3>
+              <button
+                type="button"
+                aria-expanded={missingOpen}
+                aria-controls={missingListId}
+                data-testid="pantry-missing-toggle"
+                onClick={() => setMissingOpen((open) => !open)}
+                className="flex min-h-tap w-full items-center justify-between gap-2 rounded-lg bg-surface py-2 pr-3 pl-4 text-left text-body text-ink-2"
+              >
+                {missingToggleText(missing.length)}
+                <ChevronRightIcon
+                  size={18}
+                  className={cx("shrink-0 text-ink-3 transition-transform motion-reduce:transition-none", missingOpen && "rotate-90")}
+                />
+              </button>
+            </h3>
+            <div id={missingListId} hidden={!missingOpen} className="flex flex-col gap-2">
+              {incomplete ? <p className="text-body text-ink-2">{incompleteComparisonText}</p> : null}
+              <ul className="flex flex-col overflow-hidden rounded-lg bg-surface">
+                {missing.map((item) => (
+                  <MissingRow
+                    key={item.id}
+                    item={item}
+                    disabled={saving}
+                    saving={savingIds.has(item.id)}
+                    ticked={removalIds.has(item.id)}
+                    onTick={(tick) => tickRemoval(item.id, tick)}
+                  />
+                ))}
+              </ul>
+              <p className="px-1 text-meta text-ink-2">{missingHintText}</p>
+            </div>
+          </div>
         ) : null}
-        {rows.length > 0 ? (
+        {showsButton ? (
           <div className="flex flex-col gap-2 border-t border-hairline pt-3">
             <p data-testid="pantry-suggestions-summary" className="text-center text-meta text-ink-2">
-              {checkedSummaryText(ticked.length - updated, updated)}
+              {checkedSummaryText(ticked.length - updated, updated, removing.length)}
             </p>
             <Button
               ref={confirmAllRef}
               fullWidth
-              disabled={saving || ticked.length === 0}
-              onClick={() => confirm(ticked.map((suggestion) => suggestion.id), { all: true })}
+              disabled={saving || ticked.length + removing.length === 0}
+              onClick={() =>
+                confirm(
+                  ticked.map((suggestion) => suggestion.id),
+                  { all: true, remove: removing.map((item) => item.id) },
+                )
+              }
             >
-              {savingAll ? "Sparar …" : addCheckedText(ticked.length)}
+              {savingAll
+                ? "Sparar …"
+                : rows.length === 0
+                  ? removeCheckedText(removing.length)
+                  : addCheckedText(ticked.length, removing.length)}
             </Button>
             <Button variant="text" fullWidth disabled={saving} onClick={retake}>
               Fota igen
@@ -313,30 +438,12 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   );
 }
 
-/** One of the groups of a compared photo: an h3, an optional note under it, and its cards; nothing when empty. */
-function Group({
-  title,
-  hidden,
-  note = null,
-  children,
-}: {
-  title: string;
-  hidden: boolean;
-  note?: string | null;
-  children: ReactNode;
-}) {
-  if (hidden) return null;
-  return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-row-title text-ink">{title}</h3>
-      {note ? <p className="text-body text-ink-2">{note}</p> : null}
-      <ul className="flex flex-col gap-3">{children}</ul>
-    </div>
-  );
-}
-
 type SuggestionRowProps = {
   suggestion: PantrySuggestion;
+  /** Kylfoto D: its marker is lit on the photo: a soft mint background. */
+  selected: boolean;
+  /** Kylfoto D: the row's element, so a marker's tap can scroll it into view. */
+  itemRef: (element: HTMLLIElement | null) => void;
   /** A confirmation is being saved: nothing here works. */
   disabled: boolean;
   /** This suggestion is being saved. */
@@ -357,6 +464,8 @@ type SuggestionRowProps = {
  */
 function SuggestionRow({
   suggestion,
+  selected,
+  itemRef,
   disabled,
   saving,
   invalid,
@@ -371,8 +480,14 @@ function SuggestionRow({
   const line = [ingredientName ? catalogName(ingredientName) : null, current ? alreadyHereText(current) : null, location].filter(Boolean).join(" · ");
   return (
     <li
+      ref={itemRef}
       data-testid="pantry-suggestion"
-      className="relative flex min-h-[60px] items-center gap-3 border-t border-hairline py-2 pr-1 pl-4 first:border-t-0"
+      data-selected={selected || undefined}
+      // Kept clear of the slim bar and the photo that stick above the list, and of the tab bar, when scrolled into view.
+      className={cx(
+        "relative flex min-h-[60px] scroll-mt-[calc(272px+env(safe-area-inset-top))] scroll-mb-[calc(var(--tab-bar-height)+16px)] items-center gap-3 border-t border-hairline py-2 pr-1 pl-4 transition-colors duration-200 first:border-t-0 motion-reduce:transition-none desktop:scroll-mt-[224px] desktop:scroll-mb-4",
+        selected && "bg-mint/60",
+      )}
     >
       <button
         ref={rowRef}
@@ -416,38 +531,37 @@ function SuggestionRow({
   );
 }
 
-type MissingCardProps = {
+type MissingRowProps = {
   item: MissingItem;
-  /** A confirmation is being saved: no button works. */
+  /** A confirmation is being saved: the box does not work. */
   disabled: boolean;
   /** This item is being removed. */
   saving: boolean;
-  removeRef: (button: HTMLButtonElement) => () => void;
-  onRemove: () => void;
-  onKeep: () => void;
+  /** Ticked to go with the button. */
+  ticked: boolean;
+  onTick: (ticked: boolean) => void;
 };
 
-/** "Syns inte längre": the item, what the place has of it, "Ta bort" and "Behåll". No Rätta: "Behåll" and the list do that. */
-function MissingCard({ item, disabled, saving, removeRef, onRemove, onKeep }: MissingCardProps) {
+/** Kylfoto D: one "Syns inte längre" item: its name, what the place has of it, and a tick box to remove it. */
+function MissingRow({ item, disabled, saving, ticked, onTick }: MissingRowProps) {
   const { name, location, stock } = item;
   return (
-    <li data-testid="pantry-missing" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
-      <h4 className="min-w-0 text-row-title break-words text-ink">{name}</h4>
-      <p className="text-meta text-ink-2">{currentAmountText(location, stock)}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Button
-          ref={removeRef}
-          variant="secondary"
-          disabled={disabled}
-          onClick={onRemove}
-          {...(saving ? {} : { "aria-label": `Ta bort ${name}` })}
-        >
-          {saving ? "Sparar …" : "Ta bort"}
-        </Button>
-        <Button variant="text" disabled={disabled} onClick={onKeep} aria-label={`Behåll ${name}`}>
-          Behåll
-        </Button>
+    <li
+      data-testid="pantry-missing"
+      className="flex min-h-12 items-center gap-3 border-t border-hairline py-1.5 pr-1 pl-4 first:border-t-0"
+    >
+      <div className="min-w-0 flex-1">
+        <h4 className={cx("text-body break-words", ticked ? "text-ink" : "text-ink-2")}>{name}</h4>
+        <p className="text-meta text-ink-2">{saving ? "Sparar …" : currentAmountText(location, stock)}</p>
       </div>
+      <Checkbox checked={ticked} onCheckedChange={onTick} label={`Ta bort ${name}`} disabled={disabled} />
     </li>
   );
 }
+
+/** Whether Pontus has asked for less motion: a marker's row then jumps into view. */
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+const noIds: ReadonlySet<string> = new Set();

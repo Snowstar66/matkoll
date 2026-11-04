@@ -1,7 +1,8 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { cx } from "@/components/cx";
+import { ExpandIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import type { Location } from "@/features/catalog";
 import type { ImageSize } from "@/lib/images";
@@ -12,6 +13,7 @@ import {
   analyzedPhotoNoteText,
   analyzedPhotoOpenText,
   analyzedPhotoTitle,
+  markerLabel,
 } from "../domain/pantry-suggestion";
 import { photoNumberText, type PhotoMarker } from "../domain/photo-numbers";
 import type { ReviewPhoto } from "./use-pantry-analysis";
@@ -32,55 +34,229 @@ import type { ReviewPhoto } from "./use-pantry-analysis";
 // none: at 72 px they cannot be read. A photo that cannot be shown takes the
 // numbers with it (onPhotoError). Kylfoto B: the points come with the
 // reading, from every model, so the numbers are there with the cards.
+//
+// Kylfoto D: the thumbnail is gone. The photo sits on top of the review
+// (ReviewPhotoPanel) with the rows' numbers as buttons, and the sheet Rätta
+// shows the photo around its item (PhotoCrop). The sheet below is the photo
+// full screen.
 
-export type AnalyzedPhotoButtonProps = {
+/** Kylfoto D: a marker on the review photo, with the row's name and how its row stands. */
+export type ReviewMarker = PhotoMarker & {
+  /** The row's catalog name, for the button's name: "Vara 3: Grädde". */
+  name: string;
+  /** Ticked (accent), not ticked (dark grey), or unsure and not ticked (warm). */
+  tone: "on" | "off" | "unsure";
+};
+
+export type ReviewPhotoProps = {
   photo: ReviewPhoto;
   /** The place the photo shows. */
   location: Location;
+  /** The rows' numbers on the photo; none before they have come. */
+  markers: readonly ReviewMarker[];
+  /** The number lit up, on the photo and in the list, or `null`. */
+  selected: number | null;
+  /** A tap on a marker. */
+  onSelectMarker: (number: number) => void;
+  /** A tap on the photo: it opens full screen. */
   onOpen: () => void;
   /** Story 6.6: the photo cannot be shown, so its numbers go. */
   onPhotoError?: () => void;
 };
 
-/** The thumbnail that opens the photo; a short text instead when it cannot be shown. */
-export function AnalyzedPhotoButton({ photo, location, onOpen, onPhotoError }: AnalyzedPhotoButtonProps) {
+/** The photo's height at the top of the review, and once the list has scrolled under it (decision 11). */
+const reviewPhotoHeight = { full: 330, mini: 200 };
+
+/**
+ * Kylfoto D: the photo on top of the review, with the rows' numbers on it.
+ * It sticks to the top while the list scrolls, and shrinks from 330 to 200
+ * px once it does, so the numbers always show. A tap on the photo opens it
+ * full screen (AnalyzedPhotoSheet); a tap on a marker lights up its row. The
+ * markers are buttons ("Vara 3: Grädde"); the lit one is larger with a ring,
+ * and the others fade. The photo sits in its own proportions in the middle of
+ * a dark box, and the markers in percent of it, once it is decoded. A photo
+ * that cannot be shown says so instead.
+ */
+export function ReviewPhotoPanel({
+  photo,
+  location,
+  markers,
+  selected,
+  onSelectMarker,
+  onOpen,
+  onPhotoError,
+}: ReviewPhotoProps) {
   // Per URL, so the next photo gets its own try.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [decoded, setDecoded] = useState<{ url: string; size: ImageSize } | null>(null);
+  const [mini, setMini] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Shrinks once the panel sticks (the line above it has scrolled past where it sticks, under the page's slim bar on
+  // a phone), and grows back when it is in its place again.
+  useEffect(() => {
+    const update = () => {
+      const top = sentinelRef.current?.getBoundingClientRect().top;
+      if (top === undefined || !panelRef.current) return;
+      const sticksAt = Number.parseFloat(getComputedStyle(panelRef.current).top) || 0;
+      setMini((was) => (was ? top < sticksAt : top < sticksAt - 24));
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
   if (failedUrl === photo.url) return <p className="text-meta text-ink-2">{analyzedPhotoErrorText}</p>;
   const title = analyzedPhotoTitle(location);
+  const decodedSize = decoded?.url === photo.url ? decoded.size : null;
+  const size = decodedSize ?? photo.size ?? null;
+  const height = mini ? reviewPhotoHeight.mini : reviewPhotoHeight.full;
   return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      // The visible text, in order, so a voice command with what is shown works too.
-      aria-label={`${title}, ${analyzedPhotoOpenText.toLowerCase()}`}
-      data-testid="pantry-analyzed-photo"
-      onClick={(event) => {
-        // Safari does not focus a tapped button: the sheet gives focus back to what had it when it opened.
-        event.currentTarget.focus();
-        onOpen();
+    <>
+      {/* Takes no room: the section's gap stays as it was. */}
+      <div ref={sentinelRef} aria-hidden="true" className="-mb-3" />
+      <div
+        ref={panelRef}
+        data-testid="pantry-review-photo"
+        data-mini={mini || undefined}
+        // Under the page's slim bar on a phone (CollapsingTitleRow, 52 px), at the top on a desktop; above the rows' tick boxes.
+        className="sticky top-[calc(52px+env(safe-area-inset-top))] z-20 -mx-page bg-bg px-page pt-1 pb-1 desktop:top-0 desktop:mx-0 desktop:px-0 desktop:pt-2"
+      >
+        <div
+          style={{ height }}
+          className="relative flex items-center justify-center overflow-hidden rounded-[16px] bg-photo-stage transition-[height] duration-[260ms] ease-[cubic-bezier(.22,.8,.24,1)] motion-reduce:transition-none"
+        >
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            // The visible text, in order, so a voice command with what is shown works too.
+            aria-label={`${title}, ${analyzedPhotoOpenText.toLowerCase()}`}
+            data-testid="pantry-analyzed-photo"
+            onClick={(event) => {
+              // Safari does not focus a tapped button: the sheet gives focus back to what had it when it opened.
+              event.currentTarget.focus();
+              onOpen();
+            }}
+            className="absolute inset-0 cursor-zoom-in -outline-offset-2"
+          />
+          <div
+            style={
+              size
+                ? {
+                    aspectRatio: `${size.width} / ${size.height}`,
+                    width: `min(100%, ${(height * size.width) / size.height}px)`,
+                  }
+                : { height: "100%" }
+            }
+            className="pointer-events-none relative transition-[width] duration-[260ms] ease-[cubic-bezier(.22,.8,.24,1)] motion-reduce:transition-none"
+          >
+            {/* A plain <img>: an object URL in this browser, which next/image cannot optimise. The button names it. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo.url}
+              alt=""
+              width={size?.width}
+              height={size?.height}
+              draggable={false}
+              onLoad={(event) => {
+                const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
+                if (width > 0 && height > 0) setDecoded({ url: photo.url, size: { width, height } });
+              }}
+              onError={() => {
+                setFailedUrl(photo.url);
+                onPhotoError?.();
+              }}
+              className={cx("block max-w-none object-contain", size ? "size-full" : "h-full w-auto")}
+            />
+            {decodedSize
+              ? markers.map((marker) => {
+                  const lit = selected === marker.label;
+                  return (
+                    <button
+                      key={marker.key}
+                      type="button"
+                      aria-label={markerLabel(marker.label, marker.name)}
+                      aria-pressed={lit}
+                      data-testid="pantry-review-marker"
+                      data-tone={marker.tone}
+                      onClick={() => onSelectMarker(marker.label)}
+                      style={{
+                        left: `clamp(${markerInset}, ${marker.left}%, calc(100% - ${markerInset}))`,
+                        top: `clamp(${markerInset}, ${marker.top}%, calc(100% - ${markerInset}))`,
+                      }}
+                      className={cx(
+                        reviewMarkerClasses(marker.tone),
+                        "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 transition-[scale,opacity,box-shadow] duration-200 motion-reduce:transition-none",
+                        // A 44 px tap area around the 22 px marker.
+                        "before:absolute before:-inset-[11px] before:content-['']",
+                        lit
+                          ? "z-20 scale-140 shadow-(--marker-lit)"
+                          : "z-10",
+                        selected !== null && !lit && "opacity-35",
+                      )}
+                    >
+                      {marker.label}
+                    </button>
+                  );
+                })
+              : null}
+          </div>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-2.5 right-2.5 z-20 flex size-[34px] items-center justify-center rounded-full bg-photo-chip text-photo-mark backdrop-blur-md"
+          >
+            <ExpandIcon size={18} />
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export type PhotoCropProps = {
+  /** The photo's URL. */
+  url: string;
+  /** The item's point, in thousandths of the photo's width and height. */
+  x: number;
+  y: number;
+  /** The row's number, on the marker. */
+  number: number;
+};
+
+/**
+ * Kylfoto D: at the top of the sheet Rätta, the photo around the item's
+ * point, 2.5 times enlarged, with its marker on it, so what the AI means
+ * shows without leaving the sheet. The photo is a background placed at the
+ * point's own percentages, which keeps it inside the box at the edges and
+ * puts the point at the same percentages of the box: the marker goes there.
+ * Only for the eye; the sheet's title names the item.
+ */
+export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
+  const left = x / 10;
+  const top = y / 10;
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="pantry-sheet-crop"
+      style={{
+        backgroundImage: `url("${url}")`,
+        backgroundSize: "250% auto",
+        backgroundPosition: `${left}% ${top}%`,
+        backgroundRepeat: "no-repeat",
       }}
-      className="flex max-w-full min-w-0 items-center gap-[14px] self-start rounded-lg bg-surface p-3 text-left"
+      className="relative h-[120px] shrink-0 overflow-hidden rounded-[14px] bg-photo-stage"
     >
-      {/* A plain <img>: an object URL in this browser, which next/image cannot optimise. The label names the button. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={photo.url}
-        alt=""
-        width={photo.size?.width}
-        height={photo.size?.height}
-        draggable={false}
-        onError={() => {
-          setFailedUrl(photo.url);
-          onPhotoError?.();
+      <span
+        style={{
+          left: `clamp(${markerInset}, ${left}%, calc(100% - ${markerInset}))`,
+          top: `clamp(${markerInset}, ${top}%, calc(100% - ${markerInset}))`,
         }}
-        className="size-thumb shrink-0 rounded-md object-cover"
-      />
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-row-title break-words text-ink">{title}</span>
-        <span className="text-meta text-accent">{analyzedPhotoOpenText}</span>
+        className={cx(reviewMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
+      >
+        {number}
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -95,6 +271,21 @@ const numberClasses = "inline-flex shrink-0 items-center justify-center rounded-
 /** A card's number, 20 px; Story 10.2's list of the reading has the same. */
 export const badgeClasses = cx(numberClasses, "min-h-5 min-w-5 border border-border px-1 text-ink-2");
 const markerClasses = cx(numberClasses, "min-h-6 min-w-6 bg-accent px-1 py-0.5 text-on-accent");
+
+/**
+ * Kylfoto D: a marker on the review photo and in the sheet's crop: 22 px,
+ * filled, with a white edge (dark in dark mode) and a shadow; accent when
+ * its row is ticked, dark grey when not, warm when unsure and not ticked.
+ */
+function reviewMarkerClasses(tone: ReviewMarker["tone"]) {
+  return cx(
+    numberClasses,
+    "min-h-[22px] min-w-[22px] border-2 border-marker-edge px-[5px] text-[12px] font-semibold shadow-(--marker-shadow)",
+    tone === "on" && "bg-accent text-on-accent",
+    tone === "off" && "bg-marker-off text-photo-mark",
+    tone === "unsure" && "bg-warm text-on-warm",
+  );
+}
 /** Half a marker and its border, at 200 % text: a marker is kept this far inside the photo's edges. */
 const markerInset = "14px";
 

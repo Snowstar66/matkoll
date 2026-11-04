@@ -102,12 +102,13 @@ const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: tr
 /** The visible rows' names, in the list's order. */
 const rowNames = (page: Page) => rows(page).evaluateAll((targets) => targets.map((target) => target.firstElementChild?.textContent));
 const toast = (page: Page) => page.getByTestId("toast");
-/** The cards' names under a group heading ("Nytt", "Ändrat", "Syns inte längre"). */
-const group = (page: Page, title: string) =>
-  section(page)
-    .locator("div")
-    .filter({ has: page.getByRole("heading", { level: 3, name: title, exact: true }) })
-    .getByRole("heading", { level: 4 });
+/** Kylfoto D: the names under the folded "Syns inte längre", shown or not. */
+const missingNames = (page: Page) => section(page).getByTestId("pantry-missing").locator("h4");
+/** Kylfoto D: unfolds "Syns inte längre (N)". */
+async function openMissing(page: Page) {
+  const toggle = section(page).getByTestId("pantry-missing-toggle");
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+}
 
 async function photograph(page: Page, button: string) {
   const chooser = page.waitForEvent("filechooser");
@@ -136,16 +137,19 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
     "finns redan 2 förp",
   );
   await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("3 nya · 1 uppdateras");
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
+  // Kylfoto D: one folded row; unfolded, each item has an empty tick box (nothing goes without a tick).
+  const toggle = section(page).getByRole("button", { name: "Syns inte längre (2)" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(section(page).getByTestId("pantry-missing").first()).toBeHidden();
+  await toggle.click();
+  await expect(missingNames(page)).toHaveText(["Senap", "Yoghurt"]);
   const missing = section(page).getByTestId("pantry-missing");
   await expect(missing.filter({ hasText: "Senap" })).toContainText("I kylen nu: finns hemma");
   await expect(missing.filter({ hasText: "Yoghurt" })).toContainText("I kylen nu: 2 förp");
   for (const name of ["Senap", "Yoghurt"]) {
-    for (const verb of ["Ta bort", "Behåll"]) {
-      const button = section(page).getByRole("button", { name: `${verb} ${name}`, exact: true });
-      await expect(button).toBeVisible();
-      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    }
+    const box = section(page).getByRole("checkbox", { name: `Ta bort ${name}`, exact: true });
+    await expect(box).toHaveAttribute("aria-checked", "false");
+    expect((await box.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   // No cards for smör and ägg, which match the fridge.
   await expect(section(page).getByRole("heading", { name: "Smör" })).toHaveCount(0);
@@ -154,19 +158,7 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
   expect(errors).toEqual([]);
 });
 
-test("Behåll takes a card out without writing, and Ångra puts it back", async ({ page }) => {
-  const before = await pantry();
-  await photographFridge(page);
-  await section(page).getByRole("button", { name: "Behåll Senap" }).click();
-  await expect(toast(page)).toContainText("Senap står kvar i kylen.");
-  await expect(group(page, "Syns inte längre")).toHaveText(["Yoghurt"]);
-  await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
-  await expect(section(page).getByRole("button", { name: "Ta bort Senap" })).toBeFocused();
-  expect(await pantry()).toEqual(before);
-});
-
-test("Lägg till adds and changes the ticked rows in one go, and Syns inte längre stays for its own Ta bort", async ({
+test("Lägg till adds and changes the ticked rows in one go, and leaves Syns inte längre that is not ticked", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -177,7 +169,7 @@ test("Lägg till adds and changes the ticked rows in one go, and Syns inte läng
   await section(page).getByRole("button", { name: "Lägg till 4 varor" }).click();
   await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya och 1 ändrad.");
   await expect(section(page).getByTestId("pantry-suggestion")).toHaveCount(0);
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
+  await expect(missingNames(page)).toHaveText(["Senap", "Yoghurt"]);
   await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
   await expect
     .poll(() => rowNames(page))
@@ -199,22 +191,25 @@ test("Lägg till adds and changes the ticked rows in one go, and Syns inte läng
   expect(errors).toEqual([]);
 });
 
-test("Ta bort removes one item at once, and Ångra puts the row back with the same id", async ({ page }) => {
+test("a ticked Syns inte längre item goes with Lägg till, and Ångra borttagning puts the row back with the same id", async ({
+  page,
+}) => {
   const errors = watchErrors(page);
   const yoghurt = (await pantry()).find((row) => row.name === "Yoghurt")!;
   await photographFridge(page);
 
-  await section(page).getByRole("button", { name: "Ta bort Yoghurt" }).click();
-  await expect(toast(page)).toContainText("Tog bort Yoghurt.");
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*4 varor(\s?Förslag klara)?$/);
+  await openMissing(page);
+  await section(page).getByRole("checkbox", { name: "Ta bort Yoghurt", exact: true }).click();
+  await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("3 nya · 1 uppdateras · 1 tas bort");
+  await section(page).getByRole("button", { name: "Lägg till 4 · ta bort 1" }).click();
+  await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya, 1 ändrad och 1 borttagen.");
+  await expect(missingNames(page)).toHaveText(["Senap"]);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*7 varor(\s?Förslag klara)?$/);
   expect((await pantry()).some((row) => row.name === "Yoghurt")).toBe(false);
 
-  await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*5 varor(\s?Förslag klara)?$/);
+  await toast(page).getByRole("button", { name: "Ångra borttagning" }).click();
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
   await expect(rows(page).filter({ hasText: /^Yoghurt(?:\s|$)/ })).toHaveCount(1);
-  // The card is back too, while the suggestions are the same.
-  await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
   await expect.poll(async () => (await pantry()).find((row) => row.name === "Yoghurt")).toEqual(yoghurt);
   expect(errors).toEqual([]);
 });

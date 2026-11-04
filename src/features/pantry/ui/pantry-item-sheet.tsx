@@ -54,6 +54,7 @@ import {
 } from "../domain/pantry-item-form";
 import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
+import { PhotoCrop, type PhotoCropProps } from "./analyzed-photo";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
 import { useSiteSwitching } from "./site-switching";
@@ -85,7 +86,14 @@ export type PantrySheetTarget =
  * Hemma showed when it opened for a photo without one). The sheet's
  * "Bekräfta" saves on the photo's place (confirmCorrected).
  */
-export type SuggestionTarget = { kind: "suggestion"; suggestion: PantrySuggestion; generation: number; siteId: string };
+export type SuggestionTarget = {
+  kind: "suggestion";
+  suggestion: PantrySuggestion;
+  generation: number;
+  siteId: string;
+  /** Kylfoto D: the photo around the row's item, at the top of the sheet; none without a number. */
+  crop?: PhotoCropProps;
+};
 
 /** What the sheet does for a lagerförslag, from PantrySuggestionsProvider. */
 export type SuggestionReview = {
@@ -540,6 +548,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         />
       ) : (
         <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
+          {target.kind === "suggestion" && target.crop ? <PhotoCrop {...target.crop} /> : null}
           <div className="-mt-3 flex flex-col gap-1.5">
             <p className="flex min-h-tap flex-wrap items-center gap-x-1.5 text-meta text-ink-2">
               Fel vara?
@@ -678,8 +687,8 @@ type PantrySheetApi = {
   openNew: () => void;
   /** Opens the sheet for an item in the pantry. */
   openItem: (item: PantryItem) => void;
-  /** Rätta: opens the sheet for a lagerförslag, filled in from it. */
-  openSuggestion: (suggestion: PantrySuggestion) => void;
+  /** Rätta: opens the sheet for a lagerförslag, filled in from it, with the photo around its item when given (Kylfoto D). */
+  openSuggestion: (suggestion: PantrySuggestion, crop?: PhotoCropProps) => void;
   /** How many times an item has been saved from the sheet; Matvaror's search empties when it grows. */
   saves: number;
 };
@@ -731,11 +740,11 @@ export function PantrySheetProvider({
     openNew: () => openWith({ kind: "new", location, siteId: site.id }),
     openItem: (item) => openWith({ kind: "edit", item }),
     // A suggestion keeps its photo's place (Story 8.4), which confirmCorrected sends.
-    openSuggestion: (suggestion) => {
+    openSuggestion: (suggestion, crop) => {
       const current = generation();
       const photo = latestResult(current);
       const photoSite = photo ? photoSiteId(photo) : null;
-      openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id });
+      openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id, crop });
     },
     saves,
   };

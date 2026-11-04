@@ -263,6 +263,15 @@ export function ChevronRightIcon(props: IconProps) {
   );
 }
 
+/** Two corners pointing out: a photo opens full screen (Kylfoto D). */
+export function ExpandIcon(props: IconProps) {
+  return (
+    <Icon strokeWidth={2} {...props}>
+      <path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5" />
+    </Icon>
+  );
+}
+
 /** A price tag: Erbjudanden in Inköpslista's header. */
 export function TagIcon(props: IconProps) {
   return (
