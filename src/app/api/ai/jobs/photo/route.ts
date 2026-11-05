@@ -122,11 +122,15 @@ export async function POST(request: Request): Promise<Response> {
       bytes: image.data.byteLength,
     };
     after(() =>
-      runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
+      runAiJob(db, job, { startBy }, async (signal, deadline, report): Promise<Result<Json>> => {
         const queueMs = Date.now() - formReadAt;
         const timings: ReadPhotoTimings = {};
         // Kylfoto B: the points on the photo come with the reading, so the cards and their numbers come together.
-        const read = await readPhoto({ image, location, site: photoSite }, { signal, deadline, timings });
+        // Kylfoto C: with a model that streams, the reading as far as it has come is reported about once a second.
+        const read = await readPhoto(
+          { image, location, site: photoSite },
+          { signal, deadline, timings, report: (partial) => report(asJson(partial)) },
+        );
         const steps = { ...timing, queueMs, ...timings };
         logAnalyzeTiming({ ...steps, totalMs: Date.now() - requestStartedAt, outcome: read.ok ? "ok" : read.error.code });
         if (!read.ok) return read;

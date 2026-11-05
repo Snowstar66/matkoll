@@ -1,5 +1,6 @@
 // Helpers for the AI port's tests: a fake model (MockLanguageModelV4) and a
 // fake LM Studio server behind a fetch function. Never imported by the app.
+import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import type { AiRecipe, CompactDish } from "./schemas";
 
@@ -92,6 +93,45 @@ export function fakeModel(...answers: string[]) {
   let call = 0;
   return new MockLanguageModelV4({
     doGenerate: async () => textAnswer(answers[Math.min(call++, answers.length - 1)]),
+  });
+}
+
+/**
+ * Kylfoto C: a model that streams its answers: each answer is written in the
+ * given pieces (the text is their concatenation), the last answer repeating.
+ * `calls` are the answers asked for so far, `onPiece` is called as each piece
+ * is handed out, so a test can look at what has been read by then.
+ */
+export function streamingModel(answers: string[][], onPiece?: (answer: number, piece: number) => void) {
+  let call = 0;
+  return new MockLanguageModelV4({
+    doStream: async () => {
+      const index = Math.min(call++, answers.length - 1);
+      const pieces = answers[index];
+      const chunks = [
+        { type: "text-start" as const, id: "t" },
+        ...pieces.map((delta) => ({ type: "text-delta" as const, id: "t", delta })),
+        { type: "text-end" as const, id: "t" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: "stop" },
+          usage: {
+            inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 20, text: 20, reasoning: undefined },
+          },
+        },
+      ];
+      let handed = 0;
+      const stream = simulateReadableStream({ chunks }).pipeThrough(
+        new TransformStream({
+          transform(chunk: { type: string }, controller) {
+            if (chunk.type === "text-delta") onPiece?.(index, handed++);
+            controller.enqueue(chunk);
+          },
+        }),
+      );
+      return { stream: stream as never };
+    },
   });
 }
 

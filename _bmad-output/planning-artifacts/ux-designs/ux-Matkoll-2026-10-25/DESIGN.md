@@ -517,6 +517,14 @@ Från Epic 9 (veckans erbjudanden):
 - **Veckans erbjudanden** byggs bara av befintliga komponenter: Ark, Kategorirubrik, Listgrupp, Listrad, Soptunna, Meddelanderuta, kort bekräftelse, primärknapp och textknappar. Inga nya tokens utöver `offer-chip` och, från Story 9.15, `deal` och `hot`.
 - **Erbjudanderad** (`offer-row`, Story 9.12, lugnad i Story 16.6): en Listrad lika hög som en vanlig listrad, sidorna lodrätt centrerade, avstånd i 4/8 px. Till vänster en kryssruta (Krysscirkel, 44 px) med namnet "Aubergine, 12 kr per st, spara 20 %". Rad ett är produktnamnet rensat från märke och ursprungsland; metaraden under är liten och `{colors.ink-3}` med, i ordning: "🔥 Toppklipp" (från 30 %, en liten mjukt tonad etikett: `{colors.hot}` som text på `{colors.hot}` i 12 % täckning, 🔥 som aria-dold text), "På listan", butiksetiketten (se ovan, bara vid flera butiker), landet och märket, Stammis, villkor och sista dag. Till höger högst två rader: priset ("15 kr/kg", "2 för 25 kr") i fet `{colors.ink}` utan bakgrund, och under det i liten `{colors.ink-3}` det ordinarie priset genomstruket följt av rabatten "−50 %" som text i `{colors.deal-ink}` (ingen bricka). Inga heldragna färgblock på raden; varm färg finns bara i Toppklipp-etiketten, rabatttexten och butikspricken. Överst i listan står "Veckans fynd" med antalet Toppklipp. Allt som saknas (pris, ordinarie pris, rabatt) utelämnas. Raden håller 375 px utan sidscroll. Kontrast: `deal-ink` och `hot` mot `surface`, och `hot` mot sin 12 %-tona, är minst 4,5:1; prickarna minst 3:1 (`tests/design/contrast.test.ts`).
 
+### Knappar: stäng, ta bort, lägg till
+
+- Ark stängs med textknappen "Klar" eller "Avbryt", aldrig med ✕.
+- ✕ används bara till att tömma ett fält (tunn, i sökfältet) och till att ta bort något från ett foto (rund bricka på miniatyren).
+- Borttagning av en rad görs med Soptunna (`TrashButton`). På långa listor kan svep läggas till som komplement; ett befintligt svep tas inte bort.
+- Lägg till: "+" i sidhuvudet på huvudsidorna; primärknapp i tomma lägen; textknapp "Lägg till X" när den öppnar ett ark i Inställningar; primärknapp "Lägg till" bredvid ett inmatningsfält. Inköpslistans flytande knapp är det enda undantaget (enhandsgrepp i butiken).
+- Destruktiva val i ark: en textknapp i `{colors.danger}` över hela bredden, "Ta bort …".
+
 ## Do's and Don'ts
 
 | Gör | Gör inte |

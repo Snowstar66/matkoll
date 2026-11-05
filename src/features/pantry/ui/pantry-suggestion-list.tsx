@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
-import { ChevronRightIcon } from "@/components/icons";
+import { ChevronRightIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { catalogName } from "@/features/catalog";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
@@ -34,11 +34,13 @@ import {
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
+import { maxPantryAmount } from "../domain/pantry-item-form";
 import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, rowNumber, type PhotoPoint } from "../domain/photo-numbers";
 import {
   AnalyzedPhotoSheet,
   PhotoNumberBadge,
   PhotoNumberText,
+  isDesktop,
   type PhotoCropProps,
   type ReviewMarker,
   ReviewPhotoPanel,
@@ -184,6 +186,14 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     generation: resultGeneration,
     ids: new Set(),
   });
+  // Kylfoto D: amounts set with a row's − / +, for one generation of suggestions, and the row whose amount is open.
+  const [amountEdits, setAmountEdits] = useState<{ generation: number; amounts: ReadonlyMap<string, number> }>({
+    generation: resultGeneration,
+    amounts: new Map(),
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // Kylfoto D, desktop: the number of the row the mouse is over, lit on the photo.
+  const [hoveredNumber, setHoveredNumber] = useState<number | null>(null);
   const [missingOpen, setMissingOpen] = useState(false);
   const missingListId = useId();
   // Kylfoto D: the number lit up on the photo and in the list, for one photo.
@@ -195,6 +205,17 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   /** Said politely when a marker lights up its row. */
   const [selectedNote, setSelectedNote] = useState("");
   const rowElements = useRef(new Map<number, HTMLLIElement>());
+
+  // A tap or click outside the open amount closes it (Escape does too, in the row).
+  useEffect(() => {
+    if (editingId === null) return;
+    const close = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest("[data-amount-editor]")) return;
+      setEditingId(null);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [editingId]);
 
   // The photo's sheet has closed and given focus back: a focus move that waited for it happens now.
   useEffect(() => {
@@ -276,6 +297,18 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const isTicked = (suggestion: PantrySuggestion) =>
     !invalidIds.has(suggestion.id) && (ticks.get(suggestion.id) ?? isBulkConfirmable(suggestion));
   const ticked = rows.filter(isTicked);
+  const amountOverrides = amountEdits.generation === resultGeneration ? amountEdits.amounts : noAmounts;
+  /** The suggestion as shown: with the amount Pontus set on its row, if any. */
+  const withAmount = (suggestion: PantrySuggestion): PantrySuggestion => {
+    const amount = amountOverrides.get(suggestion.id);
+    return amount === undefined ? suggestion : { ...suggestion, amount };
+  };
+  const setAmount = (id: string, amount: number) =>
+    setAmountEdits((before) => {
+      const amounts = new Map(before.generation === resultGeneration ? before.amounts : []);
+      amounts.set(id, amount);
+      return { generation: resultGeneration, amounts };
+    });
   const updated = ticked.filter((suggestion) => suggestion.current).length;
   const removalIds = removals.generation === resultGeneration ? removals.ids : noIds;
   const removing = compared ? missing.filter((item) => removalIds.has(item.id)) : [];
@@ -328,7 +361,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
       const point = points.get(number);
       if (point) crop = { url: onPhoto.url, x: point.x, y: point.y, number };
     }
-    openSuggestion(suggestion, crop);
+    openSuggestion(withAmount(suggestion), crop);
   };
   // Kylfoto: "Förkasta inläsningen": the whole reading goes, nothing applied; "Ångra" in the toast brings it back.
   const discardReading = () => {
@@ -336,6 +369,21 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
     if (!undo) return;
     cameraButtonRef.current?.focus();
     showToast(discardedReadingText, { onUndo: () => void undo() });
+  };
+  // Kylfoto D, desktop: arrow keys move between the rows, Space ticks the focused row's box.
+  const rowKeyDown = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    if (!isDesktop() || !(event.target instanceof HTMLElement) || !event.target.matches("[data-row-button]")) return;
+    if (event.key === " ") {
+      event.preventDefault();
+      event.target.closest("li")?.querySelector<HTMLButtonElement>('[role="checkbox"]:not(:disabled)')?.click();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[data-row-button]:not(:disabled)")];
+    const next = buttons[buttons.indexOf(event.target as HTMLButtonElement) + (event.key === "ArrowDown" ? 1 : -1)];
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
   };
   // "Fota igen": the camera's own file input (the camera on a phone, else the picker).
   const retake = () => cameraAreaRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
@@ -352,6 +400,10 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
         </p>
         {/* Story 12.5: the cards came without the photo (after a reload): nothing to compare with, and no latest photo is saved. */}
         {photoGone ? <p className="text-meta text-ink-2">{analyzedPhotoGoneText}</p> : null}
+        {/* Kylfoto D, desktop: two columns, the photo (sticking) on the left and the list on the right; on a phone the
+            wrappers take no part and everything stacks as before. */}
+        <div className="contents desktop:grid desktop:grid-cols-[480px_minmax(0,1fr)] desktop:items-stretch desktop:gap-x-8">
+        <div className="contents desktop:flex desktop:flex-col desktop:gap-3">
         {shownPhoto ? (
           <ReviewPhotoPanel
             photo={shownPhoto}
@@ -361,6 +413,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
             markers={reviewMarkers}
             selected={selected}
             onSelectMarker={selectMarker}
+            hovered={hoveredNumber}
             onOpen={() => setOpenPhotoUrl(shownPhoto.url)}
             onPhotoError={() => dropPhotoNumbers(shownPhoto.url)}
           />
@@ -382,6 +435,8 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
           data-testid="pantry-photo-numbers-status"
           className={cx("text-meta text-ink-2 empty:-mt-3", numbers?.kind === "pending" && "sr-only")}
         />
+        </div>
+        <div className="contents desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3">
         {compared && unchanged > 0 ? <p className="text-body text-ink-2">{unchangedCountText(unchanged)}</p> : null}
         {result.inventory.kind === "unread" ? (
           <p className="text-body text-ink-2">
@@ -389,11 +444,18 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
           </p>
         ) : null}
         {rows.length > 0 ? (
-          <ul className="flex flex-col overflow-hidden rounded-lg bg-surface">
+          <ul onKeyDown={rowKeyDown} className="flex flex-col overflow-hidden rounded-lg bg-surface motion-safe:animate-row-in">
             {rows.map((suggestion) => (
               <SuggestionRow
                 key={suggestion.id}
-                suggestion={suggestion}
+                suggestion={withAmount(suggestion)}
+                editing={editingId === suggestion.id}
+                onEditing={(open) => setEditingId(open ? suggestion.id : null)}
+                onAmount={(amount) => setAmount(suggestion.id, amount)}
+                onHover={(on) => {
+                  const number = cardNumber(suggestion, points);
+                  setHoveredNumber(on ? number : null);
+                }}
                 selected={selected !== null && cardNumber(suggestion, points) === selected}
                 itemRef={(element) => {
                   const number = cardNumber(suggestion, points);
@@ -461,7 +523,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
               onClick={() =>
                 confirm(
                   ticked.map((suggestion) => suggestion.id),
-                  { all: true, remove: removing.map((item) => item.id) },
+                  { all: true, remove: removing.map((item) => item.id), amounts: amountOverrides },
                 )
               }
             >
@@ -479,6 +541,8 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
             </Button>
           </div>
         ) : null}
+        </div>
+        </div>
       </section>
       {photoSheet}
     </>
@@ -490,6 +554,13 @@ type RowPhotoNumber = { number: number; pointed: boolean } | "pending" | null;
 
 type SuggestionRowProps = {
   suggestion: PantrySuggestion;
+  /** Kylfoto D: the amount is open as − / +. */
+  editing: boolean;
+  onEditing: (open: boolean) => void;
+  /** The new amount, from − / +. */
+  onAmount: (amount: number) => void;
+  /** The mouse enters or leaves the row (desktop): its number lights up on the photo. */
+  onHover: (on: boolean) => void;
   /** Kylfoto D: its marker is lit on the photo: a soft mint background. */
   selected: boolean;
   /** Kylfoto D: the row's element, so a marker's tap can scroll it into view. */
@@ -514,6 +585,10 @@ type SuggestionRowProps = {
  */
 function SuggestionRow({
   suggestion,
+  editing,
+  onEditing,
+  onAmount,
+  onHover,
   selected,
   itemRef,
   disabled,
@@ -533,14 +608,17 @@ function SuggestionRow({
       ref={itemRef}
       data-testid="pantry-suggestion"
       data-selected={selected || undefined}
+      onPointerEnter={(event) => event.pointerType === "mouse" && onHover(true)}
+      onPointerLeave={(event) => event.pointerType === "mouse" && onHover(false)}
       // Kept clear of the slim bar and the photo that stick above the list, and of the tab bar, when scrolled into view.
       className={cx(
-        "relative flex min-h-[60px] scroll-mt-[calc(272px+env(safe-area-inset-top))] scroll-mb-[calc(var(--tab-bar-height)+16px)] items-center gap-3 border-t border-hairline py-2 pr-1 pl-4 transition-colors duration-200 first:border-t-0 motion-reduce:transition-none desktop:scroll-mt-[224px] desktop:scroll-mb-4",
+        "relative flex min-h-[60px] scroll-mt-[calc(272px+env(safe-area-inset-top))] scroll-mb-[calc(var(--tab-bar-height)+16px)] items-center gap-3 border-t border-hairline py-2 pr-1 pl-4 transition-colors duration-200 first:border-t-0 motion-reduce:transition-none desktop:scroll-mt-4 desktop:scroll-mb-4",
         selected && "bg-mint/60",
       )}
     >
       <button
         ref={rowRef}
+        data-row-button=""
         type="button"
         disabled={disabled}
         onClick={onCorrect}
@@ -574,9 +652,21 @@ function SuggestionRow({
         <p className="text-meta break-words text-ink-2">{line}</p>
         {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}
       </div>
-      <span className={cx("shrink-0 text-meta", ticked ? "text-ink-2" : "text-ink-3")}>
-        {saving ? "Sparar …" : suggestionAmountText(suggestion)}
-      </span>
+      {saving || disabled || suggestion.amount === null ? (
+        <span className={cx("shrink-0 text-meta", ticked ? "text-ink-2" : "text-ink-3")}>
+          {saving ? "Sparar …" : suggestionAmountText(suggestion)}
+        </span>
+      ) : (
+        <AmountControl
+          name={name}
+          suggestion={suggestion}
+          amount={suggestion.amount}
+          ticked={ticked}
+          editing={editing}
+          onEditing={onEditing}
+          onAmount={onAmount}
+        />
+      )}
       <Checkbox
         checked={ticked}
         onCheckedChange={onTick}
@@ -585,6 +675,95 @@ function SuggestionRow({
         className="relative z-10"
       />
     </li>
+  );
+}
+
+/** How much − / + changes the amount. */
+const amountStep = 1;
+
+type AmountControlProps = {
+  name: string;
+  suggestion: PantrySuggestion;
+  amount: number;
+  ticked: boolean;
+  editing: boolean;
+  onEditing: (open: boolean) => void;
+  onAmount: (amount: number) => void;
+};
+
+/**
+ * Kylfoto D: a row's amount ("1 förp"); a tap on it turns it into `− 6 st +` in the row (32 px buttons, in a 44 px
+ * tap area). A tap outside, or Escape, closes it (the list closes it on a tap outside). The row's own button stays
+ * under it, so a tap elsewhere on the row still opens Rätta.
+ */
+function AmountControl({ name, suggestion, amount, ticked, editing, onEditing, onAmount }: AmountControlProps) {
+  const text = suggestionAmountText(suggestion);
+  const openRef = useRef<HTMLButtonElement>(null);
+  const minusRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(editing);
+  // Open: focus goes to the first button; closed by Escape: back to the amount.
+  const escaped = useRef(false);
+  useEffect(() => {
+    if (editing && !wasEditing.current) minusRef.current?.focus();
+    if (!editing && wasEditing.current && escaped.current) openRef.current?.focus();
+    escaped.current = false;
+    wasEditing.current = editing;
+  }, [editing]);
+  const stepButton =
+    "relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-ink disabled:opacity-40 before:absolute before:-inset-1.5 before:content-['']";
+  if (!editing) {
+    return (
+      <button
+        ref={openRef}
+        type="button"
+        data-testid="pantry-suggestion-amount"
+        aria-label={`Ändra mängd för ${name}, ${text}`}
+        onClick={() => onEditing(true)}
+        className={cx(
+          "relative z-10 flex min-h-tap shrink-0 items-center rounded-md px-1 text-meta underline decoration-dotted underline-offset-4",
+          ticked ? "text-ink-2" : "text-ink-3",
+        )}
+      >
+        {text}
+      </button>
+    );
+  }
+  return (
+    <div
+      role="group"
+      data-amount-editor=""
+      aria-label={`Mängd för ${name}`}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        escaped.current = true;
+        onEditing(false);
+      }}
+      className="relative z-10 flex shrink-0 items-center gap-1.5"
+    >
+      <button
+        ref={minusRef}
+        type="button"
+        aria-label={`Minska mängd för ${name}`}
+        disabled={amount - amountStep <= 0}
+        onClick={() => onAmount(amount - amountStep)}
+        className={stepButton}
+      >
+        <MinusIcon size={16} />
+      </button>
+      <span role="status" data-testid="pantry-suggestion-amount-value" className="min-w-10 text-center text-meta text-ink">
+        {text}
+      </span>
+      <button
+        type="button"
+        aria-label={`Öka mängd för ${name}`}
+        disabled={amount + amountStep >= maxPantryAmount}
+        onClick={() => onAmount(amount + amountStep)}
+        className={stepButton}
+      >
+        <PlusIcon size={16} />
+      </button>
+    </div>
   );
 }
 
@@ -622,3 +801,4 @@ function prefersReducedMotion(): boolean {
 }
 
 const noIds: ReadonlySet<string> = new Set();
+const noAmounts: ReadonlyMap<string, number> = new Map();

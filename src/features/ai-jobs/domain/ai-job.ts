@@ -105,6 +105,11 @@ export function resultCount(kind: AiJobKind, result: unknown): number | null {
   return Array.isArray(list) ? list.length : null;
 }
 
+/** A photo job's reading so far (Kylfoto C): the result of a running job that says it is still being written. */
+function isStreamingResult(result: unknown): boolean {
+  return typeof result === "object" && result !== null && (result as { streaming?: unknown }).streaming === true;
+}
+
 /** The recipe's title in a finished import's result ({ draft: { title } }); null for other jobs and for an odd result. */
 export function resultTitle(kind: AiJobKind, result: unknown): string | null {
   if (kind !== "import" || typeof result !== "object" || result === null) return null;
@@ -140,6 +145,8 @@ export function toAiJobs(rows: readonly AiJobRow[], now: number): AiJob[] {
         ahead: status === "queued" ? (aheadOf.get(row.id) ?? 0) : 0,
         // A running job has a result only when it gave a partial one (Story 12.5: the cards of a photo before its numbers).
         count: status === "done" || (status === "running" && row.kind === "analyze") ? resultCount(row.kind, row.result) : null,
+        // Kylfoto C: a photo job that reports its reading while the model writes it.
+        ...(status === "running" && row.kind === "analyze" && isStreamingResult(row.result) ? { streaming: true } : {}),
         // Only an import has a title; other jobs look as before.
         ...(status === "done" && row.kind === "import" ? { title: resultTitle(row.kind, row.result) } : {}),
       };

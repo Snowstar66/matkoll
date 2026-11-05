@@ -59,22 +59,26 @@ async function openImport(page: Page) {
 }
 
 /**
- * The sheet's status once the import is sent: "Läser receptet …", or "I kö, 1 före." as soon as the
- * page has polled and the job waits behind another (the held queue); a slow runner may only see the latter.
+ * The sheet is reading. The status says "Läser receptet …" until the job is
+ * known to wait behind another one, then "I kö, N före." instead (the job
+ * held in the queue makes that happen within moments, so asserting on either
+ * word raced). "Du kan göra annat under tiden." is there in both states.
  */
-const sent = (page: Page) => sheet(page).getByRole("status").filter({ hasText: /Läser receptet …|I kö, \d+ före\./ }).first();
+async function expectReading(page: Page) {
+  await expect(sheet(page).getByRole("status").getByText("Du kan göra annat under tiden.")).toBeVisible();
+}
 
 async function readText(page: Page, text: string) {
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sent(page)).toBeVisible();
+  await expectReading(page);
 }
 
 async function readLink(page: Page, url: string) {
   await sheet(page).getByLabel("Länk till receptet").fill(url);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sent(page)).toBeVisible();
+  await expectReading(page);
 }
 
 async function closeSheet(page: Page) {

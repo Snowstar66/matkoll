@@ -63,6 +63,8 @@ export type ReviewPhotoProps = {
   selected: number | null;
   /** A tap on a marker. */
   onSelectMarker: (number: number) => void;
+  /** Kylfoto D, desktop: the number of the row the mouse is over; lit on the photo without dimming the others. */
+  hovered?: number | null;
   /** A tap on the photo: it opens full screen. */
   onOpen: () => void;
   /** Story 6.6: the photo cannot be shown, so its numbers go. */
@@ -79,6 +81,28 @@ export function photoOfText(n: number, total: number): string {
 
 /** The photo's height at the top of the review, and once the list has scrolled under it (decision 11). */
 const reviewPhotoHeight = { full: 330, mini: 200 };
+/** Kylfoto D, desktop (two columns): the photo is 480 px wide and up to 640 high, always full, sticking beside the list. */
+const desktopPhotoHeight = 640;
+const desktopQuery = "(min-width: 64rem)";
+
+/** Whether the viewport is as wide as the app's desktop breakpoint (64rem, `desktop:`). */
+export function isDesktop(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(desktopQuery).matches;
+}
+
+/** Follows the desktop breakpoint; false before it is known (the phone layout), so server and client agree. */
+function useDesktop(): boolean {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(desktopQuery);
+    const update = () => setDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
 
 /**
  * Kylfoto D: the photo on top of the review, with the rows' numbers on it.
@@ -98,13 +122,16 @@ export function ReviewPhotoPanel({
   markers,
   selected,
   onSelectMarker,
+  hovered = null,
   onOpen,
   onPhotoError,
 }: ReviewPhotoProps) {
+  const desktop = useDesktop();
   // Per URL, so the next photo gets its own try.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [decoded, setDecoded] = useState<{ url: string; size: ImageSize } | null>(null);
-  const [mini, setMini] = useState(false);
+  const [miniOnPhone, setMini] = useState(false);
+  const mini = miniOnPhone && !desktop;
   const sentinelRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -138,7 +165,11 @@ export function ReviewPhotoPanel({
   const title = analyzedPhotoTitle(location);
   const decodedSize = decoded?.url === photo.url ? decoded.size : null;
   const size = decodedSize ?? photo.size ?? null;
-  const height = mini ? reviewPhotoHeight.mini : reviewPhotoHeight.full;
+  const height = desktop
+    ? Math.min(desktopPhotoHeight, Math.max(320, window.innerHeight - 160))
+    : mini
+      ? reviewPhotoHeight.mini
+      : reviewPhotoHeight.full;
   // The photo's box as shown: as high as the stage, or narrower when the stage is narrower than the photo is wide.
   let shownMarkers: readonly ReviewMarker[] = markers;
   if (decodedSize) {
@@ -205,7 +236,7 @@ export function ReviewPhotoPanel({
             />
             {decodedSize
               ? shownMarkers.map((marker) => {
-                  const lit = selected === marker.label;
+                  const lit = selected === marker.label || hovered === marker.label;
                   return (
                     <button
                       key={marker.key}

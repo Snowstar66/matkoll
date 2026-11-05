@@ -132,6 +132,13 @@ describe("toAiJobs", () => {
     expect(toAiJobs([row({ kind: "analyze", status: "running", result: null })], now)[0].count).toBeNull();
     expect(toAiJobs([{ ...running, status: "done" }], now)[0].count).toBe(2);
   });
+
+  it("marks a running photo job whose reading is still being written as streaming (Kylfoto C), and no other", () => {
+    const streaming = row({ kind: "analyze", status: "running", result: { suggestions: [1], streaming: true } });
+    expect(toAiJobs([streaming], now)[0]).toMatchObject({ count: 1, streaming: true });
+    expect(toAiJobs([{ ...streaming, status: "done" }], now)[0]).not.toHaveProperty("streaming");
+    expect(toAiJobs([row({ kind: "analyze", status: "running", result: { suggestions: [1] } })], now)[0]).not.toHaveProperty("streaming");
+  });
 });
 
 describe("resultTitle (Story 12.6)", () => {

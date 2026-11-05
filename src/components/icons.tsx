@@ -413,6 +413,15 @@ export function AppBadgeIcon(props: IconProps) {
   );
 }
 
+/** A bell: Notiser in Inställningar (Story 23.3). */
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5ZM10 20.5h4" />
+    </Icon>
+  );
+}
+
 /** A microphone: Siri och genvägar in Inställningar. */
 export function MicIcon(props: IconProps) {
   return (

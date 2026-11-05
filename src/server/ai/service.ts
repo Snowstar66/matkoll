@@ -109,6 +109,15 @@ export type RunOptions = {
    * maxDuration. Without it, the usual budget.
    */
   deadline?: number;
+  /**
+   * Kylfoto C, analyzeImage only: called with the items that have been read
+   * so far (each checked on its own, copies of a label merged, in the
+   * model's order) while the model is still writing. Only when the model
+   * can stream; otherwise the items come in the result alone. Called again
+   * with a new list only when it has more items than the last one, so a
+   * caller that is stopped never gets one after it.
+   */
+  onItems?: (items: PhotoItem[]) => void;
 };
 
 export type SuggestDishesOptions = RunOptions;
@@ -684,6 +693,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         console.error("ai_unavailable", { reason: "deadline" });
         return fail("ai_unavailable");
       }
+      const imageSize = imageSizeOf(input.image.data);
+      let reported = 0;
       const answer = await runStructured(
         target,
         {
@@ -691,6 +702,28 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           system: prompts.analyzeImage,
           messages: [{ role: "user", content: analyzeImageContent(input) }],
           maxOutputTokens: inputLimits.analyze.maxOutputTokens,
+          // Kylfoto C: with a callback and a model that streams, each item is read as it is written and checked on
+          // its own; a new attempt only when none could be read.
+          stream: options.onItems
+            ? {
+                onPartial: (partial) => {
+                  const items = streamedItems(partial);
+                  // The item being written is not done until the next one starts, or its alternatives are null.
+                  const done = items.length > 0 && isItemDone(items[items.length - 1]) ? items : items.slice(0, -1);
+                  const read = parseAnalyzeItems(done, input.place, imageSize).items;
+                  if (read.length <= reported) return;
+                  reported = read.length;
+                  options.onItems?.(read);
+                },
+                read: (finished) => {
+                  const items = streamedItems(finished);
+                  if (!Array.isArray((finished as { i?: unknown } | undefined)?.i)) return undefined;
+                  // An answer with items of which none can be read is invalid; an empty list is a true answer.
+                  if (items.length > 0 && parseAnalyzeItems(items, input.place, imageSize).items.length === 0) return undefined;
+                  return { i: items as never };
+                },
+              }
+            : undefined,
           // Story 6.5: the adapter's sampling for photos (LM Studio: Qwen's settings against repetition loops).
           // Kylfoto A: with the fridge photo's own provider options, when the target has them (only the eval's fast mode).
           sampling: withProviderOptions(target.imageSampling, target.photoReadingOptions),
@@ -700,7 +733,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       // Kylfoto: the photo's size, for a model that gives its points in pixels.
-      return ok(parseAnalyzeItems(answer.data.i, input.place, imageSizeOf(input.image.data)));
+      return ok(parseAnalyzeItems(answer.data.i, input.place, imageSize));
     },
     async listThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -722,7 +755,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      const parsed = parseThings(answer.data);
+      const parsed = parseThings(answer.data, imageSizeOf(input.image.data));
       // Counts only, never the names.
       if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("things_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
       return ok(parsed);
@@ -837,7 +870,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      const box = parseLocatedBox(answer.data);
+      const box = parseLocatedBox(answer.data, imageSizeOf(input.image.data));
       // Only whether it was found, never the name or the box.
       console.info("thing_located", { found: box !== null, answered: answer.data.found });
       return ok({ box });
@@ -873,6 +906,17 @@ const warmUpPantry: SuggestDishesInput = { pantry: [{ name: "salt", amount: null
 const placeNames: Record<AnalyzePlace, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
 
 /** The user message: "Bilden visar kylen." and the photo as a `file` part. */
+/** The items of a partly written answer, as written so far (not checked). */
+function streamedItems(partial: unknown): unknown[] {
+  const items = (partial as { i?: unknown } | undefined)?.i;
+  return Array.isArray(items) ? items : [];
+}
+
+/** An item of a partly written answer whose last field (`a`, the alternatives) is a plain null: it cannot grow any more. */
+function isItemDone(item: unknown): boolean {
+  return typeof item === "object" && item !== null && (item as { a?: unknown }).a === null;
+}
+
 export function analyzeImageContent(input: AnalyzeImageInput) {
   return [
     { type: "text" as const, text: `Bilden visar ${placeNames[input.place]}.` },

@@ -12,11 +12,12 @@ import { imageSizeOf, placePhotoForQwen, type ImageSize, type PlacePhotoSize } f
 import { analyzeRetryCodes, type AnalyzeResult, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { mergeReadings, type PhotoRange } from "../domain/merge-readings";
 import { photoJobResultSchema, type PhotoJobResult, type PhotoPoints } from "../domain/photo-job";
-import { hasNumberableCards, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
+import { hasNumberableCards, pointsByNumber, type PhotoNumbers, type PhotoPoint } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 import type { PhotoSite } from "../domain/site";
 import { keepPhoto, keptPhoto, releasePhoto, type KeptPhoto } from "./photo-store";
 import { photoSave, type PhotoSave } from "./place-photo-save";
+import type { StreamingReadingView } from "./streaming-reading";
 
 // The state of "Fotografera kylen" (FR-24, FR-46-FR-49, AD-2, AD-15, AD-18,
 // AD-28), held by PantrySuggestionsProvider above Hemma's keyed <Suspense>, so
@@ -91,7 +92,12 @@ export type EmptyAnswer = "none" | "unreadable" | "unchanged" | "partlyUnchanged
  * waits behind others, or nothing more; and for a reading of several photos
  * which one is read ("Läser foto 2 av 3 …").
  */
-export type Looking = { waiting: string | null; progress?: string | null };
+export type Looking = {
+  waiting: string | null;
+  progress?: string | null;
+  /** Kylfoto C: the items read so far, while the model is still writing (a model that streams); `null` before the first. */
+  streaming?: StreamingReadingView | null;
+};
 
 /** Kylfoto, flera foton: which photo of a reading is read now. */
 export function readingProgressText(current: number, total: number): string {
@@ -314,6 +320,10 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   /** When each job was started here (Date.now()), and when the result shown was taken up: a photo taken after the cards came is the newer wish. */
   const startedAt = useRef(new Map<string, number>());
   const shownAt = useRef(0);
+  /** Kylfoto C: what a running photo job has read so far, by job (its reading's labels and points), as its reports come. */
+  const [previews, setPreviews] = useState<ReadonlyMap<string, { labels: readonly string[]; points: PhotoPoints }>>(new Map());
+  /** The running jobs whose reading is being fetched now, so a slow answer never piles up. */
+  const previewing = useRef(new Set<string>());
   /** The result and the job list changed: the effects that decide what to show run again. */
   const [tick, setTick] = useState(0);
   const mounted = useRef(true);
@@ -674,7 +684,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (cancelledStarts.current.has(placeKey(siteId, location))) return undefined;
     return jobs.find((job) => {
       // A job taken up here is not waiting any more: it has its cards, or was cancelled while it was being sent.
-      if (job.kind !== "analyze" || !isActive(job) || job.count !== null || handled.current.has(job.id)) return false;
+      // Kylfoto C: a running job whose items so far are only a preview is still being read.
+      if (job.kind !== "analyze" || !isActive(job) || (job.count !== null && !job.streaming) || handled.current.has(job.id)) return false;
       const place = jobPlace(job);
       return place.siteId === siteId && place.location === location;
     });
@@ -869,7 +880,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       if (job.status === "failed") return !job.seen;
       // Kylfoto, flera foton: a photo of a reading of several is taken up once its job is done, with its points.
       if (job.status === "running" && (batchOfJob(job.id)?.total ?? 1) > 1) return false;
-      return (job.status === "running" || job.status === "done") && job.count !== null && free(job);
+      // Kylfoto C: a running job that streams (its items as they come, in the camera area) is taken up once it is done.
+      return (job.status === "running" || job.status === "done") && job.count !== null && !job.streaming && free(job);
     });
     if (!next) return;
     presenting.current = true;
@@ -882,6 +894,27 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     // `present` reads what it needs from refs and the hook's functions at the time it runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, loaded, tick]);
+
+  // Kylfoto C: a running photo job that has reported items: its reading so far is fetched with every read of the jobs
+  // (once a second), and shown in the camera area while the model is still writing.
+  useEffect(() => {
+    if (!loaded) return;
+    for (const job of jobs) {
+      if (job.kind !== "analyze" || !job.streaming) continue;
+      if (handled.current.has(job.id) || previewing.current.has(job.id)) continue;
+      previewing.current.add(job.id);
+      void fetchResult(job.id).then((fetched) => {
+        previewing.current.delete(job.id);
+        if (!mounted.current || handled.current.has(job.id) || !fetched.ok) return;
+        const parsed = photoJobResultSchema.safeParse(fetched.data.result);
+        if (!parsed.success) return;
+        const next = { labels: parsed.data.reading ?? [], points: parsed.data.points };
+        setPreviews((current) => new Map(current).set(job.id, next));
+      });
+    }
+    // fetchResult is the client's, stable for the app's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, loaded]);
 
   // A job that ended without a result to review (superseded, cancelled, lost) keeps no photo in memory.
   useEffect(() => {
@@ -930,6 +963,21 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, tick]);
 
+  /** Kylfoto C: the reading of `job` as far as it has come, numbered on from the photos of the reading before it. */
+  function streamingView(job: AiJob, batch: Batch | undefined): StreamingReadingView | null {
+    const preview = previews.get(job.id);
+    if (!preview || preview.labels.length === 0) return null;
+    const offset = batch ? batch.parts.reduce((sum, part) => sum + (part.result.reading?.length ?? 0), 0) : 0;
+    const kept = keptPhoto(job.id);
+    const points = preview.points === null || typeof preview.points === "string" ? [] : preview.points.positions;
+    return {
+      photo: kept ? { image: kept.image, size: kept.size } : null,
+      rows: preview.labels.map((label, index) => ({ n: offset + index + 1, label })),
+      markers: points.map((point: PhotoPoint) => ({ n: offset + point.n, left: point.x / 10, top: point.y / 10 })),
+      soFar: offset + preview.labels.length,
+    };
+  }
+
   const looking = (siteId: string, location: Location): Looking | null => {
     const batch = batches.current.get(placeKey(siteId, location));
     // Kylfoto, flera foton: "Läser foto 2 av 3 …" while a reading of several photos goes on.
@@ -937,7 +985,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       batch && batch.total > 1 ? readingProgressText(Math.min(batch.parts.length + batch.skipped + 1, batch.total), batch.total) : null;
     if (startings.has(placeKey(siteId, location))) return { waiting: null, progress };
     const job = waitingJob(siteId, location);
-    if (job) return { waiting: waitingText(job), progress };
+    if (job) return { waiting: waitingText(job), progress, streaming: streamingView(job, batch) };
     // Between two photos of a reading: the next one is about to be sent.
     return batch?.busy ? { waiting: null, progress } : null;
   };
@@ -945,7 +993,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   const readyLocations = (siteId: string): Location[] => {
     const ready = new Set<Location>();
     for (const job of jobs) {
-      if (job.kind !== "analyze" || job.count === null || handled.current.has(job.id)) continue;
+      if (job.kind !== "analyze" || job.streaming || job.count === null || handled.current.has(job.id)) continue;
       const place = jobPlace(job);
       if (place.siteId === siteId && place.location !== null) ready.add(place.location as Location);
     }

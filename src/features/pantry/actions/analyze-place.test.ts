@@ -8,6 +8,7 @@ import { inputLimits, withInputValidation, type AnalyzeImageInput, type RunOptio
 import { analyzeResultSchema, maxPantrySuggestions } from "../domain/pantry-suggestion";
 import type { PantryItem } from "../domain/pantry-item";
 import type { PantrySite } from "../domain/site";
+import type { StoredReading } from "../domain/photo-job";
 
 // analyzePlace with the AI port's mock (tests/fixtures/ai, behind the port's
 // input check, as with AI_PROVIDER=mock) and stubbed user, catalog and
@@ -793,5 +794,73 @@ describe("a photo's reading kept by its job, and compared when it is fetched (St
     const logged = JSON.stringify([...vi.mocked(console.error).mock.calls, ...vi.mocked(console.info).mock.calls]);
     expect(logged).not.toContain("Mjölk");
     expect(logged).not.toContain("gurka");
+  });
+});
+
+describe("a reading reported while the model writes (Kylfoto C)", () => {
+  const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  /** The model hands out the fixture's items in two batches, then answers; `between` runs after each batch. */
+  function streamed(between: () => Promise<void> = async () => {}) {
+    analyzeImage.mockImplementation(async (_input, _signal, options) => {
+      options?.onItems?.(fixture.slice(0, 2));
+      await between();
+      options?.onItems?.(fixture);
+      await between();
+      return answer(fixture);
+    });
+  }
+  async function read(options: Parameters<typeof readPhoto>[1]) {
+    const looked = await lookUpSite(undefined);
+    if (!looked.ok) throw new Error("no site");
+    return readPhoto({ image: kyl, location: "Kyl", site: looked.site }, options);
+  }
+
+  it("reports the reading so far, matches each batch of items on its own, and ends with the whole reading", async () => {
+    const reports: StoredReading[] = [];
+    streamed(() => wait(15));
+    const done = await read({ signal: signal(), report: async (partial) => void reports.push(partial), reportEveryMs: 0 });
+
+    expect(reports.length).toBeGreaterThanOrEqual(2);
+    expect(reports[0].streaming).toBe(true);
+    expect(reports[0].reading).toHaveLength(2);
+    expect(reports.at(-1)?.reading).toHaveLength(fixture.length);
+    // The first batch is two items, the second only the items after them, and the end asks for nothing more.
+    expect(matchIngredients.mock.calls.map(([items]) => items.length)).toEqual([2, fixture.length - 2]);
+    if (!done.ok) throw new Error(done.error.code);
+    expect(done.data.streaming).toBeUndefined();
+    expect(done.data.reading).toHaveLength(fixture.length);
+    // The comparison with the place was read once, from the start.
+    expect(listPantryIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports nothing once the job is stopped", async () => {
+    const controller = new AbortController();
+    const reports: StoredReading[] = [];
+    streamed(async () => {
+      await wait(15);
+      controller.abort();
+    });
+    const done = await read({ signal: controller.signal, report: async (partial) => void reports.push(partial), reportEveryMs: 0 });
+    const countAtEnd = reports.length;
+    await wait(30);
+    expect(reports).toHaveLength(countAtEnd);
+    expect(done).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+
+  it("keeps the job going when a report fails, and reports at most once in the interval", async () => {
+    const report = vi.fn(async () => {
+      throw new Error("db down");
+    });
+    streamed();
+    const done = await read({ signal: signal(), report, reportEveryMs: 60_000 });
+    expect(done.ok).toBe(true);
+    expect(report.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it("reads as before with no one listening", async () => {
+    const done = await read({ signal: signal() });
+    expect(analyzeImage.mock.calls[0][2]?.onItems).toBeUndefined();
+    expect(matchIngredients).toHaveBeenCalledTimes(1);
+    expect(done.ok && done.data.streaming).toBeFalsy();
   });
 });

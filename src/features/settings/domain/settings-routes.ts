@@ -16,6 +16,8 @@ export const settingsPages = [
   "installera",
   // Story 23.2: the number on the app's icon, opt-in per device.
   "appikon",
+  // Story 23.3: push notifications and what to be told about.
+  "notiser",
   "siri",
   // What is new in the app, newest first.
   "nyheter",

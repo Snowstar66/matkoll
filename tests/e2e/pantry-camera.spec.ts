@@ -299,6 +299,59 @@ test("the cards come with their numbers, and the large photo has the same number
   expect(errors).toEqual([]);
 });
 
+test("on a desktop the photo stands left and the list right, a row lights its number, arrows and Space work, and − / + changes the amount (Kylfoto D)", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/hemma");
+  await photograph(page, "Fotografera kylen", plainPng(1));
+  await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
+  await expect(section(page).getByTestId("pantry-review-marker")).toHaveCount(6);
+
+  // Two columns: the photo's box left of the list, about 480 px wide, not folded to the small size.
+  const photo = await section(page).getByTestId("pantry-review-photo").boundingBox();
+  const list = await cards(page).first().boundingBox();
+  expect(photo!.x + photo!.width).toBeLessThanOrEqual(list!.x);
+  expect(photo!.width).toBeGreaterThan(440);
+  expect(photo!.width).toBeLessThan(520);
+  await expect(section(page).getByTestId("pantry-review-photo")).not.toHaveAttribute("data-mini");
+
+  // The mouse over a row lights its number on the photo.
+  const gurkaMarker = section(page).getByRole("button", { name: "Vara 5: Gurka", exact: true });
+  await expect(gurkaMarker).toHaveAttribute("aria-pressed", "false");
+  const box = await cards(page).nth(1).boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await expect(gurkaMarker).toHaveCSS("scale", "1.4");
+
+  // Arrow keys move between the rows, Space ticks.
+  const first = section(page).getByRole("button", { name: /^Rätta / }).first();
+  await first.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(section(page).getByRole("button", { name: "Rätta Gurka", exact: true })).toBeFocused();
+  const tick = cards(page).nth(1).getByRole("checkbox");
+  await expect(tick).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Space");
+  await expect(tick).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.keyboard.press("Space");
+
+  // − / + in the row, without the sheet.
+  await cards(page).nth(1).getByRole("button", { name: /^Ändra mängd för / }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await cards(page).nth(1).getByRole("button", { name: /^Öka mängd för / }).click();
+  await page.mouse.click(5, 5);
+  await expect(cards(page).nth(1).getByRole("group")).toHaveCount(0);
+
+  // A click on the row opens the sheet as the centred dialog.
+  await section(page).getByRole("button", { name: "Rätta Ketchup", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox!.width).toBeLessThanOrEqual(560);
+  expect(errors).toEqual([]);
+});
+
 test("two photos of the fridge are one reading: read one after the other, one list, and Mjölk seen on one is not missing (Kylfoto, flera foton)", async ({
   page,
 }) => {

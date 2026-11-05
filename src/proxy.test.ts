@@ -23,6 +23,7 @@ describe("proxy matcher", () => {
     "/favicon.ico",
     "/robots.txt",
     "/sitemap.xml",
+    "/sw.js",
     "/_next/static/chunks/main.js",
     "/_next/image?url=x",
   ])("lets %s through without the proxy", (url) => {
@@ -57,6 +58,8 @@ describe("proxy matcher", () => {
     "/favicon.ico.json",
     "/x/favicon.ico",
     "/robots.txt/x",
+    "/sw.js/x",
+    "/x/sw.js",
   ])("runs the proxy for %s", (url) => {
     expect(runsProxy(url)).toBe(true);
   });

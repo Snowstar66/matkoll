@@ -16,6 +16,7 @@ import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
+import { TrashButton } from "@/components/trash-button";
 import { fail, type Result } from "@/lib/errors";
 import { newId } from "@/lib/new-id";
 import { oneLine } from "@/lib/one-line";
@@ -477,15 +478,12 @@ export function SitesSheet({ open, onClose, session, sites, startRenaming = null
                   </span>
                 </div>
                 {canRemoveSite(site, sites) ? (
-                  <Button
-                    variant="danger"
-                    aria-label={`Ta bort ${site.name}`}
+                  <TrashButton
+                    label={`Ta bort ${site.name}`}
                     disabled={removing || liveUndoSites.has(site.id)}
-                    onClick={() => remove(site)}
-                    className="-mr-3 shrink-0"
-                  >
-                    {removingId === site.id ? "Tar bort …" : "Ta bort"}
-                  </Button>
+                    onPress={() => remove(site)}
+                    className="-mr-2"
+                  />
                 ) : null}
               </li>
             ),

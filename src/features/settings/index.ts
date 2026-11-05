@@ -79,3 +79,6 @@ export {
 } from "./domain/settings-routes";
 
 export { type ApiKeyView } from "./domain/api-key";
+
+// Where the app runs (browser, home screen), for the pages that say how to put it on the home screen (Stories 11.6, 23.3).
+export { platformNow, platformOnServer, platformSubscribe, type Platform } from "./ui/home-screen-hint";

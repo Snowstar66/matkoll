@@ -171,7 +171,7 @@ describe("POST /api/ai/jobs/photo", () => {
     expect(readInput.site).toEqual(hemma);
     expect(readInput.image.mediaType).toBe("image/png");
     expect(Buffer.from(readInput.image.data).equals(Buffer.from(png))).toBe(true);
-    expect(readOptions).toEqual({ signal, deadline, timings: {} });
+    expect(readOptions).toEqual({ signal, deadline, timings: {}, report: expect.any(Function) });
     // The cards and their numbers come together, as the job's result.
     expect(reported).toEqual([]);
     expect(result).toEqual(ok(reading));

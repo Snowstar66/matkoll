@@ -40,6 +40,8 @@ export const envSchema = z.object({
    * in production nobody sees it and every job uses AI_PROVIDER/AI_MODEL.
    */
   AI_SETTINGS_EMAILS: optional(emailList),
+  /** The password asked before the AI choice can be changed in Inställningar. Without it a built-in default applies. */
+  AI_SETTINGS_PASSWORD: optional(z.string()),
   /**
    * Story 20.3: the app owner's address, whose first name the Tyck till sheets show
    * ("Pontus ser texten …"). Display only: who may read the inbox is decided in the
@@ -69,6 +71,16 @@ export const envSchema = z.object({
   VERCEL: optional(z.string()),
   /** Set by Next (`development`, `production`); a guard of the automatic local sign-in. */
   NODE_ENV: optional(z.string()),
+  /**
+   * Story 23.3: Web Push with VAPID. The public key is handed to the browser when
+   * someone turns notifications on; the private key signs every push and is secret.
+   * Both or neither: without them Inställningar → Notiser says notiser är inte
+   * påslagna än and nothing is sent.
+   */
+  VAPID_PUBLIC_KEY: optional(z.string()),
+  VAPID_PRIVATE_KEY: optional(z.string()),
+  /** Who the push service may contact: `mailto:you@example.com` or an https address. Defaults to OWNER_EMAIL or SITE_URL. */
+  VAPID_SUBJECT: optional(z.string().regex(/^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/)),
 });
 
 /** SITE_URL outside production when it is not set. */
@@ -111,6 +123,19 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   problems.push(...aiSettingProblems({ ...rest, AI_PROVIDER }));
   if (!SITE_URL && production) {
     problems.push({ variable: "SITE_URL", detail: "SITE_URL (required in production)" });
+  }
+  if (problems.length > 0) {
+    throw new EnvError(
+      [...new Set(problems.map((problem) => problem.variable))],
+      problems.map((problem) => problem.detail),
+    );
+  }
+
+  // The VAPID keys are a pair; half of it is a typo, not a choice.
+  if ((rest.VAPID_PUBLIC_KEY !== undefined) !== (rest.VAPID_PRIVATE_KEY !== undefined)) {
+    for (const variable of ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]) {
+      problems.push({ variable, detail: `${variable} (VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY go together)` });
+    }
   }
   if (problems.length > 0) {
     throw new EnvError(

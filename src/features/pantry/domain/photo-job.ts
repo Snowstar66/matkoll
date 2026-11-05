@@ -25,6 +25,8 @@ export const storedReadingSchema = z.object({
   incomplete: z.boolean(),
   reading: readingSchema.optional(),
   points: photoPointsSchema,
+  /** Kylfoto C: set on the reading a running job reports while the model writes; the finished reading has none. */
+  streaming: z.literal(true).optional(),
 });
 export type StoredReading = z.infer<typeof storedReadingSchema>;
 

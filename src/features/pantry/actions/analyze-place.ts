@@ -4,7 +4,7 @@ import type { IngredientMatch, Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, getIngredientSummaries, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { minLoopRepeats, type ImageInput } from "@/server/ai";
+import { minLoopRepeats, type AnalyzeImageResult, type ImageInput, type PhotoItem } from "@/server/ai";
 import { PantryDataError } from "../data/client";
 import { locateResultSchema, readingLabel, readingSchema } from "../domain/photo-numbers";
 import { listPantryIn } from "../data/queries";
@@ -128,6 +128,16 @@ export type ReadPhotoOptions = {
   deadline?: number;
   /** Kylfoto A: filled in with how long the steps took, for the caller's analyze_timing log. */
   timings?: ReadPhotoTimings;
+  /**
+   * Kylfoto C: the reading as far as it has come, while the model is still
+   * writing (about once a second, never after the model has answered or the
+   * job is stopped), so the rows and their numbers can show up one by one.
+   * Only with a model that streams; the end is still the returned result.
+   * Never fails.
+   */
+  report?: (partial: StoredReading) => Promise<void>;
+  /** Kylfoto C: the least time between two reports, in milliseconds; a second without it. */
+  reportEveryMs?: number;
 };
 
 /** Kylfoto A: milliseconds per step of readPhoto; a step that was not reached is left out. */
@@ -160,7 +170,7 @@ export type ReadPhotoTimings = {
  */
 export async function readPhoto(
   { image, location, site }: ReadPhotoInput,
-  { signal, deadline, timings = {} }: ReadPhotoOptions,
+  { signal, deadline, timings = {}, report, reportEveryMs = reportIntervalMs }: ReadPhotoOptions,
 ): Promise<Result<StoredReading>> {
   const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
   // Kylfoto A: "I kylen nu" is read while the model works, not after it. A read that is not
@@ -168,11 +178,39 @@ export async function readPhoto(
   const placeRead = timeLeft() >= minReadMs ? readPlace(location, site?.id) : null;
   placeRead?.catch(() => {});
 
+  const matching: Matching = { items: [], matched: [], names: {} };
+  const streaming = report ? streamReports(report, reportEveryMs) : null;
   const service = await getAiServiceForUser();
   const modelStarted = performance.now();
-  const analyzed = await service.analyzeImage({ image, place: location }, signal, {
-    deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
-  });
+  let analyzed: Result<AnalyzeImageResult>;
+  try {
+    analyzed = await service.analyzeImage({ image, place: location }, signal, {
+      deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
+      // Kylfoto C: the items read so far are matched against the catalog in a batch of their own, and reported.
+      onItems: streaming
+        ? (read) => {
+            if (signal.aborted) return;
+            streaming.offer(async () => {
+              if (signal.aborted || timeLeft() < minReadMs + postModelMarginMs) return null;
+              const kept = read.slice(0, maxPantrySuggestions);
+              const matched = await matchMore(matching, kept, signal);
+              if (!matched.ok) return null;
+              let current: PantryItem[] | null = null;
+              try {
+                current = placeRead ? await placeRead : null;
+              } catch {
+                return null;
+              }
+              if (signal.aborted) return null;
+              return buildReading({ site, location, items: kept, matching, current, invalid: 0, trimmed: 0, repeated: 0, final: false });
+            });
+          }
+        : undefined,
+    });
+  } finally {
+    // Nothing is reported after the model has answered or the job has stopped.
+    await streaming?.close();
+  }
   const postStarted = performance.now();
   timings.modelMs = Math.round(postStarted - modelStarted);
   if (!analyzed.ok) return analyzed;
@@ -184,52 +222,164 @@ export async function readPhoto(
   if (trimmed > 0) console.info("analyze_items_trimmed", { dropped: trimmed });
   if (repeated > 0) console.info("analyze_items_repeated", { count: repeated });
   // No item: nothing to match, but the place is still compared (everything there is "Syns inte längre").
-  let matched: IngredientMatch[] = [];
-  let names: Record<string, string> = {};
-  if (items.length > 0) {
-    if (timeLeft() < minReadMs) return outOfTime();
-    const matches = await fromCatalog(() => matchIngredients(items.map((item) => ({ text: item.label, hint: item.hint }))));
-    if (!matches.ok) return matches;
-    if (signal.aborted) return stopped();
-    matched = matches.data;
-  }
-
-  const ids = [...new Set(matched.flatMap((match: IngredientMatch) => (match.kind === "match" ? [match.ingredientId] : [])))];
-  if (ids.length > 0) {
-    if (timeLeft() < minReadMs) return outOfTime();
-    const found = await fromCatalog(() => getIngredientNames(ids));
-    if (!found.ok) return found;
-    if (signal.aborted) return stopped();
-    names = found.data;
-  }
+  // Items matched while the model wrote are not matched again (matchMore).
+  if (items.length > 0 && timeLeft() < minReadMs) return outOfTime();
+  const matches = await matchMore(matching, items, signal);
+  if (!matches.ok) return matches.result;
+  if (signal.aborted) return stopped();
 
   // "I kylen nu" is extra: near the deadline the suggestions come without it, and the read is not waited for.
   let current: PantryItem[] | null = null;
   if (placeRead && timeLeft() >= minReadMs) current = await placeRead;
   else console.info("analyze_place_skipped", { reason: "deadline" });
 
+  const reading = buildReading({ site, location, items, matching, current, invalid, trimmed, repeated, final: true });
+  timings.postMs = Math.round(performance.now() - postStarted);
+  return ok(reading);
+}
+
+/** Kylfoto C: the least time between two reports of a reading in progress. */
+export const reportIntervalMs = 1_000;
+
+/** The items matched against the catalog so far, in the order of the model's items, and the names of the ingredients found. */
+type Matching = { items: PhotoItem[]; matched: IngredientMatch[]; names: Record<string, string> };
+
+type MatchResult = { ok: true } | { ok: false; result: Result<never> };
+
+/**
+ * Kylfoto C: matches the items of `items` that have not been matched yet
+ * (the ones before them are the same as last time, so their matches are
+ * kept) with one matchIngredients call for the new ones, and fetches the
+ * names of the ingredients that are new. A batch per call, so what the model
+ * has written is matched while it writes the rest. `matching` ends up
+ * describing `items`. `catalog_unavailable` as a failed match (`ok: false`).
+ */
+async function matchMore(matching: Matching, items: readonly PhotoItem[], signal: AbortSignal): Promise<MatchResult> {
+  let same = 0;
+  while (
+    same < items.length &&
+    same < matching.items.length &&
+    matching.items[same].label === items[same].label &&
+    matching.items[same].hint.name === items[same].hint.name
+  ) {
+    same++;
+  }
+  const rest = items.slice(same);
+  let added: IngredientMatch[] = [];
+  if (rest.length > 0) {
+    const matches = await fromCatalog(() => matchIngredients(rest.map((item) => ({ text: item.label, hint: item.hint }))));
+    if (!matches.ok) return { ok: false, result: matches };
+    added = matches.data;
+  }
+  // The request went away while the catalog was asked: no names are read for it.
+  if (signal.aborted) return { ok: false, result: stopped() };
+  const matched = [...matching.matched.slice(0, same), ...added];
+  const ids = [
+    ...new Set(
+      matched.flatMap((match: IngredientMatch) =>
+        match.kind === "match" && !(match.ingredientId in matching.names) ? [match.ingredientId] : [],
+      ),
+    ),
+  ];
+  let names = matching.names;
+  if (ids.length > 0) {
+    const found = await fromCatalog(() => getIngredientNames(ids));
+    if (!found.ok) return { ok: false, result: found };
+    names = { ...names, ...found.data };
+  }
+  matching.items = [...items];
+  matching.matched = matched;
+  matching.names = names;
+  return { ok: true };
+}
+
+type BuildInput = {
+  site: PhotoSite | null;
+  location: Location;
+  items: readonly PhotoItem[];
+  matching: Matching;
+  current: PantryItem[] | null;
+  invalid: number;
+  trimmed: number;
+  repeated: number;
+  /** The end of the reading: counts are logged. A reading in progress (Kylfoto C) logs nothing. */
+  final: boolean;
+};
+
+/** The stored reading of the items: suggestions, the reading's labels and the points; counts logged only for the final one. */
+function buildReading({ site, location, items, matching, current, invalid, trimmed, repeated, final }: BuildInput): StoredReading {
+  const { matched, names } = matching;
+  const ids = [...new Set(matched.flatMap((match: IngredientMatch) => (match.kind === "match" ? [match.ingredientId] : [])))];
   const built = toPantrySuggestions(items, matched, { location, names, current });
-  logDropped({ ...built.dropped, invalid });
+  if (final) logDropped({ ...built.dropped, invalid });
   // The schema the client checks, per suggestion: one that would not pass is left out, never the whole answer.
   const suggestions = built.suggestions.filter(
     (suggestion: PantrySuggestion) => pantrySuggestionSchema.safeParse(suggestion).success,
   );
   const outputInvalid = built.suggestions.length - suggestions.length;
-  if (outputInvalid > 0) console.error("analyze_output_invalid", { count: outputInvalid });
+  if (outputInvalid > 0 && final) console.error("analyze_output_invalid", { count: outputInvalid });
   const { unmatched, unnamed, unusable } = built.dropped;
   const dropped = invalid + unmatched + unnamed + unusable + outputInvalid;
-  timings.postMs = Math.round(performance.now() - postStarted);
-  return ok({
+  return {
     site,
     location,
     suggestions: suggestions.map(withoutComparison),
     dropped,
     seen: ids,
     // Items that could not be read or were cut make the comparison incomplete, and so does a repetition loop (Story 6.5).
-    incomplete: dropped > 0 || trimmed > 0 || repeated >= minLoopRepeats,
-    ...readingOf(items),
-    points: pointsOf(items),
-  });
+    // A reading in progress is incomplete: the model has more to say.
+    incomplete: !final || dropped > 0 || trimmed > 0 || repeated >= minLoopRepeats,
+    ...readingOf(items, final),
+    points: pointsOf(items, final),
+    ...(final ? {} : { streaming: true as const }),
+  };
+}
+
+/**
+ * Kylfoto C: hands out the reports of a reading in progress, at most one
+ * every `everyMs`, one at a time and always with the newest reading. `offer`
+ * gets a function that builds the reading (or `null` when there is nothing
+ * to report now); only the newest offer is built. `close` waits for a report
+ * under way and drops what has not started, so nothing is reported after the
+ * model has answered. A failed report never fails the job.
+ */
+function streamReports(report: (partial: StoredReading) => Promise<void>, everyMs: number) {
+  let latest: (() => Promise<StoredReading | null>) | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running: Promise<void> = Promise.resolve();
+  let lastAt = 0;
+  let closed = false;
+
+  const send = () => {
+    timer = null;
+    const build = latest;
+    latest = null;
+    if (!build || closed) return;
+    lastAt = Date.now();
+    running = running.then(async () => {
+      try {
+        const reading = await build();
+        if (reading && !closed) await report(reading);
+      } catch {
+        // A report that failed is the next one's to make up for.
+      }
+    });
+  };
+
+  return {
+    offer(build: () => Promise<StoredReading | null>) {
+      if (closed) return;
+      latest = build;
+      if (timer === null) timer = setTimeout(send, Math.max(0, lastAt + everyMs - Date.now()));
+    },
+    async close() {
+      closed = true;
+      latest = null;
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      await running;
+    },
+  };
 }
 
 /**
@@ -240,12 +390,12 @@ export async function readPhoto(
  * analyze_points_invalid), never the whole answer, and the cards then have no
  * numbers.
  */
-function pointsOf(items: readonly { point: { x: number; y: number } | null }[]): PhotoPoints {
+function pointsOf(items: readonly { point: { x: number; y: number } | null }[], log = true): PhotoPoints {
   const positions = items.flatMap((item, index) => (item.point ? [{ n: index + 1, ...item.point }] : []));
-  if (positions.length < items.length) console.info("analyze_points_missing", { count: items.length - positions.length });
+  if (positions.length < items.length && log) console.info("analyze_points_missing", { count: items.length - positions.length });
   const points = locateResultSchema.safeParse({ positions });
   if (points.success) return points.data;
-  console.error("analyze_points_invalid");
+  if (log) console.error("analyze_points_invalid");
   return "failed";
 }
 
@@ -289,10 +439,10 @@ export async function compareStoredReading(stored: StoredReading): Promise<Photo
  * would not pass is left out (logged as analyze_reading_invalid), never the
  * whole answer, and the cards then have no numbers.
  */
-function readingOf(items: readonly { label: string }[]): { reading?: string[] } {
+function readingOf(items: readonly { label: string }[], log = true): { reading?: string[] } {
   const reading = readingSchema.safeParse(items.map((item) => readingLabel(item.label)));
   if (reading.success) return { reading: reading.data };
-  console.error("analyze_reading_invalid");
+  if (log) console.error("analyze_reading_invalid");
   return {};
 }
 

@@ -3,6 +3,7 @@ import { maxNewsRows, newsKey, sinceFor, type NewsAnswer } from "@/lib/news";
 import { listShoppingNews, ShoppingDataError } from "@/features/shopping/server";
 import { listCardNews, ThingsDataError } from "@/features/things/server";
 import { listWaitingNoteIds, NoteDataError } from "@/features/notes/server";
+import { schedulePushSend } from "@/lib/push-send";
 import { fail, ok } from "@/lib/errors";
 import { respond } from "../ai/route-support";
 
@@ -18,6 +19,9 @@ import { respond } from "../ai/route-support";
 export async function GET(request: Request): Promise<Response> {
   const auth = await requireUserForRoute();
   if (auth.response) return auth.response;
+  // Story 23.3: a safety net for push. Sends what is already due when a function that waited
+  // for the quiet to pass has died; without the VAPID keys it does nothing.
+  schedulePushSend({ wait: false });
   const params = new URL(request.url).searchParams;
   const now = new Date();
   const lista = sinceFor(params.get("lista"), now);

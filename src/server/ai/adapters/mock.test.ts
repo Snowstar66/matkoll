@@ -283,6 +283,19 @@ describe("mock suggestDishes", () => {
       expect(answered).toBe(1);
     });
 
+    it("hands out the items of a photo it does not know one after another over the delay when asked (Kylfoto C)", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const unknown = { data: new Uint8Array([...readFileSync(join(dir, "kyl.png")), 0]), mediaType: "image/png" };
+      const counts: number[] = [];
+      const call = slow.analyzeImage({ image: unknown, place: "Kyl" }, signal(), { onItems: (items) => counts.push(items.length) });
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(counts.length).toBeGreaterThan(1);
+      expect(counts).toEqual([...counts].sort((a, b) => a - b));
+      const result = await Promise.race([call, vi.advanceTimersByTimeAsync(1).then(() => call)]);
+      expect(result.ok && result.data.items.length).toBe(counts.at(-1));
+    });
+
     it("stops waiting for a photo it does not know when the signal aborts", async () => {
       vi.useFakeTimers();
       const slow = createMockAiService(dir, { delayMs: 3000 });
