@@ -375,7 +375,7 @@ test("the sheet renames a place and removes an empty one, and offers Ta bort onl
   await openSitesSheet(page);
 
   const siteRows = sheet(page).getByTestId("site-row");
-  await expect(siteRows).toHaveText([/^Hemma\s*1 vara\s*Valt$/, /^Stugan\s*0 varor\s*Ta bort$/, /^Torpet\s*1 vara$/]);
+  await expect(siteRows).toHaveText([/^Hemma\s*1 vara\s*Valt$/, /^Stugan\s*0 varor$/, /^Torpet\s*1 vara$/]);
   await expect(sheet(page).getByRole("button", { name: "Ta bort Hemma" })).toHaveCount(0);
   await expect(sheet(page).getByRole("button", { name: "Ta bort Torpet" })).toHaveCount(0);
 

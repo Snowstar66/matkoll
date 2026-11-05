@@ -60,7 +60,13 @@ function fields(formData: FormData) {
   return { id: String(formData.get("id")), name: String(formData.get("name")), mode: String(formData.get("mode")) };
 }
 
+let guardOffset = 0;
+const realNow = performance.now.bind(performance);
+
 beforeEach(() => {
+  // Every press of a bin lands well after the last one, outside its double-tap guard.
+  guardOffset += 1000;
+  vi.spyOn(performance, "now").mockImplementation(() => realNow() + guardOffset);
   refresh.mockReset();
   savePantrySite.mockReset().mockImplementation(async (_previous, formData) => {
     const { id, name, mode } = fields(formData);
@@ -90,7 +96,7 @@ describe("SitesSheet", () => {
 
   it("lists the places in order with their counts, Valt for the selected one, and Ta bort only where it can go", () => {
     render(<Sheet initial={[hemma, stugan, torpet]} />);
-    expect(rows().map((row) => row.textContent)).toEqual(["Hemma12 varorValt", "Stugan0 varorTa bort", "Torpet3 varor"]);
+    expect(rows().map((row) => row.textContent)).toEqual(["Hemma12 varorValt", "Stugan0 varor", "Torpet3 varor"]);
     expect(within(sheet()).getByRole("button", { name: "Byt namn på Hemma" })).toBeInTheDocument();
     expect(within(sheet()).getByRole("button", { name: "Ta bort Stugan" })).toBeInTheDocument();
     expect(within(sheet()).queryByRole("button", { name: "Ta bort Hemma" })).toBeNull();
@@ -110,7 +116,7 @@ describe("SitesSheet", () => {
     const sent = fields(savePantrySite.mock.calls[0]![1]);
     expect(sent).toMatchObject({ name: "Stugan", mode: "add" });
     expect(sent.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(rows().map((row) => row.textContent)).toEqual(["Hemma12 varorValt", "Stugan0 varorTa bort"]);
+    expect(rows().map((row) => row.textContent)).toEqual(["Hemma12 varorValt", "Stugan0 varor"]);
 
     // The next place gets a new id.
     await user.type(newField(), "Torpet");

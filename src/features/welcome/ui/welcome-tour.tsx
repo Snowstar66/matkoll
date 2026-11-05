@@ -187,18 +187,18 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
       )}
     >
       <div className="relative h-full overflow-hidden">
-        <button
-          type="button"
+        <Button
+          variant="quiet"
           onClick={() => exit("skip")}
           inert={last}
           className={cx(
-            "absolute top-[calc(env(safe-area-inset-top)+6px)] right-2 z-10 flex h-tap items-center rounded-md px-3 text-control text-ink-2",
+            "absolute top-[calc(env(safe-area-inset-top)+6px)] right-2 z-10",
             "motion-safe:transition-opacity motion-safe:duration-200",
             last && "pointer-events-none opacity-0",
           )}
         >
           Hoppa över
-        </button>
+        </Button>
 
         <div
           className="flex h-full touch-pan-y motion-safe:transition-transform motion-safe:duration-[460ms] motion-safe:ease-[cubic-bezier(.22,.8,.24,1)]"
