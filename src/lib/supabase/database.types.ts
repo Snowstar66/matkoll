@@ -471,14 +471,14 @@ isOneToOne: false
                   ]
                 },"push_event": {
                   Row: {
-                    "actor_id": string | null,"created_at": string,"household_id": string,"kind": string,"seq": number
+                    "actor_id": string | null,"created_at": string,"household_id": string,"kind": string,"note_text": string | null,"seq": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "actor_id"?: string | null,"created_at"?: string,"household_id": string,"kind": string,"seq"?: never
+                    "actor_id"?: string | null,"created_at"?: string,"household_id": string,"kind": string,"note_text"?: string | null,"seq"?: never
                   }
                   Update: {
-                    "actor_id"?: string | null,"created_at"?: string,"household_id"?: string,"kind"?: string,"seq"?: never
+                    "actor_id"?: string | null,"created_at"?: string,"household_id"?: string,"kind"?: string,"note_text"?: string | null,"seq"?: never
                   }
                   Relationships: [
                     
