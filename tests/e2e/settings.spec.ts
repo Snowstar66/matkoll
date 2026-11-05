@@ -330,6 +330,15 @@ test("Story 17.5: the page AI saves the choice, which is read again after a relo
   await expect(page.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   const claude = section.getByRole("radio", { name: "Claude" });
   await expect(section.getByRole("radio", { name: "Qwen lokalt" })).toBeVisible();
+  // The choice is read-only until the password is given; a wrong one says so.
+  await expect(section.getByRole("radio", { name: "Qwen lokalt" })).toBeDisabled();
+  await section.getByRole("button", { name: "Lås upp för att ändra" }).click();
+  await section.getByLabel("Lösenord").fill("fel");
+  await section.getByRole("button", { name: /^Lås upp$/ }).click();
+  await expect(section.getByText("Fel lösenord.")).toBeVisible();
+  await section.getByLabel("Lösenord").fill("frasse");
+  await section.getByRole("button", { name: /^Lås upp$/ }).click();
+  await expect(section.getByTestId("ai-unlocked")).toBeVisible();
   // Without ANTHROPIC_API_KEY (the server's environment) Claude is off with the key text; with it, Claude can be picked.
   const keyMissing = page.getByTestId("ai-claude-missing");
   // Claude is disabled before hydration too, so wait until one of the two states is settled.

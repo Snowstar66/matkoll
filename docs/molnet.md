@@ -156,6 +156,7 @@ Sätt miljövariablerna under **Settings → Environment Variables** *innan* ste
 | `AI_MODEL` | `claude-haiku-5-5` (krävs för `anthropic`) | ja | nej | offentlig |
 | `ANTHROPIC_API_KEY` | `sk-ant-…` från steg 0 | ja | nej | **hemlig: markera Sensitive** |
 | `AI_SETTINGS_EMAILS` | din adress: bara den ser AI-avsnittet i Inställningar | ja | nej | privat |
+| `AI_SETTINGS_PASSWORD` | lösenordet som krävs för att ändra AI-valet i Inställningar; tomt = inbyggt standardlösenord | nej | nej | privat |
 | `OWNER_EMAIL` | din adress: appens ägare (Story 20.3). Bladen under Hjälp → Tyck till skriver "Pontus ser texten …" med förnamnet härifrån. Vem som ser **Inkorg** avgörs inte av variabeln utan av databasen; `pnpm owner:sync` i steg 5 skriver adressen dit. | ja | nej | privat |
 | `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | **sätts inte** när molnet kör Claude. Behövs bara om du vill att Qwen på Macen ska kunna väljas, via Cloudflare Tunnel ([`drift.md` steg 8](drift.md#8-cloudflare-tunnel-och-access-för-lm-studio)). | nej | nej | CF-hemligheten är hemlig |
 | `OPENAI_API_KEY` | används inte | nej | nej | hemlig |

@@ -1,13 +1,16 @@
 "use client";
 
-import { type KeyboardEvent, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { type FormEvent, type KeyboardEvent, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import type { FilterOption } from "@/components/filter-pills";
+import { Button } from "@/components/button";
+import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Segment } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { saveAiSetting } from "../actions/save-ai-setting";
+import { verifyAiPassword } from "../actions/verify-ai-password";
 import {
   aiLevelLabels,
   aiLevels,
@@ -51,13 +54,17 @@ function isClaudeModel(model: string | undefined): model is ClaudeModelId {
  * Medel, Hög), which only Claude uses. One choice for every task. A change is
  * saved at once and the next AI job uses it, without a restart; "Standard"
  * removes the choice, so AI_PROVIDER/AI_MODEL decide. A provider whose key or
- * URL is missing cannot be chosen and says what to do.
+ * URL is missing cannot be chosen and says what to do. The choice is read-only
+ * until the password is given ("Lås upp för att ändra"); the password stays in
+ * this component's state for the page session and goes along with each save,
+ * where the server checks it again.
  */
 export function AiSettings({ view }: AiSettingsProps) {
   const { showToast } = useToast();
   const hydrated = useHydrated();
   const [pending, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
   const [provider, setProvider] = useState<AiProviderChoice>(view.effective?.provider ?? "lmstudio");
   const [model, setModel] = useState<ClaudeModelId>(
     view.effective?.provider === "anthropic" && isClaudeModel(view.effective.model)
@@ -69,6 +76,7 @@ export function AiSettings({ view }: AiSettingsProps) {
   const noteId = useId();
 
   function save(next: { provider: AiProviderChoice; model: ClaudeModelId; level: AiLevel }) {
+    if (password === null) return;
     const previous = { provider, model, level };
     setError(null);
     setProvider(next.provider);
@@ -81,7 +89,7 @@ export function AiSettings({ view }: AiSettingsProps) {
     startSaving(async () => {
       let result: Result<AiSettingInput>;
       try {
-        result = await saveAiSetting(input);
+        result = await saveAiSetting(input, password ?? "");
       } catch {
         result = fail("settings_save_failed");
       }
@@ -101,7 +109,8 @@ export function AiSettings({ view }: AiSettingsProps) {
     { value: "lmstudio", label: aiProviderLabels.lmstudio, disabled: !view.qwenAvailable },
     { value: "anthropic", label: aiProviderLabels.anthropic, disabled: !view.claudeAvailable },
   ];
-  const busy = !hydrated || pending;
+  const unlocked = password !== null;
+  const busy = !hydrated || pending || !unlocked;
   const claude = provider === "anthropic";
 
   return (
@@ -110,6 +119,7 @@ export function AiSettings({ view }: AiSettingsProps) {
         AI
       </h2>
       {error ? <Notice role="alert">{error}</Notice> : null}
+      <AiUnlock unlocked={unlocked} hydrated={hydrated} onUnlock={setPassword} />
       <div className="flex flex-col gap-2">
         <p className="px-1 desktop:px-0 text-section-label text-ink-2">Leverantör</p>
         <Segment
@@ -161,6 +171,90 @@ export function AiSettings({ view }: AiSettingsProps) {
         </p>
       </div>
     </section>
+  );
+}
+
+/** "Lås upp för att ändra": asks for the password, has the server check it, and hands it up on success. */
+function AiUnlock({
+  unlocked,
+  hydrated,
+  onUnlock,
+}: {
+  unlocked: boolean;
+  hydrated: boolean;
+  onUnlock: (password: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [wrong, setWrong] = useState(false);
+  const [checking, startChecking] = useTransition();
+  const inputId = useId();
+  const errorId = useId();
+
+  if (unlocked) {
+    return (
+      <p data-testid="ai-unlocked" className="px-1 desktop:px-0 text-meta text-ink-3">
+        Upplåst. Du kan ändra valet tills du lämnar sidan.
+      </p>
+    );
+  }
+  if (!open) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <p className="px-1 desktop:px-0 text-meta text-ink-3">Valet är låst och kan bara läsas.</p>
+        <Button variant="secondary" disabled={!hydrated} onClick={() => setOpen(true)}>
+          Lås upp för att ändra
+        </Button>
+      </div>
+    );
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (checking || value === "") return;
+    setWrong(false);
+    startChecking(async () => {
+      let result: Result<true>;
+      try {
+        result = await verifyAiPassword(value);
+      } catch {
+        result = fail("validation");
+      }
+      if (result.ok) onUnlock(value);
+      else {
+        setWrong(true);
+        setValue("");
+      }
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2" data-testid="ai-unlock-form">
+      <FieldLabel htmlFor={inputId}>Lösenord</FieldLabel>
+      <Input
+        id={inputId}
+        type="password"
+        autoComplete="off"
+        autoFocus
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        aria-invalid={wrong}
+        aria-describedby={wrong ? errorId : undefined}
+      />
+      {wrong ? (
+        <FieldError id={errorId} role="alert">
+          Fel lösenord.
+        </FieldError>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={checking || value === ""}>
+          Lås upp
+        </Button>
+        <Button variant="quiet" onClick={() => setOpen(false)}>
+          Avbryt
+        </Button>
+      </div>
+    </form>
   );
 }
 
