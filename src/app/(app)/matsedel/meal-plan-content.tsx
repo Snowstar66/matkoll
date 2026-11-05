@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
+import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
 import { addWeeks, currentWeekStart, highlightDay, overviewWeeks, viewedWeek } from "@/features/mealplan";
 import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
@@ -11,10 +11,13 @@ import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
+import { searchIngredients } from "@/features/catalog/server";
+import { ownRecipeSuggestions } from "@/features/suggestions/server";
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
 import { loadBoendeCounts } from "../boende-counts";
+import { SuggestionsFromOffers } from "./suggestions-from-offers";
 
 /**
  * The library for Lägg till rätt, or `null` when it cannot be read (logged
@@ -119,6 +122,8 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         </div>
       ) : null}
       <WeekNav weekStart={weekStart} counts={counts} now={now} />
+      {/* Story 9.6: suggestions to pick from, never a week plan. */}
+      <SuggestionsFromOffers read={ownRecipeSuggestions} addToPlan={addToCurrentPlan} searchIngredients={searchIngredients} />
       <MealPlanList
         key={weekStart}
         weekStart={weekStart}

@@ -1,5 +1,5 @@
-import { weekdayDateText, weekdayWord } from "./meal-plan";
-import { currentWeekStart, maxWeeksAhead, parseWeekParam, weekAnchorDate, weekQuery, weeksBetween } from "./week";
+import { todayWeekday, weekdayDateText, weekdayNames, weekdayWord } from "./meal-plan";
+import { addWeeks, currentWeekStart, maxWeeksAhead, parseWeekParam, weekAnchorDate, weekQuery, weeksBetween } from "./week";
 
 // Välj dag och sedan recept (Story 13.8): Recept in a planning mode for one
 // day, `/recept?planera=2026-11-04`. The mode is the address alone, so it
@@ -64,4 +64,27 @@ export function planningDoneHref(target: PlanningTarget, now: Date = new Date())
 export function highlightDay(value: string | null | undefined): number | null {
   const day = Number(value);
   return Number.isInteger(day) && day >= 1 && day <= 7 ? day : null;
+}
+
+/** One day Pontus can put a suggested dish on (Story 9.6). */
+export type DayOption = { weekStart: string; weekday: number; group: "Denna vecka" | "Nästa vecka"; label: string };
+
+/**
+ * The days offered by "Lägg på en dag": today and the rest of this week, then
+ * all of next week. Today and tomorrow say so ("Idag, torsdag"), the rest are
+ * weekday names ("Fredag").
+ */
+export function dayOptions(now: Date = new Date()): DayOption[] {
+  const thisWeek = currentWeekStart(now);
+  const today = todayWeekday(now);
+  const options: DayOption[] = [];
+  for (const [offset, group] of [[0, "Denna vecka"], [1, "Nästa vecka"]] as const) {
+    const weekStart = addWeeks(thisWeek, offset);
+    for (let weekday = offset === 0 ? today : 1; weekday <= 7; weekday++) {
+      const name = weekdayNames[weekday - 1] as string;
+      const prefix = offset === 0 && weekday === today ? "Idag, " : offset === 0 && weekday === today + 1 ? "Imorgon, " : "";
+      options.push({ weekStart, weekday, group, label: prefix ? `${prefix}${name.toLowerCase()}` : name });
+    }
+  }
+  return options;
 }

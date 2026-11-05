@@ -67,6 +67,8 @@ export type DishSuggestionsOptions = {
   visible?: boolean;
   /** The names of Pontus's places by id, for "Förslagen bygger på matvarorna för Hemma." */
   siteNames?: Readonly<Record<string, string>>;
+  /** Story 9.6: `offers` asks for dishes built around the offers (Matsedel's suggestions); the default asks from the pantry alone. */
+  mode?: "pantry" | "offers";
 };
 
 /** The newest job of AI-förslag that matches. */
@@ -86,7 +88,7 @@ function latest(jobs: readonly AiJob[], match: (job: AiJob) => boolean): AiJob |
  */
 export function useDishSuggestions(
   shownSiteId: string | null = null,
-  { visible = true, siteNames }: DishSuggestionsOptions = {},
+  { visible = true, siteNames, mode: askMode = "pantry" }: DishSuggestionsOptions = {},
 ): DishSuggestionsState {
   const router = useRouter();
   const { jobs, loaded, start, cancel: cancelJob, markSeen, dismiss, fetchResult, reveals } = useAiJobs();
@@ -202,7 +204,7 @@ export function useDishSuggestions(
       ? []
       : toAvoidTitles([...made.suggestions.map(({ draft }) => draft.title), ...savedTitles.current]);
     const key = (startKey.current ??= crypto.randomUUID());
-    const result = await start("/api/ai/jobs", { kind: "suggest", avoidTitles }, key);
+    const result = await start("/api/ai/jobs", { kind: "suggest", avoidTitles, ...(askMode === "offers" ? { mode: "offers" } : {}) }, key);
     setStarting(false);
     if (!result.ok) {
       // A network error may be tried again with the same key; any other answer is final for this tap.

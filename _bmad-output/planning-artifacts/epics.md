@@ -2416,33 +2416,47 @@ så att jag får alla varor på inköpslistan utom de jag redan har hemma.
 **När** Pontus ber om vanliga AI-förslag
 **Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
 
-### Story 9.6: Veckans matsedel från erbjudanden och lagret
+### Story 9.6: Förslag från erbjudanden och det du har hemma
 
 Som Pontus,
-vill jag få ett förslag till veckans matsedel som utgår från erbjudandena och det som finns hemma,
-så att veckan planeras på några tryck.
+vill jag på Matsedel få förslag på rätter som utgår från erbjudandena och det som finns hemma,
+så att jag själv kan lägga in dem på en dag i veckan, eller bara ta del av dem.
+
+(Omarbetad 2026-11-05; det första förslaget var en hel veckoplan, nu: ingen hel veckoplan och inget nytt jobb. Förslagen är rätter att välja bland, aldrig något som läggs på matsedeln av sig självt.)
 
 **Acceptance Criteria:**
 
 **Givet** Matsedel
-**När** Pontus trycker "Föreslå veckans matsedel"
-**Så** startar ett AI-jobb av sorten `weekplan` som svarar inom en sekund, Matsedel visar "Planerar veckan … Du kan göra annat under tiden." och "Avbryt", och jobbraden visar det (FR54, AD-28)
+**När** Pontus trycker raden "Förslag från erbjudanden och lagret"
+**Så** fälls en lista med rättkort ut under veckorna, och inget läggs på matsedeln av sig självt (FR54, UX-DR33)
 
-**Givet** att jobbet är klart
-**När** förslaget visas
-**Så** står fem rättkort under "Förslag till veckans matsedel", i första hand recept ur biblioteket och högst två nya rätter med AI-etiketten, med "6 av 8 hemma" och erbjudandeetiketter (UX-DR33)
+**Givet** listan
+**När** förslagen visas
+**Så** står Pontus egna recept ur biblioteket först, högst fem, rangordnade efter hur många erbjudanden (från alla hans butiker, Story 9.13) de använder och hur mycket som redan finns hemma, med minst att köpa först, utan att något AI-jobb behövs
 
-**Givet** förslaget med tre rätter ur biblioteket ibockade
-**När** Pontus trycker "Lägg 3 rätter på matsedeln"
-**Så** läggs de på den aktuella matsedeln, och bekräftelsen säger "Lade 3 rätter på matsedeln."
-
-**Givet** en ny rätt i förslaget
-**När** Pontus trycker "Granska och spara"
-**Så** öppnas förhandsgranskningen som för ett AI-förslag, och inget sparas utan "Spara" (AD-2, AD-10)
-
-**Givet** att Pontus byter valt ställe medan förslaget tas fram
+**Givet** ett kort
 **När** det visas
-**Så** står "Förslaget bygger på lagret för Hemma." och "Föreslå igen"
+**Så** står "6 av 8 hemma", erbjudandeetiketter ("Erbjudanden: Falukorv") och vad som behöver köpas ("köp till: grädde")
+
+**Givet** ett recept ur biblioteket
+**När** Pontus trycker "Lägg på en dag"
+**Så** väljer han en dag i denna eller nästa vecka (idag och framåt för denna vecka), rätten läggs på den dagen, och bekräftelsen säger "Lagt på matsedeln, torsdag."
+
+**Givet** ett recept ur biblioteket
+**När** Pontus trycker "Öppna receptet"
+**Så** öppnas receptet, och han kan lika gärna bara läsa korten och stänga bladet
+
+**Givet** att Pontus trycker "Föreslå rätter med AI" under förslagen
+**När** jobbet (samma `suggest` med `mode: "offers"` som i Story 9.5, som läser erbjudanden och lager på servern) är klart
+**Så** står högst två nya rätter med AI-etiketten under de egna recepten, och "Granska och spara" öppnar förhandsgranskningen som för ett AI-förslag, och inget sparas utan "Spara" (AD-2, AD-10)
+
+**Givet** inga erbjudanden och inget hemma som passar
+**När** listan fälls ut
+**Så** står en kort rad om det, och AI-knappen finns kvar
+
+**Givet** raden
+**När** den används med skärmläsare eller med reducerad rörelse
+**Så** är den en knapp med `aria-expanded`, dagvalet är ett blad som övriga, och inget rör sig i onödan med reducerad rörelse
 
 ### Story 9.7: Erbjudanden från inklistrad text
 
