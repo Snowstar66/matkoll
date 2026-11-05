@@ -755,7 +755,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      const parsed = parseThings(answer.data);
+      const parsed = parseThings(answer.data, imageSizeOf(input.image.data));
       // Counts only, never the names.
       if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("things_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
       return ok(parsed);
@@ -870,7 +870,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         within,
       );
       if (!answer.ok) return answer;
-      const box = parseLocatedBox(answer.data);
+      const box = parseLocatedBox(answer.data, imageSizeOf(input.image.data));
       // Only whether it was found, never the name or the box.
       console.info("thing_located", { found: box !== null, answered: answer.data.found });
       return ok({ box });
