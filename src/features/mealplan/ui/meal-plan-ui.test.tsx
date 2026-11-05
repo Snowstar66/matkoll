@@ -148,7 +148,7 @@ describe("MealPlanList", () => {
     expect(days[0]).toHaveTextContent("Torsdag 29 okt");
     expect(days[1]).not.toHaveAttribute("data-today");
     expect(days[1]).not.toHaveAttribute("aria-current");
-    expect(within(days[1]).getByTestId("day-free")).toHaveTextContent("Fre30+ Lägg till");
+    expect(within(days[1]).getByTestId("day-free")).toHaveTextContent("Fre30Lägg till");
     expect(within(days[4]).getByRole("list", { name: "Ingen dag än" })).toBeInTheDocument();
     expect(within(days[4]).getByTestId("plan-dish")).toHaveTextContent("Gryta");
   });

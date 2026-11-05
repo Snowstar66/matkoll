@@ -7,7 +7,7 @@ import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
-import { CartIcon, MoreIcon, TrashIcon } from "@/components/icons";
+import { CartIcon, MoreIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -539,7 +539,7 @@ export function MealPlanList({
               className={`border-t border-l-4 border-t-hairline first:border-t-0 ${isToday ? "border-l-mint" : "border-l-transparent"} ${lighted ? "bg-accent/20 motion-safe:transition-colors" : ""}`}
             >
               {dayDishes.length === 0 && weekday ? (
-                // An empty day is one thin row: the day and "+ Lägg till", which opens Lägg till rätt on it.
+                // An empty day is one thin row: the day and "Lägg till" with a plus, which opens Lägg till rätt on it.
                 <button
                   type="button"
                   data-testid="day-free"
@@ -548,7 +548,10 @@ export function MealPlanList({
                   className="flex min-h-tap w-full items-center gap-3 py-2 pr-3 pl-3 text-left"
                 >
                   {when}
-                  <span className="flex-1 text-control text-ink-2">+ Lägg till</span>
+                  <span className="flex flex-1 items-center gap-1.5 text-control text-ink-2">
+                    <PlusIcon size={16} />
+                    Lägg till
+                  </span>
                   {isToday ? <TodayPill /> : null}
                 </button>
               ) : (

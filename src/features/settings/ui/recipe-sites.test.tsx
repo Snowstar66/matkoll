@@ -32,7 +32,13 @@ function renderSites() {
 
 const shownSites = () => screen.queryAllByTestId("recipe-site").map((row) => within(row).getByText(/\./).textContent);
 
+let guardOffset = 0;
+const realNow = performance.now.bind(performance);
+
 beforeEach(() => {
+  // Every press of a bin lands well after the last one, outside its double-tap guard.
+  guardOffset += 1000;
+  vi.spyOn(performance, "now").mockImplementation(() => realNow() + guardOffset);
   setRecipeSiteActive.mockReset();
   addRecipeSite.mockReset();
 });
@@ -71,6 +77,7 @@ describe("RecipeSites", () => {
     renderSites();
     await userEvent.click(screen.getByRole("button", { name: "Ta bort koket.se" }));
     expect(await screen.findByTestId("toast")).toHaveTextContent("Tog bort koket.se.");
+    guardOffset += 1000;
     await userEvent.click(screen.getByRole("button", { name: "Ta bort arla.se" }));
     await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort koket.se och arla.se."));
 
