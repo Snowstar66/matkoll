@@ -127,7 +127,7 @@ development_status:
   11-7-egen-ikon-och-snowstar: done
   epic-11-retrospective: optional
 
-  epic-12: in-progress
+  epic-12: done
   12-1-mät-ai-tiderna-och-ställ-in-lm-studio: done
   12-2-väck-modellen-i-förväg: done
   12-3-kortare-svar-för-ai-förslag: done
@@ -197,7 +197,7 @@ development_status:
   16-18-packa-upp-kassarna: done
   epic-9-retrospective: optional
 
-  epic-17: in-progress
+  epic-17: done
   17-1-isoleringstest-mellan-hushåll: done
   17-2-enkel-inloggning-med-lösenord: done
   17-3-molnmiljön: done
@@ -239,7 +239,7 @@ development_status:
   18-24-jag-har-köpt-var-förvarar-vi-dem: done
   epic-18-retrospective: optional
 
-  epic-19: in-progress
+  epic-19: done
   19-1-tokens-typsnitt-och-flikrad: done
   19-2-sidhuvud-p-knappen-hjälp-och-boende: done
   19-3-valt-läge-chip-segment-och-recept-filtren: done
@@ -249,7 +249,7 @@ development_status:
   19-7-skärmpass-inköpslista-matvaror-förråd-inställningar-och-ordlista: done
   epic-19-retrospective: optional
 
-  epic-20: in-progress
+  epic-20: done
   20-1-välkomsttur: done
   20-2-hjälpnav: done
   20-3-tyck-till-och-inkorg: done
@@ -269,7 +269,7 @@ development_status:
   22-3-så-skyddas-dina-bilder: backlog
   epic-22-retrospective: optional
 
-  epic-23: in-progress
+  epic-23: done
   23-1-brickor-i-appen: done
   23-2-siffra-på-hemskärmsikonen: done
   23-3-push-notiser-med-inställningar: done
