@@ -455,6 +455,51 @@ test("a favourite recipe that uses an offer is shown first and goes on the menu,
   expect(errors).toEqual([]);
 });
 
+// Story 9.6: Matsedel's row "Förslag från erbjudanden och lagret": the library first, a day is picked, nothing is added before that.
+test("Matsedel suggests a library recipe from an offer and puts it on the day picked", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  const admin = adminClient();
+  const ids = await seedIngredients(["falukorv", "makaroner"]);
+  const recipe = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title: "Korvstroganoff", original_servings: 4, total_minutes: 30, source_kind: "text" })
+    .select("id")
+    .single();
+  if (recipe.error) throw recipe.error;
+  const lines = await admin.from("recipe_ingredient").insert(
+    [
+      { text: "400 g falukorv", id: ids.get("falukorv")! },
+      { text: "makaroner", id: ids.get("makaroner")! },
+    ].map((line, position) => ({
+      user_id: userId,
+      recipe_id: (recipe.data as { id: string }).id,
+      position,
+      original_text: line.text,
+      amount: null,
+      unit: null,
+      is_vague: true,
+      ingredient_id: line.id,
+    })),
+  );
+  if (lines.error) throw lines.error;
+
+  await page.goto("/matsedel");
+  await page.getByTestId("suggestions-toggle").click();
+  const card = page.getByTestId("suggestion-recipe").filter({ hasText: "Korvstroganoff" });
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId("suggestion-recipe-home")).toContainText("av 2 hemma");
+  await expect(card.getByTestId("suggestion-recipe-why")).toContainText("Falukorv");
+  await card.getByRole("button", { name: "Lägg på en dag: Korvstroganoff" }).click();
+  // Nothing is added by opening the day picker.
+  expect((await admin.from("meal_plan_recipe").select("id").eq("user_id", userId)).data).toHaveLength(0);
+  await page.getByTestId("suggestion-day").last().click();
+  await expect(toast(page)).toContainText("Lagt på matsedeln, söndag.");
+  const plan = await admin.from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
+  expect(plan.data).toEqual([{ recipe_title: "Korvstroganoff", weekday: 7 }]);
+  expect(errors).toEqual([]);
+});
+
 /** Starts the suggestions; with two stores the store-choice sheet comes first (Story 16.10), where the preselected store is kept. */
 async function startSuggest(page: Page) {
   await suggestButton(page).click();

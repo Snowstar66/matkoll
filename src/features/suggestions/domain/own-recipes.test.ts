@@ -67,3 +67,48 @@ describe("rankOwnRecipes", () => {
     expect(ranked.map((r) => r.id)).toEqual(["a", "b", "c", "d", "e"]);
   });
 });
+
+describe("rankOwnRecipes with the pantry counted (Story 9.6)", () => {
+  const limit = maxOwnRecipes;
+
+  it("still leaves out a recipe without offers when the pantry is not counted", () => {
+    expect(rankOwnRecipes(offers, [recipe("home", [["Ris", "rice", true], ["Ägg", "egg", true]])])).toEqual([]);
+  });
+
+  it("includes a recipe with no offer when at least half of it is at home, with no offer tags", () => {
+    const ranked = rankOwnRecipes(
+      offers,
+      [recipe("home", [["Ris", "rice", true], ["Ägg", "egg", true]]), recipe("away", [["Ris", "rice", true], ["Ägg", "egg"], ["Lax", "l"]])],
+      limit,
+      undefined,
+      true,
+    );
+    expect(ranked.map((r) => r.id)).toEqual(["home"]);
+    expect(ranked[0]).toMatchObject({ onOffer: [], have: 2, total: 2, toBuy: [] });
+  });
+
+  it("puts more at home first among recipes with the same offers", () => {
+    const ranked = rankOwnRecipes(
+      offers,
+      [
+        recipe("little", [["Kyckling", "chicken"], ["A", "a"], ["B", "b"]]),
+        recipe("much", [["Kyckling", "chicken"], ["A", "a", true], ["B", "b", true]]),
+      ],
+      limit,
+      undefined,
+      true,
+    );
+    expect(ranked.map((r) => r.id)).toEqual(["much", "little"]);
+  });
+
+  it("lets an offer recipe beat an all-at-home recipe with no offer", () => {
+    const ranked = rankOwnRecipes(
+      offers,
+      [recipe("pantry", [["Ris", "rice", true], ["Ägg", "egg", true]]), recipe("offer", [["Kyckling", "chicken"], ["A", "a"]])],
+      limit,
+      undefined,
+      true,
+    );
+    expect(ranked[0].id).toBe("offer");
+  });
+});

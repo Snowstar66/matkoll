@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  dayOptions,
   highlightDay,
   planningBarText,
   planningButtonText,
@@ -39,5 +40,24 @@ describe("planning texts and addresses", () => {
     expect(highlightDay("3")).toBe(3);
     expect(highlightDay("9")).toBeNull();
     expect(highlightDay(undefined)).toBeNull();
+  });
+});
+
+describe("dayOptions (Story 9.6)", () => {
+  it("offers today and the rest of this week, then all of next week", () => {
+    const options = dayOptions(now);
+    expect(options.filter((o) => o.group === "Denna vecka").map((o) => o.label)).toEqual([
+      "Idag, torsdag",
+      "Imorgon, fredag",
+      "Lördag",
+      "Söndag",
+    ]);
+    expect(options.filter((o) => o.group === "Nästa vecka")).toHaveLength(7);
+    expect(options.at(-1)).toMatchObject({ weekStart: "2026-11-02", weekday: 7, label: "Söndag" });
+    expect(options[0]).toMatchObject({ weekStart: "2026-10-26", weekday: 4 });
+  });
+
+  it("offers the whole of this week on a Monday", () => {
+    expect(dayOptions(new Date("2026-10-26T10:00:00Z")).filter((o) => o.group === "Denna vecka")).toHaveLength(7);
   });
 });
