@@ -25,9 +25,22 @@ export const pushChoices: readonly { kind: PushKind; label: string; hint: string
   { kind: "matsedel", label: "Ändrad matsedel", hint: "När någon annan lägger till, tar bort eller flyttar en rätt." },
 ];
 
+/** The browsers' own push services; the server never posts to another host. Same list as the migration's check. */
+const pushHost = /^(fcm\.googleapis\.com|android\.googleapis\.com|[a-z0-9-]+\.push\.apple\.com|[a-z0-9.-]+\.notify\.windows\.com|[a-z0-9.-]*push\.services\.mozilla\.com)$/;
+
+/** True for an https address on a known push service. */
+export function isPushEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.username === "" && url.password === "" && url.port === "" && pushHost.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** A device's push subscription, as the browser hands it over. */
 export const pushSubscriptionSchema = z.object({
-  endpoint: z.url({ protocol: /^https$/ }).max(1000),
+  endpoint: z.string().max(1000).refine(isPushEndpoint),
   p256dh: z.string().min(1).max(200),
   auth: z.string().min(1).max(200),
 });

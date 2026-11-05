@@ -18,7 +18,7 @@ let b: TestUser;
 let householdA: string;
 let householdB: string;
 
-const device = (name: string) => ({ endpoint: `https://push.example/${name}-${randomUUID()}`, p256dh: "key", auth: "secret" });
+const device = (name: string) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${name}-${randomUUID()}`, p256dh: "key", auth: "secret" });
 const quiet = 0;
 const maxWait = 300;
 
@@ -82,10 +82,13 @@ describe("devices and choices", () => {
   });
 
   it("refuse a plain-http endpoint and a row written for someone else", async () => {
-    expect((await a.db.rpc("save_push_subscription", { device_endpoint: "http://push.example/x", device_p256dh: "k", device_auth: "a" })).error?.code).toBe("23514");
-    const forB = await a.db.from("push_subscription").insert({ user_id: b.id, ...device("x") } as never);
+    expect((await a.db.rpc("save_push_subscription", { device_endpoint: "http://fcm.googleapis.com/fcm/send/x", device_p256dh: "k", device_auth: "a" })).error?.code).toBe("23514");
+    for (const endpoint of ["https://evil.example/x", "https://fcm.googleapis.com.evil.example/x", "https://evil.example/?a=.push.apple.com/"]) {
+      expect((await a.db.rpc("save_push_subscription", { device_endpoint: endpoint, device_p256dh: "k", device_auth: "a" })).error?.code, endpoint).toBe("23514");
+    }
+    const forB =await a.db.from("push_subscription").insert({ user_id: b.id, ...device("x") } as never);
     expect(forB.error, "user_id is not granted for insert").not.toBeNull();
-    expect((await anonClient().rpc("save_push_subscription", { device_endpoint: "https://push.example/x", device_p256dh: "k", device_auth: "a" })).error?.code).toBe("42501");
+    expect((await anonClient().rpc("save_push_subscription", { device_endpoint: "https://fcm.googleapis.com/fcm/send/x", device_p256dh: "k", device_auth: "a" })).error?.code).toBe("42501");
   });
 });
 

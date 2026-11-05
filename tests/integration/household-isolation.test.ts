@@ -152,7 +152,7 @@ const coverage: Record<IsolatedTable, Coverage> = {
   household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
   // Story 23.3: one device a person turned notifications on for, and what they want to be told about.
   push_preference: { row: () => ({ lista: false, forrad: true }) },
-  push_subscription: { row: () => ({ endpoint: `https://push.example/${randomUUID()}`, p256dh: "key", auth: "secret" }) },
+  push_subscription: { row: () => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${randomUUID()}`, p256dh: "key", auth: "secret" }) },
   // Story 20.1: one row per user, the time the welcome tour was closed.
   welcome_tour: { row: () => ({ tour_seen_at: new Date().toISOString() }) },
 };

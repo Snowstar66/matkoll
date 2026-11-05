@@ -43,7 +43,11 @@ create table public.push_subscription (
   auth text not null,
   created_at timestamptz not null default now(),
   constraint push_subscription_endpoint_key unique (endpoint),
-  constraint push_subscription_endpoint_check check (endpoint like 'https://%' and char_length(endpoint) <= 1000),
+  -- Only the browsers' own push services, so the server never posts to another host.
+  constraint push_subscription_endpoint_check check (
+    char_length(endpoint) <= 1000
+    and endpoint ~ '^https://(fcm\.googleapis\.com|android\.googleapis\.com|[a-z0-9-]+\.push\.apple\.com|[a-z0-9.-]+\.notify\.windows\.com|[a-z0-9.-]*push\.services\.mozilla\.com)/[^\s]*$'
+  ),
   constraint push_subscription_keys_check check (char_length(p256dh) between 1 and 200 and char_length(auth) between 1 and 200)
 );
 

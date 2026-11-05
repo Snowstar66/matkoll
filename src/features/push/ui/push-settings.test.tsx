@@ -20,8 +20,8 @@ const { PushSettings, notSetUpText, iosInstallText } = await import("./push-sett
 
 function stubPush({ permission = "default", subscribed = false }: { permission?: NotificationPermission; subscribed?: boolean } = {}) {
   const subscription = {
-    endpoint: "https://push.example/device",
-    toJSON: () => ({ endpoint: "https://push.example/device", keys: { p256dh: "key", auth: "secret" } }),
+    endpoint: "https://fcm.googleapis.com/fcm/send/device",
+    toJSON: () => ({ endpoint: "https://fcm.googleapis.com/fcm/send/device", keys: { p256dh: "key", auth: "secret" } }),
     unsubscribe: vi.fn(async () => true),
   };
   const pushManager = {
@@ -77,7 +77,7 @@ describe("Notiser", () => {
     render(<PushSettings publicKey="BEl6" preferences={defaultPushPreferences} />);
     await user.click(await screen.findByRole("button", { name: "Slå på notiser" }));
     expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(subscribePush).toHaveBeenCalledWith({ endpoint: "https://push.example/device", p256dh: "key", auth: "secret" });
+    expect(subscribePush).toHaveBeenCalledWith({ endpoint: "https://fcm.googleapis.com/fcm/send/device", p256dh: "key", auth: "secret" });
     expect(await screen.findByText("Notiser är på, på den här enheten.")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Nya varor på listan" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Lappar" })).toBeChecked();
@@ -93,7 +93,7 @@ describe("Notiser", () => {
     expect(savePushPreferences).toHaveBeenCalledWith({ lista: true, forrad: false, matsedel: true, lappar: true });
     await user.click(screen.getByRole("button", { name: "Stäng av på den här enheten" }));
     expect(subscription.unsubscribe).toHaveBeenCalled();
-    expect(unsubscribePush).toHaveBeenCalledWith("https://push.example/device");
+    expect(unsubscribePush).toHaveBeenCalledWith("https://fcm.googleapis.com/fcm/send/device");
     expect(await screen.findByRole("button", { name: "Slå på notiser" })).toBeInTheDocument();
   });
 

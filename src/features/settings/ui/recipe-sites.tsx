@@ -14,6 +14,7 @@ import { Button } from "@/components/button";
 import { FieldError, Input } from "@/components/field";
 import { ListGroup } from "@/components/list-group";
 import { Notice } from "@/components/notice";
+import { TrashButton } from "@/components/trash-button";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail } from "@/lib/errors";
 import { addRecipeSite, type AddRecipeSiteState } from "../actions/add-recipe-site";
@@ -150,15 +151,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
           {shownSites.map((domain) => (
             <li key={domain} data-testid="recipe-site" className="flex min-h-[52px] items-center justify-between gap-3 pl-4 pr-1">
               <span className="min-w-0 text-body break-all text-ink">{domain}</span>
-              <button
-                type="button"
-                aria-label={`Ta bort ${domain}`}
-                disabled={!hydrated}
-                onClick={() => remove(domain)}
-                className="min-h-tap min-w-tap shrink-0 rounded-md px-3 text-meta text-danger disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Ta bort
-              </button>
+              <TrashButton label={`Ta bort ${domain}`} disabled={!hydrated} onPress={() => remove(domain)} />
             </li>
           ))}
         </ListGroup>

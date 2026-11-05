@@ -571,7 +571,7 @@ test("dishes lie on days: Flytta till dag, adding to a free day, and the list do
   await expect(page.getByTestId("plan-day").filter({ visible: true })).toHaveCount(7 - today + 1 + 1);
   await expect(day("none")).toContainText(soppa);
   await expect(day("none")).toContainText(gryta);
-  await expect(day(today).getByTestId("day-free")).toContainText("+ Lägg till");
+  await expect(day(today).getByTestId("day-free")).toContainText("Lägg till");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   // Move Linssoppa to another day from the ⋯ sheet.

@@ -6,7 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { pushConfig } from "@/lib/push-send";
 import { PushDataError, removeSubscriptionIn, savePreferencesIn, saveSubscriptionIn } from "../data/push";
-import { type PushPreferences, pushPreferencesSchema, type PushSubscriptionInput, pushSubscriptionSchema } from "../domain/push";
+import { isPushEndpoint, type PushPreferences, pushPreferencesSchema, type PushSubscriptionInput, pushSubscriptionSchema } from "../domain/push";
 
 // Inställningar → Notiser (Story 23.3). Nothing is revalidated: the page keeps
 // the choices it shows, and the queue is read by the sender only.
@@ -48,7 +48,7 @@ export async function subscribePush(input: PushSubscriptionInput): Promise<Resul
   }
 }
 
-const endpointSchema = z.url({ protocol: /^https$/ }).max(1000);
+const endpointSchema = z.string().max(1000).refine(isPushEndpoint);
 
 /** Turns notifications off for this device. Fails with `unauthorized`, `validation` or `push_save_failed`. */
 export async function unsubscribePush(endpoint: string): Promise<Result<null>> {

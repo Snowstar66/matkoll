@@ -23,7 +23,7 @@ vi.mock("../data/push", () => ({
 const { savePushPreferences, subscribePush, unsubscribePush } = await import("./push");
 const { PushDataError } = await import("../data/push");
 
-const device = { endpoint: "https://push.example/abc", p256dh: "key", auth: "secret" };
+const device = { endpoint: "https://fcm.googleapis.com/fcm/send/abc", p256dh: "key", auth: "secret" };
 const choices = { lista: true, forrad: false, matsedel: true, lappar: true };
 
 beforeEach(() => {
@@ -56,7 +56,7 @@ describe("subscribePush", () => {
   });
 
   it("refuses an http address and says notiser är inte påslagna while the keys are not set", async () => {
-    expect(await subscribePush({ ...device, endpoint: "http://push.example/abc" })).toMatchObject({ ok: false, error: { code: "validation" } });
+    expect(await subscribePush({ ...device, endpoint: "http://fcm.googleapis.com/fcm/send/abc" })).toMatchObject({ ok: false, error: { code: "validation" } });
     pushConfig.mockReturnValue(null);
     expect(await subscribePush(device)).toMatchObject({ ok: false, error: { code: "push_not_configured" } });
     expect(saveSubscriptionIn).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe("subscribePush", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     saveSubscriptionIn.mockRejectedValue(new PushDataError("save_subscription_failed 23514"));
     await subscribePush(device);
-    expect(JSON.stringify(error.mock.calls)).not.toContain("push.example");
+    expect(JSON.stringify(error.mock.calls)).not.toContain("fcm.googleapis.com");
     expect(JSON.stringify(error.mock.calls)).not.toContain("secret");
   });
 });
