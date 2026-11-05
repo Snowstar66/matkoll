@@ -231,7 +231,7 @@ describe("suggestFromPantry", () => {
 
     it("leaves them out around offers", async () => {
       listOldPantryItems.mockResolvedValue(old);
-      getActiveOffers.mockResolvedValue([{ label: "Falukorv", name: "falukorv", ingredientId: null }] as never);
+      getActiveOffers.mockResolvedValue([{ label: "Falukorv", name: "falukorv", ingredientId: null }]);
       await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
       expect(listOldPantryItems).not.toHaveBeenCalled();
     });
@@ -308,8 +308,8 @@ describe("suggestFromPantry", () => {
     // The omelett, after the dropped pasta, has its own lines and names.
     const omelett = result.data.suggestions[1];
     expect(omelett.draft.lines.map((line) => line.originalText)).toEqual(third.ingredients.map((line) => line.originalText));
-    expect(omelett.draft.lines[3]).toMatchObject({ originalText: "1 gul lök", ingredient: { kind: "match", ingredientId: ids.lok } });
-    expect(omelett.draft.lines[4]).toMatchObject({ originalText: "1 dl riven ost", ingredient: { kind: "match", ingredientId: ids.ost } });
+    expect(omelett.draft.lines[2]).toMatchObject({ originalText: "1 gul lök", ingredient: { kind: "match", ingredientId: ids.lok } });
+    expect(omelett.draft.lines[3]).toMatchObject({ originalText: "1 dl riven ost", ingredient: { kind: "match", ingredientId: ids.ost } });
     expect(omelett.ingredientNames).toEqual({ [ids.lok]: "Gul lök", [ids.ost]: "Riven ost" });
   });
 
@@ -318,8 +318,87 @@ describe("suggestFromPantry", () => {
     getPantrySnapshot.mockResolvedValue(new Map([...pantry].filter(([key]) => key !== ids.ost)));
     const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
     if (!result.ok) throw new Error(result.error.code);
-    expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual([fixture[0].title, fixture[1].title]);
+    expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual([fixture[0].title]);
     expect(console.error).toHaveBeenCalledWith("ai_invalid", { reason: "pantry", index: 2, count: 1 });
+    // The pasta has two at home, but with the cheese gone it misses three things.
+    expect(console.error).toHaveBeenCalledWith("ai_invalid", { reason: "missing", index: 1, missing: 3, count: 2 });
+  });
+
+  describe("what a dish may miss (pantry mode)", () => {
+    /** `n` lines for things not at home, with an amount, which the catalog does not know. */
+    const extra = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        originalText: `${i + 1} st sak${i}`,
+        amount: i + 1,
+        unit: null,
+        isVague: false,
+        hint: { name: `sak${i}`, section: "Övrigt" as const, location: "Skafferi" as const, defaultUnit: "st" as const },
+        stepIndexes: [0],
+        group: null,
+        isStapleMarked: false,
+      }));
+    /** A fixture dish keeping only its lines at home (gul lök, grädde, vitlök, riven ost), plus `missing` things not at home. */
+    const withMissing = (recipe: (typeof fixture)[number], missing: number) => ({
+      ...recipe,
+      ingredients: [...recipe.ingredients.filter((line) => line.hint.name in known), ...extra(missing)],
+    });
+    const titles = (result: Awaited<ReturnType<typeof suggestFromPantry>>) => {
+      if (!result.ok) throw new Error(result.error.code);
+      return result.data.suggestions.map(({ draft }) => draft.title);
+    };
+
+    it("drops a dish that misses more than two things, logging counts only", async () => {
+      const [a, b, c] = fixture;
+      suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 7), withMissing(b, 2), c]));
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(titles(result)).toEqual([b.title, c.title]);
+      expect(console.error).toHaveBeenCalledWith("ai_invalid", { reason: "missing", index: 0, missing: 7, count: 3 });
+      expect(suggestDishes).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not count lines at home or lines without an amount", async () => {
+      const [a] = fixture;
+      const vague = { ...extra(1)[0], originalText: "peppar", amount: null, isVague: true, hint: { ...extra(1)[0].hint, name: "peppar" } };
+      const dish = withMissing(a, 2);
+      suggestDishes.mockResolvedValueOnce(ok([{ ...dish, ingredients: [...dish.ingredients, vague] }]));
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(titles(result)).toEqual([a.title]);
+      // The vague line is not at home, but is not counted; neither is salt.
+      expect(result.ok && result.data.suggestions[0].toBuy).toContain("sak0");
+    });
+
+    it("asks once more, stricter and avoiding the rejected titles, when none is left", async () => {
+      const [a, b, c] = fixture;
+      suggestDishes
+        .mockResolvedValueOnce(ok([withMissing(a, 5), withMissing(b, 5), withMissing(c, 5)]))
+        .mockResolvedValueOnce(ok([b]));
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(titles(result)).toEqual([b.title]);
+      expect(suggestDishes).toHaveBeenCalledTimes(2);
+      const [retry] = suggestDishes.mock.calls[1];
+      expect(retry.strict).toBe(true);
+      expect(retry.avoidTitles).toEqual([a.title, b.title, c.title]);
+    });
+
+    it("gives ai_invalid after one retry that also fails, and does not retry without time", async () => {
+      const bad = ok(fixture.map((recipe) => withMissing(recipe, 5)));
+      suggestDishes.mockResolvedValue(bad);
+      expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("ai_invalid"));
+      expect(suggestDishes).toHaveBeenCalledTimes(2);
+
+      suggestDishes.mockClear();
+      const deadline = Date.now() + 8_000;
+      expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal(), deadline })).toEqual(fail("ai_invalid"));
+      expect(suggestDishes).toHaveBeenCalledTimes(1);
+    });
+
+    it("says how many are at home and what to buy on the card", async () => {
+      const [a] = fixture;
+      suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 2)]));
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.suggestions[0]).toMatchObject({ atHome: { have: 3, total: 5 }, toBuy: ["sak0", "sak1"] });
+    });
   });
 
   it("gives ai_invalid when no draft passes", async () => {
@@ -551,7 +630,7 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     const plain = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
     if (!plain.ok) throw new Error(plain.error.code);
     expect(plain.data.mode).toBe("pantry");
-    expect(plain.data.suggestions.every(({ onOffer, atHome }) => onOffer.length === 0 && atHome === null)).toBe(true);
+    expect(plain.data.suggestions.every(({ onOffer }) => onOffer.length === 0)).toBe(true);
     expect(getActiveOffers).not.toHaveBeenCalled();
   });
 });

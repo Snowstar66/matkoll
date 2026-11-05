@@ -88,6 +88,8 @@ export type SuggestDishesInput = {
   pantry: SuggestPantryItem[];
   /** Titles already suggested, which the model is asked not to suggest again; an answer with one of them is invalid. */
   avoidTitles: string[];
+  /** A retry after dishes that missed too much: adds a stricter reminder to use only what is at home. */
+  strict?: boolean;
   /**
    * Story 9.5: the names of this week's offers (never prices), best first,
    * when the dishes are to be built around them. Empty (the default) gives
@@ -1109,6 +1111,9 @@ export function suggestDishesContent(input: SuggestDishesInput): string {
     parts.push(`${input.eatFirst ? "Ät först" : "Har legat länge"}:\n${oldItemLines(input.oldItems)}`);
   }
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
+  if (input.strict) {
+    parts.push("Påminnelse: använd bara varor från lagret, och högst två varor som inte finns där, utöver salt, peppar, olja och vatten.");
+  }
   return parts.join("\n\n");
 }
 

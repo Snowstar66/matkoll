@@ -9,8 +9,10 @@ import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { storeBadgeText, type StoreOffer } from "@/features/offers";
 import { getAiServiceForUser, getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
+import { suggestInputLimits } from "@/lib/suggest-input";
 import { fail, ok, type Result } from "@/lib/errors";
-import { offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
+import { missingCount, offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
+import type { DishLine } from "../domain/offer-input";
 import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
@@ -30,6 +32,17 @@ export const postModelMarginMs = 5_000;
 
 /** A suggestion must use at least this many ingredients that are at home. */
 export const minPantryIngredients = 2;
+
+/**
+ * In the pantry mode a dish may miss at most this many things (not at home,
+ * and not a Basvara or a line without an amount), as the prompt says.
+ * minPantryIngredients stays 2, not the prompt's 3: with this cap a dish of
+ * two things at home is still cookable, and 3 would empty answers too often.
+ */
+export const maxMissingPantry = 2;
+
+/** A retry needs at least this long before the model's own deadline. */
+const minRetryMs = 20_000;
 
 /** Runs a catalog read; a failed query becomes `catalog_unavailable`, anything else is a bug and is thrown. */
 async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
@@ -114,6 +127,24 @@ function isLinkedAtHome(ingredient: RecipeDraft["lines"][number]["ingredient"], 
   return (ingredient.kind === "match" || ingredient.kind === "chosen") && snapshot.has(ingredient.ingredientId);
 }
 
+type DraftLine = RecipeDraft["lines"][number];
+
+/** The lines of a draft as toBuyNames reads them, named by the catalog name when linked, else as the model wrote them. */
+function dishLines(draft: RecipeDraft, ingredientNames: Record<string, string>, snapshot: PantrySnapshot): DishLine[] {
+  return draft.lines.map((line: DraftLine) => {
+    const { ingredient } = line;
+    const id = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredient.ingredientId : null;
+    const linked = id !== null ? ingredientNames[id] : undefined;
+    return {
+      name: linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim(),
+      ingredientId: id,
+      atHome: isLinkedAtHome(ingredient, snapshot),
+      amount: line.amount,
+      unit: line.unit,
+    };
+  });
+}
+
 export type SuggestMode = SuggestRequest["mode"];
 
 /** What the job is asked: the mode is "pantry" when left out. */
@@ -154,8 +185,9 @@ export async function checkSuggestPantry(mode: SuggestMode = "pantry", storeId?:
  * found), the AI port (`validation`, `ai_unavailable`, `ai_rejected`,
  * `ai_invalid`), one matchIngredients call for every line of the three, and
  * fromAiRecipe. A draft that does not pass recipeDraftSchema, or uses fewer
- * than two ingredients that are at home, is left out (logged as
- * `ai_invalid`); none left is `ai_invalid`. A job that is stopped is
+ * than two ingredients that are at home, or (pantry mode) more than
+ * maxMissingPantry things missing, is left out (logged as `ai_invalid`); when
+ * none is left the model is asked once more, stricter; still none is `ai_invalid`. A job that is stopped is
  * `ai_unavailable`, and nothing more is read. Only one job runs at a time
  * for a user (the queue, AD-28), so nothing here keeps a lock of its own.
  */
@@ -212,35 +244,65 @@ async function suggest(
   }
   if (dropped > 0) console.info("suggest_pantry_trimmed", { dropped });
 
-  const suggested = await (await getAiServiceForUser()).suggestDishes(input, signal, {
-    deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
-  });
-  if (!suggested.ok) return suggested;
-  if (signal.aborted) return stopped();
-  const recipes = suggested.data;
+  const service = await getAiServiceForUser();
+  const staples = pantry.data.staples;
+  /** One round with the model: its dishes as drafts that pass the checks, and the titles of those that did not. */
+  const round = async (roundInput: typeof input): Promise<Result<{ drafts: RecipeDraft[]; rejected: string[] }>> => {
+    const suggested = await service.suggestDishes(roundInput, signal, {
+      deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
+    });
+    if (!suggested.ok) return suggested;
+    if (signal.aborted) return stopped();
+    const recipes = suggested.data;
 
-  const lines = recipes.flatMap((recipe) => recipe.ingredients.map((line) => ({ text: line.originalText, hint: line.hint })));
-  const matches = await fromCatalog(() => matchIngredients(lines));
-  if (!matches.ok) return matches;
+    const lines = recipes.flatMap((recipe) => recipe.ingredients.map((line) => ({ text: line.originalText, hint: line.hint })));
+    const matches = await fromCatalog(() => matchIngredients(lines));
+    if (!matches.ok) return matches;
 
-  const drafts: RecipeDraft[] = [];
-  let start = 0;
-  recipes.forEach((recipe, index) => {
-    const lineMatches = matches.data.slice(start, start + recipe.ingredients.length);
-    start += recipe.ingredients.length;
-    const draft = recipeDraftSchema.safeParse(fromAiRecipe(recipe, lineMatches, { kind: "ai" }));
-    if (!draft.success) {
-      const issues = draft.error.issues.map(({ path, code }) => ({ path: path.map(String), code }));
-      console.error("ai_invalid", { reason: "draft", index, issues });
-      return;
+    const kept: RecipeDraft[] = [];
+    const rejected: string[] = [];
+    let start = 0;
+    recipes.forEach((recipe, index) => {
+      const lineMatches = matches.data.slice(start, start + recipe.ingredients.length);
+      start += recipe.ingredients.length;
+      const draft = recipeDraftSchema.safeParse(fromAiRecipe(recipe, lineMatches, { kind: "ai" }));
+      if (!draft.success) {
+        const issues = draft.error.issues.map(({ path, code }) => ({ path: path.map(String), code }));
+        console.error("ai_invalid", { reason: "draft", index, issues });
+        return;
+      }
+      const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
+      if (!byOffers && count < minPantryIngredients) {
+        console.error("ai_invalid", { reason: "pantry", index, count });
+        rejected.push(draft.data.title);
+        return;
+      }
+      if (!byOffers) {
+        const missing = missingCount(dishLines(draft.data, {}, snapshot), staples);
+        if (missing > maxMissingPantry) {
+          console.error("ai_invalid", { reason: "missing", index, missing, count });
+          rejected.push(draft.data.title);
+          return;
+        }
+      }
+      kept.push(draft.data);
+    });
+    return ok({ drafts: kept, rejected });
+  };
+
+  const first = await round(input);
+  if (!first.ok) return first;
+  let drafts = first.data.drafts;
+  if (drafts.length === 0 && !byOffers && first.data.rejected.length > 0) {
+    // Once more, with the rejected titles to avoid and a stricter reminder, when there is time for it.
+    const timeLeft = deadline === undefined ? Infinity : deadline - postModelMarginMs - Date.now();
+    if (timeLeft >= minRetryMs) {
+      const avoid = [...new Set([...first.data.rejected, ...input.avoidTitles])].slice(0, suggestInputLimits.maxAvoidTitles);
+      const second = await round({ ...input, avoidTitles: avoid, strict: true });
+      if (!second.ok) return second;
+      drafts = second.data.drafts;
     }
-    const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
-    if (!byOffers && count < minPantryIngredients) {
-      console.error("ai_invalid", { reason: "pantry", index, count });
-      return;
-    }
-    drafts.push(draft.data);
-  });
+  }
   if (drafts.length === 0) return fail("ai_invalid");
 
   if (signal.aborted) return stopped();
@@ -256,8 +318,14 @@ async function suggest(
       const ingredientNames = Object.fromEntries(
         linked.flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
       );
+      const atHome = {
+        // "X av Y hemma": the lines linked to something in the pantry, of all lines.
+        have: draft.lines.filter(({ ingredient }) => isLinkedAtHome(ingredient, snapshot)).length,
+        total: draft.lines.length,
+      };
       if (!byOffers) {
-        return { draft, ingredientNames, onOffer: [], atHome: null, toBuy: [], oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
+        const toBuy = toBuyNames([], dishLines(draft, ingredientNames, snapshot), staples);
+        return { draft, ingredientNames, onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
       }
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
       const onOffer = offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]);
@@ -267,27 +335,8 @@ async function suggest(
         ingredientNames,
         oldUsed: [],
         onOffer,
-        // "X av Y hemma": the lines linked to something in the pantry, of all lines.
-        atHome: {
-          have: draft.lines.filter(({ ingredient }) => isLinkedAtHome(ingredient, snapshot)).length,
-          total: draft.lines.length,
-        },
-        toBuy: toBuyNames(
-          offers,
-          draft.lines.map((line) => {
-            const { ingredient } = line;
-            const id = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredient.ingredientId : null;
-            const linked = id !== null ? ingredientNames[id] : undefined;
-            return {
-              name: linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim(),
-              ingredientId: id,
-              atHome: isLinkedAtHome(ingredient, snapshot),
-              amount: line.amount,
-              unit: line.unit,
-            };
-          }),
-          pantry.data.staples,
-        ),
+        atHome,
+        toBuy: toBuyNames(offers, dishLines(draft, ingredientNames, snapshot), staples),
       };
     }),
   });

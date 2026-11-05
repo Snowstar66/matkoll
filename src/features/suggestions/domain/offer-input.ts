@@ -108,6 +108,15 @@ export function toBuyNames(
   return names;
 }
 
+/**
+ * How many things a dish needs that are not at home (pantry mode): the lines
+ * toBuyNames would list, without those with no amount (salt, peppar "efter
+ * smak"), which are never worth a trip to the shop.
+ */
+export function missingCount(lines: readonly DishLine[], staples: StapleRules = noStaples): number {
+  return toBuyNames([], lines.filter((line) => line.amount != null), staples).length;
+}
+
 /** At most this many names after "köp till: ", the rest as "+2". */
 const maxBuyNames = 3;
 
