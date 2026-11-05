@@ -63,6 +63,16 @@ export function StreamingReading({ view }: { view: StreamingReadingView }) {
           <div className="relative max-h-[260px]" style={{ aspectRatio: `${size.width} / ${size.height}` }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- an object URL of the photo in memory */}
             <img src={url} alt="" className="h-full max-h-[260px] w-auto rounded-[16px] object-contain opacity-90" />
+            {/* Only for the eye, and only with motion: a light line sweeps over the photo while it is read. */}
+            <span
+              aria-hidden="true"
+              data-testid="pantry-scan-line"
+              className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-[16px] motion-safe:block"
+            >
+              <span className="block h-full motion-safe:animate-scan-line">
+                <span className="absolute inset-x-0 bottom-0 block h-0.5 rounded-full bg-accent shadow-[0_0_8px_2px_color-mix(in_srgb,var(--accent)_55%,transparent)]" />
+              </span>
+            </span>
             {markers.map((marker) => (
               <span
                 key={marker.n}
