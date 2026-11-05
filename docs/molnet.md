@@ -158,6 +158,9 @@ Sätt miljövariablerna under **Settings → Environment Variables** *innan* ste
 | `AI_SETTINGS_EMAILS` | din adress: bara den ser AI-avsnittet i Inställningar | ja | nej | privat |
 | `AI_SETTINGS_PASSWORD` | lösenordet som krävs för att ändra AI-valet i Inställningar; tomt = inbyggt standardlösenord | nej | nej | privat |
 | `OWNER_EMAIL` | din adress: appens ägare (Story 20.3). Bladen under Hjälp → Tyck till skriver "Pontus ser texten …" med förnamnet härifrån. Vem som ser **Inkorg** avgörs inte av variabeln utan av databasen; `pnpm owner:sync` i steg 5 skriver adressen dit. | ja | nej | privat |
+| `VAPID_PUBLIC_KEY` | den publika nyckeln från `npx web-push generate-vapid-keys` (Story 23.3). Utan nycklarna står det "Notiser är inte påslagna än" under Inställningar → Notiser och inget skickas. Behåll paret: byts det måste varje enhet slå på notiser igen. | nej (valfri) | nej | offentlig (webbläsaren får den) |
+| `VAPID_PRIVATE_KEY` | den privata nyckeln i samma par. Signerar varje notis. | nej (valfri, men båda eller ingen) | nej | **hemlig: markera Sensitive** |
+| `VAPID_SUBJECT` | `mailto:din@adress` eller en https-adress som pushtjänsten kan nå dig på. Tomt = `OWNER_EMAIL`, annars `SITE_URL`. | nej | nej | privat |
 | `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | **sätts inte** när molnet kör Claude. Behövs bara om du vill att Qwen på Macen ska kunna väljas, via Cloudflare Tunnel ([`drift.md` steg 8](drift.md#8-cloudflare-tunnel-och-access-för-lm-studio)). | nej | nej | CF-hemligheten är hemlig |
 | `OPENAI_API_KEY` | används inte | nej | nej | hemlig |
 | `AI_MOCK_DELAY_MS` | **sätts aldrig** (bara testerna) | nej | nej | – |
@@ -275,6 +278,19 @@ Vill du ha erbjudandena direkt (ny butik, eller ICA uppdaterade sidan sent): **G
 ## 10. Flytta din data – [Båda]
 
 Gjord 2026-11-01 (Story 17.4). Flyttskriptet med sina tester togs bort i Story 21.2a, eftersom flytten är gjord och skriptet inte känner till hushållen. Det finns kvar i Git-historiken (`git log --diff-filter=D -- scripts/move-to-cloud.ts`).
+
+## Notiser (Story 23.3)
+
+Inställningar → Notiser slår på Web Push för en enhet och låter var och en välja: nya varor på listan och lappar (på från början), nya kort i Förråd och ändrad matsedel (av från början). Det du själv gör ger ingen notis till dig.
+
+**Slå på för första gången [Pontus, en gång]:**
+
+1. Gör nyckelparet: `npx web-push generate-vapid-keys`. Spara båda raderna i lösenordshanteraren. Byts paret måste varje enhet slå på notiser igen.
+2. Vercel → Settings → Environment Variables, bara **Production**: `VAPID_PUBLIC_KEY` (Public Key), `VAPID_PRIVATE_KEY` (Private Key, markera **Sensitive**) och valfritt `VAPID_SUBJECT` (`mailto:din@adress`; tomt = `OWNER_EMAIL`). Inget i GitHub och inget i repot: skickandet sker i Vercel.
+3. Kör om den senaste publiceringen (Deployments → Redeploy), så att variablerna läses.
+4. Öppna Inställningar → Notiser på telefonen och tryck Slå på notiser. På iPhone och iPad måste appen ligga på hemskärmen (Dela → Lägg till på hemskärmen, iOS 16.4 eller senare) och öppnas därifrån.
+
+**Så fungerar det.** Databasen köar varje ändring som berättas om (en trigger på `shopping_custom_item`, `thing_photo`, `household_note` och `meal_plan_recipe`; raden i `push_event` har sort, hushåll och vem som gjorde den, aldrig innehållet). Efter skrivningen väntar en `after()`-funktion på Vercel tills hushållet varit tyst i två minuter (längst fem minuter från första ändringen), tar då det som är klart ur kön med `claim_push_batches()` (med den inloggades egen session; service role finns inte i Vercel) och skickar en notis per sort till övriga medlemmars enheter: "3 nya varor på listan". En lapp visas med avsändarens namn och text, annars bara antal. En enhet som pushtjänsten svarar 404 eller 410 på tas bort tyst (`drop_push_subscriptions()`). Dör funktionen (en ny publicering) ligger raderna kvar och skickas vid nästa ändring eller nästa gång någon öppen enhet frågar efter nyheter. Utan nycklarna köas inget skickas, och sidan säger "Notiser är inte påslagna än". Loggen har bara antal, aldrig namn eller text. Väntan förutsätter Vercels Fluid compute (förval i nya projekt; 300 s i Hobby).
 
 ## Hushållet i databasen (Story 21.2a)
 

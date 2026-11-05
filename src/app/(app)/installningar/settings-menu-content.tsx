@@ -156,6 +156,7 @@ export async function SettingsMenuContent() {
       rows: [
         { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
         { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen" },
+        { href: settingsPageHref("notiser"), icon: "bell", tile: "sky", title: "Notiser" },
         { href: settingsPageHref("siri"), icon: "mic", tile: "lilac", title: "Siri och genvägar" },
         { href: settingsPageHref("nyheter"), icon: "sparkle", tile: "mint", title: "Nyheter", newsSince: latestReleaseDate },
         { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}`, value: versionLine(readBuildInfo()) },

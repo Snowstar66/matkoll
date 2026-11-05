@@ -52,7 +52,9 @@ type Coverage = {
 // Story 20.3: tables that are not one user's own. The owner of a feedback row may
 // not read it back (only the app's owner may), and app_owner has no user at all;
 // tests/integration/feedback.test.ts covers both, with the same intruders.
-const coveredInFeedbackTest = ["app_owner", "feedback"];
+// Story 23.3: push_event, the queue of changes to tell about, has RLS and no policy and no grant for
+// any client; push.test.ts shows that nobody reads or writes it, and claims only their own household's.
+const coveredInFeedbackTest = ["app_owner", "feedback", "push_event"];
 
 // Story 21.2a: the household itself, its members and its invitations. Covered
 // below in "the household and its members". Story 21.2b: the count of wrong
@@ -62,7 +64,7 @@ const householdTables = ["household", "household_code_attempt", "household_invit
 // Story 21.2a: the tables that stay a person's own, not the household's: a
 // co-member sees none of their rows. Every other covered table is the
 // household's (household_id, and policies on my_household_id()).
-const personalTables: readonly IsolatedTable[] = ["api_key", "welcome_tour"];
+const personalTables: readonly IsolatedTable[] = ["api_key", "welcome_tour", "push_preference", "push_subscription"];
 
 type IsolatedTable = Exclude<TableName, "feedback">;
 
@@ -148,6 +150,9 @@ const coverage: Record<IsolatedTable, Coverage> = {
   household_note: { row: () => ({ text: "Sugen på fisksoppa idag, kan du handla?", mood: "love", actions: [{ kind: "list" }] }) },
   // Basvaror: one staple the household always has (the defaults have no maker; this one is a's).
   household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
+  // Story 23.3: one device a person turned notifications on for, and what they want to be told about.
+  push_preference: { row: () => ({ lista: false, forrad: true }) },
+  push_subscription: { row: () => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${randomUUID()}`, p256dh: "key", auth: "secret" }) },
   // Story 20.1: one row per user, the time the welcome tour was closed.
   welcome_tour: { row: () => ({ tour_seen_at: new Date().toISOString() }) },
 };
@@ -183,6 +188,8 @@ const seedOrder: IsolatedTable[] = [
   "thing_change",
   "household_note",
   "household_staple",
+  "push_preference",
+  "push_subscription",
   "welcome_tour",
 ];
 
@@ -373,7 +380,7 @@ describe("household isolation", () => {
     for (const table of tables) {
       const isShared = (shared as string[]).includes(table.name);
       if (isShared) expect(table.has_household, `${table.name} has household_id`).toBe(true);
-      else if (!["household_member", "household_invite"].includes(table.name)) {
+      else if (!["household_member", "household_invite", "push_event"].includes(table.name)) {
         expect(table.has_household, `${table.name} is a person's (or the app's), without household_id`).toBe(false);
       }
     }
@@ -417,7 +424,7 @@ describe("household isolation", () => {
       if (canUpdate.has(table)) {
         // An update that changes nothing: a2 may change a's row.
         const { data: row } = await adminClient().from(table).select("created_at").eq("id", id).single();
-        const update = await a2.db.from(table).update({ created_at: (row as { created_at: string }).created_at } as never).eq("id", id).select("id");
+        const update = await a2.db.from(table).update({ created_at: (row as unknown as { created_at: string }).created_at } as never).eq("id", id).select("id");
         expect(update.error, "a2 updates a's row").toBeNull();
         expect(update.data, "a2 updates a's row").toHaveLength(1);
       }
@@ -927,6 +934,8 @@ describe("household isolation", () => {
       "create_household_invite", "household_invites", "household_members", "leave_household", "rename_household", "set_my_display_name",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
+      // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).
+      "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
       // Pure functions of their arguments.
       "catalog_display_name", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];

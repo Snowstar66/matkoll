@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { AppBadgeIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PantryIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
+import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PantryIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { NewsDot } from "./news-seen";
 
@@ -19,6 +19,7 @@ export const settingsIcons = {
   coin: CoinIcon,
   install: InstallIcon,
   badge: AppBadgeIcon,
+  bell: BellIcon,
   mic: MicIcon,
   info: InfoIcon,
   inbox: InboxIcon,
