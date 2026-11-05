@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NoteView } from "../domain/note";
 import { NoteCard, OwnNoteLine } from "./note-card";
 
@@ -7,6 +7,7 @@ const note = (id: string, text: string, extra: Partial<NoteView> = {}): NoteView
   id,
   text,
   mood: null,
+  avatarMood: null,
   actions: [],
   createdAt: new Date().toISOString(),
   mine: false,
@@ -40,9 +41,50 @@ describe("NoteCard", () => {
 
   it("shows the newest of several, with how many more, and the next on a tap", () => {
     render(<NoteCard notes={[note("a", "Först"), note("b", "Sen"), note("c", "Sist")]} onAction={vi.fn()} onDone={vi.fn()} onReply={vi.fn()} />);
-    expect(screen.getByText("Först")).toBeTruthy();
+    expect(screen.getByText("Först", { selector: ".sr-only" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "2 lappar till" }));
-    expect(screen.getByText("Sen")).toBeTruthy();
+    expect(screen.getByText("Sen", { selector: ".sr-only" })).toBeTruthy();
+  });
+});
+
+describe("NoteCard avatar", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const props = { onAction: vi.fn(), onDone: vi.fn(), onReply: vi.fn() };
+
+  it("shows the avatar in the note's mood, hidden from assistive technology", () => {
+    render(<NoteCard notes={[note("a", "Hej", { avatarMood: "arg" })]} {...props} />);
+    const avatar = screen.getByTestId("note-avatar");
+    expect(avatar.getAttribute("data-mood")).toBe("arg");
+    expect(avatar.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("reveals the words one by one while the avatar talks, then points, then rests, with the whole text readable at once", () => {
+    vi.useFakeTimers();
+    render(<NoteCard notes={[note("a", "Kan du handla")]} {...props} />);
+    // Readable for a screen reader from the first moment.
+    expect(screen.getByText("Kan du handla").className).toContain("sr-only");
+    const hidden = () => screen.getByTestId("note-card").querySelectorAll("p [aria-hidden] > span.opacity-0").length;
+    expect(hidden()).toBe(3);
+    expect(screen.getByTestId("note-avatar").getAttribute("data-state")).toBe("talking");
+    act(() => void vi.advanceTimersByTime(180));
+    expect(hidden()).toBe(2);
+    act(() => void vi.advanceTimersByTime(400));
+    expect(hidden()).toBe(0);
+    expect(screen.getByTestId("note-avatar").getAttribute("data-state")).toBe("pointing");
+    act(() => void vi.advanceTimersByTime(3_000));
+    expect(screen.getByTestId("note-avatar").getAttribute("data-state")).toBe("idle");
+  });
+
+  it("with reduced motion shows every word and a still avatar at once", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    render(<NoteCard notes={[note("a", "Kan du handla", { avatarMood: "glad" })]} {...props} />);
+    expect(screen.getByTestId("note-card").querySelectorAll("span.opacity-0").length).toBe(0);
+    const avatar = screen.getByTestId("note-avatar");
+    expect(avatar.getAttribute("data-state")).toBe("idle");
+    expect(avatar.getAttribute("data-mood")).toBe("glad");
   });
 });
 

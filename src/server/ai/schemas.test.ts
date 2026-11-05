@@ -13,6 +13,7 @@ import {
   suggestDishesAnswerCompact,
   suggestDishesAnswerCompactFor,
 } from "./schemas";
+import { parseNoteAvatarMood } from "./schemas";
 import { validCompactDish, validRecipe } from "./test-support";
 
 describe("aiRecipe", () => {
@@ -465,5 +466,14 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     expect(items.items.required).toEqual(["l", "n", "q", "u", "s", "p", "a"]);
     expect(Object.keys(items.items.properties)).toEqual(items.items.required);
     expect(JSON.stringify(schema)).not.toMatch(/"default"|"minLength"|"maxLength"|"minimum"|"exclusiveMinimum"/);
+  });
+});
+
+describe("parseNoteAvatarMood", () => {
+  it("knows the moods and falls back to neutral for anything else", () => {
+    expect(parseNoteAvatarMood({ mood: "glad" })).toBe("glad");
+    expect(parseNoteAvatarMood({ mood: " Kärleksfull " })).toBe("karleksfull");
+    expect(parseNoteAvatarMood({ mood: "furious" })).toBe("neutral");
+    expect(parseNoteAvatarMood({ mood: "" })).toBe("neutral");
   });
 });

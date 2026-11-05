@@ -33,6 +33,26 @@ export function moodEmoji(mood: NoteMood | null): string | null {
   return noteMoods.find((candidate) => candidate.id === mood)?.emoji ?? null;
 }
 
+/** The looks of the avatar that performs a note (Story 24.2). */
+export const avatarMoods = ["neutral", "glad", "arg", "karleksfull", "stressad"] as const;
+export type AvatarMood = (typeof avatarMoods)[number];
+
+/** What a stored avatar_mood holds; anything else is no mood (null). */
+export function parseAvatarMood(value: unknown): AvatarMood | null {
+  return (avatarMoods as readonly unknown[]).includes(value) ? (value as AvatarMood) : null;
+}
+
+/** How the avatar looks for the emoji the author chose. */
+const avatarMoodOfEmoji: Record<NoteMood, AvatarMood> = { happy: "glad", love: "karleksfull", yum: "glad", cross: "arg", weary: "stressad" };
+
+/**
+ * The avatar's mood: the author's own emoji first, then what the AI judged
+ * when the note was sent, otherwise neutral (no AI, or no answer in time).
+ */
+export function avatarMoodOf(note: { mood: NoteMood | null; avatarMood: AvatarMood | null }): AvatarMood {
+  return (note.mood ? avatarMoodOfEmoji[note.mood] : null) ?? note.avatarMood ?? "neutral";
+}
+
 /** A button on a note: put a recipe on this week's meal plan, or open the shopping list. */
 export type NoteAction = { kind: "plan"; recipeId: string; title: string } | { kind: "list" };
 
@@ -125,6 +145,8 @@ export type NoteView = {
   id: string;
   text: string;
   mood: NoteMood | null;
+  /** What the AI judged the text to be, when the author chose no mood. */
+  avatarMood: AvatarMood | null;
   actions: NoteAction[];
   createdAt: string;
   /** Written by the signed-in member. */

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Others } from "@/features/household";
 import { initialOf } from "@/features/household";
 import type { Database } from "@/lib/supabase/database.types";
-import { type NoteAuthor, type NoteView, noteMaxDays, parseNoteActions, type ValidNoteInput } from "../domain/note";
+import { type NoteAuthor, type NoteView, noteMaxDays, parseAvatarMood, parseNoteActions, type AvatarMood, type ValidNoteInput } from "../domain/note";
 
 // The table household_note (Story 24.1, supabase/migrations/…_household_note.sql).
 // Every call runs with the signed-in member's session: RLS gives the household's
@@ -34,7 +34,7 @@ export async function listOpenNotesIn(db: NotesDb, me: string, others: Others, n
   const since = new Date(now.getTime() - noteMaxDays * 24 * 60 * 60_000).toISOString();
   const { data, error } = await db
     .from("household_note")
-    .select("id, user_id, text, mood, actions, created_at")
+    .select("id, user_id, text, mood, avatar_mood, actions, created_at")
     .is("done_at", null)
     .gt("created_at", since)
     .order("created_at", { ascending: false })
@@ -53,6 +53,7 @@ export async function listOpenNotesIn(db: NotesDb, me: string, others: Others, n
       id: row.id,
       text: row.text,
       mood: row.mood,
+      avatarMood: parseAvatarMood(row.avatar_mood),
       actions: parseNoteActions(row.actions),
       createdAt: row.created_at,
       mine,
@@ -81,10 +82,11 @@ export async function listWaitingNoteIdsIn(db: NotesDb, me: string, limit: numbe
 }
 
 /** Adds a note as the signed-in member. `limited` after noteDailyLimit notes in a day (MK429). */
-export async function insertNoteIn(db: NotesDb, input: ValidNoteInput): Promise<"sent" | "limited"> {
+export async function insertNoteIn(db: NotesDb, input: ValidNoteInput, avatarMood: AvatarMood | null = null): Promise<"sent" | "limited"> {
   const { error } = await db.from("household_note").insert({
     text: input.text,
     mood: input.mood,
+    avatar_mood: avatarMood,
     actions: input.actions,
     reply_to: input.replyTo,
   });

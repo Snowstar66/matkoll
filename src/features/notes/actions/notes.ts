@@ -6,6 +6,7 @@ import { schedulePushSend } from "@/lib/push-send";
 import { getRecipesByIds, listRecipeTitles, RecipeDataError } from "@/features/recipes/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
+import { classifyNoteAvatarMood } from "./classify-mood";
 import { insertNoteIn, NoteDataError, setNoteDoneIn } from "../data/notes";
 import { type NoteAction, type NoteInput, noteInputSchema, type RecipeTitle } from "../domain/note";
 
@@ -37,7 +38,12 @@ export async function sendNote(input: NoteInput): Promise<Result<null>> {
       const title = recipes.get(action.recipeId);
       return title ? [{ kind: "plan", recipeId: action.recipeId, title }] : [];
     });
-    const outcome = await insertNoteIn(await createClient(), { ...parsed.data, actions });
+    const outcome = await insertNoteIn(
+      await createClient(),
+      { ...parsed.data, actions },
+      // The author's own emoji decides; otherwise the AI reads the text (never blocks, falls back to null).
+      parsed.data.mood ? null : await classifyNoteAvatarMood(parsed.data.text),
+    );
     if (outcome === "limited") return fail("note_rate_limited");
     // Story 23.3: the others get it as a push (queued by the database, sent after a while).
     schedulePushSend();

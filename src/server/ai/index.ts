@@ -13,6 +13,8 @@ export type {
   AskThingsPlace,
   AskThingsResult,
   CategorizeThingsInput,
+  ClassifyNoteMoodInput,
+  ClassifyNoteMoodResult,
   CategorizeThingsResult,
   ThingSearchTermsInput,
   ThingSearchTermsResult,
@@ -35,6 +37,8 @@ export type {
 export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
+export type { NoteAvatarMood } from "./schemas";
+export { noteAvatarMoods } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 export type { AiUsage, AiUsageSink } from "./usage";
@@ -84,6 +88,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
     mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
     thingSearchTerms: (input, signal, options) => withUsageSink(sink, () => service.thingSearchTerms(input, signal, options)),
     categorizeThings: (input, signal, options) => withUsageSink(sink, () => service.categorizeThings(input, signal, options)),
+    classifyNoteMood: (input, signal, options) => withUsageSink(sink, () => service.classifyNoteMood(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),
     warmUpKey: (kind) => service.warmUpKey(kind),
   };

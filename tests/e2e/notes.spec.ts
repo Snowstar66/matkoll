@@ -92,6 +92,8 @@ test("Pontus writes a note, Martina acts on it, answers and marks it Klar", asyn
   const card = reader.getByTestId("note-card").filter({ visible: true });
   await expect(card).toContainText("Pontus");
   await expect(card).toContainText(`${noteText} 😍`);
+  // Story 24.2: the avatar performs it, with the hearts of the "Kär" mood Pontus chose.
+  await expect(card.getByTestId("note-avatar")).toHaveAttribute("data-mood", "karleksfull");
   await expect(reader.getByRole("button", { name: "Konto, en lapp väntar" }).filter({ visible: true })).toBeVisible();
 
   // Lägg Fisksoppa på matsedeln: on this week's plan.

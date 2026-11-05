@@ -177,14 +177,14 @@ isOneToOne: false
                   ]
                 },"household_note": {
                   Row: {
-                    "actions": NonNullable<Json>,"created_at": string,"done_at": string | null,"done_by": string | null,"household_id": string,"id": string,"mood": Database["public"]['Enums']["household_note_mood"] | null,"reply_to": string | null,"text": string,"user_id": string | null
+                    "actions": NonNullable<Json>,"avatar_mood": string | null,"created_at": string,"done_at": string | null,"done_by": string | null,"household_id": string,"id": string,"mood": Database["public"]['Enums']["household_note_mood"] | null,"reply_to": string | null,"text": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "actions"?: NonNullable<Json>,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text": string,"user_id"?: string | null
+                    "actions"?: NonNullable<Json>,"avatar_mood"?: string | null,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text": string,"user_id"?: string | null
                   }
                   Update: {
-                    "actions"?: NonNullable<Json>,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text"?: string,"user_id"?: string | null
+                    "actions"?: NonNullable<Json>,"avatar_mood"?: string | null,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {

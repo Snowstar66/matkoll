@@ -163,7 +163,7 @@ export function NoteSheet({ mode, onClose, onSent }: NoteSheetProps) {
         ) : null}
         <div className="mt-4 flex flex-col gap-2">
           <p id={`${ids}-mood`} className="flex flex-wrap items-baseline gap-x-1.5 text-[15px] leading-5 font-medium text-ink">
-            Humör <span className="font-normal text-ink-2">(valfritt)</span>
+            Humör <span className="font-normal text-ink-2">(valfritt, annars läser appen av texten)</span>
           </p>
           <div role="group" aria-labelledby={`${ids}-mood`} className="flex gap-2">
             {noteMoods.map((candidate) => {

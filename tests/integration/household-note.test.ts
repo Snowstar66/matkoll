@@ -48,6 +48,17 @@ describe("household_note", () => {
     expect((await anonClient().from("household_note").select("id")).error?.code).toBe("42501");
   });
 
+  // Story 24.2: the avatar's mood, judged by the AI, is stored on the note; only the known moods pass the CHECK.
+  it("stores the avatar's mood, reads it back, and refuses an unknown one", async () => {
+    expect(await insertNoteIn(a.db, { text: "Älskling, hämta mjölk?", mood: null, actions: [], replyTo: null }, "karleksfull")).toBe("sent");
+    expect(await insertNoteIn(a.db, { text: "Utan humör", mood: null, actions: [], replyTo: null })).toBe("sent");
+    const notes = await listOpenNotesIn(a2.db, a2.id, others(a, "Pontus"));
+    expect(notes.find((note) => note.text === "Älskling, hämta mjölk?")?.avatarMood).toBe("karleksfull");
+    expect(notes.find((note) => note.text === "Utan humör")?.avatarMood).toBeNull();
+    const refused = await write(a, "Ilsken", { avatar_mood: "furious" });
+    expect(refused.error?.code).toBe("23514");
+  });
+
   // The news count (Brickor, Story 23.1): a note waits for the others in the household, never its author, until Klar.
   it("counts as news for the other members only, until someone marks it Klar", async () => {
     const own = await write(a, "Vem hämtar paketet?");

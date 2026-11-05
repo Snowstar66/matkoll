@@ -5,6 +5,7 @@ import askThingsPrompt from "./prompts/ask-things.md?raw";
 import listThingsPrompt from "./prompts/list-things.md?raw";
 import mergeThingsPrompt from "./prompts/merge-things.md?raw";
 import locateThingPrompt from "./prompts/locate-thing.md?raw";
+import classifyNoteMoodPrompt from "./prompts/classify-note-mood.md?raw";
 import parseRecipePrompt from "./prompts/parse-recipe.md?raw";
 import suggestDishesPrompt from "./prompts/suggest-dishes.md?raw";
 
@@ -21,4 +22,5 @@ export const prompts = {
   mergeThings: mergeThingsPrompt,
   categorizeThings: categorizeThingsPrompt,
   thingSearchTerms: thingSearchTermsPrompt,
+  classifyNoteMood: classifyNoteMoodPrompt,
 } as const;

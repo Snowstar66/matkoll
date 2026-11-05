@@ -15,7 +15,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ClassifyNoteMoodInput, ClassifyNoteMoodResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -330,6 +330,16 @@ const mockCategoryWords: [RegExp, CategorizeThingsResult["categories"][number]][
   [/plank|spik|bräd|cement|färg/, "Byggmaterial"],
 ];
 
+/** classifyNoteMood (Story 24.2) without a model: a few words pick the mood. */
+function mockNoteMood(input: ClassifyNoteMoodInput): ClassifyNoteMoodResult {
+  const lower = input.text.toLocaleLowerCase("sv");
+  if (/älskling|puss|kram|hjärta/.test(lower)) return { mood: "karleksfull" };
+  if (/arg|sur|irriterad|jävla/.test(lower)) return { mood: "arg" };
+  if (/snabbt|bråttom|stress/.test(lower)) return { mood: "stressad" };
+  if (/tack|sugen|gott|bra|!/.test(lower)) return { mood: "glad" };
+  return { mood: "neutral" };
+}
+
 function mockCategories(input: CategorizeThingsInput): CategorizeThingsResult {
   return {
     categories: input.names.map((name) => {
@@ -439,6 +449,7 @@ function countingCalls(service: AiService): AiService {
     mergeThings: counted(service.mergeThings),
     thingSearchTerms: counted(service.thingSearchTerms),
     categorizeThings: counted(service.categorizeThings),
+    classifyNoteMood: counted(service.classifyNoteMood),
   };
 }
 
@@ -567,6 +578,10 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const names = normalizeInputText({ text: input.names.join(" ") });
       for (const [text, code] of errors) if (names.includes(text)) return fail(code);
       return ok(mockCategories(input));
+    },
+    async classifyNoteMood(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      return ok(mockNoteMood(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-05",
+    title: "Lappen får en avatar",
+    bullets: [
+      "Lappen du får framförs nu av en liten figur som andas och blinkar, pratar medan orden dyker upp och pekar busigt på lappen.",
+      "Figuren ler, blir sur med armarna i kors, får hjärtan eller ser stressad ut, beroende på lappen. Väljer du ett humör när du skriver används det, annars läser appen av texten.",
+      "Har du slagit på Minska rörelse står figuren still och hela lappen syns direkt.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     title: "Skanningslinje i Kylfoto",
     bullets: [
       "Medan Livskoll läser ditt foto av kylen sveper en tunn ljus linje långsamt över bilden, så det syns att något pågår.",

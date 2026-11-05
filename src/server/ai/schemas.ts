@@ -664,6 +664,21 @@ export function parseCategories(answer: z.output<typeof categorizeThingsAnswer>,
   });
 }
 
+/** The looks of a note's avatar (Story 24.2); the first is the one for a text that says nothing in particular. */
+export const noteAvatarMoods = ["neutral", "glad", "arg", "karleksfull", "stressad"] as const;
+export type NoteAvatarMood = (typeof noteAvatarMoods)[number];
+
+/** What the model answers to classifyNoteMood (Story 24.2): one word. */
+export const classifyNoteMoodAnswer = z.object({
+  mood: z.string().describe("Ett av: neutral, glad, arg, karleksfull, stressad"),
+});
+
+/** The mood of the model's answer; anything unknown is "neutral". */
+export function parseNoteAvatarMood(answer: z.output<typeof classifyNoteMoodAnswer>): NoteAvatarMood {
+  const value = answer.mood.trim().toLocaleLowerCase("sv-SE").replace("ä", "a");
+  return (noteAvatarMoods as readonly string[]).includes(value) ? (value as NoteAvatarMood) : "neutral";
+}
+
 /** The most search terms the port gives for a question (Story 18.14). */
 export const maxSearchTerms = 8;
 /** The shortest and longest search term, in characters. */

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
 import { PenIcon } from "@/components/icons";
 import { whenText } from "@/features/household";
-import { moreNotesText, type NoteAction, noteActionKey, noteActionLabel, noteText, type NoteView } from "../domain/note";
+import { avatarMoodOf, moreNotesText, type NoteAction, noteActionKey, noteActionLabel, noteText, type NoteView } from "../domain/note";
+import { NoteAvatar } from "./note-avatar";
+import { useNoteReveal } from "./use-note-reveal";
 
 /** A 44 px tap area around a smaller button. */
 const tapArea = "relative before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']";
@@ -20,8 +21,8 @@ export type NoteCardProps = {
 
 /**
  * The note on the fridge (Story 24.1; hushallet.html, "Martina får lappen"):
- * sand like a paper note, the sender's initial in a dashed ring (where 24.2's
- * avatar will stand), name and time, the text at 17 px with the mood last,
+ * sand like a paper note, the avatar (Story 24.2) who says it word by word
+ * and then points at it, name and time, the text at 17 px with the mood last,
  * the buttons as white chips, then Svara and Klar. With more notes, the newest
  * first and "1 lapp till", which shows the next.
  */
@@ -29,15 +30,29 @@ export function NoteCard({ notes, onAction, onDone, onReply }: NoteCardProps) {
   const [index, setIndex] = useState(0);
   const note = notes[Math.min(index, notes.length - 1)];
   if (!note) return null;
-  const more = notes.length - 1;
+  // Keyed by the note, so each note is performed from its first word.
+  return <NoteCardBody key={note.id} note={note} more={notes.length - 1} onNext={() => setIndex((index + 1) % notes.length)} onAction={onAction} onDone={onDone} onReply={onReply} />;
+}
+
+function NoteCardBody({
+  note,
+  more,
+  onNext,
+  onAction,
+  onDone,
+  onReply,
+}: {
+  note: NoteView;
+  more: number;
+  onNext: () => void;
+} & Pick<NoteCardProps, "onAction" | "onDone" | "onReply">) {
+  const text = noteText(note);
+  const { tokens, shown, state } = useNoteReveal(text);
   return (
     <section aria-label={`Lapp från ${note.author.name}`} data-testid="note-card" className="rounded-[16px] bg-sand px-3.5 pt-3.5 pb-2 text-ink">
       <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-[52px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-sand-ink opacity-95"
-        >
-          <Avatar initial={note.author.initial} size={40} tone={note.author.tone} />
+        <span aria-hidden="true" className="flex size-[56px] shrink-0 items-center justify-center">
+          <NoteAvatar mood={avatarMoodOf(note)} state={state} tone={note.author.tone} size={56} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[15px] leading-5 font-semibold">{note.author.name}</span>
@@ -46,7 +61,7 @@ export function NoteCard({ notes, onAction, onDone, onReply }: NoteCardProps) {
         {more > 0 ? (
           <button
             type="button"
-            onClick={() => setIndex((index + 1) % notes.length)}
+            onClick={onNext}
             className="-mr-1 min-h-tap shrink-0 rounded-md px-1 text-[14px] text-sand-ink"
             data-testid="note-more"
           >
@@ -54,7 +69,17 @@ export function NoteCard({ notes, onAction, onDone, onReply }: NoteCardProps) {
           </button>
         ) : null}
       </div>
-      <p className="mt-2.5 text-[17px] leading-6 break-words whitespace-pre-line">{noteText(note)}</p>
+      <p className="mt-2.5 text-[17px] leading-6 break-words whitespace-pre-line">
+        {/* The whole text is there at once for a screen reader; the words that fade in are only for the eyes. */}
+        <span className="sr-only">{text}</span>
+        <span aria-hidden="true">
+          {tokens.map((token, at) => (
+            <span key={at} className={token.word !== null && token.word >= shown ? "opacity-0" : undefined}>
+              {token.text}
+            </span>
+          ))}
+        </span>
+      </p>
       {note.actions.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {note.actions.map((action) => (

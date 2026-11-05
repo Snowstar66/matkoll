@@ -680,3 +680,195 @@
     opacity: 0;
   }
 }
+
+/*
+ * NoteAvatar (Story 24.2): the character on a note. The face of each mood is
+ * drawn in the SVG itself, so everything outside no-preference stands still
+ * with the right look; only the movement is below. Colours are the app's
+ * tokens, so both themes work.
+ */
+.note-avatar {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.note-avatar .na-face {
+  fill: var(--surface);
+  stroke: var(--sand-ink);
+  stroke-width: 1.6;
+}
+.note-avatar .na-cheek {
+  fill: var(--warm);
+  opacity: 0.4;
+}
+.note-avatar .na-eyes ellipse {
+  fill: var(--ink);
+}
+.note-avatar .na-brows path,
+.note-avatar .na-mouth {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.note-avatar .na-mouth-talk {
+  display: none;
+  fill: var(--ink);
+}
+.note-avatar .na-shirt path {
+  fill: var(--accent);
+}
+.note-avatar[data-tone="sky"] .na-shirt path {
+  fill: var(--sky-ink);
+}
+.note-avatar[data-tone="sand"] .na-shirt path {
+  fill: var(--sand-ink);
+}
+.note-avatar[data-tone="lila"] .na-shirt path {
+  fill: var(--ink-2);
+}
+.note-avatar .na-arm {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.note-avatar[data-tone="sky"] .na-arm {
+  stroke: var(--sky-ink);
+}
+.note-avatar[data-tone="sand"] .na-arm {
+  stroke: var(--sand-ink);
+}
+.note-avatar[data-tone="lila"] .na-arm {
+  stroke: var(--ink-2);
+}
+.note-avatar .na-hand {
+  fill: var(--surface);
+  stroke: var(--sand-ink);
+  stroke-width: 1.2;
+}
+.note-avatar .na-heart {
+  fill: var(--hot);
+}
+.note-avatar .na-sweat {
+  fill: var(--sky);
+  stroke: var(--sky-ink);
+  stroke-width: 1.2;
+}
+.note-avatar .na-arm-point {
+  transform-box: view-box;
+  transform-origin: 46.5px 47px;
+}
+/* Pointing is a pose: raised towards the note, also when nothing moves. */
+.note-avatar[data-state="pointing"] .na-arm-point {
+  transform: rotate(-115deg);
+}
+.note-avatar .na-eyes,
+.note-avatar .na-head,
+.note-avatar .na-mouth-talk,
+.note-avatar .na-heart,
+.note-avatar .na-sweat {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .note-avatar .na-body {
+    transform-box: view-box;
+    transform-origin: 32px 63px;
+    animation: na-breathe 3.6s ease-in-out infinite;
+  }
+  .note-avatar .na-eyes {
+    animation: na-blink 4.6s infinite;
+  }
+  .note-avatar[data-state="talking"] .na-mouth {
+    display: none;
+  }
+  .note-avatar[data-state="talking"] .na-mouth-talk {
+    display: block;
+    animation: na-talk 0.34s ease-in-out infinite alternate;
+  }
+  .note-avatar[data-state="pointing"] .na-arm-point {
+    animation: na-point 0.5s ease-in-out infinite alternate;
+  }
+  .note-avatar[data-mood="stressad"] .na-head {
+    animation: na-jitter 0.22s linear infinite alternate;
+  }
+  .note-avatar[data-mood="stressad"] .na-sweat {
+    animation: na-drip 1.8s ease-in infinite;
+  }
+  .note-avatar .na-heart {
+    animation: na-float 2.8s ease-out infinite;
+  }
+  .note-avatar .na-heart-2 {
+    animation-delay: 0.9s;
+  }
+  .note-avatar .na-heart-3 {
+    animation-delay: 1.8s;
+  }
+}
+@keyframes na-breathe {
+  50% {
+    transform: scale(1.025, 1.03);
+  }
+}
+@keyframes na-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes na-talk {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes na-point {
+  from {
+    transform: rotate(-125deg);
+  }
+  to {
+    transform: rotate(-100deg);
+  }
+}
+@keyframes na-jitter {
+  from {
+    transform: translateX(-0.7px);
+  }
+  to {
+    transform: translateX(0.7px);
+  }
+}
+@keyframes na-drip {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+@keyframes na-float {
+  0% {
+    transform: translateY(4px) scale(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-6px) scale(1);
+    opacity: 0;
+  }
+}

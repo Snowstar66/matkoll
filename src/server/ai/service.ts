@@ -38,6 +38,9 @@ import {
   analyzeImageAnswer,
   askThingsAnswer,
   categorizeThingsAnswer,
+  classifyNoteMoodAnswer,
+  parseNoteAvatarMood,
+  type NoteAvatarMood,
   parseCategories,
   parseSearchTerms,
   parseThingIntent,
@@ -257,6 +260,12 @@ export type MergeThingsPair = { added: number; existing: number };
 /** What mergeThings answers: the pairs, each thing in at most one pair. */
 export type MergeThingsResult = { pairs: MergeThingsPair[] };
 
+/** What classifyNoteMood gets (Story 24.2): the note's text. Data for the model, never instructions. */
+export type ClassifyNoteMoodInput = { text: string };
+
+/** The avatar mood the text calls for; "neutral" when the model gives none that is known. */
+export type ClassifyNoteMoodResult = { mood: NoteAvatarMood };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -343,6 +352,13 @@ export interface AiService {
    * leaves too little time), `ai_rejected` or `ai_invalid`.
    */
   categorizeThings(input: CategorizeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<CategorizeThingsResult>>;
+  /**
+   * The mood of a note's text for its avatar (Story 24.2): one very short
+   * text call. Fails with `validation` (empty or over inputLimits.noteMood),
+   * `ai_unavailable` (also when the deadline leaves too little time),
+   * `ai_rejected` or `ai_invalid`.
+   */
+  classifyNoteMood(input: ClassifyNoteMoodInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ClassifyNoteMoodResult>>;
   /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
@@ -443,6 +459,7 @@ export const inputLimits = {
    * characters, about 3 000 tokens in) and a category of about 5 tokens each, so
    * 100 are 500 and 1 000 leave room for a model that writes around them.
    */
+  noteMood: { maxChars: 300, maxOutputTokens: 40 },
   categorize: { maxNames: 100, maxNameChars: 80, maxChars: 8_000, maxOutputTokens: 1_000 },
   /**
    * mergeThings (Story 18.6): the lists are names, categories and where on
@@ -523,6 +540,11 @@ export function isValidThingSearchTermsInput(input: ThingSearchTermsInput): bool
     return false;
   }
   return isValidHistory(history) && thingSearchTermsText(input).length <= (rooms ? limits.maxChars : inputLimits.terms.maxChars);
+}
+
+/** True for a note text of 1 to inputLimits.noteMood.maxChars characters. */
+export function isValidClassifyNoteMoodInput(input: ClassifyNoteMoodInput): boolean {
+  return input.text.trim() !== "" && input.text.length <= inputLimits.noteMood.maxChars;
 }
 
 /** True for 1 to inputLimits.categorize.maxNames names, each on one line and at most maxNameChars. */
@@ -633,6 +655,10 @@ export function withInputValidation(service: AiService): AiService {
     async categorizeThings(input, signal, options) {
       if (!isValidCategorizeThingsInput(input)) return fail("validation");
       return service.categorizeThings(input, signal, options);
+    },
+    async classifyNoteMood(input, signal, options) {
+      if (!isValidClassifyNoteMoodInput(input)) return fail("validation");
+      return service.classifyNoteMood(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -849,6 +875,27 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       return ok({ categories: parseCategories(answer.data, input.names.length) });
+    },
+    async classifyNoteMood(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: classifyNoteMoodAnswer,
+          system: prompts.classifyNoteMood,
+          messages: [{ role: "user", content: `Lapp: ${input.text.replace(/\s+/g, " ").trim()}` }],
+          maxOutputTokens: inputLimits.noteMood.maxOutputTokens,
+          onTruncated: () => console.info("note_mood_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ mood: parseNoteAvatarMood(answer.data) });
     },
     async locateThing(input, signal, options = {}) {
       const within = limitsWithin(locateLimitsFrom(limits), options.deadline);

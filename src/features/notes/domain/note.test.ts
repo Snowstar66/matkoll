@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  avatarMoodOf,
   moreNotesText,
   noteActionLabel,
   noteInputSchema,
   noteSheetTitle,
   noteText,
+  parseAvatarMood,
   parseNoteActions,
   replySheetTitle,
   splitNotes,
@@ -91,6 +93,7 @@ describe("splitNotes", () => {
     id,
     text: id,
     mood: null,
+    avatarMood: null,
     actions: [],
     createdAt: "2026-11-01T15:05:00Z",
     mine,
@@ -102,5 +105,26 @@ describe("splitNotes", () => {
       received: [note("b", false), note("d", false)],
       ownNewest: note("a", true),
     });
+  });
+});
+
+describe("avatar mood", () => {
+  it("takes the look from the author's emoji first", () => {
+    expect(avatarMoodOf({ mood: "happy", avatarMood: "arg" })).toBe("glad");
+    expect(avatarMoodOf({ mood: "yum", avatarMood: null })).toBe("glad");
+    expect(avatarMoodOf({ mood: "love", avatarMood: null })).toBe("karleksfull");
+    expect(avatarMoodOf({ mood: "cross", avatarMood: null })).toBe("arg");
+    expect(avatarMoodOf({ mood: "weary", avatarMood: null })).toBe("stressad");
+  });
+
+  it("falls back to what the AI judged, then to neutral", () => {
+    expect(avatarMoodOf({ mood: null, avatarMood: "stressad" })).toBe("stressad");
+    expect(avatarMoodOf({ mood: null, avatarMood: null })).toBe("neutral");
+  });
+
+  it("reads only known stored moods", () => {
+    expect(parseAvatarMood("glad")).toBe("glad");
+    expect(parseAvatarMood("furious")).toBeNull();
+    expect(parseAvatarMood(null)).toBeNull();
   });
 });
