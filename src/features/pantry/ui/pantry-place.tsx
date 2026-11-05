@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import type { SelectedSite } from "../domain/site";
@@ -28,6 +28,8 @@ export type PantryPlaceProps = {
   photo?: ShownPlacePhoto | null;
   /** Story 16.13: how many items on the place have lain long (Kyl and Frys), for the row at the top; none shows no row. */
   oldCount?: number;
+  /** A slot under the camera: "Vad kan jag laga?", put together by the page so pantry never imports recipes (AD-1). */
+  findDishes?: ReactNode;
 };
 
 /**
@@ -41,7 +43,7 @@ export type PantryPlaceProps = {
  * only one place, "Lägg till boende" comes last (needs a SiteSwitch above);
  * with more, the site switch above has "Boenden".
  */
-export function PantryPlace({ site, location, counts, items, photo = null, oldCount = 0 }: PantryPlaceProps) {
+export function PantryPlace({ site, location, counts, items, photo = null, oldCount = 0, findDishes }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
   const { readyLocations } = usePantrySuggestions();
   // The removals keep a change until the server's items show it.
@@ -54,6 +56,7 @@ export function PantryPlace({ site, location, counts, items, photo = null, oldCo
       <PantryCamera site={site} location={location}>
         <LatestPhoto photo={photo} location={location} />
       </PantryCamera>
+      {findDishes}
       <PantrySuggestionList siteId={site.id} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
       <PantryList

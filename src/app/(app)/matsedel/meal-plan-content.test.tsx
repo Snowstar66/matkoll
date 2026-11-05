@@ -30,6 +30,9 @@ vi.mock("@/features/mealplan/actions/add-to-current-plan", () => ({ addToCurrent
 vi.mock("@/features/mealplan/actions/set-servings", () => ({ setServings: vi.fn() }));
 vi.mock("@/features/mealplan/actions/remove-plan-recipe", () => ({ removePlanRecipe: vi.fn() }));
 vi.mock("@/features/mealplan/actions/restore-plan-recipe", () => ({ restorePlanRecipe: vi.fn() }));
+vi.mock("../lista/list-offers", () => ({
+  ListOffers: ({ next }: { next?: string }) => <button type="button" aria-label="Erbjudanden" data-next={next} />,
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const dish = {
@@ -80,6 +83,16 @@ describe("MealPlanContent", () => {
     const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
+  });
+
+  it("puts Erbjudanden in the header, before Lägg till rätt, returning to Matsedel after sign-in", async () => {
+    vi.mocked(getMealPlanView).mockResolvedValue({ plan: { id: "plan", name: "Vecka 44" }, dishes: [dish], snapshot: null, site: null });
+    vi.mocked(listRecipes).mockResolvedValue([]);
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
+    const header = within(screen.getByRole("banner"));
+    const offers = header.getByRole("button", { name: "Erbjudanden" });
+    expect(offers).toHaveAttribute("data-next", "/matsedel");
+    expect(offers.compareDocumentPosition(header.getByRole("button", { name: "Lägg till rätt" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("lights the day ?dag= names, for a moment (Story 13.8)", async () => {

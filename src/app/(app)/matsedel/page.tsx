@@ -22,7 +22,12 @@ export default function MealPlanPage({ searchParams }: PageProps<"/matsedel">) {
             title="Matsedel"
             tab="/matsedel"
             // The size of "+", so the header does not move when it arrives.
-            action={<span aria-hidden="true" inert className="size-tap" />}
+            action={
+              <>
+                <span aria-hidden="true" inert className="size-tap" />
+                <span aria-hidden="true" inert className="size-tap" />
+              </>
+            }
           />
           <Skeleton rows={3} />
         </>

@@ -29,7 +29,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Recept",
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
-      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst." },
+      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga? på Matvaror för AI-förslag." },
       { icon: "steps", title: "Laga steg för steg", text: "Laga nu visar ett steg i taget och håller skärmen tänd." },
     ],
     faq: [
@@ -103,7 +103,7 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
-        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
+        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen på Inköpslista och Matsedel visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",
