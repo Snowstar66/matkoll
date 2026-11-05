@@ -117,3 +117,11 @@ test("the row at the top starts suggestions that use what has lain long, and say
   }
   expect(errors).toEqual([]);
 });
+
+test("Vad kan jag laga? on Hemma starts the suggestions and opens Recept on Kan lagas nu", async ({ page }) => {
+  await seed({ old: false });
+  await page.goto("/hemma");
+  await page.getByTestId("find-dishes").click();
+  await expect(page).toHaveURL(/\/recept/);
+  await expect(page.getByTestId("ai-suggestions").getByTestId("ai-suggestion").first()).toBeVisible(jobTime);
+});

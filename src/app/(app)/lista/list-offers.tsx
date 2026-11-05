@@ -12,8 +12,8 @@ import { loadOffersSheetData } from "../offers-sheet-data";
  * veckans erbjudanden" does that. When the store or the offers cannot be read,
  * the sheet says so and the list is not affected.
  */
-export async function ListOffers() {
-  await requireUserOrRedirect("/lista");
+export async function ListOffers({ next = "/lista" }: { next?: string } = {}) {
+  await requireUserOrRedirect(next);
   const { props } = await loadOffersSheetData();
   return <OffersSheetButton {...props} />;
 }

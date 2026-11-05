@@ -12,6 +12,8 @@ import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
 import { errorMessages } from "@/lib/errors";
+import { Suspense } from "react";
+import { ListOffers } from "../lista/list-offers";
 import { loadBoendeCounts } from "../boende-counts";
 
 /**
@@ -101,7 +103,14 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       <PageHeader
         title="Matsedel"
         tab="/matsedel"
-        action={<AddDishButton variant="icon" />}
+        action={
+          <>
+            <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
+              <ListOffers next="/matsedel" />
+            </Suspense>
+            <AddDishButton variant="icon" />
+          </>
+        }
       />
       {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}
       {sites && sites.length > 1 ? (
