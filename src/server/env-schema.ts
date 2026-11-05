@@ -40,6 +40,8 @@ export const envSchema = z.object({
    * in production nobody sees it and every job uses AI_PROVIDER/AI_MODEL.
    */
   AI_SETTINGS_EMAILS: optional(emailList),
+  /** The password asked before the AI choice can be changed in Inställningar. Without it a built-in default applies. */
+  AI_SETTINGS_PASSWORD: optional(z.string()),
   /**
    * Story 20.3: the app owner's address, whose first name the Tyck till sheets show
    * ("Pontus ser texten …"). Display only: who may read the inbox is decided in the

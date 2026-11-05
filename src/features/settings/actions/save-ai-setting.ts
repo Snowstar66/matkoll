@@ -9,21 +9,24 @@ import { SettingsDataError } from "../data/client";
 import { clearAiSettingIn, saveAiSettingIn } from "../data/ai-setting";
 import { aiSettingSchema, aiSettingsVisible, type AiSettingInput } from "../domain/ai-choice";
 import { qwenModelFor } from "../data/ai-env";
+import { aiPasswordMatches } from "../data/ai-password";
 
 /**
  * Saves the choice of AI made in Inställningar (Story 17.5): `default` removes
  * it, so AI_PROVIDER and AI_MODEL decide again. The next AI job uses it
  * without a restart. Fails with `unauthorized`, `validation` (also for a
  * Claude choice without ANTHROPIC_API_KEY, a Qwen choice without
- * LMSTUDIO_BASE_URL, and for anyone the section is not shown to) or
+ * LMSTUDIO_BASE_URL, for anyone the section is not shown to, and for a wrong
+ * or missing password) or
  * `settings_save_failed`.
  */
-export async function saveAiSetting(input: AiSettingInput): Promise<Result<AiSettingInput>> {
+export async function saveAiSetting(input: AiSettingInput, password: string): Promise<Result<AiSettingInput>> {
   const user = await requireUser();
   if (!user.ok) return user;
   if (!aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.data.email, allowed: env.AI_SETTINGS_EMAILS })) {
     return fail("validation");
   }
+  if (!aiPasswordMatches(password, env.AI_SETTINGS_PASSWORD)) return fail("validation");
   const parsed = aiSettingSchema.safeParse(input);
   if (!parsed.success) return fail("validation");
   const choice = parsed.data;
