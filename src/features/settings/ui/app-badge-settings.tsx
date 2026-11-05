@@ -66,7 +66,7 @@ export function AppBadgeSettings() {
           Appikonen på hemskärmen visar hur många nya varor och kort andra i hushållet lagt till sedan du tittade senast. Det du själv gör räknas inte.
         </p>
         <p className="text-body text-ink-2">
-          På iPhone behöver {appName} få visa notiser för att siffran ska synas. {appName} skickar inga notiser, tillåtelsen gäller bara siffran.
+          På iPhone behöver {appName} få visa notiser för att siffran ska synas. Tillåtelsen gäller bara siffran; vill du ha notiser också slår du på dem under Notiser.
         </p>
         {state === null ? null : !state.supported ? (
           <p className="text-body text-ink-3" data-testid="app-badge-status">

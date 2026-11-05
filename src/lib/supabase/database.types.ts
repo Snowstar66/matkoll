@@ -469,6 +469,48 @@ isOneToOne: false
       referencedColumns: ["id","household_id"]
     }
                   ]
+                },"push_event": {
+                  Row: {
+                    "actor_id": string | null,"created_at": string,"household_id": string,"kind": string,"seq": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_id"?: string | null,"created_at"?: string,"household_id": string,"kind": string,"seq"?: never
+                  }
+                  Update: {
+                    "actor_id"?: string | null,"created_at"?: string,"household_id"?: string,"kind"?: string,"seq"?: never
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"push_preference": {
+                  Row: {
+                    "created_at": string,"forrad": boolean,"id": string,"lappar": boolean,"lista": boolean,"matsedel": boolean,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"push_subscription": {
+                  Row: {
+                    "auth": string,"created_at": string,"endpoint": string,"id": string,"p256dh": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "auth": string,"created_at"?: string,"endpoint": string,"id"?: string,"p256dh": string,"user_id"?: string
+                  }
+                  Update: {
+                    "auth"?: string,"created_at"?: string,"endpoint"?: string,"id"?: string,"p256dh"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"recipe": {
                   Row: {
                     "created_at": string,"household_id": string,"id": string,"image_url": string | null,"is_favorite": boolean,"offer_names": (string)[],"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string | null
@@ -953,6 +995,11 @@ isOneToOne: false
 "claim_ai_job":
 { Args: { "job_id": string,"run_deadline": string }; Returns: Json
                            },
+"claim_push_batches":
+{ Args: { "max_wait"?: string,"quiet"?: string }; Returns: {
+              "actor_name": string,"auth": string,"endpoint": string,"kind": string,"n": number,"note_text": string,"p256dh": string,"user_id": string
+            }[]
+                           },
 "clear_other_store_offers":
 { Args: { "keep": (string)[] }; Returns: number
                            },
@@ -989,6 +1036,9 @@ isOneToOne: false
                            },
 "dismiss_ai_job":
 { Args: { "job_id": string }; Returns: undefined
+                           },
+"drop_push_subscriptions":
+{ Args: { "endpoints": (string)[] }; Returns: number
                            },
 "empty_pantry_place":
 { Args: { "operation_id": string,"place": string,"site"?: string }; Returns: Json
@@ -1281,6 +1331,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"save_push_subscription":
+{ Args: { "device_auth": string,"device_endpoint": string,"device_p256dh": string }; Returns: undefined
+                           },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },

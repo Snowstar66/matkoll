@@ -28,7 +28,7 @@ describe("Siffra på appikonen", () => {
     const requestPermission = vi.fn(async () => "granted" as const);
     vi.stubGlobal("Notification", { permission: "default", requestPermission });
     render(<AppBadgeSettings />);
-    expect(screen.getByText(/skickar inga notiser, tillåtelsen gäller bara siffran/)).toBeInTheDocument();
+    expect(screen.getByText(/Tillåtelsen gäller bara siffran/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Slå på siffran" }));
     expect(requestPermission).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Siffran är på, på den här enheten.")).toBeInTheDocument();

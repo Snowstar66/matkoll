@@ -34,6 +34,17 @@ describe("parseEnv", () => {
     }
   });
 
+  it("takes the VAPID keys as a pair, and a subject as mailto: or https (Story 23.3)", () => {
+    expect(parseEnv({}).VAPID_PUBLIC_KEY).toBeUndefined();
+    expect(parseEnv({ VAPID_PUBLIC_KEY: "", VAPID_PRIVATE_KEY: "" }).VAPID_PRIVATE_KEY).toBeUndefined();
+    const pair = parseEnv({ VAPID_PUBLIC_KEY: "pub", VAPID_PRIVATE_KEY: "priv", VAPID_SUBJECT: "mailto:me@example.com" });
+    expect(pair).toMatchObject({ VAPID_PUBLIC_KEY: "pub", VAPID_PRIVATE_KEY: "priv", VAPID_SUBJECT: "mailto:me@example.com" });
+    expect(parseEnv({ VAPID_SUBJECT: "https://livskoll.vercel.app" }).VAPID_SUBJECT).toBe("https://livskoll.vercel.app");
+    expect(() => parseEnv({ VAPID_PUBLIC_KEY: "pub" })).toThrow(EnvError);
+    expect(() => parseEnv({ VAPID_PRIVATE_KEY: "priv" })).toThrow(EnvError);
+    expect(() => parseEnv({ VAPID_SUBJECT: "http://example.com" })).toThrow(EnvError);
+  });
+
   it("treats empty strings as unset", () => {
     const env = parseEnv({ AI_PROVIDER: "", OPENAI_API_KEY: "", LMSTUDIO_BASE_URL: "" });
     expect(env.AI_PROVIDER).toBe("mock");

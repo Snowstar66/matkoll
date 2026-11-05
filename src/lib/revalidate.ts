@@ -1,5 +1,6 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
+import { schedulePushSend } from "./push-send";
 import type { Database } from "./supabase/database.types";
 
 // After a write, an action calls revalidateFor(table) and never revalidatePath
@@ -113,7 +114,12 @@ const routesByTable = {
 
 export type RevalidatedTable = keyof typeof routesByTable;
 
+// Story 23.3: the writes the household is told about by push (a trigger in the
+// database queues each change; this sends what is due, a while after the last).
+const pushedTables: readonly RevalidatedTable[] = ["shopping_custom_item", "thing_photo", "meal_plan", "meal_plan_recipe"];
+
 /** Revalidates every route that shows `table`. Only in Server Actions and Route Handlers. */
 export function revalidateFor(table: RevalidatedTable): void {
   for (const { path, type } of routesByTable[table]) revalidatePath(path, type);
+  if (pushedTables.includes(table)) schedulePushSend();
 }

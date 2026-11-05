@@ -100,7 +100,7 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
   await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siffra på appikonen", "Siri och genvägar", "Om Livskoll"]) {
+  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siffra på appikonen", "Notiser", "Siri och genvägar", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -399,6 +399,21 @@ test("Story 17.6: the start page's AI group and the page AI show this month's ca
   await page.reload();
   await expect(page.getByTestId("ai-usage-calls")).toHaveText("0");
   await expect(page.getByTestId("ai-usage-cost")).toHaveText("0 kr");
+  expect(errors).toEqual([]);
+});
+
+// Story 23.3: Notiser. Without the VAPID keys (not set in the test environment) the page says so and offers
+// no button; with them it offers "Slå på notiser". The row is on the start page and the page opens from it.
+test("Notiser opens from the start page and says notiser är inte påslagna än, or offers to turn them on", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.setViewportSize(mobile);
+  await page.goto("/installningar");
+  await page.getByTestId("settings-row").filter({ hasText: "Notiser" }).click();
+  await expect(page).toHaveURL(/\/installningar\/notiser$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Notiser" })).toBeVisible();
+  await expect(page.getByTestId("push-status").or(page.getByRole("button", { name: "Slå på notiser" }))).toBeVisible();
+  const width = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(width[0]).toBeLessThanOrEqual(width[1]);
   expect(errors).toEqual([]);
 });
 

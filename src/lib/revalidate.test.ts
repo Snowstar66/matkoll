@@ -3,9 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (path: string, type: string) => revalidatePath(path, type) }));
 
+const schedulePushSend = vi.fn();
+vi.mock("./push-send", () => ({ schedulePushSend: () => schedulePushSend() }));
+
 const { revalidateFor } = await import("./revalidate");
 
-beforeEach(() => revalidatePath.mockReset());
+beforeEach(() => {
+  revalidatePath.mockReset();
+  schedulePushSend.mockReset();
+});
+
+describe("push after a write (Story 23.3)", () => {
+  it.each(["shopping_custom_item", "thing_photo", "meal_plan", "meal_plan_recipe"] as const)("schedules a send after a write to %s", (table) => {
+    revalidateFor(table);
+    expect(schedulePushSend).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["pantry_item", "shopping_check", "store", "household_member"] as const)("sends nothing after a write to %s", (table) => {
+    revalidateFor(table);
+    expect(schedulePushSend).not.toHaveBeenCalled();
+  });
+});
 
 describe("revalidateFor", () => {
   it("revalidates Hemma, the recipes, with every recipe view, the meal plan and the list after a pantry write", () => {

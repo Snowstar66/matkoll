@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
+import { schedulePushSend } from "@/lib/push-send";
 import { getRecipesByIds, listRecipeTitles, RecipeDataError } from "@/features/recipes/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +39,8 @@ export async function sendNote(input: NoteInput): Promise<Result<null>> {
     });
     const outcome = await insertNoteIn(await createClient(), { ...parsed.data, actions });
     if (outcome === "limited") return fail("note_rate_limited");
+    // Story 23.3: the others get it as a push (queued by the database, sent after a while).
+    schedulePushSend();
     return ok();
   } catch (error) {
     if (!(error instanceof NoteDataError) && !(error instanceof RecipeDataError)) throw error;
