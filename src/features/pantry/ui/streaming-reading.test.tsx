@@ -23,8 +23,9 @@ describe("StreamingReading scan line", () => {
     const line = await screen.findByTestId("pantry-scan-line");
     expect(line).toHaveAttribute("aria-hidden", "true");
     // Moves only with motion; "Minska rörelse" hides it.
-    expect(line.className).toContain("motion-safe:animate-scan-line");
+    expect(line.innerHTML).toContain("motion-safe:animate-scan-line");
     expect(line.className).toContain("hidden");
+    expect(line.className).toContain("overflow-hidden");
   });
 
   it("shows no line without a photo, and none once the reading is gone (review)", () => {

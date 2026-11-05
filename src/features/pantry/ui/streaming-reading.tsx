@@ -67,8 +67,12 @@ export function StreamingReading({ view }: { view: StreamingReadingView }) {
             <span
               aria-hidden="true"
               data-testid="pantry-scan-line"
-              className="pointer-events-none absolute inset-x-0 hidden h-0.5 rounded-full bg-accent shadow-[0_0_8px_2px_color-mix(in_srgb,var(--accent)_55%,transparent)] motion-safe:block motion-safe:animate-scan-line"
-            />
+              className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-[16px] motion-safe:block"
+            >
+              <span className="block h-full motion-safe:animate-scan-line">
+                <span className="absolute inset-x-0 bottom-0 block h-0.5 rounded-full bg-accent shadow-[0_0_8px_2px_color-mix(in_srgb,var(--accent)_55%,transparent)]" />
+              </span>
+            </span>
             {markers.map((marker) => (
               <span
                 key={marker.n}
