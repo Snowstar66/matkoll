@@ -241,6 +241,28 @@ describe("claim_push_batches", () => {
     expect(several.batch).toMatchObject({ kind: "lappar", count: 2, noteText: null, actorName: null });
   });
 
+  it("quotes the note as it was written, whatever happens to it before the claim", async () => {
+    await saveSubscriptionIn(a2.db, device("a2"));
+    await insertNoteIn(a.db, { text: "Första lappen", mood: null, actions: [], replyTo: null });
+    await adminClient().from("household_note").delete().eq("household_id", householdA).eq("user_id", a.id);
+    const [single] = await claimBatchesIn(a2.db, quiet, maxWait);
+    expect(single.batch).toMatchObject({ count: 1, noteText: "Första lappen" });
+  });
+
+  it("drops events that can never be sent: a day old, or a household without any device", async () => {
+    await saveSubscriptionIn(a2.db, device("a2"));
+    const old = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    await adminClient().from("push_event").insert({ household_id: householdA, kind: "lista", actor_id: a.id, created_at: old });
+    await adminClient().from("push_event").insert({ household_id: householdB, kind: "lista", actor_id: b.id, created_at: old });
+    expect(await claimBatchesIn(a.db, 3600, maxWait)).toEqual([]);
+    expect(await queued(householdA), "old events are pruned even when not due").toEqual([]);
+    expect(await queued(householdB), "so are other households' old events").toEqual([]);
+    await adminClient().from("push_subscription").delete().in("user_id", [a.id, a2.id, b.id]);
+    await adminClient().from("push_event").insert({ household_id: householdA, kind: "lista", actor_id: a.id });
+    expect(await claimBatchesIn(a.db, 3600, maxWait)).toEqual([]);
+    expect(await queued(householdA), "nobody has a device").toEqual([]);
+  });
+
   it("works on the caller's own household only", async () => {
     await saveSubscriptionIn(a2.db, device("a2"));
     await addItem(a);
