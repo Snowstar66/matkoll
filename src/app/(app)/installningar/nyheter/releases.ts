@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-05",
+    title: "Förslagen från kylen saknar högst två varor",
+    bullets: [
+      "Vad kan jag laga? föreslår nu bara rätter där högst två varor saknas hemma, utöver dina Basvaror.",
+      "Varje förslag visar hur många varor du har hemma och vad du behöver köpa till.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     title: "Vad kan jag laga?",
     bullets: [
       "På Matvaror finns nu knappen Vad kan jag laga? Tryck, så letar Livskoll efter rätter med det du har hemma och tar dig till Recept.",

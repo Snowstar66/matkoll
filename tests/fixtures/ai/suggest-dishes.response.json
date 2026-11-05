@@ -38,32 +38,12 @@
           "new": null
         },
         {
-          "text": "1 förp krossade tomater",
-          "amount": 1,
-          "unit": "förp",
-          "name": "krossade tomater",
-          "stepIndexes": [
-            2
-          ],
-          "new": null
-        },
-        {
           "text": "2 dl grädde",
           "amount": 2,
           "unit": "dl",
           "name": "grädde",
           "stepIndexes": [
             2
-          ],
-          "new": null
-        },
-        {
-          "text": "4 dl ris",
-          "amount": 4,
-          "unit": "dl",
-          "name": "ris",
-          "stepIndexes": [
-            3
           ],
           "new": null
         },
@@ -101,8 +81,7 @@
       "steps": [
         "Hacka löken och vitlöken.",
         "Skär kycklingen i bitar och bryn den i olivoljan med löken och vitlöken.",
-        "Häll i krossade tomater och grädde. Smaka av med salt och peppar och låt sjuda i 15 minuter.",
-        "Koka riset enligt anvisningen på förpackningen och servera till grytan."
+        "Häll i grädden. Smaka av med salt och peppar och låt sjuda i 15 minuter."
       ]
     },
     {
@@ -162,16 +141,6 @@
           "new": null
         },
         {
-          "text": "1 msk smör",
-          "amount": 1,
-          "unit": "msk",
-          "name": "smör",
-          "stepIndexes": [
-            1
-          ],
-          "new": null
-        },
-        {
           "text": "salt",
           "amount": null,
           "unit": null,
@@ -184,7 +153,7 @@
       ],
       "steps": [
         "Koka pastan enligt anvisningen på förpackningen.",
-        "Fräs vitlöken i smöret, lägg i spenaten och häll på grädden. Låt sjuda i 5 minuter.",
+        "Fräs vitlöken, lägg i spenaten och häll på grädden. Låt sjuda i 5 minuter.",
         "Rör ner osten, smaka av med salt och vänd ner pastan."
       ]
     },
@@ -198,16 +167,6 @@
           "amount": 6,
           "unit": null,
           "name": "ägg",
-          "stepIndexes": [
-            2
-          ],
-          "new": null
-        },
-        {
-          "text": "3 dl mjölk",
-          "amount": 3,
-          "unit": "dl",
-          "name": "mjölk",
           "stepIndexes": [
             2
           ],
@@ -245,16 +204,6 @@
           "new": null
         },
         {
-          "text": "1 msk smör",
-          "amount": 1,
-          "unit": "msk",
-          "name": "smör",
-          "stepIndexes": [
-            1
-          ],
-          "new": null
-        },
-        {
           "text": "salt",
           "amount": null,
           "unit": null,
@@ -267,8 +216,8 @@
       ],
       "steps": [
         "Sätt ugnen på 200 grader. Skala och skiva potatisen.",
-        "Stek potatisen och löken i smöret i 10 minuter och lägg dem i en ugnsform.",
-        "Vispa ihop ägg, mjölk och salt och häll över potatisen.",
+        "Stek potatisen och löken i 10 minuter och lägg dem i en ugnsform.",
+        "Vispa ihop ägg och salt och häll över potatisen.",
         "Strö över osten och grädda i mitten av ugnen i 20 minuter."
       ]
     }

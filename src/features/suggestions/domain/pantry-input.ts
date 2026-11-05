@@ -24,6 +24,7 @@ import {
 export type SuggestInputShape = {
   pantry: SuggestPantryEntry[];
   avoidTitles: string[];
+  strict?: boolean;
   offers?: string[];
   oldItems?: SuggestOldItem[];
   eatFirst?: boolean;
