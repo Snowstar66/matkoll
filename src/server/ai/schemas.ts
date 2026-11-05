@@ -554,7 +554,7 @@ export const listThingsAnswer = z.object({
         box: z
           .array(z.number())
           .nullable()
-          .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar (0–1000) av bildens bredd och höjd från övre vänstra hörnet; null om det är oklart`),
+          .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar, heltal 0–1000 av bildens bredd och höjd från övre vänstra hörnet, inte pixlar; uppskatta om du är osäker, null bara om det inte syns`),
         // Story 18.23: how many alike, for consumables only, and only when they can be counted clearly. Never a guess.
         count: z
           .number()
@@ -777,13 +777,42 @@ export const aiThing = z.object({
 });
 export type AiThing = z.output<typeof aiThing>;
 
+/** The numbers of a raw box answer: four finite numbers, else `null`. */
+function rawBoxOf(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  return value.every((n): n is number => typeof n === "number" && Number.isFinite(n)) ? (value as number[]) : null;
+}
+
+/**
+ * What the boxes of an answer are in, judged from all of them at once like
+ * the fridge's points (pointScale): thousandths, fractions or the photo's
+ * pixels (`size`). A box's two corners are the points. Returns the factors
+ * that make them thousandths; garbage is left out of the judgement.
+ */
+export function boxesScale(boxes: readonly unknown[], size?: PointImageSize | null): { x: number; y: number } {
+  const corners: ItemPoint[] = [];
+  for (const value of boxes) {
+    const box = rawBoxOf(value);
+    if (box) corners.push({ x: box[0], y: box[1] }, { x: box[2], y: box[3] });
+  }
+  return pointScale(corners, size);
+}
+
+/** A raw box answer with its numbers in thousandths (`scale` from boxesScale); anything that is not four numbers is left as it is. */
+function scaledBox(value: unknown, scale: { x: number; y: number }): unknown {
+  const box = rawBoxOf(value);
+  return box ? [box[0] * scale.x, box[1] * scale.y, box[2] * scale.x, box[3] * scale.y] : value;
+}
+
 /**
  * The things of an answer that pass aiThing, the first maxThings, with the
  * names cleaned of control characters (cleanModelText), and how many did not
  * (`invalid`) or were cut (`trimmed`). A thing named twice on the same spot
- * is kept once; the same name in two places is two things.
+ * is kept once; the same name in two places is two things. The boxes are
+ * read in the scale the whole answer uses (boxesScale, with the photo's
+ * `imageSize` for pixels).
  */
-export function parseThings(answer: z.output<typeof listThingsAnswer>): {
+export function parseThings(answer: z.output<typeof listThingsAnswer>, imageSize?: PointImageSize | null): {
   things: AiThing[];
   invalid: number;
   trimmed: number;
@@ -793,9 +822,11 @@ export function parseThings(answer: z.output<typeof listThingsAnswer>): {
   let invalid = 0;
   const seen = new Set<string>();
   const things: AiThing[] = [];
+  const scale = boxesScale(answer.things.map((entry) => entry.box), imageSize);
   for (const entry of answer.things) {
     const parsed = aiThing.safeParse({
       ...entry,
+      box: scaledBox(entry.box, scale),
       name: cleanModelText(entry.name),
       where: entry.where === null ? null : cleanModelText(entry.where),
     });
@@ -830,12 +861,12 @@ export const locateThingAnswer = z.object({
   box: z
     .array(z.number())
     .nullable()
-    .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar (0–1000) från bildens övre vänstra hörn; null om det inte syns`),
+    .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar, heltal 0–1000 från bildens övre vänstra hörn, inte pixlar; uppskatta om du är osäker, null bara om det inte syns`),
 });
 
 /** The box of an answer to locateThing, or `null` when the model did not find it or gave a box that is not reasonable. */
-export function parseLocatedBox(answer: z.output<typeof locateThingAnswer>): ThingBox | null {
-  return answer.found ? boxFromThousandths(answer.box) : null;
+export function parseLocatedBox(answer: z.output<typeof locateThingAnswer>, imageSize?: PointImageSize | null): ThingBox | null {
+  return answer.found ? boxFromThousandths(scaledBox(answer.box, boxesScale([answer.box], imageSize))) : null;
 }
 
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
