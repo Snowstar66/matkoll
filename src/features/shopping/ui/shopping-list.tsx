@@ -30,6 +30,7 @@ import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
 import { markDetailText, markLabel, noMarks, shownMark, type LineMarks } from "../domain/line-marks";
+import { isNewLine, noAddedAt, type LineAddedAt } from "../domain/line-news";
 import {
   filterEmptyText,
   LIST_FILTERS,
@@ -198,6 +199,10 @@ export type ShoppingListProps = {
   unreadableChoices?: readonly string[];
   /** Story 21.3: the lines someone else in the household checked off or added. */
   marks?: LineMarks;
+  /** When each line came onto the list (line-news.ts), for its "Ny". */
+  addedAt?: LineAddedAt;
+  /** The server's now (ISO 8601) that "Ny" is counted against; without it no line is new. */
+  now?: string | null;
 };
 
 /** How long an announcement stays in the live region before it is cleared. */
@@ -667,6 +672,8 @@ export function ShoppingList({
   openAddOnStart = false,
   filter: initialFilter = null,
   marks = noMarks,
+  addedAt = noAddedAt,
+  now = null,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
@@ -933,6 +940,7 @@ export function ShoppingList({
       checkingOff={checksUnavailable}
       ignoredTap={ignored?.key === line.key ? ignored.id : null}
       mark={shownMark(line, marks)}
+      isNew={now !== null && isNewLine(line, addedAt, now)}
     />
   );
 
@@ -1346,6 +1354,7 @@ export function ShoppingLineRow({
   checkingOff = false,
   ignoredTap = null,
   mark = null,
+  isNew = false,
 }: {
   line: ShoppingLine;
   /** The line under the name (lineMetaText), or `null`. */
@@ -1365,6 +1374,8 @@ export function ShoppingLineRow({
   ignoredTap?: number | null;
   /** Story 21.3: someone else checked the line off or added it (shownMark); their initial goes before the amount. */
   mark?: ReturnType<typeof shownMark>;
+  /** Added within the last 48 hours and not ticked (line-news.ts): the small mint "Ny" after the name. */
+  isNew?: boolean;
 }) {
   const metaId = useId();
   const chipId = useId();
@@ -1373,7 +1384,14 @@ export function ShoppingLineRow({
   // there it follows the name instead, drawn by CSS from `data-amount` (never in the text, so nothing is read twice).
   const title = (
     <span data-amount={amount || undefined} className="@max-[20rem]:after:ml-1.5 @max-[20rem]:after:font-normal @max-[20rem]:after:text-ink-2 @max-[20rem]:after:content-[attr(data-amount)]">
-      {line.label}
+      {/* The name in its own element, so it is still found by its exact text beside "Ny". */}
+      {isNew ? <span>{line.label}</span> : line.label}
+      {/* "Ny" (Pontus 2026-11-04): the "Egen" label's shape in mint; said in srStatus, so hidden here. */}
+      {isNew ? (
+        <span aria-hidden="true" data-testid="line-new" className="ml-1.5 inline-block rounded-xs bg-mint px-1.5 py-px align-middle text-badge text-mint-ink">
+          Ny
+        </span>
+      ) : null}
     </span>
   );
   const shared = {
@@ -1390,7 +1408,7 @@ export function ShoppingLineRow({
     oneLine: true,
     crossedOut: line.checked,
     // The strike-through, said: "Grädde 3 dl, i korgen"; and who else did it: "…, i korgen, bockad av Martina".
-    srStatus: [line.checked ? "i korgen" : null, mark ? markLabel(mark) : null].filter(Boolean).join(", ") || undefined,
+    srStatus: [line.checked ? "i korgen" : null, isNew ? "ny" : null, mark ? markLabel(mark) : null].filter(Boolean).join(", ") || undefined,
     leading: (
       <CheckCircle
         checked={line.checked}

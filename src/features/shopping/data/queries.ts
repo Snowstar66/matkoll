@@ -13,6 +13,7 @@ import {
 } from "../domain/compute-list";
 import type { CustomListItem } from "../domain/custom-item";
 import type { LineOverride } from "../domain/line-override";
+import { lineAddedAtOf, type LineAddedAt } from "../domain/line-news";
 
 // The shopping list's reads. The list itself is never stored (AD-8): it is
 // counted from the other modules' read functions (AD-1) and this module's
@@ -83,6 +84,8 @@ export type ShoppingList = {
    * räknas inte med · Ändra" shows only when some were. 0 when left out.
    */
   staplesSkipped?: number;
+  /** When each line came onto the list, for its "Ny" (line-news.ts). */
+  addedAt?: LineAddedAt;
 };
 
 /**
@@ -115,7 +118,15 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
       catalog: { names, defaults },
       overlay: { ...emptyOverlay, checks: checks ?? [], customItems },
     });
-    return { plan: null, lines, hiddenLines: [], pantryUnavailable: false, checksUnavailable: checks === null, staplesSkipped: 0 };
+    return {
+      plan: null,
+      lines,
+      hiddenLines: [],
+      pantryUnavailable: false,
+      checksUnavailable: checks === null,
+      staplesSkipped: 0,
+      addedAt: lineAddedAtOf(lines, {}, customItems),
+    };
   }
 
   const recipeIds = [...new Set(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])))];
@@ -162,5 +173,6 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
     pantryUnavailable: pantry === null,
     checksUnavailable: checks === null,
     staplesSkipped,
+    addedAt: lineAddedAtOf(lines, Object.fromEntries(plan.recipes.map((dish) => [dish.id, dish.addedAt])), customItems),
   };
 }

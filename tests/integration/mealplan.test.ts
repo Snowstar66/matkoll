@@ -166,9 +166,9 @@ describe("add_to_plan", () => {
     expect(plan?.id).toBe(first.mealPlanId);
     expect([second.mealPlanId, again.mealPlanId]).toEqual([plan?.id, plan?.id]);
     expect(plan?.recipes).toEqual([
-      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0, cookedAt: null, weekday: null },
-      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1, cookedAt: null, weekday: null },
-      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2, cookedAt: null, weekday: null },
+      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0, cookedAt: null, weekday: null, addedAt: expect.any(String) },
+      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1, cookedAt: null, weekday: null, addedAt: expect.any(String) },
+      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2, cookedAt: null, weekday: null, addedAt: expect.any(String) },
     ]);
     const plans = await adminClient().from("meal_plan").select("id").eq("user_id", user.id);
     expect(plans.data).toHaveLength(1);
@@ -617,7 +617,7 @@ describe("earlier plans", () => {
       isCurrent: true,
       weekStart: currentWeekStart(),
       createdAt: expect.any(String),
-      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null, weekday: null }],
+      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null, weekday: null, addedAt: expect.any(String) }],
     });
     expect(await getPlanIn(other.db, added.mealPlanId)).toBeNull();
     expect(await getPlanIn(owner.db, "inte-ett-id")).toBeNull();

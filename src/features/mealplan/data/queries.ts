@@ -12,7 +12,7 @@ import { currentWeekStart } from "../domain/week";
 import { MealPlanDataError, type MealPlanDb } from "./client";
 
 /** A meal_plan_recipe row's columns, as the queries read them. */
-export const dishColumns = "id, meal_plan_id, recipe_id, recipe_title, servings, position, cooked_at, weekday";
+export const dishColumns = "id, meal_plan_id, recipe_id, recipe_title, servings, position, cooked_at, weekday, created_at";
 
 export type DishRow = {
   id: string;
@@ -23,6 +23,7 @@ export type DishRow = {
   position: number;
   cooked_at: string | null;
   weekday: number | null;
+  created_at?: string;
 };
 
 export function toPlanRecipeRow(row: DishRow): PlanRecipeRow {
@@ -47,6 +48,7 @@ function toPlanRecipe(row: DishRow): PlanRecipe {
     position: row.position,
     cookedAt: row.cooked_at,
     weekday: row.weekday,
+    ...(row.created_at ? { addedAt: row.created_at } : {}),
   };
 }
 

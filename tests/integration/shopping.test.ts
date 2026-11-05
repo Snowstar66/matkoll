@@ -164,6 +164,7 @@ describe("loadShoppingList", () => {
       pantryUnavailable: false,
       checksUnavailable: false,
       staplesSkipped: 0,
+      addedAt: {},
     });
   });
 
