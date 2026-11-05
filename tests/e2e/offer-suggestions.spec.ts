@@ -193,6 +193,42 @@ test("offers become dishes with labels, one step puts a dish on the menu and the
   expect(errors).toEqual([]);
 });
 
+// Story 9.3: the filter Erbjudanden in Recept lists the recipes that use an offer on a main ingredient.
+test("the filter Erbjudanden shows the recipe that uses an offer, with its tag, the store and the sheet", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  const admin = adminClient();
+  const falukorv = (await seedIngredients(["falukorv"])).get("falukorv")!;
+  const salt = (await seedIngredients(["salt"])).get("salt")!;
+  const created = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title: "Falukorv med potatismos", original_servings: 4, total_minutes: 30, source_kind: "text" })
+    .select("id")
+    .single();
+  if (created.error) throw created.error;
+  const lines = await admin.from("recipe_ingredient").insert([
+    { user_id: userId, recipe_id: (created.data as { id: string }).id, position: 0, original_text: "400 g falukorv", amount: 400, unit: "g", is_vague: false, ingredient_id: falukorv },
+    { user_id: userId, recipe_id: (created.data as { id: string }).id, position: 1, original_text: "1 krm salt", amount: 1, unit: "krm", is_vague: false, ingredient_id: salt },
+  ]);
+  if (lines.error) throw lines.error;
+
+  await page.goto("/recept");
+  await page.getByRole("button", { name: "Erbjudanden", exact: true }).click();
+  const cards = page.getByTestId("recipe-card");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText("Falukorv med potatismos");
+  await expect(cards.first().getByTestId("offer-tags")).toContainText("Falukorv");
+  await expect(page.getByTestId("offers-line")).toContainText(/^Recept med veckans erbjudanden från Matkoll Testbutik, vecka \d+\./);
+  await page.getByRole("button", { name: "Visa erbjudanden" }).click();
+  await expect(sheet(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The other pills are as before: Alla shows both recipes and no tags.
+  await page.getByRole("button", { name: "Erbjudanden", exact: true }).click();
+  await expect(cards).toHaveCount(2);
+  await expect(page.getByTestId("offer-tags")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 // Story 9.14: two stores with offers. Maxi has offers on things that are at home, so it is the week's best store.
 async function seedMaxi(): Promise<{ maxiId: string; testId: string }> {
   const admin = adminClient();

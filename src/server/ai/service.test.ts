@@ -17,6 +17,7 @@ import {
   limitsWithin,
   minRunMs,
   isValidAnalyzeImageInput,
+  matchOffersText,
   mergeThingsText,
   locateLimitsFrom,
   withInputValidation,
@@ -26,6 +27,7 @@ import {
   type AskThingsInput,
   type CategorizeThingsInput,
   type ThingSearchTermsInput,
+  type MatchOffersInput,
   type MergeThingsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
@@ -1364,5 +1366,50 @@ describe("categorizeThings on a model (Story 18.13)", () => {
     expect((await code({ names: Array.from({ length: 101 }, (_, index) => `Föremål ${index}`) })).error?.code).toBe("validation");
     expect((await code({ names: ["x".repeat(81)] })).error?.code).toBe("validation");
     expect((await code({ names: ["två\nrader"] })).error?.code).toBe("validation");
+  });
+});
+
+describe("matchOffers on a model (Story 9.10)", () => {
+  const input: MatchOffersInput = { offers: ["Herrgård, Präst", "Bregott"], ingredients: ["ost", "smör", "ris"] };
+  const answer = (matches: unknown[]) => JSON.stringify({ matches });
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+
+  it("sends the match prompt and the two lists as text only, and gives zero-based pairs", async () => {
+    const model = fakeModel(answer([{ offer: 1, ingredient: 1 }, { offer: 2, ingredient: 2 }, { offer: 3, ingredient: 1 }]));
+    const result = await createModelAiService({ model }, limits).matchOffers(input, signal());
+    expect(result).toEqual({ ok: true, data: { pairs: [{ offer: 0, ingredient: 0 }, { offer: 1, ingredient: 1 }] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.matchOffers.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.matchOffers });
+    expect(user.content).toEqual([{ type: "text", text: matchOffersText(input) }]);
+    expect(matchOffersText(input)).toBe("Erbjudanden:\n1. Herrgård, Präst\n2. Bregott\n\nIngredienser:\n1. ost\n2. smör\n3. ris");
+  });
+
+  it("answers null for an offer without an ingredient", async () => {
+    const model = fakeModel(answer([{ offer: 1, ingredient: null }, { offer: 2, ingredient: null }]));
+    expect(await createModelAiService({ model }, limits).matchOffers(input, signal())).toEqual({ ok: true, data: { pairs: [] } });
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer([]));
+    const result = await createModelAiService({ model }, limits).matchOffers(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("refuses lists outside the limits before any call", async () => {
+    const model = fakeModel(answer([]));
+    const service = withInputValidation(createModelAiService({ model }, limits));
+    for (const bad of [
+      { offers: [], ingredients: ["ost"] },
+      { offers: ["Bregott"], ingredients: [] },
+      { offers: ["Bre\ngott"], ingredients: ["smör"] },
+      { offers: Array.from({ length: 61 }, (_, index) => `Vara ${index}`), ingredients: ["ost"] },
+      { offers: ["Bregott"], ingredients: Array.from({ length: 301 }, (_, index) => `ingrediens ${index}`) },
+    ]) {
+      expect(await service.matchOffers(bad, signal())).toMatchObject({ ok: false, error: { code: "validation" } });
+    }
+    expect(model.doGenerateCalls).toHaveLength(0);
   });
 });

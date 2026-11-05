@@ -9,3 +9,5 @@ import "server-only";
  */
 export { checkSuggestPantry, suggestFromPantry, type SuggestMode } from "./actions/suggest-from-pantry";
 export { ownRecipesWithOffers } from "./actions/own-recipes-with-offers";
+export { matchOffersWithAi, type MatchOffersWithAiData } from "./actions/match-offers-with-ai";
+export { recipeOfferTags } from "./actions/recipe-offer-tags";

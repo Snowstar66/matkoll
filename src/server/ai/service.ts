@@ -51,6 +51,8 @@ import {
   locateThingAnswer,
   parseLocatedBox,
   mergeThingsAnswer,
+  matchOffersAnswer,
+  parseOfferMatches,
   parseMergePairs,
   parseAnalyzeItems,
   parseRecipeAnswer,
@@ -257,6 +259,20 @@ export type MergeThingsPair = { added: number; existing: number };
 /** What mergeThings answers: the pairs, each thing in at most one pair. */
 export type MergeThingsResult = { pairs: MergeThingsPair[] };
 
+/** matchOffers (Story 9.10): offer names and catalog ingredient names, text only. Data for the model, never instructions. */
+export type MatchOffersInput = {
+  /** The offers' names as ICA writes them ("Herrgård, Präst, Grevé"), on one line each; the answer numbers them from 1. */
+  offers: string[];
+  /** The names of the catalog's ingredients, on one line each; the answer numbers them from 1. */
+  ingredients: string[];
+};
+
+/** An offer and the catalog ingredient it is, as zero-based indexes into `offers` and `ingredients`. */
+export type MatchOffersPair = { offer: number; ingredient: number };
+
+/** What matchOffers answers: the offers that have an ingredient, each at most once. */
+export type MatchOffersResult = { pairs: MatchOffersPair[] };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -329,6 +345,14 @@ export interface AiService {
    * leaves too little time), `ai_rejected` or `ai_invalid`.
    */
   mergeThings(input: MergeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<MergeThingsResult>>;
+  /**
+   * Which catalog ingredient each offer is (Story 9.10): one short text call
+   * with the offers' names and the ingredients' names, nothing else. The
+   * pairs are checked to be in the lists, an offer once. Fails with
+   * `validation` (lists outside inputLimits.matchOffers), `ai_unavailable`
+   * (also when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  matchOffers(input: MatchOffersInput, signal: AbortSignal, options?: RunOptions): Promise<Result<MatchOffersResult>>;
   /**
    * The words to search the things for, from a question and the latest turns
    * of the chat (Story 18.14): one short text call, no image. Fails with
@@ -453,6 +477,12 @@ export const inputLimits = {
    */
   merge: { maxExisting: 400, maxAdded: 60, maxChars: 30_000, maxOutputTokens: 1_500 },
   /**
+   * matchOffers (Story 9.10): at most 60 offers of 120 characters and 300
+   * ingredients of 60, in 12 000 characters (about 4 000 tokens); the answer is a
+   * pair of numbers per offer, about 12 tokens each, so 1 500 leave room.
+   */
+  matchOffers: { maxOffers: 60, maxOfferChars: 120, maxIngredients: 300, maxIngredientChars: 60, maxChars: 12_000, maxOutputTokens: 1_500 },
+  /**
    * locateThing's one attempt (Story 6.6, 18.7): at most 30 s, since a box is
    * extra, so failing fast is better than keeping the model busy.
    */
@@ -544,6 +574,15 @@ export function isValidMergeThingsInput(input: MergeThingsInput): boolean {
   return added.every(thing) && existing.every((item) => thing(item) && oneLine(item.card)) && mergeThingsText(input).length <= limits.maxChars;
 }
 
+/** True for lists within inputLimits.matchOffers: something in both, every name on one line. */
+export function isValidMatchOffersInput(input: MatchOffersInput): boolean {
+  const limits = inputLimits.matchOffers;
+  const { offers, ingredients } = input;
+  if (offers.length === 0 || offers.length > limits.maxOffers || ingredients.length === 0 || ingredients.length > limits.maxIngredients) return false;
+  const line = (text: string, max: number) => text !== "" && text === cleanModelText(text) && text.length <= max;
+  return offers.every((name) => line(name, limits.maxOfferChars)) && ingredients.every((name) => line(name, limits.maxIngredientChars)) && matchOffersText(input).length <= limits.maxChars;
+}
+
 /** True for an image within the limits, a name on one line and a "where" on one line or `null`, within inputLimits.locateThing. */
 export function isValidLocateThingInput(input: LocateThingInput): boolean {
   const limits = inputLimits.locateThing;
@@ -625,6 +664,10 @@ export function withInputValidation(service: AiService): AiService {
     async mergeThings(input, signal, options) {
       if (!isValidMergeThingsInput(input)) return fail("validation");
       return service.mergeThings(input, signal, options);
+    },
+    async matchOffers(input, signal, options) {
+      if (!isValidMatchOffersInput(input)) return fail("validation");
+      return service.matchOffers(input, signal, options);
     },
     async thingSearchTerms(input, signal, options) {
       if (!isValidThingSearchTermsInput(input)) return fail("validation");
@@ -807,6 +850,27 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       return ok({ pairs: parseMergePairs(answer.data, input.added.length, input.existing.length) });
+    },
+    async matchOffers(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: matchOffersAnswer,
+          system: prompts.matchOffers,
+          messages: [{ role: "user", content: matchOffersText(input) }],
+          maxOutputTokens: inputLimits.matchOffers.maxOutputTokens,
+          onTruncated: () => console.info("match_offers_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ pairs: parseOfferMatches(answer.data, input.offers.length, input.ingredients.length) });
     },
     async thingSearchTerms(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -1003,6 +1067,16 @@ export function mergeThingsText(input: MergeThingsInput): string {
   const existing = input.existing.map((item, index) => line(item, index, item.card)).join("\n");
   const added = input.added.map((item, index) => line(item, index)).join("\n");
   return `Rum: ${input.room}\n\nBefintliga:\n${existing}\n\nNytt kort: ${input.addedCard}\n${added}`;
+}
+
+/**
+ * The user message for matchOffers (Story 9.10): "Erbjudanden:" and
+ * "Ingredienser:", a numbered line per name. Every name is on one line, so none
+ * can start a section of its own; the prompt says the lists are data.
+ */
+export function matchOffersText(input: MatchOffersInput): string {
+  const list = (names: readonly string[]) => names.map((name, index) => `${index + 1}. ${name}`).join("\n");
+  return `Erbjudanden:\n${list(input.offers)}\n\nIngredienser:\n${list(input.ingredients)}`;
 }
 
 /**

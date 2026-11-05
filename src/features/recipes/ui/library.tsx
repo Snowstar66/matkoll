@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -17,12 +17,14 @@ import { recipeCategoryLabels } from "../domain/recipe-category";
 import {
   filterByCategory,
   filterRecipes,
+  rankByOffers,
   sortRecipes,
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
 import type { AddToPlan } from "./add-to-plan-button";
 import { AiSuggestions } from "./ai-suggestions";
+import { OffersSheetControlContext } from "./offers-sheet-control";
 import type { OwnRecipesRead } from "./own-recipes";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
@@ -70,6 +72,27 @@ type Search =
     }
   | { kind: "failed"; query: string; error: AppError };
 
+/**
+ * Story 9.3: the filter Erbjudanden. The page reads the offers of the user's stores
+ * (the same as Inköpslista's, Story 9.13) and what each recipe uses, and passes the
+ * sheet Veckans erbjudanden as an element that reads OffersSheetControlContext
+ * (`open` and `onClose`), so the library never imports the offers module (AD-1).
+ */
+export type LibraryOffers = {
+  /** The offers each recipe uses on a main ingredient, by recipe id (suggestions.recipeOfferTags), labels cleaned for a tag. */
+  tags: Readonly<Record<string, readonly string[]>>;
+  /** "Recept med veckans erbjudanden, vecka 45." with the store when there is one. */
+  line: string;
+  /** Whether any store has offers this week. */
+  hasOffers: boolean;
+  /** How many offers have no catalog ingredient yet (Story 9.10); more than 0 makes the filter ask the AI once. */
+  unlinked: number;
+  /** The sheet Veckans erbjudanden, opened by "Visa erbjudanden". */
+  sheet: ReactNode;
+  /** suggestions.matchOffersWithAi: links offers to ingredients with the AI (Story 9.10); `linked` more than 0 shows the new tags. */
+  match?: () => Promise<Result<{ linked: number; open: number }>>;
+};
+
 export type LibraryProps = {
   recipes: RecipeListItem[];
   /** The pantry could not be read for `recipes` (listLibrary): no row has a status. */
@@ -89,15 +112,21 @@ export type LibraryProps = {
   ownRecipes?: OwnRecipesRead;
   /** Planning mode (Story 13.8): the day recipes are put on. */
   planning?: PlanningTarget;
+  /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
+  offers?: LibraryOffers;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, planning }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, planning, offers }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   const [view, setView] = useRecipeView();
   const [sort, setSort] = useRecipeSort();
   const [category, setCategory] = useRecipeCategory();
   const [sortOpen, setSortOpen] = useState(false);
+  const [offersOpen, setOffersOpen] = useState(false);
+  // Story 9.10: the first time Erbjudanden is shown with offers that have no ingredient, the AI links them (once per visit).
+  const [matching, setMatching] = useState(false);
+  const matchAsked = useRef(false);
   // AI-förslag are of the place the server's list is counted against. They are in
   // Kan lagas nu, and a finished job is shown there and nowhere else.
   const dishes = useDishSuggestions(site?.id ?? null, { visible: filter === "cookable", siteNames });
@@ -112,6 +141,22 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
     handledReveals.current = dishes.reveals;
     if ((first || asked) && dishes.unseenResult && filter !== "cookable") setFilter("cookable");
   }, [filter, dishes.jobsLoaded, dishes.reveals, dishes.unseenResult, setFilter]);
+  const matchOffers = offers?.match;
+  const unlinked = offers?.unlinked ?? 0;
+  useEffect(() => {
+    if (filter !== "offers" || !matchOffers || unlinked === 0 || matchAsked.current) return;
+    matchAsked.current = true;
+    void (async () => {
+      setMatching(true);
+      try {
+        const result = await matchOffers();
+        if (result.ok && result.data.linked > 0) router.refresh();
+      } catch {
+        // The filter works without the AI: the offers stay as they were.
+      }
+      setMatching(false);
+    })();
+  }, [filter, matchOffers, unlinked, router]);
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [busy, setBusy] = useState(false);
   const searchField = useRef<SearchFieldHandle>(null);
@@ -170,15 +215,18 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
     if (filter === null || sort === undefined) return [];
     // The server's list and a search's answer are newest first already.
     const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
+    // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
+    if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
     const pill = filter === "cookable" && !rankedByMissing ? "all" : filter;
     return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite);
-  }, [inCategory, filter, sort, rankedByMissing, favorites]);
+  }, [inCategory, filter, sort, rankedByMissing, favorites, offers?.tags]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
   if (filter === null || view === undefined || sort === undefined || category === undefined) return <Skeleton rows={4} />;
 
   const cookable = filter === "cookable";
+  const onOffers = filter === "offers" && offers !== undefined;
   // Planning mode puts a button on each card, which the compact rows have no room for.
   const compact = view === "compact" && !planning;
   // The rows shown take the server list's status where it has the recipe and
@@ -219,7 +267,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   } else if (visible.length > 0) {
     const ranked = rankedByMissing && !statusUnavailable;
     content = compact ? (
-      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} />
+      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} />
     ) : (
       <RecipeList
         recipes={visible}
@@ -228,7 +276,21 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         ranked={ranked}
         planning={planning}
         addToPlan={addToPlan}
+        offerTags={onOffers ? offers.tags : undefined}
       />
+    );
+  } else if (onOffers && search.kind === "none" && category === null) {
+    // Story 9.3: no offers fetched, or none that a recipe uses on a main ingredient.
+    content = (
+      <EmptyState
+        action={
+          <Button variant="text" onClick={() => setOffersOpen(true)}>
+            Visa erbjudanden
+          </Button>
+        }
+      >
+        {offers.hasOffers ? "Inga av dina recept använder veckans erbjudanden." : "Inga erbjudanden hämtade än. Hämta dem i arket."}
+      </EmptyState>
     );
   } else if (category !== null && inCategory.length === 0 && shown.length > 0) {
     content = (
@@ -278,6 +340,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           category={category}
           onCategoryChange={setCategory}
           available={availableCategories}
+          withOffers={offers !== undefined}
         />
         </div>
       </div>
@@ -286,6 +349,19 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         <p className="text-meta break-words text-ink-2" data-testid="site-line">
           {siteLine}
         </p>
+      ) : null}
+      {onOffers ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-3" data-testid="offers-line">
+          <p className="min-w-0 text-meta break-words text-ink-2">{offers.line}</p>
+          <Button variant="text" onClick={() => setOffersOpen(true)}>
+            Visa erbjudanden
+          </Button>
+        </div>
+      ) : null}
+      {onOffers ? (
+        <div role="status" className="text-meta text-ink-2">
+          {matching ? "Kopplar fler erbjudanden till dina varor …" : null}
+        </div>
       ) : null}
       {search.kind !== "failed" ? (
         <RecipeBar
@@ -320,6 +396,9 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           ownRecipes={ownRecipes}
           planning={planning}
         />
+      ) : null}
+      {offers ? (
+        <OffersSheetControlContext.Provider value={{ open: offersOpen, onClose: () => setOffersOpen(false) }}>{offers.sheet}</OffersSheetControlContext.Provider>
       ) : null}
       <RecipeSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onChange={setSort} />
     </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { planningButtonText, type PlanningTarget } from "@/features/mealplan";
-import { recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
+import { Badge } from "@/components/badges";
+import { offerTagsShown, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
 import { dishEmoji } from "../domain/dish-emoji";
 import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
 import { RecipeCard } from "./recipe-card";
@@ -20,7 +21,33 @@ export type RecipeListProps = {
   /** Planning mode (Story 13.8): each card has "Lägg på onsdag" and opens the recipe in the same mode. */
   planning?: PlanningTarget;
   addToPlan?: AddToPlan;
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, shown as up to two tags and "+N"; the list's name then says most offers first. */
+  offerTags?: Readonly<Record<string, readonly string[]>>;
 };
+
+/** The small tags of the offers a recipe uses: up to two and "+N" for the rest (UX-DR32). */
+function OfferTags({ tags }: { tags: readonly string[] }) {
+  const { shown, more } = offerTagsShown(tags);
+  return (
+    <ul aria-label="Erbjudanden" data-testid="offer-tags" className="flex min-w-0 flex-wrap gap-1 pt-0.5">
+      {shown.map((tag) => (
+        <li key={tag} className="min-w-0">
+          <Badge tone="mint" className="max-w-full truncate">
+            {tag}
+          </Badge>
+        </li>
+      ))}
+      {more > 0 ? (
+        <li>
+          <Badge tone="neutral">
+            +{more}
+            <span className="sr-only"> erbjudanden till</span>
+          </Badge>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
 
 /**
  * The library's recipe cards, in the order given (newest first, or ranked):
@@ -28,9 +55,9 @@ export type RecipeListProps = {
  * has the status on its image ("Kan lagas nu" or "Saknar N varor"; none when
  * the pantry could not be read) and the heart.
  */
-export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, planning, addToPlan }: RecipeListProps) {
+export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, planning, addToPlan, offerTags }: RecipeListProps) {
   return (
-    <ul aria-label={ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
+    <ul aria-label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
       {recipes.map((recipe) => (
         <RecipeCard
           key={recipe.id}
@@ -40,6 +67,7 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           emoji={dishEmoji(recipe.title)}
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
           href={planning ? `/recept/${recipe.id}?planera=${planning.date}` : `/recept/${recipe.id}`}
+          offerTags={offerTags && offerTags[recipe.id]?.length ? <OfferTags tags={offerTags[recipe.id]} /> : undefined}
           quickAction={
             planning && addToPlan ? (
               <AddToPlanButton

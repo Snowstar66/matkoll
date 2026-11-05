@@ -5,7 +5,9 @@ import {
   aiRecipe,
   analyzeImageAnswer,
   maxPantryItemTextChars,
+  matchOffersAnswer,
   minLoopRepeats,
+  parseOfferMatches,
   parseAnalyzeItems,
   pointScale,
   parseRecipeAnswer,
@@ -465,5 +467,33 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     expect(items.items.required).toEqual(["l", "n", "q", "u", "s", "p", "a"]);
     expect(Object.keys(items.items.properties)).toEqual(items.items.required);
     expect(JSON.stringify(schema)).not.toMatch(/"default"|"minLength"|"maxLength"|"minimum"|"exclusiveMinimum"/);
+  });
+});
+
+describe("parseOfferMatches (Story 9.10)", () => {
+  const answer = (matches: { offer: number; ingredient: number | null }[]) => matchOffersAnswer.parse({ matches });
+
+  it("gives zero-based pairs for the offers that have an ingredient", () => {
+    expect(parseOfferMatches(answer([{ offer: 1, ingredient: 3 }, { offer: 2, ingredient: null }, { offer: 3, ingredient: 1 }]), 3, 3)).toEqual([
+      { offer: 0, ingredient: 2 },
+      { offer: 2, ingredient: 0 },
+    ]);
+  });
+
+  it("leaves out numbers outside the lists, numbers that are not whole and an offer answered twice", () => {
+    const pairs = parseOfferMatches(
+      answer([
+        { offer: 1, ingredient: 4 },
+        { offer: 1, ingredient: 1 },
+        { offer: 0, ingredient: 1 },
+        { offer: 4, ingredient: 1 },
+        { offer: 2, ingredient: 1.5 },
+        { offer: 2, ingredient: 2 },
+      ]),
+      3,
+      3,
+    );
+    // Offer 1's first answer was out of range and still used the offer up; offer 2's first answer was not whole.
+    expect(pairs).toEqual([]);
   });
 });

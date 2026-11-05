@@ -721,14 +721,14 @@ isOneToOne: false
                   ]
                 },"store_offer": {
                   Row: {
-                    "created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"label": string,"label_key": string | null,"member_only": boolean,"name": string,"note": string | null,"price": string | null,"regular_price": number | null,"saving_percent": number | null,"section": string,"source": string,"store_id": string,"user_id": string | null,"valid_to": string | null,"week_start": string
+                    "ai_matched_at": string | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"label": string,"label_key": string | null,"member_only": boolean,"name": string,"note": string | null,"price": string | null,"regular_price": number | null,"saving_percent": number | null,"section": string,"source": string,"store_id": string,"user_id": string | null,"valid_to": string | null,"week_start": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"label_key"?: never,"member_only"?: boolean,"name": string,"note"?: string | null,"price"?: string | null,"regular_price"?: number | null,"saving_percent"?: number | null,"section": string,"source": string,"store_id": string,"user_id"?: string | null,"valid_to"?: string | null,"week_start": string
+                    "ai_matched_at"?: string | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"label_key"?: never,"member_only"?: boolean,"name": string,"note"?: string | null,"price"?: string | null,"regular_price"?: number | null,"saving_percent"?: number | null,"section": string,"source": string,"store_id": string,"user_id"?: string | null,"valid_to"?: string | null,"week_start": string
                   }
                   Update: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"label_key"?: never,"member_only"?: boolean,"name"?: string,"note"?: string | null,"price"?: string | null,"regular_price"?: number | null,"saving_percent"?: number | null,"section"?: string,"source"?: string,"store_id"?: string,"user_id"?: string | null,"valid_to"?: string | null,"week_start"?: string
+                    "ai_matched_at"?: string | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"label_key"?: never,"member_only"?: boolean,"name"?: string,"note"?: string | null,"price"?: string | null,"regular_price"?: number | null,"saving_percent"?: number | null,"section"?: string,"source"?: string,"store_id"?: string,"user_id"?: string | null,"valid_to"?: string | null,"week_start"?: string
                   }
                   Relationships: [
                     {

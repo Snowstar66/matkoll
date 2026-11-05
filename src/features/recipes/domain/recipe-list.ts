@@ -10,7 +10,7 @@ import {
 import { recipeCategories, type RecipeCategory } from "./recipe-category";
 
 // The recipe library (FR-8, FR-9, FR-22): what a recipe row shows, the search
-// text and the filters Alla, Favoriter and Kan lagas nu. Pure, so it is tested
+// text and the filters Alla, Favoriter, Kan lagas nu and Erbjudanden. Pure, so it is tested
 // without a database.
 
 /** A recipe as a row in the library shows it. */
@@ -137,7 +137,7 @@ export function recipeMetaText(totalMinutes: number | null, servings: number): s
   return time ? `${time} · ${portions}` : portions;
 }
 
-export const RECIPE_FILTERS = ["all", "favorites", "cookable"] as const;
+export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers"] as const;
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number];
 
 /** A stored filter choice; anything else, or nothing, is Alla. */
@@ -168,6 +168,25 @@ export function filterRecipes<T extends FilterableRecipe>(
   // A copy, so the input is unchanged.
   if (filter === "cookable") return [...recipes].sort(fewestMissingFirst);
   return [...recipes];
+}
+
+/**
+ * The filter Erbjudanden (Story 9.3): only the recipes with at least one offer
+ * on a main ingredient (`tags` by recipe id, from suggestions.recipeOfferTags),
+ * the most offers first, then the fewest missing (rows without a status last),
+ * then newest first and by id like Kan lagas nu. A copy, so the input is unchanged.
+ */
+export function rankByOffers<T extends FilterableRecipe>(recipes: readonly T[], tags: Readonly<Record<string, readonly string[]>>): T[] {
+  const count = (recipe: T) => (Object.hasOwn(tags, recipe.id) ? tags[recipe.id].length : 0);
+  return recipes.filter((recipe) => count(recipe) > 0).sort((a, b) => count(b) - count(a) || fewestMissingFirst(a, b));
+}
+
+/** The most offer tags a card shows; the rest is "+N". */
+export const maxOfferTags = 2;
+
+/** The tags a card shows (the first two) and how many more there are. */
+export function offerTagsShown(tags: readonly string[]): { shown: string[]; more: number } {
+  return { shown: tags.slice(0, maxOfferTags), more: Math.max(tags.length - maxOfferTags, 0) };
 }
 
 /** N to rank by, or `null` for a row without a usable status. */

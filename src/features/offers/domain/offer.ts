@@ -51,6 +51,8 @@ export type StoreOffer = OfferDraft & {
   /** The week's Monday. */
   weekStart: string;
   createdAt: string;
+  /** Story 9.10: when the AI was asked which ingredient the offer is (ISO), or `null`/absent when never asked. */
+  aiMatchedAt?: string | null;
 };
 
 /** A text as stored: one line, cut to `max`, or `null` when empty. */
@@ -108,6 +110,17 @@ export function noOffersText(weekStart: string): string {
 export function fetchingOffersText(siteName: string, progress?: { store: string; at: number; of: number }): string {
   if (!progress || progress.of < 2) return `Hämtar erbjudandena från ${siteName} …`;
   return `Hämtar ${progress.store} från ${siteName} (${progress.at} av ${progress.of}) …`;
+}
+
+/**
+ * Story 9.3: the line under the filter Erbjudanden in Recept. One store is
+ * named ("… från Maxi ICA Stormarknad Östersund, vecka 45."), several are counted
+ * ("… från 3 butiker, vecka 45."), and without any it only says the week.
+ */
+export function recipeOffersLineText(input: { weekStart: string; storeNames: readonly string[] }): string {
+  const { weekStart, storeNames } = input;
+  const from = storeNames.length === 1 ? ` från ${storeNames[0]}` : storeNames.length > 1 ? ` från ${storeNames.length} butiker` : "";
+  return `Recept med veckans erbjudanden${from}, ${weekShortLabel(weekStart)}.`;
 }
 
 /** "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov", under the sheet's title. */

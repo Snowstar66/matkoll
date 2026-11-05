@@ -6,6 +6,7 @@ import {
   findIngredientIdsIn,
   loadCatalogSnapshot,
   loadIngredientDefaults,
+  loadIngredientList,
   loadIngredientNames,
   loadIngredientSummaries,
 } from "./data/queries";
@@ -59,6 +60,11 @@ export async function getIngredientIdsByNames(normalizedNames: readonly string[]
 /** The names of the ingredients among `ids` in the user's catalog, by id. Ids not found are left out. */
 export async function getIngredientNames(ids: readonly string[]): Promise<Record<string, string>> {
   return loadIngredientNames(await createClient(), ids);
+}
+
+/** The id and name of the user's ingredients, by name, at most `limit` (Story 9.10). Throws CatalogDataError. */
+export async function listIngredients(limit: number): Promise<{ id: string; name: string }[]> {
+  return loadIngredientList(await createClient(), limit);
 }
 
 /**
