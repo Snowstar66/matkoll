@@ -232,6 +232,8 @@ test("more servings are saved and the status follows them", async ({ page }) => 
 test("Ta bort removes a dish at once, and Ångra puts it back with the same id", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
+  // The header's Erbjudanden streams in last; the page is interactive once it is there.
+  await expect(page.getByRole("button", { name: "Erbjudanden" })).toBeVisible();
   const id = await dish(page, soppa).getAttribute("data-dish");
 
   await removeVia(page, dish(page, soppa), soppa);

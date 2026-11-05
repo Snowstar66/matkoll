@@ -11,6 +11,7 @@ import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
 import { errorMessages } from "@/lib/errors";
+import { FindDishesButton } from "./find-dishes-button";
 import { PhotoSweepGate } from "./photo-sweep-gate";
 
 export type HomeContentProps = {
@@ -86,7 +87,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} oldCount={oldCount} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} oldCount={oldCount} findDishes={<FindDishesButton />} />
     </>
   );
 }

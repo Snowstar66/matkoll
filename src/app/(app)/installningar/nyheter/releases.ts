@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-05",
+    title: "Vad kan jag laga?",
+    bullets: [
+      "På Matvaror finns nu knappen Vad kan jag laga? Tryck, så letar Livskoll efter rätter med det du har hemma och tar dig till Recept.",
+      "Erbjudanden finns nu också på Matsedel, med pristaggen uppe i hörnet.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     title: "Skanningslinje i Kylfoto",
     bullets: [
       "Medan Livskoll läser ditt foto av kylen sveper en tunn ljus linje långsamt över bilden, så det syns att något pågår.",
