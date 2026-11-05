@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-05",
+    title: "Skanningslinje i Kylfoto",
+    bullets: [
+      "Medan Livskoll läser ditt foto av kylen sveper en tunn ljus linje långsamt över bilden, så det syns att något pågår.",
+      "Har du slagit på Minska rörelse i telefonen visas ingen linje.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     title: "Notiser från hushållet",
     bullets: [
       "Slå på notiser under Inställningar, Notiser, så får du veta när någon annan lägger till varor, skriver en lapp, tar ett nytt kort i Förrådet eller ändrar matsedeln.",

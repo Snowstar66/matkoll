@@ -329,6 +329,21 @@
     }
   }
 
+  /*
+   * Kylfoto: a thin light line sweeps slowly up and down over the photo while
+   * it is read. `top` moves in percent of the photo; only used with
+   * motion-safe, so "Minska rörelse" shows no line.
+   */
+  --animate-scan-line: scan-line 3200ms ease-in-out infinite alternate;
+  @keyframes scan-line {
+    from {
+      top: 4%;
+    }
+    to {
+      top: 96%;
+    }
+  }
+
   --animate-ignored-tap: ignored-tap 400ms ease-out;
   @keyframes ignored-tap {
     from {
