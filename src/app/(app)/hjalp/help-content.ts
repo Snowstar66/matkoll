@@ -63,6 +63,10 @@ export const helpAreas: readonly HelpArea[] = [
     ],
     faq: [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
+      {
+        question: "Vad gör Förslag från erbjudanden och lagret?",
+        answer: "Raden under veckorna visar några av dina egna recept som passar veckans erbjudanden och det du har hemma, och på begäran upp till två nya rätter från AI. Tryck Lägg på en dag för att lägga en rätt på denna eller nästa vecka. Ingenting läggs på matsedeln av sig självt.",
+      },
       { question: "Kan jag flytta en rätt till en annan dag?", answer: "Ja. Tryck ⋯ på rätten och välj Flytta till annan dag." },
       { question: "Måste jag skriva inköpslistan själv?", answer: "Nej, Inköpslistan räknas fram från veckans matsedel." },
       { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },

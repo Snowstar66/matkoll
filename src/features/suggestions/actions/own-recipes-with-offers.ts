@@ -41,34 +41,79 @@ export async function ownRecipesWithOffers(storeId?: string): Promise<Result<Own
       getPantryForStatus(),
     ]);
     if (offers.length === 0 || rows.length === 0) return ok([]);
-    const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
-    const names = ids.length > 0 ? await getIngredientNames(ids) : {};
-    const lineName = (line: { ingredientId: string | null; originalText: string }) => {
-      const catalogName = line.ingredientId ? names[line.ingredientId] : undefined;
-      return catalogName ? nameInSentence(catalogName.trim()) : line.originalText.trim();
-    };
-    return ok(
-      rankOwnRecipes(
-        offers,
-        rows.map((row) => ({
-          id: row.id,
-          title: row.title,
-          isFavorite: row.isFavorite,
-          imageUrl: row.imageUrl,
-          totalMinutes: row.totalMinutes,
-          servings: row.originalServings,
-          lines: row.lines.map((line) => ({
-            name: lineName(line),
-            ingredientId: line.ingredientId,
-            atHome: line.ingredientId !== null && (snapshot?.has(line.ingredientId) ?? false),
-            amount: line.amount,
-            unit: line.unit,
-          })),
-        })),
-        maxOwnRecipes,
-        staples,
-      ),
-    );
+    return ok(await rankLibrary(offers, rows, snapshot, staples, maxOwnRecipes, false));
+  } catch (error) {
+    if (
+      !(
+        error instanceof SettingsDataError ||
+        error instanceof OffersDataError ||
+        error instanceof RecipeDataError ||
+        error instanceof CatalogDataError
+      )
+    )
+      throw error;
+    console.error("own_recipes_unavailable", { reason: error.name });
+    return fail("offers_unavailable");
+  }
+}
+
+type LibraryRows = Awaited<ReturnType<typeof listRecipeRows>>;
+type Pantry = Awaited<ReturnType<typeof getPantryForStatus>>;
+
+/** The library's rows as rankOwnRecipes reads them, with catalog names and what is at home. */
+async function rankLibrary(
+  offers: Parameters<typeof rankOwnRecipes>[0],
+  rows: LibraryRows,
+  snapshot: Pantry["snapshot"],
+  staples: Pantry["staples"],
+  limit: number,
+  countPantry: boolean,
+): Promise<OwnRecipeMatch[]> {
+  const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
+  const names = ids.length > 0 ? await getIngredientNames(ids) : {};
+  const lineName = (line: { ingredientId: string | null; originalText: string }) => {
+    const catalogName = line.ingredientId ? names[line.ingredientId] : undefined;
+    return catalogName ? nameInSentence(catalogName.trim()) : line.originalText.trim();
+  };
+  return rankOwnRecipes(
+    offers,
+    rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      isFavorite: row.isFavorite,
+      imageUrl: row.imageUrl,
+      totalMinutes: row.totalMinutes,
+      servings: row.originalServings,
+      lines: row.lines.map((line) => ({
+        name: lineName(line),
+        ingredientId: line.ingredientId,
+        atHome: line.ingredientId !== null && (snapshot?.has(line.ingredientId) ?? false),
+        amount: line.amount,
+        unit: line.unit,
+      })),
+    })),
+    limit,
+    staples,
+    countPantry,
+  );
+}
+
+/**
+ * Story 9.6, "Förslag från erbjudanden och lagret" on Matsedel: at most five
+ * of the user's recipes, ranked by the offers of all the user's stores
+ * (Story 9.13) and by what is at home (rankOwnRecipes with the pantry
+ * counted). A read: nothing is written and the model is not called. No
+ * stores, nothing on offer or no recipe that fits is an empty list; errors as
+ * in ownRecipesWithOffers.
+ */
+export async function ownRecipeSuggestions(): Promise<Result<OwnRecipeMatch[]>> {
+  const user = await requireUser();
+  if (!user.ok) return user;
+  try {
+    const [stores, rows, { snapshot, staples }] = await Promise.all([listStores(), listRecipeRows(), getPantryForStatus()]);
+    if (rows.length === 0) return ok([]);
+    const offers = (await Promise.all(stores.map((store) => getActiveOffers(store.id)))).flat();
+    return ok(await rankLibrary(offers, rows, snapshot, staples, maxOwnRecipes, true));
   } catch (error) {
     if (
       !(

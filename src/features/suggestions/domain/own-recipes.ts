@@ -42,6 +42,10 @@ const perOffer = 10;
 const favoriteBonus = 15;
 const perBuy = 2;
 const savingWeight = 2;
+/** Story 9.6: with the pantry counted, each line at home is worth this many points. */
+const perHome = 3;
+/** Story 9.6: a recipe without offers is a suggestion when at least this share of its lines is at home. */
+const minHomeShare = 0.5;
 
 /**
  * The recipes that use at least one of the offers, best first, at most
@@ -51,12 +55,17 @@ const savingWeight = 2;
  * two reads. An offer is used when its catalog ingredient is a line's, or,
  * for an offer without one, when its name is a line's name (offersUsed). The
  * household's Basvaror (`staples`) are never things to buy (toBuyNames).
+ *
+ * Story 9.6 (`countPantry`): what is at home counts too, 3 points per line at
+ * home, and a recipe with no offer is a suggestion when at least half of its
+ * lines are at home; `onOffer` is then empty for it.
  */
 export function rankOwnRecipes(
   offers: readonly OfferInfo[],
   recipes: readonly OwnRecipe[],
   limit = maxOwnRecipes,
   staples: StapleRules = noStaples,
+  countPantry = false,
 ): OwnRecipeMatch[] {
   const scored = recipes.flatMap((recipe) => {
     const linked = new Set(recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])));
@@ -65,13 +74,15 @@ export function rankOwnRecipes(
       linked,
       recipe.lines.map((line) => line.name),
     );
-    if (onOffer.length === 0) return [];
+    const have = recipe.lines.filter((line) => line.atHome).length;
+    const mostlyHome = countPantry && recipe.lines.length > 0 && have / recipe.lines.length >= minHomeShare;
+    if (onOffer.length === 0 && !mostlyHome) return [];
     const saving = onOffer.reduce((sum, label) => {
       const best = Math.max(...offers.filter((offer) => offer.label === label).map((offer) => offer.savingPercent ?? 0), 0);
       return sum + Math.min(Math.max(best, 0), 100) / 100;
     }, 0);
     const toBuy = toBuyNames(offers, recipe.lines, staples);
-    const score = perOffer * onOffer.length + (recipe.isFavorite ? favoriteBonus : 0) - perBuy * toBuy.length + savingWeight * saving;
+    const score = perOffer * onOffer.length + (recipe.isFavorite ? favoriteBonus : 0) - perBuy * toBuy.length + savingWeight * saving + (countPantry ? perHome * have : 0);
     const match: OwnRecipeMatch = {
       id: recipe.id,
       title: recipe.title,
@@ -80,7 +91,7 @@ export function rankOwnRecipes(
       totalMinutes: recipe.totalMinutes,
       servings: recipe.servings,
       onOffer,
-      have: recipe.lines.filter((line) => line.atHome).length,
+      have,
       total: recipe.lines.length,
       toBuy,
     };

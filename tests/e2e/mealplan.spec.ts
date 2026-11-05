@@ -212,6 +212,8 @@ test("Lägg på matsedeln in the recipe view adds the same recipe once more", as
 test("more servings are saved and the status follows them", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
+  // The header's Erbjudanden streams in last; the page is interactive once it is there.
+  await expect(page.getByRole("button", { name: "Erbjudanden", exact: true })).toBeVisible();
   const first = dish(page, gryta).first();
   const sheet = await openMore(page, first, gryta);
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
@@ -233,7 +235,7 @@ test("Ta bort removes a dish at once, and Ångra puts it back with the same id",
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   // The header's Erbjudanden streams in last; the page is interactive once it is there.
-  await expect(page.getByRole("button", { name: "Erbjudanden" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Erbjudanden", exact: true })).toBeVisible();
   const id = await dish(page, soppa).getAttribute("data-dish");
 
   await removeVia(page, dish(page, soppa), soppa);
