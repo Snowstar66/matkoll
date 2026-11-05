@@ -1,7 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, weekStartOf, type OfferDraft } from "@/features/offers";
 import { blockFetch, claimFetch, loadActiveOffers, loadLastFetch, loadOffers } from "@/features/offers/data/queries";
-import { clearOtherStoreOffersIn, linkOffersToIngredientIn, loadLinkedNamesIn, saveOffersIn } from "@/features/offers/data/save";
+import {
+  claimOffersForAiIn,
+  clearOtherStoreOffersIn,
+  linkOffersToIngredientIn,
+  loadAskedNamesIn,
+  loadLinkedNamesIn,
+  markNamesAskedIn,
+  releaseOffersForAiIn,
+  saveOffersIn,
+} from "@/features/offers/data/save";
 import { saveStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema } from "@/features/settings";
 import { fail } from "@/lib/errors";
@@ -463,5 +472,46 @@ describe("linking offers to the catalog (Story 9.10)", () => {
     const known = await loadLinkedNamesIn(user.db, store, ["herrgård", "bregott", "okänd"]);
     expect(known && Object.fromEntries(known)).toEqual({ "herrgård": cheese });
     expect(await loadLinkedNamesIn(await createTestUser("offer-linked-names-other").then((u) => u.db), store, ["herrgård"])).toEqual(new Map());
+  });
+});
+
+describe("remembering that the AI was asked (Story 9.10, ai_matched_at)", () => {
+  async function seedOffers(db: Db, store: string) {
+    await saveOffersIn(db, { storeId: store, weekStart: thisWeek(), items: [draft("Herrgård", { name: "herrgård" }), draft("Diskmedel", { name: "diskmedel" })] });
+    const { data, error } = await db.from("store_offer").select("id, name").eq("store_id", store);
+    if (error) throw error;
+    return Object.fromEntries(data.map((row) => [row.name, row.id]));
+  }
+
+  it("claims an offer once: a second call after an answer of none gets nothing, a release gives it back", async () => {
+    const user = await createTestUser("offer-ai-claim");
+    const store = await addStore(user.db);
+    const ids = await seedOffers(user.db, store);
+    const all = Object.values(ids);
+    expect((await claimOffersForAiIn(user.db, all, new Date()))?.sort()).toEqual([...all].sort());
+    // Two visits at once, or the next visit after the model answered "none": nothing left to ask.
+    expect(await claimOffersForAiIn(user.db, all, new Date())).toEqual([]);
+    await releaseOffersForAiIn(user.db, [ids["diskmedel"]]);
+    expect(await claimOffersForAiIn(user.db, all, new Date())).toEqual([ids["diskmedel"]]);
+  });
+
+  it("carries the asked names over a refetch, by name and store", async () => {
+    const user = await createTestUser("offer-ai-carry");
+    const store = await addStore(user.db);
+    const ids = await seedOffers(user.db, store);
+    await claimOffersForAiIn(user.db, [ids["diskmedel"]], new Date());
+    expect(await loadAskedNamesIn(user.db, store, ["herrgård", "diskmedel"])).toEqual(new Set(["diskmedel"]));
+    // A refetch replaces the week's link rows; the stamp is put back on the same names.
+    await saveOffersIn(user.db, { storeId: store, weekStart: thisWeek(), items: [draft("Herrgård", { name: "herrgård" }), draft("Diskmedel", { name: "diskmedel" })], replaceSource: "link" });
+    await markNamesAskedIn(user.db, { storeId: store, weekStart: thisWeek(), names: ["diskmedel"], now: new Date() });
+    const { data } = await user.db.from("store_offer").select("name, ai_matched_at").eq("store_id", store).order("name");
+    expect(data?.map((row) => [row.name, row.ai_matched_at !== null])).toEqual([["diskmedel", true], ["herrgård", false]]);
+  });
+
+  it("never claims another user's offers", async () => {
+    const owner = await createTestUser("offer-ai-owner");
+    const other = await createTestUser("offer-ai-other");
+    const ids = await seedOffers(owner.db, await addStore(owner.db));
+    expect(await claimOffersForAiIn(other.db, Object.values(ids), new Date())).toEqual([]);
   });
 });

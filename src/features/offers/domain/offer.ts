@@ -51,6 +51,8 @@ export type StoreOffer = OfferDraft & {
   /** The week's Monday. */
   weekStart: string;
   createdAt: string;
+  /** Story 9.10: when the AI was asked which ingredient the offer is (ISO), or `null`/absent when never asked. */
+  aiMatchedAt?: string | null;
 };
 
 /** A text as stored: one line, cut to `max`, or `null` when empty. */

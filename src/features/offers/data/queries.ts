@@ -9,7 +9,7 @@ import { OffersDataError, type OffersDb } from "./client";
 // store the caller has read from settings.
 
 const offerColumns =
-  "id, store_id, week_start, label, name, ingredient_id, section, price, note, member_only, valid_to, source, regular_price, saving_percent, created_at";
+  "id, store_id, week_start, label, name, ingredient_id, section, price, note, member_only, valid_to, source, regular_price, saving_percent, created_at, ai_matched_at";
 
 type OfferRow = {
   id: string;
@@ -27,6 +27,7 @@ type OfferRow = {
   regular_price: number | null;
   saving_percent: number | null;
   created_at: string;
+  ai_matched_at?: string | null;
 };
 
 /** A row as the domain's StoreOffer. A section or source the checks would refuse reads as Övrigt and text. */
@@ -49,6 +50,7 @@ export function toStoreOffer(row: OfferRow): StoreOffer {
     regularPrice: row.regular_price,
     savingPercent: row.saving_percent,
     createdAt: row.created_at,
+    aiMatchedAt: row.ai_matched_at ?? null,
   };
 }
 

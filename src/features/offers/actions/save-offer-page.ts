@@ -2,7 +2,7 @@ import "server-only";
 import type { IngredientMatch, IngredientSummary, MatchItem, Section } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { OffersDb } from "../data/client";
-import { loadLinkedNamesIn, saveOffersIn } from "../data/save";
+import { loadAskedNamesIn, loadLinkedNamesIn, markNamesAskedIn, saveOffersIn } from "../data/save";
 import { foodSection } from "../domain/ica-offer-page";
 import { toOfferDraft } from "../domain/offer";
 import type { OfferName } from "../domain/offer-name";
@@ -94,6 +94,14 @@ export async function saveOfferWeekIn(
     catalog,
   );
   const linked = await carryOverLinks(db, storeId, matches, catalog);
+  // Story 9.10: the names the AI was asked about before (also those it found nothing for) stay asked after the refetch.
+  const unmatched = week.entries.flatMap((_, index) => ((linked[index] ?? matches[index]).ingredientId === null ? [matches[index].name] : []));
+  let asked: ReadonlySet<string> | null = null;
+  try {
+    asked = unmatched.length > 0 ? await loadAskedNamesIn(db, storeId, unmatched) : null;
+  } catch {
+    asked = null;
+  }
   const drafts = week.entries.map((entry, index) =>
     toOfferDraft(entry.offer, { ...(linked[index] ?? matches[index]), icaSection: foodSection(entry.offer.category) }),
   );
@@ -102,6 +110,13 @@ export async function saveOfferWeekIn(
     if (saved.error.code !== "offers_week_invalid") return saved;
     console.error("offers_page_old", { reason: "week_refused" });
     return fail("offers_page_old");
+  }
+  if (asked && asked.size > 0) {
+    try {
+      await markNamesAskedIn(db, { storeId, weekStart: week.weekStart, names: [...asked], now: new Date() });
+    } catch {
+      // The offers are saved; at worst the AI is asked about these names once more.
+    }
   }
   return ok({
     weekStart: week.weekStart,

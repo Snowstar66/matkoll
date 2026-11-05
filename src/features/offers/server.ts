@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { loadActiveOffers, loadLastFetch, loadOffers } from "./data/queries";
-import { linkOffersToIngredientIn } from "./data/save";
+import { claimOffersForAiIn, linkOffersToIngredientIn, releaseOffersForAiIn } from "./data/save";
 import type { StoreOffer } from "./domain/offer";
 
 // Server-only entry (AD-1, AD-25): the offers module owns store_offer, and
@@ -39,4 +39,14 @@ export const getLastFetch = cache(async (storeId: string): Promise<Date | null> 
  */
 export async function linkOffersToIngredient(input: Parameters<typeof linkOffersToIngredientIn>[1]) {
   return linkOffersToIngredientIn(await createClient(), input);
+}
+
+/** Story 9.10: claims offers for one AI match (see claimOffersForAiIn); gives the ids claimed, `null` when the write fails. */
+export async function claimOffersForAi(offerIds: readonly string[]): Promise<string[] | null> {
+  return claimOffersForAiIn(await createClient(), offerIds, new Date());
+}
+
+/** Story 9.10: gives claimed offers back when the AI did not answer. */
+export async function releaseOffersForAi(offerIds: readonly string[]): Promise<void> {
+  return releaseOffersForAiIn(await createClient(), offerIds);
 }

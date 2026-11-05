@@ -107,7 +107,7 @@ async function readLibraryOffers(): Promise<LibraryOffers | undefined> {
         storeNames: stores.filter((store) => storeIds.has(store.id)).map((store) => store.name),
       }),
       hasOffers: offers.length > 0,
-      unlinked: offers.filter((offer) => offer.ingredientId === null && offer.source === "link").length,
+      unlinked: offers.filter((offer) => offer.ingredientId === null && offer.source === "link" && !offer.aiMatchedAt).length,
       sheet: <RecipeOffersSheet {...props} />,
       match: matchOffersWithAi,
     };

@@ -110,3 +110,66 @@ export async function loadLinkedNamesIn(
   }
   return found;
 }
+
+/**
+ * Story 9.10: claims the right to ask the AI about these offers: stamps
+ * `ai_matched_at` on those not stamped yet, in one conditional UPDATE, and gives
+ * the ids that were claimed. Two visits at the same time cannot both claim an
+ * offer, and an offer already asked about (linked or answered "none") is never
+ * claimed again. `null` when the write fails (logged with the code only).
+ */
+export async function claimOffersForAiIn(db: OffersDb, offerIds: readonly string[], now: Date): Promise<string[] | null> {
+  const { data, error } = await db
+    .from("store_offer")
+    .update({ ai_matched_at: now.toISOString() })
+    .in("id", [...offerIds])
+    .is("ai_matched_at", null)
+    .select("id");
+  if (!error) return data.map((row) => row.id);
+  console.error("offers_failed", { reason: `claim_ai ${error.code}` });
+  return null;
+}
+
+/** Takes a claim back (the AI did not answer), so the next visit asks again. Logged with the code only when it fails. */
+export async function releaseOffersForAiIn(db: OffersDb, offerIds: readonly string[]): Promise<void> {
+  const { error } = await db.from("store_offer").update({ ai_matched_at: null }).in("id", [...offerIds]);
+  if (error) console.error("offers_failed", { reason: `release_ai ${error.code}` });
+}
+
+/** Story 9.10: the offer names of the store the AI has already been asked about (any week). `null` when the read fails. */
+export async function loadAskedNamesIn(db: OffersDb, storeId: string, names: readonly string[]): Promise<ReadonlySet<string> | null> {
+  const found = new Set<string>();
+  const unique = [...new Set(names)];
+  for (let from = 0; from < unique.length; from += 100) {
+    const { data, error } = await db
+      .from("store_offer")
+      .select("name")
+      .eq("store_id", storeId)
+      .in("name", unique.slice(from, from + 100))
+      .not("ai_matched_at", "is", null);
+    if (error) {
+      console.error("offers_failed", { reason: `asked_names ${error.code}` });
+      return null;
+    }
+    for (const row of data) found.add(row.name);
+  }
+  return found;
+}
+
+/** After a save: stamps the week's offers with these names as asked (carried over from before the refetch). Logged with the code only. */
+export async function markNamesAskedIn(
+  db: OffersDb,
+  input: { storeId: string; weekStart: string; names: readonly string[]; now: Date },
+): Promise<void> {
+  const names = [...new Set(input.names)];
+  for (let from = 0; from < names.length; from += 100) {
+    const { error } = await db
+      .from("store_offer")
+      .update({ ai_matched_at: input.now.toISOString() })
+      .eq("store_id", input.storeId)
+      .eq("week_start", input.weekStart)
+      .in("name", names.slice(from, from + 100))
+      .is("ai_matched_at", null);
+    if (error) console.error("offers_failed", { reason: `mark_asked ${error.code}` });
+  }
+}
