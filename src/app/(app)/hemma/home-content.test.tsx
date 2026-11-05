@@ -96,6 +96,18 @@ describe("HomeContent", () => {
     const camera = screen.getByRole("button", { name: "Fotografera kylen" });
     expect(links[2].compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(camera.compareDocumentPosition(screen.getByText("Mjölk")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // "Vad kan jag laga?" comes under the camera, with an icon.
+    const find = screen.getByRole("button", { name: "Vad kan jag laga?" });
+    expect(camera.compareDocumentPosition(find) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(find.querySelector("svg")).not.toBeNull();
+  });
+
+  it("has no Vad kan jag laga? when the place has no items at all", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 0, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([]);
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vad kan jag laga?" })).toBeNull();
   });
 
   it("names the chosen location on the camera button, also for an empty location", async () => {

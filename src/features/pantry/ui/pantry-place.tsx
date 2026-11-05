@@ -56,7 +56,8 @@ export function PantryPlace({ site, location, counts, items, photo = null, oldCo
       <PantryCamera site={site} location={location}>
         <LatestPhoto photo={photo} location={location} />
       </PantryCamera>
-      {findDishes}
+      {/* An empty place gives no useful suggestions. */}
+      {Object.values({ ...counts, [location]: shown.length }).some((count) => count > 0) ? findDishes : null}
       <PantrySuggestionList siteId={site.id} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
       <PantryList

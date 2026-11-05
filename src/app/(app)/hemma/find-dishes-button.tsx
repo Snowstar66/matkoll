@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { SparkleIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { useRecipeFilter } from "@/features/recipes/ui/recipe-filter-store";
 import { isActive } from "@/lib/ai-job-shape";
@@ -53,6 +54,7 @@ export function FindDishesButton() {
 
   return (
     <Button variant="secondary" fullWidth data-testid="find-dishes" disabled={starting} onClick={() => void find()}>
+      <SparkleIcon size={22} />
       Vad kan jag laga?
     </Button>
   );
