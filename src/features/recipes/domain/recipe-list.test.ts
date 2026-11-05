@@ -6,7 +6,9 @@ import {
   filterRecipes,
   parseRecipeFilter,
   parseRecipeSort,
+  offerTagsShown,
   parseRecipeView,
+  rankByOffers,
   RECIPE_FILTERS,
   recipeMetaText,
   recipeTimeText,
@@ -37,8 +39,9 @@ describe("recipeTimeText", () => {
 });
 
 describe("parseRecipeFilter", () => {
-  it("knows Favoriter and Kan lagas nu and makes everything else Alla", () => {
-    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable"]);
+  it("knows Favoriter, Kan lagas nu and Erbjudanden and makes everything else Alla", () => {
+    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers"]);
+    expect(parseRecipeFilter("offers")).toBe("offers");
     expect(parseRecipeFilter("favorites")).toBe("favorites");
     expect(parseRecipeFilter("cookable")).toBe("cookable");
     expect(parseRecipeFilter("all")).toBe("all");
@@ -285,5 +288,32 @@ describe("withStatus categories", () => {
     ];
     expect(withStatus(rows, null)[0].categories).toEqual(["vegetarian", "soup", "quick"]);
     expect(toLibrary(rows, toSnapshot([]), null).recipes[0].categories).toEqual(["vegetarian", "soup", "quick"]);
+  });
+});
+
+describe("rankByOffers (Story 9.3)", () => {
+  const row = (id: string, missingCount: number | null, createdAt = "2026-10-01") => ({ id, createdAt, missingCount });
+  const tags = { a: ["Falukorv"], b: ["Falukorv", "Gul lök"], c: ["Laxfilé"], d: ["Laxfilé"], e: [] as string[] };
+
+  it("keeps only recipes with an offer, the most offers first and then the fewest missing", () => {
+    const ranked = rankByOffers([row("a", 0), row("b", 5), row("c", 3), row("d", 1), row("e", 0), row("f", 0)], tags);
+    expect(ranked.map(({ id }) => id)).toEqual(["b", "a", "d", "c"]);
+  });
+
+  it("puts a row without a status after the others with as many offers, and leaves the input unchanged", () => {
+    const input = [row("c", null), row("d", 4)];
+    expect(rankByOffers(input, tags).map(({ id }) => id)).toEqual(["d", "c"]);
+    expect(input.map(({ id }) => id)).toEqual(["c", "d"]);
+  });
+
+  it("shows nothing without tags", () => {
+    expect(rankByOffers([row("a", 0)], {})).toEqual([]);
+  });
+});
+
+describe("offerTagsShown", () => {
+  it("shows two tags and counts the rest", () => {
+    expect(offerTagsShown(["a"])).toEqual({ shown: ["a"], more: 0 });
+    expect(offerTagsShown(["a", "b", "c", "d"])).toEqual({ shown: ["a", "b"], more: 2 });
   });
 });

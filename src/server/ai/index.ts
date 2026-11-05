@@ -20,6 +20,9 @@ export type {
   ImageInput,
   ListThingsInput,
   ListThingsResult,
+  MatchOffersInput,
+  MatchOffersPair,
+  MatchOffersResult,
   MergeThingsInput,
   MergeThingsPair,
   MergeThingsResult,
@@ -32,7 +35,7 @@ export type {
   WarmUpKind,
   WarmUpResult,
 } from "./service";
-export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, mergeThingsText, warmUpKinds } from "./service";
+export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";
@@ -82,6 +85,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
     locateThing: (input, signal, options) => withUsageSink(sink, () => service.locateThing(input, signal, options)),
     askThings: (input, signal, options) => withUsageSink(sink, () => service.askThings(input, signal, options)),
     mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
+    matchOffers: (input, signal, options) => withUsageSink(sink, () => service.matchOffers(input, signal, options)),
     thingSearchTerms: (input, signal, options) => withUsageSink(sink, () => service.thingSearchTerms(input, signal, options)),
     categorizeThings: (input, signal, options) => withUsageSink(sink, () => service.categorizeThings(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),

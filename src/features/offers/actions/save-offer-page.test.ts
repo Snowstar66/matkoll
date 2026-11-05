@@ -39,6 +39,41 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
+describe("saveOfferPageIn, links kept from an earlier match (Story 9.10)", () => {
+  const cheese = "33333333-3333-4333-8333-333333333333";
+
+  /** A client whose store_offer read answers `rows` and whose rpc saves. */
+  function dbWith(rows: { name: string; ingredient_id: string; created_at: string }[] | "error") {
+    const query = {
+      select: () => query,
+      eq: () => query,
+      in: () => query,
+      not: () => query,
+      order: async () => (rows === "error" ? { data: null, error: { code: "XX000" } } : { data: rows, error: null }),
+    };
+    return { rpc: (...args: unknown[]) => rpc(...args), from: () => query } as unknown as OffersDb;
+  }
+  const withSummary: OfferCatalog = {
+    ...catalog,
+    summaries: async (ids) => Object.fromEntries(ids.map((id) => [id, { id, name: id === cheese ? "ost" : "laxfilé", section: id === cheese ? "Mejeri" : "Kött och fisk" }])) as never,
+  };
+
+  it("gives an offer the catalog did not match the ingredient the store's offer of the same name had", async () => {
+    const db = dbWith([{ name: "herrgård", ingredient_id: cheese, created_at: "2026-11-02T05:00:00Z" }]);
+    const saved = await saveOfferPageIn(db, { storeId, read: pageRead() }, withSummary);
+    expect(saved).toEqual(ok(expect.objectContaining({ saved: 7, matched: 2 })));
+    const [, args] = rpc.mock.calls[0];
+    expect(args.items[0]).toMatchObject({ name: "herrgård", ingredient_id: cheese, section: "Mejeri" });
+    expect(args.items[1]).toMatchObject({ ingredient_id: laxfile });
+  });
+
+  it("saves the offers as before when the earlier links cannot be read", async () => {
+    const saved = await saveOfferPageIn(dbWith("error"), { storeId, read: pageRead() }, withSummary);
+    expect(saved).toEqual(ok(expect.objectContaining({ saved: 7, matched: 1 })));
+    expect(rpc.mock.calls[0][1].items[0]).toMatchObject({ ingredient_id: null });
+  });
+});
+
 describe("saveOfferPageIn", () => {
   it("saves the page's offers for the store and week through the given client, replacing the link's rows", async () => {
     const read = pageRead();

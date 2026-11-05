@@ -1,8 +1,8 @@
 import "server-only";
-import type { IngredientMatch, IngredientSummary, MatchItem } from "@/features/catalog";
+import type { IngredientMatch, IngredientSummary, MatchItem, Section } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { OffersDb } from "../data/client";
-import { saveOffersIn } from "../data/save";
+import { loadAskedNamesIn, loadLinkedNamesIn, markNamesAskedIn, saveOffersIn } from "../data/save";
 import { foodSection } from "../domain/ica-offer-page";
 import { toOfferDraft } from "../domain/offer";
 import type { OfferName } from "../domain/offer-name";
@@ -47,6 +47,36 @@ async function matchOffers(names: readonly OfferName[], catalog: OfferCatalog) {
 }
 
 /**
+ * Story 9.10: an offer the catalog did not match gets the ingredient an earlier
+ * match of the same name in the same store found (the AI's, kept on the
+ * store's offers from a former week or fetch), so a refetch never loses a link and
+ * the AI is asked for a name once. The matches that changed, else `undefined`
+ * at that place. Never throws for the read; a read that fails changes nothing.
+ */
+async function carryOverLinks(
+  db: OffersDb,
+  storeId: string,
+  matches: { label: string; name: string; ingredientId: string | null; section: Section | null }[],
+  catalog: OfferCatalog,
+): Promise<({ label: string; name: string; ingredientId: string | null; section: Section | null } | undefined)[]> {
+  const open = matches.filter((match) => match.ingredientId === null).map((match) => match.name);
+  if (open.length === 0) return [];
+  let known: ReadonlyMap<string, string> | null = null;
+  try {
+    known = await loadLinkedNamesIn(db, storeId, open);
+  } catch {
+    known = null;
+  }
+  if (!known || known.size === 0) return [];
+  const summaries = await catalog.summaries([...new Set(known.values())]);
+  return matches.map((match) => {
+    const id = match.ingredientId === null ? known.get(match.name) : undefined;
+    const summary = id ? summaries[id] : undefined;
+    return id && summary ? { ...match, ingredientId: id, section: summary.section } : undefined;
+  });
+}
+
+/**
  * Matches one week's offers against the catalog and saves them for the store,
  * replacing that week's earlier link offers (so a new run updates, never
  * duplicates). Gives the counts, or `offers_page_old` (the database refused
@@ -63,14 +93,30 @@ export async function saveOfferWeekIn(
     week.entries.map((entry) => entry.name),
     catalog,
   );
+  const linked = await carryOverLinks(db, storeId, matches, catalog);
+  // Story 9.10: the names the AI was asked about before (also those it found nothing for) stay asked after the refetch.
+  const unmatched = week.entries.flatMap((_, index) => ((linked[index] ?? matches[index]).ingredientId === null ? [matches[index].name] : []));
+  let asked: ReadonlySet<string> | null = null;
+  try {
+    asked = unmatched.length > 0 ? await loadAskedNamesIn(db, storeId, unmatched) : null;
+  } catch {
+    asked = null;
+  }
   const drafts = week.entries.map((entry, index) =>
-    toOfferDraft(entry.offer, { ...matches[index], icaSection: foodSection(entry.offer.category) }),
+    toOfferDraft(entry.offer, { ...(linked[index] ?? matches[index]), icaSection: foodSection(entry.offer.category) }),
   );
   const saved = await saveOffersIn(db, { storeId, weekStart: week.weekStart, items: drafts, replaceSource: "link" });
   if (!saved.ok) {
     if (saved.error.code !== "offers_week_invalid") return saved;
     console.error("offers_page_old", { reason: "week_refused" });
     return fail("offers_page_old");
+  }
+  if (asked && asked.size > 0) {
+    try {
+      await markNamesAskedIn(db, { storeId, weekStart: week.weekStart, names: [...asked], now: new Date() });
+    } catch {
+      // The offers are saved; at worst the AI is asked about these names once more.
+    }
   }
   return ok({
     weekStart: week.weekStart,

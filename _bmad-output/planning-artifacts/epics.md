@@ -2339,12 +2339,16 @@ så att jag kan laga det som är billigt den här veckan.
 **När** sidan visas
 **Så** finns pillren Alla, Favoriter, Kan lagas nu och Erbjudanden (FR52)
 
-**Givet** erbjudanden på falukorv, gul lök och laxfilé
+**Givet** erbjudanden på falukorv, gul lök och laxfilé från en eller flera butiker (Story 9.13: samma butiker som Inköpslistans erbjudanden)
 **När** Pontus väljer Erbjudanden
-**Så** visas recept där minst en huvudvara är på erbjudande, flest erbjudanden först och sedan minst saknat, med raden "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." och "Visa erbjudanden"
+**Så** visas recept där minst en huvudvara är på erbjudande, flest erbjudanden först och sedan minst saknat, med raden "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." (en butik namnges, flera räknas: "från 3 butiker", utan erbjudanden bara "vecka 45") och "Visa erbjudanden", som öppnar arket Veckans erbjudanden
 **Och** korten har upp till två erbjudandeetiketter och "+N" (UX-DR32)
 
-**Givet** ett recept där bara en krydda eller en vag rad är på erbjudande
+**Givet** inga erbjudanden hämtade, eller inget recept som använder dem
+**När** Pontus väljer Erbjudanden
+**Så** står "Inga erbjudanden hämtade än. Hämta dem i arket." respektive "Inga av dina recept använder veckans erbjudanden." med "Visa erbjudanden"
+
+**Givet** ett recept där bara en krydda (mätt i krm eller tsk), en basvara eller en vag rad utan katalogingrediens är på erbjudande
 **När** filtret visas
 **Så** kommer receptet inte med
 
@@ -2510,21 +2514,27 @@ Som Pontus,
 vill jag att erbjudanden med produktnamn ("Herrgård") kopplas till rätt vara i katalogen,
 så att etiketterna, filtret och "Fyll på lagret" hittar dem.
 
-Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudandena på mat får en katalogingrediens.
+Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudandena på mat får en katalogingrediens. Mätt 2026-10-29: 5 av 78 (6 %), så storyn byggdes 2026-11-05.
+
+**Anpassning vid bygget (2026-11-05, Pontus borta, enklaste varianten):** hämtningen körs på GitHub (jobbet Offers) och där finns ingen AI-tjänst, så kopplingen sker i stället lazy på servern när Recept visar filtret Erbjudanden. Ingen granskning och ingen synonym i katalogen (AD-6: inget skrivs till katalogen): AI:n väljer bara bland befintliga ingredienser, och kopplingen sparas på erbjudanderaderna. Se acceptanskriterierna nedan.
 
 **Acceptance Criteria:**
 
-**Givet** hämtade erbjudanden utan katalogingrediens
-**När** Pontus trycker "Koppla fler till katalogen" i arket
-**Så** startar ett AI-jobb som föreslår en befintlig katalogingrediens per erbjudande, utan att skapa nya (AD-6, AD-28)
+**Givet** hämtade erbjudanden utan katalogingrediens (från länken, i någon av Pontus butiker)
+**När** Pontus väljer Erbjudanden i Recept
+**Så** ber appen AI:n, en gång och i bakgrunden, att välja en befintlig katalogingrediens per erbjudandenamn (högst 60 namn, ingredienser som recepten använder först, högst 300 namn), utan att skapa nya (AD-6, AD-9), med raden "Kopplar fler erbjudanden till dina varor …" medan det pågår
 
-**Givet** förslagen
-**När** Pontus granskar dem och trycker "Spara kopplingar"
-**Så** kopplas erbjudandena, och varje bekräftad koppling sparas som synonym i katalogen, så att samma vara hittas utan AI nästa vecka
+**Givet** att AI:n har kopplat erbjudanden
+**När** sidan laddas om
+**Så** syns de i etiketterna, filtret och "Fyll på lagret" (bara rader som ännu saknade ingrediens ändras)
 
-**Givet** ett förslag som Pontus bockar ur i granskningen
-**När** kopplingarna sparas
-**Så** sparas inget för det erbjudandet
+**Givet** att AI:n inte svarar eller svarar fel
+**När** Pontus väljer Erbjudanden
+**Så** fungerar filtret som förut med de kopplingar katalogen redan gav, och felet loggas bara som kod
+
+**Givet** ett erbjudandenamn som AI:n kopplade förra veckan eller vid förra hämtningen i samma butik
+**När** erbjudandena hämtas igen (i appen eller av jobbet på GitHub)
+**Så** får erbjudandet samma ingrediens utan AI
 
 ### Story 9.11: Hur bra är erbjudandet
 

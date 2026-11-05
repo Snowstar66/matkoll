@@ -5,14 +5,17 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan } from "@/features/mealplan/server";
-import { ownRecipesWithOffers } from "@/features/suggestions/server";
+import { matchOffersWithAi, ownRecipesWithOffers, recipeOfferTags } from "@/features/suggestions/server";
+import { offerDisplay, recipeOffersLineText } from "@/features/offers";
+import { loadOffersSheetData } from "../offers-sheet-data";
+import { RecipeOffersSheet } from "./recipe-offers-sheet";
 import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { PlanningBar } from "@/features/mealplan/ui/planning-bar";
 import { planningTarget } from "@/features/mealplan";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
-import { Library } from "@/features/recipes/ui/library";
+import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
 import { WarmAi } from "../warm-ai";
 
 
@@ -56,7 +59,7 @@ async function RecipesContent({ searchParams }: { searchParams?: Promise<{ plane
   await requireUserOrRedirect("/recept");
   const planera = (await searchParams)?.planera;
   const planning = planningTarget(Array.isArray(planera) ? planera[0] : planera);
-  const { recipes, pantryUnavailable, site } = await listLibrary();
+  const [{ recipes, pantryUnavailable, site }, offers] = await Promise.all([listLibrary(), readLibraryOffers()]);
   if (recipes.length === 0) {
     return (
       <>
@@ -77,8 +80,39 @@ async function RecipesContent({ searchParams }: { searchParams?: Promise<{ plane
       searchIngredients={searchIngredients}
       addToPlan={addToCurrentPlan}
       ownRecipes={ownRecipesWithOffers}
+      offers={offers}
       planning={planning ?? undefined}
     />
     </>
   );
+}
+
+/**
+ * Story 9.3: the filter Erbjudanden's data, from the offers of the user's stores
+ * (the sheet's, Story 9.13: the same as Inköpslista's), and what each recipe uses
+ * on a main ingredient. A read that fails leaves the filter out and the library as it was.
+ */
+async function readLibraryOffers(): Promise<LibraryOffers | undefined> {
+  try {
+    const { props, offers, stores } = await loadOffersSheetData();
+    if (props.unavailable) return undefined;
+    const labelled = await recipeOfferTags(offers);
+    const tags: Record<string, string[]> = {};
+    for (const [id, labels] of Object.entries(labelled)) tags[id] = [...new Set(labels.map((label) => offerDisplay(label).title))];
+    const storeIds = new Set(offers.map((offer) => offer.storeId));
+    return {
+      tags,
+      line: recipeOffersLineText({
+        weekStart: props.weekStart,
+        storeNames: stores.filter((store) => storeIds.has(store.id)).map((store) => store.name),
+      }),
+      hasOffers: offers.length > 0,
+      unlinked: offers.filter((offer) => offer.ingredientId === null && offer.source === "link" && !offer.aiMatchedAt).length,
+      sheet: <RecipeOffersSheet {...props} />,
+      match: matchOffersWithAi,
+    };
+  } catch (error) {
+    console.error("recipe_offers_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return undefined;
+  }
 }

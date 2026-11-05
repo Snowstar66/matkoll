@@ -204,3 +204,10 @@ export async function findIngredientIdsIn(db: CatalogDb, text: string): Promise<
   }
   return [...ids].slice(0, maxFoundIngredientIds);
 }
+
+/** The id and name of the signed-in user's ingredients, by name, at most `limit` (Story 9.10: the list the AI links offers to). */
+export async function loadIngredientList(db: CatalogDb, limit: number): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await db.from("ingredient").select("id, name").order("name").limit(limit);
+  if (error) throw new CatalogDataError("query_failed", error.code);
+  return data;
+}

@@ -37,6 +37,7 @@ export {
   offersSkippedText,
   offersSummaryText,
   openOffersPageText,
+  recipeOffersLineText,
   toOfferDraft,
   type OfferDraft,
   type OfferSource,

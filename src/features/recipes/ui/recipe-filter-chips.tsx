@@ -17,15 +17,17 @@ export type RecipeFilterChipsProps = {
    * these get a chip, plus the chosen one even when it has none left. Left out: all of them.
    */
   available?: ReadonlySet<RecipeCategory>;
+  /** Story 9.3: the pill Erbjudanden is there only when the page gives the library the offers. */
+  withOffers?: boolean;
 };
 
 /**
- * The library's filters on one row (Story 19.3): Favoriter and Kan lagas nu, a thin divider, then
+ * The library's filters on one row (Story 19.3): Favoriter, Kan lagas nu and (Story 9.3) Erbjudanden, a thin divider, then
  * the categories, each with its emoji before the name. The row scrolls sideways inside itself with snap, no scrollbar and a fade at the
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
-export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available }: RecipeFilterChipsProps) {
+export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false }: RecipeFilterChipsProps) {
   const categories = RECIPE_CATEGORIES.filter((entry) => entry === category || !available || available.has(entry));
   return (
     <ChipRow role="group" aria-label="Filter" data-testid="recipe-filters">
@@ -35,6 +37,11 @@ export function RecipeFilterChips({ filter, onFilterChange, category, onCategory
       <Chip className="snap-start" aria-pressed={filter === "cookable"} selected={filter === "cookable"} onClick={() => onFilterChange(filter === "cookable" ? "all" : "cookable")}>
         Kan lagas nu
       </Chip>
+      {withOffers ? (
+        <Chip className="snap-start" aria-pressed={filter === "offers"} selected={filter === "offers"} onClick={() => onFilterChange(filter === "offers" ? "all" : "offers")}>
+          Erbjudanden
+        </Chip>
+      ) : null}
       {categories.length > 0 ? <ChipSeparator /> : null}
       {categories.map((entry) => {
         const selected = category === entry;

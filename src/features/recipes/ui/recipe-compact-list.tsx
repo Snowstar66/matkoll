@@ -5,7 +5,7 @@ import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
 import { dishEmoji } from "../domain/dish-emoji";
-import { recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
+import { offerTagsShown, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 
 export type RecipeCompactListProps = {
   recipes: readonly RecipeListItem[];
@@ -14,7 +14,15 @@ export type RecipeCompactListProps = {
   onFavoriteChange: (id: string, isFavorite: boolean) => void;
   /** Whether the rows are ranked fewest missing first, which the list's name says. */
   ranked?: boolean;
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row says "Erbjudanden: falukorv, gul lök +1". */
+  offerTags?: Readonly<Record<string, readonly string[]>>;
 };
+
+/** "Falukorv, Gul lök +1": the first two offers and how many more. */
+function offerTagsText(tags: readonly string[]): string {
+  const { shown, more } = offerTagsShown(tags);
+  return `${shown.join(", ")}${more > 0 ? ` +${more}` : ""}`;
+}
 
 /** "4 port." for the line under a title. */
 function portionsText(servings: number): string {
@@ -28,9 +36,9 @@ function portionsText(servings: number): string {
  * 4 port. · Kan lagas nu" (or "Saknar 2") and the heart in a 44 px area. A tap
  * on the row opens the recipe.
  */
-export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false }: RecipeCompactListProps) {
+export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags }: RecipeCompactListProps) {
   return (
-    <ListGroup label={ranked ? "Recept, minst saknat först" : "Recept"} className="[&>li]:border-b-0">
+    <ListGroup label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="[&>li]:border-b-0">
       {recipes.map((recipe) => {
         const time = recipeTimeText(recipe.totalMinutes);
         const status =
@@ -54,6 +62,7 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
                 {portionsText(recipe.originalServings)}
                 {status ? " · " : ""}
                 {status}
+                {offerTags && offerTags[recipe.id]?.length ? ` · Erbjudanden: ${offerTagsText(offerTags[recipe.id])}` : ""}
               </>
             }
             leading={

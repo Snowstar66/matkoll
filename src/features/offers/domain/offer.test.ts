@@ -13,6 +13,7 @@ import {
   offersSkippedText,
   offersSummaryText,
   openOffersPageText,
+  recipeOffersLineText,
   toOfferDraft,
 } from "./offer";
 
@@ -128,5 +129,15 @@ describe("the sheet top (Story 16.11)", () => {
   it("writes the meta line and the fetched line", () => {
     expect(offersMetaText({ stores: "2 butiker", weekStart: "2026-10-26", count: 157 })).toBe("2 butiker \u00B7 v. 44 \u00B7 157 erbjudanden");
     expect(fetchedLineText(new Date("2026-10-28T12:30:00Z"), new Date("2026-10-28T15:00:00Z"))).toBe("Hämtade idag 13:30");
+  });
+});
+
+describe("recipeOffersLineText (Story 9.3)", () => {
+  it("names one store, counts several and names none without any", () => {
+    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: ["Maxi ICA Stormarknad Östersund"] })).toBe(
+      "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45.",
+    );
+    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: ["A", "B"] })).toBe("Recept med veckans erbjudanden från 2 butiker, vecka 45.");
+    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: [] })).toBe("Recept med veckans erbjudanden, vecka 45.");
   });
 });
