@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { platformNow, platformOnServer, platformSubscribe, type Platform } from "./home-screen-hint";
+import { platformNow, platformOnServer, platformSubscribe, type Platform } from "../platform";
 import { appName } from "@/app/app-info";
 
 const texts: Record<Platform, string> = {
