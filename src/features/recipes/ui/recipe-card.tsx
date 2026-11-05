@@ -42,6 +42,8 @@ type LinkCardProps = CardBase & {
   onDelete?: never;
   /** Planning mode (Story 13.8): a button under the text, lifted above the link like the heart. */
   quickAction?: ReactNode;
+  /** Story 9.3: the offers the recipe uses, as small tags under the time line (the filter Erbjudanden). */
+  offerTags?: ReactNode;
   children?: never;
 };
 
@@ -54,6 +56,7 @@ type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
   quickAction?: never;
+  offerTags?: never;
   /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
   onDelete?: (bin: HTMLButtonElement) => void;
   children?: ReactNode;
@@ -87,6 +90,7 @@ export function RecipeCard({
   onDelete,
   deleteLabel,
   quickAction,
+  offerTags,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
@@ -106,6 +110,7 @@ export function RecipeCard({
             <h3 className="text-[15px]/5 font-semibold wrap-break-word text-ink">{title}</h3>
           )}
           <p className="text-[13px]/[18px] text-ink-3">{meta}</p>
+          {offerTags}
         </div>
         {onDelete ? (
           <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, weekStartOf, type OfferDraft } from "@/features/offers";
 import { blockFetch, claimFetch, loadActiveOffers, loadLastFetch, loadOffers } from "@/features/offers/data/queries";
-import { clearOtherStoreOffersIn, saveOffersIn } from "@/features/offers/data/save";
+import { clearOtherStoreOffersIn, linkOffersToIngredientIn, loadLinkedNamesIn, saveOffersIn } from "@/features/offers/data/save";
 import { saveStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema } from "@/features/settings";
 import { fail } from "@/lib/errors";
@@ -399,5 +399,69 @@ describe("store.offers_attempted_at", () => {
     expect(await claimFetch(other.db, store, new Date())).toBe(false);
     await blockFetch(other.db, store, new Date());
     expect(await attemptedAt(store)).toBeNull();
+  });
+});
+
+describe("linking offers to the catalog (Story 9.10)", () => {
+  async function addIngredient(db: Db, name: string, section = "Mejeri"): Promise<string> {
+    const { data, error } = await db
+      .from("ingredient")
+      .insert({ name, normalized_name: name, section, location: "Kyl" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  async function offerIds(db: Db, storeId: string): Promise<Record<string, string>> {
+    const { data, error } = await db.from("store_offer").select("id, name").eq("store_id", storeId);
+    if (error) throw error;
+    return Object.fromEntries(data.map((row) => [row.name, row.id]));
+  }
+
+  it("links only offers that have no ingredient, with the ingredient's section, and does nothing twice", async () => {
+    const user = await createTestUser("offer-link");
+    const store = await addStore(user.db);
+    const cheese = await addIngredient(user.db, "ost");
+    const butter = await addIngredient(user.db, "smör");
+    await saveOffersIn(user.db, {
+      storeId: store,
+      weekStart: thisWeek(),
+      items: [draft("Herrgård", { name: "herrgård" }), draft("Grevé", { name: "grevé" }), draft("Bregott", { name: "bregott", ingredientId: butter, section: "Mejeri" })],
+    });
+    const ids = await offerIds(user.db, store);
+    const first = await linkOffersToIngredientIn(user.db, { offerIds: [ids["herrgård"], ids["grevé"], ids["bregott"]], ingredientId: cheese, section: "Mejeri" });
+    expect(first).toEqual({ ok: true, data: 2 });
+    const { data } = await user.db.from("store_offer").select("name, ingredient_id, section").eq("store_id", store).order("name");
+    expect(data).toEqual([
+      { name: "bregott", ingredient_id: butter, section: "Mejeri" },
+      { name: "grevé", ingredient_id: cheese, section: "Mejeri" },
+      { name: "herrgård", ingredient_id: cheese, section: "Mejeri" },
+    ]);
+    expect(await linkOffersToIngredientIn(user.db, { offerIds: [ids["herrgård"]], ingredientId: butter, section: "Mejeri" })).toEqual({ ok: true, data: 0 });
+  });
+
+  it("refuses another user's ingredient and never touches another user's offers", async () => {
+    const owner = await createTestUser("offer-link-owner");
+    const other = await createTestUser("offer-link-other");
+    const store = await addStore(owner.db);
+    const foreign = await addIngredient(other.db, "ost");
+    await saveOffersIn(owner.db, { storeId: store, weekStart: thisWeek(), items: [draft("Herrgård", { name: "herrgård" })] });
+    const ids = await offerIds(owner.db, store);
+    const refused = await linkOffersToIngredientIn(owner.db, { offerIds: [ids["herrgård"]], ingredientId: foreign, section: "Mejeri" });
+    expect(refused).toMatchObject({ ok: false, error: { code: "offers_failed" } });
+    const own = await addIngredient(owner.db, "ost");
+    expect(await linkOffersToIngredientIn(other.db, { offerIds: [ids["herrgård"]], ingredientId: foreign, section: "Mejeri" })).toEqual({ ok: true, data: 0 });
+    expect(await linkOffersToIngredientIn(owner.db, { offerIds: [ids["herrgård"]], ingredientId: own, section: "Mejeri" })).toEqual({ ok: true, data: 1 });
+  });
+
+  it("reads the ingredient an earlier offer of the same name had, the newest first winning, and survives a refetch", async () => {
+    const user = await createTestUser("offer-linked-names");
+    const store = await addStore(user.db);
+    const cheese = await addIngredient(user.db, "ost");
+    await saveOffersIn(user.db, { storeId: store, weekStart: thisWeek(), items: [draft("Herrgård", { name: "herrgård", ingredientId: cheese, section: "Mejeri" }), draft("Bregott", { name: "bregott" })] });
+    const known = await loadLinkedNamesIn(user.db, store, ["herrgård", "bregott", "okänd"]);
+    expect(known && Object.fromEntries(known)).toEqual({ "herrgård": cheese });
+    expect(await loadLinkedNamesIn(await createTestUser("offer-linked-names-other").then((u) => u.db), store, ["herrgård"])).toEqual(new Map());
   });
 });

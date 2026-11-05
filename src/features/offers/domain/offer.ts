@@ -110,6 +110,17 @@ export function fetchingOffersText(siteName: string, progress?: { store: string;
   return `Hämtar ${progress.store} från ${siteName} (${progress.at} av ${progress.of}) …`;
 }
 
+/**
+ * Story 9.3: the line under the filter Erbjudanden in Recept. One store is
+ * named ("… från Maxi ICA Stormarknad Östersund, vecka 45."), several are counted
+ * ("… från 3 butiker, vecka 45."), and without any it only says the week.
+ */
+export function recipeOffersLineText(input: { weekStart: string; storeNames: readonly string[] }): string {
+  const { weekStart, storeNames } = input;
+  const from = storeNames.length === 1 ? ` från ${storeNames[0]}` : storeNames.length > 1 ? ` från ${storeNames.length} butiker` : "";
+  return `Recept med veckans erbjudanden${from}, ${weekShortLabel(weekStart)}.`;
+}
+
 /** "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov", under the sheet's title. */
 export function offersSheetSubtitle(storeName: string, weekStart: string): string {
   return `${storeName} · ${weekLabel(weekStart)}`;

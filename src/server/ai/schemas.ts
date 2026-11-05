@@ -643,6 +643,45 @@ export function parseMergePairs(
   return pairs.slice(0, maxMergePairs);
 }
 
+/** The most pairs one offer-matching answer may hold: a run gives the model at most 60 offers. */
+export const maxOfferMatches = 60;
+
+/**
+ * What the model answers to matchOffers (Story 9.10): for each offer it knows
+ * the catalog ingredient it is, as the numbers of the two lists it was given,
+ * or `null` when no ingredient fits.
+ */
+export const matchOffersAnswer = z.object({
+  matches: z
+    .array(
+      z.object({
+        offer: z.number().describe("Numret på erbjudandet"),
+        ingredient: z.number().nullable().describe("Numret på ingrediensen i katalogen, eller null när ingen passar"),
+      }),
+    )
+    .describe("Ett par per erbjudande"),
+});
+
+/**
+ * The pairs that have an ingredient, as zero-based indexes: only numbers that
+ * are in the lists, each offer once (the first answer for it wins).
+ */
+export function parseOfferMatches(
+  answer: z.output<typeof matchOffersAnswer>,
+  offerCount: number,
+  ingredientCount: number,
+): { offer: number; ingredient: number }[] {
+  const pairs: { offer: number; ingredient: number }[] = [];
+  const seen = new Set<number>();
+  for (const { offer, ingredient } of answer.matches) {
+    if (!Number.isInteger(offer) || offer < 1 || offer > offerCount || seen.has(offer)) continue;
+    seen.add(offer);
+    if (ingredient === null || !Number.isInteger(ingredient) || ingredient < 1 || ingredient > ingredientCount) continue;
+    pairs.push({ offer: offer - 1, ingredient: ingredient - 1 });
+  }
+  return pairs.slice(0, maxOfferMatches);
+}
+
 /**
  * What the model answers to categorizeThings (Story 18.13): one category for
  * each name of the numbered list it was given, in the same order.

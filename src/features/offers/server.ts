@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { loadActiveOffers, loadLastFetch, loadOffers } from "./data/queries";
+import { linkOffersToIngredientIn } from "./data/save";
 import type { StoreOffer } from "./domain/offer";
 
 // Server-only entry (AD-1, AD-25): the offers module owns store_offer, and
@@ -30,3 +31,12 @@ export const listOffers = cache(async (storeId: string, weekStart: string): Prom
 export const getLastFetch = cache(async (storeId: string): Promise<Date | null> =>
   loadLastFetch(await createClient(), storeId),
 );
+
+/**
+ * Story 9.10: links offers without a catalog ingredient to one (only rows still
+ * without one are touched). Gives how many were linked, or `offers_failed`.
+ * Only for the AI match in suggestions, which has checked the ingredient is the user's.
+ */
+export async function linkOffersToIngredient(input: Parameters<typeof linkOffersToIngredientIn>[1]) {
+  return linkOffersToIngredientIn(await createClient(), input);
+}

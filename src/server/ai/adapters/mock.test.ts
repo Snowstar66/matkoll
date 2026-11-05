@@ -767,3 +767,29 @@ describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)",
     expect(seen).toHaveLength(2);
   });
 });
+
+describe("mock matchOffers (Story 9.10)", () => {
+  const service = createMockAiService();
+  const input = { offers: ["Herrgård, Präst", "Smör", "Okänd vara"], ingredients: ["ost", "smör", "herrgård"] };
+
+  it("pairs an offer with the ingredient that is its name or one of its words", async () => {
+    expect(await service.matchOffers(input, signal())).toEqual({
+      ok: true,
+      data: {
+        pairs: [
+          { offer: 0, ingredient: 2 },
+          { offer: 1, ingredient: 1 },
+        ],
+      },
+    });
+  });
+
+  it("counts as a call and is ai_unavailable when stopped", async () => {
+    const seen: AiUsage[] = [];
+    await withUsageSink((usage) => void seen.push(usage), () => service.matchOffers(input, signal()));
+    expect(seen).toEqual([{ model: "mock", inputTokens: 0, outputTokens: 0 }]);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.matchOffers(input, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});

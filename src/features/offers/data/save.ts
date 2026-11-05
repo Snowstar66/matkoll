@@ -58,3 +58,55 @@ export async function clearOtherStoreOffersIn(db: OffersDb, keepStoreIds: readon
   console.error("offers_failed", { reason: `clear_other_store_offers ${error.code}` });
   return fail("offers_failed");
 }
+
+/**
+ * Story 9.10: links offers that have no catalog ingredient to `ingredientId`
+ * (and its section). Only rows still without one are touched, so a retry or a
+ * second run changes nothing twice. Gives the number of rows linked, or
+ * `offers_failed` (logged with the Postgres code only).
+ */
+export async function linkOffersToIngredientIn(
+  db: OffersDb,
+  input: { offerIds: readonly string[]; ingredientId: string; section: OfferDraft["section"] },
+): Promise<Result<number>> {
+  const { data, error } = await db
+    .from("store_offer")
+    .update({ ingredient_id: input.ingredientId, section: input.section })
+    .in("id", [...input.offerIds])
+    .is("ingredient_id", null)
+    .select("id");
+  if (!error) return ok(data.length);
+  console.error("offers_failed", { reason: `link_offers ${error.code}` });
+  return fail("offers_failed");
+}
+
+/**
+ * Story 9.10: what an earlier match already found. The catalog ingredient of
+ * the store's offers that have one, by offer name (the newest row wins), for
+ * the names asked for. A refetch gives the offers back their link without
+ * asking the AI again. `null` when the read fails (the offers are then saved
+ * without it, as before).
+ */
+export async function loadLinkedNamesIn(
+  db: OffersDb,
+  storeId: string,
+  names: readonly string[],
+): Promise<ReadonlyMap<string, string> | null> {
+  const found = new Map<string, string>();
+  const unique = [...new Set(names)];
+  for (let from = 0; from < unique.length; from += 100) {
+    const { data, error } = await db
+      .from("store_offer")
+      .select("name, ingredient_id, created_at")
+      .eq("store_id", storeId)
+      .in("name", unique.slice(from, from + 100))
+      .not("ingredient_id", "is", null)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("offers_failed", { reason: `linked_names ${error.code}` });
+      return null;
+    }
+    for (const row of data) if (row.ingredient_id) found.set(row.name, row.ingredient_id);
+  }
+  return found;
+}

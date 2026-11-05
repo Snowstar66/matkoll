@@ -15,7 +15,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -357,6 +357,21 @@ function mockMergePairs(input: MergeThingsInput): MergeThingsResult {
   return { pairs };
 }
 
+/**
+ * matchOffers (Story 9.10) without a model: an offer is the ingredient whose
+ * name is the offer's name or one of its words (compared in lower case).
+ */
+function mockOfferPairs(input: MatchOffersInput): MatchOffersResult {
+  const names = input.ingredients.map((name) => name.toLocaleLowerCase("sv"));
+  const pairs: MatchOffersResult["pairs"] = [];
+  input.offers.forEach((offer, index) => {
+    const words = offer.toLocaleLowerCase("sv").split(/[\s,]+/);
+    const ingredient = names.findIndex((name) => name === offer.toLocaleLowerCase("sv") || words.includes(name));
+    if (ingredient >= 0) pairs.push({ offer: index, ingredient });
+  });
+  return { pairs };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -437,6 +452,7 @@ function countingCalls(service: AiService): AiService {
     locateThing: counted(service.locateThing),
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
+    matchOffers: counted(service.matchOffers),
     thingSearchTerms: counted(service.thingSearchTerms),
     categorizeThings: counted(service.categorizeThings),
   };
@@ -550,6 +566,10 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
     async mergeThings(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
       return ok(mockMergePairs(input));
+    },
+    async matchOffers(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      return ok(mockOfferPairs(input));
     },
     async thingSearchTerms(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
