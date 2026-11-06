@@ -392,6 +392,44 @@ describe("suggestFromPantry", () => {
       expect(suggestDishes).toHaveBeenCalledTimes(1);
     });
 
+    describe("the mode now (Story 25.2)", () => {
+      it("asks with the stricter prompt's input and keeps dishes that miss nothing or one thing, dropping the rest", async () => {
+        const [a, b, c] = fixture;
+        suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 0), withMissing(b, 1), withMissing(c, 2)]));
+        const result = await suggestFromPantry({ avoidTitles: [], mode: "now" }, { signal: signal() });
+        expect(titles(result)).toEqual([a.title, b.title]);
+        expect(result.ok && result.data.mode).toBe("now");
+        expect(suggestDishes.mock.calls[0][0].now).toBe(true);
+        expect(console.error).toHaveBeenCalledWith("ai_invalid", { reason: "missing", index: 2, missing: 2, count: 2 });
+      });
+
+      it("names what is missing by code: nothing for a complete dish, one name for one missing", async () => {
+        const [a, b] = fixture;
+        suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 0), withMissing(b, 1)]));
+        const result = await suggestFromPantry({ avoidTitles: [], mode: "now" }, { signal: signal() });
+        if (!result.ok) throw new Error(result.error.code);
+        expect(result.data.suggestions.map((suggestion) => suggestion.toBuy)).toEqual([[], ["sak0"]]);
+      });
+
+      it("does not set the flag in the pantry mode", async () => {
+        await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+        expect(suggestDishes.mock.calls[0][0].now).toBeUndefined();
+      });
+
+      it("asks once more when every dish misses too much", async () => {
+        const [a, b] = fixture;
+        suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 3)])).mockResolvedValueOnce(ok([withMissing(b, 0)]));
+        const result = await suggestFromPantry({ avoidTitles: [], mode: "now" }, { signal: signal() });
+        expect(titles(result)).toEqual([b.title]);
+        expect(suggestDishes).toHaveBeenCalledTimes(2);
+      });
+
+      it("checks an empty pantry before a job is made", async () => {
+        getPantrySnapshot.mockResolvedValue(new Map());
+        expect(await checkSuggestPantry("now")).toEqual(fail("suggest_empty_pantry"));
+      });
+    });
+
     it("says how many are at home and what to buy on the card", async () => {
       const [a] = fixture;
       suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 2)]));

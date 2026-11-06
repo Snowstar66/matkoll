@@ -163,6 +163,16 @@ describe("suggestDishesAnswerCompact", () => {
     expect(schema.safeParse({ suggestions: [three[0], dish("Röd linssoppa"), three[2]] }).success).toBe(true);
   });
 
+  it("takes one to three dishes for Vad kan jag laga nu? (Story 25.2), and still no more", () => {
+    const flexible = suggestDishesAnswerCompactFor([], { flexibleCount: true });
+    expect(flexible.safeParse({ suggestions: [three[0]] }).success).toBe(true);
+    expect(flexible.safeParse({ suggestions: [three[0], three[1]] }).success).toBe(true);
+    expect(flexible.safeParse({ suggestions: three }).success).toBe(true);
+    expect(flexible.safeParse({ suggestions: [] }).success).toBe(false);
+    expect(flexible.safeParse({ suggestions: [...three, dish("Fjärde rätten")] }).success).toBe(false);
+    expect(suggestDishesAnswerCompactFor([]).safeParse({ suggestions: [three[0]] }).success).toBe(false);
+  });
+
   it("rejects a step index that points past the steps", () => {
     const line = { ...validCompactDish.ingredients[0], stepIndexes: [5] };
     const broken = { ...three[1], ingredients: [line] };

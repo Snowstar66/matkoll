@@ -86,7 +86,11 @@ export async function POST(request: Request): Promise<Response> {
   const enqueued = await enqueueAiJob(db, {
     kind: "suggest",
     clientKey,
-    context: { siteId: checked.data.siteId, ...(mode === "offers" ? { mode, ...(storeId ? { storeId } : {}) } : {}) },
+    context: {
+      siteId: checked.data.siteId,
+      // Story 25.2: a job of "Vad kan jag laga nu?" says so, so Recept never shows its result as its own.
+      ...(mode === "now" ? { mode } : mode === "offers" ? { mode, ...(storeId ? { storeId } : {}) } : {}),
+    },
     requestStartedAt,
   });
   if (!enqueued.ok) return respond(enqueued);

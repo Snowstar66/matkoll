@@ -28,6 +28,8 @@ export type SuggestInputShape = {
   offers?: string[];
   oldItems?: SuggestOldItem[];
   eatFirst?: boolean;
+  /** Story 25.2: "Vad kan jag laga nu?": the stricter prompt that uses only the pantry's names, and one to three dishes. */
+  now?: boolean;
 };
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */

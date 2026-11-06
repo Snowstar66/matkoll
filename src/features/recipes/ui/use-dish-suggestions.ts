@@ -74,7 +74,8 @@ export type DishSuggestionsOptions = {
 /** The newest job of AI-förslag that matches. */
 function latest(jobs: readonly AiJob[], match: (job: AiJob) => boolean): AiJob | undefined {
   return jobs
-    .filter((job) => job.kind === "suggest" && match(job))
+    // Story 25.2: the sheet "Kan lagas nu" on Matvaror owns its own jobs; they never show here.
+    .filter((job) => job.kind === "suggest" && job.context.mode !== "now" && match(job))
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
 }
 
@@ -169,7 +170,7 @@ export function useDishSuggestions(
       setError(null);
       setMade({
         siteId: parsed.data.siteId,
-        mode: parsed.data.mode,
+        mode: parsed.data.mode === "offers" ? "offers" : "pantry",
         storeName: parsed.data.storeName,
         jobId: unseenId,
         suggestions: parsed.data.suggestions.map((suggestion) => ({
