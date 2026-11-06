@@ -6,7 +6,7 @@ import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
-import { Input } from "@/components/field";
+import { SearchIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { askChat, type ChatAnswer } from "../actions/ask-chat";
@@ -171,7 +171,7 @@ export function ThingChat({
   }
 
   return (
-    <section aria-label={askLabel} className="flex flex-col gap-3 rounded-lg bg-surface p-3" data-testid="chat">
+    <section aria-label={askLabel} className={cx("flex flex-col gap-3", turns.length > 0 && "rounded-lg bg-surface p-3")} data-testid="chat">
       {turns.length > 0 ? (
         <>
           <div role="log" aria-live="polite" aria-label="Samtalet" className="flex flex-col gap-2.5">
@@ -218,32 +218,34 @@ export function ThingChat({
             </Button>
           </div>
         </>
-      ) : (
-        text === "" ? <p className="px-1 text-meta text-ink-3">{askHintText}</p> : null
-      )}
-      <form onSubmit={submit} className="flex gap-2" aria-busy={pending || undefined}>
-        <label htmlFor={`${ids}-q`} className="sr-only">
-          {askLabel}
-        </label>
-        <Input
-          id={`${ids}-q`}
-          name="question"
-          placeholder={askPlaceholder}
-          autoComplete="off"
-          enterKeyHint="send"
-          maxLength={maxQuestionChars}
-          value={text}
-          onChange={(event) => type(event.target.value)}
-          className="h-11 min-w-0 flex-1 rounded-full border-transparent bg-bg"
-        />
-        <button
-          type="submit"
-          aria-label={askButtonText}
-          aria-disabled={pending || undefined}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-row-title text-on-accent select-none aria-disabled:opacity-60"
-        >
-          <span aria-hidden="true">↑</span>
-        </button>
+      ) : null}
+      <form onSubmit={submit} className="flex flex-col gap-2" aria-busy={pending || undefined}>
+        <div className="flex h-12 items-center gap-2 rounded-md border border-border bg-surface pr-0.5 pl-3 text-ink-3 focus-within:border-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+          <SearchIcon size={18} className="shrink-0" />
+          <label htmlFor={`${ids}-q`} className="sr-only">
+            {askLabel}
+          </label>
+          <input
+            id={`${ids}-q`}
+            name="question"
+            placeholder={askPlaceholder}
+            autoComplete="off"
+            enterKeyHint="send"
+            maxLength={maxQuestionChars}
+            value={text}
+            onChange={(event) => type(event.target.value)}
+            className="h-full min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-3"
+          />
+          <button
+            type="submit"
+            aria-label={askButtonText}
+            aria-disabled={pending || undefined}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-row-title text-on-accent select-none aria-disabled:opacity-60"
+          >
+            <span aria-hidden="true">↑</span>
+          </button>
+        </div>
+        {turns.length === 0 && text === "" ? <p className="px-1 text-meta text-ink-2">{askHintText}</p> : null}
       </form>
     </section>
   );

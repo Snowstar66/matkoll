@@ -61,7 +61,7 @@ export type AddToPlan = (input: {
   servings?: number;
   id: string;
   weekday?: number | null;
-}) => Promise<Result<unknown>>;
+}) => Promise<Result<{ weekday?: number | null }>>;
 
 /** shopping.addKeyedItems from the page (AD-1): one own item per key, linked to its catalog ingredient. */
 export type BuyMissing = (input: {
@@ -211,9 +211,10 @@ export function RecipeBody({
     if (!addToPlan || working) return;
     setWorking(true);
     planDishId.current ??= crypto.randomUUID();
-    let result: Result<unknown>;
+    let result: Result<{ weekday?: number | null }>;
     try {
-      result = await addToPlan({ recipeId: recipe.id, servings: clampServings(servings), id: planDishId.current, weekday: null });
+      // No day sent: the server puts the dish on the first free day.
+      result = await addToPlan({ recipeId: recipe.id, servings: clampServings(servings), id: planDishId.current });
     } catch {
       result = fail("mealplan_add_failed");
     }
@@ -221,12 +222,15 @@ export function RecipeBody({
     if (result.ok) {
       const id = planDishId.current;
       planDishId.current = null;
-      setPlanned({ id, weekday: null });
+      const day = result.data.weekday ?? null;
+      setPlanned({ id, weekday: day });
       // The recipe's missing ingredients stand on the list through the plan.
       const names = toBuy.map((item) => item.name);
       setAdded((current) => new Set([...current, ...toBuy.map((item) => item.ingredientId)]));
       setBought(null);
-      showToast(plannedToastText(names));
+      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names), {
+        show: { label: day ? "Byt dag" : "Välj dag", onShow: () => setDayOpen(true) },
+      });
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
   }

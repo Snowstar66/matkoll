@@ -222,7 +222,7 @@ test("the line follows the location and the place, and a photo older than 30 day
   await expect(line(page)).toContainText("Senaste");
 
   await card(page, "Frys").click();
-  await expect(camera(page).getByRole("button", { name: "Fotografera frysen" })).toBeVisible();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeVisible();
   await expect(line(page)).toHaveCount(0);
 
   await card(page, "Skafferi").click();
@@ -245,7 +245,7 @@ test("the line follows the location and the place, and a photo older than 30 day
 
   // Stugan's freezer has a photo from 31 days ago.
   await card(page, "Frys").click();
-  await expect(camera(page).getByRole("button", { name: "Fotografera frysen" })).toBeVisible();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeVisible();
   await expect(line(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -327,7 +327,7 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   await expect(page.getByTestId("toast")).toContainText("Tog bort fotot av kylen.");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(line(page)).toHaveCount(0);
-  await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeFocused();
 
   const rows = await adminClient().from("pantry_photo").select("id").eq("user_id", userId);
   if (rows.error) throw rows.error;
@@ -354,4 +354,32 @@ test("a photo removed elsewhere says it is gone", async ({ page }) => {
   await expect(markers(page)).toHaveCount(0);
   // The page is read again, so the dead line goes.
   await expect(line(page)).toHaveCount(0);
+});
+
+test("Alla foton (2) lists every saved photo of the fridge and a tap opens the photo view", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  // A second, older fridge photo on Hemma.
+  const older = await seedPhoto(userId, sites.Hemma, "Kyl", new Date(Date.now() - day), ["Yoghurt"], [{ n: 1, x: 400, y: 400 }]);
+  await openLagersaldo(page);
+  const all = page.getByTestId("pantry-all-photos").filter({ visible: true });
+  await expect(all).toHaveText("Alla foton (2)");
+  await all.click();
+  const grid = page.getByRole("dialog", { name: "Alla foton av kylen" });
+  const cards = grid.getByTestId("pantry-photo-card");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText(time(photos.hemmaKyl));
+  await expect(cards.nth(1)).toContainText(time(older));
+  // Thumbnails loaded and the sheet settled before the picture is taken.
+  await expect
+    .poll(() => grid.getByRole("img", { includeHidden: true }).evaluateAll((imgs) => imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0)))
+    .toBe(true);
+
+  await cards.nth(1).click();
+  await expect(photoSheet(page)).toBeVisible();
+  await expect(photoSheet(page).getByRole("img")).toHaveAttribute("src", `/api/pantry/photo/${older.id}`);
+  await expect(markers(page)).toHaveText(["1"]);
+  await photoSheet(page).getByRole("button", { name: "Klar" }).click();
+  await expect(grid).toBeVisible();
+  expect(errors).toEqual([]);
 });

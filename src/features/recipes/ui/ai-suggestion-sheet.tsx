@@ -29,14 +29,14 @@ export type AiSuggestionSheetProps = {
   onSaved: (key: number) => void;
   searchIngredients: SearchIngredients;
   /**
-   * Story 25.3: the dish goes on this week of Matsedel with no day. The
+   * Story 25.3: the dish goes on this week of Matsedel, on its first free day. The
    * primary button is "Spara och lägg på veckan": it saves the recipe, then
    * calls `add` (mealplan.addToCurrentPlan from the page, AD-1) and `onAdded`.
    */
   week?: {
     weekStart: string;
-    add: (input: { recipeId: string; id: string; weekStart: string; weekday: null }) => Promise<Result<unknown>>;
-    onAdded: (title: string) => void;
+    add: (input: { recipeId: string; id: string; weekStart: string }) => Promise<Result<{ weekday?: number | null }>>;
+    onAdded: (title: string, weekday: number | null) => void;
   };
 };
 
@@ -82,9 +82,9 @@ export function AiSuggestionSheet({
         return;
       }
       if (week) {
-        let added: Result<unknown>;
+        let added: Result<{ weekday?: number | null }>;
         try {
-          added = await week.add({ recipeId: result.data.id, id: dishId, weekStart: week.weekStart, weekday: null });
+          added = await week.add({ recipeId: result.data.id, id: dishId, weekStart: week.weekStart });
         } catch {
           added = fail("mealplan_add_failed");
         }
@@ -96,7 +96,7 @@ export function AiSuggestionSheet({
           return;
         }
         onSaved(suggestion.key);
-        week.onAdded(suggestion.draft.title);
+        week.onAdded(suggestion.draft.title, added.data.weekday ?? null);
         return;
       }
       onSaved(suggestion.key);

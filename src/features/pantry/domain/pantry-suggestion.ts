@@ -486,10 +486,13 @@ export function isBulkConfirmable(suggestion: Pick<PantrySuggestion, "uncertain"
   return suggestion.uncertain !== true;
 }
 
-/** The camera button: "Fotografera kylen", "Fotografera frysen" or "Fotografera skafferiet". */
-export function cameraButtonText(location: Location): string {
-  return `Fotografera ${definite[location]}`;
+/** The camera button: just "Fota", the same for Kyl, Frys and Skafferi (and in Förråd); the chosen location card says where. */
+export function cameraButtonText(_location?: Location): string {
+  return "Fota";
 }
+
+/** The discreet link under "Fota" that opens the photo library, the same as in Förråd. */
+export const albumLinkText = "Välj från album";
 
 /** The section's heading: "Lagerförslag från kylen". */
 export function suggestionsHeading(location: Location): string {

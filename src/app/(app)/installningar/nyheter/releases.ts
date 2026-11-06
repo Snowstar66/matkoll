@@ -32,11 +32,45 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-06",
+    title: "Alla foton av kylen, frysen och skafferiet",
+    bullets: [
+      "Har du tagit flera foton av samma plats ser du dem nu alla. Under raden Senaste foto står Alla foton (antal).",
+      "Fotona ligger som en rad med bilder, de nyaste först, med när de togs. Tryck på ett foto så ser du det med numren och kan ta bort det.",
+      "Du ser bara foton som är sparade, alltså de som är yngre än 30 dagar.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    title: "En Fota-knapp i Matvaror",
+    bullets: [
+      "Kyl, Frys och Skafferi har nu en knapp, Fota, som öppnar kameran.",
+      "Under den finns en liten länk, Välj från album, när bilden redan finns i telefonen.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Idéer som från en vän",
     bullets: [
       "Vad kan jag laga nu? svarar nu som en vän vid kylen: en kort inledning och några idéer, också små saker som en sås, en dipp eller en macka.",
       "Varje idé är en rad med namn och en mening om hur. Det som saknar en enda vara hamnar under Saknar bara en vara.",
       "Tryck Gör ett recept av den på en idé du vill ha som recept. Inget sparas utan Spara som recept.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    title: "Tydligare Sök eller fråga i Förråd",
+    bullets: [
+      "Fältet Sök eller fråga ser nu ut som ett sökfält med kant och förstoringsglas, och skicka-pilen sitter i fältet.",
+      "Ledtexten står under fältet, så det syns vad du skriver i och vad som bara är en förklaring.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    title: "Veckans rätter i rätt ordning",
+    bullets: [
+      "Veckans rätter ligger nu i dagordning, måndag till söndag. Rätter utan dag ligger sist.",
+      "När du lägger till en rätt, från + på Matsedel, från ett AI-förslag eller från receptet, hamnar den på första lediga dag. I veckan som är nu börjar vi från idag. Är hela veckan full får rätten ingen dag.",
+      "Raden säger vilken dag rätten ligger på, och i meddelandet kan du trycka Byt dag om du vill flytta den.",
     ],
   },
   {

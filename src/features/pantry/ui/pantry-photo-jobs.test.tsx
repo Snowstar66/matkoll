@@ -107,11 +107,11 @@ describe("a photo's job on Hemma", () => {
     expect(within(area()).getByText("Du kan göra annat under tiden.")).toBeInTheDocument();
     expect(within(area()).getByText("I kö, 1 före.")).toBeInTheDocument();
     expect(within(area()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fotografera kylen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fota" })).toBeNull();
 
     // Another location of the same place has its own button: its photo is not waiting.
     rerender(<Hemma location="Frys" />);
-    expect(screen.getByRole("button", { name: "Fotografera frysen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
     expect(screen.queryByText("I kö, 1 före.")).toBeNull();
   });
 
@@ -121,7 +121,7 @@ describe("a photo's job on Hemma", () => {
     render(<Hemma />);
     fireEvent.click(within(area()).getByRole("button", { name: "Avbryt" }));
     await waitFor(() => expect(fakeAi.cancelled).toEqual([waiting.id]));
-    expect(await screen.findByRole("button", { name: "Fotografera kylen" })).toHaveFocus();
+    expect(await screen.findByRole("button", { name: "Fota" })).toHaveFocus();
   });
 
   it("posts the photo as a job with the place, the location and the time, and keeps the photo in memory only", async () => {
@@ -189,7 +189,7 @@ describe("a photo's job on Hemma", () => {
     render(<Hemma />);
     expect(await screen.findByRole("alert")).toHaveTextContent("AI-tjänsten svarar inte just nu");
     expect(fakeAi.dismissed).toEqual([job.id]);
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
   });
 
   it("gives a refused start its own message, and keeps the photo for Försök igen", async () => {

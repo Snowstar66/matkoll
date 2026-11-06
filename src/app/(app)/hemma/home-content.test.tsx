@@ -92,7 +92,7 @@ describe("HomeContent", () => {
     expect(listPantry).toHaveBeenCalledWith("Kyl", site.id);
     expect(countPantryItems).toHaveBeenCalledWith(site.id);
     // The camera button comes under the cards and before the list.
-    const camera = screen.getByRole("button", { name: "Fotografera kylen" });
+    const camera = screen.getByRole("button", { name: "Fota" });
     expect(links[2].compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(camera.compareDocumentPosition(screen.getByText("Mjölk")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // "Vad kan jag laga nu?" comes right under the cards, before the camera, with an icon and the line under it.
@@ -107,7 +107,7 @@ describe("HomeContent", () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 0, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Vad kan jag laga nu\?/ })).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe("HomeContent", () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([]);
     render(await HomeContent({ site, location: "Skafferi", next: "/hemma?plats=skafferi" }));
-    expect(screen.getByRole("button", { name: "Fotografera skafferiet" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
     expect(screen.getByText("Inget i skafferiet än.")).toBeInTheDocument();
   });
 
@@ -127,7 +127,7 @@ describe("HomeContent", () => {
     expect(screen.queryByRole("navigation")).toBeNull();
     expect(logged).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 500" });
     // A photo needs no list: the camera is there under the notice.
-    expect(screen.getByRole("button", { name: "Fotografera frysen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
   });
 
   it("shows the camera's suggestions with their buttons under the notice when the pantry cannot be read", async () => {

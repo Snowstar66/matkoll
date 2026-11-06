@@ -111,9 +111,9 @@ test("the camera button follows the chosen card, and nothing asks the AI before 
   const errors = watchErrors(page);
   const analyses = countAnalyses(page);
   await page.goto("/hemma");
-  await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   // Under the cards, before the list.
-  const buttonBox = await cameraButton(page, "Fotografera kylen").boundingBox();
+  const buttonBox = await cameraButton(page, "Fota").boundingBox();
   const cardBox = await card(page, "Kyl").boundingBox();
   const rowBox = await page.getByTestId("pantry-row").filter({ visible: true }).first().boundingBox();
   expect(buttonBox!.y).toBeGreaterThan(cardBox!.y + cardBox!.height - 1);
@@ -121,18 +121,18 @@ test("the camera button follows the chosen card, and nothing asks the AI before 
   expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
 
   await card(page, "Frys").click();
-  await expect(cameraButton(page, "Fotografera frysen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   await card(page, "Skafferi").click();
-  await expect(cameraButton(page, "Fotografera skafferiet")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   // An empty place keeps the camera above its empty state.
   await expect(page.getByText("Inget i skafferiet än.").filter({ visible: true })).toBeVisible();
   await card(page, "Kyl").click();
-  await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
 
-  // A desktop pointer: the file picker, without capture, and no "Välj bild".
-  await expect(camera(page).getByRole("button", { name: "Välj bild" })).toHaveCount(0);
+  // A desktop pointer: the file picker, without capture, and "Välj från album" is the same picker.
+  await expect(camera(page).getByRole("button", { name: "Välj från album" })).toBeVisible();
   const chooser = page.waitForEvent("filechooser");
-  await cameraButton(page, "Fotografera kylen").click();
+  await cameraButton(page, "Fota").click();
   expect(await (await chooser).element().getAttribute("capture")).toBeNull();
 
   expect(analyses()).toBe(0);
@@ -145,7 +145,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   const analyses = countAnalyses(page);
   const before = await rowCounts();
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
+  await photograph(page, "Fota", kyl);
 
   const heading = section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" });
   await expect(heading).toBeFocused();
@@ -202,13 +202,13 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await expect(photoSheet).toBeHidden();
   await expect(photo).toBeFocused();
   // The camera button is back, and nothing was saved or sent again.
-  await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   expect(analyses()).toBe(1);
   expect(await rowCounts()).toEqual(before);
 
   // Another card: the button follows it, the suggestions stay with the fridge.
   await card(page, "Frys").click();
-  await expect(cameraButton(page, "Fotografera frysen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från kylen");
   await expect(cards(page)).toHaveCount(6);
   await expect(cards(page).first().getByText("Grädde · Kyl", { exact: true })).toBeVisible();
@@ -224,7 +224,7 @@ test("the cards come with their numbers, and the large photo has the same number
   const before = await rowCounts();
   await page.goto("/hemma");
   // The reading takes 3 s (the mock keeps a photo it does not know waiting, AD-28); the points come in the same answer.
-  await photograph(page, "Fotografera kylen", plainPng(1));
+  await photograph(page, "Fota", plainPng(1));
 
   await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(6);
@@ -305,7 +305,7 @@ test("on a desktop the photo stands left and the list right, a row lights its nu
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", plainPng(1));
+  await photograph(page, "Fota", plainPng(1));
   await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
   await expect(section(page).getByTestId("pantry-review-marker")).toHaveCount(6);
 
@@ -359,7 +359,7 @@ test("two photos of the fridge are one reading: read one after the other, one li
   const before = await rowCounts();
   await page.goto("/hemma");
   // The shelves: a photo the mock keeps waiting 3 s (kyl.png's answer), so another can be added while it is read.
-  await photograph(page, "Fotografera kylen", plainPng(7));
+  await photograph(page, "Fota", plainPng(7));
   await expect(camera(page).getByText("Tittar på bilden …").first()).toBeVisible();
   // The door, from the file picker, into the same reading.
   const chooser = page.waitForEvent("filechooser");
@@ -391,7 +391,7 @@ test("two photos of the fridge are one reading: read one after the other, one li
 
 test("the suggestions go when Matvaror is left through the tab bar and opened again", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
+  await photograph(page, "Fota", kyl);
   await expect(cards(page)).toHaveCount(6);
 
   const tabs = page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
@@ -399,7 +399,7 @@ test("the suggestions go when Matvaror is left through the tab bar and opened ag
   await expect(page).toHaveURL(/\/recept$/);
   await tabs.getByRole("link", { name: "Matvaror" }).click();
   await expect(page).toHaveURL(/\/hemma/);
-  await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
+  await expect(cameraButton(page, "Fota")).toBeVisible();
   await expect(section(page)).toHaveCount(0);
   await expect(page.getByTestId("pantry-suggestion")).toHaveCount(0);
 });
@@ -410,12 +410,12 @@ test("Förkasta inläsningen throws the reading away, writes nothing, closes the
   const errors = watchErrors(page);
   const before = await rowCounts();
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
+  await photograph(page, "Fota", kyl);
   await expect(cards(page)).toHaveCount(6);
 
   await section(page).getByRole("button", { name: "Förkasta inläsningen" }).click();
   await expect(section(page)).toHaveCount(0);
-  await expect(cameraButton(page, "Fotografera kylen")).toBeFocused();
+  await expect(cameraButton(page, "Fota")).toBeFocused();
   const toast = page.getByTestId("toast").filter({ visible: true });
   await expect(toast).toContainText("Förkastade inläsningen.");
   // The job is closed: no "Förslag klara" on the card, and no job left for the badge.
@@ -433,13 +433,13 @@ test("Avbryt stops the job without an error, and the camera button takes focus",
   const errors = watchErrors(page);
   await page.goto("/hemma");
   // A photo the mock keeps waiting, so the job is there to cancel.
-  await photograph(page, "Fotografera kylen", plainPng(1));
+  await photograph(page, "Fota", plainPng(1));
 
   await expect(camera(page).getByRole("status").getByText("Du kan göra annat under tiden.")).toBeVisible();
-  await expect(cameraButton(page, "Fotografera kylen")).toHaveCount(0);
+  await expect(cameraButton(page, "Fota")).toHaveCount(0);
   await camera(page).getByRole("button", { name: "Avbryt" }).click();
 
-  await expect(cameraButton(page, "Fotografera kylen")).toBeFocused();
+  await expect(cameraButton(page, "Fota")).toBeFocused();
   await expect(camera(page).getByText("Tittar på bilden …")).toHaveCount(0);
   await expect(camera(page).getByRole("alert")).toHaveCount(0);
   // The server stopped it: the job is cancelled, and nothing is shown for it, also after it would have finished.
@@ -455,10 +455,10 @@ test("Avbryt stops the job without an error, and the camera button takes focus",
 test.describe("on a phone", () => {
   test.use({ hasTouch: true, isMobile: true });
 
-  test("Fotografera kylen opens the back camera; Välj bild opens the library", async ({ page }) => {
+  test("Fota opens the back camera; Välj från album opens the library", async ({ page }) => {
     await page.goto("/hemma");
     const cameraChooser = page.waitForEvent("filechooser");
-    await cameraButton(page, "Fotografera kylen").click();
+    await cameraButton(page, "Fota").click();
     const back = await cameraChooser;
     expect(await back.element().getAttribute("capture")).toBe("environment");
     expect(await back.element().getAttribute("accept")).toBe("image/*");
@@ -466,7 +466,7 @@ test.describe("on a phone", () => {
     await expect(cards(page)).toHaveCount(6);
 
     const picker = page.waitForEvent("filechooser");
-    await camera(page).getByRole("button", { name: "Välj bild" }).click();
+    await camera(page).getByRole("button", { name: "Välj från album" }).click();
     expect(await (await picker).element().getAttribute("capture")).toBeNull();
   });
 });

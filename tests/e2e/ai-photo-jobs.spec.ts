@@ -84,13 +84,13 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await page.goto("/hemma");
 
   // The fridge is read in the background: the page is free at once.
-  await photograph(page, "Fotografera kylen", plainPng(1));
+  await photograph(page, "Fota", plainPng(1));
   await expect(camera(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(camera(page).getByRole("button", { name: "Avbryt" })).toBeVisible();
 
   // Another place can be photographed straight away; its job waits behind the fridge's.
   await locationCard(page, "Frys").click();
-  await photograph(page, "Fotografera frysen", plainPng(2));
+  await photograph(page, "Fota", plainPng(2));
   await expect(camera(page).getByText("I kö, 1 före.")).toBeVisible();
   await expect(jobRow(page)).toContainText("1 i kö");
   await locationCard(page, "Kyl").click();
@@ -137,7 +137,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
 
 test("a new photo of the fridge replaces the one before: the first is replaced, and never shown", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", plainPng(1));
+  await photograph(page, "Fota", plainPng(1));
   await expect(camera(page).getByText("Tittar på bilden …").first()).toBeVisible();
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["running"]);
 
@@ -169,7 +169,7 @@ test("a new photo of the fridge replaces the one before: the first is replaced, 
 
 test("the jobs keep only the place, the location and the time, and the photo is nowhere on the server", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", plainPng(4));
+  await photograph(page, "Fota", plainPng(4));
   await expect(cards(page)).toHaveCount(6, longWait);
   await expect.poll(async () => (await jobs()).map((job) => job.status), longWait).toEqual(["done"]);
 
@@ -185,7 +185,7 @@ test("the rows drop in while the photo is read: the count grows, the numbers pop
   page,
 }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", plainPng(6));
+  await photograph(page, "Fota", plainPng(6));
 
   // The mock hands out its six items over its 3 s, and the job reports them about once a second.
   const streaming = camera(page).getByTestId("pantry-streaming");
@@ -210,7 +210,7 @@ test("the rows drop in while the photo is read: the count grows, the numbers pop
 
 test("a photo as a job survives a reload: the cards come back, without the photo, and no latest photo is saved", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", plainPng(5));
+  await photograph(page, "Fota", plainPng(5));
   // The page is reloaded while the fridge is read.
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["running"]);
   await page.reload();

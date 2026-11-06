@@ -223,7 +223,7 @@ test("the heart keeps the chosen servings, and Lägg på matsedeln adds the dish
   expect((data as { is_favorite: boolean }).is_favorite).toBe(true);
   await expect(view(page).getByText("6 portioner", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Lägg på matsedeln" }).filter({ visible: true }).click();
-  await expect(page.getByTestId("toast")).toContainText("På veckans matsedel.");
+  await expect(page.getByTestId("toast")).toContainText(/ på (måndag|tisdag|onsdag|torsdag|fredag|lördag|söndag|veckan)\./);
 
   // A client navigation shows the plan the action revalidated.
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Matsedel" }).click();

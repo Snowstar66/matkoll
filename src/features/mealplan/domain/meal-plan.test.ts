@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toSnapshot } from "@/features/pantry";
 import {
   addedOnDayText,
-  defaultWeekday,
+  firstFreeWeekday,
   groupByWeekday,
   movedText,
   todayWeekday,
@@ -282,11 +282,27 @@ describe("days on the menu (Story 13.5)", () => {
     expect(spring).toEqual(["23 mars", "29 mars"]);
   });
 
-  it("defaults to the first day from today without a dish, else none", () => {
-    expect(defaultWeekday([], 3)).toBe(3);
-    expect(defaultWeekday([{ weekday: 3 }, { weekday: 4 }, { weekday: null }], 3)).toBe(5);
-    expect(defaultWeekday([{ weekday: 6 }], 6)).toBe(7);
-    expect(defaultWeekday([{ weekday: 6 }, { weekday: 7 }], 6)).toBeNull();
+  it("puts a dish on the first free day, from today in this week", () => {
+    const wednesday = new Date("2026-10-28T10:00:00Z");
+    const week = "2026-10-26";
+    expect(firstFreeWeekday([], wednesday, week)).toBe(3);
+    expect(firstFreeWeekday([3, 4, null], wednesday, week)).toBe(5);
+    // A free Monday and Tuesday are in the past: never chosen.
+    expect(firstFreeWeekday([3], wednesday, week)).toBe(4);
+    expect(firstFreeWeekday([1, 2], wednesday, week)).toBe(3);
+  });
+
+  it("starts from Monday in a coming week", () => {
+    const wednesday = new Date("2026-10-28T10:00:00Z");
+    expect(firstFreeWeekday([], wednesday, "2026-11-02")).toBe(1);
+    expect(firstFreeWeekday([1, 2], wednesday, "2026-11-02")).toBe(3);
+  });
+
+  it("gives none when every day from there has a dish", () => {
+    const saturday = new Date("2026-10-31T10:00:00Z");
+    expect(firstFreeWeekday([6], saturday, "2026-10-26")).toBe(7);
+    expect(firstFreeWeekday([6, 7], saturday, "2026-10-26")).toBeNull();
+    expect(firstFreeWeekday([1, 2, 3, 4, 5, 6, 7], new Date("2026-10-26T10:00:00Z"), "2026-10-26")).toBeNull();
   });
 
   it("groups måndag to söndag, then Ingen dag än only when needed, keeping the order within a day", () => {

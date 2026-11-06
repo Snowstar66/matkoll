@@ -204,7 +204,7 @@ describe("the sheet", () => {
     render(<Hemma initial={kyl} />);
     fireEvent.click(emptyButton()!);
     fireEvent.click(sheetConfirm());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Fota" })).toHaveFocus());
   });
 });
 

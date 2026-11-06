@@ -271,7 +271,7 @@ test("a tap on Stugan selects it, keeps Frys chosen, says so, and shows its empt
   await expect(card(page, "Frys")).toHaveAttribute("aria-current", "true");
   for (const name of ["Kyl", "Frys", "Skafferi"] as const) await expect(card(page, name)).toHaveText(new RegExp(`^\\S*${name}\\s*0 varor$`));
   await expect(page.getByText("Inget i frysen än.").filter({ visible: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Fotografera frysen" }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fota" }).filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Matvaror");
   expect(await selectedPlace()).toBe("Stugan");
   expect(errors).toEqual([]);
@@ -441,7 +441,7 @@ test("a photo's suggestions stay when another place is selected, and are saved o
   const sites = await resetPlaces(["Hemma", "Stugan"]);
   await openHemma(page);
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Fotografera kylen" }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: "Fota" }).filter({ visible: true }).click();
   await (await chooser).setFiles("tests/fixtures/ai/kyl.png");
   const suggestions = page.getByTestId("pantry-suggestion").filter({ visible: true });
   await expect(suggestions.first()).toBeVisible();

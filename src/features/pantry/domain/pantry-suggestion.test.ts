@@ -526,9 +526,9 @@ describe("texts", () => {
   });
 
   it("names the place on the camera button and the heading", () => {
-    expect(cameraButtonText("Kyl")).toBe("Fotografera kylen");
-    expect(cameraButtonText("Frys")).toBe("Fotografera frysen");
-    expect(cameraButtonText("Skafferi")).toBe("Fotografera skafferiet");
+    expect(cameraButtonText("Kyl")).toBe("Fota");
+    expect(cameraButtonText("Frys")).toBe("Fota");
+    expect(cameraButtonText("Skafferi")).toBe("Fota");
     expect(suggestionsHeading("Kyl")).toBe("Lagerförslag från kylen");
     expect(suggestionsHeading("Skafferi")).toBe("Lagerförslag från skafferiet");
   });
