@@ -8,7 +8,6 @@ import { EmptyState } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
-import type { PlanningTarget } from "@/features/mealplan";
 import { siteLineText, type SelectedSite } from "@/features/pantry";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
@@ -21,7 +20,6 @@ import {
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
-import type { AddToPlan } from "./add-to-plan-button";
 import { OffersSheetControlContext } from "./offers-sheet-control";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
@@ -97,15 +95,11 @@ export type LibraryProps = {
    * the line "Boende: Stugan" in Kan lagas nu; `null` without a status.
    */
   site: SelectedSite | null;
-  /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on the cards in planning mode. */
-  addToPlan?: AddToPlan;
-  /** Planning mode (Story 13.8): the day recipes are put on. */
-  planning?: PlanningTarget;
   /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
   offers?: LibraryOffers;
 };
 
-export function Library({ recipes, pantryUnavailable, site, addToPlan, planning, offers }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   const [view, setView] = useRecipeView();
@@ -202,8 +196,7 @@ export function Library({ recipes, pantryUnavailable, site, addToPlan, planning,
 
   const cookable = filter === "cookable";
   const onOffers = filter === "offers" && offers !== undefined;
-  // Planning mode puts a button on each card, which the compact rows have no room for.
-  const compact = view === "compact" && !planning;
+  const compact = view === "compact";
   // The rows shown take the server list's status where it has the recipe and
   // the search answer's otherwise, so the statuses are missing only when
   // neither read the pantry (Story 2.4). Then Kan lagas nu cannot rank them:
@@ -249,8 +242,6 @@ export function Library({ recipes, pantryUnavailable, site, addToPlan, planning,
         favorites={favorites}
         onFavoriteChange={setFavorite}
         ranked={ranked}
-        planning={planning}
-        addToPlan={addToPlan}
         offerTags={onOffers ? offers.tags : undefined}
       />
     );
@@ -343,7 +334,7 @@ export function Library({ recipes, pantryUnavailable, site, addToPlan, planning,
           count={visible.length}
           sort={sort}
           onOpenSort={() => setSortOpen(true)}
-          view={planning ? null : view}
+          view={view}
           onViewChange={setView}
         />
       ) : null}

@@ -20,7 +20,11 @@ const avoidTitleSchema = z
 /** Titles to avoid: the suggestions shown and saved, at most three. */
 export const suggestRequestSchema = z.strictObject({
   /** `offers`: dishes built around this week's offers (Story 9.5); the server reads the offers, never the client sends them. */
-  mode: z.enum(["pantry", "offers"]).default("pantry"),
+  /**
+   * `now` (Story 25.2): "Vad kan jag laga nu?" on Matvaror: one to three dishes of what is at home alone,
+   * which miss at most one thing (the sheet shows the ones that miss nothing as new ideas).
+   */
+  mode: z.enum(["pantry", "offers", "now"]).default("pantry"),
   /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14: the sheet sends it with two or more stores). */
   storeId: z.guid().optional(),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
@@ -53,7 +57,7 @@ export const dishSuggestionsSchema = z.object({
     )
     .min(1)
     .max(3),
-  mode: z.enum(["pantry", "offers"]).default("pantry"),
+  mode: z.enum(["pantry", "offers", "now"]).default("pantry"),
   siteId: z.uuid().nullable().default(null),
   /** Story 9.14: the short name of the store the offers are from, when Pontus picked one of several; else `null`. */
   storeName: z.string().max(40).nullable().default(null),

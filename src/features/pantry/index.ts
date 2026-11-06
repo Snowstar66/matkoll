@@ -12,7 +12,7 @@ export {
 } from "./domain/pantry-item";
 export {
   oldPantryItems,
-  eatFirstRowText,
+  eatFirstTipText,
   usesOldText,
   lainText,
   maxOldItems,

@@ -41,6 +41,12 @@ export const minPantryIngredients = 2;
  */
 export const maxMissingPantry = 2;
 
+/**
+ * Story 25.2: in the mode `now` a dish may miss at most one thing. The sheet shows the ones that miss nothing as
+ * "Nya idéer" and the ones that miss one as "Saknar bara en vara"; the code, not the model, counts what is missing.
+ */
+export const maxMissingNow = 1;
+
 /** A retry needs at least this long before the model's own deadline. */
 const minRetryMs = 20_000;
 
@@ -232,6 +238,8 @@ async function suggest(
     if (input.offers.length === 0) return fail("offers_none");
   }
   // Story 16.13: in the pantry mode what has lain long goes with the pantry, oldest first, and the answer says which dish uses it.
+  const byNow = request.mode === "now";
+  if (byNow) input.now = true;
   const oldItems = byOffers ? [] : await readOldItems(pantry.data.siteId);
   const oldInput = toOldItemsInput(oldItems);
   if (oldInput.length > 0) {
@@ -280,7 +288,7 @@ async function suggest(
       }
       if (!byOffers) {
         const missing = missingCount(dishLines(draft.data, {}, snapshot), staples);
-        if (missing > maxMissingPantry) {
+        if (missing > (byNow ? maxMissingNow : maxMissingPantry)) {
           console.error("ai_invalid", { reason: "missing", index, missing, count });
           rejected.push(draft.data.title);
           return;
@@ -325,7 +333,9 @@ async function suggest(
         total: draft.lines.length,
       };
       if (!byOffers) {
-        const toBuy = toBuyNames([], dishLines(draft, ingredientNames, snapshot), staples);
+        const lines = dishLines(draft, ingredientNames, snapshot);
+        // The mode `now` counts what is missing as the filter did (a line without an amount is never worth a trip): 0 or 1 names.
+        const toBuy = toBuyNames([], byNow ? lines.filter((line) => line.amount != null) : lines, staples);
         return { draft, ingredientNames, onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
       }
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);

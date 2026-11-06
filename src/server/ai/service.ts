@@ -104,6 +104,11 @@ export type SuggestDishesInput = {
   oldItems?: SuggestOldItem[];
   /** Story 16.13: "Ät det här först" was asked for: every dish is built around `oldItems`, not only weighted towards them. */
   eatFirst?: boolean;
+  /**
+   * Story 25.2: "Vad kan jag laga nu?": the prompt for dishes made of the pantry's items alone (v2, prompts.suggestDishesNow),
+   * and an answer of one to three dishes, "better one good dish than three odd ones". The code counts what is missing.
+   */
+  now?: boolean;
 };
 
 export type RunOptions = {
@@ -719,8 +724,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
         target,
         {
           // Story 12.3: the compact answer. One with a title to avoid is invalid, so the retry tells the model.
-          schema: suggestDishesAnswerCompactFor(input.avoidTitles),
-          system: prompts.suggestDishes,
+          schema: suggestDishesAnswerCompactFor(input.avoidTitles, { flexibleCount: input.now === true }),
+          system: input.now ? prompts.suggestDishesNow : prompts.suggestDishes,
           messages: [{ role: "user", content: suggestDishesContent(input) }],
           maxOutputTokens: inputLimits.suggest.maxOutputTokens,
           // Story 12.3: the cap is lower now, so an answer cut at it is logged (only the event, never the answer).
@@ -1111,7 +1116,9 @@ export function suggestDishesContent(input: SuggestDishesInput): string {
     parts.push(`${input.eatFirst ? "Ät först" : "Har legat länge"}:\n${oldItemLines(input.oldItems)}`);
   }
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
-  if (input.strict) {
+  if (input.now) {
+    parts.push("Använd bara varorna i lagret, med exakt samma namn, och salt, peppar, olja och vatten. Hellre en bra rätt än tre konstiga.");
+  } else if (input.strict) {
     parts.push("Påminnelse: använd bara varor från lagret, och högst två varor som inte finns där, utöver salt, peppar, olja och vatten.");
   }
   return parts.join("\n\n");

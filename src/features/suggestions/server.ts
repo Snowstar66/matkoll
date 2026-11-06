@@ -11,3 +11,4 @@ export { checkSuggestPantry, suggestFromPantry, type SuggestMode } from "./actio
 export { weekPlanOptions } from "./actions/week-plan-options";
 export { matchOffersWithAi, type MatchOffersWithAiData } from "./actions/match-offers-with-ai";
 export { recipeOfferTags } from "./actions/recipe-offer-tags";
+export { readCookNow, type CookNowRead } from "./actions/cook-now";
