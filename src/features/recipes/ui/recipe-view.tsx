@@ -83,7 +83,7 @@ export function RecipeView({
     <article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
       {/* A compact top bar instead of a big picture (Pontus 2026-11-06): back on the left, the heart and ⋯ on the right.
           Matkoll on the home screen has no browser back button (AD-27): back in history when opened within Matkoll, else to Recept. */}
-      <div className="flex items-center justify-between desktop:mt-10">
+      <div className="flex items-center justify-between pt-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] desktop:mt-10 desktop:pt-0">
         <BackLink fallbackHref="/recept" aria-label="Tillbaka" className="-ml-2 flex size-tap items-center justify-center">
           <span className="flex size-10 items-center justify-center rounded-full bg-surface text-ink">
             <ChevronLeftIcon size={22} />
