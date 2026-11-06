@@ -152,7 +152,13 @@ jobs:
       # Writes the Supabase URL and keys from `supabase status` to .env.local,
       # which `next build`, `next start` and Playwright read.
       - run: pnpm db:env
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
       - run: pnpm exec playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
       - run: pnpm build
       - run: pnpm test:e2e --shard=${{ matrix.shard }}/4 --grep-invert @flaky
       - uses: actions/upload-artifact@v7
@@ -182,7 +188,13 @@ jobs:
           version: ${{ env.SUPABASE_CLI_VERSION }}
       - run: supabase start -x ${{ env.SUPABASE_EXCLUDE }}
       - run: pnpm db:env
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
       - run: pnpm exec playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
       - run: pnpm build
       - run: pnpm test:e2e --grep @flaky
       - uses: actions/upload-artifact@v7

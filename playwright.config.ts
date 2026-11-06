@@ -13,6 +13,8 @@ export default defineConfig({
   globalSetup: "./tests/e2e/global-setup.ts",
   // A recipe import is an AI job (Story 12.6): the mock's 3 s and the page's polling every 2 s come before the draft.
   expect: { timeout: 15_000 },
+  // CI only: --shard splits by test instead of by file. Files with shared state use describe mode "serial", which stays together.
+  fullyParallel: isCi,
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
   reporter: isCi ? [["github"], ["html", { open: "never" }]] : "list",
