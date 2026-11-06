@@ -160,16 +160,6 @@ test("a free day tapped in the week gets the next dish added with +", async ({ p
   await expect(page.getByRole("button", { name: "Lägg till en rätt på söndag" })).toHaveCount(0);
   const saved = await adminClient().from("meal_plan_recipe").select("weekday").eq("user_id", userId);
   expect(saved.data).toEqual([{ weekday: 7 }]);
-  if (process.env.MATSEDEL_SHOT) {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await addTab(page, "Alla recept");
-    await plus(page, soppa).click();
-    await expect(dishes(page)).toHaveCount(2);
-    await page.getByRole("button", { name: "Lägg till en rätt på lördag" }).click();
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: process.env.MATSEDEL_SHOT, fullPage: true });
-  }
   // The tests after this one start from an empty week.
   const cleared = await adminClient().from("meal_plan").delete().eq("user_id", userId);
   if (cleared.error) throw cleared.error;
