@@ -305,6 +305,49 @@ test("the compact view, the sort and the categories work together and are kept a
   expect(errors).toEqual([]);
 });
 
+/** Swipes the row to the left from its text with the mouse, which sends the same pointer events as a finger. */
+async function swipeLeft(page: Page, row: Locator, distance = 150) {
+  await row.scrollIntoViewIfNeeded();
+  const box = await row.boundingBox();
+  if (!box) throw new Error("no row");
+  const x = box.x + box.width * 0.7;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - distance, y + 4, { steps: 12 });
+  await page.mouse.up();
+}
+
+test("a recipe in the compact list is removed by swiping it left and answering the question", async ({ page }) => {
+  const title = "Svepbar testsoppa";
+  const { error } = await adminClient()
+    .from("recipe")
+    .insert({ user_id: userId, title, original_servings: 4, total_minutes: 30, source_kind: "text" });
+  if (error) throw error;
+  const errors = watchErrors(page);
+  await page.goto("/recept");
+  await page.getByRole("radio", { name: "Lista" }).click();
+  const target = page.getByTestId("recipe-row").filter({ hasText: title });
+  await expect(target).toHaveCount(1);
+
+  // The question comes first; "Avbryt" keeps the recipe.
+  await swipeLeft(page, target);
+  await expect(target.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
+  await page.getByRole("button", { name: `Svep bort ${title}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Ta bort ${title}?` });
+  await expect(dialog).toContainText("Det går inte att ångra.");
+  await dialog.getByRole("button", { name: "Avbryt" }).click();
+  await expect(target).toHaveCount(1);
+
+  await page.getByRole("button", { name: `Svep bort ${title}` }).click();
+  await page.getByRole("dialog", { name: `Ta bort ${title}?` }).getByRole("button", { name: "Ta bort", exact: true }).click();
+  await expect(target).toHaveCount(0);
+  await expect(page.getByTestId("toast")).toContainText(`Tog bort ${title}.`);
+  const { data } = await adminClient().from("recipe").select("id").eq("user_id", userId).eq("title", title);
+  expect(data).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test("200 recipes: the page answers within a second (NFR7)", async ({ page }, testInfo) => {
   const recipes = Array.from({ length: 198 }, (_, index) => ({
     user_id: userId,

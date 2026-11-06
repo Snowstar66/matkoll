@@ -22,6 +22,14 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-06",
+    title: "Svep bort recept",
+    bullets: [
+      "I receptlistan kan du svepa ett recept åt vänster och trycka Ta bort.",
+      "Du får först en fråga, så inget försvinner av misstag.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Rätter med extrapris",
     bullets: [
       "Överst i Veckans erbjudanden ser du nu upp till tre av dina egna rätter som använder varor med extrapris, med det mesta sparade först.",
