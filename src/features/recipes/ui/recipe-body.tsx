@@ -481,7 +481,8 @@ function WeekPicker({
   const current = weeks.find((week) => week.offset === selected);
   return (
     <div className="flex flex-col gap-1.5" data-testid="recipe-week">
-      <div role="group" aria-label="Vecka på matsedeln" className="flex gap-1.5">
+      {/* With large text the three wrap onto more rows instead of pushing the page sideways. */}
+      <div role="group" aria-label="Vecka på matsedeln" className="flex flex-wrap gap-1.5">
         {weeks.map((week) => {
           const on = week.offset === selected;
           return (
@@ -492,7 +493,7 @@ function WeekPicker({
               aria-pressed={on}
               onClick={() => onSelect(week.offset)}
               className={cx(
-                "flex min-h-tap flex-1 cursor-pointer items-center justify-center rounded-md border px-1.5 text-control",
+                "flex min-h-tap flex-1 cursor-pointer items-center justify-center rounded-md border px-2 text-control whitespace-nowrap",
                 on ? "border-accent bg-accent text-on-accent" : "border-border bg-surface text-ink",
               )}
             >
