@@ -374,8 +374,6 @@ test("Alla foton (2) lists every saved photo of the fridge and a tap opens the p
   await expect
     .poll(() => grid.getByRole("img", { includeHidden: true }).evaluateAll((imgs) => imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0)))
     .toBe(true);
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: "/private/tmp/claude-501/-Users-pontus-AI-Projects-Matkoll/84a90a27-921d-4c90-9977-436dcd202d93/scratchpad/kyl-alla-foton.png" });
 
   await cards.nth(1).click();
   await expect(photoSheet(page)).toBeVisible();
