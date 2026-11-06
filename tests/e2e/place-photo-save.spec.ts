@@ -211,7 +211,7 @@ test("only rejections save nothing", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("a new photo of the place replaces the row and the file", async ({ page }) => {
+test("a new photo of the place is kept beside the earlier one (Alla foton)", async ({ page }) => {
   const errors = watchErrors(page);
   await openHemma(page);
   await photograph(page);
@@ -223,11 +223,10 @@ test("a new photo of the place replaces the row and the file", async ({ page }) 
 
   await photograph(page);
   await confirm(page, "Ägg");
-  await expect.poll(async () => (await photos()).map((photo) => photo.id)).not.toEqual([first.id]);
-  const [second] = await photos();
-  expect(await photos()).toHaveLength(1);
+  await expect.poll(async () => (await photos()).length).toBe(2);
+  const second = (await photos()).find((photo) => photo.id !== first.id)!;
   expect(second).toMatchObject({ site_id: sites.Hemma, location: "Kyl" });
-  await expect.poll(() => files(sites.Hemma)).toEqual([second.object_path]);
+  await expect.poll(async () => (await files(sites.Hemma)).sort()).toEqual([first.object_path, second.object_path].sort());
   expect(errors).toEqual([]);
 });
 

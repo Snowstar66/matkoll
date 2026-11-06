@@ -313,11 +313,11 @@ describe("the bucket pantry-photo (AD-26)", () => {
 });
 
 describe("save_pantry_photo", () => {
-  it("keeps one photo per place and location, gives the path it replaced, and leaves the others", async () => {
+  it("keeps every photo of a place and location (Alla foton), up to 20, and leaves the others", async () => {
     const first = row(owner.id, stugan);
     expect(await savePantryPhotoIn(owner.db, first)).toEqual({ kind: "saved", previous: null });
     const second = row(owner.id, stugan, { points: [{ n: 1, x: 10, y: 20 }] });
-    expect(await savePantryPhotoIn(owner.db, second)).toEqual({ kind: "saved", previous: first.objectPath });
+    expect(await savePantryPhotoIn(owner.db, second)).toEqual({ kind: "saved", previous: null });
 
     const freezer = row(owner.id, stugan, { location: "Frys" });
     const home = row(owner.id, hemma);
@@ -327,6 +327,7 @@ describe("save_pantry_photo", () => {
     const rows = await photoRows(owner.id);
     expect(rows.map((photo) => [photo.site_id, photo.location, photo.id]).sort()).toEqual(
       [
+        [stugan, "Kyl", first.id],
         [stugan, "Kyl", second.id],
         [stugan, "Frys", freezer.id],
         [hemma, "Kyl", home.id],
@@ -335,16 +336,24 @@ describe("save_pantry_photo", () => {
     expect(rows.find((photo) => photo.id === second.id)?.points).toEqual([{ n: 1, x: 10, y: 20 }]);
   });
 
-  it("never lets an older photo replace a newer one (stale), and writes nothing for it", async () => {
+  it("keeps an older photo saved after a newer one, and drops the oldest when a 21st comes", async () => {
     const place = await addSite(owner.id, "Jakten");
     const newer = row(owner.id, place, { takenAt: new Date(Date.now() - 60_000) });
     const older = row(owner.id, place, { takenAt: new Date(Date.now() - 3_600_000) });
     expect(await savePantryPhotoIn(owner.db, newer)).toEqual({ kind: "saved", previous: null });
-    expect(await savePantryPhotoIn(owner.db, older)).toEqual({ kind: "stale" });
-    expect((await photoRows(owner.id)).filter((photo) => photo.site_id === place).map((photo) => photo.id)).toEqual([newer.id]);
-    // A photo taken at the same time, or later, replaces it.
-    const same = row(owner.id, place, { takenAt: newer.takenAt });
-    expect(await savePantryPhotoIn(owner.db, same)).toEqual({ kind: "saved", previous: newer.objectPath });
+    expect(await savePantryPhotoIn(owner.db, older)).toEqual({ kind: "saved", previous: null });
+    const kept = () => photoRows(owner.id).then((rows) => rows.filter((photo) => photo.site_id === place).map((photo) => photo.id));
+    expect((await kept()).sort()).toEqual([newer.id, older.id].sort());
+    // 18 more make 20, still all kept; the 21st pushes out the oldest, whose path comes back.
+    for (let index = 0; index < 18; index += 1) {
+      const more = row(owner.id, place, { takenAt: new Date(Date.now() - 120_000 - index * 1000) });
+      expect(await savePantryPhotoIn(owner.db, more)).toEqual({ kind: "saved", previous: null });
+    }
+    expect(await kept()).toHaveLength(20);
+    const latest = row(owner.id, place, { takenAt: new Date() });
+    expect(await savePantryPhotoIn(owner.db, latest)).toEqual({ kind: "saved", previous: older.objectPath });
+    expect(await kept()).toHaveLength(20);
+    expect(await kept()).not.toContain(older.id);
   });
 
   it("refuses a reading or points that do not pass the checks (23514)", async () => {
@@ -448,10 +457,10 @@ describe("savePlacePhoto", () => {
       expect(Buffer.from(stored!).includes(madeUpPosition)).toBe(false);
       expect(Buffer.from(stored!).includes(Buffer.from(videoTrailer.subarray(4, 12)))).toBe(false);
     }
-    expect(await filesIn(`${owner.id}/${hemma}/skafferi`)).toHaveLength(2);
+    expect((await filesIn(`${owner.id}/${hemma}/skafferi`)).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("replaces the row and the file with a new photo: a PNG with only the image's chunks", async () => {
+  it("adds a new photo beside the earlier ones: a PNG with only the image's chunks", async () => {
     const [before] = (await photoRows(owner.id)).filter((photo) => photo.site_id === hemma && photo.location === "Frys");
     const result = await savePlacePhoto(
       input({ data: withTrailer(pngWithMetadata(kylPng)), mediaType: "image/png" }, { points: [{ n: 1, x: 500, y: 500 }] }),
@@ -459,35 +468,40 @@ describe("savePlacePhoto", () => {
     expect(result.ok).toBe(true);
     const id = (result as { data: { id: string } }).data.id;
     const rows = (await photoRows(owner.id)).filter((photo) => photo.site_id === hemma && photo.location === "Frys");
-    expect(rows.map((photo) => photo.id)).toEqual([id]);
-    expect(rows[0].points).toEqual([{ n: 1, x: 500, y: 500 }]);
-    expect(await fileAt(before.object_path)).toBeNull();
-    expect(await filesIn(`${owner.id}/${hemma}/frys`)).toEqual([rows[0].object_path]);
-    const stored = await fileAt(rows[0].object_path);
+    expect(rows.map((photo) => photo.id)).toContain(id);
+    expect(rows.map((photo) => photo.id)).toContain(before.id);
+    const added = rows.find((photo) => photo.id === id)!;
+    expect(added.points).toEqual([{ n: 1, x: 500, y: 500 }]);
+    expect(await fileAt(before.object_path)).not.toBeNull();
+    const stored = await fileAt(added.object_path);
     for (const type of pngChunkTypes(stored!)) expect(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]).toContain(type);
     expect(pngChunkTypes(stored!).at(-1)).toBe("IEND");
     expect(stored).toEqual(stripPngMetadata(kylPng));
     expect(Buffer.from(stored!).includes(madeUpPosition)).toBe(false);
   });
 
-  it("keeps the newer photo when an older one comes after it, and removes the older one's file", async () => {
+  it("keeps both photos when an older one comes after a newer one", async () => {
     const place = await addSite(owner.id, "Bastun");
     const png = { data: stripPngMetadata(kylPng)!, mediaType: "image/png" as const };
     const newer = await savePlacePhoto(input(png, { siteId: place, location: "Kyl", takenAt: new Date(Date.now() - 60_000) }));
     const older = await savePlacePhoto(input(png, { siteId: place, location: "Kyl", takenAt: new Date(Date.now() - 3_600_000) }));
     expect(newer.ok && older.ok).toBe(true);
     const rows = (await photoRows(owner.id)).filter((photo) => photo.site_id === place && photo.location === "Kyl");
-    expect(rows.map((photo) => photo.id)).toEqual([(newer as { data: { id: string } }).data.id]);
-    expect(await filesIn(`${owner.id}/${place}/kyl`)).toEqual([rows[0].object_path]);
+    expect(rows.map((photo) => photo.id).sort()).toEqual(
+      [(newer as { data: { id: string } }).data.id, (older as { data: { id: string } }).data.id].sort(),
+    );
+    expect((await filesIn(`${owner.id}/${place}/kyl`)).sort()).toEqual(rows.map((photo) => photo.object_path).sort());
   });
 
-  it("keeps one row and its file when two photos of a place are saved at once", async () => {
+  it("keeps both rows and files when two photos of a place are saved at once", async () => {
     const png = { data: stripPngMetadata(kylPng)!, mediaType: "image/png" as const };
     const results = await Promise.all([savePlacePhoto(input(png)), savePlacePhoto(input(png))]);
     expect(results.every((result) => result.ok)).toBe(true);
     const rows = (await photoRows(owner.id)).filter((photo) => photo.site_id === hemma && photo.location === "Frys");
-    expect(rows).toHaveLength(1);
-    expect(await filesIn(`${owner.id}/${hemma}/frys`)).toEqual([rows[0].object_path]);
+    const ids = results.map((result) => (result as { data: { id: string } }).data.id);
+    expect(rows.map((photo) => photo.id)).toEqual(expect.arrayContaining(ids));
+    const files = await filesIn(`${owner.id}/${hemma}/frys`);
+    expect(files).toEqual(expect.arrayContaining(rows.filter((photo) => ids.includes(photo.id)).map((photo) => photo.object_path)));
   });
 
   it("never sweeps the photo just saved, also when the client says it was taken 31 days ago (Story 10.3)", async () => {
@@ -716,12 +730,12 @@ describe("the sweep (Story 10.3)", () => {
     await bucket(mine.db).remove([old.objectPath]);
     expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [old.id], before)).toEqual([old.id]);
 
-    // Read as old, then replaced by a new photo of the place before the delete: the new row stays.
+    // Read as old, with a new photo of the place saved before the delete: the new row stays.
     const read = await photoOf(mine, place, { location: "Frys", takenAt: new Date(now.getTime() - 31 * day) });
     expect((await loadExpiredPlacePhotosIn(mine.db, before)).map((photo) => photo.id)).toContain(read.id);
     const replacement = await photoOf(mine, place, { location: "Frys" });
     await bucket(mine.db).remove([read.objectPath]);
-    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [read.id, replacement.id], before)).toEqual([]);
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [read.id, replacement.id], before)).toEqual([read.id]);
     expect((await photoRows(mine.id)).map((photo) => photo.id)).toContain(replacement.id);
 
     // The same row, taken later since it was read (the cutoff is part of the delete): it stays.
