@@ -1,11 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { HeartToggle } from "@/components/heart-toggle";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
+import { SwipeRow } from "@/components/swipe-row";
 import { dishEmoji } from "../domain/dish-emoji";
 import { offerTagsLine, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
+import { useRecipeDelete } from "./recipe-delete";
 
 export type RecipeCompactListProps = {
   recipes: readonly RecipeListItem[];
@@ -16,6 +20,8 @@ export type RecipeCompactListProps = {
   ranked?: boolean;
   /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row has its own line "Extrapris: falukorv, gul lök +1". */
   offerTags?: Readonly<Record<string, readonly string[]>>;
+  /** The ids of the recipes on the current meal plan, which "Ta bort X?" says (Story 13.2). */
+  onMenuIds?: readonly string[];
 };
 
 /** "4 port." for the line under a title. */
@@ -30,10 +36,19 @@ function portionsText(servings: number): string {
  * 4 port. · Kan lagas nu" (or "Saknar 2") and the heart in a 44 px area. A tap
  * on the row opens the recipe.
  */
-export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags }: RecipeCompactListProps) {
+export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags, onMenuIds }: RecipeCompactListProps) {
+  const router = useRouter();
+  // A recipe that is gone leaves the list at once; the server's list follows after the refresh.
+  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  const { ask, dialog } = useRecipeDelete((id) => {
+    setGone((ids) => new Set(ids).add(id));
+    router.refresh();
+  });
   return (
+    <>
+      {dialog}
     <ListGroup label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="[&>li]:border-b-0">
-      {recipes.map((recipe) => {
+      {recipes.filter((recipe) => !gone.has(recipe.id)).map((recipe) => {
         const time = recipeTimeText(recipe.totalMinutes);
         const status =
           recipe.missingCount === null ? null : recipe.missingCount === 0 ? (
@@ -44,10 +59,15 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
             </span>
           );
         return (
+          <li key={recipe.id} data-testid="recipe-row" className="relative after:absolute after:right-0 after:bottom-0 after:left-20 after:h-px after:bg-hairline last:after:hidden">
+          <SwipeRow
+            actionLabel="Ta bort"
+            actionName={`Svep bort ${recipe.title}`}
+            onAction={() => ask({ id: recipe.id, title: recipe.title, onMenu: onMenuIds?.includes(recipe.id) ?? false })}
+          >
           <ListRow
-            key={recipe.id}
-            data-testid="recipe-row"
-            className="relative min-h-[72px] after:absolute after:right-0 after:bottom-0 after:left-20 after:h-px after:bg-hairline last:after:hidden [&>a]:pl-3 [&>div:first-child]:pl-3"
+            as="div"
+            className="min-h-[72px] [&>a]:pl-3 [&>div:first-child]:pl-3"
             href={`/recept/${recipe.id}`}
             title={<span className="block truncate">{recipe.title}</span>}
             meta={
@@ -80,8 +100,11 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
               />
             }
           />
+          </SwipeRow>
+          </li>
         );
       })}
     </ListGroup>
+    </>
   );
 }
