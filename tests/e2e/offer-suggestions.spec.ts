@@ -178,7 +178,8 @@ test("the offers sheet shows Rätter med extrapris, + adds the dish to the week,
 
   await card.getByRole("link", { name: "Visa alla" }).click();
   await expect(page).toHaveURL(/\/recept/);
-  await expect(page.getByRole("button", { name: "Erbjudanden" })).toHaveAttribute("aria-pressed", "true");
+  // Lista stays mounted but hidden after the client navigation, with its own header button Erbjudanden: only the pressed filter pill counts.
+  await expect(page.getByRole("button", { name: "Erbjudanden", exact: true, pressed: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByTestId("offers-reason")).toContainText("Förslag för att varorna har extrapris den här veckan.");
   expect(errors).toEqual([]);
 });
@@ -321,7 +322,7 @@ test("the filter Erbjudanden shows the recipe that uses an offer, with its tag, 
   const cards = page.getByTestId("recipe-card");
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText("Falukorv med potatismos");
-  await expect(cards.first().getByTestId("offer-tags")).toContainText("Falukorv");
+  await expect(cards.first().getByTestId("offer-tags")).toHaveText("Extrapris: falukorv");
   await expect(page.getByTestId("offers-line")).toContainText(/^Recept med veckans erbjudanden från Matkoll Testbutik, vecka \d+\./);
   await page.getByRole("button", { name: "Visa erbjudanden" }).click();
   await expect(sheet(page)).toBeVisible();

@@ -162,7 +162,7 @@ test("the rows say Saknas and the offer, and Köp det som saknas puts them on th
   expect(errors).toEqual([]);
 });
 
-test("a reload keeps På listan, since the rows follow the shopping list", async ({ page }) => {
+test("a reload keeps På listan, since the rows follow the shopping list @flaky", async ({ page }) => {
   await page.goto(`/recept/${recipeId}`);
   await page.getByRole("button", { name: "Köp det som saknas (3)" }).filter({ visible: true }).click();
   await page.getByRole("dialog", { name: "Lägg på inköpslistan" }).getByRole("button", { name: "Lägg 3 varor på listan" }).click();

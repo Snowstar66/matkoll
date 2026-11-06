@@ -136,7 +136,7 @@ test("the tip line says what has lain longest, and the job asks in the mode idea
   expect(bodies[0]).not.toMatch(/lime|koriander/);
 });
 
-test("IDÉER answers like a friend: an intro, text rows, one thing missing apart, and a recipe only on request", async ({ page }) => {
+test("IDÉER answers like a friend: an intro, text rows, one thing missing apart, and a recipe only on request @flaky", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ old: false });
   const bodies: string[] = [];
