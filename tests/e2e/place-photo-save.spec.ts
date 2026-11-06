@@ -144,7 +144,7 @@ async function choose(page: Page, name: "Hemma" | "Stugan") {
 /** Photographs the fridge with kyl.png and waits for the suggestions. */
 async function photograph(page: Page) {
   const chooser = page.waitForEvent("filechooser");
-  await camera(page).getByRole("button", { name: "Fotografera kylen" }).click();
+  await camera(page).getByRole("button", { name: "Fota" }).click();
   await (await chooser).setFiles(kyl);
   await expect(section(page).getByRole("heading", { level: 2 })).toBeVisible();
 }

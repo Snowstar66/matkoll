@@ -222,7 +222,7 @@ test("the line follows the location and the place, and a photo older than 30 day
   await expect(line(page)).toContainText("Senaste");
 
   await card(page, "Frys").click();
-  await expect(camera(page).getByRole("button", { name: "Fotografera frysen" })).toBeVisible();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeVisible();
   await expect(line(page)).toHaveCount(0);
 
   await card(page, "Skafferi").click();
@@ -245,7 +245,7 @@ test("the line follows the location and the place, and a photo older than 30 day
 
   // Stugan's freezer has a photo from 31 days ago.
   await card(page, "Frys").click();
-  await expect(camera(page).getByRole("button", { name: "Fotografera frysen" })).toBeVisible();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeVisible();
   await expect(line(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -327,7 +327,7 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   await expect(page.getByTestId("toast")).toContainText("Tog bort fotot av kylen.");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(line(page)).toHaveCount(0);
-  await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
+  await expect(camera(page).getByRole("button", { name: "Fota" })).toBeFocused();
 
   const rows = await adminClient().from("pantry_photo").select("id").eq("user_id", userId);
   if (rows.error) throw rows.error;

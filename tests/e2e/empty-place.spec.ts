@@ -127,7 +127,7 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
   await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*0 varor$/);
   await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*1 vara$/);
   await expect(emptyButton(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Fota" })).toBeFocused();
   expect(await rowsIn("Kyl")).toEqual([]);
   expect(await rowsIn("Frys")).toHaveLength(1);
 

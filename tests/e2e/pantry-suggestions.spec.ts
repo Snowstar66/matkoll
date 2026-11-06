@@ -84,7 +84,7 @@ function watchErrors(page: Page): string[] {
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
-const cameraButton = (page: Page) => camera(page).getByRole("button", { name: "Fotografera kylen" });
+const cameraButton = (page: Page) => camera(page).getByRole("button", { name: "Fota" });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const cards = (page: Page) => section(page).getByTestId("pantry-suggestion");
 /** The cards' names: h4 under the groups of a compared photo, h3 in the plain list. */
@@ -110,7 +110,7 @@ async function photographPantry(page: Page) {
   await page.goto("/hemma?plats=skafferi");
   await expect(skafferiCard(page)).toHaveText(/^\S*Skafferi\s*0 varor(\s?Förslag klara)?$/);
   const chooser = page.waitForEvent("filechooser");
-  await camera(page).getByRole("button", { name: "Fotografera skafferiet" }).click();
+  await camera(page).getByRole("button", { name: "Fota" }).click();
   await (await chooser).setFiles(kyl);
   await expect(cards(page)).toHaveCount(6);
 }

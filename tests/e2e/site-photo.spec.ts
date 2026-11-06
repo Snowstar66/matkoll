@@ -183,7 +183,7 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   await watchAnalyzeSites(page);
   await openHemma(page);
   await choose(page, "Stugan");
-  await photograph(page, "Fotografera kylen");
+  await photograph(page, "Fota");
 
   expect(await analyzeSites(page)).toEqual([sites.Stugan]);
   await expect(section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" })).toContainText(
@@ -203,7 +203,7 @@ test("Lägg till changes only Stugan's rows, and Hemma's keep their ids, amounts
   const before = await pantry();
   await openHemma(page);
   await choose(page, "Stugan");
-  await photograph(page, "Fotografera kylen");
+  await photograph(page, "Fota");
 
   await addTicked(section(page));
   await expect(toast(page)).toContainText("Kylen är uppdaterad:");
@@ -223,7 +223,7 @@ test("selecting Hemma while Stugan's suggestions show says so, and Lägg till st
   const before = await pantry();
   await openHemma(page);
   await choose(page, "Stugan");
-  await photograph(page, "Fotografera kylen");
+  await photograph(page, "Fota");
   await expect(placeLine(page)).toHaveCount(0);
 
   await choose(page, "Hemma");
@@ -276,7 +276,7 @@ test("an empty freezer on Stugan gives the plain list, although Hemma's freezer 
   await openHemma(page, "/hemma?plats=frys");
   await choose(page, "Stugan");
   await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor$/);
-  await photograph(page, "Fotografera frysen");
+  await photograph(page, "Fota");
 
   await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen");
   // The plain list: six cards, and none of the groups of a compared photo.
