@@ -91,6 +91,9 @@ describe("Lägg till i Matvaror", () => {
     expect(button()).not.toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     expect(button()).toBeInTheDocument();
+    // The badge counts what goes to Matvaror; the name stays, the count is its description.
+    expect(screen.getByTestId("put-in-pantry-count")).toHaveTextContent("1");
+    expect(button()).toHaveAccessibleDescription("1 vara");
     // The checked line is in I korgen (Story 11.4); a check there takes it back.
     await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
@@ -118,6 +121,8 @@ describe("Lägg till i Matvaror", () => {
   it("shows the button for checks an interrupted run left behind, without a checked line", async () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} pendingClear={1} />);
+    // Nothing checked is shown, so no count.
+    expect(screen.queryByTestId("put-in-pantry-count")).not.toBeInTheDocument();
     await user.click(button()!);
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: null });
   });
