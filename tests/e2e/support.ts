@@ -759,3 +759,15 @@ export async function expectUnit(scope: Locator, unit: string): Promise<void> {
   if (unit === "") await expect(group.getByRole("radio", { checked: true })).toHaveCount(0);
   else await expect(group.getByRole("radio", { name: unit, exact: true })).toBeChecked();
 }
+
+export const dayWords = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"];
+/** Today's weekday in Stockholm, 1 (måndag) to 7 (söndag): where a new dish lands when nothing is planned. */
+export const todayDay = () => {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Stockholm", weekday: "short" }).format(new Date());
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(name) + 1;
+};
+/** The first free day from today with these days taken, or `null` when the week is full. */
+export const firstFree = (taken: (number | null)[]) => {
+  for (let day = todayDay(); day <= 7; day += 1) if (!taken.includes(day)) return day;
+  return null;
+};

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { weekStartOf } from "@/features/offers/domain/week";
-import { adminClient, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState } from "./support";
+import { adminClient, dayWords, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState, todayDay } from "./support";
 
 // Story 9.5 and 25.3: the offers and what is made of them, with AI_PROVIDER=mock (the
 // server answers the three dishes in
@@ -160,7 +160,7 @@ test("the offers sheet only lists offers: no Föreslå rätter and no store choi
 });
 
 // Story 25.3: Matsedel is where the week is planned: På erbjudande, "+" and the dish is on the week with no day.
-test("Matsedel: På erbjudande, + puts the dish on the week with Ingen dag and the bar follows", async ({ page }) => {
+test("Matsedel: På erbjudande, + puts the dish on the first free day and the bar follows", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
   await seedFalukorvRecipe();
@@ -176,18 +176,21 @@ test("Matsedel: På erbjudande, + puts the dish on the week with Ingen dag and t
 
   await expect(weekDishes(page)).toHaveCount(1);
   await expect(weekDishes(page).first()).toContainText("Falukorv med potatismos");
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ingen dag");
-  await expect(toast(page)).toContainText(/Falukorv med potatismos på veckan\. \d+ var(a|or) på listan\./);
-  await expect(toast(page).getByRole("button", { name: "Välj dag" })).toBeVisible();
-  await expect(row.getByTestId("on-week")).toHaveText("På veckan");
+  // The week is empty: the dish lands on today.
+  const today = todayDay();
+  const short = dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase());
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(short);
+  await expect(toast(page)).toContainText(new RegExp(`Falukorv med potatismos på ${dayWords[today - 1]}\\. \\d+ var(a|or) på listan\\.`));
+  await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
+  await expect(row.getByTestId("on-week")).toHaveText(short);
   await expect(bar(page)).toHaveText(/^1 rätt · [1-9]\d* var(a|or) att köpa$/);
 
-  // What is saved: on this week's plan, no weekday.
+  // What is saved: on this week's plan, on today.
   const plan = await adminClient().from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
-  expect(plan.data).toEqual([{ recipe_title: "Falukorv med potatismos", weekday: null }]);
+  expect(plan.data).toEqual([{ recipe_title: "Falukorv med potatismos", weekday: today }]);
 
-  // "Välj dag" picks a day; the chip says it, and the list is one tap away.
-  await toast(page).getByRole("button", { name: "Välj dag" }).click();
+  // "Byt dag" picks a day; the chip says it, and the list is one tap away.
+  await toast(page).getByRole("button", { name: "Byt dag" }).click();
   await page.getByRole("dialog", { name: /Flytta till dag/ }).getByRole("button", { name: "Onsdag" }).click();
   await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ons");
   await page.getByRole("link", { name: "Inköpslistan" }).click();
@@ -236,14 +239,15 @@ test("Matsedel: 2 new ideas from the offers are reviewed and saved before they g
   await expect(preview).toBeHidden();
   await expect(weekDishes(page)).toHaveCount(1);
   await expect(weekDishes(page).first()).toContainText(dishName);
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ingen dag");
+  const today = todayDay();
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase()));
   await expect(ideas).toHaveCount(1);
 
-  // The dish was saved as a recipe first, and is on the plan with no day.
+  // The dish was saved as a recipe first, and is on the plan on today.
   const recipes = await adminClient().from("recipe").select("title").eq("user_id", userId);
   expect((recipes.data as { title: string }[]).map((row) => row.title).sort()).toEqual([dishName, "Linssoppa"].sort());
   const plan = await adminClient().from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
-  expect(plan.data).toEqual([{ recipe_title: dishName, weekday: null }]);
+  expect(plan.data).toEqual([{ recipe_title: dishName, weekday: today }]);
   expect(errors).toEqual([]);
 });
 
