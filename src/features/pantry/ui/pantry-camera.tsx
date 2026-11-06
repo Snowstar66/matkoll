@@ -186,9 +186,9 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
           ref={cameraButtonRef}
           disabled={switching}
           onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
-          className="inline-flex min-h-button w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-center text-headline text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-center text-row-title text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <CameraIcon size={22} className="shrink-0" />
+          <CameraIcon size={20} className="shrink-0" />
           {cameraButtonText(location)}
         </button>
         <button

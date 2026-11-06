@@ -30,6 +30,8 @@ export type SuggestInputShape = {
   eatFirst?: boolean;
   /** Story 25.2: "Vad kan jag laga nu?": the stricter prompt that uses only the pantry's names, and one to three dishes. */
   now?: boolean;
+  /** Story 25.4: with `now`, the one idea to write a recipe for. */
+  dish?: string;
 };
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */

@@ -929,3 +929,61 @@ export type LocateThingAnswer = z.infer<typeof locateThingAnswer>;
 export type AskThingsAnswer = z.infer<typeof askThingsAnswer>;
 export type CategorizeThingsAnswer = z.infer<typeof categorizeThingsAnswer>;
 export type ThingTermsAnswer = z.infer<typeof thingTermsAnswer>;
+
+/** The kinds of small thing "Idéer" of "Vad kan jag laga nu?" tells apart (Story 25.4). */
+export const nowIdeaKinds = ["rätt", "tillbehör", "sås", "mellanmål", "frukost"] as const;
+export type NowIdeaKind = (typeof nowIdeaKinds)[number];
+/** At most this many ideas are kept, and this much of each text, in characters. */
+export const nowIdeaLimits = { maxIdeas: 4, maxIntroChars: 320, maxNameChars: 60, maxHowChars: 160, maxWhyChars: 120, maxNames: 6, maxNameLength: 60 } as const;
+
+/**
+ * What the model answers to ideasNow (Story 25.4): a warm sentence or two and
+ * one to four small ideas, as a friend would say them. The model may be loose
+ * (the kind is free text here, the names are the ones it was given or not);
+ * parseNowIdeas cleans it and the suggestions module checks the names against
+ * what is at home.
+ */
+export const nowIdeasAnswer = z.object({
+  intro: z.string().describe("Två eller tre varma, ärliga meningar som resonerar om vad som finns, t.ex. 'Du har mest såser och lite grönt, men ägg och mjölk räcker långt.'"),
+  ideas: z
+    .array(
+      z.object({
+        name: z.string().describe("Idéns namn, kort"),
+        how: z.string().describe("En mening om hur, t.ex. 'dressing + ketchup och lite senap'"),
+        why: z.string().describe("En kort mening om varför just den här, t.ex. 'Använder grädden som legat längst.'"),
+        kind: z.string().describe("rätt, tillbehör, sås, mellanmål eller frukost"),
+        uses: z.array(z.string()).describe("Varor ur lagret, med exakt samma namn som i listan"),
+        missing: z.array(z.string()).describe("Varor som inte finns i lagret; helst tom"),
+      }),
+    )
+    .describe("En till fyra idéer"),
+});
+export type NowIdeasAnswer = z.infer<typeof nowIdeasAnswer>;
+
+/** An idea as the port gives it: cleaned and cut, the kind one of `nowIdeaKinds`. */
+export type NowIdea = { name: string; how: string; why: string; kind: NowIdeaKind; uses: string[]; missing: string[] };
+
+/** The model's ideas, cleaned: texts on one line and cut, an unknown kind is "rätt", at most four ideas, none without a name or a how. */
+export function parseNowIdeas(answer: NowIdeasAnswer): { intro: string; ideas: NowIdea[] } {
+  const line = (value: string, max: number) => cutCodePoints(cleanModelText(value), max).trim();
+  const names = (values: readonly string[]) =>
+    [...new Set(values.map((value) => line(value, nowIdeaLimits.maxNameLength)).filter((value) => value !== ""))].slice(0, nowIdeaLimits.maxNames);
+  const ideas: NowIdea[] = [];
+  for (const idea of answer.ideas) {
+    const name = line(idea.name, nowIdeaLimits.maxNameChars);
+    const how = line(idea.how, nowIdeaLimits.maxHowChars);
+    if (name === "" || how === "") continue;
+    const why = line(idea.why, nowIdeaLimits.maxWhyChars);
+    const kind = line(idea.kind, 20).toLocaleLowerCase("sv");
+    ideas.push({
+      name,
+      how,
+      why,
+      kind: (nowIdeaKinds as readonly string[]).includes(kind) ? (kind as NowIdeaKind) : "rätt",
+      uses: names(idea.uses),
+      missing: names(idea.missing),
+    });
+    if (ideas.length === nowIdeaLimits.maxIdeas) break;
+  }
+  return { intro: line(answer.intro, nowIdeaLimits.maxIntroChars), ideas };
+}

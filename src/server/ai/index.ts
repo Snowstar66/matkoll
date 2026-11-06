@@ -26,6 +26,8 @@ export type {
   MergeThingsInput,
   MergeThingsPair,
   MergeThingsResult,
+  NowIdeasInput,
+  NowIdeasResult,
   LocateThingInput,
   LocateThingResult,
   ParseRecipeInput,
@@ -37,6 +39,8 @@ export type {
 } from "./service";
 export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
+export type { NowIdea, NowIdeaKind } from "./schemas";
+export { nowIdeaKinds } from "./schemas";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
@@ -80,6 +84,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
   return {
     parseRecipe: (input, signal) => withUsageSink(sink, () => service.parseRecipe(input, signal)),
     suggestDishes: (input, signal, options) => withUsageSink(sink, () => service.suggestDishes(input, signal, options)),
+    ideasNow: (input, signal, options) => withUsageSink(sink, () => service.ideasNow(input, signal, options)),
     analyzeImage: (input, signal, options) => withUsageSink(sink, () => service.analyzeImage(input, signal, options)),
     listThings: (input, signal, options) => withUsageSink(sink, () => service.listThings(input, signal, options)),
     locateThing: (input, signal, options) => withUsageSink(sink, () => service.locateThing(input, signal, options)),
