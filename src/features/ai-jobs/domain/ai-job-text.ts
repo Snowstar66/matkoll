@@ -124,6 +124,8 @@ export function resultHref(kind: AiJobKind, context: Readonly<Record<string, unk
     const place = context.placeId;
     return typeof place === "string" && uuidPattern.test(place) ? `/prylar/${place}` : "/prylar";
   }
+  // Story 25.3: the ideas built around the offers are on Matsedel (På erbjudande).
+  if (kind === "suggest" && context.mode === "offers") return "/matsedel";
   if (kind !== "analyze") return "/recept";
   const slug = typeof context.location === "string" ? placeSlugs[context.location] : undefined;
   return slug ? `/hemma?plats=${slug}` : "/hemma";

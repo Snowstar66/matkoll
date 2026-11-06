@@ -133,3 +133,19 @@ export async function getWeekCountsIn(db: MealPlanDb, weeks: readonly string[]):
   }
   return counts;
 }
+
+/**
+ * How many times each recipe has been marked cooked, by recipe id, over all of
+ * the signed-in user's plans (Story 25.3: "lagad 6 gånger"). Recipes never
+ * cooked are not in the map. RLS limits the query to the user's rows. Throws
+ * MealPlanDataError.
+ */
+export async function getCookedCountsIn(db: MealPlanDb): Promise<Record<string, number>> {
+  const { data, error } = await db.from("meal_plan_recipe").select("recipe_id").not("cooked_at", "is", null).not("recipe_id", "is", null);
+  if (error) throw new MealPlanDataError(`query_failed ${error.code}`);
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    if (row.recipe_id) counts[row.recipe_id] = (counts[row.recipe_id] ?? 0) + 1;
+  }
+  return counts;
+}

@@ -79,6 +79,7 @@ describe("the words of AI jobs", () => {
 
   it("sends a result to its own tab", () => {
     expect(resultHref("suggest")).toBe("/recept");
+    expect(resultHref("suggest", { mode: "offers" })).toBe("/matsedel");
     expect(resultHref("import")).toBe("/recept");
     expect(resultHref("analyze")).toBe("/hemma");
     // Story 12.5: a photo's result opens Matvaror on the photo's location.
