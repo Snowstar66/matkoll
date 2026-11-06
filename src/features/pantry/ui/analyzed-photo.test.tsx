@@ -71,7 +71,10 @@ describe("ReviewPhotoPanel (Kylfoto D)", () => {
     at(-200);
     expect(box().style.height).toBe("200px");
     expect(panel()).toHaveAttribute("data-mini", "true");
+    // Just under where it sticks it stays small, so a clamped scroll near the page end cannot flip it back and forth.
     at(10);
+    expect(box().style.height).toBe("200px");
+    at(140);
     expect(box().style.height).toBe("330px");
   });
 
