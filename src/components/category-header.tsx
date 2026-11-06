@@ -10,7 +10,7 @@ import { cx } from "./cx";
  * same order. Shared components never import a feature module (AD-1), so
  * `tests/design/category-icons.test.ts` holds the two lists together.
  *
- * Frys and Övrigt are written as escapes because their emoji end in the
+ * Fryst and Övrigt are written as escapes because their emoji end in the
  * invisible variation selector U+FE0F, which source never holds literally.
  */
 export const categoryIcons = {
@@ -18,8 +18,8 @@ export const categoryIcons = {
   Bröd: { icon: "🍞" },
   "Mejeri & ägg": { icon: "🥛" },
   "Kött, fisk & chark": { icon: "🥩" },
-  Frys: { icon: "\u2744\uFE0F" },
-  Skafferi: { icon: "🥫" },
+  Fryst: { icon: "\u2744\uFE0F" },
+  "Torrvaror & konserver": { icon: "🥫" },
   "Såser & smaksättare": { icon: "🧂" },
   Dryck: { icon: "🥤" },
   Övrigt: { icon: "\u{1F6CD}\uFE0F" },

@@ -246,7 +246,7 @@ describe("PantryList", () => {
   it("names the search field after the location", () => {
     render(<PantryList location="Frys" items={[item({ id: "1", name: "Ärtor", location: "Frys", section: "Frys" })]} />);
     expect(screen.getByRole("searchbox", { name: "Sök i frysen" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Frys" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fryst" })).toBeInTheDocument();
   });
 
   it("opens the sheet for an item on a tap on its row, where the amount still is", () => {
