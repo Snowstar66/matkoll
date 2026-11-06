@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MealPlanDataError } from "@/features/mealplan/data/client";
 import { addWeeks, currentWeekStart } from "@/features/mealplan/domain/week";
-import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "@/features/mealplan/data/queries";
+import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "@/features/mealplan/data/queries";
 import {
   addToCurrentPlanIn,
   deletePlanIn,
@@ -278,6 +278,25 @@ describe("servings, removal and Ångra", () => {
     const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
     expect(await removePlanRecipeIn(other.db, added.id)).toBeNull();
     expect(await dishRow(added.id)).not.toBeNull();
+  });
+});
+
+describe("getCookedCountsIn (Story 25.3)", () => {
+  it("counts the dishes marked cooked per recipe, over all plans, for the user's own rows only", async () => {
+    const user = await createTestUser("mealplan-cooked-counts");
+    const other = await createTestUser("mealplan-cooked-counts-other");
+    const soppa = await addRecipe(user.db);
+    const gryta = await addRecipe(user.db, "Kycklinggryta");
+    const first = await addToCurrentPlanIn(user.db, dish(soppa));
+    const second = await addToCurrentPlanIn(user.db, dish(soppa));
+    await addToCurrentPlanIn(user.db, dish(gryta));
+    const otherDish = await addToCurrentPlanIn(other.db, dish(await addRecipe(other.db)));
+    for (const id of [first.id, second.id, otherDish.id]) {
+      const { error } = await adminClient().from("meal_plan_recipe").update({ cooked_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    }
+    expect(await getCookedCountsIn(user.db)).toEqual({ [soppa]: 2 });
+    expect(Object.values(await getCookedCountsIn(other.db))).toEqual([1]);
   });
 });
 

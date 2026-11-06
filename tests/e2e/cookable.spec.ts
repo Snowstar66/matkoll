@@ -3,8 +3,7 @@ import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { adminClient, cookableEmail, cookableStorageState, e2eUserId, chooseUnit } from "./support";
 
 // Story 5.1: the filter Kan lagas nu ranks the library by N in "Saknar N
-// varor", fewest first, with "Föreslå rätter med AI" at the bottom
-// (ai-suggestions.spec.ts presses it). The spec has an E2E user of its own (cookableEmail). Before each test the pantry and
+// varor", fewest first. The spec has an E2E user of its own (cookableEmail). Before each test the pantry and
 // the recipes are emptied, and three recipes named after the mock's fixtures
 // are made with the service role, oldest first:
 //
@@ -163,11 +162,6 @@ test("Kan lagas nu ranks the library fewest missing first and keeps the choice",
   await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
   await expectStatuses(page, ["Kan lagas nu", "Saknar 1 vara", "Saknar 2 varor"]);
   await expect(rankedList(page)).toBeVisible();
-  // At the bottom, under the list.
-  const suggest = page.getByRole("button", { name: "Föreslå rätter med AI" }).filter({ visible: true });
-  await expect(suggest).toBeVisible();
-  const [listBox, buttonBox] = [await rankedList(page).boundingBox(), await suggest.boundingBox()];
-  expect(buttonBox!.y).toBeGreaterThanOrEqual(listBox!.y + listBox!.height);
   await expectNoHorizontalScroll(page);
 
   await page.reload();

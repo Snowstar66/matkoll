@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
-import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
@@ -23,9 +22,7 @@ import {
   type RecipeListItem,
 } from "../domain/recipe-list";
 import type { AddToPlan } from "./add-to-plan-button";
-import { AiSuggestions } from "./ai-suggestions";
 import { OffersSheetControlContext } from "./offers-sheet-control";
-import type { OwnRecipesRead } from "./own-recipes";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
 import { RecipeFilterChips } from "./recipe-filter-chips";
@@ -33,7 +30,6 @@ import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
 import { RecipeSortSheet } from "./recipe-sort-sheet";
 import { useRecipeCategory, useRecipeSort, useRecipeView } from "./recipe-view-stores";
-import { useDishSuggestions } from "./use-dish-suggestions";
 import { useFavorites } from "./use-favorites";
 
 // Receptbiblioteket (FR-8, FR-9, FR-22, UX-DR7): the search field, the filter
@@ -43,8 +39,7 @@ import { useFavorites } from "./use-favorites";
 // switching pills needs no request and a heart that changes shows at once.
 // Each row's status ("Kan lagas nu" or "Saknar N varor") comes with it from
 // the server; Kan lagas nu ranks the rows by it (fewest missing first) without
-// a request, and has AI-förslag at the bottom (AiSuggestions). Their state is
-// held here, so the suggestions stay while the pills change. With more than
+// a request (the AI ideas are in Matsedel, Story 25.3). With more than
 // one place, Kan lagas nu says which place the status is counted against
 // ("Boende: Stugan", AD-24), under the pills, so the pill tapped never moves.
 // Under them are the category chips (Story 1.17), and the line with the count,
@@ -102,21 +97,15 @@ export type LibraryProps = {
    * the line "Boende: Stugan" in Kan lagas nu; `null` without a status.
    */
   site: SelectedSite | null;
-  /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
-  searchIngredients: SearchIngredients;
-  /** The names of Pontus's places by id, for "Förslagen bygger på matvarorna för Hemma." (Story 12.4). */
-  siteNames?: Readonly<Record<string, string>>;
-  /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on suggestions from offers (Story 9.5). */
+  /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on the cards in planning mode. */
   addToPlan?: AddToPlan;
-  /** suggestions.ownRecipesWithOffers (Story 16.3). */
-  ownRecipes?: OwnRecipesRead;
   /** Planning mode (Story 13.8): the day recipes are put on. */
   planning?: PlanningTarget;
   /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
   offers?: LibraryOffers;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, planning, offers }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, addToPlan, planning, offers }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   const [view, setView] = useRecipeView();
@@ -127,20 +116,6 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   // Story 9.10: the first time Erbjudanden is shown with offers that have no ingredient, the AI links them (once per visit).
   const [matching, setMatching] = useState(false);
   const matchAsked = useRef(false);
-  // AI-förslag are of the place the server's list is counted against. They are in
-  // Kan lagas nu, and a finished job is shown there and nowhere else.
-  const dishes = useDishSuggestions(site?.id ?? null, { visible: filter === "cookable", siteNames });
-  // A finished AI job that has not been shown is revealed (Story 12.4): when the
-  // library opens with one, and when Pontus taps "Visa" in the confirmation for
-  // it, the filter is set to Kan lagas nu, where the suggestions are.
-  const handledReveals = useRef<number | null>(null);
-  useEffect(() => {
-    if (filter === null || !dishes.jobsLoaded) return;
-    const first = handledReveals.current === null;
-    const asked = !first && handledReveals.current !== dishes.reveals;
-    handledReveals.current = dishes.reveals;
-    if ((first || asked) && dishes.unseenResult && filter !== "cookable") setFilter("cookable");
-  }, [filter, dishes.jobsLoaded, dishes.reveals, dishes.unseenResult, setFilter]);
   const matchOffers = offers?.match;
   const unlinked = offers?.unlinked ?? 0;
   useEffect(() => {
@@ -384,19 +359,6 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         ) : null}
         {content}
       </div>
-      {/* No button after a failed search: the notice there is the way forward; a call on its
-          way and the suggestions stay. AI-förslag are offered when the pantry could not be
-          read too: the server reads it again. */}
-      {cookable ? (
-        <AiSuggestions
-          dishes={dishes}
-          searchIngredients={searchIngredients}
-          offerButton={search.kind !== "failed"}
-          addToPlan={addToPlan}
-          ownRecipes={ownRecipes}
-          planning={planning}
-        />
-      ) : null}
       {offers ? (
         <OffersSheetControlContext.Provider value={{ open: offersOpen, onClose: () => setOffersOpen(false) }}>{offers.sheet}</OffersSheetControlContext.Provider>
       ) : null}

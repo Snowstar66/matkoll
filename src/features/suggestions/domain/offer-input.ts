@@ -62,11 +62,6 @@ export function offersUsed(
   return labels;
 }
 
-/** "3 av 6 hemma": how many of a dish's ingredients are at home. */
-export function atHomeText({ have, total }: { have: number; total: number }): string {
-  return `${have} av ${total} hemma`;
-}
-
 /**
  * One line of a dish, as toBuyNames reads it. `amount` and `unit` are for the
  * household's Basvaror's limits; without them the line counts as a small
@@ -115,23 +110,4 @@ export function toBuyNames(
  */
 export function missingCount(lines: readonly DishLine[], staples: StapleRules = noStaples): number {
   return toBuyNames([], lines.filter((line) => line.amount != null), staples).length;
-}
-
-/** At most this many names after "köp till: ", the rest as "+2". */
-const maxBuyNames = 3;
-
-/**
- * The one line on a suggestion card that says why it is good: "3 på
- * erbjudande · 1 hemma · köp till: potatis", "köp till: potatis, grädde, lök +2",
- * or "allt hemma eller på erbjudande" when nothing is left to buy.
- */
-export function whyText({ onOffer, have, toBuy }: { onOffer: number; have: number; toBuy: readonly string[] }): string {
-  if (toBuy.length === 0) return "allt hemma eller på erbjudande";
-  const parts: string[] = [];
-  if (onOffer > 0) parts.push(`${onOffer} på erbjudande`);
-  if (have > 0) parts.push(`${have} hemma`);
-  const shown = toBuy.slice(0, maxBuyNames).join(", ");
-  const more = toBuy.length > maxBuyNames ? ` +${toBuy.length - maxBuyNames}` : "";
-  parts.push(`köp till: ${shown}${more}`);
-  return parts.join(" · ");
 }

@@ -7,7 +7,7 @@ import type { OldPantryItem } from "@/features/pantry";
 import { getPantryForStatus, listOldPantryItems, PantryDataError } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { storeBadgeText, type StoreOffer } from "@/features/offers";
-import { getAiServiceForUser, getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
+import { getAiServiceForUser, listStores, SettingsDataError } from "@/features/settings/server";
 import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { suggestInputLimits } from "@/lib/suggest-input";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -103,18 +103,19 @@ function linkedIds(draft: RecipeDraft): string[] {
 }
 
 /**
- * The active offers of the store `storeId` (Story 9.13), else the selected store's (Story 9.5), for the dishes built around
- * them. `offers_store_missing` without a store, `offers_none` without offers
- * and `offers_unavailable` when the store or the offers cannot be read
- * (logged, codes only).
+ * The active offers of the store `storeId` (Story 9.13), else of all the
+ * user's stores (Story 25.3: no store choice in the flow), for the dishes
+ * built around them. `offers_store_missing` without a store, `offers_none`
+ * without offers and `offers_unavailable` when the stores or the offers
+ * cannot be read (logged, codes only).
  */
 async function readOffers(storeId?: string): Promise<Result<{ offers: StoreOffer[]; storeName: string }>> {
   try {
-    // Story 9.13: a given store (one of the user's own), else the selected one.
-    const store = storeId ? ((await listStores()).find((candidate) => candidate.id === storeId) ?? null) : await getSelectedStore();
-    if (!store) return fail("offers_store_missing");
-    const offers = await getActiveOffers(store.id);
-    return offers.length > 0 ? ok({ offers, storeName: store.name }) : fail("offers_none");
+    const stores = await listStores();
+    const chosen = storeId ? stores.filter((candidate) => candidate.id === storeId) : stores;
+    if (chosen.length === 0) return fail("offers_store_missing");
+    const offers = (await Promise.all(chosen.map((store) => getActiveOffers(store.id)))).flat();
+    return offers.length > 0 ? ok({ offers, storeName: chosen[0].name }) : fail("offers_none");
   } catch (error) {
     if (!(error instanceof SettingsDataError || error instanceof OffersDataError)) throw error;
     console.error("offers_unavailable", { reason: error.detail });
