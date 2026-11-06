@@ -209,7 +209,7 @@ test("the list groups the lines by category, with the dishes under each name and
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
   // The categories of Matvaror (Story 11.4): salt is a seasoning.
-  await expect(sectionHeadings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
+  await expect(sectionHeadings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Torrvaror & konserver", "Såser & smaksättare", "Övrigt"]);
   await expect(lines(page)).toHaveCount(5);
   // An amount without unit counts as st.
   // The dishes were just planned: every line has the mint "Ny", said "ny" after the name.
