@@ -83,6 +83,9 @@ test("the owner invites an address, the guest makes an account with the code, an
   await expect(ask).toContainText("Det går inte att ångra.");
   await ask.getByRole("button", { name: "Avbryt" }).click();
   await expect(row).toHaveCount(1);
+  // A second pointer press on a bin within 400 ms (trashPressGuardMs) of the first is ignored on purpose,
+  // so the dialog would not open again on a fast machine (CI).
+  await owner.waitForTimeout(500);
   await row.getByRole("button", { name: `Ta bort ${guestEmail}` }).click();
   await ask.getByRole("button", { name: "Ta bort" }).click();
   await expect(owner.getByTestId("app-invite-row")).toHaveCount(0);
