@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
 import { Chip } from "@/components/chip";
 import { CloseIcon } from "@/components/icons";
-import { FixedAction } from "@/components/fixed-action";
-import { buttonClasses } from "@/components/button";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { optionsForTab, onWeekIds, type PlanOption, type PlanTab } from "@/features/suggestions";
@@ -25,7 +23,6 @@ import {
   type WeekdayChange,
 } from "../domain/meal-plan";
 import { addedToWeekText, changeDayLabel, dayChipText, dishFromRow, dishNoteText, onWeekLabel, shownDishes, weekBarText } from "../domain/planner";
-import { weekQuery } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
 
@@ -116,7 +113,7 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
     dishIds.current.delete(option.id);
     const row = result.data;
     setAdded((current) => [...current, dishFromRow(row)]);
-    showToast(addedToWeekText(option.title, option.buy, row.weekday ?? null), {
+    showToast(addedToWeekText(option.title, option.buyNames, row.weekday ?? null), {
       show: { label: changeDayLabel(row.weekday), onShow: () => setDayFor(row.id) },
     });
     router.refresh();
@@ -212,9 +209,17 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
   return (
     <div className="flex flex-col gap-5">
       <section aria-labelledby="week-dishes-heading" className="flex flex-col gap-2">
-        <h2 id="week-dishes-heading" className="text-section-title text-ink">
-          Veckans rätter
-        </h2>
+        <div className="flex flex-col gap-0.5">
+          <h2 id="week-dishes-heading" className="text-section-title text-ink">
+            Veckans rätter
+          </h2>
+          {/* The count once lay in a bar with "Inköpslistan"; the tab bar already goes there, so only the count stays. */}
+          {shown.length > 0 ? (
+            <p data-testid="week-bar-count" className="text-meta text-ink-2">
+              {weekBarText(shown.length, toBuy)}
+            </p>
+          ) : null}
+        </div>
         {shown.length === 0 ? (
           <p data-testid="week-empty" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
             Inga rätter än. Välj bland dina recept här under.
@@ -316,19 +321,6 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
         servings={dayDish ? { value: portions[dayDish.id] ?? dayDish.servings, onChange: (value) => void changeServings(dayDish, value) } : undefined}
       />
 
-      <FixedAction glass>
-        <div data-testid="week-bar" className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-col">
-            <p data-testid="week-bar-count" className="text-row-title text-ink">
-              {weekBarText(shown.length, toBuy)}
-            </p>
-            <p className="text-meta text-ink-2">Det du har hemma räknas bort.</p>
-          </div>
-          <Link href={`/lista${weekQuery(weekStart)}`} className={`${buttonClasses("primary")} shrink-0`}>
-            Inköpslistan
-          </Link>
-        </div>
-      </FixedAction>
     </div>
   );
 }

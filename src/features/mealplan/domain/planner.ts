@@ -10,12 +10,21 @@ export function itemsText(count: number): string {
 }
 
 /**
- * The toast after "+": "Korvstroganoff på torsdag. 3 varor på listan.", or,
- * when the week is full, "Korvstroganoff på veckan. Alla dagar har en rätt. 3 varor på listan."
+ * The toast after "+", naming what went on the list (like the recipe page's):
+ * "Korvstroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan.", or,
+ * when the week is full, "Korvstroganoff på veckan. Alla dagar har en rätt. …".
  */
-export function addedToWeekText(title: string, buy: number, weekday: number | null = null): string {
+export function addedToWeekText(title: string, buyNames: readonly string[], weekday: number | null = null): string {
   const where = weekday ? `${title} på ${weekdayWord(weekday)}.` : `${title} på veckan. Alla dagar har en rätt.`;
-  return buy > 0 ? `${where} ${itemsText(buy)} på listan.` : `${where} Inget att köpa.`;
+  return buyNames.length > 0 ? `${where} ${buyNamesText(buyNames)} står på inköpslistan.` : `${where} Inget att köpa.`;
+}
+
+/** "Falukorv, grädde och ris", or "Falukorv, grädde, ris och 2 till": what an added dish put on the list. */
+export function buyNamesText(names: readonly string[]): string {
+  const shown = names.slice(0, 3).map((name, index) => (index === 0 ? name.charAt(0).toUpperCase() + name.slice(1) : name));
+  if (names.length > 3) return `${shown.join(", ")} och ${names.length - 3} till`;
+  if (shown.length <= 1) return shown.join("");
+  return `${shown.slice(0, -1).join(", ")} och ${shown.at(-1)}`;
 }
 
 /** The action of the toast after an add: "Byt dag" when it got a day, else "Välj dag". */

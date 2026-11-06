@@ -29,11 +29,12 @@ const option = (n: number, title: string, extra: Partial<PlanOption> = {}): Plan
   cookedTimes: 0,
   meta: "30 min",
   buy: 2,
+  buyNames: ["tomat", "lök"],
   deal: null,
   ...extra,
 });
 
-const tacos = option(1, "Tacos", { isFavorite: true, cookedTimes: 9, meta: "Favorit · lagad 9 gånger", buy: 4 });
+const tacos = option(1, "Tacos", { isFavorite: true, cookedTimes: 9, meta: "Favorit · lagad 9 gånger", buy: 4, buyNames: ["tortillabröd", "gräddfil", "tomat", "ost"] });
 const korv = option(2, "Korvstroganoff", {
   isFavorite: true,
   meta: "Favorit · 30 min",
@@ -135,7 +136,7 @@ describe("WeekPlanner, adding without a day", () => {
     expect(dish).toHaveTextContent("Tacos");
     expect(within(dish).getByTestId("dish-day")).toHaveTextContent("Tor");
     expect(within(dish).getByTestId("dish-note")).toHaveTextContent("4 varor att köpa");
-    expect(screen.getByRole("status")).toHaveTextContent("Tacos på torsdag. 4 varor på listan.");
+    expect(screen.getByRole("status")).toHaveTextContent("Tacos på torsdag. Tortillabröd, gräddfil, tomat och 1 till står på inköpslistan.");
     expect(screen.getByRole("button", { name: "Byt dag" })).toBeInTheDocument();
     expect(refresh).toHaveBeenCalled();
     // The row now says the day instead of +.
@@ -153,7 +154,7 @@ describe("WeekPlanner, adding without a day", () => {
     renderPlanner();
     await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
     expect(await screen.findByTestId("plan-dish")).toHaveTextContent("Ingen dag");
-    expect(screen.getByRole("status")).toHaveTextContent("Tacos på veckan. Alla dagar har en rätt. 4 varor på listan.");
+    expect(screen.getByRole("status")).toHaveTextContent("Tacos på veckan. Alla dagar har en rätt. Tortillabröd, gräddfil, tomat och 1 till står på inköpslistan.");
     expect(screen.getByRole("button", { name: "Välj dag" })).toBeInTheDocument();
     expect(within(screen.getAllByTestId("plan-option")[0]).getByTestId("on-week")).toHaveTextContent("På veckan");
   });
@@ -232,10 +233,9 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     expect(screen.getByTestId("plan-dish")).toBeInTheDocument();
   });
 
-  it("says dishes and items to buy in the bar, with Inköpslistan leading to the list of the week", () => {
+  it("says dishes and items to buy under Veckans rätter, with no button of its own to the list (the tab bar goes there)", () => {
     renderPlanner([onWeek(1, "Tacos"), onWeek(2, "Korvstroganoff")], options, 6);
     expect(screen.getByTestId("week-bar-count")).toHaveTextContent("2 rätter · 6 varor att köpa");
-    expect(screen.getByTestId("week-bar")).toHaveTextContent("Det du har hemma räknas bort.");
-    expect(screen.getByRole("link", { name: "Inköpslistan" })).toHaveAttribute("href", "/lista");
+    expect(screen.queryByRole("link", { name: "Inköpslistan" })).not.toBeInTheDocument();
   });
 });

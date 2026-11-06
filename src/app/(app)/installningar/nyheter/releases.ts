@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-06",
+    title: "Matsedeln säger vad som hamnar på listan",
+    bullets: [
+      "När du lägger en rätt på veckan står det vilka varor som hamnade på inköpslistan, till exempel Tortillabröd, gräddfil och tomat står på inköpslistan.",
+      "Den stora knappen Inköpslistan längst ner på Matsedel är borta. Inköpslistan finns i menyn längst ner, och hur många rätter och varor veckan har står under Veckans rätter.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Nya idéer med extrapris",
     bullets: [
       "Under Rätter med extrapris i Veckans erbjudanden kan du trycka på Nya idéer med extrapris och få två eller tre nya rätter som bygger på veckans extrapriser och det du har hemma.",

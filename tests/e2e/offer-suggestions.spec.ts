@@ -210,7 +210,8 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
 
   await page.goto("/matsedel");
   await expect(page.getByTestId("week-empty")).toBeVisible();
-  await expect(bar(page)).toHaveText("0 rätter · 0 varor att köpa");
+  // An empty week says "Inga rätter än" instead of a count.
+  await expect(bar(page)).toHaveCount(0);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
@@ -223,7 +224,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   const today = todayDay();
   const short = dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase());
   await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(short);
-  await expect(toast(page)).toContainText(new RegExp(`Falukorv med potatismos på ${dayWords[today - 1]}\\. \\d+ var(a|or) på listan\\.`));
+  await expect(toast(page)).toContainText(new RegExp(`Falukorv med potatismos på ${dayWords[today - 1]}\\. .+ står på inköpslistan\\.`));
   await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
   await expect(row.getByTestId("on-week")).toHaveText(short);
   await expect(bar(page)).toHaveText(/^1 rätt · [1-9]\d* var(a|or) att köpa$/);
@@ -232,11 +233,11 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   const plan = await adminClient().from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
   expect(plan.data).toEqual([{ recipe_title: "Falukorv med potatismos", weekday: today }]);
 
-  // "Byt dag" picks a day; the chip says it, and the list is one tap away.
+  // "Byt dag" picks a day; the chip says it, and the list is one tab away.
   await toast(page).getByRole("button", { name: "Byt dag" }).click();
   await page.getByRole("dialog", { name: /Flytta till dag/ }).getByRole("button", { name: "Onsdag" }).click();
   await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ons");
-  await page.getByRole("link", { name: "Inköpslistan" }).click();
+  await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: /^Inköpslista/ }).click();
   await expect(page).toHaveURL(/\/lista$/);
   await expect(page.getByTestId("shopping-line").filter({ visible: true }).first()).toContainText(/falukorv/i);
 
