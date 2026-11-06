@@ -75,7 +75,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
 
   // Put it on the meal plan.
   await page.getByRole("button", { name: "Lägg på matsedeln" }).filter({ visible: true }).click();
-  await expect(toast(page)).toHaveText("Lagt på matsedeln.");
+  await expect(toast(page)).toContainText("På veckans matsedel.");
 
   // Lista: check one line off and put it in the pantry.
   await tab(page, "Inköpslista").click();

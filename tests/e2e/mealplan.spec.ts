@@ -181,14 +181,50 @@ test("Alla recept lists every recipe, and what is not at home counts in the bar"
   expect(errors).toEqual([]);
 });
 
-test("Lägg på matsedeln in the recipe view adds the same recipe once more", async ({ page }) => {
+test("Lägg på matsedeln in the recipe view is one tap onto this week without a day, and Välj dag is optional", async ({ page }) => {
   const errors = watchErrors(page);
+  const admin = adminClient();
+  // Start with the recipe off the plan; the duplicate is put back at the end, as the next tests expect it.
+  const before = await admin.from("meal_plan_recipe").select("id").eq("user_id", userId).eq("recipe_title", gryta);
+  if (before.error) throw before.error;
+  for (const row of before.data) {
+    const removed = await admin.from("meal_plan_recipe").delete().eq("id", row.id);
+    if (removed.error) throw removed.error;
+  }
   await page.goto(`/recept/${recipeIds[gryta]}`);
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
-  await expect(toast(page)).toHaveText("Lagt på matsedeln.");
-  expect(await dishCount()).toBe(3);
+  await expect(toast(page)).toContainText("På veckans matsedel.");
+  const added = await admin.from("meal_plan_recipe").select("id, weekday, servings, position, meal_plan_id").eq("user_id", userId).eq("recipe_title", gryta).single();
+  if (added.error) throw added.error;
+  expect(added.data.weekday).toBeNull();
+  expect(await dishCount()).toBe(2);
 
-  // A client navigation shows the plan the action revalidated.
+  // Only the day is left to choose, and it is optional.
+  await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln denna vecka");
+  await page.getByRole("button", { name: "Välj dag" }).click();
+  await page.getByRole("dialog", { name: "Vilken dag?" }).getByRole("button", { name: "Onsdag" }).click();
+  await expect(page.getByRole("button", { name: "Byt dag" })).toBeVisible();
+  await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln på onsdag");
+  await expect
+    .poll(async () => (await admin.from("meal_plan_recipe").select("weekday").eq("id", added.data.id).single()).data?.weekday)
+    .toBe(3);
+  await page.getByRole("button", { name: "Byt dag" }).click();
+  await page.getByRole("dialog", { name: "Vilken dag?" }).getByRole("button", { name: "Ingen dag" }).click();
+  await expect
+    .poll(async () => (await admin.from("meal_plan_recipe").select("weekday").eq("id", added.data.id).single()).data?.weekday)
+    .toBeNull();
+
+  // Put the second dish of the same recipe back for the tests that follow.
+  const copy = await admin.from("meal_plan_recipe").insert({
+    user_id: userId,
+    meal_plan_id: added.data.meal_plan_id,
+    recipe_id: recipeIds[gryta],
+    recipe_title: gryta,
+    servings: added.data.servings,
+    position: added.data.position + 1,
+  });
+  if (copy.error) throw copy.error;
+
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(dishes(page)).toHaveCount(3);

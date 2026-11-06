@@ -36,6 +36,9 @@ export { MealPlanDataError } from "./data/client";
  */
 export { addToCurrentPlan } from "./actions/add-to-current-plan";
 
+/** Server Action for "Välj dag" / "Byt dag" in the recipe view (Story 25.1), passed down by the page (AD-1). */
+export { setWeekday } from "./actions/set-weekday";
+
 /**
  * The signed-in user's current meal plan with its dishes in order (`id`,
  * `recipeId`, `recipeTitle`, `servings`, `position`), or `null` when there is

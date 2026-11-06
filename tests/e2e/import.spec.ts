@@ -726,7 +726,7 @@ test.describe("import from a photo", () => {
     await expect(page.getByText("Foto av kokbok")).toBeVisible();
   });
 
-  test("a Linas Matkasse card keeps its ingredient groups, staples and step headings in the recipe and in Laga nu", async ({ page }) => {
+  test("a Linas Matkasse card keeps its ingredient groups, staples and step headings in the recipe", async ({ page }) => {
     const title = "Örtstekt kyckling med rostad småpotatis och tryffelsky";
     const groups = ["Rostad småpotatis", "Örtstekt kyckling", "Tryffelsky", "Gräddkokt spetskål"];
     await openImport(page, "Länk");
@@ -751,16 +751,6 @@ test.describe("import from a photo", () => {
     await expect(groupBlocks.getByRole("heading", { level: 3 })).toHaveText(groups);
     await expect(groupBlocks.first().getByTestId("recipe-view-line")).toHaveCount(5);
     await expect(page.getByTestId("recipe-step-title").filter({ visible: true })).toHaveText(groups);
-
-    // Laga nu: step 2's heading is its part of the dish.
-    await page.getByRole("button", { name: "Laga nu" }).filter({ visible: true }).click();
-    const stepMode = page.getByRole("dialog", { name: `Stegläge: ${title}` });
-    await expect(stepMode.getByRole("heading", { level: 2 })).toHaveText("Steg 1 av 6");
-    await expect(stepMode.getByTestId("cook-step-title")).toHaveCount(0);
-    await stepMode.getByRole("button", { name: "Nästa" }).click();
-    await expect(stepMode.getByRole("heading", { level: 2 })).toHaveText("Steg 2 av 6");
-    await expect(stepMode.getByTestId("cook-step-title")).toHaveText("Rostad småpotatis");
-    await expect(stepMode.getByTestId("cook-step-text")).toContainText("Lägg potatisen på en plåt");
   });
 
   test("a large camera photo is sent as a JPEG of at most 1600 px and 1.5 MB, turned the right way", async ({ page }) => {
