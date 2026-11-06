@@ -67,7 +67,7 @@ describe("Snabbkamera", () => {
   it("asks for the back camera and shows the room and the count", async () => {
     await openCamera();
     expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ audio: false, video: expect.objectContaining({ facingMode: "environment" }) }));
-    expect(screen.getByRole("dialog", { name: "Snabbkamera, Garaget" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Kamera, Garaget" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Garaget" })).toBeInTheDocument();
     expect(screen.getByTestId("quick-camera-count")).toHaveTextContent("0 kort");
     expect(screen.getByTestId("quick-camera-done")).toBeDisabled();
@@ -166,12 +166,12 @@ describe("Snabbkamera", () => {
     expect(trackStop).toHaveBeenCalled();
   });
 
-  it("says calmly when the camera is not allowed, and offers Ta foto", async () => {
+  it("says calmly when the camera is not allowed, and offers Välj från album", async () => {
     getUserMedia.mockRejectedValue(Object.assign(new Error("denied"), { name: "NotAllowedError" }));
     const onFallback = vi.fn();
     render(<QuickCamera room="Garaget" onCancel={vi.fn()} onDone={vi.fn()} onFallback={onFallback} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Kameran är inte tillåten");
-    await userEvent.click(screen.getByRole("button", { name: "Använd Ta foto" }));
+    await userEvent.click(screen.getByRole("button", { name: "Välj från album" }));
     expect(onFallback).toHaveBeenCalled();
   });
 
@@ -187,7 +187,7 @@ describe("Snabbkamera on a room's page", () => {
     ensureCapturePlace.mockResolvedValue(ok({ placeId: place }));
     send.mockResolvedValue(2);
     render(<TakeCard siteId={site} rooms={["Garaget"]} defaultRoom="Garaget" variant="default" layout="room" title="Ta fler kort" />);
-    await userEvent.click(screen.getByRole("button", { name: /Snabbkamera/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Fota/ }));
     await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
     await act(async () => {});
     fireEvent.loadedMetadata(screen.getByTestId("quick-camera-video"));

@@ -4,6 +4,7 @@ import {
   favoriteChangeSchema,
   filterByCategory,
   filterRecipes,
+  nearlyCookable,
   parseRecipeFilter,
   parseRecipeSort,
   offerTagsShown,
@@ -83,35 +84,15 @@ describe("filterRecipes for Kan lagas nu", () => {
   const cookable = (recipes: readonly Row[]) =>
     filterRecipes(recipes, "cookable", () => false).map(({ id, missingCount }) => `${id}:${missingCount}`);
 
-  it("keeps every recipe, fewest missing first, the cookable ones newest first", () => {
-    expect(cookable(list(2, 0, 1, 0))).toEqual(["r1:0", "r3:0", "r2:1", "r0:2"]);
+  it("keeps only the recipes with nothing missing, in the given order", () => {
+    expect(cookable(list(2, 0, 1, 0))).toEqual(["r1:0", "r3:0"]);
   });
 
-  it("puts the newest first among equal N, whatever order the rows come in, then sorts by id", () => {
-    const [newest, middle, oldest] = list(1, 1, 1);
-    expect(cookable([oldest, newest, middle])).toEqual(["r0:1", "r1:1", "r2:1"]);
-    const twin = { ...middle, id: "r1-twin" };
-    expect(cookable([twin, oldest, middle, newest])).toEqual(["r0:1", "r1:1", "r1-twin:1", "r2:1"]);
-  });
-
-  it("ranks the list when nothing can be cooked now", () => {
-    expect(cookable(list(3, 1, 2))).toEqual(["r1:1", "r2:2", "r0:3"]);
-  });
-
-  it("keeps newest first when no row has a status", () => {
-    const [a, b, c] = list(null, null, null);
-    expect(cookable([c, a, b])).toEqual(["r0:null", "r1:null", "r2:null"]);
-  });
-
-  it("puts rows without a status last, newest first among them, after the ranked ones", () => {
-    expect(cookable(list(null, 2, null, 0))).toEqual(["r3:0", "r1:2", "r0:null", "r2:null"]);
-  });
-
-  it("treats a count that is not a finite number of at least 0 as no status", () => {
-    const rows = list(1, 0, null, null, null, null).map((row, index) =>
-      index < 2 ? row : { ...row, missingCount: [-1, Number.NaN, Number.POSITIVE_INFINITY, "2" as unknown as number][index - 2] },
+  it("leaves out rows without a status, and counts that are not a finite number of at least 0", () => {
+    const rows = list(0, null, 0, 0, 0).map((row, index) =>
+      index < 3 ? row : { ...row, missingCount: [-1, Number.NaN][index - 3] },
     );
-    expect(filterRecipes(rows, "cookable", () => false).map(({ id }) => id)).toEqual(["r1", "r0", "r2", "r3", "r4", "r5"]);
+    expect(filterRecipes(rows, "cookable", () => false).map(({ id }) => id)).toEqual(["r0", "r2"]);
   });
 
   it("does not change the input", () => {
@@ -120,12 +101,17 @@ describe("filterRecipes for Kan lagas nu", () => {
     const ranked = filterRecipes(recipes, "cookable", () => false);
     expect(recipes).toEqual(before);
     expect(ranked).not.toBe(recipes);
-    expect(filterRecipes(recipes, "all", () => false)).not.toBe(recipes);
   });
 
   it("ignores favourites", () => {
-    const recipes = list(1, 0);
-    expect(filterRecipes(recipes, "cookable", ({ id }) => id === "r0").map(({ id }) => id)).toEqual(["r1", "r0"]);
+    expect(filterRecipes(list(1, 0), "cookable", ({ id }) => id === "r0").map(({ id }) => id)).toEqual(["r1"]);
+  });
+});
+
+describe("nearlyCookable", () => {
+  it("keeps recipes missing 1 or 2, fewest first and stable, and drops 0, 3+ and no status", () => {
+    const rows = [3, 2, 0, 1, null, 2, 11].map((missingCount, i) => ({ id: `r${i}`, missingCount }));
+    expect(nearlyCookable(rows).map(({ id }) => id)).toEqual(["r3", "r1", "r5"]);
   });
 });
 

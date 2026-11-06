@@ -29,7 +29,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Recept",
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
-      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
+      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
       { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
@@ -143,7 +143,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Förråd",
     steps: [
       { icon: "door", title: "Börja med ett rum", text: "Tryck + Nytt rum, till exempel Förrådet eller Garaget." },
-      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Ta foto. ${appName} listar ${things}en på bilden.` },
+      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Fota. ${appName} listar ${things}en på bilden.` },
       { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
     ],
     faq: [

@@ -1,4 +1,4 @@
-// Snabbkamera (Story 18.10): the in-app camera on a room's page. Tap, tap, tap:
+// Kameran (Story 18.10): the in-app camera on a room's page. Tap, tap, tap:
 // every tap is a shot in the strip, an × drops one, and "Klar" sends them all,
 // in the order they were taken, each as its own card. Pure.
 
@@ -32,11 +32,10 @@ export function cameraProblem(error: unknown): CameraProblem {
   return name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError" ? "denied" : "missing";
 }
 
-export const quickCameraText = "Snabbkamera";
-export const quickCameraHintText = "Tryck, tryck, tryck – Klar skickar alla";
+export const quickCameraText = "Fota";
 export const shutterText = "Ta kort";
 export const startingCameraText = "Startar kameran …";
-export const fallbackCameraText = "Använd Ta foto";
+export const fallbackCameraText = "Välj från album";
 
 /** "3 kort" in the top right corner. */
 export function shotCountText(count: number): string {
@@ -64,6 +63,6 @@ export function sendShotsLabel(count: number): string {
 /** The calm line when the camera cannot start, and what to do instead. */
 export function cameraProblemText(problem: CameraProblem): string {
   return problem === "denied"
-    ? "Kameran är inte tillåten för appen. Du kan tillåta den i webbläsarens inställningar, eller ta ett foto i taget med Ta foto."
-    : "Hittar ingen kamera här. Ta ett foto i taget med Ta foto, eller välj bilder.";
+    ? "Kameran är inte tillåten för appen. Du kan tillåta den i webbläsarens inställningar, eller välj bilder från albumet."
+    : "Hittar ingen kamera här. Välj bilder från albumet i stället.";
 }

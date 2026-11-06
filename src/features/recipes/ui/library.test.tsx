@@ -159,9 +159,9 @@ describe("Library, the line Boende", () => {
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
     searchSite = { ...stugan, name: "Hemma" };
-    searchRecipes.mockResolvedValueOnce(ok([soppa]));
+    searchRecipes.mockResolvedValueOnce(ok([gryta]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
-    await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
+    await waitFor(() => expect(titles()).toEqual(["Krämig kycklinggryta"]));
     expect(screen.getByText("Boende: Hemma")).toBeInTheDocument();
     expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     // Back to the server's list: the server's place.
@@ -188,10 +188,10 @@ describe("Library, the line Boende", () => {
     expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
 
     searchPantryUnavailable = true;
-    searchRecipes.mockResolvedValueOnce(ok([{ ...soppa, missingCount: null }]));
+    searchRecipes.mockResolvedValueOnce(ok([recipe(5, "Omelett", { missingCount: null })]));
     await user.clear(field);
-    await user.type(field, "sop{Enter}");
-    await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
+    await user.type(field, "ome{Enter}");
+    await screen.findByText("Inget kan lagas helt just nu.");
     expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
@@ -366,29 +366,73 @@ describe("Library", () => {
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
 
-  it("ranks every recipe on Kan lagas nu, fewest missing first and newest first within, and keeps the choice", async () => {
+  it("shows only the recipes with nothing missing on Kan lagas nu, newest first, and keeps the choice", async () => {
     const user = userEvent.setup();
     const { unmount } = renderLibrary(ranking);
     expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Pannkakor", "Fiskgratäng"]);
     await user.click(pill("Kan lagas nu"));
     expect(pressed("Kan lagas nu")).not.toBeNull();
-    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
-    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng"]);
+    expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
     expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("cookable");
     unmount();
 
     renderLibrary(ranking);
     expect(pressed("Kan lagas nu")).not.toBeNull();
-    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng"]);
   });
 
-  it("ranks again when the server list comes back with new statuses (the pantry changed)", async () => {
+  it("has a collapsed row Nästan (N) with the recipes missing one or two, each saying what", async () => {
+    const user = userEvent.setup();
+    const names = { missingNames: ["grädde", "dill"] };
+    const many = [
+      recipe(5, "Sju saknas", { missingCount: 7, createdAt: "2026-10-09T08:00:00+00:00" }),
+      { ...soppa, ...names },
+      { ...pannkakor, missingNames: ["grädde"] },
+      gryta,
+    ];
+    renderLibrary(many);
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Krämig kycklinggryta"]);
+    const toggle = screen.getByRole("button", { name: "Nästan (2)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("nearly-row")).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const rows = screen.getAllByTestId("nearly-row");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Pannkakor"),
+      expect.stringContaining("Linssoppa"),
+    ]);
+    expect(within(rows[0]).getByText("Saknar grädde")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Saknar grädde, dill")).toBeInTheDocument();
+    expect(screen.queryByText("Sju saknas")).not.toBeInTheDocument();
+  });
+
+  it("says Inget kan lagas helt just nu. with the Nästan row when nothing is cookable", async () => {
+    const user = userEvent.setup();
+    renderLibrary([soppa, pannkakor, recipe(5, "Sju saknas", { missingCount: 7 })]);
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual([]);
+    expect(screen.getByText("Inget kan lagas helt just nu.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nästan (2)" })).toBeInTheDocument();
+  });
+
+  it("has neither Nästan nor the empty text when the only recipes miss 3 or more but shows the empty text", async () => {
+    const user = userEvent.setup();
+    renderLibrary([recipe(5, "Sju saknas", { missingCount: 7 })]);
+    await user.click(pill("Kan lagas nu"));
+    expect(screen.getByText("Inget kan lagas helt just nu.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Nästan/ })).not.toBeInTheDocument();
+  });
+
+  it("shows a recipe again when the server list comes back with new statuses (the pantry changed)", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
-    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng"]);
     act(() => rerenderServer?.(ranking.map((item) => (item.id === soppa.id ? { ...item, missingCount: 0 } : item))));
-    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Fiskgratäng", "Pannkakor"]);
+    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Fiskgratäng"]);
     const [first] = screen.getAllByTestId("recipe-card");
     expect(within(first).getByText("Kan lagas nu")).toBeInTheDocument();
   });
@@ -401,19 +445,19 @@ describe("Library", () => {
     expect(pill("Kan lagas nu")).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(pressed("Kan lagas nu")).not.toBeNull();
-    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng"]);
     await user.keyboard(" ");
     expectAll();
   });
 
-
-  it("ranks the search hits on Kan lagas nu", async () => {
+  it("filters the search hits on Kan lagas nu", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     searchRecipes.mockResolvedValueOnce(ok([soppa, pannkakor, fisk]));
     await user.type(screen.getByRole("searchbox"), "lök{Enter}");
-    await waitFor(() => expect(titles()).toEqual(["Fiskgratäng", "Pannkakor", "Linssoppa"]));
+    await waitFor(() => expect(titles()).toEqual(["Fiskgratäng"]));
+    expect(screen.getByRole("button", { name: "Nästan (2)" })).toBeInTheDocument();
     expect(searchRecipes).toHaveBeenCalledWith("lök");
   });
 
@@ -458,7 +502,7 @@ describe("Library", () => {
     expect(within(results).getByRole("status")).toBeEmptyDOMElement();
   });
 
-  it("ranks rows without a status last, without the notice, when the pantry was read", async () => {
+  it("leaves out rows without a status, without the notice, when the pantry was read", async () => {
     const user = userEvent.setup();
     // Newest first: no status, 2, no status, 0.
     const mixed = [
@@ -469,8 +513,8 @@ describe("Library", () => {
     ];
     renderLibrary(mixed);
     await user.click(pill("Kan lagas nu"));
-    expect(titles()).toEqual(["Fiskgratäng", "Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
-    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
+    expect(titles()).toEqual(["Fiskgratäng"]);
+    expect(screen.getByRole("button", { name: "Nästan (1)" })).toBeInTheDocument();
     expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
   });
 
@@ -488,12 +532,11 @@ describe("Library", () => {
 
     // A recipe saved since the page was rendered, found with a readable pantry.
     searchPantryUnavailable = false;
-    const nytt = recipe(5, "Omelett", { missingCount: 1 });
+    const nytt = recipe(5, "Omelett", { missingCount: 0 });
     searchRecipes.mockResolvedValueOnce(ok([unread[0], nytt]));
     await user.type(screen.getByRole("searchbox"), "b{Enter}");
-    await waitFor(() => expect(titles()).toEqual(["Omelett", "Linssoppa"]));
+    await waitFor(() => expect(titles()).toEqual(["Omelett"]));
     expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
   });
 
   it("toggles a heart at once and saves it", async () => {

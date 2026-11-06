@@ -1,21 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Segment } from "@/components/segment";
+import { useCallback, useEffect, useMemo } from "react";
+import { GridIcon, ListIcon } from "@/components/icons";
+import { Segment, type SegmentOption } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { useAiJobs, useOnAiJobsFinished, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { unseenText, type ThingCategory } from "../domain/thing";
+import { type ClosedBox } from "../domain/thing-closed";
 import { moreCardsText } from "../domain/capture";
 import { isJobInRoom } from "../domain/thing-news";
-import { latestCardText } from "../domain/thing-photo";
-import { type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
+import { parseRoomView, type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
 import { boxesLabelText, boxMeta, type WrittenBox, writeInsteadText } from "../domain/thing-written";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
 import { AddBox } from "./add-box";
+import { ClosedBoxes } from "./closed-boxes";
+import { useRoomViewStored } from "./device-store";
 import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
 import { partsLabelText, partMeta } from "../domain/thing-written";
@@ -25,12 +28,12 @@ import { RoomCategories } from "./room-categories";
 import { TakeCard } from "./take-card";
 import { UploadCardRow } from "./upload-card-row";
 import { appName } from "@/app/app-info";
-import { thingNoun, thingNounCap } from "../domain/thing-noun";
+import { thingNoun } from "../domain/thing-noun";
 
-// A room's page (Story 18.12): the summary (things, categories and cards), the
-// buttons "Ta foto" and "Välj från Bilder" (Story 18.16) with the date of the newest card, and the segmented choice
-// between Prylar (the room's merged things per category, folded in) and Kort
-// (the cards as thumbnails). While a card is being read the page reads itself
+// A room's page (Story 18.12): the one camera "Fota" with "Välj från album"
+// (Pontus 6 Nov), and the icon switch between Lista (the room's merged things
+// per category, folded in) and Kort (the cards as thumbnails), the choice kept
+// on the device like Recept's. While a card is being read the page reads itself
 // again every few seconds, and when a job of this room finishes.
 
 export type RoomViewProps = {
@@ -38,6 +41,8 @@ export type RoomViewProps = {
   summary: RoomSummary;
   categories: { category: ThingCategory; things: number }[];
   cards: RoomCard[];
+  /** The closed boxes the AI named, each with its crop (Pontus 6 Nov). */
+  closedBoxes: readonly ClosedBox[];
   /** The boxes with things written into them (Story 18.13). */
   written: WrittenBox[];
   /** Every room of the boende, for the sheet of "Ta fler kort". */
@@ -60,13 +65,21 @@ export type RoomViewProps = {
   empty?: boolean;
 };
 
+const views: readonly SegmentOption<View>[] = [
+  { value: "things", icon: <ListIcon size={18} />, iconOnly: true, label: "Lista" },
+  { value: "cards", icon: <GridIcon size={18} />, iconOnly: true, label: "Kort" },
+];
+
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal, empty = false }: RoomViewProps) {
+export function RoomView({ siteId, summary, categories, cards, closedBoxes, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal, empty = false }: RoomViewProps) {
   const router = useRouter();
   const { jobs, markSeen } = useAiJobs();
-  const [view, setView] = useState<View>(initialView);
+  const [stored, setStored] = useRoomViewStored();
+  // The choice of this device (like Recept's Kort och Lista); the address's `vy` is the first one.
+  const view: View = stored === null ? initialView : parseRoomView(stored);
+  const setStoredView = (next: View) => setStored(next);
   const reading = cards.some((card) => card.status === "reading");
 
   // The results of this tab's jobs are on this page, so no confirmation says what is already here.
@@ -113,11 +126,6 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
 
   return (
     <div className="flex flex-col gap-3" data-testid="room">
-      <dl className="grid grid-cols-3 rounded-lg bg-surface p-3.5 text-center" data-testid="room-summary">
-        <Stat value={summary.things} label={thingNoun.plural} />
-        <Stat value={categories.length} label="kategorier" />
-        <Stat value={summary.cards} label="kort" />
-      </dl>
       {photographBox ? (
         <>
           <UploadCardRow placeId={photographBox.id} title={`Fota insidan av ${photographBox.name}`} />
@@ -133,18 +141,10 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         variant="default"
         layout="room"
         title={moreCardsText}
-        sub={latestCardText(summary.latest)}
       />
-      <Segment<View>
-        label="Visa"
-        value={view}
-        onChange={setView}
-        options={[
-          { value: "things", label: thingNounCap.plural },
-          { value: "cards", label: "Kort" },
-        ]}
-        className="w-full"
-      />
+      <div className="flex justify-end">
+        <Segment<View> size="small" label="Visa" value={view} onChange={setStoredView} options={views} />
+      </div>
       {view === "things" ? (
         <>
           {summary.things === 0 ? (
@@ -190,22 +190,14 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
               </ListGroup>
             </section>
           ) : null}
-          {unseen && boxParent ? <AddBox placeId={boxParent} variant="row" label={unseen} roomHref={roomHref} /> : null}
+          {boxParent && closedBoxes.length > 0 ? <ClosedBoxes placeId={boxParent} roomHref={roomHref} boxes={closedBoxes} /> : null}
+          {boxParent && closedBoxes.length === 0 && unseen ? <AddBox placeId={boxParent} variant="row" label={unseen} roomHref={roomHref} /> : null}
           {boxParent ? <AddBox placeId={boxParent} variant="button" roomHref={roomHref} /> : null}
         </>
       ) : (
         <RoomCards cards={cards} written={written} menuFor={cardMenu} />
       )}
       {empty ? <RemoveRoomButton siteId={siteId} roomKey={summary.key} room={summary.room} /> : null}
-    </div>
-  );
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div>
-      <dd className="text-section-title text-ink tabular-nums">{value}</dd>
-      <dt className="text-meta text-ink-3">{label}</dt>
     </div>
   );
 }
