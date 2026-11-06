@@ -270,6 +270,26 @@ export function savedPhotoAlt(location: Location): string {
 /** Over the numbered list of the reading, under the photo. */
 export const photoReadingHeading = "AI:n läste av:";
 
+/** The link under the latest-photo line when the location has two or more photos: "Alla foton (3)". */
+export function allPhotosOpenText(count: number): string {
+  return `Alla foton (${count})`;
+}
+
+/** Its name for a screen reader: "Visa alla 3 foton av kylen". */
+export function allPhotosLabel(location: Location, count: number): string {
+  return `Visa alla ${count} foton av ${definite[location]}`;
+}
+
+/** The title of the grid sheet: "Alla foton av kylen". */
+export function allPhotosTitle(location: Location): string {
+  return `Alla foton av ${definite[location]}`;
+}
+
+/** A thumbnail's name in the grid: "Foto av kylen idag 15:42". */
+export function photoOfLabel(location: Location, time: string): string {
+  return `Foto av ${definite[location]} ${time}`;
+}
+
 /** The text button last in the sheet. */
 export const removePhotoText = "Ta bort fotot";
 

@@ -25,6 +25,8 @@ export type PantryPlaceProps = {
   items: readonly PantryItem[];
   /** Story 10.2: the latest photo of the chosen location on the place, or `null` for none. */
   photo?: ShownPlacePhoto | null;
+  /** Every photo of the chosen location on the place, newest first: "Alla foton (N)". */
+  photos?: readonly ShownPlacePhoto[];
   /** A slot right under the location cards: "Vad kan jag laga nu?", put together by the page so pantry never imports recipes (AD-1). */
   findDishes?: ReactNode;
 };
@@ -40,7 +42,7 @@ export type PantryPlaceProps = {
  * only one place, "Lägg till boende" comes last (needs a SiteSwitch above);
  * with more, the site switch above has "Boenden".
  */
-export function PantryPlace({ site, location, counts, items, photo = null, findDishes }: PantryPlaceProps) {
+export function PantryPlace({ site, location, counts, items, photo = null, photos, findDishes }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
   const { readyLocations } = usePantrySuggestions();
   // The removals keep a change until the server's items show it.
@@ -52,7 +54,7 @@ export function PantryPlace({ site, location, counts, items, photo = null, findD
       {/* An empty place gives no useful suggestions. */}
       {Object.values({ ...counts, [location]: shown.length }).some((count) => count > 0) ? findDishes : null}
       <PantryCamera site={site} location={location}>
-        <LatestPhoto photo={photo} location={location} />
+        <LatestPhoto photo={photo} photos={photos} location={location} />
       </PantryCamera>
       <PantrySuggestionList siteId={site.id} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}

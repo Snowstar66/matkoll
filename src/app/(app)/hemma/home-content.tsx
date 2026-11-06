@@ -55,7 +55,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   await requireUserOrRedirect(next);
 
   // Started first, so it is read alongside the pantry, and is there for the notice below too.
-  const photoRead = latestPhoto(site.id, location);
+  const photoRead = locationPhotos(site.id, location);
   // Awaited below, unless the pantry fails with a bug, which goes to the error boundary without it.
   photoRead.catch(() => {});
   let counts: Record<Location, number>;
@@ -77,7 +77,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
       <div className="flex flex-col gap-6">
         <Notice role="alert">{message}</Notice>
         <PantryCamera site={site} location={location}>
-          <LatestPhoto photo={await photoRead} location={location} />
+          <LatestPhoto photo={(await photoRead)[0] ?? null} photos={await photoRead} location={location} />
         </PantryCamera>
         <PantrySuggestionList siteId={site.id} />
         {/* With one place, the sheet Boenden is reached only from here (needs a SiteSwitch above). */}
@@ -86,23 +86,27 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
     );
   }
 
-  const photo = await photoRead;
+  const photos = await photoRead;
   return (
     <>
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photos[0] ?? null} photos={photos} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />} />
     </>
   );
 }
 
 /**
- * The latest photo of `location` on the place `siteId` (listPlacePhotos),
- * with the time it was taken as the line writes it, or `null` for none.
+ * Every photo of `location` on the place `siteId` (listPlacePhotos), newest
+ * first, with the time it was taken as the line writes it. Only photos that
+ * are stored (younger than 30 days, not removed) come back.
  */
-async function latestPhoto(siteId: string, location: Location): Promise<ShownPlacePhoto | null> {
+async function locationPhotos(siteId: string, location: Location): Promise<ShownPlacePhoto[]> {
   const { photos } = await listPlacePhotos(siteId);
-  const photo = photos.find((candidate) => candidate.location === location);
-  return photo ? { ...photo, time: photoTimeText(photo.takenAt, new Date()) } : null;
+  const now = new Date();
+  return photos
+    .filter((candidate) => candidate.location === location)
+    .sort((a, b) => b.takenAt.getTime() - a.takenAt.getTime())
+    .map((photo) => ({ ...photo, time: photoTimeText(photo.takenAt, now) }));
 }

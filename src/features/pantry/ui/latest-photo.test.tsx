@@ -52,13 +52,21 @@ const photoB: ShownPlacePhoto = {
   time: "idag 15:55",
 };
 
-function Hemma({ shown = photo, location = "Kyl" }: { shown?: ShownPlacePhoto | null; location?: Location }) {
+function Hemma({
+  shown = photo,
+  location = "Kyl",
+  all,
+}: {
+  shown?: ShownPlacePhoto | null;
+  location?: Location;
+  all?: readonly ShownPlacePhoto[];
+}) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
           <PantryCamera site={site} location={location} />
-          <LatestPhoto photo={shown} location={location} />
+          <LatestPhoto photo={shown} photos={all} location={location} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -298,5 +306,51 @@ describe("LatestPhoto", () => {
     expect(line()).toHaveTextContent("Senaste foto 24 okt 15:42");
     fireEvent.click(screen.getByRole("button", { name: "Visa senaste foto av frysen" }));
     expect(screen.getByRole("dialog", { name: "Fotot av frysen" })).toBeInTheDocument();
+  });
+});
+
+describe("Alla foton", () => {
+  const allPhotos = [photoB, photo];
+  const link = () => screen.queryByTestId("pantry-all-photos");
+  const grid = () => screen.getByRole("dialog", { name: "Alla foton av kylen" });
+
+  it("has no link for one photo", () => {
+    render(<Hemma all={[photo]} />);
+    expect(link()).toBeNull();
+  });
+
+  it("counts the photos in the link and lists them newest first with their times", () => {
+    render(<Hemma shown={photoB} all={allPhotos} />);
+    expect(link()).toHaveTextContent("Alla foton (2)");
+    fireEvent.click(link()!);
+    const cards = within(grid()).getAllByTestId("pantry-photo-card");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent("idag 15:55");
+    expect(cards[1]).toHaveTextContent("idag 15:42");
+  });
+
+  it("opens the tapped photo with its markers, and closing it goes back to the grid", () => {
+    render(<Hemma shown={photoB} all={allPhotos} />);
+    fireEvent.click(link()!);
+    fireEvent.click(within(grid()).getByRole("button", { name: "Foto av kylen idag 15:42" }));
+    expect(photoSheet()).toBeInTheDocument();
+    decode();
+    expect(markers().map((marker) => marker.textContent)).toEqual(["1", "3"]);
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
+    expect(grid()).toBeInTheDocument();
+  });
+
+  it("removes a photo from the grid and keeps the rest", async () => {
+    removePlacePhoto.mockResolvedValue(ok({ removed: true }));
+    render(<Hemma shown={photoB} all={allPhotos} />);
+    fireEvent.click(link()!);
+    fireEvent.click(within(grid()).getByRole("button", { name: "Foto av kylen idag 15:42" }));
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
+    await act(async () => {
+      fireEvent.click(within(question()).getByRole("button", { name: "Ta bort" }));
+    });
+    expect(removePlacePhoto).toHaveBeenCalledWith({ id });
+    expect(within(grid()).getAllByTestId("pantry-photo-card")).toHaveLength(1);
+    expect(link()).toBeNull();
   });
 });
