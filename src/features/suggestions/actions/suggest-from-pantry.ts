@@ -225,15 +225,17 @@ export async function suggestNowIdeas({ signal, deadline, avoidTitles = [] }: Su
   const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
   if (!pantryNames.ok) return pantryNames;
   const { input } = toSuggestInput(snapshot, pantryNames.data, []);
+  // The names are used mid-sentence ("dressing + ketchup"), so the model gets them as they are written in one.
+  const sentencePantry = input.pantry.map((entry) => ({ ...entry, name: nameInSentence(entry.name) }));
   if (input.pantry.length === 0) {
     console.error("catalog_unavailable", { reason: "no_names" });
     return fail("catalog_unavailable");
   }
-  const oldInput = toOldItemsInput(await readOldItems(pantry.data.siteId));
+  const oldInput = toOldItemsInput(await readOldItems(pantry.data.siteId)).map((item) => ({ ...item, name: nameInSentence(item.name) }));
 
   const service = await getAiServiceForUser();
   const answered = await service.ideasNow(
-    { pantry: input.pantry, avoidTitles, ...(oldInput.length > 0 ? { oldItems: oldInput } : {}) },
+    { pantry: sentencePantry, avoidTitles, ...(oldInput.length > 0 ? { oldItems: oldInput } : {}) },
     signal,
     { deadline: deadline === undefined ? undefined : deadline - postModelMarginMs },
   );
@@ -257,7 +259,12 @@ export async function suggestNowIdeas({ signal, deadline, avoidTitles = [] }: Su
     console.error("ai_invalid", { reason: "ideas", given: answered.data.ideas.length });
     return fail("ai_invalid");
   }
-  return ok({ intro: answered.data.intro, ideas, siteId: pantry.data.siteId });
+  const inSentence = (name: string) => nameInSentence(name.trim());
+  return ok({
+    intro: answered.data.intro,
+    ideas: ideas.map((idea) => ({ ...idea, uses: idea.uses.map(inSentence), missing: idea.missing.map(inSentence) })),
+    siteId: pantry.data.siteId,
+  });
 }
 
 async function suggest(

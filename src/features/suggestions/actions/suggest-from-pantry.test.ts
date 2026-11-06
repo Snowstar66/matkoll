@@ -701,11 +701,11 @@ describe("suggestNowIdeas (Story 25.4)", () => {
     const result = await run();
     expect(ideasNow.mock.calls[0][0]).toEqual({
       pantry: [
-        { name: "Grädde", amount: 3, unit: "dl" },
-        { name: "Gul lök", amount: 3, unit: "st" },
-        { name: "Riven ost", amount: 200, unit: "g" },
-        { name: "Salt", amount: null, unit: null },
-        { name: "Vitlök", amount: 6, unit: "klyfta" },
+        { name: "grädde", amount: 3, unit: "dl" },
+        { name: "gul lök", amount: 3, unit: "st" },
+        { name: "riven ost", amount: 200, unit: "g" },
+        { name: "salt", amount: null, unit: null },
+        { name: "vitlök", amount: 6, unit: "klyfta" },
       ],
       avoidTitles: [],
     });
@@ -722,13 +722,13 @@ describe("suggestNowIdeas (Story 25.4)", () => {
   it("takes the titles to avoid and what has lain long along", async () => {
     listOldPantryItems.mockResolvedValue([{ ingredientId: ids.gradde, name: "Grädde", days: 12 }]);
     await run({ avoidTitles: ["Enkel dipp"] });
-    expect(ideasNow.mock.calls[0][0]).toMatchObject({ avoidTitles: ["Enkel dipp"], oldItems: [{ name: "Grädde", days: 12 }] });
+    expect(ideasNow.mock.calls[0][0]).toMatchObject({ avoidTitles: ["Enkel dipp"], oldItems: [{ name: "grädde", days: 12 }] });
   });
 
   it("drops names not at home from uses and moves them to missing", async () => {
     ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde", "Tryffel"] }]));
     const result = await run();
-    expect(result.ok && result.data.ideas).toEqual([{ name: "Gratäng", how: "bra", kind: "sås", uses: ["grädde"], missing: ["Tryffel"] }]);
+    expect(result.ok && result.data.ideas).toEqual([{ name: "Gratäng", how: "bra", kind: "sås", uses: ["grädde"], missing: ["tryffel"] }]);
   });
 
   it("leaves out an idea that misses more than one thing", async () => {
@@ -744,7 +744,7 @@ describe("suggestNowIdeas (Story 25.4)", () => {
     );
     ideasNow.mockResolvedValueOnce(answer([{ name: "Glaze", uses: ["Chilipasta", "creme fraiche", "salt"] }]));
     const result = await run();
-    expect(result.ok && result.data.ideas[0]).toMatchObject({ uses: ["Chilipasta", "creme fraiche"], missing: [] });
+    expect(result.ok && result.data.ideas[0]).toMatchObject({ uses: ["chilipasta", "creme fraiche"], missing: [] });
     // Only the name the pantry and Basvaror did not know went to the catalog.
     expect(matchIngredients).toHaveBeenCalledTimes(1);
     expect(matchIngredients.mock.calls[0][0]).toEqual([{ text: "creme fraiche" }]);
