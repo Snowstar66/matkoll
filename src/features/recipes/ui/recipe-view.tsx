@@ -5,19 +5,20 @@ import { RecipeImage } from "@/components/recipe-image";
 import type { PlanningTarget } from "@/features/mealplan";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
 import { dishEmoji, offerSavedText } from "../domain/dish-emoji";
+import type { LineOffer } from "../domain/line-status";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
 import type { AddToPlan } from "./add-to-plan-button";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeBody } from "./recipe-body";
+import { RecipeBody, type BuyMissing, type PlanDishInfo, type SetDishWeekday, type UndoBuy } from "./recipe-body";
 
 // Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
 // and the menu (⋯, Story 1.11) beside the title, the time and the source
 // under it, and then the part that follows the chosen servings (RecipeBody):
 // the portion selector with the status and "X av Y hemma", the ingredients
-// with a tick or ring each (Story 2.4), the steps and "Lägg på matsedeln"
-// (Story 3.1) and "Laga nu", which opens the step mode (Story 4.2).
+// with their status each (Story 2.4, 25.1), the steps, and the bottom bar with
+// "Köp det som saknas" and "Lägg på matsedeln" (Story 3.1, 25.1).
 
 export type RecipeViewProps = {
   recipe: SavedRecipe;
@@ -41,13 +42,39 @@ export type RecipeViewProps = {
    * "Lägg på matsedeln" pinned to the bottom (Story 3.1).
    */
   addToPlan?: AddToPlan;
-  /** "Markera som lagad" for the recipe's dish, shown at the end of the step mode (Story 13.4). */
+  /** The best offer per catalog ingredient (recipes.lineOffers), shown on the rows that are missing. */
+  offers?: Record<string, LineOffer>;
+  /** The catalog ingredients on the shopping list now ("På listan"). */
+  listedIds?: readonly string[];
+  /** The recipe's dish on this week's plan, or `null`. */
+  dish?: PlanDishInfo | null;
+  /** shopping.addKeyedItems and removeKeyedItems: "Köp det som saknas" and its "Ångra". */
+  buyMissing?: BuyMissing;
+  undoBuy?: UndoBuy;
+  /** mealplan.setWeekday: "Välj dag" / "Byt dag". */
+  setWeekday?: SetDishWeekday;
+  /** "Markera som lagad" for the recipe's dish, shown under the steps (Story 13.4). */
   finish?: ReactNode;
   /** Planning mode (Story 13.8): "Lägg på matsedeln" becomes "Lägg på onsdag". */
   planning?: PlanningTarget;
 };
 
-export function RecipeView({ recipe, snapshot, site = null, staples, menu, addToPlan, finish, planning }: RecipeViewProps) {
+export function RecipeView({
+  recipe,
+  snapshot,
+  site = null,
+  staples,
+  menu,
+  addToPlan,
+  offers,
+  listedIds,
+  dish,
+  buyMissing,
+  undoBuy,
+  setWeekday,
+  finish,
+  planning,
+}: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
@@ -113,6 +140,12 @@ export function RecipeView({ recipe, snapshot, site = null, staples, menu, addTo
         site={site}
         staples={staples}
         addToPlan={addToPlan}
+        offers={offers}
+        listedIds={listedIds}
+        dish={dish}
+        buyMissing={buyMissing}
+        undoBuy={undoBuy}
+        setWeekday={setWeekday}
         finish={finish}
         planning={planning}
       />

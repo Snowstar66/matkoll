@@ -67,7 +67,7 @@ describe("HelpView", () => {
     expect(details).not.toHaveAttribute("open");
     await userEvent.click(question);
     expect(details).toHaveAttribute("open");
-    expect(within(details).getByText(/Mängderna räknas om/)).toBeVisible();
+    expect(within(details).getByText(/Mängderna och vad som saknas räknas om/)).toBeVisible();
   });
 
   it("has the tour card, the Tyck till rows with their test ids and the version line", () => {

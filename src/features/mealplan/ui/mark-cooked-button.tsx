@@ -27,7 +27,7 @@ import {
 } from "../domain/cooked";
 
 // Markera som lagad (Story 13.4, FR-13): a button on a dish, in Matsedel and
-// at the end of the step mode, that opens a sheet with what the dish takes
+// under the steps in the recipe, that opens a sheet with what the dish takes
 // from the pantry. Each line is "Grädde  5 dl − 2 dl → 3 dl" with the new
 // amount editable and a tick to skip it; what cannot be counted is listed
 // under "Kontrollera själv" and never deducted. "Markera som lagad", with the

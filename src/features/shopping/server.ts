@@ -220,6 +220,7 @@ export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ pl
 
 export { ShoppingDataError } from "./data/client";
 export { addKeyedItems } from "./actions/add-keyed-items";
+export { removeKeyedItems } from "./actions/remove-keyed-items";
 
 /**
  * Story 17.9, the quick-add API (POST /api/snabb): adds what was dictated as

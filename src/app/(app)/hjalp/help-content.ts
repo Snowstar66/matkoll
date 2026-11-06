@@ -30,7 +30,7 @@ export const helpAreas: readonly HelpArea[] = [
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga? på Matvaror för AI-förslag." },
-      { icon: "steps", title: "Laga steg för steg", text: "Laga nu visar ett steg i taget och håller skärmen tänd." },
+      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
       {
@@ -42,14 +42,14 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Vad som saknas hemma, till exempel Saknar 2 varor. Kan lagas nu betyder att allt finns.",
       },
       { question: "Hur sparar jag en favorit?", answer: "Tryck på hjärtat på receptet." },
-      { question: "Kan jag ändra antal portioner?", answer: "Ja, innan du trycker Laga nu. Mängderna räknas om." },
+      { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag den här veckan, och i Matsedel kan du flytta det till en annan dag.",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan utan dag, och knappen Välj dag låter dig välja en dag om du vill.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",
-        answer: "Står rätten på matsedeln slutar sista steget i Laga nu med Markera som lagad. Det du bockar dras från Matvaror.",
+        answer: "Står rätten på matsedeln finns Markera som lagad under stegen i receptet. Det du bockar dras från Matvaror.",
       },
     ],
   },

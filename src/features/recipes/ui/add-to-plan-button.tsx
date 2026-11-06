@@ -22,7 +22,7 @@ export type AddToPlan = (input: {
   id: string;
   /** Story 13.8: the day to add to, in the week of `weekStart` (a Monday). */
   weekStart?: string;
-  weekday?: number;
+  weekday?: number | null;
 }) => Promise<Result<unknown>>;
 
 export type AddToPlanButtonProps = {
@@ -30,10 +30,10 @@ export type AddToPlanButtonProps = {
   addToPlan: AddToPlan;
   /** The servings shown in the recipe view, which the dish gets (FR-13). */
   servings: number;
-  /** Fills its container (the default); false beside "Laga nu", where `className` sets the width. */
+  /** Fills its container (the default); false beside another button, where `className` sets the width. */
   fullWidth?: boolean;
   className?: string;
-  /** Told when an add starts and ends, e.g. so "Laga nu" waits for the confirmation. */
+  /** Told when an add starts and ends, e.g. so a neighbouring button waits for the confirmation. */
   onPendingChange?: (pending: boolean) => void;
   /** Planning mode (Story 13.8): "Lägg på onsdag", adds to that day and returns to Matsedel. */
   planning?: PlanningTarget;

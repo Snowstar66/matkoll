@@ -139,7 +139,7 @@ test("the portion selector scales the amounts and the status at once, without ca
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await expect(view(page).getByTestId("recipe-meta")).toHaveText(/^35 min/);
   await expect(view(page).getByText("4 portioner", { exact: true })).toBeVisible();
-  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*[^,+]+$/ })).toBeVisible();
+  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(1);
   await expect(atHome(page)).toHaveText("3 av 4 hemma");
   await expect(mark(line(page, "grädde"))).toHaveAccessibleName("finns hemma");
   await expect(line(page, "grädde").getByText("2 dl", { exact: true })).not.toHaveClass(/text-sky-ink/);
@@ -155,7 +155,7 @@ test("the portion selector scales the amounts and the status at once, without ca
   await expect(line(page, "grädde").getByText("5 dl", { exact: true })).toHaveClass(/text-sky-ink/);
   await expect(mark(line(page, "grädde"))).toHaveAccessibleName("saknas");
   await expect(line(page, "grädde").getByText("hemma: 4 dl")).toBeVisible();
-  await expect(view(page).getByRole("button", { name: /^Saknar 2 varor\s*[^,+]+, [^,+]+$/ })).toBeVisible();
+  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(2);
   await expect(atHome(page)).toHaveText("2 av 4 hemma");
   await expect(line(page, "gul lök").getByText("2,5 st", { exact: true })).toBeVisible();
   // Not scaled: the vague line and the text of the line without ingredient, which shows the factor.
@@ -223,7 +223,7 @@ test("the heart keeps the chosen servings, and Lägg på matsedeln adds the dish
   expect((data as { is_favorite: boolean }).is_favorite).toBe(true);
   await expect(view(page).getByText("6 portioner", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Lägg på matsedeln" }).filter({ visible: true }).click();
-  await expect(page.getByTestId("toast")).toHaveText("Lagt på matsedeln.");
+  await expect(page.getByTestId("toast")).toContainText("På veckans matsedel.");
 
   // A client navigation shows the plan the action revalidated.
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Matsedel" }).click();
