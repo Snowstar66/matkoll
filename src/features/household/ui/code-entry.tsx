@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
+import { appInviteCodeLength, appJoinRoute, isAppInviteCodeShape } from "@/features/app-invites";
 import { inviteCodeLength, isInviteCodeShape, joinRoute, normalizeInviteCode } from "../domain/invite-code";
 
 /**
  * "Har du en kod?" (Story 21.2b): a field for the 6 characters that leads to
  * /ga-med with the code. On the login page it starts as a text button.
  */
-export function CodeEntry({ collapsed = false }: { collapsed?: boolean }) {
+export function CodeEntry({ collapsed = false, kind = "household" }: { collapsed?: boolean; kind?: "household" | "app" }) {
   const router = useRouter();
   const [open, setOpen] = useState(!collapsed);
   const [code, setCode] = useState("");
@@ -19,8 +20,13 @@ export function CodeEntry({ collapsed = false }: { collapsed?: boolean }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    // Story 21.1: the owner's invitation to the app has 8 characters and its own page.
+    if (isAppInviteCodeShape(code)) {
+      router.push(`${appJoinRoute}?${new URLSearchParams({ kod: normalizeInviteCode(code) })}`);
+      return;
+    }
     if (!isInviteCodeShape(code)) {
-      setError(`Koden har ${inviteCodeLength} tecken, till exempel K7Q 4MP.`);
+      setError(kind === "app" ? `Koden har ${appInviteCodeLength} tecken, till exempel K7Q4 MP2X.` : `Koden har ${inviteCodeLength} tecken, till exempel K7Q 4MP.`);
       return;
     }
     router.push(`${joinRoute}?${new URLSearchParams({ kod: normalizeInviteCode(code) })}`);

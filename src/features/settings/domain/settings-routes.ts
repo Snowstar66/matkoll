@@ -24,6 +24,8 @@ export const settingsPages = [
   "om",
   // Story 20.3: the owner's inbox; its row shows only for the owner.
   "inkorg",
+  // Story 21.1: the owner invites an address; its row shows only for the owner.
+  "inbjudningar",
 ] as const;
 
 export type SettingsPage = (typeof settingsPages)[number];

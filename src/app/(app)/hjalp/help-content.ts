@@ -211,6 +211,11 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Hur lämnar jag hushållet, eller tar bort någon?",
         answer: "Under Inställningar, Medlemmar. Den som lämnar eller tas bort får ett eget, tomt hushåll, och det den lagt in stannar kvar. Bara ägaren tar bort någon och kan göra någon annan till ägare. Lämnar ägaren blir den som varit med längst ägare.",
       },
+      // Story 21.1: appens ägare bjuder in ett hushåll.
+      {
+        question: `Hur får någon tillgång till ${appName}?`,
+        answer: `Appens ägare bjuder in från Inställningar, Inbjudningar: skriv personens e-postadress och tryck Bjud in, och dela länken i ett meddelande. Personen gör ett eget konto med samma adress och får ett eget hushåll, som sedan kan bjuda in sin familj under Medlemmar. Inget mejl skickas. Frågar du efter tillgång, be ägaren om en inbjudan.`,
+      },
       {
         question: "Var ändrar jag mitt namn?",
         answer: "Under Inställningar, Konto. Namnet syns för de andra i hushållet.",

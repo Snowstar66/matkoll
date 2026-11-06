@@ -15,7 +15,8 @@ import {
 // with `unauthorized` / 401 themselves.
 
 // Story 21.2b: /ga-med, where an invited person without an account makes one.
-const publicPaths = ["/logga-in", "/auth/confirm", "/ga-med"];
+// Story 21.1: /inbjudan, where a person the app's owner invited makes an account.
+const publicPaths = ["/logga-in", "/auth/confirm", "/ga-med", "/inbjudan"];
 
 function isPublic(pathname: string) {
   return publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));

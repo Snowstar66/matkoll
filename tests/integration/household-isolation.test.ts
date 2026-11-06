@@ -56,6 +56,10 @@ type Coverage = {
 // any client; push.test.ts shows that nobody reads or writes it, and claims only their own household's.
 const coveredInFeedbackTest = ["app_owner", "feedback", "push_event"];
 
+// Story 21.1: the owner's allow list of invited addresses; no client reads or writes it, and the
+// functions around it answer only the owner (app-invites.test.ts tries each as owner, user and anon).
+const coveredInAppInvitesTest = ["app_invite"];
+
 // Story 21.2a: the household itself, its members and its invitations. Covered
 // below in "the household and its members". Story 21.2b: the count of wrong
 // invitation codes, which no client reads or writes (household-members.test.ts).
@@ -371,7 +375,7 @@ describe("household isolation", () => {
     const tables = liveTables();
     const live = tables.map((table) => table.name);
     const covered = Object.keys(coverage).sort();
-    const known = [...covered, ...coveredInFeedbackTest, ...householdTables];
+    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...householdTables];
     const missing = live.filter((table) => !known.includes(table));
     const gone = known.filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);
@@ -935,6 +939,8 @@ describe("household isolation", () => {
       "clear_other_store_offers", "enqueue_ai_job", "commit_ingredients", "is_app_owner",
       // Story 21.2b: the caller's own household and name (household-members.test.ts tries each).
       "create_household_invite", "household_invites", "household_members", "leave_household", "rename_household", "set_my_display_name",
+      // Story 21.1: the owner's invitations and the person's own claim (app-invites.test.ts tries each).
+      "create_app_invite", "app_invites", "remove_app_invite", "claim_app_invite", "app_invite_preview", "app_invited_access",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).

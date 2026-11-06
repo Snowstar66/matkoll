@@ -27,16 +27,21 @@ export function parseAllowedEmails(raw) {
 /**
  * Story 21.2b: the users let in through their household, not ALLOWED_EMAILS:
  * every member of a household in which someone's address is on the list (an
- * invited member). They are kept, never pruned.
+ * invited member). They are kept, never pruned. Story 21.1: so are the people the
+ * app's owner invited from the app (`invited`, the user ids that used an invitation
+ * in app_invite) and the members of their households.
  * @param {string[]} allowed normalised addresses from parseAllowedEmails
  * @param {{ id: string, email?: string | null }[]} existing users in Supabase Auth
  * @param {{ household_id: string, user_id: string }[]} memberships rows of household_member
+ * @param {Set<string>} [invited] user ids that used an app invitation (app_invite.used_by)
  * @returns {Set<string>} the user ids
  */
-export function householdMembersLetIn(allowed, existing, memberships) {
+export function householdMembersLetIn(allowed, existing, memberships, invited = new Set()) {
   const allowedSet = new Set(allowed);
   const emailOf = new Map(existing.map((user) => [user.id, (user.email ?? "").toLowerCase()]));
-  const letIn = new Set(memberships.filter((row) => allowedSet.has(emailOf.get(row.user_id) ?? "")).map((row) => row.household_id));
+  const letIn = new Set(
+    memberships.filter((row) => allowedSet.has(emailOf.get(row.user_id) ?? "") || invited.has(row.user_id)).map((row) => row.household_id),
+  );
   return new Set(memberships.filter((row) => letIn.has(row.household_id)).map((row) => row.user_id));
 }
 
@@ -46,9 +51,11 @@ export function householdMembersLetIn(allowed, existing, memberships) {
  * the household's, not warned about and never deleted.
  * @param {string[]} allowed normalised addresses from parseAllowedEmails
  * @param {{ id: string, email?: string | null }[]} existing users in Supabase Auth
- * @param {{ prune?: boolean, members?: Set<string> }} [options]
+ * Users whose household has data (`withData`, see usersWithData) are not deleted by
+ * `prune` alone: they are listed in `keptWithData` and only go with `pruneData`.
+ * @param {{ prune?: boolean, pruneData?: boolean, members?: Set<string>, withData?: Set<string> }} [options]
  */
-export function planUserSync(allowed, existing, { prune = false, members = new Set() } = {}) {
+export function planUserSync(allowed, existing, { prune = false, pruneData = false, members = new Set(), withData = new Set() } = {}) {
   const existingEmails = new Set(existing.map((user) => (user.email ?? "").toLowerCase()));
   const allowedSet = new Set(allowed);
   const create = allowed.filter((email) => !existingEmails.has(email));
@@ -56,7 +63,54 @@ export function planUserSync(allowed, existing, { prune = false, members = new S
   const outside = existing.filter((user) => !allowedSet.has((user.email ?? "").toLowerCase()));
   const household = outside.filter((user) => members.has(user.id));
   const extra = outside.filter((user) => !members.has(user.id));
-  return { create, keep, household, extra, remove: prune ? extra : [] };
+  const removable = prune ? extra.filter((user) => pruneData || !withData.has(user.id)) : [];
+  const keptWithData = prune ? extra.filter((user) => !removable.includes(user)) : [];
+  return { create, keep, household, extra, remove: removable, keptWithData };
+}
+
+/** The tables whose rows in a household mean someone put something in (household_has_data in the database). */
+export const householdDataTables = [
+  "recipe",
+  "ingredient",
+  "ingredient_synonym",
+  "meal_plan_recipe",
+  "shopping_custom_item",
+  "shopping_check",
+  "shopping_line_override",
+  "product_choice",
+  "pantry_item",
+  "pantry_photo",
+  "thing_place",
+  "thing_photo",
+  "thing_item",
+];
+
+/**
+ * Which of `users` have a household with data of its own (Story 21.1): removing an
+ * app invitation only takes the way in, so a later `--prune` must not delete what
+ * the person saved. A user whose household cannot be read counts as having data.
+ * @param {{ from: (table: string) => any }} supabase
+ * @param {{ id: string }[]} users
+ * @returns {Promise<Set<string>>} the user ids
+ */
+export async function usersWithData(supabase, users) {
+  const found = new Set();
+  for (const { id } of users) {
+    const own = await supabase.from("household_member").select("household_id").eq("user_id", id).maybeSingle();
+    if (own.error) {
+      found.add(id);
+      continue;
+    }
+    if (!own.data) continue;
+    for (const table of householdDataTables) {
+      const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("household_id", own.data.household_id);
+      if (error || (count ?? 0) > 0) {
+        found.add(id);
+        break;
+      }
+    }
+  }
+  return found;
 }
 
 /** How long a pruned user is banned: for good (Supabase takes a Go duration). */
