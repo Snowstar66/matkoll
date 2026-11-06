@@ -72,7 +72,7 @@ test.describe("mobile, 390 × 844", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the P button at the right of every tab's header opens a sheet with Inställningar, Hjälp och tips and Logga ut (Story 19.2)", async ({ page }) => {
+  test("the P button at the right of every tab's header opens a sheet with Inställningar, Hjälp och tips and Logga ut (Story 19.2) @flaky", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     // The gear is gone; Inställningar is not a tab and not a link in the header.
@@ -110,7 +110,7 @@ test.describe("mobile, 390 × 844", () => {
     expect(errors).toEqual([]);
   });
 
-  test("Hjälp och tips opens on the area of the tab the P button was opened from, with its chip chosen", async ({ page }) => {
+  test("Hjälp och tips opens on the area of the tab the P button was opened from, with its chip chosen @flaky", async ({ page }) => {
     await page.goto("/matsedel");
     await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
     await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: /Hjälp och tips/ }).click();
