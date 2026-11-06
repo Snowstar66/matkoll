@@ -65,7 +65,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
         question: "Hur hittar jag rätter som är på erbjudande?",
-        answer: "Öppna fliken På erbjudande under Lägg till rätter. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Hittar du inget kan du få 2 nya idéer med erbjudandena; de sparas först när du granskat dem och trycker Spara och lägg på veckan.",
+        answer: "Öppna fliken På erbjudande under Lägg till rätter. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Vill du ha något nytt tryck Nya idéer med extrapris; du får två eller tre förslag med en tanke om varför, och de sparas först när du granskat dem och trycker Spara och lägg på veckan.",
       },
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
       { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },

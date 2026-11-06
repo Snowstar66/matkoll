@@ -61,6 +61,8 @@ export const dishSuggestionsSchema = z.object({
         atHome: z.object({ have: z.number().int().min(0), total: z.number().int().min(0) }).nullable().default(null),
         /** Story 16.2: the lines to buy (not at home, not on offer, no trivial staples), by name; empty for pantry suggestions. */
         toBuy: z.array(z.string().max(100)).max(30).default([]),
+        /** Nya idéer med extrapris: one short sentence on why this dish, like a friend; empty for none. */
+        why: z.string().max(300).default(""),
         /** Story 16.13: the old pantry items the dish uses, with the days since they were added; empty for none. */
         oldUsed: z.array(z.object({ name: z.string().max(100), days: z.number().int().min(1) })).max(8).default([]),
       }),
@@ -69,13 +71,15 @@ export const dishSuggestionsSchema = z.object({
     .max(3),
   mode: z.enum(["pantry", "offers", "now", "ideas"]).default("pantry"),
   siteId: z.uuid().nullable().default(null),
+  /** Nya idéer med extrapris: a thought or two on this week's offers and what is at home; empty for none. */
+  intro: z.string().max(400).default(""),
   /** Story 9.14: the short name of the store the offers are from, when Pontus picked one of several; else `null`. */
   storeName: z.string().max(40).nullable().default(null),
 });
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
 type DishSuggestionOut = DishSuggestions["suggestions"][number];
 /** A suggestion as the UI holds it: `onOffer` and `atHome` may be left out (none). */
-export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed">>;
+export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed" | "why"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed" | "why">>;
 
 /**
  * The titles the client sends to avoid, from the most wanted: cleaned like

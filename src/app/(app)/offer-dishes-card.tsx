@@ -3,31 +3,37 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import type { SearchIngredients } from "@/components/ingredient-picker";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
 import { addedToWeekText, clampServings, onWeekLabel, type PlanRecipeRow } from "@/features/mealplan";
 import { PlanRow } from "@/features/mealplan/ui/plan-row";
 import type { PlanOption } from "@/features/suggestions";
+import { OfferIdeas } from "./offer-ideas";
 
-type AddToWeek = (input: { recipeId: string; servings: number; id: string; weekStart: string }) => Promise<Result<PlanRecipeRow>>;
+type AddToWeek = (input: { recipeId: string; servings?: number; id: string; weekStart: string }) => Promise<Result<PlanRecipeRow>>;
 
 /**
  * "Rätter med extrapris" at the top of the sheet Veckans erbjudanden: up to
  * three of the user's own dishes that use an offer, most saved first, with "+"
  * (first free day of this week) or the day when the dish is already on the
- * week. "Visa alla" opens Recept with the filter Erbjudanden.
+ * week. "Visa alla" opens Recept with the filter Erbjudanden. Under them
+ * "Nya idéer med extrapris" (OfferIdeas), shown also when none of the user's
+ * dishes match.
  */
 export function OfferDishesCard({
   dishes,
   onWeek,
   weekStart,
   addToWeek,
+  searchIngredients,
 }: {
   dishes: readonly PlanOption[];
   /** The day (or `null`) of each recipe already on this week, by recipe id. */
   onWeek: Readonly<Record<string, number | null>>;
   weekStart: string;
   addToWeek: AddToWeek;
+  searchIngredients: SearchIngredients;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -71,6 +77,7 @@ export function OfferDishesCard({
         </h3>
         <p className="text-meta text-ink-2">Förslag för att varorna har extrapris den här veckan.</p>
       </div>
+      {dishes.length > 0 ? (
       <ul aria-label="Rätter med extrapris" className="flex flex-col gap-2">
         {dishes.map((option) => (
           <PlanRow
@@ -86,9 +93,13 @@ export function OfferDishesCard({
           />
         ))}
       </ul>
-      <Link href="/recept?filter=erbjudanden" data-testid="offer-dishes-all" className="flex min-h-11 items-center self-start text-control font-semibold text-accent underline underline-offset-2">
-        Visa alla
-      </Link>
+      ) : null}
+      {dishes.length > 0 ? (
+        <Link href="/recept?filter=erbjudanden" data-testid="offer-dishes-all" className="flex min-h-11 items-center self-start text-control font-semibold text-accent underline underline-offset-2">
+          Visa alla
+        </Link>
+      ) : null}
+      <OfferIdeas weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside />
     </section>
   );
 }

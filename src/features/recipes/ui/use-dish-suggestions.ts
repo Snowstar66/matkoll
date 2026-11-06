@@ -30,6 +30,8 @@ export type DishSuggestionsState = {
   mode: "pantry" | "offers";
   /** Story 9.14: the store the offers suggestions are from, when Pontus picked one of several. */
   storeName: string | null;
+  /** Nya idéer med extrapris: the friend's thought on the offers, to show above the dishes; empty for none. */
+  intro: string;
   /** Story 16.3: set while a job built around the offers waits, runs or has an unseen result; `storeId` is the picked store, if any. */
   offersJob: { storeId: string | null } | null;
   /** A job is being started, waits in the queue or runs. */
@@ -99,7 +101,9 @@ export function useDishSuggestions(
     jobId: string | null;
     mode: "pantry" | "offers";
     storeName: string | null;
+    intro: string;
   }>({
+    intro: "",
     suggestions: [],
     mode: "pantry",
     storeName: null,
@@ -172,6 +176,7 @@ export function useDishSuggestions(
         siteId: parsed.data.siteId,
         mode: parsed.data.mode === "offers" ? "offers" : "pantry",
         storeName: parsed.data.storeName,
+        intro: parsed.data.intro,
         jobId: unseenId,
         suggestions: parsed.data.suggestions.map((suggestion) => ({
           ...suggestion,
@@ -258,6 +263,7 @@ export function useDishSuggestions(
         : null,
     mode: made.mode,
     storeName: made.storeName,
+    intro: made.suggestions.length > 0 ? made.intro : "",
     loading,
     waiting,
     error,
