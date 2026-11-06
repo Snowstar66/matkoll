@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eatFirstRowText, lainText, oldPantryItems, usesOldText } from "./old-items";
+import { eatFirstTipText, lainText, oldPantryItems, usesOldText } from "./old-items";
 
 // Tuesday 27 October 2026, 10:00 in Stockholm.
 const now = new Date("2026-10-27T09:00:00Z");
@@ -51,8 +51,8 @@ describe("oldPantryItems", () => {
 
 describe("texts", () => {
   it("writes the row for one and for several", () => {
-    expect(eatFirstRowText(3)).toBe("3 varor har legat länge – föreslå rätter med dem");
-    expect(eatFirstRowText(1)).toBe("1 vara har legat länge – föreslå rätter med den");
+    expect(eatFirstTipText("Grädde", 6)).toBe("Grädde har legat i 6 dagar. Rätterna med den står först.");
+    expect(eatFirstTipText("Ägg", 1)).toBe("Ägg har legat i 1 dag. Rätterna med den står först.");
   });
 
   it("says how long in weeks and months", () => {

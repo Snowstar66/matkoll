@@ -194,17 +194,23 @@ export const compactDish = z
  * path in each issue lets schemaFeedback tell the model what to fix. The JSON
  * schema is the same for every `avoidTitles`.
  */
-export function suggestDishesAnswerCompactFor(avoidTitles: readonly string[]) {
+export function suggestDishesAnswerCompactFor(avoidTitles: readonly string[], { flexibleCount = false }: { flexibleCount?: boolean } = {}) {
   const avoided = new Set(avoidTitles.map(normalizeTitle));
   return z
     .object({
-      suggestions: z.array(compactDish).describe("Exakt tre olika rätter"),
+      suggestions: z.array(compactDish).describe(flexibleCount ? "En till tre olika rätter" : "Exakt tre olika rätter"),
     })
     .superRefine((answer, context) => {
-      if (answer.suggestions.length !== suggestionCount) {
+      // Story 25.2: "Vad kan jag laga nu?" takes one to three dishes.
+      const countOk = flexibleCount
+        ? answer.suggestions.length >= 1 && answer.suggestions.length <= suggestionCount
+        : answer.suggestions.length === suggestionCount;
+      if (!countOk) {
         context.addIssue({
           code: "custom",
-          message: `Give exactly ${suggestionCount} suggestions, not ${answer.suggestions.length}`,
+          message: flexibleCount
+            ? `Give one to ${suggestionCount} suggestions, not ${answer.suggestions.length}`
+            : `Give exactly ${suggestionCount} suggestions, not ${answer.suggestions.length}`,
           path: ["suggestions"],
         });
       }

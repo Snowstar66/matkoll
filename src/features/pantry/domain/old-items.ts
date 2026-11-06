@@ -30,11 +30,9 @@ export function oldPantryItems(items: readonly Pick<PantryItem, "ingredientId" |
   return [...byIngredient.values()].sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, "sv"));
 }
 
-/** "1 vara har legat länge – föreslå rätter med den", "3 varor har legat länge – föreslå rätter med dem". */
-export function eatFirstRowText(count: number): string {
-  return count === 1
-    ? "1 vara har legat länge – föreslå rätter med den"
-    : `${count} varor har legat länge – föreslå rätter med dem`;
+/** The sheet "Kan lagas nu" (Story 25.2): "Grädde har legat i 6 dagar. Rätterna med den står först." */
+export function eatFirstTipText(name: string, days: number): string {
+  return `${name.trim()} har legat i ${days} ${days === 1 ? "dag" : "dagar"}. Rätterna med den står först.`;
 }
 
 /** How long, as the reason line says it: "en vecka", "3 veckor", "2 månader". */

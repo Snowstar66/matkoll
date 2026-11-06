@@ -23,7 +23,6 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/pantry/server")>()),
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
-  listOldPantryItems: vi.fn(async () => []),
   needsPlacePhotoSweep: vi.fn(async () => false),
   listPlacePhotos: vi.fn(async () => ({ photos: [] })),
 }));
@@ -96,18 +95,20 @@ describe("HomeContent", () => {
     const camera = screen.getByRole("button", { name: "Fotografera kylen" });
     expect(links[2].compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(camera.compareDocumentPosition(screen.getByText("Mjölk")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // "Vad kan jag laga?" comes under the camera, with an icon.
-    const find = screen.getByRole("button", { name: "Vad kan jag laga?" });
-    expect(camera.compareDocumentPosition(find) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // "Vad kan jag laga nu?" comes right under the cards, before the camera, with an icon and the line under it.
+    const find = screen.getByRole("button", { name: /Vad kan jag laga nu\?/ });
+    expect(links[2].compareDocumentPosition(find) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(find.compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(find).toHaveTextContent("Med det du har i kyl, frys och skafferi");
     expect(find.querySelector("svg")).not.toBeNull();
   });
 
-  it("has no Vad kan jag laga? when the place has no items at all", async () => {
+  it("has no Vad kan jag laga nu? when the place has no items at all", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 0, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Vad kan jag laga?" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Vad kan jag laga nu\?/ })).toBeNull();
   });
 
   it("names the chosen location on the camera button, also for an empty location", async () => {

@@ -29,7 +29,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Recept",
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
-      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga? på Matvaror för AI-förslag." },
+      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
       { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [

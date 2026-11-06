@@ -4,14 +4,16 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import { photoTimeText, type PantryItem, type SelectedSite } from "@/features/pantry";
-import { countPantryItems, isPantrySiteGone, listOldPantryItems, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
+import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
 import { errorMessages } from "@/lib/errors";
-import { FindDishesButton } from "./find-dishes-button";
+import { saveRecipe } from "@/features/recipes/server";
+import { readCookNow } from "@/features/suggestions/server";
+import { CookNowButton } from "./cook-now-button";
 import { PhotoSweepGate } from "./photo-sweep-gate";
 
 export type HomeContentProps = {
@@ -39,6 +41,9 @@ export type HomeContentProps = {
  * button, also when the pantry could not be read. The time is written here,
  * on the server, in Swedish time. Without a photo, or when the photos could
  * not be read (listPlacePhotos logs it), there is no line.
+ *
+ * Story 25.2: "Vad kan jag laga nu?" (CookNowButton) opens the sheet "Kan lagas nu" in place; what has lain long
+ * is its tip line, read with the sheet's own data.
  *
  * Story 10.3: when the user has photos older than 30 days, PhotoSweepGate
  * renders PhotoSweep, which has them swept; nothing is shown. It is read in a
@@ -81,13 +86,12 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   }
 
   const photo = await photoRead;
-  const oldCount = await oldItemCount(site.id);
   return (
     <>
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} oldCount={oldCount} findDishes={<FindDishesButton />} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} />} />
     </>
   );
 }
@@ -100,19 +104,4 @@ async function latestPhoto(siteId: string, location: Location): Promise<ShownPla
   const { photos } = await listPlacePhotos(siteId);
   const photo = photos.find((candidate) => candidate.location === location);
   return photo ? { ...photo, time: photoTimeText(photo.takenAt, new Date()) } : null;
-}
-
-/**
- * How many items on the place have lain long (Story 16.13), for the row "3
- * varor har legat länge". A help, not the page: when it cannot be read
- * (logged, code only) there is no row.
- */
-async function oldItemCount(siteId: string): Promise<number> {
-  try {
-    return (await listOldPantryItems(siteId)).length;
-  } catch (error) {
-    if (!(error instanceof PantryDataError || error instanceof CatalogDataError)) throw error;
-    console.error("old_items_unavailable", { reason: error instanceof PantryDataError ? error.detail : error.code });
-    return 0;
-  }
 }
