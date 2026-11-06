@@ -7,6 +7,7 @@ import { CameraIcon } from "@/components/icons";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { Location } from "@/features/catalog";
 import {
+  albumLinkText,
   allUnchangedText,
   analyzeErrorMessage,
   cameraButtonText,
@@ -178,22 +179,26 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
           the line under it, with "Visa", sits above that. While a photo is read it is hidden, not unmounted. */}
       {/* Story 19.7: the camera is a button (white, green text, a camera), "Välj bild" a text button beside it, and the
           line "Senaste foto … · Visa" a thin row under them. While a photo is read they are hidden, not unmounted. */}
-      <div hidden={analyzing} className={analyzing ? "hidden" : "flex items-center gap-3"}>
-        <Button
-          variant="secondary"
+      {/* One primary "Fota" across the width and a discreet "Välj från album" link under it: the same as Förråd. */}
+      <div hidden={analyzing} className={analyzing ? "hidden" : "flex flex-col items-center gap-1"}>
+        <button
+          type="button"
           ref={cameraButtonRef}
           disabled={switching}
           onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
-          className="min-w-0 grow"
+          className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-center text-row-title text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <CameraIcon size={22} />
+          <CameraIcon size={20} className="shrink-0" />
           {cameraButtonText(location)}
-        </Button>
-        {touch ? (
-          <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="shrink-0">
-            Välj bild
-          </Button>
-        ) : null}
+        </button>
+        <button
+          type="button"
+          disabled={switching}
+          onClick={() => pickerRef.current?.click()}
+          className="flex min-h-tap items-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+        >
+          {albumLinkText}
+        </button>
       </div>
       <div hidden={analyzing} className={analyzing ? "hidden" : "-mt-1"}>
         {children}

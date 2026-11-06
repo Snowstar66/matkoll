@@ -209,7 +209,7 @@ describe("LatestPhoto", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(line()).toBeNull();
     expect(await screen.findByTestId("toast")).toHaveTextContent("Tog bort fotot av kylen.");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Fota" })).toHaveFocus());
   });
 
   it("says the photo is gone, not removed, when it was gone already", async () => {

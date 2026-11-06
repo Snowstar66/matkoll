@@ -41,6 +41,14 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-06",
+    title: "En Fota-knapp i Matvaror",
+    bullets: [
+      "Kyl, Frys och Skafferi har nu en knapp, Fota, som öppnar kameran.",
+      "Under den finns en liten länk, Välj från album, när bilden redan finns i telefonen.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Idéer som från en vän",
     bullets: [
       "Vad kan jag laga nu? svarar nu som en vän vid kylen: en kort inledning och några idéer, också små saker som en sås, en dipp eller en macka.",
