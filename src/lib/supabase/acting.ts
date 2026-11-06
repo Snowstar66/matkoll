@@ -8,6 +8,7 @@ import type { Database } from "./database.types";
 // Inside `actAsSession` the data layer's createClient() gives that session's client, so every read and write
 // (pantry, offers, the AI setting, the set) runs as that member under RLS, with the code the signed-in flow uses.
 // Only the Route Handler that checked the tokens sets it; nothing else can.
+// after() callbacks and detached promises started inside `actAsSession` inherit the session too (AsyncLocalStorage).
 
 type Acting = { db: SupabaseClient<Database> };
 

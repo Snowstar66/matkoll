@@ -16,8 +16,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import { signInAs, type Db } from "./fetch-offers/job.ts";
 import { loadIdeaTargets, runIdeasJob } from "./offer-ideas/job.ts";
 
-/** No new household after this long: the workflow allows the step 40 minutes, and one household takes at most ~5. */
-const budgetMs = 25 * 60_000;
+/** No new household after this long: the workflow allows the step 30 minutes, and one household takes at most ~5 (requestMs). */
+const budgetMs = 20 * 60_000;
 /** The route's own maxDuration is 300 s. */
 const requestMs = 310_000;
 
@@ -34,6 +34,17 @@ const siteUrl = process.env.SITE_URL?.trim().replace(/\/+$/, "");
 if (!siteUrl) {
   console.info("offer_ideas_skipped SITE_URL_not_set");
   process.exit(0);
+}
+// The members' tokens go to this address only: https, and never on to another one (no redirects, below).
+let siteProtocol = "";
+try {
+  siteProtocol = new URL(siteUrl).protocol;
+} catch {
+  siteProtocol = "";
+}
+if (siteProtocol !== "https:") {
+  console.error("offer_ideas_setting_invalid SITE_URL_not_https");
+  process.exit(2);
 }
 const url = setting("NEXT_PUBLIC_SUPABASE_URL");
 const publishableKey = setting("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
@@ -56,6 +67,8 @@ const summary = await runIdeasJob({
       method: "POST",
       headers: { authorization: `Bearer ${session.accessToken}`, "x-refresh-token": session.refreshToken },
       signal: AbortSignal.timeout(requestMs),
+      // A redirect would carry x-refresh-token to wherever it points: refuse it.
+      redirect: "error",
     });
     if (!response.ok) throw new Error(`offer_ideas_http_${response.status}`);
     const body = (await response.json()) as { ok?: boolean; data?: { outcome?: unknown } };
