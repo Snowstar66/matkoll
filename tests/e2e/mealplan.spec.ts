@@ -538,6 +538,8 @@ test("an empty week in Inköpslista says so and offers to plan it; the week menu
   await seedRecipe("Pannkaksmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
   await page.goto("/matsedel");
   await page.getByTestId("week-nav").filter({ visible: true }).getByRole("link", { name: "Nästa vecka" }).click();
+  // The dish must land on next week: wait for the navigation before adding.
+  await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
   await addTab(page, "Alla recept");
   await plus(page, "Pannkaksmet").click();
   await expect(dish(page, "Pannkaksmet")).toHaveCount(1);
