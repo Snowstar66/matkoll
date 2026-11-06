@@ -367,7 +367,7 @@ export function OffersSheet({
                     <span aria-hidden="true" className="text-meta text-ink-2">
                       Sortera
                     </span>
-                    <Segment label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="justify-self-start" />
+                    <Segment label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="w-full" />
                   </>
                 ) : null}
               </div>
