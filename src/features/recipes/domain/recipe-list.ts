@@ -153,11 +153,9 @@ type FilterableRecipe = { id: string; createdAt: string; missingCount: number | 
  * (newest first), Favoriter only the favourites in that order; `isFavorite`
  * says whether a recipe is a favourite now.
  *
- * Kan lagas nu keeps every recipe too, ranked by `missingCount` (N from
- * pantry.recipeStatus, AD-7), fewest first, so the ones that can be cooked now
- * come first. Equal N are newest first (`createdAt`), then by id, as the
- * server orders the library. Rows without a status (`missingCount` not a
- * finite number of at least 0) come last, in the same order among themselves.
+ * Kan lagas nu keeps only the recipes with `missingCount` 0 (N from
+ * pantry.recipeStatus, AD-7; Basvaror count as home), in the given order.
+ * Rows without a status are not cookable and are left out.
  */
 export function filterRecipes<T extends FilterableRecipe>(
   recipes: readonly T[],
@@ -165,9 +163,24 @@ export function filterRecipes<T extends FilterableRecipe>(
   isFavorite: (recipe: T) => boolean,
 ): T[] {
   if (filter === "favorites") return recipes.filter(isFavorite);
-  // A copy, so the input is unchanged.
-  if (filter === "cookable") return [...recipes].sort(fewestMissingFirst);
+  if (filter === "cookable") return recipes.filter((recipe) => rankOf(recipe.missingCount) === 0);
   return [...recipes];
+}
+
+/** The most items a recipe may miss and still be listed under "Nästan" in Kan lagas nu. */
+export const NEARLY_MAX_MISSING = 2;
+
+/**
+ * The recipes under "Nästan (N)" in Kan lagas nu: missing 1 or 2 items, fewest
+ * missing first, equal counts in the given order. Nothing missing 3 or more.
+ */
+export function nearlyCookable<T extends { missingCount: number | null }>(recipes: readonly T[]): T[] {
+  return recipes
+    .filter((recipe) => {
+      const rank = rankOf(recipe.missingCount);
+      return rank !== null && rank >= 1 && rank <= NEARLY_MAX_MISSING;
+    })
+    .sort((a, b) => (a.missingCount as number) - (b.missingCount as number));
 }
 
 /**

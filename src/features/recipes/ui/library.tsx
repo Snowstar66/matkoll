@@ -15,6 +15,7 @@ import { recipeCategoryLabels } from "../domain/recipe-category";
 import {
   filterByCategory,
   filterRecipes,
+  nearlyCookable,
   rankByOffers,
   sortRecipes,
   type RecipeLibrary,
@@ -23,6 +24,7 @@ import {
 import { OffersSheetControlContext } from "./offers-sheet-control";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
+import { NearlyCookable } from "./nearly-cookable";
 import { RecipeFilterChips } from "./recipe-filter-chips";
 import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
@@ -36,16 +38,15 @@ import { useFavorites } from "./use-favorites";
 // searchLibrary for the matching recipes, and the filter is applied here, so
 // switching pills needs no request and a heart that changes shows at once.
 // Each row's status ("Kan lagas nu" or "Saknar N varor") comes with it from
-// the server; Kan lagas nu ranks the rows by it (fewest missing first) without
-// a request (the AI ideas are in Matsedel, Story 25.3). With more than
+// the server; Kan lagas nu shows only the recipes with nothing missing, and a
+// collapsed row "Nästan (N)" holds those missing one or two, without a request (the AI ideas are in Matsedel, Story 25.3). With more than
 // one place, Kan lagas nu says which place the status is counted against
 // ("Boende: Stugan", AD-24), under the pills, so the pill tapped never moves.
 // Under them are the category chips (Story 1.17), and the line with the count,
 // the sort and the switch between cards and the compact list (Story 1.16); the
 // view, sort and category are kept on the device like the pill. They work
 // together with the search and the pills: the category narrows the list, the
-// sort orders it. Kan lagas nu keeps its own order (fewest missing first) while
-// the sort is Senast tillagda or Mest hemma, and follows an explicit Snabbast or A–Ö.
+// sort orders it.
 
 /** Shown over the rows in Kan lagas nu when the pantry could not be read. */
 const notRankedMessage = "Det gick inte att läsa matvarorna, så recepten är inte rangordnade.";
@@ -173,9 +174,10 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
   );
   const current = useMemo(() => Object.fromEntries(shown.map((recipe) => [recipe.id, recipe.isFavorite])), [shown]);
   const { favorites, setFavorite } = useFavorites(current);
-  // Kan lagas nu ranks by what is missing, which is what Senast tillagda and
-  // Mest hemma ask for there; an explicit Snabbast or A–Ö is followed instead.
-  const rankedByMissing = filter === "cookable" && (sort === "newest" || sort === "mostHome");
+  // The statuses are missing only when neither the server list nor the search
+  // answer read the pantry (Story 2.4); Kan lagas nu then shows every recipe
+  // in the usual order, and a notice says why.
+  const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
   // Story 14.4: the categories any recipe has, counted over the whole library so the chips stay put while filtering.
   const availableCategories = useMemo(() => new Set(recipes.flatMap((recipe) => recipe.categories ?? [])), [recipes]);
   // The recipes in the category, before the pills, so an empty list can say which.
@@ -186,9 +188,9 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
     const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
     // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
     if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
-    const pill = filter === "cookable" && !rankedByMissing ? "all" : filter;
+    const pill = filter === "cookable" && statusUnavailable ? "all" : filter;
     return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite);
-  }, [inCategory, filter, sort, rankedByMissing, favorites, offers?.tags]);
+  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
@@ -197,13 +199,9 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
   const cookable = filter === "cookable";
   const onOffers = filter === "offers" && offers !== undefined;
   const compact = view === "compact";
-  // The rows shown take the server list's status where it has the recipe and
-  // the search answer's otherwise, so the statuses are missing only when
-  // neither read the pantry (Story 2.4). Then Kan lagas nu cannot rank them:
-  // they keep the usual order, and the notice says why. A row without a
-  // status while the pantry was read is ranked last, without the notice.
-  const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
+  // Missing one or two items, under "Nästan (N)"; only with a status.
+  const nearly = cookable && !statusUnavailable && search.kind !== "failed" ? nearlyCookable(inCategory) : [];
   // "Boende: Stugan", only in Kan lagas nu and with more than one place: the
   // search answer's place while its recipes are shown, else the server
   // list's. Never on no hits, a failed search, or without a status.
@@ -233,7 +231,7 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
       </Notice>
     );
   } else if (visible.length > 0) {
-    const ranked = rankedByMissing && !statusUnavailable;
+    const ranked = false;
     content = compact ? (
       <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} />
     ) : (
@@ -270,6 +268,8 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
         Inga recept i {recipeCategoryLabels[category]}.
       </EmptyState>
     );
+  } else if (cookable && !statusUnavailable && inCategory.length > 0) {
+    content = <EmptyState>Inget kan lagas helt just nu.</EmptyState>;
   } else if (search.kind === "done") {
     content = (
       <EmptyState
@@ -349,6 +349,7 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
           <div role="status">{notRanked ? <Notice className="mb-3">{notRankedMessage}</Notice> : null}</div>
         ) : null}
         {content}
+        {nearly.length > 0 ? <NearlyCookable recipes={nearly} /> : null}
       </div>
       {offers ? (
         <OffersSheetControlContext.Provider value={{ open: offersOpen, onClose: () => setOffersOpen(false) }}>{offers.sheet}</OffersSheetControlContext.Provider>
