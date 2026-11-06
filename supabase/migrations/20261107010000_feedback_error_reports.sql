@@ -10,10 +10,12 @@
 --    like every body). page and app_version are kept; area is optional.
 -- 2. digest: Next's error digest, only on an error row (text, at most 64 chars).
 -- 3. Users may set digest on insert (same grant style as the other content columns).
--- 4. The trigger: error rows have their own limit, 5 per sender per 10 minutes,
---    kept for every caller, so a crash loop cannot fill the inbox or use up the
+-- 4. The trigger: error rows have their own limits, 5 per sender per 10 minutes
+--    and 40 per day, kept for every caller, so a crash loop cannot fill the inbox or use up the
 --    10 an hour / 30 a day that real messages have. Those two limits no longer
 --    count error rows, so errors cannot block a real message either (MK429).
+-- 5. Retention: every error insert also deletes error rows older than 30 days
+--    (the trigger is security definer; created_at is indexed), so no job is needed.
 
 alter table public.feedback drop constraint feedback_kind_check;
 alter table public.feedback
@@ -42,6 +44,10 @@ begin
     if (select count(*) from public.feedback as f where f.user_id = new.user_id and f.kind = 'error' and f.created_at > now() - interval '10 minutes') >= 5 then
       raise exception 'too many error reports' using errcode = 'MK429';
     end if;
+    if (select count(*) from public.feedback as f where f.user_id = new.user_id and f.kind = 'error' and f.created_at > now() - interval '1 day') >= 40 then
+      raise exception 'too many error reports' using errcode = 'MK429';
+    end if;
+    delete from public.feedback as f where f.kind = 'error' and f.created_at < now() - interval '30 days';
   -- Only a signed-in caller is limited; a script with the service role (pnpm
   -- move:cloud) copies rows without a session. One sender at a time, so two
   -- concurrent inserts cannot both slip under the limit.

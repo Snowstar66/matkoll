@@ -3,12 +3,15 @@ import {
   areaOfPath,
   buildErrorReport,
   createReportGate,
+  errorReportSchema,
+  isForeignScript,
   isIgnorableError,
   rawErrorOf,
   reportKey,
   reportPath,
   reportVersion,
   scrubText,
+  simplifyMessage,
   stackExcerpt,
 } from "./error-report";
 
@@ -42,7 +45,11 @@ describe("reportPath and areaOfPath", () => {
     expect(reportPath("/recept/3f2b8c1e-1111-4222-8333-444455556666?x=1#a")).toBe("/recept/[id]");
     expect(reportPath("https://evil.example/x")).toBeNull();
     expect(reportPath("/a b")).toBeNull();
-    expect(reportPath(`/${"x".repeat(500)}`)?.length).toBe(200);
+    expect(reportPath(`/${"x".repeat(500)}`)).toBe("/[id]");
+    expect(reportPath("/prylar/rum/Hemma/Kök")).toBe("/prylar/rum/[id]/[id]");
+    expect(reportPath("/ga-med/ABC123")).toBe("/ga-med/[id]");
+    expect(reportPath("/installningar/inkorg")).toBe("/installningar/inkorg");
+    expect(reportPath("/matsedel/tidigare/some-plan")).toBe("/matsedel/tidigare/[id]");
   });
 
   it("maps the tabs to help areas", () => {
@@ -159,5 +166,54 @@ describe("reportVersion", () => {
   it("adds the commit's first seven characters", () => {
     expect(reportVersion({ version: "0.1.0", commit: "abcdef1234567" })).toBe("0.1.0+abcdef1");
     expect(reportVersion({ version: "0.1.0", commit: null })).toBe("0.1.0");
+  });
+});
+
+describe("truncation instead of refusal", () => {
+  it("clamps long fields in the schema and in rawErrorOf, and still builds a report", () => {
+    const huge = "x".repeat(50_000);
+    const parsed = errorReportSchema.parse({ name: huge, message: huge, stack: huge, digest: huge, path: `/${huge}`, source: "window" });
+    expect(parsed.name.length).toBe(200);
+    expect(parsed.message.length).toBe(4000);
+    expect(parsed.stack?.length).toBe(10_000);
+    expect(parsed.path.length).toBe(1000);
+    const raw = rawErrorOf({ name: huge, message: huge, stack: huge, digest: huge });
+    expect([raw.name.length, raw.message.length, raw.stack?.length, raw.digest?.length]).toEqual([200, 4000, 10_000, 200]);
+    const report = buildErrorReport({ ...parsed, source: "window" });
+    expect(report).not.toBeNull();
+    expect(report!.body.length).toBeLessThan(2000);
+    // Even input that skipped the schema is cut before it is scanned.
+    expect(buildErrorReport({ ...base, message: huge, stack: huge.replace(/x/g, "a?") })).not.toBeNull();
+  });
+
+  it("keeps the stored message to about 200 characters", () => {
+    const report = buildErrorReport({ ...base, message: "ord ".repeat(500) })!;
+    expect(report.body.split(" [")[0]!.length).toBeLessThanOrEqual(270);
+  });
+});
+
+describe("simplifyMessage", () => {
+  it("reduces database and validation messages to codes and constraint names", () => {
+    expect(simplifyMessage('duplicate key value violates unique constraint "recipe_title_key" Key (title)=(Annas soppa) already exists.')).toBe(
+      'duplicate key value violates unique constraint "recipe_title_key"',
+    );
+    expect(simplifyMessage("Key (title)=(Hemligt) already exists")).toBe("Key [dold] already exists");
+    expect(simplifyMessage('[{"code":"invalid_type","path":["name"],"message":"Anna är fel"},{"code":"too_small"}]')).toBe(
+      "Validation error (invalid_type, too_small)",
+    );
+    expect(simplifyMessage("Cannot read properties of undefined")).toBe("Cannot read properties of undefined");
+  });
+});
+
+describe("isForeignScript", () => {
+  const site = "https://livskoll.vercel.app";
+  it("flags extensions and other sites, not the app's own scripts", () => {
+    expect(isForeignScript("chrome-extension://abc/content.js", null, site)).toBe(true);
+    expect(isForeignScript("moz-extension://abc/content.js", null, site)).toBe(true);
+    expect(isForeignScript("safari-extension://abc/x.js", null, site)).toBe(true);
+    expect(isForeignScript("", "Error: x\n    at f (chrome-extension://abc/x.js:1:1)", site)).toBe(true);
+    expect(isForeignScript("https://cdn.other.example/x.js", null, site)).toBe(true);
+    expect(isForeignScript("https://livskoll.vercel.app/_next/static/a.js", null, site)).toBe(false);
+    expect(isForeignScript("", null, site)).toBe(false);
   });
 });

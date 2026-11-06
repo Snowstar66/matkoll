@@ -11,7 +11,12 @@ import type { FeedbackAreaId } from "./feedback";
 /** The most error reports one browser session sends. */
 export const maxReportsPerSession = 20;
 /** The longest message kept (after scrubbing). */
-export const maxMessageChars = 400;
+export const maxMessageChars = 200;
+/** Inputs are cut to these before anything scans them (a scan of a huge text is slow), never rejected. */
+export const maxRawNameChars = 200;
+export const maxRawMessageChars = 4000;
+export const maxRawStackChars = 10_000;
+export const maxRawPathChars = 1000;
 /** The longest stack kept: its first lines. */
 export const maxStackChars = 1000;
 const maxStackLines = 6;
@@ -28,12 +33,15 @@ const sourceLabels: Record<ErrorSource, string> = {
 };
 
 /** What the browser sends to the Server Action; the server checks and scrubs it again. */
+const clamp = (max: number) => z.string().transform((text) => text.slice(0, max));
+
+/** Long values are cut, not refused: a long report (a hydration diff, a big stack) must still arrive. */
 export const errorReportSchema = z.object({
-  name: z.string().max(200),
-  message: z.string().max(4000),
-  stack: z.string().max(10_000).nullable(),
-  digest: z.string().max(200).nullable(),
-  path: z.string().max(1000),
+  name: clamp(maxRawNameChars),
+  message: clamp(maxRawMessageChars),
+  stack: clamp(maxRawStackChars).nullable(),
+  digest: clamp(200).nullable(),
+  path: clamp(maxRawPathChars),
   source: z.enum(errorSources),
 });
 export type ErrorReportInput = z.input<typeof errorReportSchema>;
@@ -47,13 +55,13 @@ export function rawErrorOf(thrown: unknown): RawError {
     const record = thrown as Record<string, unknown>;
     const text = (value: unknown) => (typeof value === "string" ? value : null);
     return {
-      name: text(record.name) ?? "Error",
-      message: text(record.message) ?? "",
-      stack: text(record.stack),
-      digest: text(record.digest),
+      name: (text(record.name) ?? "Error").slice(0, maxRawNameChars),
+      message: (text(record.message) ?? "").slice(0, maxRawMessageChars),
+      stack: text(record.stack)?.slice(0, maxRawStackChars) ?? null,
+      digest: text(record.digest)?.slice(0, 200) ?? null,
     };
   }
-  return { name: "Error", message: typeof thrown === "string" ? thrown : "", stack: null, digest: null };
+  return { name: "Error", message: typeof thrown === "string" ? thrown.slice(0, maxRawMessageChars) : "", stack: null, digest: null };
 }
 
 // ---------- scrubbing ----------
@@ -81,6 +89,18 @@ export function scrubText(text: string): string {
     .replace(longTokenPattern, "[dold]");
 }
 
+/**
+ * Database and validation messages echo input ("Key (title)=(…) already exists", zod's
+ * issue lists): reduced to what kind of error and which constraint or code, nothing else.
+ */
+export function simplifyMessage(message: string): string {
+  const constraint = /^(.{0,80}?violates [\w ]{0,40}?constraint "([^"]{1,80})")/.exec(message);
+  if (constraint) return constraint[1]!;
+  const codes = [...message.matchAll(/"code"\s*:\s*"([a-z_]{1,40})"/g)].map((match) => match[1]);
+  if (codes.length > 0) return `Validation error (${[...new Set(codes)].join(", ")})`;
+  return message.replace(/\bKey \([^)]*\)=\([^)]*\)/g, "Key [dold]");
+}
+
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
@@ -90,7 +110,7 @@ export function stackExcerpt(stack: string | null): string {
   if (!stack) return "";
   const lines = stack
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => line.trim().slice(0, 300))
     .filter((line) => /^at\s|@/.test(line))
     .slice(0, maxStackLines);
   return truncate(scrubText(lines.join("\n")), maxStackChars);
@@ -98,13 +118,25 @@ export function stackExcerpt(stack: string | null): string {
 
 // ---------- the path ----------
 
-const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+// The words that are fixed parts of the app's routes; any other segment is an id, a
+// code or a name and is hidden.
+const staticSegments = new Set(
+  (
+    "hemma hjalp installningar ai appikon basvaror boenden butiker inkorg installera konto medlemmar notiser nyheter om " +
+    "receptsajter siri spara-i-matkoll lista lagg-till matsedel tidigare prylar kort lada rum recept importera valkomst " +
+    "api jobs photo warm news notes snabb things locate retry auth confirm ga-med logga-in"
+  ).split(" "),
+);
 
-/** The path without query or fragment, ids hidden, or null when it is not a path in the app. */
+/** The path without query or fragment, with every segment that is not a known route word hidden as [id]; null when it is not a path in the app. */
 export function reportPath(raw: string): string | null {
-  const path = raw.split(/[?#]/)[0] ?? "";
+  const path = (raw.slice(0, maxRawPathChars).split(/[?#]/)[0] ?? "").replace(/\/+$/, "") || "/";
   if (!path.startsWith("/") || /\s/.test(path)) return null;
-  return truncate(path.replace(uuidPattern, "[id]"), maxPathChars);
+  const segments = path
+    .split("/")
+    .slice(1)
+    .map((segment) => (segment === "" || staticSegments.has(segment) ? segment : "[id]"));
+  return truncate(`/${segments.join("/")}`, maxPathChars);
 }
 
 const areaByFirstSegment: Record<string, FeedbackAreaId> = {
@@ -146,6 +178,25 @@ export function isIgnorableError(error: RawError, { online }: { online: boolean 
   return false;
 }
 
+const extensionPattern = /(?:chrome|moz|safari|safari-web)-extension:\/\//i;
+
+/**
+ * Whether an error comes from code that is not the app's own: a browser extension, or a
+ * script from another site. `filename` is the error event's, `stack` the error's.
+ */
+export function isForeignScript(filename: string | null | undefined, stack: string | null | undefined, site: string): boolean {
+  if (extensionPattern.test(filename ?? "")) return true;
+  if (extensionPattern.test((stack ?? "").slice(0, maxRawStackChars))) return true;
+  if (filename) {
+    try {
+      return new URL(filename).origin !== site;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 // ---------- the report ----------
 
 /** One report as it is stored in `feedback`: kind 'error'. */
@@ -153,20 +204,25 @@ export type ErrorReport = { body: string; page: string | null; area: FeedbackAre
 
 /** Makes a scrubbed, size-limited report of an error; null for an expected one. */
 export function buildErrorReport(input: ErrorReportInput, { online = true }: { online?: boolean } = {}): ErrorReport | null {
-  const error: RawError = { name: input.name, message: input.message, stack: input.stack, digest: input.digest };
+  const error: RawError = {
+    name: input.name.slice(0, maxRawNameChars),
+    message: input.message.slice(0, maxRawMessageChars),
+    stack: input.stack?.slice(0, maxRawStackChars) ?? null,
+    digest: input.digest?.slice(0, 200) ?? null,
+  };
   if (isIgnorableError(error, { online })) return null;
   const page = reportPath(input.path);
-  const name = truncate(scrubText(input.name).replace(/\s+/g, " ").trim() || "Error", 60);
-  const message = truncate(scrubText(input.message).replace(/\s+/g, " ").trim(), maxMessageChars);
-  const stack = stackExcerpt(input.stack);
+  const name = truncate(scrubText(error.name).replace(/\s+/g, " ").trim() || "Error", 60);
+  const message = truncate(scrubText(simplifyMessage(error.message)).replace(/\s+/g, " ").trim(), maxMessageChars);
+  const stack = stackExcerpt(error.stack);
   const head = `${name}: ${message || "(inget meddelande)"} [${sourceLabels[input.source]}]`;
-  const digest = input.digest ? truncate(input.digest.replace(/[^\w.-]/g, ""), 64) || null : null;
+  const digest = error.digest ? truncate(error.digest.replace(/[^\w.-]/g, ""), 64) || null : null;
   return { body: stack ? `${head}\n${stack}` : head, page, area: areaOfPath(page), digest };
 }
 
 /** The same error twice in a session has the same key: its digest or message, and the path. */
 export function reportKey(error: Pick<RawError, "message" | "digest">, path: string): string {
-  return `${error.digest ?? scrubText(error.message).slice(0, 200)}|${reportPath(path) ?? path}`;
+  return `${error.digest ?? scrubText(simplifyMessage(error.message)).slice(0, 200)}|${reportPath(path) ?? "?"}`;
 }
 
 /** Remembers what was reported, and stops at a cap, so a session sends each error once and not a flood. */

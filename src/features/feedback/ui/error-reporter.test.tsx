@@ -26,6 +26,11 @@ describe("ErrorReporter", () => {
     window.dispatchEvent(rejection);
     expect(reportClientError).toHaveBeenCalledWith(reason, "rejection");
 
+    // An extension's or another site's error is not reported.
+    window.dispatchEvent(new ErrorEvent("error", { error: new Error("ext"), message: "ext", filename: "chrome-extension://abc/content.js" }));
+    window.dispatchEvent(new ErrorEvent("error", { error: new Error("cdn"), message: "cdn", filename: "https://cdn.other.example/x.js" }));
+    expect(reportClientError).toHaveBeenCalledTimes(2);
+
     unmount();
     window.dispatchEvent(new ErrorEvent("error", { error, message: "boom" }));
     window.removeEventListener("error", swallow);

@@ -1,3 +1,5 @@
+import { createServerClient } from "@supabase/ssr";
+import type { Database } from "@/lib/supabase/database.types";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, type TestUser } from "./support";
 
@@ -220,6 +222,45 @@ describe("feedback", () => {
         expect((await crasher.db.from("feedback").insert({ kind: "idea", body: `Förslag ${index}` })).error, `idea ${index + 1}`).toBeNull();
       }
       expect((await crasher.db.from("feedback").insert({ kind: "idea", body: "En för mycket" })).error?.code).toBe("MK429");
+    });
+
+    it("stops a sender after 40 error reports in a day, even when spread over time", async () => {
+      const daily = await createTestUser("feedback-error-daily");
+      // 40 reports spread over the last 20 hours (older than 10 minutes, so only the daily cap applies).
+      const old = Array.from({ length: 40 }, (_, index) => ({
+        ...report,
+        user_id: daily.id,
+        body: `Fel ${index}`,
+        created_at: new Date(Date.now() - (30 + index * 30) * 60_000).toISOString(),
+      }));
+      expect((await adminClient().from("feedback").insert(old)).error).toBeNull();
+      expect((await daily.db.from("feedback").insert({ ...report, body: "Fel 41" })).error?.code).toBe("MK429");
+    });
+
+    it("accepts an error row from a client that carries only the user's access token as a header (the server reporter)", async () => {
+      const bearer = await createTestUser("feedback-error-bearer");
+      const token = (await bearer.db.auth.getSession()).data.session!.access_token;
+      const headerOnly = createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+        cookies: { getAll: () => [], setAll: () => {} },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      expect((await headerOnly.from("feedback").insert({ ...report, body: "Från servern" })).error).toBeNull();
+      expect((await adminFeedback(bearer.id)).map((row) => [row.body, row.user_id])).toEqual([["Från servern", bearer.id]]);
+    });
+
+    it("deletes error reports older than 30 days when a new one comes in, and keeps ordinary messages", async () => {
+      const keeper = await createTestUser("feedback-error-retention");
+      const day = 24 * 60 * 60_000;
+      const rows = [
+        { ...report, user_id: keeper.id, body: "Gammalt fel", created_at: new Date(Date.now() - 31 * day).toISOString() },
+        { ...report, user_id: keeper.id, body: "Nyligt fel", created_at: new Date(Date.now() - 29 * day).toISOString() },
+        { kind: "idea", user_id: keeper.id, body: "Gammalt förslag", created_at: new Date(Date.now() - 90 * day).toISOString() },
+      ];
+      expect((await adminClient().from("feedback").insert(rows as never)).error).toBeNull();
+      expect((await keeper.db.from("feedback").insert({ ...report, body: "Nytt fel" })).error).toBeNull();
+      const bodies = (await adminFeedback(keeper.id)).map((row) => row.body).sort();
+      expect(bodies).toEqual(["Gammalt förslag", "Nyligt fel", "Nytt fel"]);
     });
   });
 });

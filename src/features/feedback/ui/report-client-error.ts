@@ -18,6 +18,8 @@ export function reportClientError(thrown: unknown, source: ErrorSource): void {
     const error = rawErrorOf(thrown);
     const online = typeof navigator === "undefined" ? true : navigator.onLine;
     if (isIgnorableError(error, { online })) return;
+    // A digest means the server rendered the error and onRequestError has reported it already.
+    if (error.digest) return;
     const path = window.location.pathname;
     if (!gate.allow(reportKey(error, path))) return;
     reporting = true;

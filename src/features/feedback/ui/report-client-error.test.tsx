@@ -21,10 +21,10 @@ beforeEach(async () => {
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("reportClientError", () => {
-  it("sends name, message, digest, the path without query and the source", async () => {
+  it("sends name, message, the path without query and the source", async () => {
     window.history.pushState({}, "", "/recept?q=kyckling");
-    reportClientError(Object.assign(new TypeError("boom"), { digest: "42" }), "boundary");
-    expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ name: "TypeError", message: "boom", digest: "42", path: "/recept", source: "boundary" }));
+    reportClientError(new TypeError("boom"), "boundary");
+    expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ name: "TypeError", message: "boom", path: "/recept", source: "boundary" }));
   });
 
   it("sends the same error once, even when it comes again after the first report finished", async () => {
@@ -33,6 +33,17 @@ describe("reportClientError", () => {
     reportClientError(new Error("boom"), "rejection");
     await flush();
     expect(reportError).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips an error with a digest, which the server has reported already", async () => {
+    reportClientError(Object.assign(new Error("render failed"), { digest: "42" }), "boundary");
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("sends a long error to the action, cut to the limit", async () => {
+    reportClientError(new Error("x".repeat(50_000)), "window");
+    const sent = reportError.mock.calls[0]![0] as { message: string };
+    expect(sent.message).toHaveLength(4000);
   });
 
   it("skips expected errors, and network errors only while offline", async () => {
