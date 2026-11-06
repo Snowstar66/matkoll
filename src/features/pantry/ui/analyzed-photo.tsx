@@ -154,7 +154,10 @@ export function ReviewPhotoPanel({
       const top = sentinelRef.current?.getBoundingClientRect().top;
       if (top === undefined || !panelRef.current) return;
       const sticksAt = Number.parseFloat(getComputedStyle(panelRef.current).top) || 0;
-      setMini((was) => (was ? top < sticksAt : top < sticksAt - 24));
+      // Growing back needs a margin of the height it gives up: shrinking can clamp the scroll position by that much
+      // near the end of the page, and without the margin the panel flips between sizes while the page scrolls.
+      const grownBy = reviewPhotoHeight.full - reviewPhotoHeight.mini;
+      setMini((was) => (was ? top < sticksAt + grownBy : top < sticksAt - 24));
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
