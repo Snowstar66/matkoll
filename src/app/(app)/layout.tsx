@@ -2,6 +2,7 @@ import { type ReactNode, Suspense } from "react";
 import { AccountProvider } from "@/components/app-shell/account";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ToastProvider } from "@/components/toast";
+import { ErrorReporter } from "@/features/feedback/ui/error-reporter";
 import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
 import { SavedImports } from "@/features/recipes/ui/saved-imports";
 import { accountOf } from "@/features/auth";
@@ -69,6 +70,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       signOut={{ sheet: <SignOutButton appearance="sheet" />, menu: <SignOutButton appearance="menu" /> }}
     >
     <ToastProvider>
+      {/* Errors nothing caught go to the owner's Inkorg (kind error), once per page load. */}
+      <ErrorReporter />
       <AiJobsProvider>
         <SavedImports />
         {/* Story 24.1: the household's notes, read by the client (the layout never waits for them), under each tab's title. */}
