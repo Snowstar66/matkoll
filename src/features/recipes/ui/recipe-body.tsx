@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
+import { WeekPicker } from "@/components/week-picker";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
-import { clampServings, maxServings, weekdayWord, weekOffsetLabel } from "@/features/mealplan";
+import { clampServings, maxServings, weekdayWord } from "@/features/mealplan";
 import {
   atHomeSummaryText,
   noStaples,
@@ -93,8 +94,6 @@ export type RecipeWeek = {
 
 /** The week a recipe is planned for unless the person picks another: next week. */
 const defaultWeekOffset = 1;
-
-const weekOptionLabels = ["Denna vecka", "Nästa vecka", "Om 2 veckor"];
 
 export type RecipeBodyProps = {
   recipe: SavedRecipe;
@@ -361,7 +360,7 @@ export function RecipeBody({
             ) : null}
           </div>
 
-          {weeks && addToPlan ? <WeekPicker weeks={weeks} selected={weekOffset} onSelect={pickWeek} /> : null}
+          {weeks && addToPlan ? <WeekPicker weeks={weeks} selected={weekOffset} onSelect={pickWeek} testId="recipe-week" /> : null}
 
           {wide && hasActions ? <div className="flex flex-col gap-2">{actions}</div> : null}
 
@@ -461,52 +460,5 @@ function Chip({ tone, testId, children }: { tone: keyof typeof chipTones; testId
     <li className={cx("rounded-full px-2.5 py-1.5 text-meta font-semibold", chipTones[tone])} data-testid={testId}>
       {children}
     </li>
-  );
-}
-
-/**
- * Which week "Lägg på matsedeln" goes on: Denna vecka / Nästa vecka / Om 2
- * veckor, the same three as Matsedel's week tiles. Next week is picked at first,
- * and the line under says the week number.
- */
-function WeekPicker({
-  weeks,
-  selected,
-  onSelect,
-}: {
-  weeks: readonly RecipeWeek[];
-  selected: number;
-  onSelect: (offset: number) => void;
-}) {
-  const current = weeks.find((week) => week.offset === selected);
-  return (
-    <div className="flex flex-col gap-1.5" data-testid="recipe-week">
-      {/* With large text the three wrap onto more rows instead of pushing the page sideways. */}
-      <div role="group" aria-label="Vecka på matsedeln" className="flex flex-wrap gap-1.5">
-        {weeks.map((week) => {
-          const on = week.offset === selected;
-          return (
-            <button
-              key={week.weekStart}
-              type="button"
-              data-testid="recipe-week-option"
-              aria-pressed={on}
-              onClick={() => onSelect(week.offset)}
-              className={cx(
-                "flex min-h-tap flex-1 cursor-pointer items-center justify-center rounded-md border px-2 text-control whitespace-nowrap",
-                on ? "border-accent bg-accent text-on-accent" : "border-border bg-surface text-ink",
-              )}
-            >
-              {weekOptionLabels[week.offset] ?? weekOffsetLabel(week.offset)}
-            </button>
-          );
-        })}
-      </div>
-      {current ? (
-        <p className="text-meta text-ink-2" data-testid="recipe-week-line">
-          Matsedel för vecka {current.number}
-        </p>
-      ) : null}
-    </div>
   );
 }

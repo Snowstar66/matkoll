@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { currentWeekStart } from "@/features/mealplan";
+import { copyTargets, weekNumber } from "@/features/mealplan";
 import { addToCurrentPlan, getMealPlanView, MealPlanDataError } from "@/features/mealplan/server";
 import { CatalogDataError, searchIngredients } from "@/features/catalog/server";
 import { OffersDataError } from "@/features/offers/server";
@@ -8,7 +8,7 @@ import { SettingsDataError } from "@/features/settings/server";
 import { PantryDataError } from "@/features/pantry/server";
 import { optionsForTab } from "@/features/suggestions";
 import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, weekPlanOptions } from "@/features/suggestions/server";
-import { OfferDishesCard } from "./offer-dishes-card";
+import { OfferDishesCard, type OfferWeek } from "./offer-dishes-card";
 
 /** At most this many dishes are shown at the top of Veckans erbjudanden. */
 const maxOfferDishes = 3;
@@ -24,11 +24,15 @@ const maxOfferDishes = 3;
  */
 export async function loadOfferDishes(): Promise<ReactNode> {
   try {
-    const weekStart = currentWeekStart();
-    const [options, view] = await Promise.all([weekPlanOptions(), getMealPlanView(weekStart)]);
+    // This week and the next two (the week picker), each with the dishes already on it.
+    const targets = copyTargets();
+    const [options, ...views] = await Promise.all([weekPlanOptions(), ...targets.map((target) => getMealPlanView(target.weekStart))]);
     const dishes = optionsForTab(options, "offers").slice(0, maxOfferDishes);
-    const onWeek: Record<string, number | null> = {};
-    for (const dish of view.dishes) if (dish.recipeId && !(dish.recipeId in onWeek)) onWeek[dish.recipeId] = dish.weekday ?? null;
+    const weeks: OfferWeek[] = targets.map((target, index) => {
+      const onWeek: Record<string, number | null> = {};
+      for (const dish of views[index]?.dishes ?? []) if (dish.recipeId && !(dish.recipeId in onWeek)) onWeek[dish.recipeId] = dish.weekday ?? null;
+      return { weekStart: target.weekStart, offset: target.offset, number: weekNumber(target.weekStart), onWeek };
+    });
     // The saved ideas, prepared in the background; a set that cannot be read leaves the card without them.
     const ideas = await loadOfferIdeas().catch((error: unknown) => {
       if (!isOfferIdeaError(error)) throw error;
@@ -38,8 +42,7 @@ export async function loadOfferDishes(): Promise<ReactNode> {
     return (
       <OfferDishesCard
         dishes={dishes}
-        onWeek={onWeek}
-        weekStart={weekStart}
+        weeks={weeks}
         addToWeek={addToCurrentPlan}
         searchIngredients={searchIngredients}
         ideas={ideas}
