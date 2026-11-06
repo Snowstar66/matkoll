@@ -388,6 +388,15 @@ Lokalt står samma sak i `supabase/config.toml` (`[auth] enable_signup = true` o
 - **Namnet:** "Vad heter du?" visas en gång, första gången någon utan namn loggar in (också du efter släppet), förifyllt från e-postens början. P-knappen visar ens eget namn och nyans (mint, sky, sand, lila i den ordning man gick med).
 - **Filerna:** innan någon lämnar eller tas bort raderas deras filer utan rad under hushållets platser. En fil under en plats som hushållet fortfarande har får hushållet läsa och ta bort i vilken mapp den än ligger (bara medlemmar har någonsin kunnat lägga den där), så ett kort som en tidigare medlem tog kan tas bort och sopas som andra. Rensa och Ta bort platsen tar alla medlemmars filer, och tidigare medlemmars filer först, medan raderna finns (du har bekräftat borttagningen; misslyckas den efteråt saknar de korten sina foton). Att ta bort ett boende tar inte tidigare medlemmars filer först, eftersom boendet kanske inte får tas bort (valt eller med varor).
 
+### Bjud in från appen (Story 21.1)
+
+Du som är appens ägare (raden i `app_owner`, samma som Inkorgen) bjuder in en adress under Inställningar, Appens ägare, Inbjudningar, utan att röra `ALLOWED_EMAILS` i Vercel. Skriv adressen och tryck Bjud in: du får en kod på 8 tecken och en länk (`/inbjudan?kod=…`) att dela, inget mejl skickas. Personen gör ett eget konto med **samma** adress och ett lösenord, får ett eget hushåll och kan sedan bjuda in sin familj under Medlemmar.
+
+- **Tabellen** `app_invite` är databasens tillåtelselista: adress, kodens hash (aldrig koden), giltighet 7 dagar och, när koden använts, `used_by` (användar-id). RLS är på utan policy och utan rättigheter för klienter; du arbetar genom funktioner som kontrollerar `is_app_owner()`.
+- **Hooken** (`household_signup_hook`) släpper också igenom en registrering vars `user_metadata.app_invite_code` är en öppen inbjudan för just den adressen. `claim_app_invite` använder sedan upp koden som den nya användaren.
+- **Åtkomst** = adressen i `ALLOWED_EMAILS`, **eller** medlem i ett hushåll där någon har en använd app-inbjudan, **eller** i ett hushåll där någon står på `ALLOWED_EMAILS`. `ALLOWED_EMAILS` är kvar som reserv, så du kan aldrig låsa ut dig själv.
+- **Ta bort** en adress (appen frågar först) tar åtkomsten från personen och från de i deras hushåll som bara kom in genom dem, vid nästa anrop. Kontona och datan finns kvar. `pnpm users:sync --prune` raderar inte inbjudna eller deras hushåll.
+
 ### Risker som är kvar
 
 1. **Koder kan gissas.** 31^6 ≈ 890 miljoner koder, högst 10 öppna per hushåll, 7 dagar, en person, och spärrarna ovan. Hooken själv räknar inte fel (en spärr där skulle låta vem som helst stänga registreringen för alla); den skyddas av Supabase gräns för registreringar per IP (Authentication → Rate Limits). Förhandsvisningens spärr för alla kan på samma sätt sättas av vem som helst; då visar `/ga-med` bara formuläret utan hushållets namn, och att gå med fungerar ändå.

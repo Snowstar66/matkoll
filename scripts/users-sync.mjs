@@ -63,7 +63,11 @@ async function listAllUsers() {
 const existing = await listAllUsers();
 const { data: memberships, error: membershipsError } = await supabase.from("household_member").select("household_id, user_id");
 if (membershipsError) fail(`could not list household members (${membershipsError.code ?? "error"})`);
-const plan = planUserSync(allowed, existing, { prune, members: householdMembersLetIn(allowed, existing, memberships) });
+// Story 21.1: and the people the owner invited from the app (app_invite), with their households.
+const { data: appInvites, error: appInvitesError } = await supabase.from("app_invite").select("used_by").not("used_by", "is", null);
+if (appInvitesError) fail(`could not list app invitations (${appInvitesError.code ?? "error"})`);
+const invited = new Set((appInvites ?? []).map((row) => row.used_by));
+const plan = planUserSync(allowed, existing, { prune, members: householdMembersLetIn(allowed, existing, memberships, invited) });
 
 for (const email of plan.create) {
   const { error } = await supabase.auth.admin.createUser({ email, email_confirm: true });

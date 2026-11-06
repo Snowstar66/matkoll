@@ -78,7 +78,11 @@ export async function SettingsMenuContent() {
           {
             // Story 21.2b (decision 9): the app's owner, not to be mixed up with a household's.
             label: "Appens ägare",
-            rows: [{ href: settingsPageHref("inkorg"), icon: "inbox", tile: "sky", title: "Inkorg", badge: newCountText(inbox.unread) }],
+            rows: [
+              { href: settingsPageHref("inkorg"), icon: "inbox", tile: "sky", title: "Inkorg", badge: newCountText(inbox.unread) },
+              // Story 21.1: invite an address without touching Vercel; shown with the inbox, to the owner only.
+              { href: settingsPageHref("inbjudningar"), icon: "users", tile: "mint", title: "Inbjudningar" },
+            ],
           } satisfies SettingsGroupData,
         ]
       : []),

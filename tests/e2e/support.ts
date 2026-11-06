@@ -291,6 +291,12 @@ export const feedbackEmail = "e2e-tyck-till@matkoll.test";
  */
 export const householdEmail = "e2e-hushall@matkoll.test";
 /**
+ * The E2E user of app-invites.spec.ts alone (Bjud in ett hushåll från appen, Story 21.1): it is made
+ * the app's owner in app_owner for the spec, invites an address, and a second browser makes an
+ * account on /inbjudan with the code.
+ */
+export const appInvitesEmail = "e2e-inbjudningar@matkoll.test";
+/**
  * The two E2E users of notes.spec.ts alone (Lappen på kylskåpet, Story 24.1): the spec puts
  * the second in the first one's household with the service role, and one writes to the other.
  */
@@ -362,6 +368,7 @@ export const e2eEmails = [
   offlineListEmail,
   feedbackEmail,
   householdEmail,
+  appInvitesEmail,
   notesEmail,
   notesPartnerEmail,
   welcomeEmail,
@@ -417,6 +424,7 @@ export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
 export const householdStorageState = "tests/e2e/.auth/household.json";
+export const appInvitesStorageState = "tests/e2e/.auth/app-invites.json";
 export const notesStorageState = "tests/e2e/.auth/notes.json";
 export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";

@@ -68,6 +68,22 @@ describe("planUserSync", () => {
     expect(plan.remove).toEqual([users[1], users[3]]);
   });
 
+  // Story 21.1: the people the owner invited from the app, and their household, are not extras either.
+  it("keeps the people invited from the app and their household members, also with prune", () => {
+    const users = [...existing, { id: "3", email: "kompis@example.com" }, { id: "4", email: "kompis-partner@example.com" }, { id: "5", email: "alone@example.com" }];
+    const memberships = [
+      { household_id: "h1", user_id: "1" },
+      { household_id: "h2", user_id: "3" },
+      { household_id: "h2", user_id: "4" },
+      { household_id: "h3", user_id: "5" },
+    ];
+    const members = householdMembersLetIn(["pontus@example.com"], users, memberships, new Set(["3"]));
+    expect([...members].sort()).toEqual(["1", "3", "4"]);
+    const plan = planUserSync(["pontus@example.com"], users, { prune: true, members });
+    expect(plan.household.map((user) => user.id)).toEqual(["3", "4"]);
+    expect(plan.remove.map((user) => user.id)).toEqual(["2", "5"]);
+  });
+
   it("is idempotent: a second run creates nothing", () => {
     const allowed = ["pontus@example.com", "new@example.com"];
     const first = planUserSync(allowed, existing);

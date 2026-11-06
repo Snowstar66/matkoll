@@ -79,6 +79,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"app_invite": {
+                  Row: {
+                    "code_hash": string,"created_at": string,"created_by": string | null,"email": string,"expires_at": string,"id": string,"used_at": string | null,"used_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code_hash": string,"created_at"?: string,"created_by"?: string | null,"email": string,"expires_at": string,"id"?: string,"used_at"?: string | null,"used_by"?: string | null
+                  }
+                  Update: {
+                    "code_hash"?: string,"created_at"?: string,"created_by"?: string | null,"email"?: string,"expires_at"?: string,"id"?: string,"used_at"?: string | null,"used_by"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"app_owner": {
                   Row: {
                     "created_at": string,"user_id": string
@@ -998,6 +1012,20 @@ isOneToOne: false
               "calls": number,"input_tokens": number,"model": string,"output_tokens": number
             }[]
                            },
+"app_invite_open":
+{ Args: { "code": string,"who": string }; Returns: string
+                           },
+"app_invite_preview":
+{ Args: { "code": string }; Returns: Json
+                           },
+"app_invited_access":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"app_invites":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "accepted": boolean,"created_at": string,"email": string,"expires_at": string,"id": string
+            }[]
+                           },
 "apply_pantry_inventory":
 { Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[],"site"?: string }; Returns: Json
                            },
@@ -1014,6 +1042,9 @@ isOneToOne: false
                            },
 "claim_ai_job":
 { Args: { "job_id": string,"run_deadline": string }; Returns: Json
+                           },
+"claim_app_invite":
+{ Args: { "code": string }; Returns: boolean
                            },
 "claim_push_batches":
 { Args: { "max_wait"?: string,"quiet"?: string }; Returns: {
@@ -1036,6 +1067,11 @@ isOneToOne: false
                            },
 "copy_meal_plan":
 { Args: { "source_plan": string,"target_week": string }; Returns: number
+                           },
+"create_app_invite":
+{ Args: { "invite_email": string }; Returns: {
+              "code": string,"expires_at": string,"id": string
+            }[]
                            },
 "create_household_invite":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1217,6 +1253,9 @@ isOneToOne: false
                            },
 "remember_thing":
 { Args: { "place": string,"replaces"?: string,"thing_category": string,"thing_name": string }; Returns: string
+                           },
+"remove_app_invite":
+{ Args: { "invite_id": string }; Returns: boolean
                            },
 "remove_household_member":
 { Args: { "member": string }; Returns: undefined

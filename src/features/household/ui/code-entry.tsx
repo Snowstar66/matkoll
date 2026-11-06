@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
+import { appJoinRoute, isAppInviteCodeShape } from "@/features/app-invites";
 import { inviteCodeLength, isInviteCodeShape, joinRoute, normalizeInviteCode } from "../domain/invite-code";
 
 /**
@@ -19,6 +20,11 @@ export function CodeEntry({ collapsed = false }: { collapsed?: boolean }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    // Story 21.1: the owner's invitation to the app has 8 characters and its own page.
+    if (isAppInviteCodeShape(code)) {
+      router.push(`${appJoinRoute}?${new URLSearchParams({ kod: normalizeInviteCode(code) })}`);
+      return;
+    }
     if (!isInviteCodeShape(code)) {
       setError(`Koden har ${inviteCodeLength} tecken, till exempel K7Q 4MP.`);
       return;

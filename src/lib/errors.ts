@@ -62,6 +62,15 @@ export const errorMessages = {
   household_account_exists: "Det finns redan ett konto med adressen. Logga in i stället.",
   household_join_failed: "Det gick inte att gå med. Försök igen.",
   household_not_owner: "Bara hushållets ägare kan göra det.",
+  // Inbjudningar (Story 21.1): the owner invites an address from Inställningar; the person makes an account on /inbjudan.
+  app_invite_failed: "Det gick inte att spara inbjudan. Försök igen.",
+  app_invite_unavailable: "Det gick inte att läsa inbjudningarna. Försök igen.",
+  app_invite_not_owner: "Bara appens ägare kan bjuda in.",
+  app_invite_already: "Adressen har redan ett konto via en inbjudan. Ta bort inbjudan först om du vill bjuda in igen.",
+  app_invite_in_env: "Adressen har redan åtkomst.",
+  app_invite_too_many: "Det finns redan 200 inbjudningar. Ta bort några först.",
+  app_invite_gone: "Inbjudan gäller inte längre, eller är inte till den adressen. Be om en ny.",
+  app_invite_join_failed: "Det gick inte att skapa kontot. Försök igen.",
   household_member_gone: "Personen är inte med i hushållet längre.",
   household_alone: "Du är ensam i hushållet, så det finns inget att lämna.",
   // Lappar (Story 24.1): writing, Klar and its Ångra.

@@ -27,16 +27,21 @@ export function parseAllowedEmails(raw) {
 /**
  * Story 21.2b: the users let in through their household, not ALLOWED_EMAILS:
  * every member of a household in which someone's address is on the list (an
- * invited member). They are kept, never pruned.
+ * invited member). They are kept, never pruned. Story 21.1: so are the people the
+ * app's owner invited from the app (`invited`, the user ids that used an invitation
+ * in app_invite) and the members of their households.
  * @param {string[]} allowed normalised addresses from parseAllowedEmails
  * @param {{ id: string, email?: string | null }[]} existing users in Supabase Auth
  * @param {{ household_id: string, user_id: string }[]} memberships rows of household_member
+ * @param {Set<string>} [invited] user ids that used an app invitation (app_invite.used_by)
  * @returns {Set<string>} the user ids
  */
-export function householdMembersLetIn(allowed, existing, memberships) {
+export function householdMembersLetIn(allowed, existing, memberships, invited = new Set()) {
   const allowedSet = new Set(allowed);
   const emailOf = new Map(existing.map((user) => [user.id, (user.email ?? "").toLowerCase()]));
-  const letIn = new Set(memberships.filter((row) => allowedSet.has(emailOf.get(row.user_id) ?? "")).map((row) => row.household_id));
+  const letIn = new Set(
+    memberships.filter((row) => allowedSet.has(emailOf.get(row.user_id) ?? "") || invited.has(row.user_id)).map((row) => row.household_id),
+  );
   return new Set(memberships.filter((row) => letIn.has(row.household_id)).map((row) => row.user_id));
 }
 
