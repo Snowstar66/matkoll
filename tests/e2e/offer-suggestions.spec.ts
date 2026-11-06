@@ -300,7 +300,7 @@ test("the filter Erbjudanden shows the recipe that uses an offer, with its tag, 
   const cards = page.getByTestId("recipe-card");
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText("Falukorv med potatismos");
-  await expect(cards.first().getByTestId("offer-tags")).toContainText("Falukorv");
+  await expect(cards.first().getByTestId("offer-tags")).toHaveText("Extrapris: falukorv");
   await expect(page.getByTestId("offers-line")).toContainText(/^Recept med veckans erbjudanden från Matkoll Testbutik, vecka \d+\./);
   await page.getByRole("button", { name: "Visa erbjudanden" }).click();
   await expect(sheet(page)).toBeVisible();
