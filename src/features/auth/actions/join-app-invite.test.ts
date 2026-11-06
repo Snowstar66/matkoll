@@ -65,7 +65,7 @@ describe("joinAppInvite", () => {
 
   it("refuses a household code's length, and an address on ALLOWED_EMAILS, before asking Supabase", async () => {
     expect(await joinAppInvite({ mode: "signup", ...anna, code: "K7Q4MP" })).toMatchObject({ ok: false, error: { code: "app_invite_gone" } });
-    expect(await joinAppInvite({ mode: "signup", ...anna, email: "Pontus@Example.com" })).toMatchObject({ ok: false, error: { code: "household_account_exists" } });
+    expect(await joinAppInvite({ mode: "signup", ...anna, email: "Pontus@Example.com" })).toMatchObject({ ok: false, error: { code: "app_invite_gone" } });
     expect(signUp).not.toHaveBeenCalled();
   });
 

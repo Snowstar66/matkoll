@@ -67,6 +67,7 @@ export const errorMessages = {
   app_invite_unavailable: "Det gick inte att läsa inbjudningarna. Försök igen.",
   app_invite_not_owner: "Bara appens ägare kan bjuda in.",
   app_invite_already: "Adressen har redan ett konto via en inbjudan. Ta bort inbjudan först om du vill bjuda in igen.",
+  app_invite_at_once: "Adressen bjöds in just nu från en annan enhet. Försök igen.",
   app_invite_in_env: "Adressen har redan åtkomst.",
   app_invite_too_many: "Det finns redan 200 inbjudningar. Ta bort några först.",
   app_invite_gone: "Inbjudan gäller inte längre, eller är inte till den adressen. Be om en ny.",

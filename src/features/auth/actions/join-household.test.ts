@@ -71,7 +71,7 @@ describe("joinHousehold", () => {
   });
 
   it("never makes an account for an address on ALLOWED_EMAILS (users:sync does)", async () => {
-    expect(await joinHousehold({ mode: "signup", ...martina, email: "pontus@example.com" })).toMatchObject({ ok: false, error: { code: "household_account_exists" } });
+    expect(await joinHousehold({ mode: "signup", ...martina, email: "pontus@example.com" })).toMatchObject({ ok: false, error: { code: "household_invite_gone" } });
     expect(signUp).not.toHaveBeenCalled();
   });
 

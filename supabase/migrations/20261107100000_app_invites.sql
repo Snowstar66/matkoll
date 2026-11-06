@@ -7,14 +7,18 @@
 --    the code), when the code expires, and, once the person has made or used an
 --    account with the code, used_by: the user id. Access is bound to that id,
 --    never to the address (an address can be changed by its user), and the row
---    going away (removing the invitation) ends the access. RLS on and no
+--    going away (removing the invitation) ends the access. The address binding
+--    does NOT prove that the person owns the mailbox (e-mail confirmation is off):
+--    it only stops guessing and forwarding to another address. The code is the
+--    real secret, so whoever has the link and the address can sign up. RLS on and no
 --    policy, no grant to anon or authenticated: no client reads or writes the
 --    table; the owner works through the functions below, which check
 --    is_app_owner(), and the app needs no service role.
 -- 2. create_app_invite / app_invites / remove_app_invite: owner only (42501
 --    for anyone else). The code is 8 characters of the household codes'
 --    alphabet, valid 7 days, given back once. Inviting an address again gives
---    a new code while it is not used; one that is used is refused (MK461).
+--    a new code while it is not used; one that is used is refused (MK461); two
+--    first invitations for one address at once give MK463 (try again).
 -- 3. app_invite_preview(code): anon and signed in, what the join page shows
 --    (ok, gone, unknown, locked); wrong codes count in household_code_attempt.
 -- 4. claim_app_invite(code): the signed-in person whose address the invitation
@@ -34,6 +38,9 @@
 -- (the preview also for anon).
 
 set local lock_timeout = '5s';
+
+-- The app's codes come from pgcrypto's random bytes (the household codes' generator is left as it was).
+create extension if not exists pgcrypto with schema extensions;
 
 create table public.app_invite (
   id uuid primary key default gen_random_uuid(),
@@ -103,7 +110,7 @@ begin
   loop
     made := '';
     while char_length(made) < 8 loop
-      bytes := uuid_send(gen_random_uuid());
+      bytes := extensions.gen_random_bytes(16);
       for i in 0..15 loop
         pick := get_byte(bytes, i);
         -- 248 = 8 * 31: the bytes above it would favour the first characters.
@@ -120,10 +127,15 @@ begin
       where v.id = existing.id
       returning v.id, made, v.expires_at;
   else
-    return query
-      insert into public.app_invite as v (email, code_hash, created_by, expires_at)
-      values (clean, public.household_invite_hash(made), me, now() + interval '7 days')
-      returning v.id, made, v.expires_at;
+    begin
+      return query
+        insert into public.app_invite as v (email, code_hash, created_by, expires_at)
+        values (clean, public.household_invite_hash(made), me, now() + interval '7 days')
+        returning v.id, made, v.expires_at;
+    exception when unique_violation then
+      -- Two first invitations for the same address at the same moment: the other one won.
+      raise exception 'invited at the same time' using errcode = 'MK463';
+    end;
   end if;
 end;
 $$;

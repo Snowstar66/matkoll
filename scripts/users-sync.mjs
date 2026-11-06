@@ -4,7 +4,8 @@
 // and kept; `--prune` deletes them.
 //
 //   pnpm users:sync            create missing users, warn about others
-//   pnpm users:sync --prune    also delete users not in ALLOWED_EMAILS
+//   pnpm users:sync --prune    also delete users not in ALLOWED_EMAILS, except those whose
+//                              household has saved data (--prune-data deletes those too)
 //
 // `--prune` bans a user, removes its photo files in the bucket pantry-photo,
 // deletes it and removes what is left (Story 10.3, AD-26, pruneExtraUsers):
@@ -21,9 +22,11 @@
 // role, which is allowed only in scripts/ and tests/ (AD-4).
 
 import { createClient } from "@supabase/supabase-js";
-import { householdMembersLetIn, parseAllowedEmails, planUserSync, pruneExtraUsers, removeDeletedUsersFiles } from "./users-sync-plan.mjs";
+import { householdMembersLetIn, parseAllowedEmails, planUserSync, pruneExtraUsers, removeDeletedUsersFiles, usersWithData } from "./users-sync-plan.mjs";
 
 const prune = process.argv.slice(2).includes("--prune");
+// Story 21.1: --prune keeps users whose household has data; --prune-data deletes those too.
+const pruneData = process.argv.slice(2).includes("--prune-data");
 
 function fail(message) {
   console.error(`users:sync: ${message}`);
@@ -67,7 +70,10 @@ if (membershipsError) fail(`could not list household members (${membershipsError
 const { data: appInvites, error: appInvitesError } = await supabase.from("app_invite").select("used_by").not("used_by", "is", null);
 if (appInvitesError) fail(`could not list app invitations (${appInvitesError.code ?? "error"})`);
 const invited = new Set((appInvites ?? []).map((row) => row.used_by));
-const plan = planUserSync(allowed, existing, { prune, members: householdMembersLetIn(allowed, existing, memberships, invited) });
+const members = householdMembersLetIn(allowed, existing, memberships, invited);
+const outside = existing.filter((user) => !allowed.includes((user.email ?? "").toLowerCase()) && !members.has(user.id));
+const withData = prune && !pruneData ? await usersWithData(supabase, outside) : new Set();
+const plan = planUserSync(allowed, existing, { prune, pruneData, members, withData });
 
 for (const email of plan.create) {
   const { error } = await supabase.auth.admin.createUser({ email, email_confirm: true });
@@ -75,6 +81,7 @@ for (const email of plan.create) {
   console.log(`created  ${email}`);
 }
 for (const user of plan.keep) console.log(`exists   ${user.email}`);
+for (const user of plan.keptWithData) console.log(`kept     ${user.email ?? user.id} (has saved data; --prune-data deletes it)`);
 for (const user of plan.household) console.log(`member   ${user.email ?? user.id} (invited to a household)`);
 if (!prune) {
   for (const user of plan.extra) {

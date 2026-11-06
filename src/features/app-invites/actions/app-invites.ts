@@ -20,6 +20,7 @@ const refusalMessages: Record<string, ErrorCode> = {
   [appInviteErrorCodes.notAnAddress]: "validation",
   [appInviteErrorCodes.alreadyInvited]: "app_invite_already",
   [appInviteErrorCodes.tooMany]: "app_invite_too_many",
+  [appInviteErrorCodes.atOnce]: "app_invite_at_once",
 };
 
 async function run<T>(what: string, write: () => Promise<T>): Promise<Result<T>> {

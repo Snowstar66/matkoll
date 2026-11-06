@@ -395,7 +395,9 @@ Du som är appens ägare (raden i `app_owner`, samma som Inkorgen) bjuder in en 
 - **Tabellen** `app_invite` är databasens tillåtelselista: adress, kodens hash (aldrig koden), giltighet 7 dagar och, när koden använts, `used_by` (användar-id). RLS är på utan policy och utan rättigheter för klienter; du arbetar genom funktioner som kontrollerar `is_app_owner()`.
 - **Hooken** (`household_signup_hook`) släpper också igenom en registrering vars `user_metadata.app_invite_code` är en öppen inbjudan för just den adressen. `claim_app_invite` använder sedan upp koden som den nya användaren.
 - **Åtkomst** = adressen i `ALLOWED_EMAILS`, **eller** medlem i ett hushåll där någon har en använd app-inbjudan, **eller** i ett hushåll där någon står på `ALLOWED_EMAILS`. `ALLOWED_EMAILS` är kvar som reserv, så du kan aldrig låsa ut dig själv.
-- **Ta bort** en adress (appen frågar först) tar åtkomsten från personen och från de i deras hushåll som bara kom in genom dem, vid nästa anrop. Kontona och datan finns kvar. `pnpm users:sync --prune` raderar inte inbjudna eller deras hushåll.
+- **Adressen bevisar inte brevlådan.** E-postbekräftelse är av, så bindningen till adressen stoppar bara gissningar och att länken används med en annan adress. Koden är den riktiga hemligheten: den som har länken och adressen kan skapa kontot. Dela länken bara med personen.
+- **Ta bort** en adress (appen frågar först) tar bort åtkomsten till appen (sidor, åtgärder och AI) för personen och för de i deras hushåll som bara kom in genom dem, vid nästa anrop. Kontona och datan finns kvar. Bjuder du in adressen igen får personen tillbaka åtkomsten.
+- **`pnpm users:sync --prune`** raderar inte inbjudna eller deras hushåll, och raderar inte heller användare vars hushåll har sparad data (de skrivs ut som `kept`). Vill du verkligen radera dem, lägg till `--prune-data`.
 
 ### Risker som är kvar
 

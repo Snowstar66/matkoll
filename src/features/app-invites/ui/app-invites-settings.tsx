@@ -184,7 +184,7 @@ export function AppInvitesSettings({
         </>
       ) : null}
 
-      <Sheet open={shown !== null} onClose={() => setShown(null)} title="Dela inbjudan" closeLabel="Klar" footer={
+      <Sheet open={shown !== null} onClose={() => { setShown(null); setLastShown(null); }} title="Dela inbjudan" closeLabel="Klar" footer={
         <Button fullWidth onClick={() => void share()} data-testid="app-invite-share">
           <ShareIcon size={20} />
           {canShare ? "Dela inbjudan" : "Kopiera inbjudan"}

@@ -6,6 +6,7 @@ import {
   pruneBanDuration,
   pruneExtraUsers,
   removeDeletedUsersFiles,
+  usersWithData,
 } from "../../scripts/users-sync-plan.mjs";
 import { memoryBucket } from "./memory-bucket";
 
@@ -82,6 +83,34 @@ describe("planUserSync", () => {
     const plan = planUserSync(["pontus@example.com"], users, { prune: true, members });
     expect(plan.household.map((user) => user.id)).toEqual(["3", "4"]);
     expect(plan.remove.map((user) => user.id)).toEqual(["2", "5"]);
+  });
+
+  // Story 21.1: removing an app invitation only takes the way in; --prune must not delete what the person saved.
+  it("keeps users whose household has data under --prune, and deletes them only with --prune-data", () => {
+    const withData = new Set(["2"]);
+    const prune = planUserSync(["pontus@example.com"], existing, { prune: true, withData });
+    expect(prune.remove.map((user) => user.id)).not.toContain("2");
+    expect(prune.keptWithData.map((user) => user.id)).toEqual(["2"]);
+    const all = planUserSync(["pontus@example.com"], existing, { prune: true, pruneData: true, withData });
+    expect(all.remove.map((user) => user.id)).toContain("2");
+    expect(all.keptWithData).toEqual([]);
+    expect(planUserSync(["pontus@example.com"], existing, { withData }).keptWithData).toEqual([]);
+  });
+
+  it("finds the users with data, and counts an unreadable household as data", async () => {
+    const tables: Record<string, number> = { recipe: 0, pantry_item: 3 };
+    const fake = {
+      from: (table: string) => ({
+        select: (_c: string, opts?: unknown) => ({
+          eq: (column: string, value: string) =>
+            opts
+              ? Promise.resolve({ count: column === "household_id" && value === "h-data" ? (tables[table] ?? 0) : 0, error: null })
+              : { maybeSingle: async () => ({ data: value === "none" ? null : { household_id: value === "u-data" ? "h-data" : value === "u-empty" ? "h-empty" : "x" }, error: value === "u-broken" ? { code: "500" } : null }) },
+        }),
+      }),
+    };
+    const found = await usersWithData(fake, [{ id: "u-data" }, { id: "u-empty" }, { id: "u-broken" }, { id: "none" }]);
+    expect([...found].sort()).toEqual(["u-broken", "u-data"]);
   });
 
   it("is idempotent: a second run creates nothing", () => {

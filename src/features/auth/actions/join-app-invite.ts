@@ -86,8 +86,9 @@ export async function joinAppInvite(input: JoinInput): Promise<Result<null>> {
     }
     passwordAttempts.reset(attemptKey);
   } else {
-    // An address on ALLOWED_EMAILS gets its account from users:sync, never here.
-    if (isAllowedEmail(email, allowedList)) return fail("household_account_exists");
+    // An address on ALLOWED_EMAILS gets its account from users:sync, never here. The answer is the
+    // generic one, so this is no way to ask whether an address is on the list.
+    if (isAllowedEmail(email, allowedList)) return fail("app_invite_gone");
     // The same rule as Välj lösenord (Story 17.2): at least 12 characters, at most 72 bytes.
     const chosen = newPasswordSchema.safeParse(join.password);
     if (!chosen.success) return fail("validation", { password: chosen.error.issues[0]?.message ?? "" });

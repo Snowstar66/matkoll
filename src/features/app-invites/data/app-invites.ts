@@ -19,7 +19,7 @@ export class AppInviteDataError extends Error {
 }
 
 /** The database's own refusals (errcodes in the migration). */
-export const appInviteErrorCodes = { notOwner: "42501", notAnAddress: "22023", alreadyInvited: "MK461", tooMany: "MK462", locked: "MK451" } as const;
+export const appInviteErrorCodes = { notOwner: "42501", notAnAddress: "22023", alreadyInvited: "MK461", tooMany: "MK462", atOnce: "MK463", locked: "MK451" } as const;
 
 /** A refusal the action turns into a message: the code from appInviteErrorCodes. */
 export class AppInviteRefusal extends Error {
