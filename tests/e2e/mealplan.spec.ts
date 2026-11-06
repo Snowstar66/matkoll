@@ -177,15 +177,19 @@ test("Alla recept lists every recipe, and what is not at home counts in the bar"
   await expect(dishes(page)).toHaveCount(2);
   // The first day from today that gryta did not take, or none on a Sunday.
   const soppaDay = firstFree([todayDay()]);
+  // The toast names what went on the list.
   await expect(toast(page)).toContainText(
-    soppaDay ? `${soppa} på ${dayWords[soppaDay - 1]}. 1 vara på listan.` : `${soppa} på veckan. Alla dagar har en rätt. 1 vara på listan.`,
+    soppaDay ? `${soppa} på ${dayWords[soppaDay - 1]}. Röda linser står på inköpslistan.` : `${soppa} på veckan. Alla dagar har en rätt. Röda linser står på inköpslistan.`,
+    { ignoreCase: true },
   );
   // Veckans rätter are in day order: gryta (first free day) before soppa (the next, or none).
   await expect(dishes(page).first()).toContainText(gryta);
   await expect(dish(page, soppa).getByTestId("dish-note")).toHaveText("1 vara att köpa");
   // The pantry never ranks: the rows are by title. The bar counts the list's lines for the week.
   await expect(bar(page)).toHaveText("2 rätter · 1 vara att köpa");
-  await page.getByRole("link", { name: "Inköpslistan" }).click();
+  // The list is a tab away; Matsedel has no button of its own for it.
+  await expect(page.getByRole("link", { name: "Inköpslistan" })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: /^Inköpslista/ }).click();
   await expect(page).toHaveURL(/\/lista$/);
   await expect(page.getByTestId("shopping-line").filter({ visible: true })).toHaveCount(1);
   expect(errors).toEqual([]);

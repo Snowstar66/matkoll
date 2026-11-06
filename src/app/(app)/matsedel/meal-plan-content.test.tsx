@@ -111,7 +111,6 @@ describe("MealPlanContent", () => {
     );
     await show();
     expect(screen.getByTestId("week-bar-count")).toHaveTextContent("1 rätt · 2 varor att köpa");
-    expect(screen.getByRole("link", { name: "Inköpslista" + "n" })).toHaveAttribute("href", "/lista");
   });
 
   it("names only the dishes when the list cannot be counted", async () => {

@@ -50,6 +50,8 @@ export type PlanOption = {
   meta: string;
   /** How many items the dish needs that are not at home (and not Basvaror). */
   buy: number;
+  /** Those items by name, as written mid-sentence ("grädde"), for the toast after an add. */
+  buyNames: string[];
   deal: PlanDeal | null;
 };
 
@@ -137,6 +139,7 @@ export function planOptions(
 ): PlanOption[] {
   return recipes.map((recipe) => {
     const cookedTimes = cooked[recipe.id] ?? 0;
+    const buyNames = toBuyNames([], recipe.lines, staples).map((name) => nameInSentence(name));
     return {
       id: recipe.id,
       title: recipe.title,
@@ -146,7 +149,8 @@ export function planOptions(
       servings: recipe.servings,
       cookedTimes,
       meta: planMeta(recipe, cookedTimes),
-      buy: toBuyNames([], recipe.lines, staples).length,
+      buy: buyNames.length,
+      buyNames,
       deal: dealOf(offers, recipe, staples),
     };
   });

@@ -59,7 +59,7 @@ export function OfferDishesCard({
     ids.current.delete(option.id);
     const weekday = result.data.weekday ?? null;
     setDays((current) => ({ ...current, [option.id]: weekday }));
-    showToast(addedToWeekText(option.title, option.buy, weekday));
+    showToast(addedToWeekText(option.title, option.buyNames, weekday));
     router.refresh();
   }
 

@@ -19,6 +19,7 @@ const option = (id: string, title: string, deal: string): PlanOption => ({
   servings: 4,
   cookedTimes: 0,
   buy: 2,
+  buyNames: ["falukorv", "grädde"],
   meta: "",
   deal: { text: deal, savingKr: 21, savingPercent: 20 },
 });

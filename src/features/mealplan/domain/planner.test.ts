@@ -14,10 +14,13 @@ const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): Plan
 
 describe("the words of the planning view", () => {
   it("says the toast after +", () => {
-    expect(addedToWeekText("Korvstroganoff", 3, 4)).toBe("Korvstroganoff på torsdag. 3 varor på listan.");
-    expect(addedToWeekText("Tacos", 1, 1)).toBe("Tacos på måndag. 1 vara på listan.");
-    expect(addedToWeekText("Soppa", 0, 7)).toBe("Soppa på söndag. Inget att köpa.");
-    expect(addedToWeekText("Soppa", 2, null)).toBe("Soppa på veckan. Alla dagar har en rätt. 2 varor på listan.");
+    expect(addedToWeekText("Korvstroganoff", ["falukorv", "grädde", "ris"], 4)).toBe("Korvstroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan.");
+    expect(addedToWeekText("Tacos", ["tortillabröd"], 1)).toBe("Tacos på måndag. Tortillabröd står på inköpslistan.");
+    expect(addedToWeekText("Soppa", [], 7)).toBe("Soppa på söndag. Inget att köpa.");
+    expect(addedToWeekText("Soppa", ["lök", "morot"], null)).toBe("Soppa på veckan. Alla dagar har en rätt. Lök och morot står på inköpslistan.");
+    expect(addedToWeekText("Lasagne", ["köttfärs", "krossade tomater", "ost", "pasta", "mjölk"], 2)).toBe(
+      "Lasagne på tisdag. Köttfärs, krossade tomater, ost och 2 till står på inköpslistan.",
+    );
     expect(changeDayLabel(4)).toBe("Byt dag");
     expect(changeDayLabel(null)).toBe("Välj dag");
     expect(onWeekLabel(4)).toBe("Tor");
