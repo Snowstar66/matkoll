@@ -2,8 +2,8 @@ import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { adminClient, cookableEmail, cookableStorageState, e2eUserId, chooseUnit } from "./support";
 
-// Story 5.1: the filter Kan lagas nu ranks the library by N in "Saknar N
-// varor", fewest first. The spec has an E2E user of its own (cookableEmail). Before each test the pantry and
+// Story 5.1 (changed): the filter Kan lagas nu shows only the recipes with
+// nothing missing; "Nästan (N)" holds those missing one or two, naming what. The spec has an E2E user of its own (cookableEmail). Before each test the pantry and
 // the recipes are emptied, and three recipes named after the mock's fixtures
 // are made with the service role, oldest first:
 //
@@ -13,7 +13,7 @@ import { adminClient, cookableEmail, cookableStorageState, e2eUserId, chooseUnit
 // - Fiskgratäng med räkor: 400 g torsk, 2 dl grädde.
 //
 // At home: 4 dl grädde. So N is 1, 0 and 2 newest first (fiskgratäng,
-// gryta, soppa), and Kan lagas nu shows gryta, fiskgratäng, soppa.
+// gryta, soppa), and Kan lagas nu shows gryta alone, with fiskgratäng and soppa under Nästan.
 
 const mobile = { width: 375, height: 812 };
 const desktop = { width: 1280, height: 900 };
@@ -131,7 +131,8 @@ const showAll = async (page: Page) => {
     if ((await chip.count()) > 0) await chip.click();
   }
 };
-const rankedList = (page: Page) => page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
+const nearlyToggle = (page: Page, count: number) => page.getByRole("button", { name: `Nästan (${count})` }).filter({ visible: true });
+const nearlyRows = (page: Page) => page.getByTestId("nearly-row").filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog");
@@ -152,22 +153,28 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
-test("Kan lagas nu ranks the library fewest missing first and keeps the choice", async ({ page }) => {
+test("Kan lagas nu shows only what can be cooked, with Nästan below, and keeps the choice", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/recept");
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
 
   await pill(page, "Kan lagas nu").click();
   await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
-  await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
-  await expectStatuses(page, ["Kan lagas nu", "Saknar 1 vara", "Saknar 2 varor"]);
-  await expect(rankedList(page)).toBeVisible();
+  await expect(titles(page)).toHaveText([gryta]);
+  await expectStatuses(page, ["Kan lagas nu"]);
+  await expect(nearlyToggle(page, 2)).toHaveAttribute("aria-expanded", "false");
+  await expect(nearlyRows(page)).toHaveCount(0);
+  await nearlyToggle(page, 2).click();
+  await expect(nearlyRows(page)).toHaveCount(2);
+  await expect(nearlyRows(page).nth(0)).toContainText(fisk);
+  await expect(nearlyRows(page).nth(0)).toContainText("Saknar torsk");
+  await expect(nearlyRows(page).nth(1)).toContainText(soppa);
+  await expect(nearlyRows(page).nth(1)).toContainText("Saknar röda linser, gul lök");
   await expectNoHorizontalScroll(page);
 
   await page.reload();
   await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
-  await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
-  await expect(rankedList(page)).toBeVisible();
+  await expect(titles(page)).toHaveText([gryta]);
 
   await showAll(page);
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
@@ -175,11 +182,11 @@ test("Kan lagas nu ranks the library fewest missing first and keeps the choice",
   expect(errors).toEqual([]);
 });
 
-test("adding an item in Matvaror ranks the library again", async ({ page }) => {
+test("adding an item in Matvaror makes another recipe cookable", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();
-  await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
+  await expect(titles(page)).toHaveText([gryta]);
 
   // Client navigation both ways, so the library shown again is the one the
   // save revalidated, not a fresh page load.
@@ -198,21 +205,23 @@ test("adding an item in Matvaror ranks the library again", async ({ page }) => {
   await expect(page).toHaveURL(/\/recept$/);
   await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   // Two can be cooked now, newest first.
-  await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
-  await expectStatuses(page, ["Kan lagas nu", "Kan lagas nu", "Saknar 2 varor"]);
+  await expect(titles(page)).toHaveText([fisk, gryta]);
+  await expectStatuses(page, ["Kan lagas nu", "Kan lagas nu"]);
+  await expect(nearlyToggle(page, 1)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("with an empty pantry the list is still ranked, with nothing to cook now", async ({ page }) => {
+test("with an empty pantry nothing can be cooked now, and Nästan has all three", async ({ page }) => {
   const errors = watchErrors(page);
   const { error } = await adminClient().from("pantry_item").delete().eq("user_id", userId);
   if (error) throw error;
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();
-  await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
-  await expectStatuses(page, ["Saknar 1 vara", "Saknar 2 varor", "Saknar 2 varor"]);
-  await expect(rows(page).getByText("Kan lagas nu", { exact: true })).toHaveCount(0);
-  await expect(rankedList(page)).toBeVisible();
+  await expect(rows(page)).toHaveCount(0);
+  await expect(page.getByText("Inget kan lagas helt just nu.").filter({ visible: true })).toBeVisible();
+  await nearlyToggle(page, 3).click();
+  await expect(nearlyRows(page)).toHaveCount(3);
+  await expect(nearlyRows(page).first()).toContainText("Saknar grädde");
   await expectNoHorizontalScroll(page);
 
   await page.setViewportSize(desktop);
@@ -220,7 +229,7 @@ test("with an empty pantry the list is still ranked, with nothing to cook now", 
   expect(errors).toEqual([]);
 });
 
-test("a search on Kan lagas nu shows the hits ranked", async ({ page }) => {
+test("a search on Kan lagas nu shows only the hits that can be cooked", async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize(desktop);
   await page.goto("/recept");
@@ -230,9 +239,9 @@ test("a search on Kan lagas nu shows the hits ranked", async ({ page }) => {
   const answered = actionAnswer(page);
   await field.press("Enter");
   await answered;
-  await expect(titles(page)).toHaveText([gryta, fisk]);
-  await expectStatuses(page, ["Kan lagas nu", "Saknar 1 vara"]);
-  await expect(rankedList(page)).toBeVisible();
+  await expect(titles(page)).toHaveText([gryta]);
+  await expectStatuses(page, ["Kan lagas nu"]);
+  await expect(nearlyToggle(page, 1)).toBeVisible();
   await expectNoHorizontalScroll(page);
   expect(errors).toEqual([]);
 });

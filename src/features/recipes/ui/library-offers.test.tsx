@@ -143,7 +143,7 @@ describe("Library, the filter Erbjudanden", () => {
     expect(titles()).toEqual(["Risotto", "Grytan med allt", "Laxpasta", "Korvstroganoff"]);
     expect(screen.queryByTestId("offer-tags")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Kan lagas nu" }));
-    expect(titles()).toEqual(["Risotto", "Laxpasta", "Korvstroganoff", "Grytan med allt"]);
+    expect(titles()).toEqual(["Risotto", "Laxpasta"]);
     expect(screen.queryByTestId("offer-tags")).not.toBeInTheDocument();
     expect(screen.queryByTestId("offers-line")).not.toBeInTheDocument();
   });

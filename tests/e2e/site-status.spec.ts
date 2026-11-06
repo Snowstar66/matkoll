@@ -236,7 +236,10 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();
   await expect(siteLine(page)).toHaveText("Boende: Stugan");
-  await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  // Missing the ketchup on Stugan: not cookable, so it is under Nästan.
+  await expect(rows(page).filter({ hasText: title })).toHaveCount(0);
+  await page.getByRole("button", { name: "Nästan (1)" }).filter({ visible: true }).click();
+  await expect(page.getByTestId("nearly-row").filter({ visible: true, hasText: title })).toContainText("Saknar ketchup");
   await showAll(page);
   await expect(siteLine(page)).toHaveCount(0);
   // The badges are counted against Stugan all the same.
@@ -273,7 +276,10 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   await expect(page).toHaveURL(/\/recept$/);
   await pill(page, "Kan lagas nu").click();
   await expect(siteLine(page)).toHaveText("Boende: Stugan");
-  await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  // Missing the ketchup on Stugan: not cookable, so it is under Nästan.
+  await expect(rows(page).filter({ hasText: title })).toHaveCount(0);
+  await page.getByRole("button", { name: "Nästan (1)" }).filter({ visible: true }).click();
+  await expect(page.getByTestId("nearly-row").filter({ visible: true, hasText: title })).toContainText("Saknar ketchup");
   await tab(page, "Matsedel").click();
   await expectBoende(page, "Stugan");
   await expect(dish(page).getByTestId("dish-note")).toHaveText("1 vara att köpa");
