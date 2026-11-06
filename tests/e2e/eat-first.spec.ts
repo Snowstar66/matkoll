@@ -4,18 +4,17 @@ import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { adminClient, e2eUserId, eatFirstEmail, eatFirstStorageState } from "./support";
 
-// Story 16.13: Ät det här först, with AI_PROVIDER=mock (the server answers the
-// dishes in tests/fixtures/ai/suggest-dishes-lagt-lange.response.json when the
-// message lists items that have lain long). The spec has an E2E user of its
-// own (eatFirstEmail). Before each test the service role empties the user's
-// pantry, jobs and recipes and stocks the fridge: lime 9 days old, koriander
-// 10 days old, the rest from today.
+// Story 16.13 and Story 25.2: "Vad kan jag laga nu?" on Matvaror and its sheet
+// "Kan lagas nu", with AI_PROVIDER=mock. What has lain long is the tip line of
+// the sheet (it was the row "Ät det här först"). The spec has an E2E user of
+// its own (eatFirstEmail). Before each test the service role empties the
+// user's pantry, jobs and recipes, stocks the fridge (lime 9 days old, koriander
+// 10 days old, the rest from today) and saves one recipe that uses lime.
 
 type FixtureRecipe = { title: string; ingredients: { name: string }[] };
 const fixtures = join(process.cwd(), "tests", "fixtures", "ai");
 const dishes = (JSON.parse(readFileSync(join(fixtures, "suggest-dishes-lagt-lange.response.json"), "utf8")) as { suggestions: FixtureRecipe[] })
   .suggestions;
-const [oldDish, , freshDish] = dishes;
 const names = [...new Set(dishes.flatMap((dish) => dish.ingredients.map((line) => line.name)))];
 /** Days since each old item was added. */
 const oldAges: Record<string, number> = { lime: 9, koriander: 10 };
@@ -37,7 +36,9 @@ async function seed({ old }: { old: boolean }) {
   }
   const recipe = await admin
     .from("recipe")
-    .insert({ user_id: userId, title: "Linssoppa", original_servings: 4, total_minutes: 30, source_kind: "text" });
+    .insert({ user_id: userId, title: "Linssoppa", original_servings: 4, total_minutes: 30, source_kind: "text" })
+    .select("id")
+    .single();
   if (recipe.error) throw recipe.error;
   const upsert = await admin
     .from("ingredient")
@@ -66,6 +67,18 @@ async function seed({ old }: { old: boolean }) {
     })),
   );
   if (pantry.error) throw pantry.error;
+  // The library's recipe uses lime, which is at home: it can be cooked now.
+  const line = await admin.from("recipe_ingredient").insert({
+    user_id: userId,
+    recipe_id: (recipe.data as { id: string }).id,
+    position: 0,
+    original_text: "2 lime",
+    amount: 2,
+    unit: null,
+    is_vague: false,
+    ingredient_id: ids.get(normalizeIngredientText("lime"))!,
+  });
+  if (line.error) throw line.error;
 }
 
 function watchErrors(page: Page): string[] {
@@ -77,18 +90,37 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-const row = (page: Page) => page.getByTestId("eat-first-row");
+const card = (page: Page) => page.getByTestId("find-dishes");
+const sheet = (page: Page) => page.getByTestId("cook-now-sheet");
 
-test("Matvaror has no row when nothing has lain long", async ({ page }) => {
+test("Matvaror has no row for what has lain long, and no tip in the sheet when nothing has", async ({ page }) => {
   await seed({ old: false });
   await page.goto("/hemma");
   await expect(page.getByRole("heading", { name: "Matvaror" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sök i kylen" }).or(page.getByRole("searchbox"))).toBeVisible();
-  await expect(row(page)).toHaveCount(0);
+  await expect(page.getByTestId("eat-first-row")).toHaveCount(0);
+  await card(page).click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(page.getByTestId("cook-now-own").first()).toBeVisible();
+  await expect(page.getByTestId("cook-now-tip")).toHaveCount(0);
 });
 
-test("the row at the top starts suggestions that use what has lain long, and say so", async ({ page }) => {
+test("Vad kan jag laga nu? opens the sheet in place with a library recipe that is Allt hemma", async ({ page }) => {
   const errors = watchErrors(page);
+  await seed({ old: false });
+  await page.goto("/hemma");
+  await card(page).click();
+  await expect(page).toHaveURL(/\/hemma/);
+  await expect(page.getByRole("dialog", { name: "Kan lagas nu" })).toBeVisible();
+  const own = page.getByTestId("cook-now-own").filter({ hasText: "Linssoppa" });
+  await expect(own).toBeVisible();
+  await expect(own).toContainText("Allt hemma");
+  await own.getByRole("button").click();
+  await expect(own.getByRole("link", { name: "Öppna receptet" })).toBeVisible();
+  if (shots) await page.screenshot({ path: join(shots, "25-2-laga-nu.png") });
+  expect(errors).toEqual([]);
+});
+
+test("the tip line says what has lain longest, and the job asks in the mode now without sending the items", async ({ page }) => {
   await seed({ old: true });
   const bodies: string[] = [];
   page.on("request", (request) => {
@@ -96,32 +128,26 @@ test("the row at the top starts suggestions that use what has lain long, and say
   });
 
   await page.goto("/hemma");
-  await expect(row(page)).toHaveText(/2 varor har legat länge – föreslå rätter med dem/);
-  if (shots) await page.screenshot({ path: join(shots, "matvaror-rad.png") });
-  await row(page).click();
+  await card(page).click();
+  await expect(page.getByTestId("cook-now-tip")).toHaveText(/koriander har legat i 10 dagar\. Rätterna med den står först\./i);
 
-  // Only the flag goes from the client: never the items.
   await expect.poll(() => bodies.length).toBe(1);
-  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", eatFirst: true });
+  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "now" });
   expect(bodies[0]).not.toMatch(/lime|koriander/);
-
-  await page.getByTestId("toast").getByRole("button", { name: "Visa" }).click(jobTime);
-  const cards = page.getByTestId("ai-suggestions").getByTestId("ai-suggestion");
-  await expect(cards).toHaveCount(3, jobTime);
-  const card = cards.filter({ hasText: oldDish.title });
-  await expect(card.getByTestId("ai-suggestion-old")).toHaveText("Använder koriander och lime som legat en vecka");
-  await expect(cards.filter({ hasText: freshDish.title }).getByTestId("ai-suggestion-old")).toHaveCount(0);
-  if (shots) {
-    await card.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: join(shots, "forslag-orsak.png") });
-  }
-  expect(errors).toEqual([]);
 });
 
-test("Vad kan jag laga? on Hemma starts the suggestions and opens Recept on Kan lagas nu", async ({ page }) => {
+test("the AI's dishes are temporary: closing the sheet leaves nothing in the list of AI jobs", async ({ page }) => {
   await seed({ old: false });
   await page.goto("/hemma");
-  await page.getByTestId("find-dishes").click();
-  await expect(page).toHaveURL(/\/recept/);
-  await expect(page.getByTestId("ai-suggestions").getByTestId("ai-suggestion").first()).toBeVisible(jobTime);
+  await card(page).click();
+  // The run is over when the loading row goes (the mock's dishes may or may not pass the check).
+  await expect(page.getByTestId("cook-now-loading")).toHaveCount(0, jobTime);
+  await page.getByRole("button", { name: "Klar" }).click();
+  // The list the AI jobs sheet shows (active jobs and unseen results) stays empty.
+  await expect
+    .poll(async () => {
+      const response = await page.request.get("/api/ai/jobs");
+      return ((await response.json()) as { data: { jobs: unknown[] } }).data.jobs.length;
+    }, jobTime)
+    .toBe(0);
 });

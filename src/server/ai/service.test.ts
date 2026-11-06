@@ -765,6 +765,25 @@ describe("analyzeImage input validation in front of every adapter", () => {
   });
 });
 
+describe("suggestDishes for Vad kan jag laga nu? (Story 25.2)", () => {
+  const pantry = [{ name: "ägg", amount: 6, unit: "st" }];
+
+  it("adds the reminder to use only the listed items, and leaves the message as it was without the flag", () => {
+    expect(suggestDishesContent({ pantry, avoidTitles: [] })).not.toContain("Hellre en bra rätt");
+    const content = suggestDishesContent({ pantry, avoidTitles: ["Pannkakor"], now: true });
+    expect(content).toContain("Lagret:\nägg: 6 st");
+    expect(content).toContain("Föreslå inte:\n- Pannkakor");
+    expect(content).toContain("Använd bara varorna i lagret, med exakt samma namn");
+    expect(content).toContain("Hellre en bra rätt än tre konstiga");
+  });
+
+  it("has a prompt of its own that names the weekday dishes first and one good dish over three odd ones", () => {
+    expect(prompts.suggestDishesNow).toContain("vanliga svenska vardagsrätter");
+    expect(prompts.suggestDishesNow).toContain("Hellre en bra rätt än tre konstiga");
+    expect(prompts.suggestDishesNow).not.toBe(prompts.suggestDishes);
+  });
+});
+
 describe("suggestDishes with old items (Story 16.13)", () => {
   const pantry = [{ name: "lime", amount: 2, unit: "st" }];
 
