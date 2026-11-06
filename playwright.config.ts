@@ -36,7 +36,8 @@ export default defineConfig({
     command: isCi ? `pnpm start --port ${port}` : `pnpm dev --port ${port}`,
     url: `http://localhost:${port}/logga-in`,
     reuseExistingServer: !isCi,
-    timeout: 120_000,
+    // Locally the dev server compiles the first page on demand, which takes 2–3 minutes (Turbopack, cold).
+    timeout: isCi ? 120_000 : 400_000,
     // SITE_URL builds the link in the e-mail, so it must be this server. AI_PROVIDER must be
     // explicit, since `next start` runs in production mode (the mock is never a silent default there).
     // Stories 12.4 and 12.6: AI_MOCK_DELAY_MS makes an AI-förslag call and a recipe import take 3 s (only
