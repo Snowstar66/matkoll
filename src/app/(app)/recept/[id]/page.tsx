@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { planningTarget } from "@/features/mealplan";
 import { addToCurrentPlan, getCurrentPlan, setWeekday } from "@/features/mealplan/server";
 import { getActiveOffers } from "@/features/offers/server";
 import { lineOffers, type LineOffer } from "@/features/recipes";
@@ -62,20 +61,17 @@ async function readListedIds(): Promise<string[]> {
 // (Story 3.1, 4.1, 25.1); "Köp det som saknas" puts only the missing
 // ingredients on the shopping list (keyed items). Rows say hemma, Saknas or På
 // listan and show the offer, from the offers and the list read here.
-export default function RecipePage({ params, searchParams }: PageProps<"/recept/[id]">) {
+export default function RecipePage({ params }: PageProps<"/recept/[id]">) {
   return (
     <Suspense fallback={null}>
-      <RecipeContent params={params} searchParams={searchParams} />
+      <RecipeContent params={params} />
     </Suspense>
   );
 }
 
-async function RecipeContent({ params, searchParams }: Pick<PageProps<"/recept/[id]">, "params" | "searchParams">) {
+async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params">) {
   const { id } = await params;
   await requireUserOrRedirect(`/recept/${encodeURIComponent(id)}`);
-  // After the session is read, which makes the page dynamic: planningTarget counts from the clock.
-  const planera = (await searchParams).planera;
-  const planning = planningTarget(Array.isArray(planera) ? planera[0] : planera);
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
@@ -102,7 +98,6 @@ async function RecipeContent({ params, searchParams }: Pick<PageProps<"/recept/[
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
       setWeekday={setWeekday}
-      planning={planning ?? undefined}
       finish={
         dish ? (
           <MarkCookedButton

@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { SelectedSite } from "@/features/pantry";
-import { AiJobActionsContext, aiJobsClient } from "@/lib/ai-jobs-client";
 import { fail, ok, type Result } from "@/lib/errors";
-import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import type { FavoriteChange, RecipeListItem } from "../domain/recipe-list";
 import { Library } from "./library";
 import { recipeFilterStorageKey, resetRecipeFilterStore } from "./recipe-filter-store";
@@ -29,8 +27,6 @@ vi.mock("../actions/search-recipes", () => ({
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
-/** The AI jobs behind "Föreslå rätter med AI" (ai-suggestions.test.tsx has the rest). */
-const server = createFakeAiJobsServer();
 vi.mock("../actions/save-recipe", () => ({ saveRecipe: vi.fn() }));
 const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
 vi.mock("../actions/set-favorite", () => ({ setFavorite: (change: FavoriteChange) => setFavorite(change) }));
@@ -60,30 +56,23 @@ const fisk = recipe(4, "Fiskgratäng", { missingCount: 0, createdAt: "2026-10-01
 const ranking = [soppa, gryta, pannkakor, fisk];
 
 const stugan: SelectedSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
-const hemmaSite: SelectedSite = { id: "66666666-6666-4666-8666-666666666666", name: "Hemma", siteCount: 2 };
 
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
-/** Renders the "server" list again with another place, as a place selected elsewhere does. */
-let rerenderSite: ((site: SelectedSite | null) => void) | undefined;
 let serverPantryUnavailable = false;
 let serverSite: SelectedSite | null = null;
-const searchIngredients = vi.fn(async () => ok([]));
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
-  const [site, setSite] = useState(serverSite);
+  const [site] = useState(serverSite);
   useEffect(() => {
     rerenderServer = setRecipes;
-    rerenderSite = setSite;
   }, []);
   return (
     <Library
       recipes={recipes}
       pantryUnavailable={serverPantryUnavailable}
       site={site}
-      searchIngredients={searchIngredients}
-      siteNames={{ [stugan.id]: "Stugan", [hemmaSite.id]: "Hemma" }}
     />
   );
 }
@@ -96,17 +85,9 @@ function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: Rend
   serverSite = options.site ?? null;
   return render(
     <ToastProvider>
-      <AiJobActionsContext.Provider value={server.actions}>
-        <Server />
-      </AiJobActionsContext.Provider>
+      <Server />
     </ToastProvider>,
   );
-}
-
-/** The latest AI job is done with `suggestions` (of `siteId`), and the client reads the list. */
-async function finishSuggestions(suggestions: unknown[], siteId?: string) {
-  server.finish(server.latest.id, { suggestions, ...(siteId ? { siteId } : {}) }, suggestions.length);
-  await server.read();
 }
 
 const titles = () => screen.queryAllByTestId("recipe-card").map((row) => within(row).getByRole("link").textContent);
@@ -126,7 +107,6 @@ beforeEach(() => {
   resetRecipeFilterStore();
   resetRecipeViewStores();
   refresh.mockReset();
-  server.install();
   searchPantryUnavailable = false;
   searchSite = null;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
@@ -223,82 +203,6 @@ describe("Library, the line Boende", () => {
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
     expect(await screen.findByText("Boende: Stugan")).toBeInTheDocument();
-  });
-});
-
-describe("Library, AI-förslag and the place", () => {
-  const draft = {
-    title: "Ugnsomelett",
-    servings: 4,
-    totalMinutes: 40,
-    imageUrl: null,
-    sourceKind: "ai",
-    sourceUrl: null,
-    steps: ["Grädda."],
-    lines: [],
-  };
-  const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
-
-  it("shows the suggestions with Förslagen bygger på matvarorna för Stugan. while the library shows another place, and plainly again", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking, { site: stugan });
-    await user.click(pill("Kan lagas nu"));
-    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
-    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
-
-    act(() => rerenderSite?.(hemmaSite));
-    expect(suggestion()).toBeInTheDocument();
-    expect(screen.getByText("Förslagen bygger på matvarorna för Stugan.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Föreslå igen" })).toBeInTheDocument();
-
-    act(() => rerenderSite?.(stugan));
-    expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
-  });
-
-  it("keeps the suggestions without a line when the library's place is not known", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking, { site: stugan });
-    await user.click(pill("Kan lagas nu"));
-    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
-    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    act(() => rerenderSite?.(null));
-    expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
-  });
-
-  it("opens Kan lagas nu by itself when a finished job has not been shown, once, and not again after another filter is chosen", async () => {
-    const user = userEvent.setup();
-    server.add({ kind: "suggest", status: "done", count: 1 }, { suggestions: [{ draft, ingredientNames: {} }] });
-    renderLibrary(ranking);
-    await aiJobsClient().refresh();
-    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(pressed("Kan lagas nu")).not.toBeNull();
-    await waitFor(() => expect(server.actions.markSeen).toHaveBeenCalledTimes(1));
-
-    await showAll(user);
-    expectAll();
-  });
-
-  it("opens Kan lagas nu when Visa is tapped for a result that came while another filter was shown", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking);
-    await user.click(pill("Kan lagas nu"));
-    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    await showAll(user);
-    // The job ends while Alla is shown: nothing moves by itself.
-    await finishSuggestions([{ draft, ingredientNames: {} }], undefined);
-    expectAll();
-    expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
-    expect(server.actions.markSeen).not.toHaveBeenCalled();
-
-    // "Visa" in the confirmation asks to reveal it.
-    act(() => aiJobsClient().reveal("suggest"));
-    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(pressed("Kan lagas nu")).not.toBeNull();
   });
 });
 
@@ -503,93 +407,7 @@ describe("Library", () => {
   });
 
 
-  it("offers Föreslå rätter med AI when the pantry could not be read too, since the server reads it again", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking, { pantryUnavailable: true });
-    await user.click(pill("Kan lagas nu"));
-    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
-  });
-
-  it("asks the AI only when the button is pressed, never on a pill or a render", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking);
-    await user.click(pill("Kan lagas nu"));
-    await showAll(user);
-    await user.click(pill("Kan lagas nu"));
-    expect(server.started).toHaveLength(0);
-  });
-
-  it("keeps the AI suggestions while the pills change", async () => {
-    const user = userEvent.setup();
-    const draft = {
-      title: "Ugnsomelett",
-      servings: 4,
-      totalMinutes: 40,
-      imageUrl: null,
-      sourceKind: "ai",
-      sourceUrl: null,
-      steps: ["Grädda."],
-      lines: [],
-    };
-    renderLibrary(ranking);
-    await user.click(pill("Kan lagas nu"));
-    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    await finishSuggestions([{ draft, ingredientNames: {} }]);
-    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    await showAll(user);
-    expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
-    await user.click(pill("Kan lagas nu"));
-    expect(within(screen.getByRole("region", { name: "AI-förslag" })).getByRole("heading", { name: "Ugnsomelett" })).toBeInTheDocument();
-    // Shown again, the section does not take focus from the pill.
-    expect(pill("Kan lagas nu")).toHaveFocus();
-    // The suggestion is not a row of the library.
-    expect(titles()).not.toContain("Ugnsomelett");
-    expect(server.started).toHaveLength(1);
-  });
-
-  it("has Föreslå rätter med AI at the bottom only on Kan lagas nu, also when nothing can be cooked now", async () => {
-    const user = userEvent.setup();
-    renderLibrary([soppa, pannkakor]);
-    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
-    await user.click(pill("Kan lagas nu"));
-    expect(titles()).toEqual(["Pannkakor", "Linssoppa"]);
-    for (const row of screen.getAllByTestId("recipe-card")) expect(within(row).queryByText("Kan lagas nu")).toBeNull();
-    const button = screen.getByRole("button", { name: "Föreslå rätter med AI" });
-    expect(button).toHaveAttribute("type", "button");
-    // After the list.
-    const list = screen.getByRole("list", { name: "Recept, minst saknat först" });
-    expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await user.click(button);
-    expect(server.started).toHaveLength(1);
-    expect(server.started[0].body).toMatchObject({ kind: "suggest", avoidTitles: [] });
-    expect(searchRecipes).not.toHaveBeenCalled();
-
-    await showAll(user);
-    expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
-    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Letar efter idéer …")).not.toBeInTheDocument();
-    await user.click(pill("Favoriter"));
-    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the AI button outside the dimmed results while a search is on its way", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking);
-    await user.click(pill("Kan lagas nu"));
-    let answer: (result: Result<RecipeListItem[]>) => void = () => {};
-    searchRecipes.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
-    await user.type(screen.getByRole("searchbox"), "so{Enter}");
-    const results = screen.getByTestId("library-results");
-    expect(results).toHaveAttribute("aria-busy", "true");
-    const button = screen.getByRole("button", { name: "Föreslå rätter med AI" });
-    expect(results).not.toContainElement(button);
-    expect(button).toBeEnabled();
-    await act(async () => answer(ok([soppa])));
-    expect(results).toHaveAttribute("aria-busy", "false");
-    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
-  });
-
-  it("ranks the search hits on Kan lagas nu, with the button under them", async () => {
+  it("ranks the search hits on Kan lagas nu", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
@@ -597,43 +415,16 @@ describe("Library", () => {
     await user.type(screen.getByRole("searchbox"), "lök{Enter}");
     await waitFor(() => expect(titles()).toEqual(["Fiskgratäng", "Pannkakor", "Linssoppa"]));
     expect(searchRecipes).toHaveBeenCalledWith("lök");
-    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
   });
 
-  it("keeps the button under no hit, but not under a failed search", async () => {
+  it("has no AI section in Kan lagas nu (Story 25.3: the ideas are in Matsedel)", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
-    searchRecipes.mockResolvedValueOnce(ok([]));
-    await user.type(screen.getByRole("searchbox"), "xyz{Enter}");
-    expect(await screen.findByText("Inga recept matchar.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Visa alla recept" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
-
-    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
-    await user.type(screen.getByRole("searchbox"), "z{Enter}");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att söka bland recepten. Försök igen.");
-    expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("ai-suggestions")).not.toBeInTheDocument();
   });
 
-  it("keeps the progress and Avbryt of a call on its way when a search fails", async () => {
-    const user = userEvent.setup();
-    renderLibrary(ranking);
-    await user.click(pill("Kan lagas nu"));
-    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
-    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
-    await user.type(screen.getByRole("searchbox"), "z{Enter}");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att söka bland recepten. Försök igen.");
-
-    const section = screen.getByTestId("ai-suggestions");
-    expect(within(section).getByRole("status")).toHaveTextContent("Letar efter idéer …");
-    await user.click(within(section).getByRole("button", { name: "Avbryt" }));
-    expect(server.actions.cancel).toHaveBeenCalledWith(expect.any(String));
-    expect(within(section).getByRole("status")).toBeEmptyDOMElement();
-    // Under the failed search, the button is not offered.
-    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
-  });
 
   const notRanked = "Det gick inte att läsa matvarorna, så recepten är inte rangordnade.";
 

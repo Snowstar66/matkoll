@@ -7,7 +7,7 @@ import { recipeStatus, toSnapshot, type PantrySnapshot } from "@/features/pantry
 import { fail, ok, type Result } from "@/lib/errors";
 import type { FavoriteChange } from "../domain/recipe-list";
 import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
-import type { AddToPlan } from "./add-to-plan-button";
+import type { AddToPlan } from "./recipe-body";
 import { lineCoverage } from "./ingredient-row";
 import { RecipeView } from "./recipe-view";
 
@@ -110,6 +110,13 @@ describe("RecipeView", () => {
     expect(screen.getByTestId("recipe-meta")).toHaveTextContent(/^35 min · koket\.se ↗/);
     expect(stepper.value()).toHaveTextContent("4 portioner");
     expect(screen.getByRole("link", { name: /^koket\.se/ })).toHaveAttribute("href", recipe.sourceUrl);
+  });
+
+  it("shows a thumbnail tile with an icon, never an emoji, and the line for a recipe saved from the offers", () => {
+    render(<RecipeView recipe={{ ...recipe, offerNames: ["Falukorv", "Grädde"] }} snapshot={allHome} />);
+    expect(screen.queryByTestId("recipe-illustration")).not.toBeInTheDocument();
+    expect(screen.getByTestId("recipe-image-placeholder")).toBeInTheDocument();
+    expect(screen.getByTestId("recipe-offers")).toHaveTextContent("Sparad från veckans erbjudanden: Falukorv, Grädde");
   });
 
   it("has a visible Tillbaka with an arrow to Recept, at every width (Story 11.6)", () => {

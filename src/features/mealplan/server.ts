@@ -7,7 +7,7 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
+import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
 import { detachRecipeIn } from "./data/write";
 import { currentWeekStart } from "./domain/week";
 import {
@@ -63,6 +63,14 @@ export const getPlanForWeek = cache(async (weekStart: string): Promise<MealPlan 
  */
 export async function getWeekCounts(weeks: readonly string[]): Promise<Record<string, number>> {
   return getWeekCountsIn(await createClient(), weeks);
+}
+
+/**
+ * How many times each recipe has been marked cooked, by recipe id, for
+ * "lagad 6 gånger" in Matsedel (Story 25.3). Throws MealPlanDataError.
+ */
+export async function getCookedCounts(): Promise<Record<string, number>> {
+  return getCookedCountsIn(await createClient());
 }
 
 /**

@@ -2,16 +2,14 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
-import type { PlanningTarget } from "@/features/mealplan";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
 import { offerSavedText } from "../domain/dish-emoji";
 import type { LineOffer } from "../domain/line-status";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
-import type { AddToPlan } from "./add-to-plan-button";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeBody, type BuyMissing, type PlanDishInfo, type SetDishWeekday, type UndoBuy } from "./recipe-body";
+import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type SetDishWeekday, type UndoBuy } from "./recipe-body";
 
 // Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
 // and the menu (⋯, Story 1.11) beside the title, the time and the source
@@ -55,8 +53,6 @@ export type RecipeViewProps = {
   setWeekday?: SetDishWeekday;
   /** "Markera som lagad" for the recipe's dish, shown under the steps (Story 13.4). */
   finish?: ReactNode;
-  /** Planning mode (Story 13.8): "Lägg på matsedeln" becomes "Lägg på onsdag". */
-  planning?: PlanningTarget;
 };
 
 export function RecipeView({
@@ -73,7 +69,6 @@ export function RecipeView({
   undoBuy,
   setWeekday,
   finish,
-  planning,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
@@ -139,7 +134,6 @@ export function RecipeView({
         undoBuy={undoBuy}
         setWeekday={setWeekday}
         finish={finish}
-        planning={planning}
       />
     </article>
   );

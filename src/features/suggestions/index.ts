@@ -12,7 +12,20 @@ export {
   type DishSuggestion,
 } from "./domain/suggestions";
 export { toSuggestInput, toOldItemsInput, oldItemsUsed, type SuggestInputShape } from "./domain/pantry-input";
-export { toOfferNames, offersUsed, atHomeText, toBuyNames, whyText, type OfferInfo } from "./domain/offer-input";
+export { toOfferNames, offersUsed, toBuyNames, type OfferInfo } from "./domain/offer-input";
 export { offerTagsByRecipe, isMainLine } from "./domain/recipe-offers";
-export { rankOwnRecipes, maxOwnRecipes, type OwnRecipe, type OwnRecipeMatch } from "./domain/own-recipes";
+export {
+  cookedText,
+  dealOf,
+  offerSavingKr,
+  onWeekIds,
+  optionsForTab,
+  planMeta,
+  planOptions,
+  savingPhrase,
+  type PlanDeal,
+  type PlanOffer,
+  type PlanOption,
+  type PlanTab,
+} from "./domain/plan-options";
 export { cookNowLists, cookNowNameIds, maxCookNowRecipes, type CookNowRecipe, type CookNowOneMissing, type CookNowLists } from "./domain/cook-now";

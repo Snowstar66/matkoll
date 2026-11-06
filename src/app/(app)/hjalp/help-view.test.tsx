@@ -52,7 +52,7 @@ describe("HelpView", () => {
     window.history.replaceState(null, "", "/hjalp#matsedel");
     render(<HelpView version="0.1" updated="1 nov" ownerName="Pontus" />);
     const area = screen.getByRole("region", { name: "Matsedel" });
-    expect(within(area).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Välj vecka", "Lägg till rätt", "Se vad som finns"]);
+    expect(within(area).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Välj vecka", "Lägg till rätter", "Se vad som ska köpas"]);
     await userEvent.click(chip("Konto"));
     expect(chip("Konto")).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("heading", { name: "Välj vecka" })).not.toBeInTheDocument();

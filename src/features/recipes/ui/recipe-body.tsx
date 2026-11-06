@@ -7,7 +7,7 @@ import { cx } from "@/components/cx";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
-import { clampServings, maxServings, weekdayWord, type PlanningTarget } from "@/features/mealplan";
+import { clampServings, maxServings, weekdayWord } from "@/features/mealplan";
 import {
   atHomeSummaryText,
   noStaples,
@@ -34,7 +34,6 @@ import {
 } from "../domain/line-status";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
-import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
 import { BuyMissingSheet } from "./buy-missing-sheet";
 import { ChooseDaySheet } from "./choose-day-sheet";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
@@ -55,6 +54,14 @@ function useWideScreen(): boolean {
     () => false,
   );
 }
+
+/** mealplan.addToCurrentPlan from the page (AD-1): "Lägg på matsedeln", on this week without a day. */
+export type AddToPlan = (input: {
+  recipeId: string;
+  servings?: number;
+  id: string;
+  weekday?: number | null;
+}) => Promise<Result<unknown>>;
 
 /** shopping.addKeyedItems from the page (AD-1): one own item per key, linked to its catalog ingredient. */
 export type BuyMissing = (input: {
@@ -94,8 +101,6 @@ export type RecipeBodyProps = {
   setWeekday?: SetDishWeekday;
   /** mealplan's "Markera som lagad" for this recipe's dish, from the page: shown under the steps (Story 13.4). */
   finish?: ReactNode;
-  /** Planning mode (Story 13.8): the primary button is "Lägg på onsdag". */
-  planning?: PlanningTarget;
 };
 
 /**
@@ -113,7 +118,6 @@ export type RecipeBodyProps = {
  * Ångra", which removes just those. "Lägg på matsedeln" is one tap: this week,
  * without a day, and the recipe's missing ingredients stand on the list through
  * the plan; the button then becomes "Välj dag" / "Byt dag", an optional sheet.
- * In planning mode the primary button is the day's, as before.
  */
 export function RecipeBody({
   recipe,
@@ -128,7 +132,6 @@ export function RecipeBody({
   undoBuy,
   setWeekday,
   finish,
-  planning,
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -239,7 +242,7 @@ export function RecipeBody({
   }
 
   const wide = useWideScreen();
-  const showBuy = Boolean(buyMissing) && !planning && !onPlan && (toBuy.length > 0 || bought !== null);
+  const showBuy = Boolean(buyMissing) && !onPlan && (toBuy.length > 0 || bought !== null);
   const showUndo = bought !== null && toBuy.length === 0;
   const hasActions = Boolean(addToPlan) || showBuy;
   const actions = (
@@ -260,16 +263,7 @@ export function RecipeBody({
           </Button>
         )
       ) : null}
-      {addToPlan && planning ? (
-        <AddToPlanButton
-          recipeId={recipe.id}
-          addToPlan={addToPlan}
-          servings={servings}
-          fullWidth={wide}
-          className={wide ? undefined : "grow-[999] basis-auto"}
-          planning={planning}
-        />
-      ) : addToPlan && onPlan ? (
+      {addToPlan && onPlan ? (
         <Button variant="secondary" disabled={working} onClick={() => setDayOpen(true)} className={cx(wide ? "w-full" : "grow basis-auto")}>
           {onPlan.weekday ? "Byt dag" : "Välj dag"}
         </Button>
