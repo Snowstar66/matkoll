@@ -39,7 +39,6 @@ import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
 import { FetchOffersButton, inlineLinkClasses } from "./fetch-offers-button";
 import { OffersList, StoreLabel } from "./offers-list";
-import { StoreChoice, SuggestFromOffersButton } from "./suggest-from-offers-button";
 
 /** A store as the sheet needs it; the page reads it from settings. */
 export type OffersStore = {
@@ -164,8 +163,6 @@ export function OffersSheet({
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
   const [panel, setPanel] = useState<"fetch" | null>(null);
-  // Story 16.10: "Föreslå rätter från vilken butik?" replaces the list inside the same sheet (sheets never stack).
-  const [choosing, setChoosing] = useState(false);
   const fetchPanelId = useId();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const [runs, setRuns] = useState<StoreRun[]>([]);
@@ -264,19 +261,7 @@ export function OffersSheet({
   const single = withLink[0];
 
   let body: ReactNode;
-  if (choosing && storesWithOffers.length > 1) {
-    body = (
-      <StoreChoice
-        stores={storesWithOffers.map((store) => ({ id: store.id, label: badges.get(store.id)?.text ?? store.name }))}
-        defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0].id}
-        bestStoreId={bestInfo?.storeId}
-        onStarted={() => {
-          setChoosing(false);
-          onClose();
-        }}
-      />
-    );
-  } else if (stores.length === 0) {
+  if (stores.length === 0) {
     body = <Notice action={<SettingsLink />}>{errorMessages.offers_store_missing}</Notice>;
   } else if (withLink.length === 0) {
     body = <Notice action={<SettingsLink />}>{errorMessages.offers_link_missing}</Notice>;
@@ -315,7 +300,6 @@ export function OffersSheet({
           <div className="flex flex-col gap-4">
             <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>
             {many ? fetchPanel : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
-            <SuggestFromOffersButton hasOffers={false} />
           </div>
         ) : (
           <>
@@ -352,22 +336,14 @@ export function OffersSheet({
             </div>
             {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
             <hr className="m-0 border-border" />
-            <div data-testid="inspiration" className="flex flex-col gap-3 rounded-lg bg-mint/40 p-4">
-              {tip ? (
+            {tip ? (
+              <div data-testid="inspiration" className="flex flex-col gap-3 rounded-lg bg-mint/40 p-4">
                 <div data-testid="best-store" className="flex items-start gap-2 text-body text-ink">
                   <span aria-hidden="true">{"\u{1F4A1}"}</span>
                   <p className="min-w-0">{tip}</p>
                 </div>
-              ) : null}
-              <div className="flex justify-end">
-                <SuggestFromOffersButton
-                  hasOffers
-                  className="shrink-0"
-                  onStarted={onClose}
-                  onChoose={filterStores ? () => setChoosing(true) : undefined}
-                />
               </div>
-            </div>
+            ) : null}
             <hr className="m-0 border-border" />
             {filterStores || hasSaving ? (
               <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
@@ -451,20 +427,19 @@ export function OffersSheet({
   return (
     <Sheet
       open={open}
-      onClose={choosing ? () => setChoosing(false) : onClose}
-      title={choosing ? "Föreslå rätter från vilken butik?" : "Veckans erbjudanden"}
+      onClose={onClose}
+      title="Veckans erbjudanden"
       closeLabel="Klar"
-      onBack={choosing ? () => setChoosing(false) : undefined}
       subtitle={
         // With offers the meta line in the body says store, week and count (Story 16.11).
-        stores.length > 0 && !choosing && offers.length === 0
+        stores.length > 0 && offers.length === 0
           ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart)
           : undefined
       }
       preventClose={pending || adding}
       initialFocus="title"
       footer={
-        chosen.length > 0 && !choosing ? (
+        chosen.length > 0 ? (
           <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
             {addToListText(chosen.length)}
           </Button>

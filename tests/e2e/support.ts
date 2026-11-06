@@ -69,11 +69,11 @@ export const putInPantryEmail = "e2e-lagg-i-lagret@matkoll.test";
  */
 export const recipeViewEmail = "e2e-receptvy@matkoll.test";
 /**
- * The E2E user of cook-mode.spec.ts alone (the step mode, Story 4.2): each
- * test makes its recipe, steps, catalog ingredients and pantry with the
- * service role, so what the step mode shows depends on nothing else.
+ * The E2E user of recipe-missing.spec.ts alone (Story 25.1): each
+ * test makes its recipe, lines, catalog ingredients and pantry with the
+ * service role, so what the recipe shows depends on nothing else.
  */
-export const cookModeEmail = "e2e-steglage@matkoll.test";
+export const recipeMissingEmail = "e2e-recept-saknas@matkoll.test";
 /**
  * The E2E user of cookable.spec.ts alone (the filter Kan lagas nu, Story
  * 5.1): each test makes its recipes, catalog ingredients and pantry with the
@@ -325,7 +325,7 @@ export const e2eEmails = [
   shoppingEmail,
   putInPantryEmail,
   recipeViewEmail,
-  cookModeEmail,
+  recipeMissingEmail,
   cookableEmail,
   aiSuggestionsEmail,
   cameraEmail,
@@ -382,7 +382,7 @@ export const mealplanStorageState = "tests/e2e/.auth/mealplan.json";
 export const shoppingStorageState = "tests/e2e/.auth/shopping.json";
 export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
 export const recipeViewStorageState = "tests/e2e/.auth/recipe-view.json";
-export const cookModeStorageState = "tests/e2e/.auth/cook-mode.json";
+export const recipeMissingStorageState = "tests/e2e/.auth/recipe-missing.json";
 export const cookableStorageState = "tests/e2e/.auth/cookable.json";
 export const aiSuggestionsStorageState = "tests/e2e/.auth/ai-suggestions.json";
 export const cameraStorageState = "tests/e2e/.auth/camera.json";

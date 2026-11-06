@@ -75,8 +75,8 @@ test("an import saves the recipe by itself and Öppna opens the recipe view", as
   const ingredients = page.getByRole("region", { name: "Ingredienser" });
   const lines = ingredients.getByTestId("recipe-view-line");
   await expect(lines).toHaveCount(8);
-  await expect(lines.first()).toHaveText(/^Torskfilé\s*(Saknas)?\s*600 g$/);
-  await expect(lines.filter({ hasText: "purjolök" })).toHaveText(/^Purjolök\s*(Saknas)?\s*1$/);
+  await expect(lines.first()).toHaveText(/^Torskfilé\s*600 g\s*(Saknas)?$/);
+  await expect(lines.filter({ hasText: "purjolök" })).toHaveText(/^Purjolök\s*1\s*(Saknas)?$/);
   // A vague line shows its original text.
   await expect(lines.filter({ hasText: "färsk dill" })).toHaveText(/^färsk dill\s*(Saknas)?$/);
 

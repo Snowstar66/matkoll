@@ -288,12 +288,13 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
-  await dish.getByRole("button", { name: `Fler val för ${gryta}` }).click();
+  await dish.getByTestId("dish-day").click();
+  const sheet = page.getByRole("dialog", { name: "Flytta till dag" });
   for (const servings of [5, 6]) {
-    await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
-    await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
+    await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+    await expect(sheet.getByText(`${servings} portioner`)).toBeVisible();
   }
-  await dish.getByRole("button", { name: "Klar" }).click();
+  await sheet.getByRole("button", { name: "Klar" }).click();
 
   await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
@@ -544,10 +545,11 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
-  await dish.getByRole("button", { name: `Fler val för ${gryta}` }).click();
-  await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
-  await expect(dish.getByText("7 portioner")).toBeVisible();
-  await dish.getByRole("button", { name: "Klar" }).click();
+  await dish.getByTestId("dish-day").click();
+  const sheet = page.getByRole("dialog", { name: "Flytta till dag" });
+  await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+  await expect(sheet.getByText("7 portioner")).toBeVisible();
+  await sheet.getByRole("button", { name: "Klar" }).click();
 
   await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
@@ -720,12 +722,13 @@ test("a corrected amount is saved, stays when the servings change, and goes back
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
-  await dish.getByRole("button", { name: `Fler val för ${gryta}` }).click();
+  await dish.getByTestId("dish-day").click();
+  const portions = page.getByRole("dialog", { name: "Flytta till dag" });
   for (const servings of [5, 6]) {
-    await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
-    await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
+    await actionsAnswered(page, 1, () => portions.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+    await expect(portions.getByText(`${servings} portioner`)).toBeVisible();
   }
-  await dish.getByRole("button", { name: "Klar" }).click();
+  await portions.getByRole("button", { name: "Klar" }).click();
   await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 3 dl + 1 dl counted now; the correction stays on the same key, and the row says the count has changed.

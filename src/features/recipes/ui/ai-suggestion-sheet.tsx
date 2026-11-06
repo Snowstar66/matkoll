@@ -8,16 +8,8 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import {
-  addedOnDayText,
-  addedToPlanText,
-  planningButtonText,
-  planningDoneHref,
-  type PlanningTarget,
-} from "@/features/mealplan";
-import { errorMessages, fail } from "@/lib/errors";
+import { errorMessages, fail, type Result } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
-import type { AddToPlan } from "./add-to-plan-button";
 import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import { RecipePreview } from "./recipe-preview";
@@ -37,15 +29,15 @@ export type AiSuggestionSheetProps = {
   onSaved: (key: number) => void;
   searchIngredients: SearchIngredients;
   /**
-   * Story 9.5: mealplan.addToCurrentPlan from the page (AD-1). With `toMenu`,
-   * the primary button is "Spara och lägg på matsedeln": it saves the recipe,
-   * adds it last on the current meal plan (as "Lägg till rätt" does) and
-   * confirms with a way to the shopping list.
+   * Story 25.3: the dish goes on this week of Matsedel with no day. The
+   * primary button is "Spara och lägg på veckan": it saves the recipe, then
+   * calls `add` (mealplan.addToCurrentPlan from the page, AD-1) and `onAdded`.
    */
-  addToPlan?: AddToPlan;
-  toMenu?: boolean;
-  /** Planning mode (Story 13.8): with `toMenu`, the dish goes on this day, and Matsedel opens on it. */
-  planningDay?: PlanningTarget;
+  week?: {
+    weekStart: string;
+    add: (input: { recipeId: string; id: string; weekStart: string; weekday: null }) => Promise<Result<unknown>>;
+    onAdded: (title: string) => void;
+  };
 };
 
 export function AiSuggestionSheet({
@@ -53,11 +45,8 @@ export function AiSuggestionSheet({
   onClose,
   onSaved,
   searchIngredients,
-  addToPlan,
-  toMenu = false,
-  planningDay,
+  week,
 }: AiSuggestionSheetProps) {
-  const planning = toMenu && addToPlan !== undefined;
   /** The dish's id for this sheet, so a retry after a lost answer adds it once. */
   const [dishId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<RecipeDraft | null>(suggestion?.draft ?? null);
@@ -92,14 +81,10 @@ export function AiSuggestionSheet({
         setSaveError(result.error.code === "unauthorized" ? result.error.message : errorMessages.recipe_save_failed);
         return;
       }
-      if (planning) {
-        let added: Awaited<ReturnType<AddToPlan>>;
+      if (week) {
+        let added: Result<unknown>;
         try {
-          added = await addToPlan({
-            recipeId: result.data.id,
-            id: dishId,
-            ...(planningDay ? { weekStart: planningDay.weekStart, weekday: planningDay.weekday } : {}),
-          });
+          added = await week.add({ recipeId: result.data.id, id: dishId, weekStart: week.weekStart, weekday: null });
         } catch {
           added = fail("mealplan_add_failed");
         }
@@ -111,12 +96,7 @@ export function AiSuggestionSheet({
           return;
         }
         onSaved(suggestion.key);
-        if (planningDay) {
-          router.push(planningDoneHref(planningDay));
-          showToast(addedOnDayText(planningDay.weekday));
-          return;
-        }
-        showToast(addedToPlanText, { show: { label: "Visa inköpslistan", onShow: () => router.push("/lista") } });
+        week.onAdded(suggestion.draft.title);
         return;
       }
       onSaved(suggestion.key);
@@ -138,7 +118,7 @@ export function AiSuggestionSheet({
           <>
             {saveError ? <Notice role="alert">{saveError}</Notice> : null}
             <Button fullWidth disabled={!isValid || saving} onClick={save}>
-              {saving ? "Sparar …" : planning ? (planningDay ? `Spara och ${planningButtonText(planningDay).toLowerCase()}` : "Spara och lägg på matsedeln") : "Spara recept"}
+              {saving ? "Sparar …" : week ? "Spara och lägg på veckan" : "Spara recept"}
             </Button>
           </>
         ) : null

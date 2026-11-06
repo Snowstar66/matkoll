@@ -74,3 +74,4 @@ export {
 } from "./domain/saved-recipe";
 export { scaleFactor, scaleLines, factorText, type ScalableLine } from "./domain/scale";
 export { dishEmoji } from "./domain/dish-emoji";
+export { lineOffers, type LineOffer } from "./domain/line-status";

@@ -21,6 +21,25 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-06",
+    title: "Planera veckan på Matsedel",
+    bullets: [
+      "Matsedel är nu stället där du planerar veckan: Veckans rätter överst och Lägg till rätter under, med flikarna Favoriter, På erbjudande och Alla recept.",
+      "Tryck + så hamnar rätten på veckan utan dag. Du ser direkt hur många varor som hamnar på listan och kan välja dag efteråt. Längst ner står hur många varor veckan behöver köpa, och det du har hemma räknas bort.",
+      "På erbjudande visar dina recept där en huvudvara är på rea, med vad du sparar i kronor. Hittar du inget kan du få 2 nya idéer med erbjudandena och granska dem innan något sparas.",
+      "Panelen Förslag från erbjudanden och lagret, butiksvalet i Erbjudanden och AI-förslagen längst ner i Recept är borta.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    title: "Receptet visar vad som saknas",
+    bullets: [
+      "Varje vara i receptet säger direkt om den finns hemma, saknas eller redan står på inköpslistan, och visar erbjudandet med vad du sparar.",
+      "Köp det som saknas lägger bara de varorna på listan, och Ångra tar bort dem igen. Lägg på matsedeln är ett tryck och rätten hamnar på veckan utan dag. Välj dag är frivilligt.",
+      "Laga nu med ett steg i taget är borttaget. Stegen står kvar i receptet.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Vad kan jag laga nu?",
     bullets: [
       "Ny knapp överst på Matvaror: Vad kan jag laga nu? Ett ark öppnas direkt, utan hopp till Recept.",

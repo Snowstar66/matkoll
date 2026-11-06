@@ -185,7 +185,7 @@ test("Lägg till i Matvaror puts the checked lines in the pantry, takes them off
 
   // The status is counted again.
   await page.goto(`/recept/${recipeId}`);
-  await expect(page.getByRole("article").filter({ visible: true }).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(page.getByRole("article").filter({ visible: true }).getByTestId("recipe-view-line").getByText("Saknas", { exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

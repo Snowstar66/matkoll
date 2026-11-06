@@ -128,8 +128,8 @@ test("a saved recipe with nothing at home says Saknar 5 varor, with a ring on ev
 
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  // Five ingredients with an amount; the two vague lines do not count.
-  await expect(view(page).getByRole("button", { name: /^Saknar \d+ varor\s*.+ \+3$/ })).toBeVisible();
+  // Seven ingredients, none at home; every line is ringed.
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("0 av 7 hemma");
   await expect(lines(page)).toHaveCount(7);
   for (const row of await lines(page).all()) await expect(mark(row)).toHaveAccessibleName("saknas");
 
@@ -146,7 +146,7 @@ test("too little, or only another unit, counts as missing; a vague line is ringe
 
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByRole("button", { name: /^Saknar \d+ varor\s*[^,+]+, [^,+]+$/ })).toBeVisible();
+  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(4);
   await expect(mark(line(page, "bacon"))).toHaveAccessibleName("finns hemma");
   await expect(mark(line(page, "ägg"))).toHaveAccessibleName("finns hemma");
   await expect(mark(line(page, "salt"))).toHaveAccessibleName("finns hemma");
@@ -177,7 +177,8 @@ test("adding what is missing in Matvaror makes the library and the recipe view s
 
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  // Only the two vague lines are still short; the rows say Saknas themselves.
+  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(2);
   for (const name of ["bacon", "ägg", "mjölk", "vetemjöl", "salt"]) {
     await expect(mark(line(page, name).first())).toHaveAccessibleName("finns hemma");
   }
@@ -208,7 +209,7 @@ test("removing an item in Matvaror makes the library and the recipe view say Sak
   await expect(recipeRow(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ })).toBeVisible();
+  await expect(line(page, "mjölk").getByText("Saknas", { exact: true })).toBeVisible();
   await expect(mark(line(page, "mjölk"))).toHaveAccessibleName("saknas");
   await expect(mark(line(page, "bacon"))).toHaveAccessibleName("finns hemma");
   expect(errors).toEqual([]);
@@ -220,7 +221,7 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
   await page.goto("/recept");
   await recipeRow(page).getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(recipePath);
-  await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(line(page, "mjölk").getByText("Saknas", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Fler val" }).click();
   await page.getByRole("menuitem", { name: "Ändra" }).click();
@@ -232,12 +233,9 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
   await expect(edit).toBeHidden();
   await expect(page.getByTestId("toast")).toHaveText("Ändringarna är sparade.");
 
-  await expect(view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ })).toBeVisible();
+  await expect(line(page, "mjölk").getByText("Saknas", { exact: true })).toBeVisible();
   await expect(mark(line(page, "mjölk"))).toHaveAccessibleName("saknas");
   await expect(line(page, "mjölk").getByText("hemma: 6 dl")).toBeVisible();
-  // Story 4.3: the chip leads to the missing line, which takes focus.
-  await view(page).getByRole("button", { name: /^Saknar 1 vara\s*mjölk$/ }).click();
-  await expect(line(page, "mjölk")).toBeFocused();
   await page.goto("/recept");
   await expect(recipeRow(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);

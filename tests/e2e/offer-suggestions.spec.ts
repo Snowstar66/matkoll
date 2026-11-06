@@ -5,7 +5,7 @@ import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { weekStartOf } from "@/features/offers/domain/week";
 import { adminClient, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState } from "./support";
 
-// Story 9.5: AI-förslag från veckans erbjudanden, with AI_PROVIDER=mock (the
+// Story 9.5 and 25.3: the offers and what is made of them, with AI_PROVIDER=mock (the
 // server answers the three dishes in
 // tests/fixtures/ai/suggest-dishes-erbjudanden.response.json when the message
 // has offers). The spec has an E2E user of its own (offerSuggestionsEmail).
@@ -125,23 +125,87 @@ function watchErrors(page: Page): string[] {
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Veckans erbjudanden" });
 const toast = (page: Page) => page.getByTestId("toast");
-const choice = (page: Page) => page.getByTestId("store-choice");
-const suggestButton = (page: Page) => sheet(page).getByRole("button", { name: "Föreslå rätter från veckans erbjudanden" });
 
-async function openOffers(page: Page) {
-  await page.goto("/lista");
-  await page.getByRole("button", { name: "Erbjudanden" }).click();
-  await expect(sheet(page)).toBeVisible();
+/** A library recipe with falukorv (on offer) and a pinch of salt (never a main ingredient). */
+async function seedFalukorvRecipe(title = "Falukorv med potatismos") {
+  const admin = adminClient();
+  const falukorv = (await seedIngredients(["falukorv"])).get("falukorv")!;
+  const salt = (await seedIngredients(["salt"])).get("salt")!;
+  const created = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title, original_servings: 4, total_minutes: 30, source_kind: "text", is_favorite: true })
+    .select("id")
+    .single();
+  if (created.error) throw created.error;
+  const recipeId = (created.data as { id: string }).id;
+  const lines = await admin.from("recipe_ingredient").insert([
+    { user_id: userId, recipe_id: recipeId, position: 0, original_text: "400 g falukorv", amount: 400, unit: "g", is_vague: false, ingredient_id: falukorv },
+    { user_id: userId, recipe_id: recipeId, position: 1, original_text: "1 krm salt", amount: 1, unit: "krm", is_vague: false, ingredient_id: salt },
+  ]);
+  if (lines.error) throw lines.error;
+  return recipeId;
 }
 
-test("the button waits, with a reason, when there are no offers", async ({ page }) => {
-  await seed({ withOffers: false });
-  await openOffers(page);
-  await expect(suggestButton(page)).toBeDisabled();
-  await expect(sheet(page).getByText("Hämta veckans erbjudanden först")).toBeVisible();
+const weekDishes = (page: Page) => page.getByRole("list", { name: "Veckans rätter" }).getByTestId("plan-dish");
+const bar = (page: Page) => page.getByTestId("week-bar-count");
+
+test("the offers sheet only lists offers: no Föreslå rätter and no store choice (Story 25.3)", async ({ page }) => {
+  await seed({ withOffers: true });
+  await page.goto("/matsedel");
+  await page.getByRole("button", { name: "Erbjudanden" }).click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: /Föreslå rätter/ })).toHaveCount(0);
+  await expect(page.getByTestId("store-choice")).toHaveCount(0);
+  await expect(sheet(page).getByTestId("offer-row").first()).toBeVisible();
 });
 
-test("offers become dishes with labels, one step puts a dish on the menu and the list lacks only what is not at home", async ({ page }) => {
+// Story 25.3: Matsedel is where the week is planned: På erbjudande, "+" and the dish is on the week with no day.
+test("Matsedel: På erbjudande, + puts the dish on the week with Ingen dag and the bar follows", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  await seedFalukorvRecipe();
+
+  await page.goto("/matsedel");
+  await expect(page.getByTestId("week-empty")).toBeVisible();
+  await expect(bar(page)).toHaveText("0 rätter · 0 varor att köpa");
+  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await expect(page.getByTestId("offers-hint")).toBeVisible();
+  const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
+  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
+  await row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" }).click();
+
+  await expect(weekDishes(page)).toHaveCount(1);
+  await expect(weekDishes(page).first()).toContainText("Falukorv med potatismos");
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ingen dag");
+  await expect(toast(page)).toContainText(/Falukorv med potatismos på veckan\. \d+ var(a|or) på listan\./);
+  await expect(toast(page).getByRole("button", { name: "Välj dag" })).toBeVisible();
+  await expect(row.getByTestId("on-week")).toHaveText("På veckan");
+  await expect(bar(page)).toHaveText(/^1 rätt · [1-9]\d* var(a|or) att köpa$/);
+
+  // What is saved: on this week's plan, no weekday.
+  const plan = await adminClient().from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
+  expect(plan.data).toEqual([{ recipe_title: "Falukorv med potatismos", weekday: null }]);
+
+  // "Välj dag" picks a day; the chip says it, and the list is one tap away.
+  await toast(page).getByRole("button", { name: "Välj dag" }).click();
+  await page.getByRole("dialog", { name: /Flytta till dag/ }).getByRole("button", { name: "Onsdag" }).click();
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ons");
+  await page.getByRole("link", { name: "Inköpslistan" }).click();
+  await expect(page).toHaveURL(/\/lista$/);
+  await expect(page.getByTestId("shopping-line").filter({ visible: true }).first()).toContainText(/falukorv/i);
+
+  // ✕ takes the dish off again, with Ångra.
+  await page.goto("/matsedel");
+  await weekDishes(page).first().getByRole("button", { name: "Ta bort Falukorv med potatismos" }).click();
+  await expect(weekDishes(page)).toHaveCount(0);
+  await expect(toast(page)).toContainText("Tog bort Falukorv med potatismos.");
+  await toast(page).getByRole("button", { name: /Ångra/ }).click();
+  await expect(weekDishes(page)).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+// Story 25.3: "Hittar du inget? Få 2 nya idéer med erbjudandena": the job of Story 9.5 over all stores, the same rows, and the preview first.
+test("Matsedel: 2 new ideas from the offers are reviewed and saved before they go on the week", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
   const bodies: string[] = [];
@@ -149,47 +213,37 @@ test("offers become dishes with labels, one step puts a dish on the menu and the
     if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
   });
 
-  await openOffers(page);
-  await expect(suggestButton(page)).toBeEnabled();
-  await startSuggest(page);
-  await expect(sheet(page)).toBeHidden();
-  // Only the mode goes from the client: never the offers, never prices.
+  await page.goto("/matsedel");
+  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await page.getByRole("button", { name: "Hittar du inget? Få 2 nya idéer med erbjudandena" }).click();
+  const ideas = page.getByTestId("ai-option");
+  await expect(ideas).toHaveCount(2, jobTime);
+  // No store is chosen: the server reads the offers of all stores. Only the mode goes from the client.
   expect(bodies).toHaveLength(1);
   expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "offers" });
+  expect(JSON.parse(bodies[0])).not.toHaveProperty("storeId");
   expect(bodies[0]).not.toMatch(/falukorv|kr\//);
+  // Nothing is saved yet.
+  expect((await adminClient().from("recipe").select("id").eq("user_id", userId)).data).toHaveLength(1);
 
-  // The finished job says so with "Visa", which opens the suggestions in Recept.
-  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
-  const section = page.getByTestId("ai-suggestions");
-  await expect(section.getByRole("heading", { name: "AI-förslag från veckans erbjudanden" })).toBeVisible(jobTime);
-  const cards = section.getByTestId("ai-suggestion");
-  await expect(cards).toHaveCount(3);
-  const card = cards.filter({ hasText: dishName });
-  await expect(card.getByTestId("ai-suggestion-offers")).toHaveText("Erbjudanden: Falukorv");
-  await expect(card.getByTestId("ai-suggestion-why")).toHaveText("allt hemma eller på erbjudande");
-
-  await card.getByRole("button", { name: `Lägg på matsedeln: ${dishName}` }).click();
+  const idea = ideas.filter({ hasText: dishName });
+  await expect(idea).toContainText("AI-förslag");
+  await expect(idea.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
+  await idea.getByRole("button", { name: `Granska och spara: ${dishName}` }).click();
   const preview = page.getByRole("dialog", { name: "Spara AI-förslag" });
   await expect(preview).toBeVisible();
-  await preview.getByRole("button", { name: "Spara och lägg på matsedeln" }).click();
+  await preview.getByRole("button", { name: "Spara och lägg på veckan" }).click();
   await expect(preview).toBeHidden();
-  await expect(toast(page)).toContainText("Lagt på matsedeln.");
-  await expect(cards).toHaveCount(2);
+  await expect(weekDishes(page)).toHaveCount(1);
+  await expect(weekDishes(page).first()).toContainText(dishName);
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ingen dag");
+  await expect(ideas).toHaveCount(1);
 
-  // The dish is on the plan (a saved recipe with the same title).
-  const plan = await adminClient().from("meal_plan_recipe").select("recipe_title").eq("user_id", userId);
-  expect(plan.error).toBeNull();
-  expect((plan.data as { recipe_title: string }[]).map((row) => row.recipe_title)).toEqual([dishName]);
-
-  // "Visa inköpslistan": the list holds the falukorv, nothing that is at home.
-  await toast(page).getByRole("button", { name: "Visa inköpslistan" }).click();
-  await expect(page).toHaveURL(/\/lista$/);
-  const lines = page.getByTestId("shopping-line").filter({ visible: true });
-  await expect(lines).toHaveCount(1);
-  await expect(lines.first()).toContainText(/falukorv/i);
-  for (const name of atHome) {
-    await expect(page.getByTestId("shopping-line").filter({ visible: true, hasText: new RegExp(`^${name}\\b`, "i") })).toHaveCount(0);
-  }
+  // The dish was saved as a recipe first, and is on the plan with no day.
+  const recipes = await adminClient().from("recipe").select("title").eq("user_id", userId);
+  expect((recipes.data as { title: string }[]).map((row) => row.title).sort()).toEqual([dishName, "Linssoppa"].sort());
+  const plan = await adminClient().from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
+  expect(plan.data).toEqual([{ recipe_title: dishName, weekday: null }]);
   expect(errors).toEqual([]);
 });
 
@@ -229,280 +283,3 @@ test("the filter Erbjudanden shows the recipe that uses an offer, with its tag, 
   expect(errors).toEqual([]);
 });
 
-// Story 9.14: two stores with offers. Maxi has offers on things that are at home, so it is the week's best store.
-async function seedMaxi(): Promise<{ maxiId: string; testId: string }> {
-  const admin = adminClient();
-  const ids = await seedIngredients(atHome.slice(0, 3));
-  const maxi = await admin
-    .from("store")
-    .insert({
-      user_id: userId,
-      name: "Maxi ICA Stormarknad Östersund",
-      chain: "ICA",
-      external_store_id: "1003733",
-      offers_url: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
-      is_selected: false,
-    })
-    .select("id")
-    .single();
-  if (maxi.error) throw maxi.error;
-  const maxiId = (maxi.data as { id: string }).id;
-  const offers = await admin.from("store_offer").insert(
-    atHome.slice(0, 3).map((name) => ({
-      user_id: userId,
-      store_id: maxiId,
-      week_start: weekStartOf(new Date()),
-      label: name,
-      name,
-      ingredient_id: ids.get(name) ?? null,
-      section: "Övrigt",
-      price: "10 kr/st",
-      source: "link",
-    })),
-  );
-  if (offers.error) throw offers.error;
-  const test = await admin.from("store").select("id").eq("user_id", userId).eq("name", "Matkoll Testbutik").single();
-  if (test.error) throw test.error;
-  return { maxiId, testId: (test.data as { id: string }).id };
-}
-
-function watchJobBodies(page: Page): string[] {
-  const bodies: string[] = [];
-  page.on("request", (request) => {
-    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
-  });
-  return bodies;
-}
-
-test("the week's best store is on top and preselected, and the dishes are built from that store", async ({ page }) => {
-  const errors = watchErrors(page);
-  await seed({ withOffers: true });
-  const { maxiId } = await seedMaxi();
-  const bodies = watchJobBodies(page);
-
-  await openOffers(page);
-  await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi passar dig bäst den här veckan:");
-  await expect(sheet(page).getByTestId("best-store")).toContainText(/ (finns i dina recept|har du hemma|passar det du brukar laga)/);
-  // Story 16.10: the tip has no store pills; the store is chosen in the sheet that the AI button opens.
-  await expect(sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" })).toHaveCount(0);
-  // Story 16.12: no "Visa dessa"; the matching offers are only marked "Passar dig".
-  await expect(sheet(page).getByTestId("best-store-toggle")).toHaveCount(0);
-  await expect(sheet(page).getByTestId("offer-fit")).toHaveCount(3);
-  await suggestButton(page).click();
-  const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
-  await expect(picker.getByRole("radio", { name: /Maxi/ })).toBeChecked();
-  await expect(picker).toContainText("passar dig bäst");
-  await choice(page).getByTestId("store-choice-start").click();
-  await expect(sheet(page)).toBeHidden();
-  expect(bodies).toHaveLength(1);
-  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "offers", storeId: maxiId });
-
-  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
-  await expect(page.getByTestId("ai-suggestions").getByRole("heading", { name: "Med veckans erbjudanden från Maxi" })).toBeVisible(jobTime);
-  expect(errors).toEqual([]);
-});
-
-test("another store can be picked for the dishes", async ({ page }) => {
-  await seed({ withOffers: true });
-  const { testId } = await seedMaxi();
-  const bodies = watchJobBodies(page);
-
-  await openOffers(page);
-  await suggestButton(page).click();
-  const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
-  await picker.getByRole("radio", { name: /Matkoll/ }).click();
-  await expect(picker.getByRole("radio", { name: /Matkoll/ })).toBeChecked();
-  await choice(page).getByTestId("store-choice-start").click();
-  await expect(sheet(page)).toBeHidden();
-  expect(JSON.parse(bodies[0])).toMatchObject({ mode: "offers", storeId: testId });
-  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
-  await expect(page.getByTestId("ai-suggestions").getByRole("heading", { name: "Med veckans erbjudanden från Matkoll" })).toBeVisible(jobTime);
-});
-
-// Story 16.1: the buttons on a suggestion work after Pontus has been to other pages and back, and a suggestion can be removed.
-async function suggestionsFromOffers(page: Page) {
-  await openOffers(page);
-  await startSuggest(page);
-  await expect(sheet(page)).toBeHidden();
-  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
-  const cards = page.getByTestId("ai-suggestions").getByTestId("ai-suggestion");
-  await expect(cards).toHaveCount(3, jobTime);
-  return cards;
-}
-
-async function awayAndBack(page: Page) {
-  const nav = page.getByRole("navigation", { name: "Huvudmeny" });
-  await nav.getByRole("link", { name: "Matsedel" }).click();
-  await expect(page).toHaveURL(/\/matsedel/);
-  await nav.getByRole("link", { name: "Matvaror" }).click();
-  await expect(page).toHaveURL(/\/hemma/);
-  await nav.getByRole("link", { name: "Recept" }).click();
-  await expect(page).toHaveURL(/\/recept/);
-}
-
-for (const away of [false, true]) {
-  const where = away ? "after visiting other pages" : "straight away";
-  test(`Spara and Lägg på matsedeln work on a suggestion ${where}`, async ({ page }) => {
-    const errors = watchErrors(page);
-    await seed({ withOffers: true });
-    const cards = await suggestionsFromOffers(page);
-    if (away) await awayAndBack(page);
-    await expect(cards).toHaveCount(3);
-
-    const preview = page.getByRole("dialog", { name: "Spara AI-förslag" });
-    await cards.nth(1).getByRole("button", { name: /^Lägg på matsedeln/ }).click();
-    await expect(preview).toBeVisible();
-    await preview.getByRole("button", { name: "Spara och lägg på matsedeln" }).click();
-    await expect(preview).toBeHidden();
-    await expect(toast(page)).toContainText("Lagt på matsedeln.");
-    await expect(cards).toHaveCount(2);
-
-    // Story 16.4: the card's illustration, and the offers it names.
-    await expect(cards.first().getByTestId("recipe-illustration")).toBeVisible();
-    const offerLine = cards.first().getByTestId("ai-suggestion-offers");
-    const offered = (await offerLine.count()) > 0 ? ((await offerLine.textContent()) ?? "").replace("Erbjudanden: ", "") : null;
-    await cards.first().getByRole("button", { name: /^Spara(?:\s|$)/ }).click();
-    await expect(preview).toBeVisible();
-    await preview.getByRole("button", { name: "Spara recept" }).click();
-    await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}/);
-    // The saved recipe is complete: illustration, numbered steps, and the offers it was saved from.
-    const view = page.getByRole("article").filter({ visible: true });
-    await expect(view.getByTestId("recipe-illustration")).toBeVisible();
-    await expect(view.getByRole("region", { name: "Steg" }).getByRole("listitem").first()).toBeVisible();
-    if (offered) {
-      await expect(view.getByTestId("recipe-offers")).toHaveText(`Sparad från veckans erbjudanden: ${offered}`);
-    }
-    const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
-    expect(recipes.data).toHaveLength(3);
-    expect(errors).toEqual([]);
-  });
-}
-
-test("a suggestion can be removed with its trash, also after visiting other pages", async ({ page }) => {
-  await seed({ withOffers: true });
-  const cards = await suggestionsFromOffers(page);
-  await awayAndBack(page);
-  await expect(cards).toHaveCount(3);
-  await cards.filter({ hasText: dishName }).getByRole("button", { name: `Ta bort förslaget ${dishName}` }).click();
-  await expect(cards).toHaveCount(2);
-  await expect(cards.filter({ hasText: dishName })).toHaveCount(0);
-  await page.waitForTimeout(450);
-  // The bins ignore a second tap within 400 ms, so each removal is waited for.
-  for (const left of [1, 0]) {
-    await cards.last().getByRole("button", { name: /^Ta bort förslaget / }).click();
-    await expect(cards).toHaveCount(left);
-    await page.waitForTimeout(450);
-  }
-  await expect(cards).toHaveCount(0);
-  await expect(page.getByTestId("ai-suggestions").getByRole("heading")).toHaveCount(0);
-  // Nothing is saved by removing.
-  const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
-  expect(recipes.data).toHaveLength(1);
-});
-
-// Story 16.3: "Från dina recept": a favourite that uses an offer is shown first, at once, and goes on the menu in one tap.
-test("a favourite recipe that uses an offer is shown first and goes on the menu, and the list follows", async ({ page }) => {
-  const errors = watchErrors(page);
-  await seed({ withOffers: true });
-  const admin = adminClient();
-  const ids = await seedIngredients(["falukorv", "makaroner"]);
-  const recipe = await admin
-    .from("recipe")
-    .insert({ user_id: userId, title: "Korvstroganoff", original_servings: 4, total_minutes: 30, source_kind: "text", is_favorite: true })
-    .select("id")
-    .single();
-  if (recipe.error) throw recipe.error;
-  const lines = await admin.from("recipe_ingredient").insert(
-    [
-      { text: "400 g falukorv", id: ids.get("falukorv")! },
-      { text: "makaroner", id: ids.get("makaroner")! },
-    ].map((line, position) => ({
-      user_id: userId,
-      recipe_id: (recipe.data as { id: string }).id,
-      position,
-      original_text: line.text,
-      amount: null,
-      unit: null,
-      is_vague: true,
-      ingredient_id: line.id,
-    })),
-  );
-  if (lines.error) throw lines.error;
-
-  await openOffers(page);
-  await startSuggest(page);
-  await expect(sheet(page)).toBeHidden();
-  await page.goto("/recept");
-  await page.getByRole("button", { name: "Kan lagas nu" }).filter({ visible: true }).click();
-  const own = page.getByTestId("own-recipes");
-  await expect(own.getByRole("heading", { name: "Från dina recept" })).toBeVisible();
-  const card = own.getByTestId("own-recipe");
-  await expect(card).toHaveCount(1);
-  await expect(card).toContainText("Korvstroganoff");
-  await expect(card.getByTestId("own-recipe-why")).toHaveText("allt hemma eller på erbjudande");
-  // First: the section is above the AI suggestions in the page.
-  const first = await page.getByTestId("ai-suggestions").locator("section").first().getAttribute("data-testid");
-  expect(first).toBe("own-recipes");
-
-  await card.getByRole("button", { name: "Lägg på matsedeln: Korvstroganoff" }).click();
-  await expect(toast(page)).toContainText("Lagt på matsedeln.");
-  const plan = await admin.from("meal_plan_recipe").select("recipe_title").eq("user_id", userId);
-  expect(plan.error).toBeNull();
-  expect((plan.data as { recipe_title: string }[]).map((row) => row.recipe_title)).toEqual(["Korvstroganoff"]);
-  await toast(page).getByRole("button", { name: "Visa inköpslistan" }).click();
-  await expect(page).toHaveURL(/\/lista$/);
-  await expect(page.getByTestId("shopping-line").filter({ visible: true, hasText: /falukorv/i })).toHaveCount(1);
-  expect(errors).toEqual([]);
-});
-
-// Story 9.6: Matsedel's row "Förslag från erbjudanden och lagret": the library first, a day is picked, nothing is added before that.
-test("Matsedel suggests a library recipe from an offer and puts it on the day picked", async ({ page }) => {
-  const errors = watchErrors(page);
-  await seed({ withOffers: true });
-  const admin = adminClient();
-  const ids = await seedIngredients(["falukorv", "makaroner"]);
-  const recipe = await admin
-    .from("recipe")
-    .insert({ user_id: userId, title: "Korvstroganoff", original_servings: 4, total_minutes: 30, source_kind: "text" })
-    .select("id")
-    .single();
-  if (recipe.error) throw recipe.error;
-  const lines = await admin.from("recipe_ingredient").insert(
-    [
-      { text: "400 g falukorv", id: ids.get("falukorv")! },
-      { text: "makaroner", id: ids.get("makaroner")! },
-    ].map((line, position) => ({
-      user_id: userId,
-      recipe_id: (recipe.data as { id: string }).id,
-      position,
-      original_text: line.text,
-      amount: null,
-      unit: null,
-      is_vague: true,
-      ingredient_id: line.id,
-    })),
-  );
-  if (lines.error) throw lines.error;
-
-  await page.goto("/matsedel");
-  await page.getByTestId("suggestions-toggle").click();
-  const card = page.getByTestId("suggestion-recipe").filter({ hasText: "Korvstroganoff" });
-  await expect(card).toBeVisible();
-  await expect(card.getByTestId("suggestion-recipe-home")).toContainText("av 2 hemma");
-  await expect(card.getByTestId("suggestion-recipe-why")).toContainText("Falukorv");
-  await card.getByRole("button", { name: "Lägg på en dag: Korvstroganoff" }).click();
-  // Nothing is added by opening the day picker.
-  expect((await admin.from("meal_plan_recipe").select("id").eq("user_id", userId)).data).toHaveLength(0);
-  await page.getByTestId("suggestion-day").last().click();
-  await expect(toast(page)).toContainText("Lagt på matsedeln, söndag.");
-  const plan = await admin.from("meal_plan_recipe").select("recipe_title, weekday").eq("user_id", userId);
-  expect(plan.data).toEqual([{ recipe_title: "Korvstroganoff", weekday: 7 }]);
-  expect(errors).toEqual([]);
-});
-
-/** Starts the suggestions; with two stores the store-choice sheet comes first (Story 16.10), where the preselected store is kept. */
-async function startSuggest(page: Page) {
-  await suggestButton(page).click();
-  const start = choice(page).getByTestId("store-choice-start");
-  if (await start.isVisible()) await start.click();
-}

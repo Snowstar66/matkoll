@@ -5542,3 +5542,81 @@ så att det blir roligt och personligt.
 **Givet** reducerad rörelse
 **När** lappen visas
 **Så** står avataren still med rätt min
+
+## Epic 25: Mat – två resor
+
+Version 3.x. Pontus (2026-11-06): "enkelt enkelt enkelt, intuitivt intuitivt intuitivt, som Klarna-appen". Funktionerna finns mest; det är UX och user journey som är fel. Matsedeln är grunden för inköpslistan och planeras utifrån recept man gillar med erbjudanden som stöd; lagret styr inte valet, det räknas bara bort från listan. Skiss och spec: ux-designs (Recept, Main, Matsedel).
+
+### Story 25.1: Receptet: vad saknas, vad gör jag
+
+Som någon som tittar på ett recept,
+vill jag direkt se vad som finns hemma, vad som saknas och vad som är på erbjudande, och med ett tryck köpa det som saknas eller lägga rätten på veckan,
+så att jag inte behöver tolka siffror eller hoppa mellan vyer.
+
+**Acceptance Criteria:**
+
+**Givet** ett recept
+**När** jag öppnar det
+**Så** visar varje ingrediensrad status direkt: hemma (bock), "Saknas" (orange, halvfet rad) eller "På listan" (när varan står på inköpslistan), samt erbjudandet som "Erbjudande <butik> · <pris>, spara <N> kr" (procent om kr inte kan räknas)
+**Och** Basvaror räknas som hemma, med raden "Salt, peppar och smör är Basvaror och räknas som hemma."
+**Och** chips överst visar matsedel (denna vecka/dag), "X av Y hemma", "N på inköpslistan" och "N på erbjudande · spara N kr"; den gamla lilla statusrutan med "+N st till" är borta
+
+**Givet** att något saknas
+**När** jag trycker "Köp det som saknas (N)"
+**Så** öppnas arket "Lägg på inköpslistan" ("Bara listan. Receptet läggs inte på matsedeln.") med förbockade rader och erbjudande med besparing per rad
+**Och** efter "Lägg N varor på listan" blir raderna "På listan" och knappen "På listan ✓ · Ångra", som tar bort just de varorna
+
+**Givet** ett recept som inte ligger på matsedeln
+**När** jag trycker "Lägg på matsedeln"
+**Så** läggs det med ett tryck på aktuell vecka utan dag, med toast "På veckans matsedel. <varor> står på inköpslistan."
+**Och** knappen blir "Välj dag"/"Byt dag" som öppnar ett frivilligt ark med Mån–Sön och "Ingen dag"
+
+**Givet** Laga-läget (steg för steg med Nästa)
+**När** Story 25.1 är klar
+**Så** är det borttaget (ingång, route, kod, tester); stegen står kvar i receptet
+
+### Story 25.2: Vad kan jag laga nu?
+
+Som någon som står vid kylen,
+vill jag med ett tryck se vad jag kan laga av det jag har,
+så att jag slipper leta bland recepten.
+
+**Acceptance Criteria:**
+
+**Givet** Matvaror (Hemma)
+**När** jag trycker "Vad kan jag laga nu?" överst
+**Så** öppnas direkt ett ark "Kan lagas nu" som väger ihop kyl, frys och skafferi för hela boendet, Basvaror räknade som hemma
+
+**Givet** arket
+**När** det visas
+**Så** har det en tipsrad om något legat länge, "Dina recept" där allt finns hemma (kompakta rader som fälls ut med "Öppna receptet"), högst tre "Nya idéer" från AI där allt finns hemma (utfällbara, "Spara som recept"), "Saknar bara en vara (N)" utfälld direkt och "Andra förslag"
+
+**Givet** förslagen
+**När** de visas
+**Så** är de tillfälliga: inget "Lägg på matsedeln", inga jobb att kasta ett och ett, samma resultat om arket öppnas inom 30 minuter
+**Och** AI-prompten får bara använda varorna i listan (och Basvaror) med exakta namn; koden räknar vad som saknas och slänger rätter som saknar något
+
+### Story 25.3: Matsedeln: planera veckan
+
+Som någon som planerar veckan,
+vill jag välja rätter jag gillar, med erbjudanden som stöd, och få inköpslistan av det,
+så att planeringen blir enkel.
+
+**Acceptance Criteria:**
+
+**Givet** Matsedeln
+**När** jag öppnar den
+**Så** visar "Veckans rätter" valda rätter med dag-chip ("Mån" eller "Ingen dag"), ✕ för att ta bort och tryck för att öppna receptet
+**Och** "Lägg till rätter" har flikar Favoriter / På erbjudande / Alla recept med liten bild, meta, erbjudanderad ("<huvudvara> på erbjudande · spara N kr") och "+" som lägger rätten på veckan utan dag med toast "<rätt> på veckan. N varor på listan." och "Välj dag"
+
+**Givet** fliken På erbjudande
+**När** den visas
+**Så** listar den recept där en huvudvara är på erbjudande, mest sparat först, med längst ner "Hittar du inget? Få 2 nya idéer med erbjudandena" (AI, granska och spara innan något sparas)
+
+**Givet** den fasta bottenraden
+**När** veckan har rätter
+**Så** står "N rätter · M varor att köpa" / "Det du har hemma räknas bort." och knappen "Inköpslistan"
+
+**Givet** att Story 25.3 är klar
+**Så** är panelen "Förslag från erbjudanden och lagret" (9.6), "Föreslå rätter" och butiksvalet i Erbjudanden-arket, AI-sektionen längst ner i Recept och stora emojibilder på AI-kort borttagna; Recept är ett bibliotek med filtren Alla, Favoriter, Kan lagas nu och Erbjudanden
+**Och** erbjudanden hämtas från alla användarens butiker

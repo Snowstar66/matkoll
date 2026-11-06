@@ -2,34 +2,46 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
-import { addWeeks, currentWeekStart, highlightDay, overviewWeeks, viewedWeek } from "@/features/mealplan";
-import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
-import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
+import { addWeeks, currentWeekStart, overviewWeeks, viewedWeek } from "@/features/mealplan";
+import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
-import type { RecipeListItem } from "@/features/recipes";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
-import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
+import { CatalogDataError } from "@/features/catalog/server";
+import { OffersDataError } from "@/features/offers/server";
+import { RecipeDataError } from "@/features/recipes/server";
+import { SettingsDataError } from "@/features/settings/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { ownRecipeSuggestions } from "@/features/suggestions/server";
+import { getShoppingList } from "@/features/shopping/server";
+import type { PlanOption } from "@/features/suggestions";
+import { weekPlanOptions } from "@/features/suggestions/server";
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
 import { loadBoendeCounts } from "../boende-counts";
-import { SuggestionsFromOffers } from "./suggestions-from-offers";
+import { OfferIdeas } from "./offer-ideas";
 
 /**
- * The library for Lägg till rätt, or `null` when it cannot be read (logged
- * as `mealplan_recipes_unavailable`): the sheet says so, and the plan is
- * shown all the same.
+ * The library as rows for "Lägg till rätter", or `null` when it cannot be read
+ * (logged as `mealplan_recipes_unavailable`): the planner says so, and the
+ * week is shown all the same.
  */
-async function libraryOrNull(): Promise<RecipeListItem[] | null> {
+async function optionsOrNull(): Promise<PlanOption[] | null> {
   try {
-    return await listRecipes();
+    return await weekPlanOptions();
   } catch (error) {
-    if (!(error instanceof RecipeDataError)) throw error;
-    console.error("mealplan_recipes_unavailable", { reason: error.detail });
+    if (
+      !(
+        error instanceof RecipeDataError ||
+        error instanceof OffersDataError ||
+        error instanceof SettingsDataError ||
+        error instanceof CatalogDataError ||
+        error instanceof PantryDataError
+      )
+    )
+      throw error;
+    console.error("mealplan_recipes_unavailable", { reason: error instanceof CatalogDataError ? error.code : error.detail });
     return null;
   }
 }
@@ -57,33 +69,49 @@ async function countsOrEmpty(weeks: string[]): Promise<Record<string, number>> {
 }
 
 /**
- * Matsedel's data, for a <Suspense> in page.tsx (AD-18): the plan (with its
- * recipes and the pantry) and the library, read in parallel. When the plan
- * cannot be read, a notice says so. The library, the recipes behind the
- * dishes and the pantry each degrade on their own: the sheet says the
- * library could not be read, the dishes show their stored titles, or the
- * status is left out. With more than one place, the boende button under the
- * week line (on a phone) says which place the status is counted against and
- * changes it (AD-24, Story 16.14). Other errors go to the error boundary.
+ * How many items the week's dishes still need: the shopping list's own lines
+ * for the week (what is at home and the Basvaror already taken off), without
+ * the household's own items and those already checked off. `null` when the
+ * list cannot be counted: the bar then names the dishes only.
  */
-export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[]; dag?: string | string[] }> } = {}) {
+async function itemsToBuy(weekStart: string): Promise<number | null> {
+  const list = await getShoppingList(weekStart);
+  if (!list.ok) return null;
+  return list.data.lines.filter((line) => !line.isCustom && !line.checked).length;
+}
+
+/**
+ * Matsedel's data, for a <Suspense> in page.tsx (AD-18): the week's dishes
+ * (with the pantry), the library as rows with offers, and the count of items
+ * still to buy, read in parallel. When the plan cannot be read, a notice
+ * says so. The library and the count each degrade on their own. With more
+ * than one place, the boende button under the title (on a phone) says which
+ * place "hemma" is counted against (AD-24, Story 16.14). Other errors go to
+ * the error boundary.
+ */
+export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
   await requireUserOrRedirect("/matsedel");
   const params = await searchParams;
   const vecka = params?.vecka;
-  const dag = params?.dag;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
-  const upcoming = weekStart !== currentWeekStart(now);
 
   const overview = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
   if (!overview.includes(weekStart)) overview.push(weekStart);
 
   let view: MealPlanView;
-  let recipes: RecipeListItem[] | null;
+  let options: PlanOption[] | null;
   let sites: PantrySite[] | null;
   let counts: Record<string, number>;
+  let toBuy: number | null;
   try {
-    [view, recipes, counts, sites] = await Promise.all([getMealPlanView(weekStart), libraryOrNull(), countsOrEmpty(overview), sitesOrNull()]);
+    [view, options, counts, sites, toBuy] = await Promise.all([
+      getMealPlanView(weekStart),
+      optionsOrNull(),
+      countsOrEmpty(overview),
+      sitesOrNull(),
+      itemsToBuy(weekStart),
+    ]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
     console.error("mealplan_unavailable", { reason: error.detail });
@@ -97,22 +125,14 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   }
 
   return (
-    <AddDishProvider
-      recipes={recipes}
-      searchRecipes={searchRecipes}
-      plannedDays={view.dishes.map((dish) => dish.weekday ?? null)}
-      weekStart={weekStart}
-    >
+    <>
       <PageHeader
         title="Matsedel"
         tab="/matsedel"
         action={
-          <>
-            <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
-              <ListOffers next="/matsedel" />
-            </Suspense>
-            <AddDishButton variant="icon" />
-          </>
+          <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
+            <ListOffers next="/matsedel" />
+          </Suspense>
         }
       />
       {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}
@@ -121,22 +141,17 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
         </div>
       ) : null}
-      <WeekNav weekStart={weekStart} counts={counts} now={now} />
-      {/* Story 9.6: suggestions to pick from, never a week plan. */}
-      <SuggestionsFromOffers read={ownRecipeSuggestions} addToPlan={addToCurrentPlan} searchIngredients={searchIngredients} />
-      <MealPlanList
-        key={weekStart}
-        weekStart={weekStart}
-        highlightDay={highlightDay(Array.isArray(dag) ? dag[0] : dag)}
-        upcoming={upcoming}
-        planName={view.plan?.name ?? null}
-        dishes={view.dishes}
-        snapshot={view.snapshot}
-        staples={view.staples}
-        names={view.names ?? {}}
-        siteId={view.site?.id ?? null}
-        nextWeek={{ weekStart: addWeeks(weekStart, 1), count: counts[addWeeks(weekStart, 1)] ?? 0 }}
-      />
-    </AddDishProvider>
+      <div className="flex flex-col gap-4">
+        <WeekNav weekStart={weekStart} counts={counts} now={now} />
+        <WeekPlanner
+          key={weekStart}
+          weekStart={weekStart}
+          dishes={view.dishes}
+          options={options}
+          toBuy={toBuy}
+          offersFooter={<OfferIdeas weekStart={weekStart} addToWeek={addToCurrentPlan} searchIngredients={searchIngredients} />}
+        />
+      </div>
+    </>
   );
 }

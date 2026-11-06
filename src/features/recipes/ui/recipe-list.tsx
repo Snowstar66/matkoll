@@ -1,10 +1,8 @@
 "use client";
 
-import { planningButtonText, type PlanningTarget } from "@/features/mealplan";
 import { Badge } from "@/components/badges";
 import { offerTagsShown, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
 import { dishEmoji } from "../domain/dish-emoji";
-import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
 import { RecipeCard } from "./recipe-card";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
@@ -18,9 +16,6 @@ export type RecipeListProps = {
    * nu), which the list's name says, since there are no headings or groups.
    */
   ranked?: boolean;
-  /** Planning mode (Story 13.8): each card has "Lägg på onsdag" and opens the recipe in the same mode. */
-  planning?: PlanningTarget;
-  addToPlan?: AddToPlan;
   /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, shown as up to two tags and "+N"; the list's name then says most offers first. */
   offerTags?: Readonly<Record<string, readonly string[]>>;
 };
@@ -55,7 +50,7 @@ function OfferTags({ tags }: { tags: readonly string[] }) {
  * has the status on its image ("Kan lagas nu" or "Saknar N varor"; none when
  * the pantry could not be read) and the heart.
  */
-export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, planning, addToPlan, offerTags }: RecipeListProps) {
+export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags }: RecipeListProps) {
   return (
     <ul aria-label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
       {recipes.map((recipe) => (
@@ -66,20 +61,8 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           imageUrl={recipe.imageUrl}
           emoji={dishEmoji(recipe.title)}
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
-          href={planning ? `/recept/${recipe.id}?planera=${planning.date}` : `/recept/${recipe.id}`}
+          href={`/recept/${recipe.id}`}
           offerTags={offerTags && offerTags[recipe.id]?.length ? <OfferTags tags={offerTags[recipe.id]} /> : undefined}
-          quickAction={
-            planning && addToPlan ? (
-              <AddToPlanButton
-                recipeId={recipe.id}
-                addToPlan={addToPlan}
-                servings={recipe.originalServings}
-                fullWidth={false}
-                planning={planning}
-                ariaLabel={`${planningButtonText(planning)}: ${recipe.title}`}
-              />
-            ) : undefined
-          }
           badge={
             recipe.missingCount !== null ? (
               <RecipeStatusBadge missingCount={recipe.missingCount} missingNames={recipe.missingNames} onImage />

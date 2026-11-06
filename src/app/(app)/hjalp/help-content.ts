@@ -30,7 +30,7 @@ export const helpAreas: readonly HelpArea[] = [
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar det du har hemma, minst saknat överst. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
-      { icon: "steps", title: "Laga steg för steg", text: "Laga nu visar ett steg i taget och håller skärmen tänd." },
+      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
       {
@@ -42,14 +42,14 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Vad som saknas hemma, till exempel Saknar 2 varor. Kan lagas nu betyder att allt finns.",
       },
       { question: "Hur sparar jag en favorit?", answer: "Tryck på hjärtat på receptet." },
-      { question: "Kan jag ändra antal portioner?", answer: "Ja, innan du trycker Laga nu. Mängderna räknas om." },
+      { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag den här veckan, och i Matsedel kan du flytta det till en annan dag.",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan utan dag, och knappen Välj dag låter dig välja en dag om du vill.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",
-        answer: "Står rätten på matsedeln slutar sista steget i Laga nu med Markera som lagad. Det du bockar dras från Matvaror.",
+        answer: "Står rätten på matsedeln finns Markera som lagad under stegen i receptet. Det du bockar dras från Matvaror.",
       },
     ],
   },
@@ -58,16 +58,17 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Matsedel",
     steps: [
       { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
-      { icon: "plus", title: "Lägg till rätt", text: "Tryck + eller Lägg till rätt, välj recept och dag." },
-      { icon: "house", title: "Se vad som finns", text: "Varje rätt visar hur mycket du redan har hemma." },
+      { icon: "plus", title: "Lägg till rätter", text: "Välj bland Favoriter, På erbjudande eller Alla recept och tryck +. Rätten hamnar på veckan utan dag." },
+      { icon: "house", title: "Se vad som ska köpas", text: "Raden längst ner räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
     faq: [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
-        question: "Vad gör Förslag från erbjudanden och lagret?",
-        answer: "Raden under veckorna visar några av dina egna recept som passar veckans erbjudanden och det du har hemma, och på begäran upp till två nya rätter från AI. Tryck Lägg på en dag för att lägga en rätt på denna eller nästa vecka. Ingenting läggs på matsedeln av sig självt.",
+        question: "Hur hittar jag rätter som är på erbjudande?",
+        answer: "Öppna fliken På erbjudande under Lägg till rätter. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Hittar du inget kan du få 2 nya idéer med erbjudandena; de sparas först när du granskat dem och trycker Spara och lägg på veckan.",
       },
-      { question: "Kan jag flytta en rätt till en annan dag?", answer: "Ja. Tryck ⋯ på rätten och välj Flytta till annan dag." },
+      { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
+      { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
       { question: "Måste jag skriva inköpslistan själv?", answer: "Nej, Inköpslistan räknas fram från veckans matsedel." },
       { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },
     ],

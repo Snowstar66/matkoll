@@ -279,3 +279,9 @@ development_status:
   24-1-lappen-på-kylskåpet: done
   24-2-avataren-som-lever: backlog
   epic-24-retrospective: optional
+
+  epic-25: in-progress
+  25-1-receptet-vad-saknas-vad-gör-jag: review
+  25-2-vad-kan-jag-laga-nu: backlog
+  25-3-matsedeln-planera-veckan: backlog
+  epic-25-retrospective: optional
