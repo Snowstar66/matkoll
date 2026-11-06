@@ -220,7 +220,7 @@ export function ThingChat({
         </>
       ) : null}
       <form onSubmit={submit} className="flex flex-col gap-2" aria-busy={pending || undefined}>
-        <div className="flex h-tap items-center gap-2 rounded-md border border-border bg-surface pr-1 pl-3 text-ink-3 focus-within:border-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+        <div className="flex h-12 items-center gap-2 rounded-md border border-border bg-surface pr-0.5 pl-3 text-ink-3 focus-within:border-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
           <SearchIcon size={18} className="shrink-0" />
           <label htmlFor={`${ids}-q`} className="sr-only">
             {askLabel}
@@ -240,7 +240,7 @@ export function ThingChat({
             type="submit"
             aria-label={askButtonText}
             aria-disabled={pending || undefined}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-row-title text-on-accent select-none aria-disabled:opacity-60"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-row-title text-on-accent select-none aria-disabled:opacity-60"
           >
             <span aria-hidden="true">↑</span>
           </button>

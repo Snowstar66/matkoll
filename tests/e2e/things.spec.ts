@@ -521,7 +521,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   // The database searches: the hit says place, boende and the card's day, from every boende, and a typo is fine.
   const search = page.getByRole("textbox", { name: "Sök eller fråga" });
   // One field: the hint while it is empty, and one character is not searched for.
-  await expect(page.getByText("Skriv för att söka – tryck ↑ för att fråga")).toBeVisible();
+  await expect(page.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeVisible();
   await search.fill("h");
   await expect(page.getByTestId("thing-hits")).toHaveCount(0);
   await expect(rooms(page)).toBeVisible();
