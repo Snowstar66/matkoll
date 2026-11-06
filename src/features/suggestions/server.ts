@@ -15,5 +15,5 @@ export { recipeOfferTags } from "./actions/recipe-offer-tags";
 export { readCookNow, type CookNowRead } from "./actions/cook-now";
 // The saved "Nya idéer med extrapris" (table offer_idea_set): the read for the card and Matsedel, and the
 // Server Actions that prepare the ideas in the background.
-export { loadOfferIdeas, isOfferIdeaError } from "./actions/offer-idea-set";
+export { loadOfferIdeas, isOfferIdeaError, prepareOfferIdeasNow, type PrepareOutcome } from "./actions/offer-idea-set";
 export { prepareOfferIdeas, readOfferIdeas, startOfferIdeas } from "./actions/offer-idea-actions";
