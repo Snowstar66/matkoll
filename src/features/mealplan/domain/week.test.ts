@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addWeeks,
+  firstOpenWeekday,
+  weekdayDateText,
   currentWeekStart,
   maxWeeksAhead,
   parseWeekParam,
@@ -70,5 +72,22 @@ describe("weeks (Story 13.7)", () => {
   it("leaves the address plain for this week", () => {
     expect(weekQuery("2026-10-26", thursday)).toBe("");
     expect(weekQuery("2026-11-02", thursday)).toBe("?vecka=2026-W45");
+  });
+});
+
+describe("weekdayDateText and firstOpenWeekday", () => {
+  const thursday = new Date("2026-11-05T10:00:00Z");
+
+  it("gives the date of a weekday of the viewed week", () => {
+    expect(weekdayDateText("2026-11-02", 1)).toBe("2/11");
+    expect(weekdayDateText("2026-11-02", 7)).toBe("8/11");
+    expect(weekdayDateText("2026-10-26", 7)).toBe("1/11");
+    expect(weekdayDateText("2026-11-02", 8)).toBe("");
+  });
+
+  it("opens from today in this week, Monday in a coming one, never in a past one", () => {
+    expect(firstOpenWeekday("2026-11-02", thursday, 4)).toBe(4);
+    expect(firstOpenWeekday("2026-11-09", thursday, 4)).toBe(1);
+    expect(firstOpenWeekday("2026-10-26", thursday, 4)).toBe(8);
   });
 });

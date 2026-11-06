@@ -58,14 +58,14 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Matsedel",
     steps: [
       { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
-      { icon: "plus", title: "Lägg till rätter", text: "Välj bland Favoriter, På erbjudande eller Alla recept och tryck +. Rätten hamnar på veckan utan dag." },
+      { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Under Lägg till från dina recept trycker du + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
       { icon: "house", title: "Se vad som ska köpas", text: "Raden längst ner räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
     faq: [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
         question: "Hur hittar jag rätter som är på erbjudande?",
-        answer: "Öppna fliken På erbjudande under Lägg till rätter. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
+        answer: "Öppna fliken På erbjudande under Lägg till från dina recept. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
       },
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
       { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },

@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
-import { addWeeks, currentWeekStart, overviewWeeks, viewedWeek } from "@/features/mealplan";
+import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday, viewedWeek } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import type { PantrySite } from "@/features/pantry";
@@ -159,6 +159,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         <WeekPlanner
           key={weekStart}
           weekStart={weekStart}
+          firstOpenDay={firstOpenWeekday(weekStart, now, todayWeekday(now))}
           dishes={view.dishes}
           options={options}
           toBuy={toBuy}

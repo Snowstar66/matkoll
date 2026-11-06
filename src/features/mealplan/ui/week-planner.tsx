@@ -8,6 +8,7 @@ import { CloseIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { optionsForTab, onWeekIds, type PlanOption, type PlanTab } from "@/features/suggestions";
+import { weekdayShortName, weekdayWord } from "../domain/meal-plan";
 import { addToCurrentPlan } from "../actions/add-to-current-plan";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
 import { restorePlanRecipe } from "../actions/restore-plan-recipe";
@@ -22,7 +23,8 @@ import {
   type ServingsChange,
   type WeekdayChange,
 } from "../domain/meal-plan";
-import { addedToWeekText, changeDayLabel, dayChipText, dishFromRow, dishNoteText, onWeekLabel, shownDishes, weekBarText } from "../domain/planner";
+import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, onWeekLabel, shownDishes, targetDayText, weekBarText } from "../domain/planner";
+import { weekdayDateText } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
 
@@ -47,6 +49,8 @@ const emptyText: Record<PlanTab, string> = {
 export type WeekPlannerProps = {
   /** The Monday of the week shown. */
   weekStart: string;
+  /** The first weekday (1–7) that is still open: today's in this week, 1 in a coming week, 8 in a past one. */
+  firstOpenDay?: number;
   /** The week's dishes. */
   dishes: readonly PlanDish[];
   /** The library as rows, or `null` when it could not be read. */
@@ -57,7 +61,7 @@ export type WeekPlannerProps = {
   offersFooter?: ReactNode;
 };
 
-export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }: WeekPlannerProps) {
+export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter }: WeekPlannerProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
@@ -74,6 +78,9 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
   /** The recipes whose "+" is on its way. */
   const [adding, setAdding] = useState<ReadonlySet<string>>(new Set());
   /** The dish id of a tap on its way, kept until it is added, so a retry after a lost answer adds one dish. */
+  /** The free day tapped in Veckans rätter: the next "+" puts its dish there. */
+  const [targetDay, setTargetDay] = useState<number | null>(null);
+  const addRef = useRef<HTMLElement>(null);
   const dishIds = useRef(new Map<string, string>());
 
   const shown = shownDishes(dishes, hidden, added, days);
@@ -96,8 +103,8 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
     dishIds.current.set(option.id, id);
     let result: Result<PlanRecipeRow>;
     try {
-      // No day sent: the server puts the dish on the week's first free day.
-      result = await addToCurrentPlan({ recipeId: option.id, servings: clampServings(option.servings), id, weekStart });
+      // A free day tapped above is sent; else no day, and the server puts the dish on the first free day.
+      result = await addToCurrentPlan({ recipeId: option.id, servings: clampServings(option.servings), id, weekStart, ...(targetDay ? { weekday: targetDay } : {}) });
     } catch {
       result = fail("mealplan_add_failed");
     }
@@ -111,6 +118,7 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
       return;
     }
     dishIds.current.delete(option.id);
+    setTargetDay(null);
     const row = result.data;
     setAdded((current) => [...current, dishFromRow(row)]);
     showToast(addedToWeekText(option.title, option.buyNames, row.weekday ?? null), {
@@ -204,6 +212,12 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
     router.refresh();
   }
 
+  function chooseFreeDay(weekday: number) {
+    setTargetDay((current) => (current === weekday ? null : weekday));
+    addRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
+
+  const rowsOfWeek = calendarRows(shown, firstOpenDay);
   const dayDish = shown.find((dish) => dish.id === dayFor) ?? null;
 
   return (
@@ -224,57 +238,105 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
           <p data-testid="week-empty" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
             Inga rätter än. Välj bland dina recept här under.
           </p>
-        ) : (
+        ) : null}
+        {rowsOfWeek.length > 0 ? (
           <ul aria-label="Veckans rätter" className="overflow-hidden rounded-lg bg-surface">
-            {shown.map((dish) => (
-              <li key={dish.id} data-testid="plan-dish" data-dish={dish.id} className="flex items-center gap-2 border-t border-hairline py-2 pr-1 pl-3.5 first:border-t-0">
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  {dish.recipeId ? (
-                    <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink">
-                      {dish.recipeTitle}
-                    </Link>
-                  ) : (
-                    <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{dish.recipeTitle}</p>
-                  )}
-                  <p data-testid="dish-note" className="text-meta text-ink-2">
-                    {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  data-testid="dish-day"
-                  onClick={() => setDayFor(dish.id)}
-                  aria-label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
-                  className={`min-h-9 shrink-0 rounded-pill px-2.5 text-control font-semibold ${dish.weekday ? "bg-mint text-mint-ink" : "bg-bg text-ink-3"}`}
-                >
-                  {dayChipText(dish.weekday)}
-                </button>
-                <button
-                  type="button"
-                  data-testid="dish-remove"
-                  onClick={() => void remove(dish)}
-                  aria-label={`Ta bort ${dish.recipeTitle}`}
-                  className="flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
-                >
-                  <CloseIcon size={18} />
-                </button>
-              </li>
-            ))}
+            {rowsOfWeek.map((row) => {
+              if (row.kind === "no-day-label") {
+                return (
+                  <li key="no-day" data-testid="no-day-label" className="border-t border-hairline bg-bg px-3.5 py-1.5 text-badge font-semibold text-ink-2 first:border-t-0">
+                    Ingen dag
+                  </li>
+                );
+              }
+              if (row.kind === "free") {
+                return (
+                  <li key={`free-${row.weekday}`} className="border-t border-hairline first:border-t-0">
+                    <button
+                      type="button"
+                      data-testid="free-day"
+                      aria-pressed={targetDay === row.weekday}
+                      aria-label={`Lägg till en rätt på ${weekdayWord(row.weekday)}`}
+                      onClick={() => chooseFreeDay(row.weekday)}
+                      className={`flex min-h-tap w-full items-stretch text-left ${targetDay === row.weekday ? "bg-mint/40" : ""}`}
+                    >
+                      <span className="flex w-14 shrink-0 flex-col items-center justify-center bg-bg py-1.5 text-ink-3">
+                        <span className="text-badge font-semibold uppercase">{weekdayShortName(row.weekday)}</span>
+                        <span className="text-meta">{weekdayDateText(weekStart, row.weekday)}</span>
+                      </span>
+                      <span className="flex items-center px-3.5 text-meta text-ink-2">Ledig – lägg till</span>
+                    </button>
+                  </li>
+                );
+              }
+              const dish = row.dish;
+              return (
+                <li key={dish.id} data-testid="plan-dish" data-dish={dish.id} className="flex items-stretch border-t border-hairline first:border-t-0">
+                  <button
+                    type="button"
+                    data-testid="dish-day"
+                    onClick={() => setDayFor(dish.id)}
+                    aria-label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
+                    className={`flex min-h-tap w-14 shrink-0 flex-col items-center justify-center py-2 ${row.weekday ? "bg-mint text-mint-ink" : "bg-bg text-ink-3"}`}
+                  >
+                    {row.weekday && row.showDay ? (
+                      <>
+                        <span className="text-badge font-semibold uppercase">{weekdayShortName(row.weekday)}</span>
+                        <span className="text-meta">{weekdayDateText(weekStart, row.weekday)}</span>
+                      </>
+                    ) : row.weekday ? null : (
+                      <span className="text-meta">–</span>
+                    )}
+                  </button>
+                  <div className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      {dish.recipeId ? (
+                        <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink">
+                          {dish.recipeTitle}
+                        </Link>
+                      ) : (
+                        <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{dish.recipeTitle}</p>
+                      )}
+                      <p data-testid="dish-note" className="text-meta text-ink-2">
+                        {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="dish-remove"
+                      onClick={() => void remove(dish)}
+                      aria-label={`Ta bort ${dish.recipeTitle}`}
+                      className="flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
+                    >
+                      <CloseIcon size={18} />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
-        )}
+        ) : null}
       </section>
 
-      <section aria-labelledby="add-dishes-heading" className="flex flex-col gap-2.5">
+      <section ref={addRef} aria-labelledby="add-dishes-heading" className="flex scroll-mt-4 flex-col gap-2.5 rounded-xl bg-fill p-3">
         <h2 id="add-dishes-heading" className="text-section-title text-ink">
-          Lägg till rätter
+          Lägg till från dina recept
         </h2>
+        {targetDay ? (
+          <div data-testid="target-day" className="flex items-center justify-between gap-2 rounded-lg bg-mint px-3.5 text-mint-ink">
+            <p className="text-control font-semibold">{targetDayText(targetDay)}</p>
+            <button type="button" onClick={() => setTargetDay(null)} className="min-h-tap px-1 text-control font-semibold underline">
+              Ta bort dag
+            </button>
+          </div>
+        ) : null}
         {options === null ? (
           <p role="alert" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
             {errorMessages.mealplan_recipes_unavailable}
           </p>
         ) : (
           <>
-            <div role="radiogroup" aria-label="Rätter att lägga till" className="-mx-page flex gap-2 overflow-x-auto px-page">
+            <div role="radiogroup" aria-label="Rätter att lägga till" className="-mx-3 flex gap-2 overflow-x-auto px-3">
               {tabs.map(({ value, label }) => (
                 <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
                   {label}

@@ -140,9 +140,29 @@ test("an empty week says so, with the library to choose from under it", async ({
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   await expect(page.getByTestId("week-empty")).toHaveText("Inga rätter än. Välj bland dina recept här under.");
-  await expect(page.getByRole("heading", { name: "Lägg till rätter" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lägg till från dina recept" })).toBeVisible();
   // An empty week says "Inga rätter än" instead of a count.
   await expect(bar(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("a free day tapped in the week gets the next dish added with +", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/matsedel");
+  // Sunday is free from any day of the week on.
+  await page.getByRole("button", { name: "Lägg till en rätt på söndag" }).click();
+  await expect(page.getByTestId("target-day")).toHaveText(/Läggs på söndag/);
+  await plus(page, gryta).click();
+  await expect(dishes(page)).toHaveCount(1);
+  await expect(chip(dish(page, gryta))).toHaveText(/^Sön\d/);
+  await expect(toast(page)).toContainText(`${gryta} på söndag.`);
+  await expect(page.getByTestId("target-day")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Lägg till en rätt på söndag" })).toHaveCount(0);
+  const saved = await adminClient().from("meal_plan_recipe").select("weekday").eq("user_id", userId);
+  expect(saved.data).toEqual([{ weekday: 7 }]);
+  // The tests after this one start from an empty week.
+  const cleared = await adminClient().from("meal_plan").delete().eq("user_id", userId);
+  if (cleared.error) throw cleared.error;
   expect(errors).toEqual([]);
 });
 
@@ -155,7 +175,7 @@ test("a favourite is on the first free day after one tap on +, with its own serv
   await expect(dishes(page)).toHaveCount(1);
   const day = firstFree([]);
   expect(day).toBe(todayDay());
-  await expect(chip(dish(page, gryta))).toHaveText(dayWords[day! - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase()));
+  await expect(chip(dish(page, gryta))).toHaveText(new RegExp(`^${dayWords[day! - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase())}\\d`));
   await expect(toast(page)).toContainText(`${gryta} på ${dayWords[day! - 1]}. Inget att köpa.`);
   await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
   await expect(page.getByTestId("plan-option").filter({ hasText: gryta }).getByTestId("on-week")).toHaveText(
@@ -479,8 +499,8 @@ test("dishes lie on days: the chip opens Flytta till dag, and the list does not 
 
   // Existing dishes have no day.
   await page.goto("/matsedel");
-  await expect(chip(dish(page, soppa))).toHaveText("Ingen dag");
-  await expect(chip(dish(page, gryta))).toHaveText("Ingen dag");
+  await expect(chip(dish(page, soppa))).toHaveText("–");
+  await expect(chip(dish(page, gryta))).toHaveText("–");
   expect((await chip(dish(page, soppa)).boundingBox())!.height).toBeGreaterThanOrEqual(36);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
@@ -491,8 +511,8 @@ test("dishes lie on days: the chip opens Flytta till dag, and the list does not 
   expect((await sheet.getByTestId("day-choice").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await sheet.getByRole("button", { name: dayNames[target - 1]!.replace(/^./, (c) => c.toUpperCase()) }).click();
   await expect(toast(page)).toContainText(`${soppa} ligger på ${dayNames[target - 1]}.`);
-  await expect(chip(dish(page, soppa))).toHaveText("Fre");
-  await expect(chip(dish(page, gryta))).toHaveText("Ingen dag");
+  await expect(chip(dish(page, soppa))).toHaveText(/^Fre\d/);
+  await expect(chip(dish(page, gryta))).toHaveText("–");
   await expect
     .poll(async () => {
       const { data } = await admin.from("meal_plan_recipe").select("weekday").eq("user_id", userId).eq("recipe_title", soppa).single();
@@ -526,7 +546,7 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await plus(page, "Våffelsmet").click();
   await expect(dish(page, "Våffelsmet")).toHaveCount(1);
   // A coming week starts from Monday.
-  await expect(chip(dish(page, "Våffelsmet"))).toHaveText("Mån");
+  await expect(chip(dish(page, "Våffelsmet"))).toHaveText(/^Mån\d/);
   await expect(toast(page)).toContainText("Våffelsmet på måndag.");
   await expect(bar(page)).toHaveText(/^1 rätt · 1 vara att köpa$/);
 
@@ -649,8 +669,8 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
   await expect(toast(page)).toHaveText(/^Kopierade 2 rätter till vecka \d+$/);
   await expect(dishes(page)).toHaveCount(nextBefore + 2);
-  await expect(chip(dish(page, soppa))).toHaveText("Tis");
-  await expect(chip(dish(page, gryta))).toHaveText("Tor");
+  await expect(chip(dish(page, soppa))).toHaveAttribute("aria-label", /nu tis$/);
+  await expect(chip(dish(page, gryta))).toHaveAttribute("aria-label", /nu tor$/);
   await expect(tiles.nth(1).getByTestId("week-count")).toContainText(String(nextBefore + 2));
 
   await tiles.nth(0).click();

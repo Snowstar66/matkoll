@@ -21,6 +21,7 @@ export {
   weekdayNames,
   weekdays,
   weekdayWord,
+  todayWeekday,
   dishCountText,
   planSummaryText,
   deletePlanQuestion,
