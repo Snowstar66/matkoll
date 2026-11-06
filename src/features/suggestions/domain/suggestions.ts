@@ -24,7 +24,17 @@ export const suggestRequestSchema = z.strictObject({
    * `now` (Story 25.2): "Vad kan jag laga nu?" on Matvaror: one to three dishes of what is at home alone,
    * which miss at most one thing (the sheet shows the ones that miss nothing as new ideas).
    */
-  mode: z.enum(["pantry", "offers", "now"]).default("pantry"),
+  mode: z.enum(["pantry", "offers", "now", "ideas"]).default("pantry"),
+  /**
+   * `ideas` (Story 25.4): the friendly answer of "Vad kan jag laga nu?": an intro and one to four small ideas (nowIdeasResultSchema).
+   * `now` with `dish` writes the recipe of one of them ("Gör ett recept av den").
+   */
+  dish: z
+    .string()
+    .refine((dish) => !hasControlChars(dish), "A dish has no control characters")
+    .transform(cleanModelText)
+    .pipe(z.string().min(1).max(suggestInputLimits.maxTitleChars + 200))
+    .optional(),
   /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14: the sheet sends it with two or more stores). */
   storeId: z.guid().optional(),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
@@ -57,7 +67,7 @@ export const dishSuggestionsSchema = z.object({
     )
     .min(1)
     .max(3),
-  mode: z.enum(["pantry", "offers", "now"]).default("pantry"),
+  mode: z.enum(["pantry", "offers", "now", "ideas"]).default("pantry"),
   siteId: z.uuid().nullable().default(null),
   /** Story 9.14: the short name of the store the offers are from, when Pontus picked one of several; else `null`. */
   storeName: z.string().max(40).nullable().default(null),

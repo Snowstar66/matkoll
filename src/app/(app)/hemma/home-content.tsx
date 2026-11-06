@@ -11,6 +11,7 @@ import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
 import { errorMessages } from "@/lib/errors";
+import { sendFeedback } from "@/features/feedback/server";
 import { saveRecipe } from "@/features/recipes/server";
 import { readCookNow } from "@/features/suggestions/server";
 import { CookNowButton } from "./cook-now-button";
@@ -91,7 +92,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photos[0] ?? null} photos={photos} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} />} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photos[0] ?? null} photos={photos} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />} />
     </>
   );
 }

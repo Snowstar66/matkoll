@@ -37,8 +37,8 @@ describe("OffersList", () => {
       />,
     );
     const headings = screen.getAllByRole("heading", { level: 3 });
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Mejeri & ägg", "Kött, fisk & chark", "Skafferi"]);
-    const pantry = screen.getByRole("list", { name: "Skafferi" });
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Mejeri & ägg", "Kött, fisk & chark", "Torrvaror & konserver"]);
+    const pantry = screen.getByRole("list", { name: "Torrvaror & konserver" });
     expect(within(pantry).getByText("Bondens Krossade tomater")).toBeInTheDocument();
     expect(within(pantry).getByText("Köp 3 betala för 2")).toBeInTheDocument();
     expect(screen.getAllByTestId("offer-row")).toHaveLength(3);
