@@ -28,4 +28,5 @@ export {
   type PlanOption,
   type PlanTab,
 } from "./domain/plan-options";
+export { nowIdeasResultSchema, nowIdeaSchema, type NowIdeaView, type NowIdeasResultView } from "./domain/now-ideas";
 export { cookNowLists, cookNowNameIds, maxCookNowRecipes, type CookNowRecipe, type CookNowOneMissing, type CookNowLists } from "./domain/cook-now";

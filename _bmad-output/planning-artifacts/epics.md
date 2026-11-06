@@ -5620,3 +5620,27 @@ så att planeringen blir enkel.
 **Givet** att Story 25.3 är klar
 **Så** är panelen "Förslag från erbjudanden och lagret" (9.6), "Föreslå rätter" och butiksvalet i Erbjudanden-arket, AI-sektionen längst ner i Recept och stora emojibilder på AI-kort borttagna; Recept är ett bibliotek med filtren Alla, Favoriter, Kan lagas nu och Erbjudanden
 **Och** erbjudanden hämtas från alla användarens butiker
+
+### Story 25.4: Idéer som från en vän
+
+Som den som står vid kylen och undrar vad jag kan göra,
+vill jag få svar som från en vän eller mamma, också små saker som en sås eller en dipp,
+så att jag får hjälp av det som finns hemma utan att det blir hela recept.
+
+**Acceptance Criteria:**
+
+**Givet** att arket Kan lagas nu öppnas
+**När** AI:n svarar
+**Så** visas under IDÉER en kort, varm och ärlig inledning och en till fyra idéer som textrader: fetstilt namn, liten typ (rätt, tillbehör, sås, mellanmål, frukost) och en mening om hur ("dressing + ketchup och lite senap"), utan bild och utan att raden fälls ut
+
+**Givet** ett svar från AI:n
+**När** koden kontrollerar det
+**Så** räknas bara varor som finns hemma (lagret och Basvaror, också via katalogens synonymer) som använda, en vara som inte finns hemma flyttas till "saknas", en idé som saknar fler än en vara tas bort, och en som saknar exakt en visas under Saknar bara en vara
+
+**Givet** en idé
+**När** jag trycker Gör ett recept av den
+**Så** skrivs ett recept för just den idén (befintligt receptjobb med en rätt) och visas med Spara som recept, och inget sparas utan Spara
+
+**Givet** att AI-leverantören är Claude
+**När** idéerna hämtas
+**Så** används Claude Haiku för det anropet vad hushållet än valt, och för övriga leverantörer den valda modellen; DINA RECEPT, tipsraden, Andra förslag och den tillfälliga lagringen i 30 minuter är oförändrade

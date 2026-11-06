@@ -4,7 +4,7 @@ import { requireUserForRoute } from "@/features/auth/server";
 import { enqueueAiJob, listAiJobs, runAiJob } from "@/features/ai-jobs/server";
 import { importRequestSchema } from "@/features/recipes";
 import { suggestRequestSchema } from "@/features/suggestions";
-import { checkSuggestPantry, suggestFromPantry } from "@/features/suggestions/server";
+import { checkSuggestPantry, suggestFromPantry, suggestNowIdeas } from "@/features/suggestions/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!input.success) return respond(fail("validation"));
     return startImportJob(input.data, data.clientKey, requestStartedAt);
   }
-  const { clientKey, avoidTitles, mode, storeId, eatFirst } = parsed.data;
+  const { clientKey, avoidTitles, mode, storeId, eatFirst, dish } = parsed.data;
 
   // What needs no AI is checked first, so nothing is queued for it: an empty pantry is its own answer.
   const checked = await checkSuggestPantry(mode, storeId);
@@ -89,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
     context: {
       siteId: checked.data.siteId,
       // Story 25.2: a job of "Vad kan jag laga nu?" says so, so Recept never shows its result as its own.
-      ...(mode === "now" ? { mode } : mode === "offers" ? { mode, ...(storeId ? { storeId } : {}) } : {}),
+      ...(mode === "now" || mode === "ideas" ? { mode: "now" } : mode === "offers" ? { mode, ...(storeId ? { storeId } : {}) } : {}),
     },
     requestStartedAt,
   });
@@ -100,7 +100,10 @@ export async function POST(request: Request): Promise<Response> {
   if (created) {
     after(() =>
       runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
-        const result = await suggestFromPantry({ avoidTitles, mode, storeId, eatFirst }, { signal, deadline });
+        const result =
+          mode === "ideas"
+            ? await suggestNowIdeas({ signal, deadline, avoidTitles })
+            : await suggestFromPantry({ avoidTitles, mode, storeId, eatFirst, dish }, { signal, deadline });
         // The drafts are plain data; the job keeps them as JSON until Pontus saves one.
         return result.ok ? ok(JSON.parse(JSON.stringify(result.data)) as Json) : result;
       }),

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IngredientMatch, MatchItem } from "@/features/catalog";
-import type { PantrySnapshot, PantryStock } from "@/features/pantry";
+import { noStaples, type PantrySnapshot, type PantryStock, type StapleRules } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
 import { fromCompactDish } from "@/server/ai/compact-dish";
@@ -36,6 +36,7 @@ vi.mock("@/features/catalog/server", () => ({
   getIngredientNames: (ids: readonly string[]) => getIngredientNames(ids),
 }));
 const getPantrySnapshot = vi.fn<(siteId?: string) => Promise<PantrySnapshot>>();
+let staplesRules: StapleRules = noStaples;
 /** The selected place. */
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
 // pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
@@ -46,7 +47,7 @@ vi.mock("@/features/pantry/server", () => ({
   listOldPantryItems: (siteId?: string) => listOldPantryItems(siteId),
   getPantryForStatus: async () => {
     try {
-      return { site: stugan, snapshot: await getPantrySnapshot(stugan.id) };
+      return { site: stugan, snapshot: await getPantrySnapshot(stugan.id), staples: staplesRules };
     } catch (error) {
       if (!(error instanceof PantryDataError)) throw error;
       console.error("pantry_unavailable", { reason: error.detail });
@@ -70,13 +71,14 @@ const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
 }));
 const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
 const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
-vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes }), listStores: () => listStores() }));
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes, ideasNow }), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
+const ideasNow = vi.fn(ai.ideasNow);
 
-const { checkSuggestPantry, suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
+const { checkSuggestPantry, suggestFromPantry, suggestNowIdeas, postModelMarginMs } = await import("./suggest-from-pantry");
 
 const fixture = suggestDishesAnswerCompact.parse(
   JSON.parse(readFileSync(new URL("../../../../tests/fixtures/ai/suggest-dishes.response.json", import.meta.url), "utf8")),
@@ -124,6 +126,8 @@ beforeEach(() => {
     }),
   );
   suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
+  ideasNow.mockReset().mockImplementation(ai.ideasNow);
+  staplesRules = noStaples;
   listStores.mockReset().mockResolvedValue([{ id: "store", name: "Maxi ICA Stormarknad Östersund" }, { id: "krokom", name: "ICA Kvantum Krokom" }]);
   getActiveOffers.mockReset().mockResolvedValue([]);
 });
@@ -388,6 +392,21 @@ describe("suggestFromPantry", () => {
       const deadline = Date.now() + 8_000;
       expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal(), deadline })).toEqual(fail("ai_invalid"));
       expect(suggestDishes).toHaveBeenCalledTimes(1);
+    });
+
+    describe("the mode now with one idea (Story 25.4)", () => {
+      it("sends the idea to the model and keeps only the first dish that passes", async () => {
+        const [a, b] = fixture;
+        suggestDishes.mockResolvedValueOnce(ok([withMissing(a, 0), withMissing(b, 0)]));
+        const result = await suggestFromPantry({ avoidTitles: [], mode: "now", dish: "Burgersås: dressing + ketchup" }, { signal: signal() });
+        expect(titles(result)).toEqual([a.title]);
+        expect(suggestDishes.mock.calls[0][0]).toMatchObject({ now: true, dish: "Burgersås: dressing + ketchup" });
+      });
+
+      it("sends no idea without one", async () => {
+        await suggestFromPantry({ avoidTitles: [], mode: "now" }, { signal: signal() });
+        expect(suggestDishes.mock.calls[0][0].dish).toBeUndefined();
+      });
     });
 
     describe("the mode now (Story 25.2)", () => {
@@ -669,5 +688,87 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     expect(plain.data.mode).toBe("pantry");
     expect(plain.data.suggestions.every(({ onOffer }) => onOffer.length === 0)).toBe(true);
     expect(getActiveOffers).not.toHaveBeenCalled();
+  });
+});
+
+describe("suggestNowIdeas (Story 25.4)", () => {
+  const run = (options: { avoidTitles?: string[] } = {}) => suggestNowIdeas({ signal: signal(), ...options });
+  const answer = (ideas: { name: string; uses: string[]; missing?: string[] }[]) =>
+    ok({ intro: "Det är tunt, men det här går:", ideas: ideas.map((idea) => ({ how: "bra", why: "För att.", kind: "sås" as const, missing: [], ...idea })) });
+
+  it("sends the pantry by name with no ids and no titles, and gives the mock's ideas, dropping the one that misses two things", async () => {
+    const result = await run();
+    expect(ideasNow.mock.calls[0][0]).toEqual({
+      pantry: [
+        { name: "grädde", amount: 3, unit: "dl" },
+        { name: "gul lök", amount: 3, unit: "st" },
+        { name: "riven ost", amount: 200, unit: "g" },
+        { name: "salt", amount: null, unit: null },
+        { name: "vitlök", amount: 6, unit: "klyfta" },
+      ],
+      avoidTitles: [],
+    });
+    expect(JSON.stringify(ideasNow.mock.calls[0][0])).not.toMatch(/6f1c1b7e/);
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.siteId).toBe(stugan.id);
+    expect(result.data.intro).toContain("Det är tunt hemma");
+    expect(result.data.ideas[0].why).toBe("Använder det du har mest av.");
+    expect(result.data.ideas.map(({ name, missing }) => ({ name, missing }))).toEqual([
+      { name: "Enkel dipp", missing: [] },
+      { name: "Macka med pålägg", missing: ["surdegsbröd"] },
+    ]);
+  });
+
+  it("takes the titles to avoid and what has lain long along", async () => {
+    listOldPantryItems.mockResolvedValue([{ ingredientId: ids.gradde, name: "Grädde", days: 12 }]);
+    await run({ avoidTitles: ["Enkel dipp"] });
+    expect(ideasNow.mock.calls[0][0]).toMatchObject({ avoidTitles: ["Enkel dipp"], oldItems: [{ name: "grädde", days: 12 }] });
+  });
+
+  it("drops names not at home from uses and moves them to missing", async () => {
+    ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde", "Tryffel"] }]));
+    const result = await run();
+    expect(result.ok && result.data.ideas).toEqual([{ name: "Gratäng", how: "bra", why: "För att.", kind: "sås", uses: ["grädde"], missing: ["tryffel"] }]);
+  });
+
+  it("leaves out an idea that misses more than one thing", async () => {
+    ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde", "tryffel", "saffran"] }, { name: "Soppa", uses: ["gul lök"] }]));
+    const result = await run();
+    expect(result.ok && result.data.ideas.map(({ name }) => name)).toEqual(["Soppa"]);
+  });
+
+  it("takes Basvaror, salt and the catalog's synonyms as at home", async () => {
+    staplesRules = { byIngredient: {}, byName: { chilipasta: { maxAmount: null, maxUnit: null } } };
+    matchIngredients.mockImplementation(async (items) =>
+      items.map((item): IngredientMatch => (item.text === "creme fraiche" ? { kind: "match", ingredientId: ids.gradde, confidence: "synonym" } : { kind: "unmatched" } as never)),
+    );
+    ideasNow.mockResolvedValueOnce(answer([{ name: "Glaze", uses: ["Chilipasta", "creme fraiche", "salt"] }]));
+    const result = await run();
+    expect(result.ok && result.data.ideas[0]).toMatchObject({ uses: ["chilipasta", "creme fraiche"], missing: [] });
+    // Only the name the pantry and Basvaror did not know went to the catalog.
+    expect(matchIngredients).toHaveBeenCalledTimes(1);
+    expect(matchIngredients.mock.calls[0][0]).toEqual([{ text: "creme fraiche" }]);
+  });
+
+  it("is ai_invalid when no idea holds", async () => {
+    ideasNow.mockResolvedValueOnce(answer([{ name: "Festmiddag", uses: ["tryffel"] }]));
+    expect(await run()).toEqual(fail("ai_invalid"));
+  });
+
+  it("does not ask the model for an empty pantry, an unreadable one or a stopped job", async () => {
+    getPantrySnapshot.mockResolvedValue(new Map());
+    expect(await run()).toEqual(fail("suggest_empty_pantry"));
+    getPantrySnapshot.mockRejectedValue(new PantryDataError("read"));
+    expect(await run()).toEqual(fail("pantry_unavailable"));
+    getPantrySnapshot.mockResolvedValue(pantry);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await suggestNowIdeas({ signal: controller.signal })).toEqual(fail("ai_unavailable"));
+    expect(ideasNow).not.toHaveBeenCalled();
+  });
+
+  it("passes the model's failure on", async () => {
+    ideasNow.mockResolvedValueOnce(fail("ai_rejected"));
+    expect(await run()).toEqual(fail("ai_rejected"));
   });
 });

@@ -12,6 +12,7 @@ import {
   createAiService,
   createModelAiService,
   inputLimits,
+  ideasModel,
   isValidSuggestDishesInput,
   suggestDishesContent,
   limitsWithin,
@@ -1430,5 +1431,83 @@ describe("matchOffers on a model (Story 9.10)", () => {
       expect(await service.matchOffers(bad, signal())).toMatchObject({ ok: false, error: { code: "validation" } });
     }
     expect(model.doGenerateCalls).toHaveLength(0);
+  });
+});
+
+describe("ideasNow on a model (Story 25.4)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const pantry = [{ name: "dressing", amount: null, unit: null }, { name: "ketchup", amount: 1, unit: "st" }];
+  const idea = { name: " Burgersås ", how: "dressing + ketchup", why: " Använder ketchupen som legat längst. ", kind: "Sås", uses: ["dressing", "ketchup", "dressing"], missing: [] };
+  const answer = (ideas: unknown[], intro = "Det är tunt i kylen, men det här går:") => JSON.stringify({ intro, ideas });
+
+  it("sends the friendly prompt and the pantry, and gives the cleaned intro and ideas with a known kind", async () => {
+    const model = fakeModel(answer([idea, { ...idea, name: "Mackan", kind: "efterrätt" }]));
+    const result = await createModelAiService({ model }, limits).ideasNow({ pantry, oldItems: [{ name: "ketchup", days: 40 }] }, signal());
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        intro: "Det är tunt i kylen, men det här går:",
+        ideas: [
+          { name: "Burgersås", how: "dressing + ketchup", why: "Använder ketchupen som legat längst.", kind: "sås", uses: ["dressing", "ketchup"], missing: [] },
+          { name: "Mackan", how: "dressing + ketchup", why: "Använder ketchupen som legat längst.", kind: "rätt", uses: ["dressing", "ketchup"], missing: [] },
+        ],
+      },
+    });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.ideas.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.nowIdeas });
+    expect(JSON.stringify(user.content)).toContain("Har legat länge");
+    expect(prompts.nowIdeas).toContain("Hitta aldrig på varor");
+    expect(prompts.nowIdeas).toContain("`why`");
+    expect(prompts.nowIdeas).toContain("två eller tre korta meningar");
+  });
+
+  it("keeps at most four ideas and drops one without a name", async () => {
+    const model = fakeModel(answer([{ ...idea, name: " " }, ...Array.from({ length: 6 }, (_, index) => ({ ...idea, name: `Idé ${index}` }))]));
+    const result = await createModelAiService({ model }, limits).ideasNow({ pantry }, signal());
+    expect(result.ok && result.data.ideas.map(({ name }) => name)).toEqual(["Idé 0", "Idé 1", "Idé 2", "Idé 3"]);
+  });
+
+  it("is ai_invalid when no idea is left", async () => {
+    const model = fakeModel(answer([{ ...idea, how: " " }]));
+    expect(await createModelAiService({ model }, limits).ideasNow({ pantry }, signal())).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer([idea]));
+    const result = await createModelAiService({ model }, limits).ideasNow({ pantry }, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for an empty pantry, before any call", async () => {
+    const model = fakeModel(answer([idea]));
+    expect(await withInputValidation(createModelAiService({ model }, limits)).ideasNow({ pantry: [] }, signal())).toMatchObject({ ok: false, error: { code: "validation" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("asks the model of its own for the ideas, and the chosen one for everything else", async () => {
+    const chosen = fakeModel(answer([idea]));
+    const ideas = fakeModel(answer([idea]));
+    const service = createModelAiService({ model: chosen }, limits, { model: ideas });
+    await service.ideasNow({ pantry }, signal());
+    expect(ideas.doGenerateCalls).toHaveLength(1);
+    expect(chosen.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("uses Claude Haiku for the ideas on Claude, whatever model is chosen, and the chosen model for the rest", async () => {
+    const models: string[] = [];
+    const fetchSpy = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      models.push((JSON.parse(String(init?.body)) as { model: string }).model);
+      return new Response("unavailable", { status: 503 });
+    }) as typeof fetch;
+    const env = parseEnv({ AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "key", AI_MODEL: "claude-opus-5-5" });
+    const service = createAiService(env, { fetch: fetchSpy });
+    await service.ideasNow({ pantry }, signal());
+    await service.parseRecipe({ text: "x" }, signal());
+    expect(models[0]).toBe(ideasModel);
+    expect(models[models.length - 1]).toBe("claude-opus-5-5");
+    expect(ideasModel).toBe("claude-haiku-5-5");
   });
 });
