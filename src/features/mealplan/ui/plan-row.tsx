@@ -12,6 +12,8 @@ export type PlanRowProps = {
   imageUrl: string | null;
   /** "Favorit · lagad 6 gånger". */
   meta: string;
+  /** A short thought under the title, e.g. why an AI idea is a good one. */
+  note?: string | null;
   /** "Falukorv och grädde på extrapris · spara 21 kr". */
   deal?: string | null;
   /** The dish is already on the week: its day ("Tor"), or "På veckan", in place of "+". */
@@ -26,13 +28,18 @@ export type PlanRowProps = {
   testId?: string;
 };
 
-export function PlanRow({ title, imageUrl, meta, deal, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
+export function PlanRow({ title, imageUrl, meta, note, deal, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
       <RecipeImage src={imageUrl} iconSize={20} className="size-11 shrink-0 rounded-[10px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{title}</p>
         {meta ? <p className="text-meta text-ink-2">{meta}</p> : null}
+        {note ? (
+          <p data-testid="plan-option-note" className="text-meta text-ink-3">
+            {note}
+          </p>
+        ) : null}
         {deal ? (
           <p data-testid="plan-option-deal" className="text-meta font-semibold text-deal-ink">
             {deal}

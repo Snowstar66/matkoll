@@ -647,6 +647,66 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     expect(kyckling.onOffer).toEqual(["Kyckling 99 kr"]);
   });
 
+  describe("nya idéer med extrapris: the friend's way, kept honest", () => {
+    /** The mock's answer with its friend part changed by `change`. */
+    const told = (change: (dishes: { friend?: { intro: string; why: string; uses: string[] } }[]) => void) =>
+      suggestDishes.mockImplementation(async (input, abort, options) => {
+        const answered = await ai.suggestDishes(input, abort, options);
+        if (answered.ok) change(answered.data);
+        return answered;
+      });
+
+    it("asks for the friend's answer, and gives the intro and a why per dish", async () => {
+      const result = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      expect(suggestDishes.mock.calls[0][0].friendly).toBe(true);
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.intro).toBe("Falukorv, broccoli och kycklingfilé är billigt i veckan, och du har makaroner hemma.");
+      expect(result.data.suggestions.map(({ why }) => why)).toEqual([
+        "Falukorven är billig och det mesta finns redan hemma.",
+        "Broccolin är billig och soppan går fort.",
+        "Kycklingfilén har extrapris.",
+      ]);
+    });
+
+    it("leaves out a dish that says it uses things that are neither on offer nor at home", async () => {
+      told((dishes) => {
+        dishes[1].friend!.uses = ["köttfärs", "pasta"];
+      });
+      const result = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual(["Falukorv med stuvade makaroner", "Kycklingpasta med tomat"]);
+    });
+
+    it("keeps a dish that leans on one thing it has to buy, and fails when no dish is left", async () => {
+      told((dishes) => {
+        dishes[0].friend!.uses = ["falukorv", "grädde"];
+      });
+      const kept = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      expect(kept.ok && kept.data.suggestions).toHaveLength(3);
+      told((dishes) => {
+        for (const dish of dishes) dish.friend!.uses = ["saffran", "tryffel"];
+      });
+      expect(await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() })).toEqual(fail("ai_invalid"));
+    });
+
+    it("clears an intro or a why that names a main ingredient that is not there", async () => {
+      told((dishes) => {
+        for (const dish of dishes) dish.friend!.intro = "Köttfärs är billigt i veckan.";
+        dishes[0].friend!.why = "Köttfärsen är billig.";
+      });
+      const result = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.intro).toBe("");
+      expect(result.data.suggestions[0].why).toBe("");
+      expect(result.data.suggestions[1].why).toBe("Broccolin är billig och soppan går fort.");
+    });
+
+    it("gives the model names only: no prices or ids", async () => {
+      await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      expect(JSON.stringify(suggestDishes.mock.calls[0][0])).not.toMatch(/kr|6f1c1b7e/);
+    });
+  });
+
   it("reads the offers of the given store (Story 9.13), else of all the user's stores (Story 25.3), and refuses a store that is not the user's", async () => {
     await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
     expect(getActiveOffers.mock.calls.map(([id]) => id)).toEqual(["store", "krokom"]);

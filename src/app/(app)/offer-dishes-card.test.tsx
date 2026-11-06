@@ -7,6 +7,8 @@ import type { PlanRecipeRow } from "@/features/mealplan";
 import type { PlanOption } from "@/features/suggestions";
 import { OfferDishesCard } from "./offer-dishes-card";
 
+vi.mock("./offer-ideas", () => ({ OfferIdeas: () => <div data-testid="offer-ideas" /> }));
+
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -28,10 +30,10 @@ const lax = option("r2", "Laxpasta", "Laxfilé på extrapris · spara 12 kr");
 
 const addToWeek = vi.fn();
 
-function renderCard(onWeek: Record<string, number | null> = {}) {
+function renderCard(onWeek: Record<string, number | null> = {}, dishes: PlanOption[] = [korv, lax]) {
   return render(
     <ToastProvider>
-      <OfferDishesCard dishes={[korv, lax]} onWeek={onWeek} weekStart="2026-11-02" addToWeek={addToWeek} />
+      <OfferDishesCard dishes={dishes} onWeek={onWeek} weekStart="2026-11-02" addToWeek={addToWeek} searchIngredients={async () => ok([])} />
     </ToastProvider>,
   );
 }
@@ -49,6 +51,19 @@ describe("OfferDishesCard", () => {
     const rows = screen.getAllByTestId("offer-dish");
     expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på extrapris · spara 21 kr");
     expect(screen.getByRole("link", { name: "Visa alla" })).toHaveAttribute("href", "/recept?filter=erbjudanden");
+  });
+
+  it("shows the ideas under the dishes", () => {
+    renderCard();
+    expect(screen.getByTestId("offer-ideas")).toBeInTheDocument();
+  });
+
+  it("without dishes shows the card with the ideas and no list or Visa alla", () => {
+    renderCard({}, []);
+    expect(screen.getByRole("heading", { name: "Rätter med extrapris" })).toBeInTheDocument();
+    expect(screen.getByTestId("offer-ideas")).toBeInTheDocument();
+    expect(screen.queryByTestId("offer-dish")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Visa alla" })).not.toBeInTheDocument();
   });
 
   it("adds a dish to the week on +, then shows its day", async () => {

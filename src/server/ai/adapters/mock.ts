@@ -11,11 +11,12 @@ import {
   parseAnalyzeItems,
   parseThings,
   suggestDishesAnswerCompact,
+  suggestOfferIdeasFixture,
   type AiRecipe,
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, SuggestDishesInput, SuggestedDish } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -83,7 +84,7 @@ type SuggestFixtures = {
   /** The answer sets in the order they are tried. */
   sets: AiRecipe[][];
   /** The answer for a message with offers, if the manifest has one. */
-  offersSet: AiRecipe[] | undefined;
+  offersSet: SuggestedDish[] | undefined;
   /** The answer for a message with items that have lain long (Story 16.13), if the manifest has one. */
   oldSet: AiRecipe[] | undefined;
   /** Normalized reserved text → its code, for the pantry items given to suggestDishes. */
@@ -162,8 +163,15 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   const sets = [manifest.suggest, ...(manifest.suggestAlternatives ?? [])].map(
     (name) => suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish),
   );
+  // The friend's way (intro, why and uses) when the fixture has them; the mock hands them out only when asked (`friendly`).
   const offersSet = manifest.suggestOffers
-    ? suggestDishesAnswerCompact.parse(JSON.parse(read(`${manifest.suggestOffers}.response.json`))).suggestions.map(fromCompactDish)
+    ? (() => {
+        const answer = suggestOfferIdeasFixture.parse(JSON.parse(read(`${manifest.suggestOffers}.response.json`)));
+        return answer.suggestions.map((dish) => ({
+          ...fromCompactDish({ ...dish, ingredients: dish.ingredients }),
+          friend: { intro: answer.intro, why: dish.why, uses: dish.uses },
+        }));
+      })()
     : undefined;
   const oldSet = manifest.suggestOld
     ? suggestDishesAnswerCompact.parse(JSON.parse(read(`${manifest.suggestOld}.response.json`))).suggestions.map(fromCompactDish)
@@ -516,7 +524,7 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (input.offers && input.offers.length > 0 && current.offersSet) {
         const taken = new Set(input.avoidTitles.map(normalizeTitle));
         return current.offersSet.every((recipe) => !taken.has(normalizeTitle(recipe.title)))
-          ? ok(structuredClone(current.offersSet))
+          ? ok(structuredClone(current.offersSet).map(({ friend, ...recipe }) => (input.friendly ? { ...recipe, friend } : recipe)))
           : fail("ai_invalid");
       }
       // Old items given (Story 16.13): the answer that uses them, never an avoided title.

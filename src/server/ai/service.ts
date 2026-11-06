@@ -61,6 +61,7 @@ import {
   type NowIdea,
   parseThings,
   suggestDishesAnswerCompactFor,
+  suggestOfferIdeasAnswerFor,
   type PhotoItem,
   type AiRecipe,
   type AiThing,
@@ -117,7 +118,15 @@ export type SuggestDishesInput = {
    * from "Gör ett recept av den". Data for the model, never instructions.
    */
   dish?: string;
+  /**
+   * Nya idéer med extrapris: with `offers`, the answer of two or three dishes also has an intro and a `why` and `uses` per dish
+   * (the friend's way, compactOfferDish), returned as `friend` on each dish. The code checks the names.
+   */
+  friendly?: boolean;
 };
+
+/** A suggested dish; in the friend's way (`friendly`) it also says why and what it leans on, and the intro is the same on each. */
+export type SuggestedDish = AiRecipe & { friend?: { intro: string; why: string; uses: string[] } };
 
 /** What ideasNow gets (Story 25.4): what is at home and what has lain long, like suggestDishes; no titles to avoid. */
 export type NowIdeasInput = { pantry: SuggestPantryItem[]; oldItems?: SuggestOldItem[]; /** Ideas already shown, for "Andra förslag"; the model is asked not to give them again. */ avoidTitles?: string[] };
@@ -316,7 +325,7 @@ export interface AiService {
    * inputLimits.suggest), `ai_unavailable` (also when the deadline leaves too
    * little time), `ai_rejected` or `ai_invalid`.
    */
-  suggestDishes(input: SuggestDishesInput, signal: AbortSignal, options?: SuggestDishesOptions): Promise<Result<AiRecipe[]>>;
+  suggestDishes(input: SuggestDishesInput, signal: AbortSignal, options?: SuggestDishesOptions): Promise<Result<SuggestedDish[]>>;
   /**
    * Story 25.4: "Vad kan jag laga nu?" as a friend would answer: a short intro and one to four small ideas (a sauce, a
    * dip, a side, a dish) from what is at home, without amounts or steps. On Claude it runs on Haiku whatever model is
@@ -753,6 +762,23 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (!within) {
         console.error("ai_unavailable", { reason: "deadline" });
         return fail("ai_unavailable");
+      }
+      if (input.friendly && input.offers && input.offers.length > 0) {
+        const friendly = await runStructured(
+          target,
+          {
+            schema: suggestOfferIdeasAnswerFor(input.avoidTitles),
+            system: `${prompts.suggestDishes}\n${prompts.suggestDishesFriend}`,
+            messages: [{ role: "user", content: suggestDishesContent(input) }],
+            maxOutputTokens: inputLimits.suggest.maxOutputTokens,
+            onTruncated: () => console.info("suggest_truncated"),
+          },
+          signal,
+          within,
+        );
+        if (!friendly.ok) return friendly;
+        const { intro, suggestions } = friendly.data;
+        return ok(suggestions.map((dish) => ({ ...fromCompactDish(dish), friend: { intro, why: dish.why, uses: dish.uses } })));
       }
       const answer = await runStructured(
         target,

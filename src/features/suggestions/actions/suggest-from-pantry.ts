@@ -15,6 +15,7 @@ import { missingCount, offersUsed, toBuyNames, toOfferNames } from "../domain/of
 import type { DishLine } from "../domain/offer-input";
 import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "../domain/pantry-input";
 import { checkNowIdeas, namesToCheck, type NowIdeasResultView } from "../domain/now-ideas";
+import { checkOfferIdeas } from "../domain/offer-ideas";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
 // The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10, AD-28).
@@ -299,6 +300,8 @@ async function suggest(
   if (byOffers) {
     input.offers = toOfferNames(offers);
     if (input.offers.length === 0) return fail("offers_none");
+    // Nya idéer med extrapris: the friend's answer, an intro and a why per dish, checked below.
+    input.friendly = true;
   }
   // Story 16.13: in the pantry mode what has lain long goes with the pantry, oldest first, and the answer says which dish uses it.
   const byNow = request.mode === "now";
@@ -322,6 +325,8 @@ async function suggest(
 
   const service = await getAiServiceForUser();
   const staples = pantry.data.staples;
+  /** What the model said of each kept dish (the friend's way, offers mode); the check below reads it. */
+  const told = new Map<RecipeDraft, { intro: string; why: string; uses: string[] }>();
   /** One round with the model: its dishes as drafts that pass the checks, and the titles of those that did not. */
   const round = async (roundInput: typeof input): Promise<Result<{ drafts: RecipeDraft[]; rejected: string[] }>> => {
     const suggested = await service.suggestDishes(roundInput, signal, {
@@ -362,6 +367,7 @@ async function suggest(
         }
       }
       kept.push(draft.data);
+      if (recipe.friend) told.set(draft.data, recipe.friend);
     });
     return ok({ drafts: kept, rejected });
   };
@@ -380,6 +386,36 @@ async function suggest(
     }
   }
   if (drafts.length === 0) return fail("ai_invalid");
+
+  // Offers mode: the words must be true. A name the dish says it uses must be on offer or at home (the pantry, a Basvara or
+  // a catalog match of one), or the dish is left out like checkNowIdeas does; a why or intro that names something else is cleared.
+  let intro = "";
+  const whys = new Map<RecipeDraft, string>();
+  if (byOffers && told.size > 0) {
+    const home = new Set<string>([...input.pantry.map((entry) => normalizeIngredientText(entry.name)), ...Object.keys(staples.byName)]);
+    const offerNames = input.offers ?? [];
+    const raw = drafts.map((draft) => ({ title: draft.title, why: told.get(draft)?.why ?? "", uses: told.get(draft)?.uses ?? [] }));
+    const unknown = [...new Set(raw.flatMap((idea) => idea.uses.map((name) => normalizeIngredientText(name) || name.trim().toLocaleLowerCase("sv"))))].filter(
+      (key) => key !== "" && !home.has(key),
+    );
+    if (unknown.length > 0) {
+      const matches = await fromCatalog(() => matchIngredients(unknown.map((text) => ({ text }))));
+      if (!matches.ok) return matches;
+      unknown.forEach((key, index) => {
+        const match = matches.data[index];
+        if (match?.kind !== "match") return;
+        if (snapshot.has(match.ingredientId) || isStaple(staples, { ingredientId: match.ingredientId, name: key, amount: null, unit: null })) home.add(key);
+      });
+    }
+    let nameDrops = 0;
+    const checked = checkOfferIdeas(raw, [...told.values()][0]?.intro ?? "", offerNames, (key) => home.has(key), [...home], () => nameDrops++);
+    if (nameDrops > 0) console.error("ai_invalid", { reason: "name", dropped: nameDrops, given: drafts.length });
+    if (checked.ideas.length < drafts.length) console.error("ai_invalid", { reason: "ideas", given: drafts.length, kept: checked.ideas.length });
+    intro = checked.intro;
+    for (const idea of checked.ideas) whys.set(drafts[idea.index], idea.why);
+    drafts = drafts.filter((draft) => whys.has(draft));
+    if (drafts.length === 0) return fail("ai_invalid");
+  }
   if (byNow && request.dish) drafts = drafts.slice(0, 1);
 
   if (signal.aborted) return stopped();
@@ -389,6 +425,7 @@ async function suggest(
   return ok({
     siteId: pantry.data.siteId,
     mode: request.mode ?? "pantry",
+    intro,
     storeName,
     suggestions: drafts.map((draft) => {
       const linked = linkedIds(draft);
@@ -404,13 +441,14 @@ async function suggest(
         const lines = dishLines(draft, ingredientNames, snapshot);
         // The mode `now` counts what is missing as the filter did (a line without an amount is never worth a trip): 0 or 1 names.
         const toBuy = toBuyNames([], byNow ? lines.filter((line) => line.amount != null) : lines, staples);
-        return { draft, ingredientNames, onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
+        return { draft, ingredientNames, why: "", onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
       }
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
       const onOffer = offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]);
       return {
         // Story 16.4: the offers go with the draft, so the saved recipe can say what it was built around.
         draft: onOffer.length > 0 ? { ...draft, offerNames: offerNamesOf(onOffer) } : draft,
+        why: whys.get(draft) ?? "",
         ingredientNames,
         oldUsed: [],
         onOffer,

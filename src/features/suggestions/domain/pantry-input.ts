@@ -32,6 +32,8 @@ export type SuggestInputShape = {
   now?: boolean;
   /** Story 25.4: with `now`, the one idea to write a recipe for. */
   dish?: string;
+  /** Nya idéer med extrapris: with `offers`, the friend's answer (an intro, a why and uses per dish). */
+  friendly?: boolean;
 };
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */

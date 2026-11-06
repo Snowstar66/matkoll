@@ -18,14 +18,16 @@ import { useDishSuggestions, type ShownSuggestion } from "@/features/recipes/ui/
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import type { Result } from "@/lib/errors";
 
-// "Hittar du inget? Få 2 nya idéer med erbjudandena" under På erbjudande on
-// Matsedel (Story 25.3): the AI job of Story 9.5 in the mode offers, over the
-// offers of all the user's stores, its dishes in the same compact rows as
-// the recipes. Nothing is saved until the preview "Spara och lägg på veckan";
-// the dish is then saved as a recipe first and goes on the first free day of the week.
+// "Nya idéer med extrapris": the one flow for AI ideas around the offers, in
+// the card Rätter med extrapris (Veckans erbjudanden) and under På erbjudande
+// on Matsedel (Story 25.3). The AI job of Story 9.5 in the mode offers, over
+// the offers of all the user's stores, answers like a friend (an intro and a
+// why per dish, checked by the server) in the same compact rows as the recipes.
+// Nothing is saved until the preview "Spara och lägg på veckan"; the dish is
+// then saved as a recipe first and goes on the first free day of the week.
 
 /** At most this many new dishes are shown. */
-export const maxIdeas = 2;
+export const maxIdeas = 3;
 
 const ideaSteps = ["Letar efter idéer …", "Väger ihop förslagen …", "Sätter ihop rätterna …"];
 
@@ -43,12 +45,12 @@ function ideaMeta({ draft }: ShownSuggestion): string {
   return ["AI-förslag", draft.totalMinutes ? `${draft.totalMinutes} min` : null].filter(Boolean).join(" · ");
 }
 
-/** The offer line of an idea: "Falukorv på erbjudande". */
+/** The offer line of an idea: "Falukorv på extrapris". */
 function ideaDeal({ onOffer = [] }: ShownSuggestion): string | null {
   if (onOffer.length === 0) return null;
   const names = onOffer.slice(0, 3).map((label) => offerDisplay(label).title.toLowerCase());
   const text = names.length > 1 ? `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}` : names[0];
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)} på erbjudande`;
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)} på extrapris`;
 }
 
 export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIdeasProps) {
@@ -82,10 +84,15 @@ export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIde
           {suggestErrorMessage(error)}
         </Notice>
       ) : null}
+      {ideas.length > 0 && dishes.intro ? (
+        <p data-testid="offer-ideas-intro" className="text-body text-ink">
+          {dishes.intro}
+        </p>
+      ) : null}
       {ideas.length > 0 ? (
         <ul aria-label="Nya idéer" className="flex flex-col gap-2">
           {ideas.map((idea) => (
-            <PlanRow key={idea.key} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} deal={ideaDeal(idea)}>
+            <PlanRow key={idea.key} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} deal={ideaDeal(idea)}>
               <button
                 type="button"
                 onClick={() => setOpened(idea)}
@@ -123,7 +130,7 @@ export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIde
           onClick={suggest}
           className="min-h-tap rounded-md border border-dashed border-border bg-bg px-3 py-3 text-control font-semibold text-accent"
         >
-          {ideas.length > 0 ? "Få 2 andra idéer med erbjudandena" : "Hittar du inget? Få 2 nya idéer med erbjudandena"}
+          {ideas.length > 0 ? "Andra idéer med extrapris" : "Nya idéer med extrapris"}
         </button>
       )}
       <AiSuggestionSheet

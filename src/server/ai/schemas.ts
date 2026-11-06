@@ -175,13 +175,24 @@ export const compactDishIngredient = z.object({
 });
 
 /** Story 12.3: one suggested dish in the compact form (compactDishIngredient). */
-export const compactDish = z
-  .object({
-    title: text(),
-    servings: z.number().int().min(1),
-    totalMinutes: z.number().int().min(0).nullable(),
-    ingredients: z.array(compactDishIngredient).min(1),
-    steps: z.array(text()).min(1),
+const compactDishBase = z.object({
+  title: text(),
+  servings: z.number().int().min(1),
+  totalMinutes: z.number().int().min(0).nullable(),
+  ingredients: z.array(compactDishIngredient).min(1),
+  steps: z.array(text()).min(1),
+});
+export const compactDish = compactDishBase.superRefine(checkStepIndexes);
+
+/**
+ * Nya idéer med extrapris: a compact dish that also says, like a friend, why it
+ * is a good idea (`why`) and which of the offers and what is at home it leans
+ * on (`uses`, names as given). The code checks the names (checkNowIdeas).
+ */
+export const compactOfferDish = compactDishBase
+  .extend({
+    why: text().describe("En kort mening om varför just den här rätten, t.ex. 'Fläskfilén är billig och riset finns hemma.'"),
+    uses: z.array(text()).describe("Varor ur erbjudandelistan eller lagret som rätten bygger på, med exakt samma namn som i listorna"),
   })
   .superRefine(checkStepIndexes);
 
@@ -234,6 +245,42 @@ export function suggestDishesAnswerCompactFor(avoidTitles: readonly string[], { 
       });
     });
 }
+
+/**
+ * The answer for dishes built around the offers in the friend's way: an `intro`
+ * of a thought or two, and two or three dishes (compactOfferDish) with titles of their own.
+ */
+export function suggestOfferIdeasAnswerFor(avoidTitles: readonly string[]) {
+  const avoided = new Set(avoidTitles.map(normalizeTitle));
+  return z
+    .object({
+      intro: text().describe("Två meningar som resonerar om veckans erbjudanden och vad som finns hemma, t.ex. 'Fläskfilé och broccoli är billigt i veckan, och du har ris hemma.'"),
+      suggestions: z.array(compactOfferDish).describe("Två eller tre olika rätter"),
+    })
+    .superRefine((answer, context) => {
+      if (answer.suggestions.length < 2 || answer.suggestions.length > suggestionCount) {
+        context.addIssue({ code: "custom", message: `Give two or ${suggestionCount} suggestions, not ${answer.suggestions.length}`, path: ["suggestions"] });
+      }
+      const titles = new Set<string>();
+      answer.suggestions.forEach((dish, index) => {
+        const title = normalizeTitle(dish.title);
+        if (avoided.has(title)) {
+          context.addIssue({ code: "custom", message: "This title was suggested before; suggest another dish", path: ["suggestions", index, "title"] });
+        } else if (titles.has(title)) {
+          context.addIssue({ code: "custom", message: "Each suggestion needs a title of its own", path: ["suggestions", index, "title"] });
+        }
+        titles.add(title);
+      });
+    });
+}
+
+/** The friend's answer as a fixture file holds it: `intro`, `why` and `uses` may be left out. */
+export const suggestOfferIdeasFixture = z.object({
+  intro: z.string().default(""),
+  suggestions: z
+    .array(compactDishBase.extend({ why: z.string().default(""), uses: z.array(z.string()).default([]) }))
+    .min(1),
+});
 
 /** suggestDishesAnswerCompact with nothing to avoid, e.g. for the mock's fixtures. */
 export const suggestDishesAnswerCompact = suggestDishesAnswerCompactFor([]);
@@ -920,6 +967,7 @@ export type AiRecipe = z.infer<typeof aiRecipe>;
 export type AiRecipeStep = z.infer<typeof aiRecipeStep>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
 export type CompactDish = z.output<typeof compactDish>;
+export type CompactOfferDish = z.output<typeof compactOfferDish>;
 export type SuggestDishesAnswerCompact = z.output<typeof suggestDishesAnswerCompact>;
 export type AiPantryItem = z.output<typeof aiPantryItem>;
 export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
