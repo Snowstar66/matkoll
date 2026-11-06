@@ -9,14 +9,16 @@ import { RecipeImage } from "@/components/recipe-image";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { eatFirstTipText } from "@/features/pantry";
-import { recipeMetaText, recipeTimeText, stepText, type RecipeDraft } from "@/features/recipes";
+import { recipeMetaText, stepText, type RecipeDraft } from "@/features/recipes";
 import {
   dishSuggestionsSchema,
+  nowIdeasResultSchema,
   suggestErrorMessage,
   toAvoidTitles,
   type CookNowOneMissing,
   type CookNowRecipe,
   type DishSuggestion,
+  type NowIdeaView,
 } from "@/features/suggestions";
 import { isActive } from "@/lib/ai-job-shape";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
@@ -24,12 +26,14 @@ import { fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
 
 // "Vad kan jag laga nu?" (Story 25.2): the card at the top of Matvaror and the
 // sheet "Kan lagas nu" it opens in place. The library's recipes come at once
-// (readCookNow, no AI); the AI's dishes come as a job (mode `now`) and show
-// under "Nya idéer" with a calm loading row. Everything is temporary: no
-// dish has a bin, the result of the job is kept here in the browser for 30
-// minutes (so the sheet can be opened again at once), and the job itself is
-// cancelled or dismissed when the sheet closes, so nothing piles up in the AI
-// jobs. Nothing is saved without "Spara som recept".
+// (readCookNow, no AI); the AI answers as a friend would (Story 25.4: a job of
+// mode `ideas`): an intro and small text rows under "Idéer", with a calm loading
+// row meanwhile. "Gör ett recept av den" writes the recipe of one idea (a job of
+// mode `now` with the idea) and shows it with "Spara som recept". Everything is
+// temporary: the result of the job is kept here in the browser for 30 minutes
+// (so the sheet can be opened again at once), and the jobs are cancelled or
+// dismissed when the sheet closes, so nothing piles up in the AI jobs. Nothing
+// is saved without "Spara som recept".
 
 /** How long a result is shown again when the sheet is opened anew; then a fresh run. */
 export const cookNowReuseMs = 30 * 60 * 1000;
@@ -49,11 +53,14 @@ export type CookNowButtonProps = {
   saveRecipe: (draft: RecipeDraft, recipeId: string) => Promise<Result<{ id: string }>>;
 };
 
-/** A dish of the AI as the sheet holds it: with the id it gets when saved, made when it arrives. */
-type Idea = DishSuggestion & { key: number; recipeId: string };
+/** An idea of the model as the sheet holds it, with a key of its own. */
+type Idea = NowIdeaView & { key: number };
+
+/** The recipe being written or written for an idea ("Gör ett recept av den"): a draft shown with "Spara som recept". */
+type Recipe = { ideaKey: number; suggestion: DishSuggestion | null; recipeId: string };
 
 /** The last result, kept for 30 minutes (per tab, never in storage). */
-let kept: { siteId: string | null; at: number; ideas: DishSuggestion[] } | null = null;
+let kept: { siteId: string | null; at: number; intro: string; ideas: NowIdeaView[] } | null = null;
 
 /** Forgets the kept result, for tests. */
 export function resetCookNowKept(): void {
@@ -87,31 +94,44 @@ export function CookNowButton(props: CookNowButtonProps) {
   );
 }
 
+/** Whether a job has reached an end, and which. */
+const finishedOf = (job: { id: string; status: string } | undefined) =>
+  job && (job.status === "done" || job.status === "failed" || job.status === "cancelled" || job.status === "superseded") ? job.id : null;
+
 function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonProps & { open: boolean; onClose: () => void }) {
   const { jobs, start, fetchResult, cancel, dismiss } = useAiJobs();
   const { showToast } = useToast();
   const [data, setData] = useState<CookNowData | null>(null);
   const [readError, setReadError] = useState<AppError | null>(null);
+  const [intro, setIntro] = useState("");
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [jobError, setJobError] = useState<AppError | null>(null);
   const [starting, setStarting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [saved, setSaved] = useState<ReadonlySet<number>>(new Set());
+  // "Gör ett recept av den": one at a time, behind the ideas' own job.
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipeError, setRecipeError] = useState<AppError | null>(null);
+  const [recipeStarting, setRecipeStarting] = useState(false);
+  const [recipeJobId, setRecipeJobId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const nextKey = useRef(0);
   const handled = useRef(new Set<string>());
-  /** The titles shown in this opening, so "Andra förslag" never repeats them. */
+  /** The names shown in this opening, so "Andra förslag" never repeats them. */
   const shownTitles = useRef<string[]>([]);
   const startKey = useRef<string | null>(null);
   const siteRef = useRef<string | null>(null);
-  /** The job of this sheet, for the clean-up when it closes. */
-  const live = useRef<{ id: string | null; active: boolean }>({ id: null, active: false });
+  /** The jobs of this sheet, for the clean-up when it closes. */
+  const live = useRef<{ ids: (string | null)[]; active: boolean[] }>({ ids: [], active: [] });
 
   const job = jobId ? jobs.find((candidate) => candidate.id === jobId) : undefined;
+  const recipeJob = recipeJobId ? jobs.find((candidate) => candidate.id === recipeJobId) : undefined;
   const loading = starting || (job !== undefined && isActive(job));
   const jobActive = job !== undefined && isActive(job);
+  const recipeLoading = recipeStarting || (recipeJob !== undefined && isActive(recipeJob));
+  const recipeJobActive = recipeJob !== undefined && isActive(recipeJob);
   useEffect(() => {
-    live.current = { id: jobId, active: jobActive };
+    live.current = { ids: [jobId, recipeJobId], active: [jobActive, recipeJobActive] };
   });
 
   // The result is on the screen: no confirmation says it is done.
@@ -122,7 +142,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
     setStarting(true);
     setJobError(null);
     const clientKey = (startKey.current ??= crypto.randomUUID());
-    const result = await start("/api/ai/jobs", { kind: "suggest", mode: "now", avoidTitles: toAvoidTitles(avoid) }, clientKey);
+    const result = await start("/api/ai/jobs", { kind: "suggest", mode: "ideas", avoidTitles: toAvoidTitles(avoid) }, clientKey);
     setStarting(false);
     if (!result.ok) {
       // A network error may be tried again with the same key; any other answer is final for this tap.
@@ -148,7 +168,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
       setData(read.data);
       siteRef.current = read.data.siteId;
       if (kept && kept.siteId === read.data.siteId && Date.now() - kept.at < cookNowReuseMs) {
-        take(kept.ideas);
+        take(kept.intro, kept.ideas);
         return;
       }
       await run([]);
@@ -164,21 +184,25 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
   useEffect(() => {
     if (!open) return;
     return () => {
-      const { id, active } = live.current;
-      if (id && active) void cancel(id);
+      const { ids, active } = live.current;
+      ids.forEach((id, index) => {
+        if (id && active[index]) void cancel(id);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  /** The dishes of a result are shown, and the title of each is avoided by "Andra förslag". */
-  function take(suggestions: readonly DishSuggestion[]) {
-    setIdeas(suggestions.map((suggestion) => ({ ...suggestion, key: ++nextKey.current, recipeId: crypto.randomUUID() })));
-    shownTitles.current = suggestions.map(({ draft }) => draft.title);
+  /** The ideas of a result are shown, and the name of each is avoided by "Andra förslag". */
+  function take(text: string, given: readonly NowIdeaView[]) {
+    setIntro(text);
+    setIdeas(given.map((idea) => ({ ...idea, key: ++nextKey.current })));
+    shownTitles.current = given.map(({ name }) => name);
     setExpanded(null);
+    setRecipe(null);
   }
 
-  // The job is done: its dishes are fetched once, kept for 30 minutes, and the job is closed at once.
-  const finishedId = job && (job.status === "done" || job.status === "failed" || job.status === "cancelled" || job.status === "superseded") ? job.id : null;
+  // The job is done: its ideas are fetched once, kept for 30 minutes, and the job is closed at once.
+  const finishedId = finishedOf(job);
   const finishedStatus = job?.status;
   const finishedCode = job?.errorCode ?? null;
   useEffect(() => {
@@ -198,38 +222,92 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
         setJobError(result.error);
         return;
       }
-      const parsed = dishSuggestionsSchema.safeParse(result.data.result);
+      const parsed = nowIdeasResultSchema.safeParse(result.data.result);
       if (!parsed.success) {
         setJobError(fail("ai_invalid").error);
         return;
       }
-      kept = { siteId: siteRef.current, at: Date.now(), ideas: parsed.data.suggestions };
-      take(parsed.data.suggestions);
+      kept = { siteId: siteRef.current, at: Date.now(), intro: parsed.data.intro, ideas: parsed.data.ideas };
+      take(parsed.data.intro, parsed.data.ideas);
     })();
     // The functions of useAiJobs change with the list; the job's id is what decides.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finishedId, finishedStatus, finishedCode]);
 
+  // The recipe job is done: its one dish is fetched and shown as a preview under the idea.
+  const recipeFinishedId = finishedOf(recipeJob);
+  const recipeFinishedStatus = recipeJob?.status;
+  const recipeFinishedCode = recipeJob?.errorCode ?? null;
+  useEffect(() => {
+    if (!recipeFinishedId || handled.current.has(recipeFinishedId)) return;
+    handled.current.add(recipeFinishedId);
+    if (recipeFinishedStatus !== "done") {
+      const code = recipeFinishedCode !== null && isErrorCode(recipeFinishedCode) ? recipeFinishedCode : "ai_unavailable";
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- shows why a job that finished elsewhere did not go.
+      setRecipeError(fail(code).error);
+      void dismiss(recipeFinishedId);
+      return;
+    }
+    void (async () => {
+      const result = await fetchResult(recipeFinishedId);
+      void dismiss(recipeFinishedId);
+      if (!result.ok) {
+        setRecipeError(result.error);
+        return;
+      }
+      const parsed = dishSuggestionsSchema.safeParse(result.data.result);
+      if (!parsed.success) {
+        setRecipeError(fail("ai_invalid").error);
+        return;
+      }
+      setRecipe((current) => (current ? { ...current, suggestion: parsed.data.suggestions[0] } : current));
+    })();
+    // The functions of useAiJobs change with the list; the job's id is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipeFinishedId, recipeFinishedStatus, recipeFinishedCode]);
+
   function again() {
     if (loading) return;
     kept = null;
     setIdeas([]);
+    setIntro("");
+    setRecipe(null);
     void run(shownTitles.current);
   }
 
-  async function save(idea: Idea) {
-    const result = await saveRecipe(idea.draft, idea.recipeId);
+  /** "Gör ett recept av den": the existing one-dish recipe job (mode `now` with the idea), shown with "Spara som recept". */
+  async function makeRecipe(idea: Idea) {
+    if (recipeLoading || loading) return;
+    setRecipe({ ideaKey: idea.key, suggestion: null, recipeId: crypto.randomUUID() });
+    setRecipeError(null);
+    setSaved(false);
+    setRecipeStarting(true);
+    const result = await start(
+      "/api/ai/jobs",
+      { kind: "suggest", mode: "now", avoidTitles: [], dish: `${idea.name}: ${idea.how}` },
+      crypto.randomUUID(),
+    );
+    setRecipeStarting(false);
+    if (!result.ok) {
+      setRecipeError(result.error);
+      return;
+    }
+    setRecipeJobId(result.data.job.id);
+  }
+
+  async function save(current: Recipe & { suggestion: DishSuggestion }) {
+    const result = await saveRecipe(current.suggestion.draft, current.recipeId);
     if (!result.ok) {
       showToast(result.error.message, { role: "alert" });
       return;
     }
-    setSaved((current) => new Set(current).add(idea.key));
-    showToast(`${idea.draft.title} finns nu i Recept.`);
+    setSaved(true);
+    showToast(`${current.suggestion.draft.title} finns nu i Recept.`);
   }
 
   const toggle = (id: string) => setExpanded((current) => (current === id ? null : id));
-  const perfect = ideas.filter((idea) => (idea.toBuy ?? []).length === 0).slice(0, 3);
-  const oneMissingIdeas = ideas.filter((idea) => (idea.toBuy ?? []).length === 1);
+  const perfect = ideas.filter((idea) => idea.missing.length === 0);
+  const oneMissingIdeas = ideas.filter((idea) => idea.missing.length === 1);
   const oneMissingCount = (data?.oneMissing.length ?? 0) + oneMissingIdeas.length;
   const own = data?.own ?? [];
   const nothing = data !== null && !loading && own.length === 0 && perfect.length === 0 && oneMissingCount === 0;
@@ -279,43 +357,39 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
         {data !== null && (loading || perfect.length > 0 || jobError) ? (
           <section aria-labelledby="cook-now-ideas" className="flex flex-col gap-2">
             <h3 id="cook-now-ideas" className="text-section-label text-ink-2">
-              NYA IDÉER
+              IDÉER
             </h3>
+            {perfect.length > 0 && intro ? (
+              <p data-testid="cook-now-intro" className="text-body text-ink">
+                {intro}
+              </p>
+            ) : null}
             {perfect.map((idea) => (
-              <div key={idea.key} data-testid="cook-now-idea" className="rounded-lg bg-bg">
-                <RowButton
-                  expanded={expanded === `idea-${idea.key}`}
-                  onClick={() => toggle(`idea-${idea.key}`)}
-                  title={idea.draft.title}
-                  meta={[recipeTimeText(idea.draft.totalMinutes), "Ny idé"].filter(Boolean).join(" · ")}
-                />
-                {expanded === `idea-${idea.key}` ? (
-                  <div className="flex flex-col gap-3 px-3 pb-3">
-                    <ul className="flex flex-col gap-1.5">
-                      {idea.draft.lines.map((line, index) => (
-                        <li key={index} className="flex gap-2 text-body">
-                          <span aria-hidden="true" className="text-accent">
-                            ✓
-                          </span>
-                          <span>{line.originalText}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <ol className="flex list-decimal flex-col gap-1 pl-5 text-body">
-                      {idea.draft.steps.map((step, index) => (
-                        <li key={index}>{stepText(step)}</li>
-                      ))}
-                    </ol>
-                    <Button
-                      variant="secondary"
-                      className="self-start"
-                      disabled={saved.has(idea.key)}
-                      onClick={() => void save(idea)}
-                    >
-                      {saved.has(idea.key) ? "Sparad i Recept" : "Spara som recept"}
-                    </Button>
-                  </div>
-                ) : null}
+              <div key={idea.key} data-testid="cook-now-idea" className="flex flex-col items-start gap-1 rounded-lg bg-bg p-3">
+                <p className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-row-title break-words font-bold">{idea.name}</span>
+                  <span className="text-meta text-ink-2">{idea.kind}</span>
+                </p>
+                <p className="text-body">{idea.how}</p>
+                {recipe?.ideaKey !== idea.key ? (
+                  <button
+                    type="button"
+                    disabled={recipeLoading || loading}
+                    onClick={() => void makeRecipe(idea)}
+                    className="-ml-1 min-h-9 rounded-md px-1 text-row-title text-accent disabled:opacity-50"
+                  >
+                    Gör ett recept av den
+                  </button>
+                ) : (
+                  <RecipePreview
+                    loading={recipeLoading}
+                    error={recipeError}
+                    suggestion={recipe.suggestion}
+                    saved={saved}
+                    onRetry={() => void makeRecipe(idea)}
+                    onSave={() => recipe.suggestion && void save({ ...recipe, suggestion: recipe.suggestion })}
+                  />
+                )}
               </div>
             ))}
             {/* Mounted at once, so the text is announced when it appears. */}
@@ -332,7 +406,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
                 <MissingRow key={recipe.id} title={recipe.title} missing={recipe.missing} />
               ))}
               {oneMissingIdeas.map((idea) => (
-                <MissingRow key={idea.key} title={idea.draft.title} missing={idea.toBuy?.[0] ?? ""} />
+                <MissingRow key={idea.key} title={idea.name} missing={idea.missing[0]} />
               ))}
             </ul>
           </details>
@@ -348,6 +422,64 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
         </div>
       </div>
     </Sheet>
+  );
+}
+
+/** The recipe of an idea: a calm line while it is written, then the draft with "Spara som recept" (nothing is saved without it). */
+function RecipePreview({
+  loading,
+  error,
+  suggestion,
+  saved,
+  onRetry,
+  onSave,
+}: {
+  loading: boolean;
+  error: AppError | null;
+  suggestion: DishSuggestion | null;
+  saved: boolean;
+  onRetry: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div data-testid="cook-now-recipe" className="flex w-full flex-col gap-3 pt-1">
+      <div role="status">
+        {loading ? <AiWorking inLiveRegion size="sm" steps={["Skriver receptet …", "Räknar ut mängderna …"]} /> : null}
+      </div>
+      {error && !loading ? (
+        <div className="flex flex-col items-start gap-1">
+          <p role="status" className="text-body text-ink-2">
+            {error.code === "ai_invalid" ? "Det blev inget recept av den här gången." : suggestErrorMessage(error)}
+          </p>
+          <Button variant="compact" onClick={onRetry}>
+            Försök igen
+          </Button>
+        </div>
+      ) : null}
+      {suggestion ? (
+        <>
+          <p className="text-row-title">{suggestion.draft.title}</p>
+          <ul className="flex flex-col gap-1.5">
+            {suggestion.draft.lines.map((line, index) => (
+              <li key={index} className="flex gap-2 text-body">
+                <span aria-hidden="true" className="text-accent">
+                  ✓
+                </span>
+                <span>{line.originalText}</span>
+              </li>
+            ))}
+          </ul>
+          <ol className="flex list-decimal flex-col gap-1 pl-5 text-body">
+            {suggestion.draft.steps.map((step, index) => (
+              <li key={index}>{stepText(step)}</li>
+            ))}
+          </ol>
+          <Button variant="secondary" className="self-start" disabled={saved} onClick={onSave}>
+            {saved ? "Sparad i Recept" : "Spara som recept"}
+          </Button>
+        </>
+      ) : null}
+    </div>
   );
 }
 

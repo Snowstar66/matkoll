@@ -120,7 +120,7 @@ test("Vad kan jag laga nu? opens the sheet in place with a library recipe that i
   expect(errors).toEqual([]);
 });
 
-test("the tip line says what has lain longest, and the job asks in the mode now without sending the items", async ({ page }) => {
+test("the tip line says what has lain longest, and the job asks in the mode ideas without sending the items", async ({ page }) => {
   await seed({ old: true });
   const bodies: string[] = [];
   page.on("request", (request) => {
@@ -132,8 +132,43 @@ test("the tip line says what has lain longest, and the job asks in the mode now 
   await expect(page.getByTestId("cook-now-tip")).toHaveText(/koriander har legat i 10 dagar\. Rätterna med den står först\./i);
 
   await expect.poll(() => bodies.length).toBe(1);
-  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "now" });
+  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "ideas" });
   expect(bodies[0]).not.toMatch(/lime|koriander/);
+});
+
+test("IDÉER answers like a friend: an intro, text rows, one thing missing apart, and a recipe only on request", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ old: false });
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
+  });
+  await page.goto("/hemma");
+  await card(page).click();
+
+  await expect(page.getByTestId("cook-now-intro")).toHaveText("Det är tunt hemma, men det här går:", jobTime);
+  await expect(page.getByRole("heading", { name: "IDÉER" })).toBeVisible();
+  // The mock gives three ideas: one at home, one that misses a thing (apart) and one that misses two (left out).
+  const rows = page.getByTestId("cook-now-idea");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("Enkel dipp");
+  await expect(rows.first()).toContainText("sås");
+  await expect(page.getByTestId("cook-now-one-missing")).toContainText("Macka med pålägg");
+  await expect(page.getByTestId("cook-now-one-missing")).toContainText("Saknar surdegsbröd");
+  await expect(sheet(page)).not.toContainText("Festmiddag");
+  if (shots) await page.screenshot({ path: join(shots, "25-4-ideer.png") });
+
+  // Nothing is written until Spara: the recipe job is its own, and the library keeps its one recipe.
+  await rows.first().getByRole("button", { name: "Gör ett recept av den" }).click();
+  await expect.poll(() => bodies.length).toBe(2);
+  expect(JSON.parse(bodies[1])).toMatchObject({ kind: "suggest", mode: "now" });
+  expect(JSON.parse(bodies[1]).dish).toMatch(/^Enkel dipp: /);
+  await expect(page.getByTestId("cook-now-recipe")).toBeVisible();
+  // The run is over when the draft or the calm sentence is there (the mock's dish may or may not pass the check).
+  await expect(page.getByTestId("cook-now-recipe")).toContainText(/Spara som recept|inget recept|Försök igen/, jobTime);
+  const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
+  expect(recipes.data).toHaveLength(1);
+  expect(errors).toEqual([]);
 });
 
 test("the AI's dishes are temporary: closing the sheet leaves nothing in the list of AI jobs", async ({ page }) => {

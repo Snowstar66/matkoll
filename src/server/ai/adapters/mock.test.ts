@@ -793,3 +793,33 @@ describe("mock matchOffers (Story 9.10)", () => {
     expect(await service.matchOffers(input, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
   });
 });
+
+describe("mock ideasNow (Story 25.4)", () => {
+  const service = createMockAiService();
+  const pantry = [{ name: "dressing", amount: null, unit: null }, { name: "ketchup", amount: 1, unit: "st" }];
+
+  it("answers an intro and ideas built on the pantry's own names, one of them missing a thing and one missing two", async () => {
+    const result = await service.ideasNow({ pantry }, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.intro).toBe("Det är tunt hemma, men det här går:");
+    expect(result.data.ideas.map(({ name, uses, missing }) => ({ name, uses, missing }))).toEqual([
+      { name: "Enkel dipp", uses: ["dressing", "ketchup"], missing: [] },
+      { name: "Macka med pålägg", uses: ["dressing"], missing: ["surdegsbröd"] },
+      { name: "Festmiddag", uses: ["dressing"], missing: ["tryffel", "saffran"] },
+    ]);
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a pantry item with its reserved text, like suggestDishes", async (code) => {
+    const text = manifest.reserved.find((entry) => entry.code === code)!.text;
+    const result = await service.ideasNow({ pantry: [{ name: `  ${text.toUpperCase()} `, amount: null, unit: null }] }, signal());
+    expect(result).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("counts the call as a call of the mock", async () => {
+    const seen: AiUsage[] = [];
+    await withUsageSink((usage) => void seen.push(usage), async () => {
+      await service.ideasNow({ pantry }, signal());
+    });
+    expect(seen).toHaveLength(1);
+  });
+});

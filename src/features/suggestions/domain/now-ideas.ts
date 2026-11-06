@@ -1,0 +1,73 @@
+import { z } from "zod";
+import { normalizeIngredientText } from "@/features/catalog";
+
+// "Idéer" of "Vad kan jag laga nu?" (Story 25.4): the model answers like a
+// friend, and the code keeps it honest. An idea may only lean on what is at
+// home (the pantry and the household's Basvaror), may miss one thing at most,
+// and says which. Pure, so it is tested without a database or a model.
+
+/** The kinds an idea is told apart by, as the sheet writes them in small letters. */
+export const nowIdeaKinds = ["rätt", "tillbehör", "sås", "mellanmål", "frukost"] as const;
+
+/** One idea as the job's result and the sheet hold it. */
+export const nowIdeaSchema = z.object({
+  name: z.string().min(1).max(100),
+  how: z.string().min(1).max(300),
+  kind: z.enum(nowIdeaKinds),
+  /** What is at home that the idea uses, as the model named it. */
+  uses: z.array(z.string().max(100)).max(8),
+  /** What it needs that is not at home: empty (all at home) or one name; ideas that miss more are left out. */
+  missing: z.array(z.string().max(100)).max(1),
+});
+export type NowIdeaView = z.infer<typeof nowIdeaSchema>;
+
+/** The result of a job of mode `ideas`: the intro and the ideas that passed the check. */
+export const nowIdeasResultSchema = z.object({
+  intro: z.string().max(400),
+  ideas: z.array(nowIdeaSchema).min(1).max(4),
+  siteId: z.uuid().nullable().default(null),
+});
+export type NowIdeasResultView = z.infer<typeof nowIdeasResultSchema>;
+
+/** An idea as the model gave it. */
+export type RawNowIdea = { name: string; how: string; kind: NowIdeaView["kind"]; uses: string[]; missing: string[] };
+
+/** Things that count as at home without being in the pantry. */
+const alwaysHome = new Set(["salt", "peppar", "olja", "vatten"]);
+
+/** The names the check asks `atHome` about: every use and missing of the ideas, each once, normalized. */
+export function namesToCheck(ideas: readonly RawNowIdea[]): string[] {
+  const names = new Set<string>();
+  for (const idea of ideas) for (const name of [...idea.uses, ...idea.missing]) names.add(normalizeIngredientText(name) || name.trim().toLocaleLowerCase("sv"));
+  return [...names].filter((name) => name !== "" && !alwaysHome.has(name));
+}
+
+/** Names in the check's own key: normalized, or just lower case when the catalog's normalizing leaves nothing. */
+function keyOf(name: string): string {
+  return normalizeIngredientText(name) || name.trim().toLocaleLowerCase("sv");
+}
+
+/**
+ * The ideas that hold, each with what is really at home in `uses` and what is
+ * not in `missing`:
+ * - a name in `uses` that is not at home moves to `missing` (the idea leans on it);
+ * - a name in `missing` that is at home moves to `uses`;
+ * - salt, pepper, oil and water are at home and are not listed;
+ * - an idea that misses more than one thing, or uses nothing that is at home, is left out.
+ * `atHome` is given the key of a name (see `namesToCheck`).
+ */
+export function checkNowIdeas(ideas: readonly RawNowIdea[], atHome: (key: string) => boolean): NowIdeaView[] {
+  const kept: NowIdeaView[] = [];
+  for (const idea of ideas) {
+    const uses = new Map<string, string>();
+    const missing = new Map<string, string>();
+    for (const name of [...idea.uses, ...idea.missing]) {
+      const key = keyOf(name);
+      if (key === "" || alwaysHome.has(key)) continue;
+      (atHome(key) ? uses : missing).set(key, name);
+    }
+    if (uses.size === 0 || missing.size > 1) continue;
+    kept.push({ name: idea.name, how: idea.how, kind: idea.kind, uses: [...uses.values()], missing: [...missing.values()] });
+  }
+  return kept;
+}

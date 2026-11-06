@@ -1,8 +1,8 @@
 import "server-only";
 import { requireUser } from "@/features/auth/server";
-import { nameInSentence } from "@/features/catalog";
+import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
-import type { PantrySnapshot, StapleRules } from "@/features/pantry";
+import { isStaple, type PantrySnapshot, type StapleRules } from "@/features/pantry";
 import type { OldPantryItem } from "@/features/pantry";
 import { getPantryForStatus, listOldPantryItems, PantryDataError } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
@@ -14,6 +14,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { missingCount, offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
 import type { DishLine } from "../domain/offer-input";
 import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "../domain/pantry-input";
+import { checkNowIdeas, namesToCheck, type NowIdeasResultView } from "../domain/now-ideas";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
 // The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10, AD-28).
@@ -206,6 +207,59 @@ export async function suggestFromPantry(
   return suggest(request, signal, deadline);
 }
 
+/**
+ * Story 25.4: "Idéer" of "Vad kan jag laga nu?": what is at home goes to the model (like the pantry mode, with what has
+ * lain long first), which answers like a friend: an intro and small ideas. The code keeps it honest (checkNowIdeas): the
+ * names in `uses` must be at home (the pantry, Basvaror, or a catalog match of one), what is not moves to `missing`, and
+ * an idea that misses more than one thing is left out. `ai_invalid` when no idea is left. Never writes, and the model
+ * gets names only.
+ */
+export async function suggestNowIdeas({ signal, deadline, avoidTitles = [] }: SuggestOptions & { avoidTitles?: string[] }): Promise<Result<NowIdeasResultView>> {
+  const user = await requireUser();
+  if (!user.ok) return user;
+  const pantry = await readPantry();
+  if (!pantry.ok) return pantry;
+  const { snapshot, staples } = pantry.data;
+  if (signal.aborted) return stopped();
+  if (snapshot.size === 0) return fail("suggest_empty_pantry");
+  const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
+  if (!pantryNames.ok) return pantryNames;
+  const { input } = toSuggestInput(snapshot, pantryNames.data, []);
+  if (input.pantry.length === 0) {
+    console.error("catalog_unavailable", { reason: "no_names" });
+    return fail("catalog_unavailable");
+  }
+  const oldInput = toOldItemsInput(await readOldItems(pantry.data.siteId));
+
+  const service = await getAiServiceForUser();
+  const answered = await service.ideasNow(
+    { pantry: input.pantry, avoidTitles, ...(oldInput.length > 0 ? { oldItems: oldInput } : {}) },
+    signal,
+    { deadline: deadline === undefined ? undefined : deadline - postModelMarginMs },
+  );
+  if (!answered.ok) return answered;
+  if (signal.aborted) return stopped();
+
+  // What is at home: the pantry's names and the Basvaror by name, and anything else the catalog knows as one of them.
+  const home = new Set<string>([...input.pantry.map((entry) => normalizeIngredientText(entry.name)), ...Object.keys(staples.byName)]);
+  const unknown = namesToCheck(answered.data.ideas).filter((key) => !home.has(key));
+  if (unknown.length > 0) {
+    const matches = await fromCatalog(() => matchIngredients(unknown.map((text) => ({ text }))));
+    if (!matches.ok) return matches;
+    unknown.forEach((key, index) => {
+      const match = matches.data[index];
+      if (match?.kind !== "match") return;
+      if (snapshot.has(match.ingredientId) || isStaple(staples, { ingredientId: match.ingredientId, name: key, amount: null, unit: null })) home.add(key);
+    });
+  }
+  const ideas = checkNowIdeas(answered.data.ideas, (key) => home.has(key));
+  if (ideas.length === 0) {
+    console.error("ai_invalid", { reason: "ideas", given: answered.data.ideas.length });
+    return fail("ai_invalid");
+  }
+  return ok({ intro: answered.data.intro, ideas, siteId: pantry.data.siteId });
+}
+
 async function suggest(
   request: SuggestJobRequest,
   signal: AbortSignal,
@@ -238,7 +292,11 @@ async function suggest(
   }
   // Story 16.13: in the pantry mode what has lain long goes with the pantry, oldest first, and the answer says which dish uses it.
   const byNow = request.mode === "now";
-  if (byNow) input.now = true;
+  if (byNow) {
+    input.now = true;
+    // Story 25.4: "Gör ett recept av den": the one idea, and only its recipe is wanted.
+    if (request.dish) input.dish = request.dish;
+  }
   const oldItems = byOffers ? [] : await readOldItems(pantry.data.siteId);
   const oldInput = toOldItemsInput(oldItems);
   if (oldInput.length > 0) {
@@ -312,6 +370,7 @@ async function suggest(
     }
   }
   if (drafts.length === 0) return fail("ai_invalid");
+  if (byNow && request.dish) drafts = drafts.slice(0, 1);
 
   if (signal.aborted) return stopped();
   const ids = [...new Set(drafts.flatMap(linkedIds))];

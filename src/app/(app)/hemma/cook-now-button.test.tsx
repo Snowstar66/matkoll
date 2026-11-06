@@ -63,7 +63,11 @@ const dish = (title: string, toBuy: string[] = []) => ({
   toBuy,
   oldUsed: [],
 });
-const result = (suggestions: ReturnType<typeof dish>[]) => ({ suggestions, mode: "now", siteId: null, storeName: null });
+const recipeResult = (suggestions: ReturnType<typeof dish>[]) => ({ suggestions, mode: "now", siteId: null, storeName: null });
+const idea = (name: string, how: string, kind = "sås", missing: string[] = []) => ({ name, how, kind, uses: ["dressing"], missing });
+const result = (ideas: ReturnType<typeof idea>[], intro = "Det är tunt i kylen, men det här går:") => ({ intro, ideas, siteId: null });
+const burger = idea("Burgersås", "dressing + ketchup och lite senap");
+const dip = idea("Dipp", "dressing + Tabasco eller chilisås för lite värme");
 
 function renderButton() {
   return render(
@@ -114,7 +118,7 @@ describe("CookNowButton", () => {
 });
 
 describe("the sheet Kan lagas nu", () => {
-  it("shows the library at once in its sections, and asks the model for dishes in the mode now with a calm loading row", async () => {
+  it("shows the library at once in its sections, and asks the model for ideas in the mode ideas with a calm loading row", async () => {
     renderButton();
     await userEvent.setup().click(card());
     expect(await screen.findByText("Pannkakor")).toBeVisible();
@@ -129,7 +133,7 @@ describe("the sheet Kan lagas nu", () => {
     // The tip line replaces the row "Ät det här först".
     expect(screen.getByTestId("cook-now-tip")).toHaveTextContent("Grädde har legat i 6 dagar. Rätterna med den står först.");
     await waitFor(() => expect(server.started).toHaveLength(1));
-    expect(server.started[0].body).toMatchObject({ kind: "suggest", mode: "now", avoidTitles: [] });
+    expect(server.started[0].body).toMatchObject({ kind: "suggest", mode: "ideas", avoidTitles: [] });
     expect(await screen.findByTestId("cook-now-loading")).toBeVisible();
     // The loading row is in a live region of its own.
     expect(screen.getByTestId("cook-now-loading").parentElement).toHaveAttribute("role", "status");
@@ -161,58 +165,80 @@ describe("the sheet Kan lagas nu", () => {
     expect(second).not.toHaveTextContent("Öppna receptet");
   });
 
-  it("shows the dishes that miss nothing under Nya idéer, and the ones that miss one thing in Saknar bara en vara", async () => {
+  it("shows the intro and the ideas as compact text rows under IDÉER, and the ones that miss one thing in Saknar bara en vara", async () => {
     renderButton();
     await userEvent.setup().click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Krämig purjolökssoppa"), dish("Omelett med purjolök"), dish("Pasta med bacon", ["bacon"])]));
+    await finish(result([burger, dip, idea("Macka", "ost på bröd", "mellanmål", ["bröd"])]));
 
-    const ideas = await screen.findAllByTestId("cook-now-idea");
-    expect(ideas.map((row) => row.textContent)).toEqual([
-      expect.stringContaining("Krämig purjolökssoppa"),
-      expect.stringContaining("Omelett med purjolök"),
+    const rows = await screen.findAllByTestId("cook-now-idea");
+    expect(screen.getByText("IDÉER")).toBeVisible();
+    expect(screen.getByTestId("cook-now-intro")).toHaveTextContent("Det är tunt i kylen, men det här går:");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Burgersåssåsdressing + ketchup och lite senap"),
+      expect.stringContaining("Dippsåsdressing + Tabasco eller chilisås för lite värme"),
     ]);
-    expect(ideas[0]).toHaveTextContent("30 min · Ny idé");
+    // No image and nothing to expand: a name, a small kind and a sentence.
+    expect(within(rows[0]).queryByRole("img")).toBeNull();
+    expect(within(rows[0]).queryByRole("button", { name: /Burgersås/ })).toBeNull();
+    expect(within(rows[0]).getByRole("button", { name: "Gör ett recept av den" })).toBeEnabled();
     expect(screen.queryByTestId("cook-now-loading")).toBeNull();
     const group = screen.getByTestId("cook-now-one-missing");
     expect(group).toHaveTextContent("Saknar bara en vara (2)");
-    expect(group).toHaveTextContent("Pasta med bacon");
-    expect(group).toHaveTextContent("Saknar bacon");
-    // No bin on any row: the dishes are temporary.
+    expect(group).toHaveTextContent("Macka");
+    expect(group).toHaveTextContent("Saknar bröd");
+    // No bin on any row: the ideas are temporary.
     expect(screen.queryByRole("button", { name: /Ta bort/ })).toBeNull();
   });
 
-  it("shows at most three new ideas", async () => {
-    renderButton();
-    await userEvent.setup().click(card());
-    await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("A"), dish("B"), dish("C")]));
-    expect(await screen.findAllByTestId("cook-now-idea")).toHaveLength(3);
-  });
-
-  it("expands a new idea to ingredients with a tick, the steps and Spara som recept, which saves nothing before the tap", async () => {
+  it("writes the recipe of one idea as a job of the mode now with that idea, and shows it with Spara som recept, which saves nothing before the tap", async () => {
     renderButton();
     const user = userEvent.setup();
     await user.click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Krämig purjolökssoppa")]));
-    const [idea] = await screen.findAllByTestId("cook-now-idea");
-    expect(idea).not.toHaveTextContent("Spara som recept");
+    await finish(result([burger, dip]));
+    const [row] = await screen.findAllByTestId("cook-now-idea");
     expect(saveRecipe).not.toHaveBeenCalled();
 
-    await user.click(within(idea).getByRole("button", { name: /Krämig purjolökssoppa/ }));
-    expect(idea).toHaveTextContent("✓2 purjolökar");
-    expect(idea).toHaveTextContent("✓2 dl grädde");
-    expect(within(idea).getAllByRole("listitem").map((item) => item.textContent)).toEqual(
+    await user.click(within(row).getByRole("button", { name: "Gör ett recept av den" }));
+    await waitFor(() => expect(server.started).toHaveLength(2));
+    expect(server.started[1].body).toMatchObject({
+      kind: "suggest",
+      mode: "now",
+      avoidTitles: [],
+      dish: "Burgersås: dressing + ketchup och lite senap",
+    });
+    expect(await within(row).findByTestId("cook-now-recipe")).toBeVisible();
+    // Another recipe waits for this one.
+    expect(screen.getAllByRole("button", { name: "Gör ett recept av den" })[0]).toBeDisabled();
+    await finish(recipeResult([dish("Burgersås")]));
+    expect(await within(row).findByText("2 purjolökar")).toBeVisible();
+    expect(within(row).getAllByRole("listitem").map((item) => item.textContent)).toEqual(
       expect.arrayContaining(["Skiva purjolöken.", "Fräs i smör."]),
     );
-    await user.click(within(idea).getByRole("button", { name: "Spara som recept" }));
+    expect(saveRecipe).not.toHaveBeenCalled();
+    await user.click(within(row).getByRole("button", { name: "Spara som recept" }));
     await waitFor(() => expect(saveRecipe).toHaveBeenCalledTimes(1));
     const [draft, recipeId] = saveRecipe.mock.calls[0];
-    expect(draft.title).toBe("Krämig purjolökssoppa");
+    expect(draft.title).toBe("Burgersås");
     expect(recipeId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(await within(idea).findByRole("button", { name: "Sparad i Recept" })).toBeDisabled();
-    expect((await screen.findAllByText("Krämig purjolökssoppa finns nu i Recept.")).length).toBeGreaterThan(0);
+    expect(await within(row).findByRole("button", { name: "Sparad i Recept" })).toBeDisabled();
+    expect((await screen.findAllByText("Burgersås finns nu i Recept.")).length).toBeGreaterThan(0);
+  });
+
+  it("says so and offers another try when the recipe cannot be written", async () => {
+    renderButton();
+    const user = userEvent.setup();
+    await user.click(card());
+    await screen.findByTestId("cook-now-loading");
+    await finish(result([burger]));
+    const [row] = await screen.findAllByTestId("cook-now-idea");
+    await user.click(within(row).getByRole("button", { name: "Gör ett recept av den" }));
+    await waitFor(() => expect(server.started).toHaveLength(2));
+    server.failJob(server.latest.id, "ai_invalid");
+    await server.read();
+    expect(await within(row).findByText("Det blev inget recept av den här gången.")).toBeVisible();
+    expect(within(row).getByRole("button", { name: "Försök igen" })).toBeVisible();
   });
 
   it("says so and saves nothing more when saving fails", async () => {
@@ -221,12 +247,14 @@ describe("the sheet Kan lagas nu", () => {
     const user = userEvent.setup();
     await user.click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Soppa")]));
-    const [idea] = await screen.findAllByTestId("cook-now-idea");
-    await user.click(within(idea).getByRole("button", { name: /Soppa/ }));
-    await user.click(within(idea).getByRole("button", { name: "Spara som recept" }));
+    await finish(result([burger]));
+    const [row] = await screen.findAllByTestId("cook-now-idea");
+    await user.click(within(row).getByRole("button", { name: "Gör ett recept av den" }));
+    await waitFor(() => expect(server.started).toHaveLength(2));
+    await finish(recipeResult([dish("Burgersås")]));
+    await user.click(await within(row).findByRole("button", { name: "Spara som recept" }));
     expect(await screen.findByRole("alert")).toBeVisible();
-    expect(within(idea).getByRole("button", { name: "Spara som recept" })).toBeEnabled();
+    expect(within(row).getByRole("button", { name: "Spara som recept" })).toBeEnabled();
   });
 
   it("closes the job at once when its result is taken, so nothing piles up in the AI jobs", async () => {
@@ -234,7 +262,7 @@ describe("the sheet Kan lagas nu", () => {
     await userEvent.setup().click(card());
     await screen.findByTestId("cook-now-loading");
     const { id } = server.latest;
-    await finish(result([dish("Soppa")]));
+    await finish(result([burger]));
     await screen.findAllByTestId("cook-now-idea");
     await waitFor(() => expect(server.actions.dismiss).toHaveBeenCalledWith(id));
     expect(server.jobs).toEqual([]);
@@ -256,13 +284,14 @@ describe("the sheet Kan lagas nu", () => {
     const user = userEvent.setup();
     await user.click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Krämig purjolökssoppa")]));
+    await finish(result([burger]));
     await screen.findAllByTestId("cook-now-idea");
     await user.click(screen.getByRole("button", { name: "Klar" }));
     expect(server.started).toHaveLength(1);
 
     await user.click(card());
-    expect(await screen.findByText("Krämig purjolökssoppa")).toBeVisible();
+    expect(await screen.findByText("Burgersås")).toBeVisible();
+    expect(screen.getByTestId("cook-now-intro")).toBeVisible();
     expect(server.started).toHaveLength(1);
     expect(screen.queryByTestId("cook-now-loading")).toBeNull();
     // The library is read anew each time, so it is never old.
@@ -275,7 +304,7 @@ describe("the sheet Kan lagas nu", () => {
     const user = userEvent.setup();
     await user.click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Krämig purjolökssoppa")]));
+    await finish(result([burger]));
     await screen.findAllByTestId("cook-now-idea");
     await user.click(screen.getByRole("button", { name: "Klar" }));
 
@@ -289,13 +318,13 @@ describe("the sheet Kan lagas nu", () => {
     const user = userEvent.setup();
     await user.click(card());
     await screen.findByTestId("cook-now-loading");
-    await finish(result([dish("Krämig purjolökssoppa"), dish("Omelett med purjolök")]));
+    await finish(result([burger, dip]));
     await screen.findAllByTestId("cook-now-idea");
     expect(screen.getByText("Förslagen försvinner av sig själva. Spara den du vill ha kvar.")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Andra förslag" }));
     await waitFor(() => expect(server.started).toHaveLength(2));
-    expect(server.started[1].body).toMatchObject({ mode: "now", avoidTitles: ["Krämig purjolökssoppa", "Omelett med purjolök"] });
+    expect(server.started[1].body).toMatchObject({ mode: "ideas", avoidTitles: ["Burgersås", "Dipp"] });
     // The old dishes make room for the loading row.
     expect(screen.queryByTestId("cook-now-idea")).toBeNull();
     expect(await screen.findByTestId("cook-now-loading")).toBeVisible();

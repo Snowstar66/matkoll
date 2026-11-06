@@ -15,4 +15,5 @@ export { toSuggestInput, toOldItemsInput, oldItemsUsed, type SuggestInputShape }
 export { toOfferNames, offersUsed, atHomeText, toBuyNames, whyText, type OfferInfo } from "./domain/offer-input";
 export { offerTagsByRecipe, isMainLine } from "./domain/recipe-offers";
 export { rankOwnRecipes, maxOwnRecipes, type OwnRecipe, type OwnRecipeMatch } from "./domain/own-recipes";
+export { nowIdeasResultSchema, nowIdeaSchema, type NowIdeaView, type NowIdeasResultView } from "./domain/now-ideas";
 export { cookNowLists, cookNowNameIds, maxCookNowRecipes, type CookNowRecipe, type CookNowOneMissing, type CookNowLists } from "./domain/cook-now";

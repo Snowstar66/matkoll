@@ -15,7 +15,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -381,6 +381,23 @@ function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErro
   return undefined;
 }
 
+/**
+ * ideasNow (Story 25.4) without a model: a dip of the first two things at home, a sandwich that misses one thing, and
+ * an idea that misses two (which the suggestions module drops), so every step of the check can be seen.
+ */
+function mockNowIdeas(input: NowIdeasInput): NowIdeasResult {
+  const [first, second] = input.pantry.map((item) => item.name);
+  const dip = second ? `${first} med lite ${second}` : `${first} som den är`;
+  return {
+    intro: "Det är tunt hemma, men det här går:",
+    ideas: [
+      { name: "Enkel dipp", how: dip, kind: "sås", uses: second ? [first, second] : [first], missing: [] },
+      { name: "Macka med pålägg", how: `${first} på en skiva surdegsbröd`, kind: "mellanmål", uses: [first], missing: ["surdegsbröd"] },
+      { name: "Festmiddag", how: `${first} med tryffel och saffran`, kind: "rätt", uses: [first], missing: ["tryffel", "saffran"] },
+    ],
+  };
+}
+
 /** Loads on first use and remembers a failure too. */
 function lazily<T>(load: () => T): () => T | undefined {
   let loaded: { value: T } | { error: true } | undefined;
@@ -447,6 +464,7 @@ function countingCalls(service: AiService): AiService {
     ...service,
     parseRecipe: counted(service.parseRecipe),
     suggestDishes: counted(service.suggestDishes),
+    ideasNow: counted(service.ideasNow),
     analyzeImage: counted(service.analyzeImage),
     listThings: counted(service.listThings),
     locateThing: counted(service.locateThing),
@@ -510,6 +528,14 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const avoided = new Set(input.avoidTitles.map(normalizeTitle));
       const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));
       return set ? ok(structuredClone(set)) : fail("ai_invalid");
+    },
+    async ideasNow(input, signal) {
+      if (!(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
+      const current = logged(suggestFixtures());
+      if (!current) return fail("ai_unavailable");
+      const code = suggestErrorFor({ pantry: input.pantry, avoidTitles: [] }, current.errors);
+      if (code) return fail(code);
+      return ok(mockNowIdeas(input));
     },
     async analyzeImage(input, signal, options) {
       if (signal.aborted) return fail("ai_unavailable");
