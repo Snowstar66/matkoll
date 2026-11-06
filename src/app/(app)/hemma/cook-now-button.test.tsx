@@ -65,7 +65,7 @@ const dish = (title: string, toBuy: string[] = []) => ({
   oldUsed: [],
 });
 const recipeResult = (suggestions: ReturnType<typeof dish>[]) => ({ suggestions, mode: "now", siteId: null, storeName: null });
-const idea = (name: string, how: string, kind = "sås", missing: string[] = []) => ({ name, how, kind, uses: ["dressing"], missing });
+const idea = (name: string, how: string, kind = "sås", missing: string[] = []) => ({ name, how, why: "Använder det som legat längst.", kind, uses: ["dressing"], missing });
 const result = (ideas: ReturnType<typeof idea>[], intro = "Det är tunt i kylen, men det här går:") => ({ intro, ideas, siteId: null });
 const burger = idea("Burgersås", "dressing + ketchup och lite senap");
 const dip = idea("Dipp", "dressing + Tabasco eller chilisås för lite värme");
@@ -199,6 +199,10 @@ describe("the sheet Kan lagas nu", () => {
     await screen.findByTestId("cook-now-loading");
     await finish(result([{ ...burger, uses: ["falukorv", "krossade tomater"] }]));
     expect(await screen.findByTestId("cook-now-uses")).toHaveTextContent("Använder: falukorv, krossade tomater");
+    // The why comes under the how-line, before the uses.
+    const why = screen.getByTestId("cook-now-why");
+    expect(why).toHaveTextContent("Använder det som legat längst.");
+    expect(why.compareDocumentPosition(screen.getByTestId("cook-now-uses")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("sends Stämmer inte to the Tyck till inbox as a Fel with the idea and what it uses, and hides the idea", async () => {

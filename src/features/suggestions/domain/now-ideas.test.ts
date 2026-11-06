@@ -8,6 +8,7 @@ const atHome = (key: string) => home.has(key);
 const idea = (overrides: Partial<RawNowIdea> = {}): RawNowIdea => ({
   name: "Burgersås",
   how: "dressing + ketchup och lite senap",
+  why: "Använder det som legat längst.",
   kind: "sås",
   uses: ["dressing", "ketchup", "senap"],
   missing: [],
@@ -69,6 +70,9 @@ describe("nowIdeasResultSchema", () => {
     const ok = { intro: "Det är tunt, men det här går:", ideas: [idea()], siteId: null };
     expect(nowIdeasResultSchema.safeParse(ok).success).toBe(true);
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [] }).success).toBe(false);
+    // An older result without a why still reads, with an empty one.
+    const withoutWhy = { ...idea(), why: undefined };
+    expect(nowIdeasResultSchema.parse({ ...ok, ideas: [withoutWhy] }).ideas[0].why).toBe("");
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [idea({ missing: ["a", "b"] })] }).success).toBe(false);
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [idea({ kind: "efterrätt" as never })] }).success).toBe(false);
   });

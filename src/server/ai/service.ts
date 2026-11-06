@@ -516,8 +516,8 @@ export const inputLimits = {
    * extra, so failing fast is better than keeping the model busy.
    */
   locate: { attemptMs: 30_000 },
-  /** ideasNow (Story 25.4): an intro and four ideas of a line each, about 300 tokens; 800 leave room for a model that writes around them. */
-  ideas: { maxOutputTokens: 800 },
+  /** ideasNow (Story 25.4): an intro of up to three sentences and four ideas of two short lines each, about 250 tokens; 600 leave room for a model that writes around them. */
+  ideas: { maxOutputTokens: 600 },
 } as const;
 
 /** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */

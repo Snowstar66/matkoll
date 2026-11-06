@@ -694,7 +694,7 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
 describe("suggestNowIdeas (Story 25.4)", () => {
   const run = (options: { avoidTitles?: string[] } = {}) => suggestNowIdeas({ signal: signal(), ...options });
   const answer = (ideas: { name: string; uses: string[]; missing?: string[] }[]) =>
-    ok({ intro: "Det är tunt, men det här går:", ideas: ideas.map((idea) => ({ how: "bra", kind: "sås" as const, missing: [], ...idea })) });
+    ok({ intro: "Det är tunt, men det här går:", ideas: ideas.map((idea) => ({ how: "bra", why: "För att.", kind: "sås" as const, missing: [], ...idea })) });
 
   it("sends the pantry by name with no ids and no titles, and gives the mock's ideas, dropping the one that misses two things", async () => {
     const result = await run();
@@ -711,7 +711,8 @@ describe("suggestNowIdeas (Story 25.4)", () => {
     expect(JSON.stringify(ideasNow.mock.calls[0][0])).not.toMatch(/6f1c1b7e/);
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.siteId).toBe(stugan.id);
-    expect(result.data.intro).toBe("Det är tunt hemma, men det här går:");
+    expect(result.data.intro).toContain("Det är tunt hemma");
+    expect(result.data.ideas[0].why).toBe("Använder det du har mest av.");
     expect(result.data.ideas.map(({ name, missing }) => ({ name, missing }))).toEqual([
       { name: "Enkel dipp", missing: [] },
       { name: "Macka med pålägg", missing: ["surdegsbröd"] },
@@ -727,7 +728,7 @@ describe("suggestNowIdeas (Story 25.4)", () => {
   it("drops names not at home from uses and moves them to missing", async () => {
     ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde", "Tryffel"] }]));
     const result = await run();
-    expect(result.ok && result.data.ideas).toEqual([{ name: "Gratäng", how: "bra", kind: "sås", uses: ["grädde"], missing: ["tryffel"] }]);
+    expect(result.ok && result.data.ideas).toEqual([{ name: "Gratäng", how: "bra", why: "För att.", kind: "sås", uses: ["grädde"], missing: ["tryffel"] }]);
   });
 
   it("leaves out an idea that misses more than one thing", async () => {

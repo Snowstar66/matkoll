@@ -1437,7 +1437,7 @@ describe("matchOffers on a model (Story 9.10)", () => {
 describe("ideasNow on a model (Story 25.4)", () => {
   const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
   const pantry = [{ name: "dressing", amount: null, unit: null }, { name: "ketchup", amount: 1, unit: "st" }];
-  const idea = { name: " Burgersås ", how: "dressing + ketchup", kind: "Sås", uses: ["dressing", "ketchup", "dressing"], missing: [] };
+  const idea = { name: " Burgersås ", how: "dressing + ketchup", why: " Använder ketchupen som legat längst. ", kind: "Sås", uses: ["dressing", "ketchup", "dressing"], missing: [] };
   const answer = (ideas: unknown[], intro = "Det är tunt i kylen, men det här går:") => JSON.stringify({ intro, ideas });
 
   it("sends the friendly prompt and the pantry, and gives the cleaned intro and ideas with a known kind", async () => {
@@ -1448,8 +1448,8 @@ describe("ideasNow on a model (Story 25.4)", () => {
       data: {
         intro: "Det är tunt i kylen, men det här går:",
         ideas: [
-          { name: "Burgersås", how: "dressing + ketchup", kind: "sås", uses: ["dressing", "ketchup"], missing: [] },
-          { name: "Mackan", how: "dressing + ketchup", kind: "rätt", uses: ["dressing", "ketchup"], missing: [] },
+          { name: "Burgersås", how: "dressing + ketchup", why: "Använder ketchupen som legat längst.", kind: "sås", uses: ["dressing", "ketchup"], missing: [] },
+          { name: "Mackan", how: "dressing + ketchup", why: "Använder ketchupen som legat längst.", kind: "rätt", uses: ["dressing", "ketchup"], missing: [] },
         ],
       },
     });
@@ -1459,6 +1459,8 @@ describe("ideasNow on a model (Story 25.4)", () => {
     expect(system).toEqual({ role: "system", content: prompts.nowIdeas });
     expect(JSON.stringify(user.content)).toContain("Har legat länge");
     expect(prompts.nowIdeas).toContain("Hitta aldrig på varor");
+    expect(prompts.nowIdeas).toContain("`why`");
+    expect(prompts.nowIdeas).toContain("två eller tre korta meningar");
   });
 
   it("keeps at most four ideas and drops one without a name", async () => {

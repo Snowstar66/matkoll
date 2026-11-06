@@ -389,11 +389,11 @@ function mockNowIdeas(input: NowIdeasInput): NowIdeasResult {
   const [first, second] = input.pantry.map((item) => item.name);
   const dip = second ? `${first} med lite ${second}` : `${first} som den är`;
   return {
-    intro: "Det är tunt hemma, men det här går:",
+    intro: "Det är tunt hemma, men du har det som behövs för några små saker. Det som legat längst går åt först.",
     ideas: [
-      { name: "Enkel dipp", how: dip, kind: "sås", uses: second ? [first, second] : [first], missing: [] },
-      { name: "Macka med pålägg", how: `${first} på en skiva surdegsbröd`, kind: "mellanmål", uses: [first], missing: ["surdegsbröd"] },
-      { name: "Festmiddag", how: `${first} med tryffel och saffran`, kind: "rätt", uses: [first], missing: ["tryffel", "saffran"] },
+      { name: "Enkel dipp", how: dip, why: "Använder det du har mest av.", kind: "sås", uses: second ? [first, second] : [first], missing: [] },
+      { name: "Macka med pålägg", how: `${first} på en skiva surdegsbröd`, why: "Går fort när det är tomt i kylen.", kind: "mellanmål", uses: [first], missing: ["surdegsbröd"] },
+      { name: "Festmiddag", how: `${first} med tryffel och saffran`, why: "Lite finare.", kind: "rätt", uses: [first], missing: ["tryffel", "saffran"] },
     ],
   };
 }

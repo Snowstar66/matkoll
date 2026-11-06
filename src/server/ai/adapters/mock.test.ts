@@ -801,7 +801,8 @@ describe("mock ideasNow (Story 25.4)", () => {
   it("answers an intro and ideas built on the pantry's own names, one of them missing a thing and one missing two", async () => {
     const result = await service.ideasNow({ pantry }, signal());
     if (!result.ok) throw new Error(result.error.code);
-    expect(result.data.intro).toBe("Det är tunt hemma, men det här går:");
+    expect(result.data.intro).toBe("Det är tunt hemma, men du har det som behövs för några små saker. Det som legat längst går åt först.");
+    expect(result.data.ideas.every(({ why }) => why !== "")).toBe(true);
     expect(result.data.ideas.map(({ name, uses, missing }) => ({ name, uses, missing }))).toEqual([
       { name: "Enkel dipp", uses: ["dressing", "ketchup"], missing: [] },
       { name: "Macka med pålägg", uses: ["dressing"], missing: ["surdegsbröd"] },

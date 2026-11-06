@@ -389,6 +389,11 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                   <span className="text-meta text-ink-2">{idea.kind}</span>
                 </p>
                 <p className="text-body">{idea.how}</p>
+                {idea.why ? (
+                  <p data-testid="cook-now-why" className="text-meta text-ink-3">
+                    {idea.why}
+                  </p>
+                ) : null}
                 {idea.uses.length > 0 ? (
                   <p data-testid="cook-now-uses" className="text-meta text-ink-3">
                     Använder: {idea.uses.join(", ")}

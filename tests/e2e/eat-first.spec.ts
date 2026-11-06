@@ -146,13 +146,14 @@ test("IDÉER answers like a friend: an intro, text rows, one thing missing apart
   await page.goto("/hemma");
   await card(page).click();
 
-  await expect(page.getByTestId("cook-now-intro")).toHaveText("Det är tunt hemma, men det här går:", jobTime);
+  await expect(page.getByTestId("cook-now-intro")).toContainText("Det är tunt hemma, men du har det som behövs", jobTime);
   await expect(page.getByRole("heading", { name: "IDÉER" })).toBeVisible();
   // The mock gives three ideas: one at home, one that misses a thing (apart) and one that misses two (left out).
   const rows = page.getByTestId("cook-now-idea");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Enkel dipp");
   await expect(rows.first()).toContainText("sås");
+  await expect(rows.first().getByTestId("cook-now-why")).toHaveText("Använder det du har mest av.");
   await expect(page.getByTestId("cook-now-one-missing")).toContainText("Macka med pålägg");
   await expect(page.getByTestId("cook-now-one-missing")).toContainText("Saknar surdegsbröd");
   await expect(sheet(page)).not.toContainText("Festmiddag");

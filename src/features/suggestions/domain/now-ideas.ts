@@ -13,6 +13,8 @@ export const nowIdeaKinds = ["rätt", "tillbehör", "sås", "mellanmål", "fruko
 export const nowIdeaSchema = z.object({
   name: z.string().min(1).max(100),
   how: z.string().min(1).max(300),
+  /** One short sentence on why this idea ("Använder grädden som legat längst."); empty when the model gave none. */
+  why: z.string().max(300).default(""),
   kind: z.enum(nowIdeaKinds),
   /** What is at home that the idea uses, as the model named it. */
   uses: z.array(z.string().max(100)).max(8),
@@ -30,7 +32,7 @@ export const nowIdeasResultSchema = z.object({
 export type NowIdeasResultView = z.infer<typeof nowIdeasResultSchema>;
 
 /** An idea as the model gave it. */
-export type RawNowIdea = { name: string; how: string; kind: NowIdeaView["kind"]; uses: string[]; missing: string[] };
+export type RawNowIdea = { name: string; how: string; why?: string; kind: NowIdeaView["kind"]; uses: string[]; missing: string[] };
 
 /** Things that count as at home without being in the pantry. */
 const alwaysHome = new Set(["salt", "peppar", "olja", "vatten"]);
@@ -113,7 +115,7 @@ export function checkNowIdeas(
       onDrop("name");
       continue;
     }
-    kept.push({ name: idea.name, how: idea.how, kind: idea.kind, uses: [...uses.values()], missing: [...missing.values()] });
+    kept.push({ name: idea.name, how: idea.how, why: idea.why ?? "", kind: idea.kind, uses: [...uses.values()], missing: [...missing.values()] });
   }
   return kept;
 }
