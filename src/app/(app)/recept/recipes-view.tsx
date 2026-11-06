@@ -21,7 +21,8 @@ import { WarmAi } from "../warm-ai";
 // Story 25.3: the AI ideas moved to Matsedel (På erbjudande). Story 12.2:
 // when the page is shown, WarmAi asks the server to wake the model for
 // recipe import, without waiting for the list.
-export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoImport; initialFilter?: "offers" }) {
+// `initialFilter` is a promise (the page's searchParams), awaited inside <Suspense> so the frame still prerenders.
+export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoImport; initialFilter?: Promise<"offers" | undefined> }) {
   // Story 1.14: waited for inside the import sheet; a failure shows the "no sites" line.
   const sites = listRecipeSites().catch((): string[] => []);
   return (
@@ -44,8 +45,9 @@ export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoIm
   );
 }
 
-async function RecipesContent({ initialFilter }: { initialFilter?: "offers" }) {
+async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?: Promise<"offers" | undefined> }) {
   await requireUserOrRedirect("/recept");
+  const initialFilter = await filterPromise;
   const [{ recipes, pantryUnavailable, site }, offers] = await Promise.all([listLibrary(), readLibraryOffers()]);
   if (recipes.length === 0) {
     return (
