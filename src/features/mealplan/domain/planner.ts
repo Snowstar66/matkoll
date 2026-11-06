@@ -13,9 +13,12 @@ export function itemsText(count: number): string {
  * The toast after "+", naming what went on the list (like the recipe page's):
  * "Korvstroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan.", or,
  * when the week is full, "Korvstroganoff på veckan. Alla dagar har en rätt. …".
+ * `when` names a week that is not this one: "Tacos på måndag nästa vecka. …"
  */
-export function addedToWeekText(title: string, buyNames: readonly string[], weekday: number | null = null): string {
-  const where = weekday ? `${title} på ${weekdayWord(weekday)}.` : `${title} på veckan. Alla dagar har en rätt.`;
+export function addedToWeekText(title: string, buyNames: readonly string[], weekday: number | null = null, when: string | null = null): string {
+  const where = weekday
+    ? `${title} på ${weekdayWord(weekday)}${when ? ` ${when}` : ""}.`
+    : `${title} ${when ?? "på veckan"}. Alla dagar har en rätt.`;
   return buyNames.length > 0 ? `${where} ${buyNamesText(buyNames)} står på inköpslistan.` : `${where} Inget att köpa.`;
 }
 

@@ -16,6 +16,8 @@ describe("the words of the planning view", () => {
   it("says the toast after +", () => {
     expect(addedToWeekText("Korvstroganoff", ["falukorv", "grädde", "ris"], 4)).toBe("Korvstroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan.");
     expect(addedToWeekText("Tacos", ["tortillabröd"], 1)).toBe("Tacos på måndag. Tortillabröd står på inköpslistan.");
+    expect(addedToWeekText("Tacos", ["tortillabröd"], 1, "nästa vecka")).toBe("Tacos på måndag nästa vecka. Tortillabröd står på inköpslistan.");
+    expect(addedToWeekText("Soppa", [], null, "om 2 veckor")).toBe("Soppa om 2 veckor. Alla dagar har en rätt. Inget att köpa.");
     expect(addedToWeekText("Soppa", [], 7)).toBe("Soppa på söndag. Inget att köpa.");
     expect(addedToWeekText("Soppa", ["lök", "morot"], null)).toBe("Soppa på veckan. Alla dagar har en rätt. Lök och morot står på inköpslistan.");
     expect(addedToWeekText("Lasagne", ["köttfärs", "krossade tomater", "ost", "pasta", "mjölk"], 2)).toBe(
