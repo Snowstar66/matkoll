@@ -87,6 +87,12 @@ export type OffersSheetProps = {
   best?: BestStore | null;
   /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home (same rule as `best`); their rows say "Passar dig". */
   fitIds?: readonly string[];
+  /**
+   * A slot at the top of the body: "Rätter med extrapris", put together by the
+   * page from other modules (route → ui, AD-1), so this module never imports them.
+   * Left out when there are no such dishes or they could not be read.
+   */
+  dishes?: ReactNode;
 };
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
@@ -152,6 +158,7 @@ export function OffersSheet({
   listing = null,
   best = null,
   fitIds,
+  dishes,
 }: OffersSheetProps & { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -495,6 +502,7 @@ export function OffersSheet({
             {addError.message}
           </Notice>
         ) : null}
+        {offers.length > 0 ? dishes : null}
         {body}
       </div>
     </Sheet>

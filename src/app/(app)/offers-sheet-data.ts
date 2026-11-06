@@ -4,6 +4,7 @@ import type { OffersListing, OffersSheetProps } from "@/features/offers/ui/offer
 import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/features/shopping/server";
 import { offersSiteName, type Store } from "@/features/settings";
 import { MealPlanDataError } from "@/features/mealplan/server";
+import { loadOfferDishes } from "./offer-dishes";
 import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getIngredientRecipeCounts, RecipeDataError } from "@/features/recipes/server";
 import { listStores, SettingsDataError } from "@/features/settings/server";
@@ -60,6 +61,8 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
       console.error("best_store_unavailable", { reason: error.detail });
     }
   }
+  // "Rätter med extrapris" at the top of the sheet: the user's dishes that use an offer, or nothing (never throws).
+  const dishes = !unavailable && offers.length > 0 ? await loadOfferDishes() : null;
   const now = new Date();
   return {
     offers,
@@ -80,6 +83,7 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
       listing,
       best,
       fitIds,
+      dishes,
     },
   };
 }

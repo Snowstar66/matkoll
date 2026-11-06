@@ -5,7 +5,7 @@ import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
 import { dishEmoji } from "../domain/dish-emoji";
-import { offerTagsShown, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
+import { offerTagsLine, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 
 export type RecipeCompactListProps = {
   recipes: readonly RecipeListItem[];
@@ -14,15 +14,9 @@ export type RecipeCompactListProps = {
   onFavoriteChange: (id: string, isFavorite: boolean) => void;
   /** Whether the rows are ranked fewest missing first, which the list's name says. */
   ranked?: boolean;
-  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row says "Erbjudanden: falukorv, gul lök +1". */
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row has its own line "Extrapris: falukorv, gul lök +1". */
   offerTags?: Readonly<Record<string, readonly string[]>>;
 };
-
-/** "Falukorv, Gul lök +1": the first two offers and how many more. */
-function offerTagsText(tags: readonly string[]): string {
-  const { shown, more } = offerTagsShown(tags);
-  return `${shown.join(", ")}${more > 0 ? ` +${more}` : ""}`;
-}
 
 /** "4 port." for the line under a title. */
 function portionsText(servings: number): string {
@@ -62,7 +56,11 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
                 {portionsText(recipe.originalServings)}
                 {status ? " · " : ""}
                 {status}
-                {offerTags && offerTags[recipe.id]?.length ? ` · Erbjudanden: ${offerTagsText(offerTags[recipe.id])}` : ""}
+                {offerTags && offerTags[recipe.id]?.length ? (
+                  <span data-testid="offer-tags" className="block font-semibold text-deal-ink">
+                    {offerTagsLine(offerTags[recipe.id])}
+                  </span>
+                ) : null}
               </>
             }
             leading={

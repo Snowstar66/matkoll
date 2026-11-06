@@ -12,7 +12,7 @@ export type PlanRowProps = {
   imageUrl: string | null;
   /** "Favorit · lagad 6 gånger". */
   meta: string;
-  /** "Falukorv och grädde på erbjudande · spara 21 kr". */
+  /** "Falukorv och grädde på extrapris · spara 21 kr". */
   deal?: string | null;
   /** The dish is already on the week: its day ("Tor"), or "På veckan", in place of "+". */
   onWeekLabel?: string;

@@ -278,7 +278,7 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
             </div>
             {tab === "offers" ? (
               <p data-testid="offers-hint" className="text-meta text-deal-ink">
-                Dina recept där en huvudvara är på erbjudande, mest sparat först.
+                Förslag för att varorna har extrapris den här veckan.
               </p>
             ) : null}
             {rows.length === 0 ? (
