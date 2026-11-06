@@ -88,6 +88,9 @@ function shown(ideas: readonly OfferIdea[]): ShownSuggestion[] {
   return ideas.map((idea, key) => ({ ...idea, key })) as ShownSuggestion[];
 }
 
+/** How long a set is waited for before it counts as failed (the claim goes stale after five minutes). */
+const maxWaitMs = 6 * 60 * 1000;
+
 const failedView = (view: OfferIdeasView): OfferIdeasView => ({ ...view, state: "failed", ideas: [], intro: "", errorCode: null });
 
 export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, start, read, previewOutside = false }: OfferIdeasProps) {
@@ -131,11 +134,18 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
   useEffect(() => {
     if (!pending) return;
     let stopped = false;
+    const since = Date.now();
     const timer = setInterval(() => {
+      // A run that is not heard of in a few minutes is gone: the ideas failed, and Försök igen starts them again.
+      if (Date.now() - since > maxWaitMs) {
+        setHeld((current) => (current.view ? { ...current, view: failedView(current.view) } : current));
+        return;
+      }
       void read()
         .then((answer) => {
           if (stopped || !answer.ok || answer.data.state === "pending") return;
-          setHeld((current) => ({ ...current, view: answer.data }));
+          // "none" after pending: the run's claim went stale, nobody is making the ideas.
+          setHeld((current) => ({ ...current, view: answer.data.state === "none" ? failedView(answer.data) : answer.data }));
         })
         .catch(() => undefined);
     }, pollSetMs);
@@ -154,7 +164,7 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
     <div data-testid="offer-ideas" className="flex flex-col gap-2">
       <h4 className="text-body font-semibold text-ink">Nya idéer</h4>
       <div role="status">
-        {view.state === "pending" || view.state === "none" ? <p className="text-meta text-ink-2">Idéerna förbereds …</p> : null}
+        {view.state === "pending" ? <p className="text-meta text-ink-2">Idéerna förbereds …</p> : null}
       </div>
       {view.state === "failed" ? (
         <p role="alert" className="flex flex-wrap items-center gap-x-2 text-body text-ink">

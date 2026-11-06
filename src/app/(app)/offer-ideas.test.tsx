@@ -141,6 +141,28 @@ describe("OfferIdeas", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
+  it("shows failed with Försök igen when the poll finds the run gone (none), instead of waiting for ever", async () => {
+    vi.useFakeTimers();
+    read.mockResolvedValue(ok(view({ state: "none" })));
+    renderIdeas(view({ state: "pending" }));
+    await act(() => vi.advanceTimersByTimeAsync(pollSetMs));
+    expect(screen.queryByText("Idéerna förbereds …")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ta fram idéer just nu.");
+    expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("gives up after about six minutes of pending and shows failed", async () => {
+    vi.useFakeTimers();
+    renderIdeas(view({ state: "pending" }));
+    await act(() => vi.advanceTimersByTimeAsync(6 * 60 * 1000 + pollSetMs * 2));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByText("Idéerna förbereds …")).not.toBeInTheDocument();
+    const calls = read.mock.calls.length;
+    await act(() => vi.advanceTimersByTimeAsync(pollSetMs * 5));
+    expect(read.mock.calls.length).toBe(calls);
+  });
+
   it("starts the ideas once on the first view when there is no set yet, and shows them as being prepared", async () => {
     renderIdeas(view({ state: "none" }));
     expect(await screen.findByText("Idéerna förbereds …")).toBeInTheDocument();

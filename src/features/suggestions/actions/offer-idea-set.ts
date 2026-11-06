@@ -89,14 +89,16 @@ export async function claimOfferIdeas(replace: boolean): Promise<Result<{ run: (
           { mode: "offers", avoidTitles: avoid },
           { signal: AbortSignal.timeout(runTimeoutMs), deadline: Date.now() + runTimeoutMs },
         );
-        if (answered.ok) {
-          const ideas = toSavedIdeas(answered.data.suggestions);
+        const ideas = answered.ok ? toSavedIdeas(answered.data.suggestions) : [];
+        if (answered.ok && ideas.length > 0) {
           await finishSetIn(db, week, held, { intro: answered.data.intro, ideas });
           console.info("offer_ideas_ready", { ideas: ideas.length });
         } else {
-          console.error("offer_ideas_failed", { reason: answered.error.code });
+          // An answer without a single idea is a failure too, never an empty ready set.
+          const code = answered.ok ? "ai_invalid" : answered.error.code;
+          console.error("offer_ideas_failed", { reason: code });
           if (previous) await finishSetIn(db, week, held, previous);
-          else await failSetIn(db, week, held, answered.error.code);
+          else await failSetIn(db, week, held, code);
         }
       } catch (error) {
         console.error("offer_ideas_failed", { reason: error instanceof OfferIdeaSetError ? error.detail : "exception" });

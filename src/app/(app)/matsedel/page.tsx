@@ -6,6 +6,11 @@ import { MealPlanContent } from "./meal-plan-content";
 
 export const metadata: Metadata = { title: "Matsedel" };
 
+// "Nya idéer med extrapris" are prepared by a Server Action from this page (offers fetched, or the first
+// view of a week), whose after() holds the AI run: it lives as long as this page's maxDuration allows (the
+// model gets 100 s of it, as /api/ai/jobs has 300 s).
+export const maxDuration = 300;
+
 // Matsedel (FR-13, Story 25.3): where the week is planned. Veckans rätter (the
 // dishes with their day chip and ✕) and Lägg till rätter (Favoriter, På
 // erbjudande, Alla recept; "+" puts a dish on the week with no day), and a
