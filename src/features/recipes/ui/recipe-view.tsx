@@ -4,7 +4,7 @@ import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
 import type { PlanningTarget } from "@/features/mealplan";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
-import { dishEmoji, offerSavedText } from "../domain/dish-emoji";
+import { offerSavedText } from "../domain/dish-emoji";
 import type { LineOffer } from "../domain/line-status";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
@@ -81,32 +81,23 @@ export function RecipeView({
   const offerLine = offerSavedText(recipe.offerNames);
   return (
     <article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
-      <div className="relative -mx-page desktop:mx-0 desktop:mt-10">
-        <RecipeImage
-          src={recipe.imageUrl}
-          emoji={dishEmoji(recipe.title)}
-          iconSize={96}
-          className="h-[260px] desktop:h-[320px] desktop:rounded-lg"
-        />
-        {/* At every width: Matkoll on the home screen has no browser back button (AD-27).
-            Back in history when opened within Matkoll (from Matsedel, say), else to Recept.
-            Round glass buttons on the photo: 40 px visible, 44 px tap area (Story 19.6). */}
-        <BackLink
-          fallbackHref="/recept"
-          aria-label="Tillbaka"
-          className="absolute top-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] left-[calc(var(--gutter-page)-2px)] flex size-tap items-center justify-center desktop:top-1 desktop:left-1"
-        >
-          <span className="flex size-10 items-center justify-center rounded-full bg-glass text-ink backdrop-blur-md">
+      {/* A compact top bar instead of a big picture (Pontus 2026-11-06): back on the left, the heart and ⋯ on the right.
+          Matkoll on the home screen has no browser back button (AD-27): back in history when opened within Matkoll, else to Recept. */}
+      <div className="flex items-center justify-between desktop:mt-10">
+        <BackLink fallbackHref="/recept" aria-label="Tillbaka" className="-ml-2 flex size-tap items-center justify-center">
+          <span className="flex size-10 items-center justify-center rounded-full bg-surface text-ink">
             <ChevronLeftIcon size={22} />
           </span>
         </BackLink>
-        <div className="absolute top-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] right-[calc(var(--gutter-page)-2px)] flex desktop:top-1 desktop:right-1">
+        <div className="-mr-2 flex">
           <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} glass="large" />
           {menu}
         </div>
       </div>
 
-      <header className="flex flex-col gap-1.5">
+      <header className="flex items-center gap-3.5">
+        <RecipeImage src={recipe.imageUrl} iconSize={26} className="size-[72px] shrink-0 rounded-lg" />
+        <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="min-w-0 text-recipe-title wrap-break-word text-ink">{recipe.title}</h1>
         <p className="text-meta text-ink-2" data-testid="recipe-meta">
           {time ? <span>{time}</span> : null}
@@ -131,6 +122,7 @@ export function RecipeView({
             {offerLine}
           </p>
         ) : null}
+        </div>
       </header>
 
       <RecipeBody
