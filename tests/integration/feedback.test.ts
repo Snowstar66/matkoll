@@ -1,3 +1,5 @@
+import { createServerClient } from "@supabase/ssr";
+import type { Database } from "@/lib/supabase/database.types";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, type TestUser } from "./support";
 
@@ -173,5 +175,92 @@ describe("feedback", () => {
     expect(await adminFeedback(leaver.id)).toHaveLength(1);
     expect((await adminClient().auth.admin.deleteUser(leaver.id)).error).toBeNull();
     expect(await adminFeedback(leaver.id)).toHaveLength(0);
+  });
+
+  describe("error reports (kind error)", () => {
+    const report = { kind: "error", body: "TypeError: x [sidan kraschade]\nat f (a.js)", area: "recept", page: "/recept", app_version: "0.1.0+abc1234", digest: "1234567890" };
+
+    it("lets a user add their own, which only the owner reads, and nobody else", async () => {
+      const reporter = await createTestUser("feedback-error-reporter");
+      expect((await reporter.db.from("feedback").insert(report)).error).toBeNull();
+      const rows = await adminFeedback(reporter.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ ...report, user_id: reporter.id, sender_email: reporter.email, read_at: null, stars: null });
+
+      expect((await reporter.db.from("feedback").select("id").eq("user_id", reporter.id)).data, "the reporter reads").toEqual([]);
+      expect((await other.db.from("feedback").select("id").eq("user_id", reporter.id)).data, "another user reads").toEqual([]);
+      const seen = await owner.db.from("feedback").select("kind, digest, body").eq("user_id", reporter.id);
+      expect(seen.data).toEqual([{ kind: "error", digest: "1234567890", body: report.body }]);
+      const marked = await owner.db.from("feedback").update({ read_at: new Date().toISOString() }).eq("user_id", reporter.id).select("id");
+      expect(marked.data).toHaveLength(1);
+    });
+
+    it("refuses an error row in another's name, and from anon", async () => {
+      expect((await sender.db.from("feedback").insert({ ...report, user_id: other.id } as never)).error?.code).toBe("42501");
+      expect((await anonClient().from("feedback").insert(report)).error?.code).toBe("42501");
+    });
+
+    it("keeps the digest to error rows and to 64 characters, and the body to 2000", async () => {
+      const user = await createTestUser("feedback-error-checks");
+      expect((await user.db.from("feedback").insert({ kind: "idea", body: "x", digest: "1" })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, digest: "d".repeat(65) })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, body: "x".repeat(2001) })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, body: "  " })).error?.code).toBe("23514");
+    });
+
+    it("stops a sender after 5 error reports in 10 minutes, without using up their ordinary messages", async () => {
+      const crasher = await createTestUser("feedback-error-crasher");
+      for (let index = 0; index < 5; index++) {
+        expect((await crasher.db.from("feedback").insert({ ...report, body: `Fel ${index}` })).error, `report ${index + 1}`).toBeNull();
+      }
+      expect((await crasher.db.from("feedback").insert({ ...report, body: "Fel 6" })).error?.code).toBe("MK429");
+      expect((await adminFeedback(crasher.id)).filter((row) => row.kind === "error")).toHaveLength(5);
+      // The limit holds for the service role too: a script must not flood either.
+      expect((await adminClient().from("feedback").insert({ ...report, user_id: crasher.id, body: "Fel 7" })).error?.code).toBe("MK429");
+      // Ordinary messages are counted apart: ten still go through, the eleventh does not.
+      for (let index = 0; index < 10; index++) {
+        expect((await crasher.db.from("feedback").insert({ kind: "idea", body: `Förslag ${index}` })).error, `idea ${index + 1}`).toBeNull();
+      }
+      expect((await crasher.db.from("feedback").insert({ kind: "idea", body: "En för mycket" })).error?.code).toBe("MK429");
+    });
+
+    it("stops a sender after 40 error reports in a day, even when spread over time", async () => {
+      const daily = await createTestUser("feedback-error-daily");
+      // 40 reports spread over the last 20 hours (older than 10 minutes, so only the daily cap applies).
+      const old = Array.from({ length: 40 }, (_, index) => ({
+        ...report,
+        user_id: daily.id,
+        body: `Fel ${index}`,
+        created_at: new Date(Date.now() - (30 + index * 30) * 60_000).toISOString(),
+      }));
+      expect((await adminClient().from("feedback").insert(old)).error).toBeNull();
+      expect((await daily.db.from("feedback").insert({ ...report, body: "Fel 41" })).error?.code).toBe("MK429");
+    });
+
+    it("accepts an error row from a client that carries only the user's access token as a header (the server reporter)", async () => {
+      const bearer = await createTestUser("feedback-error-bearer");
+      const token = (await bearer.db.auth.getSession()).data.session!.access_token;
+      const headerOnly = createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+        cookies: { getAll: () => [], setAll: () => {} },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      expect((await headerOnly.from("feedback").insert({ ...report, body: "Från servern" })).error).toBeNull();
+      expect((await adminFeedback(bearer.id)).map((row) => [row.body, row.user_id])).toEqual([["Från servern", bearer.id]]);
+    });
+
+    it("deletes error reports older than 30 days when a new one comes in, and keeps ordinary messages", async () => {
+      const keeper = await createTestUser("feedback-error-retention");
+      const day = 24 * 60 * 60_000;
+      const rows = [
+        { ...report, user_id: keeper.id, body: "Gammalt fel", created_at: new Date(Date.now() - 31 * day).toISOString() },
+        { ...report, user_id: keeper.id, body: "Nyligt fel", created_at: new Date(Date.now() - 29 * day).toISOString() },
+        { kind: "idea", user_id: keeper.id, body: "Gammalt förslag", created_at: new Date(Date.now() - 90 * day).toISOString() },
+      ];
+      expect((await adminClient().from("feedback").insert(rows as never)).error).toBeNull();
+      expect((await keeper.db.from("feedback").insert({ ...report, body: "Nytt fel" })).error).toBeNull();
+      const bodies = (await adminFeedback(keeper.id)).map((row) => row.body).sort();
+      expect(bodies).toEqual(["Gammalt förslag", "Nyligt fel", "Nytt fel"]);
+    });
   });
 });

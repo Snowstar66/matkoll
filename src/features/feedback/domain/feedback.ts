@@ -8,8 +8,8 @@ import { appName } from "@/app/app-info";
 export const feedbackSheetKinds = ["idea", "rate", "problem"] as const;
 export type FeedbackSheetKind = (typeof feedbackSheetKinds)[number];
 
-/** What is stored in `feedback.kind`. */
-export const feedbackKinds = ["idea", "rating", "problem"] as const;
+/** What is stored in `feedback.kind`; "error" is an automatic error report (never sent from a sheet). */
+export const feedbackKinds = ["idea", "rating", "problem", "error"] as const;
 export type FeedbackKind = (typeof feedbackKinds)[number];
 
 export function storedKindOf(sheet: FeedbackSheetKind): FeedbackKind {
@@ -129,17 +129,19 @@ export type FeedbackItem = {
   area: string | null;
   page: string | null;
   appVersion: string | null;
+  /** Next.js error digest, only on an error report. */
+  digest?: string | null;
   senderEmail: string;
   userId: string;
   createdAt: string;
   readAt: string | null;
 };
 
-/** The chips of the inbox: Förslag · Betyg · Fel. */
-export const kindLabels: Record<FeedbackKind, string> = { idea: "Förslag", rating: "Betyg", problem: "Fel" };
+/** The chips of the inbox: Förslag · Betyg · Fel (what a person wrote) · Krasch (reported by the app itself). */
+export const kindLabels: Record<FeedbackKind, string> = { idea: "Förslag", rating: "Betyg", problem: "Fel", error: "Krasch" };
 
 export function kindCounts(items: readonly FeedbackItem[]): Record<FeedbackKind, number> {
-  const counts: Record<FeedbackKind, number> = { idea: 0, rating: 0, problem: 0 };
+  const counts: Record<FeedbackKind, number> = { idea: 0, rating: 0, problem: 0, error: 0 };
   for (const item of items) counts[item.kind] += 1;
   return counts;
 }

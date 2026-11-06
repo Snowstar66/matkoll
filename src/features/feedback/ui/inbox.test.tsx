@@ -87,4 +87,38 @@ describe("Inbox", () => {
     render(<Inbox items={[]} now={now} />);
     expect(screen.getByText("Inkorgen är tom.")).toBeInTheDocument();
   });
+
+  it("shows an automatic error report as Krasch, with its first line, and the digest and page when opened", async () => {
+    const user = userEvent.setup();
+    const report: FeedbackItem = {
+      id: "55555555-5555-4555-8555-555555555555",
+      kind: "error",
+      stars: null,
+      body: "TypeError: x is undefined [sidan kraschade]\nat save (https://x.se/a.js)",
+      area: "recept",
+      page: "/recept/[id]",
+      appVersion: "0.1.0+abc1234",
+      digest: "1234567890",
+      senderEmail: "anna@example.se",
+      userId: "a",
+      createdAt: "2026-11-01T20:20:00Z",
+      readAt: null,
+    };
+    render(<Inbox items={[report, ...items]} now={now} />);
+    expect(screen.getByRole("button", { name: "Krasch 1" })).toBeInTheDocument();
+    // Newest first among Nya.
+    const row = within(group("Nya")).getAllByRole("listitem")[0]!;
+    expect(row).toHaveTextContent("Krasch · ReceptTypeError: x is undefined [sidan kraschade]");
+    expect(row).not.toHaveTextContent("at save");
+
+    await user.click(screen.getByRole("button", { name: "Krasch 1" }));
+    expect(screen.getAllByTestId("inbox-message")).toHaveLength(1);
+    await user.click(screen.getByTestId("inbox-message"));
+    const dialog = screen.getByRole("dialog", { name: "Anna" });
+    expect(within(dialog).getByText(/at save/)).toBeInTheDocument();
+    expect(within(dialog).getByText("1234567890")).toBeInTheDocument();
+    expect(within(dialog).getByText("/recept/[id]")).toBeInTheDocument();
+    expect(within(dialog).getByText("0.1.0+abc1234")).toBeInTheDocument();
+    expect(markFeedbackRead).toHaveBeenCalledWith(report.id);
+  });
 });

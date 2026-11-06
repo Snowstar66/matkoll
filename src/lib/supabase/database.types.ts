@@ -95,14 +95,14 @@ isOneToOne: false
                   ]
                 },"feedback": {
                   Row: {
-                    "app_version": string | null,"area": string | null,"body": string,"created_at": string,"id": string,"kind": string,"page": string | null,"read_at": string | null,"sender_email": string,"stars": number | null,"user_id": string
+                    "app_version": string | null,"area": string | null,"body": string,"created_at": string,"digest": string | null,"id": string,"kind": string,"page": string | null,"read_at": string | null,"sender_email": string,"stars": number | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"id"?: string,"kind": string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
+                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"digest"?: string | null,"id"?: string,"kind": string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
                   }
                   Update: {
-                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"id"?: string,"kind"?: string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
+                    "app_version"?: string | null,"area"?: string | null,"body"?: string,"created_at"?: string,"digest"?: string | null,"id"?: string,"kind"?: string,"page"?: string | null,"read_at"?: string | null,"sender_email"?: string,"stars"?: number | null,"user_id"?: string
                   }
                   Relationships: [
                     

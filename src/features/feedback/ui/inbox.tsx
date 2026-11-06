@@ -65,7 +65,7 @@ export function Inbox({ items, now }: { items: readonly FeedbackItem[]; now: str
   }
 
   if (items.length === 0) {
-    return <EmptyState title="Inkorgen är tom.">Förslag, betyg och fel som skickas från Hjälp hamnar här.</EmptyState>;
+    return <EmptyState title="Inkorgen är tom.">Förslag, betyg och fel som skickas från Hjälp, och krascher som appen rapporterar själv, hamnar här.</EmptyState>;
   }
 
   return (
@@ -133,6 +133,8 @@ function MessageGroup({
   );
 }
 
+const firstLine = (text: string) => text.split("\n")[0] ?? text;
+
 function KindLine({ item }: { item: FeedbackItem }) {
   const line = kindLine(item);
   return (
@@ -178,7 +180,16 @@ function MessageRow({ item, read, now, onOpen }: { item: FeedbackItem; read: boo
         </span>
         <KindLine item={item} />
         {item.body ? (
-          <span className={cx("mt-0.5 line-clamp-2 block text-[15px] leading-[21px] wrap-break-word", read ? "text-ink-2" : "text-ink")}>{item.body}</span>
+          <span
+            className={cx(
+              "mt-0.5 line-clamp-2 block wrap-break-word",
+              // Automatic error reports are technical: smaller and monospaced, in the muted ink (never red).
+              item.kind === "error" ? "font-mono text-[13px] leading-[18px] text-ink-2" : "text-[15px] leading-[21px]",
+              item.kind !== "error" && (read ? "text-ink-2" : "text-ink"),
+            )}
+          >
+            {item.kind === "error" ? firstLine(item.body) : item.body}
+          </span>
         ) : null}
       </span>
     </button>
@@ -198,12 +209,22 @@ function MessageSheet({ item, now, error, onClose }: { item: FeedbackItem | null
               {sender.email} · {receivedText(item.createdAt, now)}
             </p>
           </div>
-          {item.body ? <p className="text-body whitespace-pre-wrap text-ink wrap-break-word">{item.body}</p> : null}
+          {item.body ? (
+            <p className={cx("whitespace-pre-wrap wrap-break-word", item.kind === "error" ? "font-mono text-[13px] leading-[18px] text-ink-2" : "text-body text-ink")}>
+              {item.body}
+            </p>
+          ) : null}
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[15px] leading-[21px]">
             <dt className="text-ink-2">Sidan</dt>
             <dd className="text-ink break-all">{item.page ?? "–"}</dd>
             <dt className="text-ink-2">Version</dt>
             <dd className="text-ink">{item.appVersion ?? "–"}</dd>
+            {item.digest ? (
+              <>
+                <dt className="text-ink-2">Kod</dt>
+                <dd className="text-ink break-all">{item.digest}</dd>
+              </>
+            ) : null}
           </dl>
           {error ? (
             <p role="alert" className="text-meta text-sky-ink">

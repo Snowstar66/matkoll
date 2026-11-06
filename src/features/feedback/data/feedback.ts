@@ -1,5 +1,6 @@
 import "server-only";
 import { FeedbackDataError, type FeedbackDb } from "./client";
+import type { ErrorReport } from "../domain/error-report";
 import type { FeedbackItem, FeedbackKind, ValidFeedback } from "../domain/feedback";
 
 // The table feedback (Story 20.3). Every call runs with the signed-in user's
@@ -28,6 +29,24 @@ export async function insertFeedbackIn(db: FeedbackDb, input: ValidFeedback, app
   return "sent";
 }
 
+/**
+ * Adds an automatic error report as the signed-in user (kind error). `limited` when the
+ * user has sent 5 in the last 10 minutes (MK429), which is not an error.
+ */
+export async function insertErrorReportIn(db: FeedbackDb, report: ErrorReport, appVersion: string): Promise<"sent" | "limited"> {
+  const { error } = await db.from("feedback").insert({
+    kind: "error",
+    body: report.body,
+    area: report.area,
+    page: report.page,
+    digest: report.digest,
+    app_version: appVersion,
+  });
+  if (error?.code === "MK429") return "limited";
+  if (error) throw new FeedbackDataError(`insert_error_report_failed ${error.code}`);
+  return "sent";
+}
+
 /** Whether the signed-in user is the app's owner (is_app_owner(), Story 20.3). */
 export async function isAppOwnerIn(db: FeedbackDb): Promise<boolean> {
   const { data, error } = await db.rpc("is_app_owner");
@@ -42,7 +61,7 @@ export async function countUnreadFeedbackIn(db: FeedbackDb): Promise<number> {
   return count ?? 0;
 }
 
-const columns = "id, user_id, sender_email, kind, stars, body, area, page, app_version, created_at, read_at";
+const columns = "id, user_id, sender_email, kind, stars, body, area, page, app_version, digest, created_at, read_at";
 
 /** The newest messages for the owner's inbox; nothing for anyone else. */
 export async function listFeedbackIn(db: FeedbackDb): Promise<FeedbackItem[]> {
@@ -58,6 +77,7 @@ export async function listFeedbackIn(db: FeedbackDb): Promise<FeedbackItem[]> {
     area: row.area,
     page: row.page,
     appVersion: row.app_version,
+    digest: row.digest,
     createdAt: row.created_at,
     readAt: row.read_at,
   }));
