@@ -9,8 +9,8 @@ describe("CATEGORIES", () => {
       "Bröd",
       "Mejeri & ägg",
       "Kött, fisk & chark",
-      "Frys",
-      "Skafferi",
+      "Fryst",
+      "Torrvaror & konserver",
       "Såser & smaksättare",
       "Dryck",
       "Övrigt",
@@ -25,11 +25,11 @@ describe("CATEGORIES", () => {
 
 describe("compareCategories", () => {
   it("sorts in the store's order", () => {
-    const shuffled: Category[] = ["Övrigt", "Skafferi", "Frukt & grönt", "Såser & smaksättare", "Mejeri & ägg"];
+    const shuffled: Category[] = ["Övrigt", "Torrvaror & konserver", "Frukt & grönt", "Såser & smaksättare", "Mejeri & ägg"];
     expect([...shuffled].sort(compareCategories)).toEqual([
       "Frukt & grönt",
       "Mejeri & ägg",
-      "Skafferi",
+      "Torrvaror & konserver",
       "Såser & smaksättare",
       "Övrigt",
     ]);
@@ -50,8 +50,8 @@ describe("displayCategory", () => {
       "Mejeri & ägg",
       "Kött, fisk & chark",
       "Kött, fisk & chark",
-      "Frys",
-      "Skafferi",
+      "Fryst",
+      "Torrvaror & konserver",
       "Dryck",
       "Övrigt",
     ]);
@@ -70,8 +70,8 @@ describe("displayCategory", () => {
     ["Chark", "Falukorv", "Kött, fisk & chark"],
     ["Kött och fisk", "Lax", "Kött, fisk & chark"],
     ["Kött och fisk", "Kycklingfilé", "Kött, fisk & chark"],
-    ["Frys", "Frysta ärtor", "Frys"],
-    ["Frys", "Pepparsås", "Frys"],
+    ["Frys", "Frysta ärtor", "Fryst"],
+    ["Frys", "Pepparsås", "Fryst"],
     ["Dryck", "Läsk", "Dryck"],
     ["Övrigt", "Diskmedel", "Övrigt"],
     ["Skafferi", "Sojasås", "Såser & smaksättare"],
@@ -94,18 +94,18 @@ describe("displayCategory", () => {
     ["Skafferi", "  SOJASÅS ", "Såser & smaksättare"],
     ["Skafferi", "1 msk sojasås", "Såser & smaksättare"],
     // Not a sauce: a sauce word inside the name, not at its end.
-    ["Skafferi", "Krossade tomater", "Skafferi"],
-    ["Skafferi", "Saltgurka", "Skafferi"],
-    ["Skafferi", "Pasta", "Skafferi"],
-    ["Skafferi", "Pepparkakor", "Skafferi"],
-    ["Skafferi", "Sojabönor", "Skafferi"],
-    ["Skafferi", "Kanelbullar", "Skafferi"],
-    ["Skafferi", "Currypasta", "Skafferi"],
-    ["Skafferi", "Salta pinnar", "Skafferi"],
-    ["Skafferi", "Bakpulver", "Skafferi"],
-    ["Skafferi", "", "Skafferi"],
+    ["Skafferi", "Krossade tomater", "Torrvaror & konserver"],
+    ["Skafferi", "Saltgurka", "Torrvaror & konserver"],
+    ["Skafferi", "Pasta", "Torrvaror & konserver"],
+    ["Skafferi", "Pepparkakor", "Torrvaror & konserver"],
+    ["Skafferi", "Sojabönor", "Torrvaror & konserver"],
+    ["Skafferi", "Kanelbullar", "Torrvaror & konserver"],
+    ["Skafferi", "Currypasta", "Torrvaror & konserver"],
+    ["Skafferi", "Salta pinnar", "Torrvaror & konserver"],
+    ["Skafferi", "Bakpulver", "Torrvaror & konserver"],
+    ["Skafferi", "", "Torrvaror & konserver"],
     // Written sections go through toSection.
-    ["Konserver", "Majs", "Skafferi"],
+    ["Konserver", "Majs", "Torrvaror & konserver"],
     ["kryddor", "Oregano", "Såser & smaksättare"],
     ["Kött & fisk", "Torsk", "Kött, fisk & chark"],
     ["Mejerivaror", "Smör", "Mejeri & ägg"],
@@ -115,7 +115,7 @@ describe("displayCategory", () => {
     ["Skafferi", "Sojasås 150 ml", "Såser & smaksättare"],
     ["Skafferi", "Flingsalt 250g", "Såser & smaksättare"],
     ["Skafferi", "Ketchup 1,5 kg", "Såser & smaksättare"],
-    ["Skafferi", "Pasta 500 g", "Skafferi"],
+    ["Skafferi", "Pasta 500 g", "Torrvaror & konserver"],
     ["Dryck", "Coca-Cola Zero 33 cl", "Dryck"],
     // A sauce word first.
     ["Skafferi", "Senap grov", "Såser & smaksättare"],
@@ -124,24 +124,24 @@ describe("displayCategory", () => {
     ["Skafferi", "Buljong grönsak", "Såser & smaksättare"],
     ["Skafferi", "Soja japansk", "Såser & smaksättare"],
     ["Skafferi", "Senap med honung", "Såser & smaksättare"],
-    ["Skafferi", "Chili con carne", "Skafferi"],
+    ["Skafferi", "Chili con carne", "Torrvaror & konserver"],
     // The part before a comma.
     ["Skafferi", "Senap, söt", "Såser & smaksättare"],
     ["Skafferi", "Peppar, svart", "Såser & smaksättare"],
-    ["Skafferi", "Tomater, krossade", "Skafferi"],
+    ["Skafferi", "Tomater, krossade", "Torrvaror & konserver"],
     // A connective before the last word: a dish with a sauce, not a sauce.
-    ["Skafferi", "Makrill i tomatsås", "Skafferi"],
-    ["Skafferi", "Bönor i tomatsås", "Skafferi"],
-    ["Skafferi", "Krossade tomater med basilika", "Skafferi"],
-    ["Skafferi", "Kidneybönor i chilisås", "Skafferi"],
-    ["Skafferi", "Tonfisk & chili", "Skafferi"],
-    ["Skafferi", "Oliver och vitlök", "Skafferi"],
+    ["Skafferi", "Makrill i tomatsås", "Torrvaror & konserver"],
+    ["Skafferi", "Bönor i tomatsås", "Torrvaror & konserver"],
+    ["Skafferi", "Krossade tomater med basilika", "Torrvaror & konserver"],
+    ["Skafferi", "Kidneybönor i chilisås", "Torrvaror & konserver"],
+    ["Skafferi", "Tonfisk & chili", "Torrvaror & konserver"],
+    ["Skafferi", "Oliver och vitlök", "Torrvaror & konserver"],
     // Snacks with a flavour last.
-    ["Skafferi", "Chips dill", "Skafferi"],
-    ["Skafferi", "Jordnötter chili", "Skafferi"],
-    ["Skafferi", "Nötmix salt", "Skafferi"],
-    ["Skafferi", "Cashewnötter salt", "Skafferi"],
-    ["Skafferi", "Popcorn salt", "Skafferi"],
+    ["Skafferi", "Chips dill", "Torrvaror & konserver"],
+    ["Skafferi", "Jordnötter chili", "Torrvaror & konserver"],
+    ["Skafferi", "Nötmix salt", "Torrvaror & konserver"],
+    ["Skafferi", "Cashewnötter salt", "Torrvaror & konserver"],
+    ["Skafferi", "Popcorn salt", "Torrvaror & konserver"],
     // More spices and compound powders.
     ["Skafferi", "Svartpepparkorn", "Såser & smaksättare"],
     ["Skafferi", "Gurkmeja", "Såser & smaksättare"],
@@ -161,9 +161,9 @@ describe("displayCategory", () => {
     ["Skafferi", "Buljongkoncentrat", "Såser & smaksättare"],
     ["Skafferi", "Fänkålsfrö", "Såser & smaksättare"],
     ["Skafferi", "Asiatiska såser", "Såser & smaksättare"],
-    ["Skafferi", "Bakpulver", "Skafferi"],
-    ["Skafferi", "Kakaopulver", "Skafferi"],
-    ["Skafferi", "Vaniljsocker", "Skafferi"],
+    ["Skafferi", "Bakpulver", "Torrvaror & konserver"],
+    ["Skafferi", "Kakaopulver", "Torrvaror & konserver"],
+    ["Skafferi", "Vaniljsocker", "Torrvaror & konserver"],
     // Diacritics are folded on both sides.
     ["Skafferi", "Sojasas", "Såser & smaksättare"],
     ["Skafferi", "Attika", "Såser & smaksättare"],
@@ -176,20 +176,20 @@ describe("displayCategory", () => {
     ["kryddor", "Allkrydda", "Såser & smaksättare"],
     ["Kryddor", "Lagerblad", "Såser & smaksättare"],
     ["såser", "Ajvar", "Såser & smaksättare"],
-    ["Skafferi", "Majs", "Skafferi"],
+    ["Skafferi", "Majs", "Torrvaror & konserver"],
   ])("(%j, %j) is %s", (section, name, category) => {
     expect(displayCategory(section, name)).toBe(category);
   });
 
-  it.each(SAUCE_WORDS.map((word) => [word]))("%s in Skafferi is Såser & smaksättare", (word) => {
+  it.each(SAUCE_WORDS.map((word) => [word]))("%s in Torrvaror & konserver is Såser & smaksättare", (word) => {
     const name = word.charAt(0).toLocaleUpperCase("sv-SE") + word.slice(1);
     expect(displayCategory("Skafferi", name)).toBe("Såser & smaksättare");
     expect(displayCategory("Skafferi", `Eko ${word}`)).toBe("Såser & smaksättare");
   });
 
-  it.each(SAUCE_WORDS.map((word) => [word]))("%s outside Skafferi keeps its section's category", (word) => {
+  it.each(SAUCE_WORDS.map((word) => [word]))("%s outside Torrvaror & konserver keeps its section's category", (word) => {
     expect(displayCategory("Mejeri", word)).toBe("Mejeri & ägg");
-    expect(displayCategory("Frys", word)).toBe("Frys");
+    expect(displayCategory("Frys", word)).toBe("Fryst");
   });
 
   it("has no empty or repeated sauce words, all normalised", () => {

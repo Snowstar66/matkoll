@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-06",
+    title: "Nya kategorinamn",
+    bullets: [
+      "Kategorin Skafferi heter nu Torrvaror & konserver och Frys heter Fryst, så de inte blandas ihop med lagren.",
+      "Det syns på Matvaror, Inköpslista och Erbjudanden. Lagren Kyl, Frys och Skafferi heter som förut.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Vad kan jag laga nu?",
     bullets: [
       "Ny knapp överst på Matvaror: Vad kan jag laga nu? Ett ark öppnas direkt, utan hopp till Recept.",
