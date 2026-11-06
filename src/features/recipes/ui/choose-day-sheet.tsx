@@ -10,19 +10,21 @@ import { weekdayNames, weekdays } from "@/features/mealplan";
 export type ChooseDaySheetProps = {
   open: boolean;
   onClose: () => void;
+  /** The week the dish is on: "Vecka 46, nästa vecka"; said in the subtitle. */
+  weekLabel?: string;
   /** The dish's day now, 1–7, or `null`. */
   weekday: number | null;
   /** Called with the chosen day (1–7) or `null` for "Ingen dag"; the sheet closes at once. */
   onChoose: (weekday: number | null) => void;
 };
 
-export function ChooseDaySheet({ open, onClose, weekday, onChoose }: ChooseDaySheetProps) {
+export function ChooseDaySheet({ open, onClose, weekday, weekLabel, onChoose }: ChooseDaySheetProps) {
   const choices: { value: number | null; label: string; sub: string }[] = [
     ...weekdays.map((day) => ({ value: day as number | null, label: (weekdayNames[day - 1] as string).slice(0, 3), sub: "" })),
     { value: null, label: "Ingen", sub: "dag" },
   ];
   return (
-    <Sheet open={open} onClose={onClose} title="Vilken dag?" subtitle="Frivilligt. Rätten ligger på veckan ändå." closeLabel="Avbryt">
+    <Sheet open={open} onClose={onClose} title="Vilken dag?" subtitle={weekLabel ? `${weekLabel}. Frivilligt, rätten ligger på veckan ändå.` : "Frivilligt. Rätten ligger på veckan ändå."} closeLabel="Avbryt">
       <ul aria-label="Dagar" className="grid grid-cols-4 gap-2">
         {choices.map(({ value, label, sub }) => {
           const current = value === weekday;
