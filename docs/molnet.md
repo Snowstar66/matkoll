@@ -182,8 +182,11 @@ Preview får bara `SITE_URL` och `AI_PROVIDER=mock`. Förhandsversioner når dä
 | `SUPABASE_PROJECT_REF` | Secret | `<ref>` från steg 1 (bara id:t, ingen adress) | `cloud-migrate.yml`, `offers.yml` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret | `sb_secret_…`: Supabase → Project Settings → API Keys (samma som i steg 5) | `offers.yml` |
 | `SUPABASE_PUBLISHABLE_KEY` | Secret | `sb_publishable_…`: samma värde som `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` i Vercel | `offers.yml` |
+| `SITE_URL` | Variable (inte hemlig) | appens adress, t.ex. `https://livskoll.vercel.app` (samma som `SITE_URL` i Vercel) | `offers.yml`, idéerna (se nedan) |
 | `SUPABASE_DB_URL` | Secret | Session pooler-strängen med lösenordet i (procentkodat, `@` blir `%40`) | `backup.yml` |
 | `BACKUP_PASSPHRASE` | Secret | minst 32 tecken: `openssl rand -base64 32`; spara i lösenordshanteraren, utan den går kopiorna inte att läsa | `backup.yml` |
+
+**Idéer redo på morgonen:** efter hämtningen förbereder `offers.yml` "Nya idéer med extrapris" för varje hushåll som har erbjudanden den här veckan men ingen färdig uppsättning (`pnpm offers:ideas`, `scripts/offer-ideas.ts`), ett hushåll i taget. Det kräver bara variabeln `SITE_URL` i GitHub (tabellen ovan); inga nya hemligheter, och nyckeln för tjänsteroll läggs fortfarande aldrig i Vercel. Utan `SITE_URL` hoppas steget över och idéerna startas som förut när någon öppnar erbjudandena. Jobbet loggar in som hushållets ägare (annars äldsta medlem), så det är ägarens AI-val som gäller, och anropar `POST /api/offer-ideas/prepare` med den sessionen. Söndagskvällens körning (19:00 UTC) gör idéerna för nästa vecka så snart erbjudandena finns.
 
 ## 5. Din användare – [Båda]
 
