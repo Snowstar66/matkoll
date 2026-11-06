@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
 import type { DishSuggestionsState, ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
-import { OfferIdeas } from "./offer-ideas";
+import { OfferIdeaPreviewHost, OfferIdeas } from "./offer-ideas";
 
 // "Nya idéer med extrapris": the friend's intro, a why per dish, "+" opens the
 // preview. The AI job itself is the hook's (mocked here, as the other UI tests do).
@@ -110,6 +110,25 @@ describe("OfferIdeas", () => {
     const plus = screen.getByRole("button", { name: "Granska och spara: Fläskfilé med broccoli" });
     expect(plus.className).toContain("size-tap");
     await userEvent.setup().click(plus);
+    expect(screen.getByRole("dialog", { name: "Spara AI-förslag" })).toHaveTextContent("Fläskfilé med broccoli");
+  });
+
+  it("inside another sheet, + opens the preview in the host, which stays when the card goes (one sheet shows at a time)", async () => {
+    setState({ arrivals: 1, suggestions: [idea(1, "Fläskfilé med broccoli", "Billig.")] });
+    const { rerender } = render(
+      <ToastProvider>
+        <OfferIdeas weekStart="2026-11-02" addToWeek={vi.fn()} searchIngredients={async () => ok([])} previewOutside />
+        <OfferIdeaPreviewHost />
+      </ToastProvider>,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Granska och spara: Fläskfilé med broccoli" }));
+    // The offers sheet closes when the preview opens: the card is gone, the preview is not.
+    rerender(
+      <ToastProvider>
+        <OfferIdeaPreviewHost />
+      </ToastProvider>,
+    );
+    expect(screen.queryByTestId("offer-ideas")).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Spara AI-förslag" })).toHaveTextContent("Fläskfilé med broccoli");
   });
 

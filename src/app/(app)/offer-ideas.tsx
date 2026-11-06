@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { AiBadge } from "@/components/badges";
 import { AiWorking } from "@/components/ai-working";
 import { Button, buttonClasses } from "@/components/button";
@@ -16,7 +16,7 @@ import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import { useDishSuggestions, type ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
-import type { Result } from "@/lib/errors";
+import { ok, type Result } from "@/lib/errors";
 
 // "Nya idéer med extrapris": the one flow for AI ideas around the offers, in
 // the card Rätter med extrapris (Veckans erbjudanden) and under På erbjudande
@@ -33,11 +33,42 @@ const ideaSteps = ["Letar efter idéer …", "Väger ihop förslagen …", "Sät
 
 type AddToWeek = (input: { recipeId: string; id: string; weekStart: string }) => Promise<Result<{ weekday?: number | null }>>;
 
+/**
+ * The preview of an idea opened from inside another sheet (Rätter med extrapris in Veckans
+ * erbjudanden). Only one sheet shows at a time, so opening the preview closes the offers sheet and
+ * unmounts the card; the preview therefore lives here, outside it, and OfferIdeaPreviewHost (in the
+ * app layout) shows it.
+ */
+type OutsidePreview = {
+  suggestion: ShownSuggestion;
+  weekStart: string;
+  addToWeek: AddToWeek;
+  searchIngredients: SearchIngredients;
+  onSaved: (key: number) => void;
+};
+
+let outsidePreview: OutsidePreview | null = null;
+const previewListeners = new Set<() => void>();
+
+function setOutsidePreview(preview: OutsidePreview | null) {
+  outsidePreview = preview;
+  for (const listener of previewListeners) listener();
+}
+
+function subscribePreview(listener: () => void) {
+  previewListeners.add(listener);
+  return () => {
+    previewListeners.delete(listener);
+  };
+}
+
 export type OfferIdeasProps = {
   weekStart: string;
   /** mealplan.addToCurrentPlan from the page (AD-1). */
   addToWeek: AddToWeek;
   searchIngredients: SearchIngredients;
+  /** Inside another sheet: the preview opens through OfferIdeaPreviewHost, which outlives that sheet. */
+  previewOutside?: boolean;
 };
 
 /** The meta line of an idea: "AI-förslag · 35 min". */
@@ -53,7 +84,7 @@ function ideaDeal({ onOffer = [] }: ShownSuggestion): string | null {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)} på extrapris`;
 }
 
-export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIdeasProps) {
+export function OfferIdeas({ weekStart, addToWeek, searchIngredients, previewOutside = false }: OfferIdeasProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const dishes = useDishSuggestions(null, { mode: "offers", visible: true });
@@ -95,7 +126,11 @@ export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIde
             <PlanRow key={idea.key} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} deal={ideaDeal(idea)}>
               <button
                 type="button"
-                onClick={() => setOpened(idea)}
+                onClick={() =>
+                  previewOutside
+                    ? setOutsidePreview({ suggestion: idea, weekStart, addToWeek, searchIngredients, onSaved: remove })
+                    : setOpened(idea)
+                }
                 aria-label={`Granska och spara: ${idea.draft.title}`}
                 className="flex size-tap shrink-0 items-center justify-center rounded-full bg-mint text-mint-ink"
               >
@@ -133,24 +168,64 @@ export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIde
           {ideas.length > 0 ? "Andra idéer med extrapris" : "Nya idéer med extrapris"}
         </button>
       )}
-      <AiSuggestionSheet
-        key={opened ? opened.key : "stängt"}
-        suggestion={opened}
-        searchIngredients={searchIngredients}
-        week={{
-          weekStart,
-          add: addToWeek,
-          onAdded: (title, weekday) => {
-            showToast(weekday ? `${title} sparad, på ${weekdayWord(weekday)}.` : `${title} sparad och på veckan. Alla dagar har en rätt.`);
-            router.refresh();
-          },
-        }}
-        onClose={() => setOpened(null)}
-        onSaved={(key) => {
-          setOpened(null);
-          remove(key);
-        }}
-      />
+      {previewOutside ? null : (
+        <AiSuggestionSheet
+          key={opened ? opened.key : "stängt"}
+          suggestion={opened}
+          searchIngredients={searchIngredients}
+          week={{
+            weekStart,
+            add: addToWeek,
+            onAdded: (title, weekday) => {
+              showToast(addedIdeaText(title, weekday));
+              router.refresh();
+            },
+          }}
+          onClose={() => setOpened(null)}
+          onSaved={(key) => {
+            setOpened(null);
+            remove(key);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function addedIdeaText(title: string, weekday: number | null | undefined): string {
+  return weekday ? `${title} sparad, på ${weekdayWord(weekday)}.` : `${title} sparad och på veckan. Alla dagar har en rätt.`;
+}
+
+/** While no preview is open nothing searches; the sheet is closed. */
+const noSearch: SearchIngredients = async () => ok([]);
+
+/** Shows the preview OfferIdeas opened from inside another sheet; rendered once, in the app layout. */
+export function OfferIdeaPreviewHost() {
+  const router = useRouter();
+  const { showToast } = useToast();
+  const preview = useSyncExternalStore(subscribePreview, () => outsidePreview, () => null);
+  return (
+    <AiSuggestionSheet
+      key={preview ? preview.suggestion.key : "stängt"}
+      suggestion={preview?.suggestion ?? null}
+      searchIngredients={preview?.searchIngredients ?? noSearch}
+      week={
+        preview
+          ? {
+              weekStart: preview.weekStart,
+              add: preview.addToWeek,
+              onAdded: (title, weekday) => {
+                showToast(addedIdeaText(title, weekday));
+                router.refresh();
+              },
+            }
+          : undefined
+      }
+      onClose={() => setOutsidePreview(null)}
+      onSaved={(key) => {
+        preview?.onSaved(key);
+        setOutsidePreview(null);
+      }}
+    />
   );
 }
