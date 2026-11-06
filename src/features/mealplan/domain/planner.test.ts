@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedToWeekText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, onWeekLabel, shownDishes, weekBarText } from "./planner";
+import { addedToWeekText, calendarRows, targetDayText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, onWeekLabel, shownDishes, weekBarText } from "./planner";
 import type { PlanDish } from "./meal-plan";
 
 const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): PlanDish => ({
@@ -75,5 +75,30 @@ describe("shownDishes", () => {
   it("makes a dish from the row an add returned, with no day", () => {
     const shown = dishFromRow({ id: "x", mealPlanId: "plan", recipeId: "r", recipeTitle: "Tacos", servings: 4, position: 3, weekday: null });
     expect(shown).toMatchObject({ id: "x", recipe: null, weekday: null });
+  });
+});
+
+describe("calendarRows", () => {
+  const d = (id: string, weekday: number | null) => dish(id, 1, { weekday });
+
+  it("makes a row of each day: dishes, with the day on the first, and free days", () => {
+    const rows = calendarRows([d("a", 1), d("b", 1), d("c", 3)], 1);
+    expect(rows.map((row) => (row.kind === "dish" ? `${row.dish.id}${row.showDay ? "*" : ""}` : row.kind === "free" ? `free${row.weekday}` : "label"))).toEqual([
+      "a*", "b", "free2", "c*", "free4", "free5", "free6", "free7",
+    ]);
+  });
+
+  it("starts free days at the first open day", () => {
+    const rows = calendarRows([d("a", 2)], 4);
+    expect(rows.filter((row) => row.kind === "free").map((row) => (row.kind === "free" ? row.weekday : 0))).toEqual([4, 5, 6, 7]);
+  });
+
+  it("has no free days in a past week and puts dishes with no day last under a label", () => {
+    const rows = calendarRows([d("a", 2), d("z", null)], 8);
+    expect(rows.map((row) => row.kind)).toEqual(["dish", "no-day-label", "dish"]);
+  });
+
+  it("words the target day", () => {
+    expect(targetDayText(2)).toBe("Läggs på tisdag");
   });
 });

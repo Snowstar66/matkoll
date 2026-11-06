@@ -84,3 +84,38 @@ export function shownDishes(
 export function dishFromRow(row: PlanRecipeRow): PlanDish {
   return { ...row, recipe: null };
 }
+
+/** One row of the week as a calendar: a dish (the day shown on the first of its day), a free day, or the label over dishes with no day. */
+export type CalendarRow =
+  | { kind: "dish"; dish: PlanDish; weekday: number | null; showDay: boolean }
+  | { kind: "free"; weekday: number }
+  | { kind: "no-day-label" };
+
+/**
+ * Veckans rätter as a calendar: Mån to Sön, each day's dishes (the day on the
+ * first only), a "free" row for a day with no dish from `firstOpen` on (the
+ * days the server's first free day looks at), then "Ingen dag" and the
+ * dishes without a day.
+ */
+export function calendarRows(dishes: readonly PlanDish[], firstOpen: number): CalendarRow[] {
+  const rows: CalendarRow[] = [];
+  for (let day = 1; day <= 7; day += 1) {
+    const ofDay = dishes.filter((dish) => dish.weekday === day);
+    if (ofDay.length === 0) {
+      if (day >= firstOpen) rows.push({ kind: "free", weekday: day });
+      continue;
+    }
+    ofDay.forEach((dish, index) => rows.push({ kind: "dish", dish, weekday: day, showDay: index === 0 }));
+  }
+  const without = dishes.filter((dish) => !dish.weekday);
+  if (without.length > 0) {
+    rows.push({ kind: "no-day-label" });
+    for (const dish of without) rows.push({ kind: "dish", dish, weekday: null, showDay: false });
+  }
+  return rows;
+}
+
+/** The hint over the library once a free day is chosen: "Läggs på tisdag". */
+export function targetDayText(weekday: number): string {
+  return `Läggs på ${weekdayWord(weekday)}`;
+}

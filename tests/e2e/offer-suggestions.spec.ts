@@ -252,7 +252,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   // The week is empty: the dish lands on today.
   const today = todayDay();
   const short = dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase());
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(short);
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(new RegExp(`^${short}\\d`));
   await expect(toast(page)).toContainText(new RegExp(`Falukorv med potatismos på ${dayWords[today - 1]}\\. .+ står på inköpslistan\\.`));
   await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
   await expect(row.getByTestId("on-week")).toHaveText(short);
@@ -265,7 +265,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   // "Byt dag" picks a day; the chip says it, and the list is one tab away.
   await toast(page).getByRole("button", { name: "Byt dag" }).click();
   await page.getByRole("dialog", { name: /Flytta till dag/ }).getByRole("button", { name: "Onsdag" }).click();
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText("Ons");
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(/^Ons\d/);
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: /^Inköpslista/ }).click();
   await expect(page).toHaveURL(/\/lista$/);
   await expect(page.getByTestId("shopping-line").filter({ visible: true }).first()).toContainText(/falukorv/i);
@@ -314,7 +314,7 @@ test("Matsedel: the new ideas are ready under På erbjudande and are reviewed an
   await expect(weekDishes(page)).toHaveCount(1);
   await expect(weekDishes(page).first()).toContainText(dishName);
   const today = todayDay();
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase()));
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(new RegExp(`^${dayWords[today - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase())}\\d`));
   await expect(ideas).toHaveCount(2);
 
   // The dish was saved as a recipe first, and is on the plan on today.

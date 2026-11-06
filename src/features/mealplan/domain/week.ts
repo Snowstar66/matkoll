@@ -179,3 +179,17 @@ export function copiedText(count: number, weekStart: string): string {
 export function weekQuery(weekStart: string, now: Date = new Date()): string {
   return weekStart === currentWeekStart(now) ? "" : `?vecka=${weekParam(weekStart)}`;
 }
+
+/** The date of a weekday (1 Mon to 7 Sun) of the week starting `weekStart`, as "10/11"; empty for a bad input. */
+export function weekdayDateText(weekStart: string, weekday: number): string {
+  const date = parseDate(weekStart);
+  if (!date || weekday < 1 || weekday > 7) return "";
+  date.setUTCDate(date.getUTCDate() + weekday - 1);
+  return `${date.getUTCDate()}/${date.getUTCMonth() + 1}`;
+}
+
+/** The first weekday of the viewed week that can still get a dish: today's in this week, 1 in a coming week, 8 (none) in a past one. */
+export function firstOpenWeekday(weekStart: string, now: Date, todayDay: number): number {
+  const ahead = weeksBetween(currentWeekStart(now), weekStart);
+  return ahead < 0 ? 8 : ahead === 0 ? todayDay : 1;
+}
