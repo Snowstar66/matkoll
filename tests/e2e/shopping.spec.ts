@@ -497,7 +497,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedelNy ny\s*Egen\s*Ta bort$/]);
-  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^KaffeNy ny\s*Egen\s*Ta bort$/]);
+  await expect(region(page, "Torrvaror & konserver").getByTestId("shopping-line")).toHaveText([/^KaffeNy ny\s*Egen\s*Ta bort$/]);
 
   await actionsAnswered(page, 1, () => check(page, "diskmedel").click());
   // Moved to I korgen (Story 11.4): Övrigt had only diskmedel.
