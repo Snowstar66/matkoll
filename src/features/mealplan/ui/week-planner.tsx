@@ -6,6 +6,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { Chip } from "@/components/chip";
 import { CloseIcon } from "@/components/icons";
 import { FixedAction } from "@/components/fixed-action";
+import { SwipeRow } from "@/components/swipe-row";
 import { buttonClasses } from "@/components/button";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -222,37 +223,42 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
         ) : (
           <ul aria-label="Veckans rätter" className="overflow-hidden rounded-lg bg-surface">
             {shown.map((dish) => (
-              <li key={dish.id} data-testid="plan-dish" data-dish={dish.id} className="flex items-center gap-2 border-t border-hairline py-2 pr-1 pl-3.5 first:border-t-0">
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  {dish.recipeId ? (
-                    <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink">
-                      {dish.recipeTitle}
-                    </Link>
-                  ) : (
-                    <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{dish.recipeTitle}</p>
-                  )}
-                  <p data-testid="dish-note" className="text-meta text-ink-2">
-                    {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  data-testid="dish-day"
-                  onClick={() => setDayFor(dish.id)}
-                  aria-label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
-                  className={`min-h-9 shrink-0 rounded-pill px-2.5 text-control font-semibold ${dish.weekday ? "bg-mint text-mint-ink" : "bg-bg text-ink-3"}`}
-                >
-                  {dayChipText(dish.weekday)}
-                </button>
-                <button
-                  type="button"
-                  data-testid="dish-remove"
-                  onClick={() => void remove(dish)}
-                  aria-label={`Ta bort ${dish.recipeTitle}`}
-                  className="flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
-                >
-                  <CloseIcon size={18} />
-                </button>
+              <li key={dish.id} data-testid="plan-dish" data-dish={dish.id} className="border-t border-hairline first:border-t-0">
+                {/* Svep vänster tar bort rätten, like a line on the shopping list; "×" does the same. */}
+                <SwipeRow actionLabel="Ta bort" actionName={`Svep bort ${dish.recipeTitle}`} onAction={() => void remove(dish)}>
+                  <div className="flex items-center gap-2 py-2 pr-1 pl-3.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      {dish.recipeId ? (
+                        <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink">
+                          {dish.recipeTitle}
+                        </Link>
+                      ) : (
+                        <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{dish.recipeTitle}</p>
+                      )}
+                      <p data-testid="dish-note" className="text-meta text-ink-2">
+                        {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="dish-day"
+                      onClick={() => setDayFor(dish.id)}
+                      aria-label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
+                      className={`min-h-9 shrink-0 rounded-pill px-2.5 text-control font-semibold ${dish.weekday ? "bg-mint text-mint-ink" : "bg-bg text-ink-3"}`}
+                    >
+                      {dayChipText(dish.weekday)}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="dish-remove"
+                      onClick={() => void remove(dish)}
+                      aria-label={`Ta bort ${dish.recipeTitle}`}
+                      className="flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
+                    >
+                      <CloseIcon size={18} />
+                    </button>
+                  </div>
+                </SwipeRow>
               </li>
             ))}
           </ul>

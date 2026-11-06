@@ -268,6 +268,39 @@ test("✕ removes a dish at once, and Ångra puts it back with the same id", asy
   expect(errors).toEqual([]);
 });
 
+/** Swipes the row to the left from its empty middle with the mouse, which sends the same pointer events as a finger. */
+async function swipeLeft(page: Page, row: Locator, distance = 150) {
+  await row.scrollIntoViewIfNeeded();
+  const box = await row.boundingBox();
+  if (!box) throw new Error("no row");
+  const x = box.x + box.width * 0.6;
+  const y = box.y + box.height - 6;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - distance, y + 2, { steps: 12 });
+  await page.mouse.up();
+}
+
+test("a swipe to the left shows Ta bort, which removes the dish, and Ångra puts it back", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/matsedel");
+  await expect(page.getByRole("button", { name: "Erbjudanden", exact: true })).toBeVisible();
+  const id = await dish(page, soppa).getAttribute("data-dish");
+
+  await swipeLeft(page, dish(page, soppa));
+  await expect(dish(page, soppa).getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
+  await actionsAnswered(page, 1, () => page.getByRole("button", { name: `Svep bort ${soppa}` }).click());
+  await expect(dish(page, soppa)).toHaveCount(0);
+  await expect(toast(page)).toContainText(`Tog bort ${soppa}.`);
+  await expect.poll(dishCount).toBe(2);
+
+  await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
+  await page.reload();
+  await expect(dishes(page)).toHaveCount(3);
+  expect(await dish(page, soppa).getAttribute("data-dish")).toBe(id);
+  expect(errors).toEqual([]);
+});
+
 test("Ta bort never asks, every removal goes at once and the list follows", async ({ page }) => {
   const errors = watchErrors(page);
   // Linssoppa has been on the plan since the tests above; leave the two gryta dishes.
