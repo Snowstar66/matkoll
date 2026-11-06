@@ -40,7 +40,7 @@ describe("Snabbkamera's shots", () => {
     expect(cameraProblem({ name: "NotFoundError" })).toBe("missing");
     expect(cameraProblem(new TypeError("no mediaDevices"))).toBe("missing");
     expect(cameraProblem(undefined)).toBe("missing");
-    expect(cameraProblemText("denied")).toContain("Ta foto");
-    expect(cameraProblemText("missing")).toContain("Ta foto");
+    expect(cameraProblemText("denied")).toContain("album");
+    expect(cameraProblemText("missing")).toContain("album");
   });
 });

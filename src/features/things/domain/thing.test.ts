@@ -31,8 +31,8 @@ describe("a thing's row", () => {
   });
 
   it("says what is not visible, by count, else in the model's words, else nothing", () => {
-    expect(unseenText(3, null)).toBe("Innehållet i 3 lådor syns inte – fota insidan");
-    expect(unseenText(1, "x")).toBe("Innehållet i 1 låda syns inte – fota insidan");
+    expect(unseenText(3, null)).toBe("3 lådor där innehållet inte syns");
+    expect(unseenText(1, "x")).toBe("1 låda där innehållet inte syns");
     expect(unseenText(0, "Innehållet i en påse syns inte.")).toBe("Innehållet i en påse syns inte.");
     expect(unseenText(0, null)).toBeNull();
   });

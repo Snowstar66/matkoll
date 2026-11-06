@@ -31,8 +31,8 @@ describe("Lägg till låda", () => {
   });
 
   it("opens from the line about the closed boxes", async () => {
-    render(<AddBox placeId={placeId} variant="row" label="Innehållet i 3 lådor syns inte – fota insidan" roomHref="/prylar/rum/site/garaget" />);
-    await userEvent.click(screen.getByRole("button", { name: "Innehållet i 3 lådor syns inte – fota insidan" }));
+    render(<AddBox placeId={placeId} variant="row" label="3 lådor där innehållet inte syns" roomHref="/prylar/rum/site/garaget" />);
+    await userEvent.click(screen.getByRole("button", { name: "3 lådor där innehållet inte syns" }));
     expect(screen.getByRole("dialog", { name: "Lägg till låda" })).toBeInTheDocument();
   });
 

@@ -39,9 +39,9 @@ describe("Ta kort", () => {
     const dialog = screen.getByRole("dialog", { name: "Var tar du kortet?" });
     expect(screen.getByRole("radio", { name: "Skräpförrådet" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "+ Nytt rum" })).not.toBeChecked();
-    expect(screen.getByRole("button", { name: /Mer exakt plats \(valfritt\)/ })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: /Välj från Bilder/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ta foto/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Var i rummet\? \(valfritt\)/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /Välj från album/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Fota/ })).toBeInTheDocument();
     expect(document.querySelector("input[type=file][multiple]")).toHaveAttribute("accept", "image/*,.heic,.heif");
     expect(dialog).toBeInTheDocument();
   });
@@ -53,7 +53,7 @@ describe("Ta kort", () => {
     await userEvent.click(screen.getByRole("button", { name: /Ta kort/ }));
     await userEvent.click(screen.getByRole("radio", { name: "Garaget" }));
     // The click opens the picker; the chosen files are what matters here.
-    await userEvent.click(screen.getByRole("button", { name: /Välj från Bilder/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
     const files = [new File(["a"], "a.jpg", { type: "image/jpeg" }), new File(["b"], "b.jpg", { type: "image/jpeg" })];
     await pick(files);
     await waitFor(() => expect(send).toHaveBeenCalledWith(files, { placeId: place }));
@@ -67,7 +67,7 @@ describe("Ta kort", () => {
     await userEvent.click(screen.getByRole("button", { name: /Ta kort/ }));
     expect(screen.getByRole("radio", { name: "Garaget" })).toBeChecked();
     await userEvent.click(screen.getByRole("radio", { name: "+ Nytt rum" }));
-    await userEvent.click(screen.getByRole("button", { name: /Välj från Bilder/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
     expect(screen.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe("Ta kort", () => {
     ensureCapturePlace.mockResolvedValue(fail("things_place_limit", { room: "Du kan ha högst 60 platser i ett boende." }));
     view();
     await userEvent.click(screen.getByRole("button", { name: /Ta kort/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Välj från Bilder/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
     await pick([new File(["a"], "a.jpg", { type: "image/jpeg" })]);
     expect(await screen.findByText("Du kan ha högst 60 platser i ett boende.")).toBeInTheDocument();
     expect(send).not.toHaveBeenCalled();
@@ -83,13 +83,13 @@ describe("Ta kort", () => {
 });
 
 describe("Rummets sida", () => {
-  it("has the two buttons on the page, with the room chosen, and no sheet", async () => {
+  it("has the one camera and the album link on the page, with the room chosen, and no sheet", async () => {
     ensureCapturePlace.mockResolvedValue(ok({ placeId: place }));
     send.mockResolvedValue(1);
-    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort", sub: "Senaste kort 31 okt" });
-    expect(screen.getByText("Senaste kort 31 okt")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ta foto/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Välj från Bilder/ }));
+    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort" });
+    // One camera: "Fota"; the album is a small link, and nothing else says Snabbkamera or Ta foto.
+    expect(screen.getAllByRole("button", { name: /Fota|Ta foto|Snabbkamera/ })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
     expect(screen.queryByRole("dialog")).toBeNull();
     const files = [new File(["a"], "a.jpg", { type: "image/jpeg" })];
     await pick(files);
@@ -97,9 +97,9 @@ describe("Rummets sida", () => {
     expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Garaget", part: "", box: false });
   });
 
-  it("opens the sheet from Mer exakt plats", async () => {
+  it("opens the sheet from Var i rummet?", async () => {
     view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort" });
-    await userEvent.click(screen.getByRole("button", { name: "Mer exakt plats …" }));
+    await userEvent.click(screen.getByRole("button", { name: "Var i rummet? (valfritt)" }));
     expect(screen.getByRole("dialog", { name: "Var tar du kortet?" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Garaget" })).toBeChecked();
   });

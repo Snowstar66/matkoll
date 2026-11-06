@@ -12,6 +12,8 @@ import { loadPlaceCountsIn } from "./data/place-edit";
 import type { PlaceCounts } from "./domain/thing-place-edit";
 import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
 import { loadCardViewIn } from "./data/card-view";
+import { loadClosedBoxesIn } from "./data/closed";
+import { withoutOwnBox, type ClosedBox } from "./domain/thing-closed";
 import { listCardNewsIn } from "./data/news";
 import type { CardView } from "./domain/thing-card";
 import type { ClearCounts } from "./domain/thing-clear";
@@ -62,6 +64,8 @@ export type RoomPageData = {
   clearCounts: ClearCounts;
   /** What removing each place of the room takes, by place id (Story 18.16). */
   placeCounts: Record<string, PlaceCounts>;
+  /** The closed boxes the AI named on the room's cards that have no box of their own yet. */
+  closedBoxes: ClosedBox[];
 };
 
 /** What clearing the room `key` of the boende `siteId`, or without `key` the whole boende's Förråd, removes (Story 18.15). Throws ThingsDataError. */
@@ -82,9 +86,15 @@ export async function getRoomPage(siteId: string, key: string, now: Date = new D
     loadClearCountsIn(db, siteId, key),
     loadPlaceCountsIn(db, siteId, key),
   ]);
+  const unseenCards = cards.filter((card) => card.status === "done" && card.unseenCount > 0);
+  const closedBoxes = withoutOwnBox(
+    await loadClosedBoxesIn(db, unseenCards),
+    places.filter((place) => place.kind === "box").map((place) => place.part),
+  );
   return {
     summary,
     categories,
+    closedBoxes,
     places,
     written,
     clearCounts,

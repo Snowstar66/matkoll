@@ -23,6 +23,7 @@ import {
   exactPlaceText,
   newRoomText,
   openCameraText,
+  partExampleText,
   pickerAccept,
   pickImagesText,
   roomExactText,
@@ -36,7 +37,7 @@ import { maxPlaceNameChars, normalizePlaceName } from "../domain/thing-place";
 import { useLastRoom } from "./device-store";
 import { useCardUpload } from "./use-card-upload";
 import { QuickCamera } from "./quick-camera";
-import { quickCameraHintText, quickCameraText } from "../domain/quick-camera";
+import { quickCameraText } from "../domain/quick-camera";
 
 // "Ta kort" (Story 18.11): the first row of Förråd, and the two buttons on a
 // room's page (Story 18.16). A sheet asks only where the card is taken: the room
@@ -50,8 +51,9 @@ import { quickCameraHintText, quickCameraText } from "../domain/quick-camera";
 // camera "Ta ett till" opens the camera again for the same place. The inputs are
 // always in the page and clicked in the tap itself (iOS Safari refuses an input
 // that no tap opened); the place is made once the images are chosen.
-// Story 18.10: on a room's page "Snabbkamera" comes first: an in-app camera
-// where every tap is a shot and "Klar" sends them all, one card each.
+// Story 18.10: on a room's page "Fota" is the one camera: an in-app camera
+// where every tap is a shot and "Klar" sends them all, one card each (one tap
+// and "Klar" is a single photo). "Välj från album" is a small link beside it.
 
 export type TakeCardProps = {
   siteId: string;
@@ -182,10 +184,10 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
     void deliver(photos);
   }
 
-  /** No camera or no permission: today's "Ta foto", in the same tap. */
+  /** No camera or no permission: the album's file picker, in the same tap. */
   function onQuickFallback() {
     setQuickOpen(false);
-    choose(true, true);
+    choose(false, true);
   }
 
   /** Makes the place once (or reuses it for "Ta ett till"), then sends every image as its own card, in order. */
@@ -228,23 +230,27 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   return (
     <div className="flex flex-col gap-3" data-testid="take-card">
       {layout === "room" ? (
-        <div className="flex flex-col gap-2 rounded-lg bg-surface p-3" data-testid="room-capture">
+        <div className="flex flex-col items-center gap-1" data-testid="room-capture">
           <button
             type="button"
             disabled={sending}
             onClick={openQuick}
-            className="inline-flex min-h-button w-full flex-col items-center justify-center rounded-md bg-accent px-4 py-2 text-center text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="inline-flex min-h-button w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-center text-headline text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             data-testid="quick-camera-open"
           >
-            <span className="inline-flex items-center gap-2 text-headline">
-              <CameraIcon size={22} className="shrink-0" />
-              {quickCameraText}
-            </span>
-            <span className="text-meta opacity-85">{quickCameraHintText}</span>
+            <CameraIcon size={22} className="shrink-0" />
+            {quickCameraText}
           </button>
-          <CaptureButtons disabled={sending} onChoose={(camera) => choose(camera, true)} />
-          <div className="flex flex-wrap items-center justify-between gap-x-3">
-            {sub ? <p className="px-1 text-meta text-ink-3">{sub}</p> : <span />}
+          <div className="flex flex-wrap items-center justify-center gap-x-4">
+            <button
+              type="button"
+              disabled={sending}
+              onClick={() => choose(false, true)}
+              className="flex min-h-tap items-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+              data-testid="pick-images"
+            >
+              {pickImagesText}
+            </button>
             <button
               type="button"
               disabled={sending}
@@ -361,7 +367,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
                 <FieldLabel htmlFor={`${ids}-part`}>{box === "box" ? "Namn på lådan" : "Del av rummet"}</FieldLabel>
                 <Input
                   id={`${ids}-part`}
-                  placeholder={box === "box" ? "Blå backen" : "Översta hyllan"}
+                  placeholder={box === "box" ? "Blå backen" : partExampleText}
                   autoComplete="off"
                   maxLength={maxPlaceNameChars * 2}
                   value={part}
