@@ -40,7 +40,7 @@ describe("the chat", () => {
     expect(screen.getByPlaceholderText("Sök eller fråga …")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skicka" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ny fråga" })).not.toBeInTheDocument();
-    expect(screen.getByText("Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger")).toBeInTheDocument();
+    expect(screen.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeInTheDocument();
   });
 
   it("shows the question, then the answer with a card to tap: place, date and the card's thumbnail", async () => {

@@ -180,7 +180,7 @@ async function analyze(result: AnalyzeResult = fridge) {
 const section = () => screen.getByRole("region", { name: "Lagerförslag från kylen" });
 const button = (name: string) => within(section()).getByRole("button", { name });
 const toast = () => screen.getByTestId("toast");
-const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fotografera kylen" });
+const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fota" });
 const lastSave = () => saves[saves.length - 1];
 /** The names of the cards in a group, by its h3; Kylfoto D: "Syns inte längre", folded or not. */
 function groupNames(title: string): string[] {

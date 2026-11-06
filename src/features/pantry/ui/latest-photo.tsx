@@ -12,10 +12,14 @@ import type { Location } from "@/features/catalog";
 import { errorMessages } from "@/lib/errors";
 import { removePlacePhoto } from "../actions/remove-place-photo";
 import {
+  allPhotosLabel,
+  allPhotosOpenText,
+  allPhotosTitle,
   latestPhotoOpenLabel,
   latestPhotoOpenText,
   latestPhotoText,
   noPhotoText,
+  photoOfLabel,
   photoReadingHeading,
   photoTimeText,
   photoTakenText,
@@ -72,9 +76,15 @@ export type LatestPhotoProps = {
   photo: ShownPlacePhoto | null;
   /** The chosen location. */
   location: Location;
+  /**
+   * Every saved photo of the chosen location on the place, newest first (the
+   * latest is `photo`). With two or more, "Alla foton (N)" opens them as a
+   * grid. Without it, the line knows `photo` only.
+   */
+  photos?: readonly ShownPlacePhoto[];
 };
 
-type View = "closed" | "photo" | "ask";
+type View = "closed" | "list" | "photo" | "ask";
 
 /** The time now, `null` until mounted (the server's text is shown then), and again whenever the page becomes visible. */
 function useNow(): Date | null {
@@ -93,7 +103,7 @@ function useNow(): Date | null {
   return now;
 }
 
-export function LatestPhoto({ photo, location }: LatestPhotoProps) {
+export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
   const { showToast } = useToast();
   const router = useRouter();
   const { cameraButtonRef } = usePantrySuggestions();
@@ -105,8 +115,10 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
   const [opened, setOpened] = useState(0);
   /** The photo the route said is gone. */
   const [goneId, setGoneId] = useState<string | null>(null);
-  /** The photo removed here, hidden until the page's photos no longer have it. */
-  const [removedId, setRemovedId] = useState<string | null>(null);
+  /** The photos removed here, hidden until the page's photos no longer have them. */
+  const [removedIds, setRemovedIds] = useState<readonly string[]>([]);
+  /** Whether the open photo was chosen in the grid: closing it goes back there. */
+  const [fromList, setFromList] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Increases when a photo is removed, so the camera button can take focus. */
@@ -131,7 +143,10 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
   // background): close the sheet or the question, so "Ta bort" never meets
   // it. No photo at all (gone, read again after the route said so) keeps the
   // sheet, which says "Fotot finns inte längre.".
-  if (view !== "closed" && openPhoto && photo && photo.id !== openPhoto.id) setView("closed");
+  if (view !== "closed" && view !== "list" && !fromList && openPhoto && photo && photo.id !== openPhoto.id) setView("closed");
+  const all = (photos ?? (photo ? [photo] : [])).filter((candidate) => !removedIds.includes(candidate.id));
+  // The grid has nothing left to show (the last photo was removed elsewhere too).
+  if (view === "list" && all.length === 0) setView("closed");
 
   /** When `shown` was taken: written here once mounted, the server's text before. */
   const timeOf = (shown: ShownPlacePhoto) => (now ? photoTimeText(new Date(shown.takenAt), now) : shown.time);
@@ -165,11 +180,12 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
         setError(result.error.message);
         return;
       }
-      setRemovedId(target.id);
-      setView("closed");
+      setRemovedIds((ids) => [...ids, target.id]);
+      const more = fromList && all.some((candidate) => candidate.id !== target.id);
+      setView(more ? "list" : "closed");
       // Gone already (another device): say so, not that it was removed here.
       showToast(result.data.removed ? removedPhotoText(target.location) : errorMessages.pantry_photo_gone);
-      setRemoved((times) => times + 1);
+      if (!more) setRemoved((times) => times + 1);
     } catch {
       if (mounted.current) setError(errorMessages.pantry_photo_remove_failed);
     } finally {
@@ -183,7 +199,7 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
 
   return (
     <>
-      {photo && removedId !== photo.id ? (
+      {photo && !removedIds.includes(photo.id) ? (
         // Under "Fotografera kylen" in the camera row (Story 14.6): "Senaste foto idag 15:42 · Visa".
         <div data-testid="pantry-latest-photo" className="flex items-center justify-between gap-3 text-meta text-ink-2">
           <p className="min-w-0">{latestPhotoText(timeOf(photo))}</p>
@@ -195,6 +211,7 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
               // Safari does not focus a tapped button: the sheet gives focus back to what had it when it opened.
               event.currentTarget.focus();
               setOpenPhoto(photo);
+              setFromList(false);
               setOpened((times) => times + 1);
               setView("photo");
             }}
@@ -209,6 +226,52 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
           {noPhotoText}
         </p>
       )}
+      {all.length >= 2 ? (
+        <div className="-mt-1 flex">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            data-testid="pantry-all-photos"
+            aria-label={allPhotosLabel(location, all.length)}
+            onClick={(event) => {
+              event.currentTarget.focus();
+              setView("list");
+            }}
+            className="-ml-2 inline-flex min-h-tap min-w-tap items-center rounded-md px-2 text-[15px] font-medium text-accent"
+          >
+            {allPhotosOpenText(all.length)}
+          </button>
+        </div>
+      ) : null}
+      <Sheet open={view === "list"} onClose={() => setView("closed")} title={allPhotosTitle(location)} closeLabel="Klar">
+        <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="pantry-photo-grid">
+          {all.map((shown) => (
+            <li key={shown.id} className="overflow-hidden rounded-md bg-surface">
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-label={photoOfLabel(shown.location, timeOf(shown))}
+                data-testid="pantry-photo-card"
+                onClick={() => {
+                  setOpenPhoto(shown);
+                  setFromList(true);
+                  setOpened((times) => times + 1);
+                  setView("photo");
+                }}
+                className="block w-full text-left"
+              >
+                {/* Served by the route that checks the user; fetched when the grid is opened. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={placePhotoUrl(shown.id)} alt="" loading="lazy" className="h-28 w-full bg-border object-cover" />
+                <span className="flex flex-col px-2.5 py-2">
+                  <span className="text-meta font-medium text-ink">{timeOf(shown)}</span>
+                  <span className="text-meta text-ink-3">{shown.reading.length} varor</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
       {sheetPhoto ? (
         <>
           <AnalyzedPhotoSheet
@@ -216,7 +279,7 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
             photo={{ url: placePhotoUrl(sheetPhoto.id), size: { width: sheetPhoto.width, height: sheetPhoto.height } }}
             location={sheetPhoto.location}
             open={view === "photo"}
-            onClose={() => setView("closed")}
+            onClose={() => setView(fromList ? "list" : "closed")}
             markers={markers}
             onPhotoError={() => checkGone(sheetPhoto.id)}
             subtitle={photoTakenText(timeOf(sheetPhoto), markers.length > 0)}

@@ -339,7 +339,7 @@ const answerConfirm = async (result: Result<{ count: number }> = ok({ count: 1 }
   await act(async () => lastConfirm().answer(result));
 };
 const sheet = () => screen.getByRole("dialog");
-const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fotografera kylen" });
+const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fota" });
 
 const addButton = () => within(section()).getByRole("button", { name: /^(Lägg till \d+ var(a|or)|Sparar …)$/ });
 const box = (name: string) => within(section()).getByRole("checkbox", { name: `Ta med ${name}` });

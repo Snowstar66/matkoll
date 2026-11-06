@@ -71,7 +71,7 @@ const toast = (page: Page) => page.getByTestId("toast");
 async function photographFridge(page: Page) {
   await page.goto("/hemma");
   const chooser = page.waitForEvent("filechooser");
-  await camera(page).getByRole("button", { name: "Fotografera kylen" }).click();
+  await camera(page).getByRole("button", { name: "Fota" }).click();
   await (await chooser).setFiles(kyl);
   await expect(cards(page)).toHaveCount(6);
 }

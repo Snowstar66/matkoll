@@ -1,4 +1,4 @@
-import { comparePlanRecipes, weekdayShortName, type PlanDish, type PlanRecipeRow } from "./meal-plan";
+import { comparePlanRecipes, weekdayShortName, weekdayWord, type PlanDish, type PlanRecipeRow } from "./meal-plan";
 
 // Matsedel as the place to plan the week (Story 25.3): the words of the
 // planning view and the small rules behind it. Pure, so they are tested
@@ -9,9 +9,31 @@ export function itemsText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
-/** The toast after "+": "Korvstroganoff på veckan. 3 varor på listan." */
-export function addedToWeekText(title: string, buy: number): string {
-  return buy > 0 ? `${title} på veckan. ${itemsText(buy)} på listan.` : `${title} på veckan. Inget att köpa.`;
+/**
+ * The toast after "+": "Korvstroganoff på torsdag. 3 varor på listan.", or,
+ * when the week is full, "Korvstroganoff på veckan. Alla dagar har en rätt. 3 varor på listan."
+ */
+export function addedToWeekText(title: string, buy: number, weekday: number | null = null): string {
+  const where = weekday ? `${title} på ${weekdayWord(weekday)}.` : `${title} på veckan. Alla dagar har en rätt.`;
+  return buy > 0 ? `${where} ${itemsText(buy)} på listan.` : `${where} Inget att köpa.`;
+}
+
+/** The action of the toast after an add: "Byt dag" when it got a day, else "Välj dag". */
+export function changeDayLabel(weekday: number | null | undefined): string {
+  return weekday ? "Byt dag" : "Välj dag";
+}
+
+/** What the option row says for a dish already on the week: its day ("Tor"), or "På veckan" when it has none. */
+export function onWeekLabel(weekday: number | null | undefined): string {
+  return weekday ? weekdayShortName(weekday) : "På veckan";
+}
+
+/** Veckans rätter in order: Mån to Sön, dishes with no day last; the plan's order (when added) within a day. */
+export function compareByWeekday(
+  a: Pick<PlanDish, "weekday" | "id" | "position">,
+  b: Pick<PlanDish, "weekday" | "id" | "position">,
+): number {
+  return (a.weekday || 8) - (b.weekday || 8) || comparePlanRecipes(a, b);
 }
 
 /** The day chip of a dish in Veckans rätter: "Mån", or "Ingen dag". */
@@ -32,12 +54,21 @@ export function dishNoteText(option: { buy: number; deal: { text: string } | nul
   return option.buy > 0 ? `${itemsText(option.buy)} att köpa` : "Allt finns hemma";
 }
 
-/** The dishes of the week as shown: the server's, without those just removed, and with those just added that the server's plan does not have yet. */
-export function shownDishes(server: readonly PlanDish[], hidden: ReadonlySet<string>, added: readonly PlanDish[]): PlanDish[] {
+/**
+ * The dishes of the week as shown: the server's, without those just removed, and
+ * with those just added that the server's plan does not have yet; days just
+ * chosen on top; ordered by weekday.
+ */
+export function shownDishes(
+  server: readonly PlanDish[],
+  hidden: ReadonlySet<string>,
+  added: readonly PlanDish[],
+  days: Readonly<Record<string, number | null>> = {},
+): PlanDish[] {
   const known = new Set(server.map((dish) => dish.id));
-  return [...server.filter((dish) => !hidden.has(dish.id)), ...added.filter((dish) => !known.has(dish.id) && !hidden.has(dish.id))].sort(
-    comparePlanRecipes,
-  );
+  return [...server.filter((dish) => !hidden.has(dish.id)), ...added.filter((dish) => !known.has(dish.id) && !hidden.has(dish.id))]
+    .map((dish) => (dish.id in days ? { ...dish, weekday: days[dish.id] } : dish))
+    .sort(compareByWeekday);
 }
 
 /** A dish that was just added, as the list shows it before the plan is read again. */

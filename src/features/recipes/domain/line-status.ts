@@ -229,9 +229,13 @@ export function boughtText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"} på inköpslistan.`;
 }
 
-/** The toast after "Lägg på matsedeln": "På veckans matsedel. Falukorv, grädde och ris står på inköpslistan." */
-export function plannedToastText(names: readonly string[]): string {
-  return names.length > 0 ? `På veckans matsedel. ${namesText(names)} står på inköpslistan.` : "På veckans matsedel.";
+/**
+ * The toast after "Lägg på matsedeln": "Korv stroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan."
+ * `weekdayWord` is the day it got; `null` when the week is full: "… på veckan. Alla dagar har en rätt."
+ */
+export function plannedToastText(title: string, weekdayWord: string | null, names: readonly string[]): string {
+  const where = weekdayWord ? `${title} på ${weekdayWord}.` : `${title} på veckan. Alla dagar har en rätt.`;
+  return names.length > 0 ? `${where} ${namesText(names)} står på inköpslistan.` : where;
 }
 
 /** The key addKeyedItems and removeKeyedItems share for one missing ingredient of one recipe. */

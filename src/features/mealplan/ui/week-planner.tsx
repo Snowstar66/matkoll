@@ -24,15 +24,15 @@ import {
   type ServingsChange,
   type WeekdayChange,
 } from "../domain/meal-plan";
-import { addedToWeekText, dayChipText, dishFromRow, dishNoteText, shownDishes, weekBarText } from "../domain/planner";
+import { addedToWeekText, changeDayLabel, dayChipText, dishFromRow, dishNoteText, onWeekLabel, shownDishes, weekBarText } from "../domain/planner";
 import { weekQuery } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
 
 // Matsedel as the place to plan the week (Story 25.3): "Veckans rätter" (what
 // is chosen: day chip, ✕, a tap opens the recipe) and "Lägg till rätter" with
-// Favoriter, På erbjudande and Alla recept. "+" puts a dish on the week with
-// no day and says what it adds to the list, with "Välj dag". The pantry never
+// Favoriter, På erbjudande and Alla recept. "+" puts a dish on the first free day
+// and says what it adds to the list, with "Byt dag". The pantry never
 // ranks the rows; it only lowers what is left to buy, in the bar at the bottom.
 
 const tabs: { value: PlanTab; label: string }[] = [
@@ -79,9 +79,12 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
   /** The dish id of a tap on its way, kept until it is added, so a retry after a lost answer adds one dish. */
   const dishIds = useRef(new Map<string, string>());
 
-  const shown = shownDishes(dishes, hidden, added).map((dish) => (dish.id in days ? { ...dish, weekday: days[dish.id] } : dish));
+  const shown = shownDishes(dishes, hidden, added, days);
   const byId = new Map((options ?? []).map((option) => [option.id, option]));
   const onWeek = onWeekIds(shown);
+  /** The day of each recipe already on the week (the first with one). */
+  const onWeekDay = new Map<string, number | null>();
+  for (const dish of shown) if (dish.recipeId && !onWeekDay.get(dish.recipeId)) onWeekDay.set(dish.recipeId, dish.weekday ?? null);
   const rows = optionsForTab(options ?? [], tab);
 
   function failed(error: { code: string; message: string }) {
@@ -96,8 +99,8 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
     dishIds.current.set(option.id, id);
     let result: Result<PlanRecipeRow>;
     try {
-      // No day: "Ingen dag" until Pontus picks one with "Välj dag".
-      result = await addToCurrentPlan({ recipeId: option.id, servings: clampServings(option.servings), id, weekStart, weekday: null });
+      // No day sent: the server puts the dish on the week's first free day.
+      result = await addToCurrentPlan({ recipeId: option.id, servings: clampServings(option.servings), id, weekStart });
     } catch {
       result = fail("mealplan_add_failed");
     }
@@ -113,7 +116,9 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
     dishIds.current.delete(option.id);
     const row = result.data;
     setAdded((current) => [...current, dishFromRow(row)]);
-    showToast(addedToWeekText(option.title, option.buy), { show: { label: "Välj dag", onShow: () => setDayFor(row.id) } });
+    showToast(addedToWeekText(option.title, option.buy, row.weekday ?? null), {
+      show: { label: changeDayLabel(row.weekday), onShow: () => setDayFor(row.id) },
+    });
     router.refresh();
   }
 
@@ -273,7 +278,7 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
             </div>
             {tab === "offers" ? (
               <p data-testid="offers-hint" className="text-meta text-deal-ink">
-                Dina recept där en huvudvara är på erbjudande, mest sparat först.
+                Förslag för att varorna har extrapris den här veckan.
               </p>
             ) : null}
             {rows.length === 0 ? (
@@ -289,7 +294,7 @@ export function WeekPlanner({ weekStart, dishes, options, toBuy, offersFooter }:
                     imageUrl={option.imageUrl}
                     meta={option.meta}
                     deal={option.deal?.text ?? null}
-                    onWeek={onWeek.has(option.id)}
+                    onWeekLabel={onWeek.has(option.id) ? onWeekLabel(onWeekDay.get(option.id)) : undefined}
                     onAdd={() => void add(option)}
                     disabled={adding.has(option.id)}
                   />

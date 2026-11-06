@@ -14,6 +14,7 @@ import { searchLibrary } from "../actions/search-recipes";
 import { recipeCategoryLabels } from "../domain/recipe-category";
 import {
   filterByCategory,
+  extraPriceReason,
   filterRecipes,
   nearlyCookable,
   rankByOffers,
@@ -98,9 +99,11 @@ export type LibraryProps = {
   site: SelectedSite | null;
   /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
   offers?: LibraryOffers;
+  /** The filter to open with, from the address ("?filter=erbjudanden", "Visa alla" in Veckans erbjudanden); chosen once when it arrives. */
+  initialFilter?: "offers";
 };
 
-export function Library({ recipes, pantryUnavailable, site, offers }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, initialFilter }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   const [view, setView] = useRecipeView();
@@ -108,6 +111,14 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
   const [category, setCategory] = useRecipeCategory();
   const [sortOpen, setSortOpen] = useState(false);
   const [offersOpen, setOffersOpen] = useState(false);
+  // "Visa alla": the filter the address asks for is chosen once, and the sheet it came from closes.
+  const appliedFilter = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (initialFilter === undefined || appliedFilter.current === initialFilter) return;
+    appliedFilter.current = initialFilter;
+    setFilter(initialFilter);
+    setOffersOpen(false);
+  }, [initialFilter, setFilter]);
   // Story 9.10: the first time Erbjudanden is shown with offers that have no ingredient, the AI links them (once per visit).
   const [matching, setMatching] = useState(false);
   const matchAsked = useRef(false);
@@ -347,6 +358,11 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
         {/* Always there in Kan lagas nu, so the notice is read out when it appears. */}
         {cookable ? (
           <div role="status">{notRanked ? <Notice className="mb-3">{notRankedMessage}</Notice> : null}</div>
+        ) : null}
+        {onOffers && visible.length > 0 ? (
+          <p data-testid="offers-reason" className="mb-3 text-meta text-deal-ink">
+            {extraPriceReason}
+          </p>
         ) : null}
         {content}
         {nearly.length > 0 ? <NearlyCookable recipes={nearly} /> : null}

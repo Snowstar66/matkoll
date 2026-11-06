@@ -1,7 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/badges";
-import { offerTagsShown, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
+import { offerTagsLine, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
 import { dishEmoji } from "../domain/dish-emoji";
 import { RecipeCard } from "./recipe-card";
 import { RecipeStatusBadge } from "./recipe-status-badge";
@@ -16,31 +15,16 @@ export type RecipeListProps = {
    * nu), which the list's name says, since there are no headings or groups.
    */
   ranked?: boolean;
-  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, shown as up to two tags and "+N"; the list's name then says most offers first. */
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, as their own line "Extrapris: …"; the list's name then says most offers first. */
   offerTags?: Readonly<Record<string, readonly string[]>>;
 };
 
-/** The small tags of the offers a recipe uses: up to two and "+N" for the rest (UX-DR32). */
+/** The offers a recipe uses, as their own line in the deal colour: "Extrapris: falukorv, grädde +1". */
 function OfferTags({ tags }: { tags: readonly string[] }) {
-  const { shown, more } = offerTagsShown(tags);
   return (
-    <ul aria-label="Erbjudanden" data-testid="offer-tags" className="flex min-w-0 flex-wrap gap-1 pt-0.5">
-      {shown.map((tag) => (
-        <li key={tag} className="min-w-0">
-          <Badge tone="mint" className="max-w-full truncate">
-            {tag}
-          </Badge>
-        </li>
-      ))}
-      {more > 0 ? (
-        <li>
-          <Badge tone="neutral">
-            +{more}
-            <span className="sr-only"> erbjudanden till</span>
-          </Badge>
-        </li>
-      ) : null}
-    </ul>
+    <p data-testid="offer-tags" className="text-[13px]/[18px] font-semibold text-deal-ink">
+      {offerTagsLine(tags)}
+    </p>
   );
 }
 

@@ -88,29 +88,30 @@ afterEach(() => {
 
 describe("PantryCamera", () => {
   it.each([
-    ["Kyl", "Fotografera kylen"],
-    ["Frys", "Fotografera frysen"],
-    ["Skafferi", "Fotografera skafferiet"],
-  ] as const)("names %s on a white secondary button with a camera", (location, text) => {
+    ["Kyl", "Fota"],
+    ["Frys", "Fota"],
+    ["Skafferi", "Fota"],
+  ] as const)("names %s on a primary accent button with a camera", (location, text) => {
     render(<Hemma location={location} />);
     const button = within(area()).getByRole("button", { name: text });
-    expect(button).toHaveClass("bg-surface", "text-accent");
+    expect(button).toHaveClass("bg-accent", "text-on-accent", "w-full");
     expect(button.querySelector("svg")).not.toBeNull();
   });
 
-  it("opens the file picker on a desktop, without capture and without Välj bild", () => {
+  it("opens the file picker on a desktop, without capture, and Välj från album opens it too", () => {
     render(<Hemma />);
     const inputs = fileInputs();
     expect(inputs).toHaveLength(1);
     expect(inputs[0]).toHaveAttribute("accept", "image/*");
     expect(inputs[0]).not.toHaveAttribute("capture");
     const click = vi.spyOn(inputs[0], "click").mockImplementation(() => {});
-    fireEvent.click(screen.getByRole("button", { name: "Fotografera kylen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fota" }));
     expect(click).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Välj bild" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Välj från album" }));
+    expect(click).toHaveBeenCalledTimes(2);
   });
 
-  it("opens the back camera on a phone, and Välj bild opens the library", () => {
+  it("opens the back camera on a phone, and Välj från album opens the library", () => {
     pointer(true);
     render(<Hemma />);
     const [camera, library] = fileInputs();
@@ -118,9 +119,9 @@ describe("PantryCamera", () => {
     expect(library).not.toHaveAttribute("capture");
     const cameraClick = vi.spyOn(camera, "click").mockImplementation(() => {});
     const libraryClick = vi.spyOn(library, "click").mockImplementation(() => {});
-    fireEvent.click(screen.getByRole("button", { name: "Fotografera kylen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fota" }));
     expect(cameraClick).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Välj bild" }));
+    fireEvent.click(screen.getByRole("button", { name: "Välj från album" }));
     expect(libraryClick).toHaveBeenCalledTimes(1);
   });
 
@@ -157,13 +158,13 @@ describe("PantryCamera", () => {
     await photograph();
     expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden …");
     expect(within(area()).getByText("Du kan göra annat under tiden.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fotografera kylen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fota" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     // The photo was still on its way: the job is cancelled as soon as the server has made it (Story 12.5).
     await answer(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } }));
     expect(fakeAi.cancelled).toEqual([fakeAi.calls[0].job.id]);
-    const button = await screen.findByRole("button", { name: "Fotografera kylen" });
+    const button = await screen.findByRole("button", { name: "Fota" });
     expect(button).toHaveFocus();
     expect(within(area()).getByRole("status")).toBeEmptyDOMElement();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -173,10 +174,10 @@ describe("PantryCamera", () => {
     const { rerender } = render(<Hemma />);
     await photograph();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
-    await screen.findByRole("button", { name: "Fotografera kylen" });
-    screen.getByRole("button", { name: "Fotografera kylen" }).blur();
+    await screen.findByRole("button", { name: "Fota" });
+    screen.getByRole("button", { name: "Fota" }).blur();
     rerender(<Hemma location="Frys" />);
-    expect(screen.getByRole("button", { name: "Fotografera frysen" })).not.toHaveFocus();
+    expect(screen.getByRole("button", { name: "Fota" })).not.toHaveFocus();
   });
 
   it.each<[ErrorCode, string]>([
@@ -191,7 +192,7 @@ describe("PantryCamera", () => {
     const alert = await within(area()).findByRole("alert");
     expect(alert).toHaveTextContent(message);
     const retry = within(area()).getByRole("button", { name: "Försök igen" });
-    const camera = within(area()).getByRole("button", { name: "Fotografera kylen" });
+    const camera = within(area()).getByRole("button", { name: "Fota" });
     expect(retry.compareDocumentPosition(camera) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

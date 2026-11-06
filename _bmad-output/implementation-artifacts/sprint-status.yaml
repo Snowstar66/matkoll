@@ -281,8 +281,8 @@ development_status:
   epic-24-retrospective: optional
 
   epic-25: in-progress
-  25-1-receptet-vad-saknas-vad-gör-jag: review
-  25-2-vad-kan-jag-laga-nu: backlog
-  25-3-matsedeln-planera-veckan: backlog
-  25-4-idéer-som-från-en-vän: review
+  25-1-receptet-vad-saknas-vad-gör-jag: done
+  25-2-vad-kan-jag-laga-nu: done
+  25-3-matsedeln-planera-veckan: done
+  25-4-idéer-som-från-en-vän: done
   epic-25-retrospective: optional

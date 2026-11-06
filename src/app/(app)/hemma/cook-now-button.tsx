@@ -82,14 +82,14 @@ export function CookNowButton(props: CookNowButtonProps) {
           setOpening((count) => count + 1);
           setOpen(true);
         }}
-        className="flex w-full items-center gap-3 rounded-lg bg-accent p-4 text-left text-on-accent"
+        className="flex min-h-14 w-full items-center gap-3 rounded-lg bg-mint px-4 py-2 text-left text-mint-ink"
       >
-        <SparkleIcon size={26} className="shrink-0" />
+        <SparkleIcon size={22} className="shrink-0" />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-headline">Vad kan jag laga nu?</span>
-          <span className="text-meta opacity-90">Med det du har i kyl, frys och skafferi</span>
+          <span className="text-row-title">Vad kan jag laga nu?</span>
+          <span className="text-meta opacity-80">Med det du har i kyl, frys och skafferi</span>
         </span>
-        <ChevronRightIcon size={18} className="shrink-0" />
+        <ChevronRightIcon size={16} className="shrink-0" />
       </button>
       {opening > 0 ? <CookNowSheet key={opening} open={open} onClose={() => setOpen(false)} {...props} /> : null}
     </>

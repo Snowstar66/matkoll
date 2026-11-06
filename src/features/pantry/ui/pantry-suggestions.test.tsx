@@ -162,7 +162,7 @@ describe("PantrySuggestionsProvider", () => {
     expect(fakeAi.calls).toHaveLength(0);
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.image_unsupported);
     expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
   });
 
   it("treats an answer that does not pass analyzeResultSchema as ai_invalid", async () => {
@@ -224,7 +224,7 @@ describe("PantrySuggestionsProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     await resize();
     expect(fakeAi.calls).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
   });
 
   it("adds a photo chosen while the first is read to the same reading: read after it, then one list (Kylfoto, flera foton)", async () => {
@@ -274,7 +274,7 @@ describe("PantrySuggestionsProvider", () => {
     expect(screen.getByText("Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.")).toBeInTheDocument();
     expect(cardNames()).toEqual([]);
     expect(heading()).toBeNull();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Fota" })).toHaveFocus());
   });
 
   it("says so when the AI named items but none could be used", async () => {
@@ -290,7 +290,7 @@ describe("PantrySuggestionsProvider", () => {
   it("moves focus to the camera button after an error, while focus has nowhere else to be", async () => {
     render(<Hemma />);
     await analyzeWith(fail("ai_unavailable"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Fota" })).toHaveFocus());
   });
 
   it("leaves focus where Pontus put it, and says the suggestions came through the live region", async () => {
@@ -320,7 +320,7 @@ describe("PantrySuggestionsProvider", () => {
     await act(async () => lastResize().reject(new Error("decoder crashed")));
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.image_unsupported);
     expect(fakeAi.calls).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fota" })).toBeInTheDocument();
   });
 
   it("finishes with ai_unavailable when the call throws, and keeps the photo for Försök igen", async () => {

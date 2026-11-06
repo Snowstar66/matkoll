@@ -119,7 +119,7 @@ async function photograph(page: Page, button: string) {
 async function photographFridge(page: Page) {
   await page.goto("/hemma");
   await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*5 varor(\s?Förslag klara)?$/);
-  await photograph(page, "Fotografera kylen");
+  await photograph(page, "Fota");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" })).toBeVisible();
 }
 
@@ -217,7 +217,7 @@ test("a ticked Syns inte längre item goes with Lägg till, and Ångra borttagni
 test("a photo of the empty freezer gives the plain list, without groups", async ({ page }) => {
   await page.goto("/hemma?plats=frys");
   await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor(\s?Förslag klara)?$/);
-  await photograph(page, "Fotografera frysen");
+  await photograph(page, "Fota");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från frysen" })).toBeVisible();
   await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText(cardTitles([
     "Vispgrädde 3 dl",

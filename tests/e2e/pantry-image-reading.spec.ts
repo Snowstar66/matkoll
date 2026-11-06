@@ -74,7 +74,7 @@ async function photographDoor(page: Page) {
   await page.goto("/hemma");
   await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*0 varor$/);
   const chooser = page.waitForEvent("filechooser");
-  await camera(page).getByRole("button", { name: "Fotografera kylen" }).click();
+  await camera(page).getByRole("button", { name: "Fota" }).click();
   await (await chooser).setFiles(door);
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" })).toBeVisible();
 }
