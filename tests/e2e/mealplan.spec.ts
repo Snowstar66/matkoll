@@ -229,6 +229,7 @@ test("Lägg på matsedeln in the recipe view is one tap onto the first free day,
   const takenDays = ((await admin.from("meal_plan_recipe").select("weekday").eq("user_id", userId)).data ?? []) as { weekday: number | null }[];
   const expectedDay = firstFree(takenDays.map((row) => row.weekday));
   await page.goto(`/recept/${recipeIds[gryta]}`);
+  await page.getByTestId("recipe-week-option").filter({ hasText: "Denna vecka" }).click();
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
   await expect(toast(page)).toContainText(
     expectedDay ? `${gryta} på ${dayWords[expectedDay - 1]}.` : `${gryta} på veckan. Alla dagar har en rätt.`,
@@ -270,6 +271,62 @@ test("Lägg på matsedeln in the recipe view is one tap onto the first free day,
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(dishes(page)).toHaveCount(3);
   await expect(dish(page, gryta)).toHaveCount(2);
+  expect(errors).toEqual([]);
+});
+
+test("Lägg på matsedeln in the recipe view plans next week from Monday unless another week is picked", async ({ page }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  // The dishes and the plans of the coming weeks go: a coming week's plan is current too, and the later tests expect one.
+  const clearNextWeek = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const plans = await admin.from("meal_plan").select("id").eq("user_id", userId).gt("week_start", today);
+    if (plans.error) throw plans.error;
+    for (const plan of plans.data) {
+      const dishes = await admin.from("meal_plan_recipe").delete().eq("meal_plan_id", plan.id);
+      if (dishes.error) throw dishes.error;
+      const removed = await admin.from("meal_plan").delete().eq("id", plan.id);
+      if (removed.error) throw removed.error;
+    }
+  };
+  const nextWeekRows = async () => {
+    const rows = await admin
+      .from("meal_plan_recipe")
+      .select("id, weekday, meal_plan_id, meal_plan!inner(week_start)")
+      .eq("user_id", userId)
+      .eq("recipe_title", gryta)
+      .gt("meal_plan.week_start", new Date().toISOString().slice(0, 10));
+    if (rows.error) throw rows.error;
+    return rows.data;
+  };
+  await clearNextWeek();
+  const dishesBefore = await dishCount();
+  await page.goto(`/recept/${recipeIds[gryta]}`);
+  const options = page.getByTestId("recipe-week-option");
+  await expect(options).toHaveText(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+  await expect(options.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("recipe-week-line")).toHaveText(/^Matsedel för vecka \d+$/);
+
+  await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
+  await expect(toast(page)).toContainText(`${gryta} på måndag nästa vecka.`);
+  await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln på måndag nästa vecka");
+  await expect.poll(async () => (await nextWeekRows()).map((row) => row.weekday)).toEqual([1]);
+  // This week is untouched, and "Byt dag" names the week it changes.
+  expect(await dishCount()).toBe(dishesBefore + 1);
+  await toast(page).getByRole("button", { name: "Byt dag" }).click();
+  const sheet = page.getByRole("dialog", { name: "Vilken dag?" });
+  await expect(sheet).toContainText("nästa vecka");
+  await sheet.getByRole("button", { name: "Onsdag" }).click();
+  await expect.poll(async () => (await nextWeekRows()).map((row) => row.weekday)).toEqual([3]);
+
+  // Every week has its own state: this week already has the recipe too; a reload lands on next week with its day kept.
+  await options.nth(0).click();
+  await expect(page.getByRole("button", { name: /^(Byt|Välj) dag$/ })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Byt dag" })).toBeVisible();
+  await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln på onsdag nästa vecka");
+
+  await clearNextWeek();
   expect(errors).toEqual([]);
 });
 

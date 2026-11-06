@@ -7,7 +7,7 @@ import { cx } from "@/components/cx";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
-import { clampServings, maxServings, weekdayWord } from "@/features/mealplan";
+import { clampServings, maxServings, weekdayWord, weekOffsetLabel } from "@/features/mealplan";
 import {
   atHomeSummaryText,
   noStaples,
@@ -28,6 +28,7 @@ import {
   offerChipText,
   plannedChipText,
   plannedToastText,
+  whenText,
   staplesNote,
   summarizeLines,
   type LineOffer,
@@ -61,6 +62,8 @@ export type AddToPlan = (input: {
   servings?: number;
   id: string;
   weekday?: number | null;
+  /** The Monday of the week to add to; left out, this week. */
+  weekStart?: string;
 }) => Promise<Result<{ weekday?: number | null }>>;
 
 /** shopping.addKeyedItems from the page (AD-1): one own item per key, linked to its catalog ingredient. */
@@ -76,6 +79,22 @@ export type SetDishWeekday = (change: { id: string; weekday: number | null }) =>
 
 /** The recipe's dish on this week's meal plan, or `null` when it is not on it. */
 export type PlanDishInfo = { id: string; weekday: number | null };
+
+/** A week the recipe can be planned for (this week and the next two), with the recipe's dish on it. */
+export type RecipeWeek = {
+  /** The Monday, `YYYY-MM-DD`. */
+  weekStart: string;
+  /** 0 this week, 1 next week, 2 in two weeks. */
+  offset: number;
+  /** The ISO week number: 46. */
+  number: number;
+  dish: PlanDishInfo | null;
+};
+
+/** The week a recipe is planned for unless the person picks another: next week. */
+const defaultWeekOffset = 1;
+
+const weekOptionLabels = ["Denna vecka", "Nästa vecka", "Om 2 veckor"];
 
 export type RecipeBodyProps = {
   recipe: SavedRecipe;
@@ -94,6 +113,8 @@ export type RecipeBodyProps = {
   offers?: Record<string, LineOffer>;
   /** The catalog ingredients that stand on the shopping list now. */
   listedIds?: readonly string[];
+  /** This week and the next two with the recipe's dish on each: the week picker; next week is chosen first. */
+  weeks?: readonly RecipeWeek[];
   /** The recipe's dish on this week's plan, which turns "Lägg på matsedeln" into "Välj dag". */
   dish?: PlanDishInfo | null;
   buyMissing?: BuyMissing;
@@ -128,6 +149,7 @@ export function RecipeBody({
   offers = {},
   listedIds = [],
   dish = null,
+  weeks,
   buyMissing,
   undoBuy,
   setWeekday,
@@ -145,8 +167,13 @@ export function RecipeBody({
   // What this visit put on the list or on the plan shows at once; the server's list catches up after the action.
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const [bought, setBought] = useState<readonly string[] | null>(null);
-  const [planned, setPlanned] = useState<PlanDishInfo | null>(null);
-  const onPlan = planned ?? dish;
+  // The week the dish goes on: next week unless the person picks another (only with the `weeks` of the page).
+  const [weekOffset, setWeekOffset] = useState(defaultWeekOffset);
+  const week = weeks?.find((candidate) => candidate.offset === weekOffset) ?? null;
+  const [planned, setPlanned] = useState<Readonly<Record<string, PlanDishInfo>>>({});
+  const weekKey = week?.weekStart ?? "";
+  const onPlan = planned[weekKey] ?? (week ? week.dish : dish);
+  const when = week ? whenText(week.offset) : null;
   const listed = useMemo(() => new Set([...listedIds, ...added]), [listedIds, added]);
   const states = useMemo(() => (status ? lineStates(lines, status, listed, offers) : null), [lines, status, listed, offers]);
   const toBuy = useMemo(() => (states ? itemsToBuy(lines, states) : []), [lines, states]);
@@ -159,6 +186,11 @@ export function RecipeBody({
   const [dayOpen, setDayOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const planDishId = useRef<string | null>(null);
+  function pickWeek(offset: number) {
+    // A retry id left by a failed tap belongs to the old week.
+    planDishId.current = null;
+    setWeekOffset(offset);
+  }
 
   const rows = toBuy.map((item) => {
     const line = lines.find((candidate) => candidate.id === item.lineId);
@@ -213,8 +245,13 @@ export function RecipeBody({
     planDishId.current ??= crypto.randomUUID();
     let result: Result<{ weekday?: number | null }>;
     try {
-      // No day sent: the server puts the dish on the first free day.
-      result = await addToPlan({ recipeId: recipe.id, servings: clampServings(servings), id: planDishId.current });
+      // No day sent: the server puts the dish on the first free day of the week.
+      result = await addToPlan({
+        recipeId: recipe.id,
+        servings: clampServings(servings),
+        id: planDishId.current,
+        ...(week ? { weekStart: week.weekStart } : {}),
+      });
     } catch {
       result = fail("mealplan_add_failed");
     }
@@ -223,12 +260,12 @@ export function RecipeBody({
       const id = planDishId.current;
       planDishId.current = null;
       const day = result.data.weekday ?? null;
-      setPlanned({ id, weekday: day });
+      setPlanned((current) => ({ ...current, [weekKey]: { id, weekday: day } }));
       // The recipe's missing ingredients stand on the list through the plan.
       const names = toBuy.map((item) => item.name);
       setAdded((current) => new Set([...current, ...toBuy.map((item) => item.ingredientId)]));
       setBought(null);
-      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names), {
+      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names, when), {
         show: { label: day ? "Byt dag" : "Välj dag", onShow: () => setDayOpen(true) },
       });
     } else if (result.error.code === "unauthorized") router.refresh();
@@ -239,8 +276,12 @@ export function RecipeBody({
     if (!setWeekday || !onPlan) return;
     const result = await setWeekday({ id: onPlan.id, weekday }).catch(() => fail("mealplan_weekday_failed"));
     if (result.ok) {
-      setPlanned({ id: onPlan.id, weekday });
-      showToast(weekday === null ? "Ingen dag vald. Rätten ligger på veckan." : `${recipe.title} på ${weekdayWord(weekday)}.`);
+      setPlanned((current) => ({ ...current, [weekKey]: { id: onPlan.id, weekday } }));
+      showToast(
+        weekday === null
+          ? `Ingen dag vald. Rätten ligger på ${when ?? "veckan"}.`
+          : `${recipe.title} på ${weekdayWord(weekday)}${when ? ` ${when}` : ""}.`,
+      );
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
   }
@@ -298,7 +339,7 @@ export function RecipeBody({
               <ul aria-live="polite" aria-label="Status" className="flex flex-wrap gap-2" data-testid="recipe-chips">
                 {onPlan ? (
                   <Chip tone="accent" testId="recipe-planned">
-                    {plannedChipText(onPlan.weekday ? weekdayWord(onPlan.weekday) : null)}
+                    {plannedChipText(onPlan.weekday ? weekdayWord(onPlan.weekday) : null, when)}
                   </Chip>
                 ) : null}
                 {status.ingredientCount > 0 ? (
@@ -319,6 +360,8 @@ export function RecipeBody({
               </ul>
             ) : null}
           </div>
+
+          {weeks && addToPlan ? <WeekPicker weeks={weeks} selected={weekOffset} onSelect={pickWeek} /> : null}
 
           {wide && hasActions ? <div className="flex flex-col gap-2">{actions}</div> : null}
 
@@ -395,7 +438,11 @@ export function RecipeBody({
         <BuyMissingSheet open={buyOpen} onClose={() => setBuyOpen(false)} rows={rows} onConfirm={confirmBuy} pending={working} />
       ) : null}
       {setWeekday ? (
-        <ChooseDaySheet open={dayOpen} onClose={() => setDayOpen(false)} weekday={onPlan?.weekday ?? null} onChoose={chooseDay} />
+        <ChooseDaySheet open={dayOpen} onClose={() => setDayOpen(false)}
+          weekday={onPlan?.weekday ?? null}
+          onChoose={chooseDay}
+          weekLabel={week ? `Vecka ${week.number}${when ? `, ${when}` : ""}` : undefined}
+        />
       ) : null}
     </>
   );
@@ -414,5 +461,52 @@ function Chip({ tone, testId, children }: { tone: keyof typeof chipTones; testId
     <li className={cx("rounded-full px-2.5 py-1.5 text-meta font-semibold", chipTones[tone])} data-testid={testId}>
       {children}
     </li>
+  );
+}
+
+/**
+ * Which week "Lägg på matsedeln" goes on: Denna vecka / Nästa vecka / Om 2
+ * veckor, the same three as Matsedel's week tiles. Next week is picked at first,
+ * and the line under says the week number.
+ */
+function WeekPicker({
+  weeks,
+  selected,
+  onSelect,
+}: {
+  weeks: readonly RecipeWeek[];
+  selected: number;
+  onSelect: (offset: number) => void;
+}) {
+  const current = weeks.find((week) => week.offset === selected);
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="recipe-week">
+      {/* With large text the three wrap onto more rows instead of pushing the page sideways. */}
+      <div role="group" aria-label="Vecka på matsedeln" className="flex flex-wrap gap-1.5">
+        {weeks.map((week) => {
+          const on = week.offset === selected;
+          return (
+            <button
+              key={week.weekStart}
+              type="button"
+              data-testid="recipe-week-option"
+              aria-pressed={on}
+              onClick={() => onSelect(week.offset)}
+              className={cx(
+                "flex min-h-tap flex-1 cursor-pointer items-center justify-center rounded-md border px-2 text-control whitespace-nowrap",
+                on ? "border-accent bg-accent text-on-accent" : "border-border bg-surface text-ink",
+              )}
+            >
+              {weekOptionLabels[week.offset] ?? weekOffsetLabel(week.offset)}
+            </button>
+          );
+        })}
+      </div>
+      {current ? (
+        <p className="text-meta text-ink-2" data-testid="recipe-week-line">
+          Matsedel för vecka {current.number}
+        </p>
+      ) : null}
+    </div>
   );
 }

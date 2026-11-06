@@ -9,7 +9,7 @@ import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type SetDishWeekday, type UndoBuy } from "./recipe-body";
+import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type RecipeWeek, type SetDishWeekday, type UndoBuy } from "./recipe-body";
 
 // Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
 // and the menu (⋯, Story 1.11) beside the title, the time and the source
@@ -44,7 +44,9 @@ export type RecipeViewProps = {
   offers?: Record<string, LineOffer>;
   /** The catalog ingredients on the shopping list now ("På listan"). */
   listedIds?: readonly string[];
-  /** The recipe's dish on this week's plan, or `null`. */
+  /** This week and the next two with the recipe's dish on each (the week picker; next week first). */
+  weeks?: readonly RecipeWeek[];
+  /** The recipe's dish on this week's plan, or `null`; used without `weeks`. */
   dish?: PlanDishInfo | null;
   /** shopping.addKeyedItems and removeKeyedItems: "Köp det som saknas" and its "Ångra". */
   buyMissing?: BuyMissing;
@@ -65,6 +67,7 @@ export function RecipeView({
   offers,
   listedIds,
   dish,
+  weeks,
   buyMissing,
   undoBuy,
   setWeekday,
@@ -130,6 +133,7 @@ export function RecipeView({
         offers={offers}
         listedIds={listedIds}
         dish={dish}
+        weeks={weeks}
         buyMissing={buyMissing}
         undoBuy={undoBuy}
         setWeekday={setWeekday}

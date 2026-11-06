@@ -12,6 +12,7 @@ import {
   offerTagText,
   plannedChipText,
   plannedToastText,
+  whenText,
   staplesNote,
   summarizeLines,
   type LineOffer,
@@ -157,6 +158,13 @@ describe("texts", () => {
     expect(plannedToastText("Pasta", "fredag", [])).toBe("Pasta på fredag.");
     expect(plannedToastText("Pasta", null, [])).toBe("Pasta på veckan. Alla dagar har en rätt.");
     expect(namesText([])).toBe("");
+    expect(plannedToastText("Pasta", "måndag", ["falukorv"], "nästa vecka")).toBe("Pasta på måndag nästa vecka. Falukorv står på inköpslistan.");
+    expect(plannedToastText("Pasta", null, [], "om 2 veckor")).toBe("Pasta om 2 veckor. Alla dagar har en rätt.");
+    expect(plannedChipText("onsdag", "nästa vecka")).toBe("På matsedeln på onsdag nästa vecka");
+    expect(plannedChipText(null, "nästa vecka")).toBe("På matsedeln nästa vecka");
+    expect(whenText(0)).toBeNull();
+    expect(whenText(1)).toBe("nästa vecka");
+    expect(whenText(2)).toBe("om 2 veckor");
   });
 
   it("says the sheet's button and the key of an item", () => {
