@@ -99,7 +99,7 @@ export function OfferDishesCard({
           Visa alla
         </Link>
       ) : null}
-      <OfferIdeas weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} />
+      <OfferIdeas weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside />
     </section>
   );
 }

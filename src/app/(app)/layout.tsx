@@ -19,6 +19,7 @@ import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
 import { hasSeenWelcomeTour } from "@/features/welcome/server";
 import { loadBoendeCounts } from "./boende-counts";
 import { type NameAsk, WelcomeGate } from "./welcome-gate";
+import { OfferIdeaPreviewHost } from "./offer-ideas";
 
 /**
  * The boende button in the side menu (Story 16.14), read inside its own
@@ -86,6 +87,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <WelcomeGate seen={welcomeSeen} name={nameAsk} />
             </Suspense>
             {children}
+            {/* The preview of an AI idea opened in Veckans erbjudanden, which closes when the preview opens. */}
+            <OfferIdeaPreviewHost />
           </AppShell>
         </SiteSwitchProvider>
         </NotesProvider>
