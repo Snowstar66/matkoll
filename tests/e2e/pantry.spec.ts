@@ -137,7 +137,7 @@ test.describe("on a phone", () => {
     await expect(page).toHaveURL(/\/hemma\?plats=frys$/);
     await expectChosen(page, "Frys");
     await expect(rows(page)).toHaveText([today("Ärtor")]);
-    await expect(heading(page, "Frys")).toBeVisible();
+    await expect(heading(page, "Fryst")).toBeVisible();
 
     await card(page, "Skafferi").click();
     await expect(page).toHaveURL(/\/hemma\?plats=skafferi$/);

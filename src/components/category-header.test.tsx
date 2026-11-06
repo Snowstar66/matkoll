@@ -55,8 +55,8 @@ describe("CategoryHeader", () => {
   });
 
   it("keeps the emoji out of the heading and the count", () => {
-    render(<CategoryHeader category="Frys" count={2} />);
-    expect(screen.getByRole("heading")).toHaveTextContent(/^Frys$/);
+    render(<CategoryHeader category="Fryst" count={2} />);
+    expect(screen.getByRole("heading")).toHaveTextContent(/^Fryst$/);
     expect(screen.getByText("2 varor")).toHaveTextContent(/^2 varor$/);
   });
 
