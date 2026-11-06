@@ -8,6 +8,11 @@ import { ShoppingListContent } from "./shopping-list-content";
 
 export const metadata: Metadata = { title: "Inköpslista" };
 
+// "Nya idéer med extrapris" are prepared by a Server Action from this page (offers fetched, or the first
+// view of a week), whose after() holds the AI run: it lives as long as this page's maxDuration allows (the
+// model gets 100 s of it, as /api/ai/jobs has 300 s).
+export const maxDuration = 300;
+
 // Inköpslista (FR-15): counted from the current meal plan, its recipes and
 // the pantry every time it is read (AD-8), grouped by store section, with
 // what is at home taken off. Everything is read inside <Suspense> (AD-18),

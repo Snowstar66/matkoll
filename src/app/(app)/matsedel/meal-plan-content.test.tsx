@@ -17,7 +17,13 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   getWeekCounts: vi.fn(async () => ({})),
   addToCurrentPlan: vi.fn(),
 }));
-vi.mock("@/features/suggestions/server", () => ({ weekPlanOptions: vi.fn() }));
+vi.mock("@/features/suggestions/server", () => ({
+  weekPlanOptions: vi.fn(),
+  loadOfferIdeas: vi.fn(async () => null),
+  isOfferIdeaError: () => false,
+  readOfferIdeas: vi.fn(),
+  startOfferIdeas: vi.fn(),
+}));
 vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
 vi.mock("@/features/catalog/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/catalog/server")>()),

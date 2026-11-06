@@ -319,6 +319,26 @@ isOneToOne: false
       referencedColumns: ["id","household_id"]
     }
                   ]
+                },"offer_idea_set": {
+                  Row: {
+                    "claimed_at": string,"created_at": string,"error_code": string | null,"household_id": string,"id": string,"ideas": NonNullable<Json>,"intro": string,"status": string,"updated_at": string,"user_id": string | null,"week_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "claimed_at"?: string,"created_at"?: string,"error_code"?: string | null,"household_id"?: string,"id"?: string,"ideas"?: NonNullable<Json>,"intro"?: string,"status"?: string,"updated_at"?: string,"user_id"?: string | null,"week_start": string
+                  }
+                  Update: {
+                    "claimed_at"?: string,"created_at"?: string,"error_code"?: string | null,"household_id"?: string,"id"?: string,"ideas"?: NonNullable<Json>,"intro"?: string,"status"?: string,"updated_at"?: string,"user_id"?: string | null,"week_start"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "offer_idea_set_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"pantry_addition": {
                   Row: {
                     "created_at": string,"household_id": string,"id": string,"key": string,"user_id": string | null

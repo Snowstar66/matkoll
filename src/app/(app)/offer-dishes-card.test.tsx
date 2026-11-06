@@ -34,7 +34,7 @@ const addToWeek = vi.fn();
 function renderCard(onWeek: Record<string, number | null> = {}, dishes: PlanOption[] = [korv, lax]) {
   return render(
     <ToastProvider>
-      <OfferDishesCard dishes={dishes} onWeek={onWeek} weekStart="2026-11-02" addToWeek={addToWeek} searchIngredients={async () => ok([])} />
+      <OfferDishesCard dishes={dishes} onWeek={onWeek} weekStart="2026-11-02" addToWeek={addToWeek} searchIngredients={async () => ok([])} ideas={null} startIdeas={vi.fn()} readIdeas={vi.fn()} />
     </ToastProvider>,
   );
 }

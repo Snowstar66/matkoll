@@ -5,8 +5,8 @@ import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { weekStartOf } from "@/features/offers/domain/week";
 import { adminClient, dayWords, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState, todayDay } from "./support";
 
-// Story 9.5 and 25.3: the offers and what is made of them, with AI_PROVIDER=mock (the
-// server answers the three dishes in
+// Story 9.5 and 25.3, and "Idéerna är klara när du öppnar erbjudandena": the offers and what is made of
+// them, with AI_PROVIDER=mock (the server answers the three dishes in
 // tests/fixtures/ai/suggest-dishes-erbjudanden.response.json when the message
 // has offers). The spec has an E2E user of its own (offerSuggestionsEmail).
 // Before each test the service role empties the user's pantry, plan, recipes,
@@ -60,6 +60,7 @@ async function seed({ withOffers }: { withOffers: boolean }) {
   const admin = adminClient();
   // Children before parents, so nothing relies on the cascades.
   for (const table of [
+    "offer_idea_set",
     "ai_job",
     "meal_plan_recipe",
     "meal_plan",
@@ -184,8 +185,9 @@ test("the offers sheet shows Rätter med extrapris, + adds the dish to the week,
   expect(errors).toEqual([]);
 });
 
-// The card Rätter med extrapris is there whenever there are offers, also when none of the user's dishes match, with the same ideas.
-test("the offers sheet offers Nya idéer med extrapris even without a matching dish, and + opens the preview", async ({ page }) => {
+// The card Rätter med extrapris is there whenever there are offers, also when none of the user's dishes match. The ideas are
+// prepared in the background (here on the first view, since the offers were seeded, not fetched): nobody taps a start button.
+test("the offers sheet shows the Nya idéer ready without a button, + opens the preview, and Andra idéer replaces the set", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
   await page.goto("/lista");
@@ -194,12 +196,39 @@ test("the offers sheet offers Nya idéer med extrapris even without a matching d
   await expect(card).toContainText("Rätter med extrapris");
   await expect(card.getByTestId("offer-dish")).toHaveCount(0);
   await expect(card.getByRole("link", { name: "Visa alla" })).toHaveCount(0);
-  await card.getByRole("button", { name: "Nya idéer med extrapris" }).click();
+  await expect(card.getByRole("button", { name: /Nya idéer med extrapris/ })).toHaveCount(0);
+  await expect(card.getByRole("heading", { name: "Nya idéer" })).toBeVisible();
   await expect(card.getByTestId("ai-option")).toHaveCount(3, jobTime);
   await expect(card.getByTestId("offer-ideas-intro")).toContainText("billigt i veckan");
+  // The set is saved for the household and the offer week.
+  const set = await adminClient().from("offer_idea_set").select("status, week_start").eq("user_id", userId);
+  expect(set.data).toEqual([{ status: "ready", week_start: weekStartOf(new Date()) }]);
+
+  // Andra idéer asks for a replacing set, prepared in the background; the card says so meanwhile. The mock AI has no other set to
+  // give (every title is to be avoided), so the first set is given back: the user is never left without ideas.
+  await card.getByRole("button", { name: "Andra idéer" }).click();
+  await expect(card.getByTestId("ai-option")).toHaveCount(3, jobTime);
+  expect((await adminClient().from("offer_idea_set").select("id").eq("user_id", userId)).data).toHaveLength(1);
+
   await card.getByRole("button", { name: `Granska och spara: ${dishName}` }).click();
   await expect(page.getByRole("dialog", { name: "Spara AI-förslag" })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// An idea saved as a recipe leaves the set, in every place that shows it.
+test("a saved idea does not show again on Matsedel", async ({ page }) => {
+  await seed({ withOffers: true });
+  await page.goto("/lista");
+  await page.getByRole("button", { name: "Erbjudanden" }).click();
+  const card = sheet(page).getByTestId("offer-dishes");
+  await expect(card.getByTestId("ai-option")).toHaveCount(3, jobTime);
+  await card.getByRole("button", { name: `Granska och spara: ${dishName}` }).click();
+  await page.getByRole("dialog", { name: "Spara AI-förslag" }).getByRole("button", { name: "Spara och lägg på veckan" }).click();
+  await expect(page.getByRole("dialog", { name: "Spara AI-förslag" })).toBeHidden();
+  await page.goto("/matsedel");
+  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await expect(page.getByTestId("ai-option")).toHaveCount(2);
+  await expect(page.getByTestId("ai-option").filter({ hasText: dishName })).toHaveCount(0);
 });
 
 // Story 25.3: Matsedel is where the week is planned: På erbjudande, "+" and the dish is on the week with no day.
@@ -251,29 +280,26 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   expect(errors).toEqual([]);
 });
 
-// "Nya idéer med extrapris": the job of Story 9.5 over all stores, told like a friend (intro and a why per dish), the same rows, and the preview first.
-// The same component sits in the card Rätter med extrapris (next test) and under På erbjudande on Matsedel.
-test("Matsedel: new ideas with extrapris are reviewed and saved before they go on the week", async ({ page }) => {
+// "Nya idéer": the saved set (prepared in the background by the job of Story 9.5 over all stores), told like a friend (intro and a why per dish), the same rows, and the preview first.
+// The same component sits in the card Rätter med extrapris (previous test) and under På erbjudande on Matsedel.
+test("Matsedel: the new ideas are ready under På erbjudande and are reviewed and saved before they go on the week", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
-  const bodies: string[] = [];
+  const jobPosts: string[] = [];
   page.on("request", (request) => {
-    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") jobPosts.push(request.postData() ?? "");
   });
 
   await page.goto("/matsedel");
   await page.getByRole("radio", { name: "På erbjudande" }).click();
-  await page.getByRole("button", { name: "Nya idéer med extrapris" }).click();
+  await expect(page.getByRole("button", { name: /Nya idéer med extrapris/ })).toHaveCount(0);
   const ideas = page.getByTestId("ai-option");
   await expect(ideas).toHaveCount(3, jobTime);
   // Like a friend: a thought on the offers, and a why under each idea.
   await expect(page.getByTestId("offer-ideas-intro")).toContainText("billigt i veckan");
   await expect(ideas.filter({ hasText: dishName }).getByTestId("plan-option-note")).toContainText("Falukorven är billig");
-  // No store is chosen: the server reads the offers of all stores. Only the mode goes from the client.
-  expect(bodies).toHaveLength(1);
-  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "offers" });
-  expect(JSON.parse(bodies[0])).not.toHaveProperty("storeId");
-  expect(bodies[0]).not.toMatch(/falukorv|kr\//);
+  // The set is made on the server in the background, not by an AI job the client starts.
+  expect(jobPosts).toEqual([]);
   // Nothing is saved yet.
   expect((await adminClient().from("recipe").select("id").eq("user_id", userId)).data).toHaveLength(1);
 
