@@ -174,4 +174,52 @@ describe("feedback", () => {
     expect((await adminClient().auth.admin.deleteUser(leaver.id)).error).toBeNull();
     expect(await adminFeedback(leaver.id)).toHaveLength(0);
   });
+
+  describe("error reports (kind error)", () => {
+    const report = { kind: "error", body: "TypeError: x [sidan kraschade]\nat f (a.js)", area: "recept", page: "/recept", app_version: "0.1.0+abc1234", digest: "1234567890" };
+
+    it("lets a user add their own, which only the owner reads, and nobody else", async () => {
+      const reporter = await createTestUser("feedback-error-reporter");
+      expect((await reporter.db.from("feedback").insert(report)).error).toBeNull();
+      const rows = await adminFeedback(reporter.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ ...report, user_id: reporter.id, sender_email: reporter.email, read_at: null, stars: null });
+
+      expect((await reporter.db.from("feedback").select("id").eq("user_id", reporter.id)).data, "the reporter reads").toEqual([]);
+      expect((await other.db.from("feedback").select("id").eq("user_id", reporter.id)).data, "another user reads").toEqual([]);
+      const seen = await owner.db.from("feedback").select("kind, digest, body").eq("user_id", reporter.id);
+      expect(seen.data).toEqual([{ kind: "error", digest: "1234567890", body: report.body }]);
+      const marked = await owner.db.from("feedback").update({ read_at: new Date().toISOString() }).eq("user_id", reporter.id).select("id");
+      expect(marked.data).toHaveLength(1);
+    });
+
+    it("refuses an error row in another's name, and from anon", async () => {
+      expect((await sender.db.from("feedback").insert({ ...report, user_id: other.id } as never)).error?.code).toBe("42501");
+      expect((await anonClient().from("feedback").insert(report)).error?.code).toBe("42501");
+    });
+
+    it("keeps the digest to error rows and to 64 characters, and the body to 2000", async () => {
+      const user = await createTestUser("feedback-error-checks");
+      expect((await user.db.from("feedback").insert({ kind: "idea", body: "x", digest: "1" })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, digest: "d".repeat(65) })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, body: "x".repeat(2001) })).error?.code).toBe("23514");
+      expect((await user.db.from("feedback").insert({ ...report, body: "  " })).error?.code).toBe("23514");
+    });
+
+    it("stops a sender after 5 error reports in 10 minutes, without using up their ordinary messages", async () => {
+      const crasher = await createTestUser("feedback-error-crasher");
+      for (let index = 0; index < 5; index++) {
+        expect((await crasher.db.from("feedback").insert({ ...report, body: `Fel ${index}` })).error, `report ${index + 1}`).toBeNull();
+      }
+      expect((await crasher.db.from("feedback").insert({ ...report, body: "Fel 6" })).error?.code).toBe("MK429");
+      expect((await adminFeedback(crasher.id)).filter((row) => row.kind === "error")).toHaveLength(5);
+      // The limit holds for the service role too: a script must not flood either.
+      expect((await adminClient().from("feedback").insert({ ...report, user_id: crasher.id, body: "Fel 7" })).error?.code).toBe("MK429");
+      // Ordinary messages are counted apart: ten still go through, the eleventh does not.
+      for (let index = 0; index < 10; index++) {
+        expect((await crasher.db.from("feedback").insert({ kind: "idea", body: `Förslag ${index}` })).error, `idea ${index + 1}`).toBeNull();
+      }
+      expect((await crasher.db.from("feedback").insert({ kind: "idea", body: "En för mycket" })).error?.code).toBe("MK429");
+    });
+  });
 });
