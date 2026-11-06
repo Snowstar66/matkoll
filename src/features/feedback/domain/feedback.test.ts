@@ -121,7 +121,7 @@ describe("the inbox", () => {
   });
 
   it("counts the kinds and writes the line under the name", () => {
-    expect(kindCounts([item({ kind: "idea" }), item({ kind: "idea" }), item({ kind: "rating", stars: 4 })])).toEqual({ idea: 2, rating: 1, problem: 0 });
+    expect(kindCounts([item({ kind: "idea" }), item({ kind: "idea" }), item({ kind: "rating", stars: 4 })])).toEqual({ idea: 2, rating: 1, problem: 0, error: 0 });
     expect(kindLine({ kind: "idea", area: "inkopslista" })).toBe("Förslag · Inköpslista");
     expect(kindLine({ kind: "problem", area: "matvaror" })).toBe("Fel · Matvaror");
     expect(kindLine({ kind: "problem", area: null })).toBe("Fel");

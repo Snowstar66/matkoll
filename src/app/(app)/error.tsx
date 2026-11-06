@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
+import { reportClientError } from "@/features/feedback/ui/report-client-error";
 
 // Unexpected errors inside the app shell: the menu stays, the surface shows a notice.
 export default function AppError({ error, retry }: { error: unknown; retry: () => void }) {
   useEffect(() => {
+    reportClientError(error, "boundary");
     // Error code only, no user data (logging convention).
     const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
     console.error("app_error", digest);

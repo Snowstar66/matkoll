@@ -45,7 +45,11 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag, och knappen Byt dag låter dig flytta det om du vill.",
+        answer: "Öppna receptet, välj vecka under portionerna (Nästa vecka är förvalt) och tryck Lägg på matsedeln. Det hamnar på första lediga dag den veckan, och Byt dag låter dig flytta det om du vill.",
+      },
+      {
+        question: "Hur tar jag bort ett recept?",
+        answer: "Svep receptet åt vänster i listan och tryck Ta bort, eller öppna receptet och välj Ta bort i menyn. Du får en fråga först, eftersom det inte går att ångra.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",
@@ -59,7 +63,7 @@ export const helpAreas: readonly HelpArea[] = [
     steps: [
       { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
       { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Under Lägg till från dina recept trycker du + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
-      { icon: "house", title: "Se vad som ska köpas", text: "Raden längst ner räknar varorna veckan behöver. Det du har hemma räknas bort." },
+      { icon: "house", title: "Se vad som ska köpas", text: "Raden under Veckans rätter räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
     faq: [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
@@ -94,7 +98,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur lägger jag det jag handlat i Matvaror?",
-        answer: `Bocka av varorna och tryck Lägg till i Matvaror. Då räknar ${appName} med att du har dem hemma nästa gång listan räknas fram.`,
+        answer: `Bocka av varorna och tryck Lägg till i Matvaror. Siffran på knappen visar hur många varor som flyttas. Då räknar ${appName} med att du har dem hemma nästa gång listan räknas fram.`,
       },
       {
         question: "Sparas det jag bockar av utan nät?",
@@ -108,7 +112,7 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
-        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen på Inköpslista och Matsedel visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
+        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen på Inköpslista och Matsedel visar dem, och överst står Rätter med extrapris: dina recept och några nya idéer som passar veckans priser. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",

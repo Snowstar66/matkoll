@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { addToCurrentPlan, getCurrentPlan, setWeekday } from "@/features/mealplan/server";
+import { copyTargets, weekNumber, type MealPlan } from "@/features/mealplan";
+import { addToCurrentPlan, getCurrentPlan, getPlanForWeek, setWeekday } from "@/features/mealplan/server";
 import { getActiveOffers } from "@/features/offers/server";
 import { lineOffers, type LineOffer } from "@/features/recipes";
 import { listStores } from "@/features/settings/server";
@@ -11,6 +12,7 @@ import { addKeyedItems, getShoppingList, removeKeyedItems } from "@/features/sho
 import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
+import type { RecipeWeek } from "@/features/recipes/ui/recipe-body";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
 
 /** The tab shows the recipe's title; "Recept" when there is none to show. */
@@ -76,11 +78,23 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
-  const plan = await getCurrentPlan().catch(() => null);
+  // The three weeks the recipe can be planned for, with its dish on each (the week picker).
+  const targets = copyTargets();
+  const [plan, ...comingPlans] = await Promise.all(
+    targets.map((target) => (target.offset === 0 ? getCurrentPlan() : getPlanForWeek(target.weekStart)).catch((): MealPlan | null => null)),
+  );
+  const weeks: RecipeWeek[] = targets.map((target, index) => {
+    const found = (index === 0 ? plan : comingPlans[index - 1])?.recipes.find((candidate) => candidate.recipeId === recipe.id);
+    return {
+      weekStart: target.weekStart,
+      offset: target.offset,
+      number: weekNumber(target.weekStart),
+      dish: found ? { id: found.id, weekday: found.weekday ?? null } : null,
+    };
+  });
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   // The dish that is not cooked yet: "Markera som lagad" under the steps (Story 13.4).
   const dish = plan?.recipes.find((candidate) => candidate.recipeId === recipe.id && !candidate.cookedAt);
-  const planned = plan?.recipes.find((candidate) => candidate.recipeId === recipe.id);
   const names = Object.fromEntries(
     recipe.lines.flatMap((line) => (line.ingredientId && line.ingredientName ? [[line.ingredientId, line.ingredientName]] : [])),
   );
@@ -94,7 +108,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       addToPlan={addToCurrentPlan}
       offers={offers}
       listedIds={listedIds}
-      dish={planned ? { id: planned.id, weekday: planned.weekday ?? null } : null}
+      weeks={weeks}
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
       setWeekday={setWeekday}
