@@ -141,7 +141,8 @@ test("an empty week says so, with the library to choose from under it", async ({
   await page.goto("/matsedel");
   await expect(page.getByTestId("week-empty")).toHaveText("Inga rätter än. Välj bland dina recept här under.");
   await expect(page.getByRole("heading", { name: "Lägg till rätter" })).toBeVisible();
-  await expect(bar(page)).toHaveText("0 rätter · 0 varor att köpa");
+  // An empty week says "Inga rätter än" instead of a count.
+  await expect(bar(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

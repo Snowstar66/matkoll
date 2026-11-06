@@ -210,7 +210,8 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
 
   await page.goto("/matsedel");
   await expect(page.getByTestId("week-empty")).toBeVisible();
-  await expect(bar(page)).toHaveText("0 rätter · 0 varor att köpa");
+  // An empty week says "Inga rätter än" instead of a count.
+  await expect(bar(page)).toHaveCount(0);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
