@@ -400,22 +400,14 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
 
   const krokomBest = { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" as const }, { id: both[2].id, name: "Gul lök", source: "pantry" as const }] };
 
-  it("says the week's best store in one tip sentence, and asks for the store before the suggestions start (Stories 9.14, 16.10)", async () => {
+  it("says the week's best store in one tip sentence, with no suggestion button (Stories 9.14, 25.3)", async () => {
     render({ stores, offers: both, best: krokomBest, fitIds: [both[1].id, both[2].id] });
-    const { user, dialog } = await open();
+    const { dialog } = await open();
     const tip = within(dialog).getByTestId("best-store");
     expect(tip).toHaveTextContent("Krokom passar dig bäst den här veckan: Laxfilé och gul lök passar det du brukar laga");
     expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
+    expect(within(dialog).queryByRole("button", { name: "Föreslå rätter från veckans erbjudanden" })).not.toBeInTheDocument();
     expect(startJob).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole("button", { name: "Föreslå rätter från veckans erbjudanden" }));
-    expect(within(dialog).getByRole("heading", { name: "Föreslå rätter från vilken butik?" })).toBeInTheDocument();
-    const group = within(within(dialog).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" }));
-    expect(group.getByRole("radio", { name: /Krokom/ })).toBeChecked();
-    expect(group.getByRole("radio", { name: /Maxi/ })).not.toBeChecked();
-    await user.click(group.getByRole("radio", { name: /Maxi/ }));
-    await user.click(within(dialog).getByTestId("store-choice-start"));
-    await waitFor(() => expect(startJob).toHaveBeenCalledTimes(1));
-    expect(startJob.mock.calls[0][1]).toMatchObject({ mode: "offers", storeId: store.id });
   });
 
   it("has no Visa dessa toggle; the matching offers are only marked, and every offer has a checkbox (Story 16.12)", async () => {

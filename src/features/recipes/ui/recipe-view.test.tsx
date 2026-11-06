@@ -7,7 +7,7 @@ import { recipeStatus, toSnapshot, type PantrySnapshot } from "@/features/pantry
 import { fail, ok, type Result } from "@/lib/errors";
 import type { FavoriteChange } from "../domain/recipe-list";
 import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
-import type { AddToPlan } from "./add-to-plan-button";
+import type { AddToPlan } from "./recipe-body";
 import { lineCoverage } from "./ingredient-row";
 import { RecipeView } from "./recipe-view";
 
@@ -112,6 +112,13 @@ describe("RecipeView", () => {
     expect(screen.getByRole("link", { name: /^koket\.se/ })).toHaveAttribute("href", recipe.sourceUrl);
   });
 
+  it("shows a thumbnail tile with an icon, never an emoji, and the line for a recipe saved from the offers", () => {
+    render(<RecipeView recipe={{ ...recipe, offerNames: ["Falukorv", "Grädde"] }} snapshot={allHome} />);
+    expect(screen.queryByTestId("recipe-illustration")).not.toBeInTheDocument();
+    expect(screen.getByTestId("recipe-image-placeholder")).toBeInTheDocument();
+    expect(screen.getByTestId("recipe-offers")).toHaveTextContent("Sparad från veckans erbjudanden: Falukorv, Grädde");
+  });
+
   it("has a visible Tillbaka with an arrow to Recept, at every width (Story 11.6)", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     const back = screen.getByRole("link", { name: "Tillbaka" });
@@ -176,9 +183,10 @@ describe("RecipeView", () => {
 
   it("says Kan lagas nu and X av Y hemma, and ticks every line when everything is at home; a line without ingredient is neutral", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
-    expect(screen.getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");
+    expect(atHome()).toHaveClass("bg-mint", "text-mint-ink");
     // Chicken, red onion and salt: the spinach has no catalog ingredient.
     expect(atHome()).toHaveTextContent(/^3 av 3 hemma$/);
+    expect(screen.queryByText(/Saknar/)).not.toBeInTheDocument();
     expect(marks()).toEqual(["finns hemma", "finns hemma", "jämförs inte med matvarorna", "finns hemma"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-ink-2");
   });
@@ -186,12 +194,14 @@ describe("RecipeView", () => {
   it("says Saknar N varor, rings what is short, and shows what is at home in another unit", () => {
     // Chicken only in kg, no onion, and no salt: the vague salt is ringed but not counted in N.
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 1, unit: "kg" }])} />);
-    expect(screen.getByText("Saknar 2 varor")).toBeInTheDocument();
-    expect(screen.getByText("kycklinglårfilé, rödlök").closest("button")).toHaveClass("bg-sky", "text-sky-ink");
-    // No extra word on a missing line any more: the ring and the blue amount say it (Story 19.6).
-    expect(within(rows()[0]).queryByText("Saknas")).not.toBeInTheDocument();
+    // The old status box ("Saknar 2 varor", "+N st till") is gone: the rows say it (Story 25.1).
+    expect(screen.queryByText(/^Saknar/)).not.toBeInTheDocument();
+    expect(within(rows()[0]).getByText("Saknas")).toHaveClass("text-hot", "font-semibold");
+    expect(within(rows()[1]).getByText("Saknas")).toBeInTheDocument();
+    expect(within(rows()[3]).getByText("Saknas")).toBeInTheDocument();
     // The salt is not at home either, so none of the three is.
     expect(atHome()).toHaveTextContent(/^0 av 3 hemma$/);
+    // The vague salt is ringed too, though it never counts in the buy list.
     expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med matvarorna", "saknas"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-sky-ink");
     expect(within(rows()[0]).getByText("hemma: 1 kg")).toBeInTheDocument();
@@ -199,7 +209,7 @@ describe("RecipeView", () => {
     expect(within(rows()[1]).queryByText(/^hemma:/)).not.toBeInTheDocument();
   });
 
-  it("says Saknar 1 vara for one ingredient", () => {
+  it("says Saknas on the one missing row only, and nothing on the rows at home", () => {
     render(
       <RecipeView
         recipe={recipe}
@@ -209,20 +219,34 @@ describe("RecipeView", () => {
         ])}
       />,
     );
-    expect(screen.getByText("Saknar 1 vara")).toBeInTheDocument();
-    expect(screen.getByText("rödlök").closest("button")).toHaveClass("bg-sky");
+    expect(screen.getAllByText("Saknas")).toHaveLength(1);
+    expect(within(rows()[1]).getByText("Saknas")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^2 av 3 hemma$/);
   });
 
-  it("takes Pontus to the ingredients and focuses the first missing line when the chip is pressed", async () => {
-    const user = userEvent.setup();
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    window.matchMedia ??= ((query: string) => ({ matches: false, media: query })) as unknown as typeof window.matchMedia;
-    render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 600, unit: "g" }])} />);
-    await user.click(screen.getByRole("button", { name: /^Saknar 1 vara/ }));
-    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
-    expect(rows()[1]).toHaveFocus();
+  it("shows the offer on a missing row with the saving in kronor, or in percent when kronor cannot be counted", () => {
+    const offers = {
+      [kyckling]: { store: "ICA Maxi", price: "99 kr/st", savingKr: 12, savingPercent: null },
+      [rodlok]: { store: "Coop", price: null, savingKr: null, savingPercent: 20 },
+    };
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} offers={offers} />);
+    expect(within(rows()[0]).getByTestId("recipe-line-offer")).toHaveTextContent("Erbjudande ICA Maxi · 99 kr/st, spara 12 kr");
+    expect(within(rows()[1]).getByTestId("recipe-line-offer")).toHaveTextContent("Erbjudande Coop, spara 20 %");
+    expect(screen.getByTestId("recipe-on-offer")).toHaveTextContent("2 på erbjudande · spara 12 kr");
+  });
+
+  it("has no offer on a row that is at home", () => {
+    render(<RecipeView recipe={recipe} snapshot={allHome} offers={{ [kyckling]: { store: "ICA", price: null, savingKr: 5, savingPercent: null } }} />);
+    expect(screen.queryByTestId("recipe-line-offer")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("recipe-on-offer")).not.toBeInTheDocument();
+  });
+
+  it("says På listan on rows whose ingredient is on the list, and counts them in a chip", () => {
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} listedIds={[kyckling]} />);
+    expect(within(rows()[0]).getByText("På listan")).toBeInTheDocument();
+    expect(within(rows()[0]).getByRole("img")).toHaveAccessibleName("på inköpslistan");
+    expect(within(rows()[1]).getByText("Saknas")).toBeInTheDocument();
+    expect(screen.getByTestId("recipe-listed")).toHaveTextContent("1 på inköpslistan");
   });
 
   it("shows everything at home beside a line with too little: every unit of the ingredient", () => {
@@ -263,7 +287,6 @@ describe("RecipeView", () => {
   it("says Kan lagas nu without X av Y hemma when no line has a catalog ingredient", () => {
     const unlinked = [line({ originalText: "2 citroner", amount: 2, isVague: false }), line({ originalText: "lite vatten" })];
     render(<RecipeView recipe={{ ...recipe, lines: unlinked }} snapshot={allHome} />);
-    expect(screen.getByText("Kan lagas nu")).toBeInTheDocument();
     expect(atHome()).not.toBeInTheDocument();
     expect(marks()).toEqual(["jämförs inte med matvarorna", "jämförs inte med matvarorna"]);
   });
@@ -271,7 +294,8 @@ describe("RecipeView", () => {
   it("shows the recipe without badge, marks or X av Y hemma when the pantry could not be read, and still scales it", async () => {
     const user = userEvent.setup();
     render(<RecipeView recipe={recipe} snapshot={null} />);
-    expect(screen.queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("recipe-chips")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saknas")).not.toBeInTheDocument();
     expect(atHome()).not.toBeInTheDocument();
     expect(screen.queryAllByRole("img")).toHaveLength(0);
     expect(rows()).toHaveLength(4);
@@ -387,21 +411,18 @@ describe("RecipeView: the portion selector", () => {
     // 3,333… dl needed reads 3,33 dl, as much as is at home.
     expect(within(rows()[0]).getByText("3,33 dl")).toHaveClass("text-ink-2");
     expect(within(rows()[0]).getByRole("img")).toHaveAccessibleName("finns hemma");
-    expect(screen.getByText("Kan lagas nu")).toBeInTheDocument();
+    expect(screen.queryByText("Saknas")).not.toBeInTheDocument();
 
     await user.click(stepper.more());
     expect(within(rows()[0]).getByText("3,67 dl")).toHaveClass("text-sky-ink");
     expect(within(rows()[0]).getByText("hemma: 3,33 dl")).toBeInTheDocument();
   });
 
-  it("announces the badge and X av Y hemma together when they change", () => {
+  it("announces the chips together when they change", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
-    const live = screen.getByText("Kan lagas nu").parentElement!;
+    const live = screen.getByTestId("recipe-chips");
     expect(live).toHaveAttribute("aria-live", "polite");
-    expect(live).toHaveAttribute("aria-atomic", "true");
-    // X av Y hemma is a live region of its own beside the portion selector (Story 19.6).
-    expect(atHome()).toHaveAttribute("aria-live", "polite");
-    expect(atHome()).toHaveAttribute("aria-atomic", "true");
+    expect(atHome()?.parentElement).toBe(live);
   });
 
   it("follows the servings with the badge, X, the ring, the colour and what is at home", async () => {
@@ -424,7 +445,7 @@ describe("RecipeView: the portion selector", () => {
     render(<RecipeView recipe={withCream} snapshot={snapshot} />);
     const creamRow = () => rows()[4];
     // Chicken is at home only in kg: one short at the recipe's own servings.
-    expect(screen.getByText("kycklinglårfilé")).toBeInTheDocument();
+    expect(within(rows()[0]).getByText("Saknas")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^3 av 4 hemma$/);
 
     // 8 portions need exactly the 4 dl at home.
@@ -439,7 +460,8 @@ describe("RecipeView: the portion selector", () => {
     expect(within(creamRow()).getByRole("img")).toHaveAccessibleName("saknas");
     expect(within(creamRow()).getByText("5 dl")).toHaveClass("text-sky-ink");
     expect(within(creamRow()).getByText("hemma: 4 dl")).toBeInTheDocument();
-    expect(screen.getByText("kycklinglårfilé, grädde")).toBeInTheDocument();
+    expect(within(rows()[0]).getByText("Saknas")).toBeInTheDocument();
+    expect(within(creamRow()).getByText("Saknas")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^2 av 4 hemma$/);
 
     await user.click(stepper.fewer());
@@ -460,7 +482,7 @@ describe("RecipeView: the portion selector", () => {
       </ToastProvider>,
     );
     expect(stepper.value()).toHaveTextContent("5 portioner");
-    expect(screen.getByText("kycklinglårfilé, rödlök")).toBeInTheDocument();
+    expect(within(rows()[1]).getByText("Saknas")).toBeInTheDocument();
 
     rerender(
       <ToastProvider>
@@ -518,21 +540,118 @@ describe("RecipeView: the portion selector", () => {
     expect(setFavorite).not.toHaveBeenCalled();
   });
 
-  it("adds the servings shown to the meal plan, also the recipe's own", async () => {
+  it("puts the recipe on this week with the servings shown and no day, with one tap", async () => {
+    const user = userEvent.setup();
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish" }));
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+    expect(await screen.findByTestId("toast")).toHaveTextContent("På veckans matsedel. Kycklinglårfilé och rödlök står på inköpslistan.");
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekday: null });
+    // The rows flip to På listan and the button asks for the day, which is optional.
+    expect(screen.getAllByText("På listan")).toHaveLength(2);
+    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
+    expect(screen.getByRole("button", { name: "Välj dag" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Köp det som saknas/ })).not.toBeInTheDocument();
+  });
+
+  it("sends the servings shown when the recipe is put on the week", async () => {
     const user = userEvent.setup();
     const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish" }));
     render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={addToPlan} />);
-    const add = screen.getByRole("button", { name: "Lägg på matsedeln" });
-
-    await user.click(add);
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt på matsedeln.");
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String) });
-
     await user.click(stepper.more());
     await user.click(stepper.more());
-    await user.click(add);
-    await vi.waitFor(() => expect(addToPlan).toHaveBeenCalledTimes(2));
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String) });
+    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+    await vi.waitFor(() => expect(addToPlan).toHaveBeenCalledTimes(1));
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String), weekday: null });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("På veckans matsedel. Kycklinglårfilé står på inköpslistan.");
+  });
+
+  it("shows a failed add as an alert and keeps the button", async () => {
+    const user = userEvent.setup();
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(fail("mealplan_add_failed"));
+    render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={addToPlan} />);
+    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
+  });
+
+  it("asks for a day only when asked: Byt dag with a day, and Ingen dag takes it back", async () => {
+    const user = userEvent.setup();
+    const setWeekday = vi.fn().mockResolvedValue(ok({ id: "dish", weekday: 3 }));
+    render(
+      <RecipeView recipe={recipe} snapshot={allHome} addToPlan={vi.fn<AddToPlan>()} setWeekday={setWeekday} dish={{ id: "dish", weekday: null }} />,
+    );
+    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
+    await user.click(screen.getByRole("button", { name: "Välj dag" }));
+    await user.click(screen.getByRole("button", { name: "Onsdag" }));
+    expect(setWeekday).toHaveBeenCalledWith({ id: "dish", weekday: 3 });
+    expect(await screen.findByRole("button", { name: "Byt dag" })).toBeInTheDocument();
+    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på onsdag");
+    await user.click(screen.getByRole("button", { name: "Byt dag" }));
+    await user.click(screen.getByRole("button", { name: "Ingen dag" }));
+    expect(setWeekday).toHaveBeenLastCalledWith({ id: "dish", weekday: null });
+  });
+});
+
+describe("RecipeView: Köp det som saknas", () => {
+  const buyArgs = (ids: string[]) => ({
+    items: ids.map((id) => ({ key: `recipe:${recipe.id}:${id}`, label: id === kyckling ? "Kycklinglårfilé" : "Rödlök", ingredientId: id })),
+  });
+
+  it("opens a sheet with the missing items ticked and the offer's saving, and adds only those that stay ticked", async () => {
+    const user = userEvent.setup();
+    const buyMissing = vi.fn().mockResolvedValue(ok({ count: 1 }));
+    const offers = { [kyckling]: { store: "ICA Maxi", price: "99 kr/st", savingKr: 12, savingPercent: null } };
+    const addToPlan = vi.fn<AddToPlan>();
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} offers={offers} addToPlan={addToPlan} buyMissing={buyMissing} undoBuy={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Köp det som saknas (2)" }));
+    const sheet = screen.getByRole("dialog", { name: "Lägg på inköpslistan" });
+    expect(within(sheet).getByText("Bara listan. Receptet läggs inte på matsedeln.")).toBeInTheDocument();
+    const boxes = within(sheet).getAllByRole("checkbox");
+    expect(boxes.map((box) => box.getAttribute("aria-checked"))).toEqual(["true", "true"]);
+    expect(within(sheet).getByText("Erbjudande · spara 12 kr")).toBeInTheDocument();
+    await user.click(boxes[1]);
+    await user.click(within(sheet).getByRole("button", { name: "Lägg 1 vara på listan" }));
+    expect(buyMissing).toHaveBeenCalledWith(buyArgs([kyckling]));
+    expect(addToPlan).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Köp det som saknas (1)" })).toBeInTheDocument();
+  });
+
+  it("flips the rows to På listan and the button to På listan ✓ · Ångra, which removes just those", async () => {
+    const user = userEvent.setup();
+    const buyMissing = vi.fn().mockResolvedValue(ok({ count: 2 }));
+    const undoBuy = vi.fn().mockResolvedValue(ok({ removed: 2 }));
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} buyMissing={buyMissing} undoBuy={undoBuy} addToPlan={vi.fn<AddToPlan>()} />);
+    await user.click(screen.getByRole("button", { name: "Köp det som saknas (2)" }));
+    await user.click(screen.getByRole("button", { name: "Lägg 2 varor på listan" }));
+    expect(await screen.findByRole("button", { name: "På listan ✓ · Ångra" })).toBeInTheDocument();
+    expect(screen.getByTestId("toast")).toHaveTextContent("2 varor på inköpslistan.");
+    expect(screen.getAllByText("På listan")).toHaveLength(2);
+    // Only the vague salt is still ringed; it is never bought.
+    expect(screen.getAllByText("Saknas")).toHaveLength(1);
+    expect(screen.getByTestId("recipe-listed")).toHaveTextContent("2 på inköpslistan");
+
+    await user.click(screen.getByRole("button", { name: "På listan ✓ · Ångra" }));
+    expect(undoBuy).toHaveBeenCalledWith({ keys: [`recipe:${recipe.id}:${kyckling}`, `recipe:${recipe.id}:${rodlok}`] });
+    expect(await screen.findByRole("button", { name: "Köp det som saknas (2)" })).toBeInTheDocument();
+    expect(screen.getAllByText("Saknas")).toHaveLength(3);
+  });
+
+  it("keeps the sheet and the rows when adding fails, and says so", async () => {
+    const user = userEvent.setup();
+    const buyMissing = vi.fn().mockResolvedValue(fail("shopping_save_failed"));
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} buyMissing={buyMissing} undoBuy={vi.fn()} addToPlan={vi.fn<AddToPlan>()} />);
+    await user.click(screen.getByRole("button", { name: "Köp det som saknas (2)" }));
+    await user.click(screen.getByRole("button", { name: "Lägg 2 varor på listan" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getAllByText("Saknas")).toHaveLength(3);
+  });
+
+  it("has no buy button when nothing is missing", () => {
+    render(<RecipeView recipe={recipe} snapshot={allHome} buyMissing={vi.fn()} undoBuy={vi.fn()} addToPlan={vi.fn<AddToPlan>()} />);
+    expect(screen.queryByRole("button", { name: /Köp det som saknas/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
   });
 });
 

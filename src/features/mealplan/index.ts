@@ -18,6 +18,9 @@ export {
   addedToPlanText,
   addedOnDayText,
   planDateText,
+  weekdayNames,
+  weekdays,
+  weekdayWord,
   dishCountText,
   planSummaryText,
   deletePlanQuestion,
@@ -38,4 +41,4 @@ export {
   type ServingsChange,
 } from "./domain/meal-plan";
 export * from "./domain/week";
-export * from "./domain/planning";
+export * from "./domain/planner";

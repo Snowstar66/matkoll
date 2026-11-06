@@ -8,7 +8,7 @@ import "server-only";
  * (Story 12.4; not a Server Action), and the check before the job is made.
  */
 export { checkSuggestPantry, suggestFromPantry, suggestNowIdeas, type SuggestMode } from "./actions/suggest-from-pantry";
-export { ownRecipesWithOffers, ownRecipeSuggestions } from "./actions/own-recipes-with-offers";
+export { weekPlanOptions } from "./actions/week-plan-options";
 export { matchOffersWithAi, type MatchOffersWithAiData } from "./actions/match-offers-with-ai";
 export { recipeOfferTags } from "./actions/recipe-offer-tags";
 export { readCookNow, type CookNowRead } from "./actions/cook-now";

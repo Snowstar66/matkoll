@@ -14,7 +14,7 @@ export type RecipeBarProps = {
   count: number;
   sort: RecipeSort;
   onOpenSort: () => void;
-  /** `null` hides the switch (planning mode shows cards only). */
+  /** `null` hides the switch. */
   view: RecipeView | null;
   onViewChange: (view: RecipeView) => void;
 };

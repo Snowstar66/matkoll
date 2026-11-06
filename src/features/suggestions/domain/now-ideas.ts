@@ -35,6 +35,42 @@ export type RawNowIdea = { name: string; how: string; kind: NowIdeaView["kind"];
 /** Things that count as at home without being in the pantry. */
 const alwaysHome = new Set(["salt", "peppar", "olja", "vatten"]);
 
+/**
+ * Main ingredients that often name a dish: a word of the idea's name that starts with `name` (so "köttfärssås" and
+ * "kycklinggryta" count, "färsk" and "äggplanta" do not) needs something at home that matches `covered`. The model
+ * once used korv and named the dish after köttfärs ("Spagetti och köttfärssås"); a name must describe what is used.
+ */
+const mainWords: readonly { name: RegExp; covered: RegExp }[] = [
+  { name: /^(?:kött|nöt|blandad?|fläsk|lamm|kalv|vego|quorn)?färs(?!k)/, covered: /färs/ },
+  { name: /^kyckling/, covered: /kyckling/ },
+  { name: /^lax/, covered: /lax/ },
+  { name: /^fisk(?!e)/, covered: /fisk|lax|torsk|sej|sill|makrill|rödspätta|abborre|gös|strömming|röding/ },
+  { name: /^torsk/, covered: /torsk/ },
+  { name: /^fläsk/, covered: /fläsk|bacon/ },
+  { name: /^bacon/, covered: /bacon/ },
+  { name: /^skink/, covered: /skink/ },
+  { name: /^biff/, covered: /biff|nötkött|entrecôte|oxfilé|högrev|rostbiff/ },
+  { name: /^oxfil/, covered: /oxfil/ },
+  { name: /^räk/, covered: /räk/ },
+  { name: /^tonfisk/, covered: /tonfisk/ },
+  { name: /^korv/, covered: /korv/ },
+  { name: /^halloumi/, covered: /halloumi/ },
+  { name: /^tofu/, covered: /tofu/ },
+  { name: /^ägg(?!planta)/, covered: /ägg/ },
+  { name: /^lamm/, covered: /lamm/ },
+  { name: /^anka/, covered: /anka|and(?:bröst|lår)/ },
+];
+
+/**
+ * True when the idea's name mentions a main ingredient (mainWords) that is neither among what it uses or misses nor
+ * at home (`homeNames`, normalized): the name then says something the idea does not do.
+ */
+export function nameMentionsOther(name: string, named: readonly string[], homeNames: readonly string[]): boolean {
+  const have = [...named, ...homeNames].map((entry) => entry.toLocaleLowerCase("sv"));
+  const words = name.toLocaleLowerCase("sv").split(/[^\p{L}]+/u).filter((word) => word !== "");
+  return words.some((word) => mainWords.some((main) => main.name.test(word) && !have.some((entry) => main.covered.test(entry))));
+}
+
 /** The names the check asks `atHome` about: every use and missing of the ideas, each once, normalized. */
 export function namesToCheck(ideas: readonly RawNowIdea[]): string[] {
   const names = new Set<string>();
@@ -54,9 +90,15 @@ function keyOf(name: string): string {
  * - a name in `missing` that is at home moves to `uses`;
  * - salt, pepper, oil and water are at home and are not listed;
  * - an idea that misses more than one thing, or uses nothing that is at home, is left out.
- * `atHome` is given the key of a name (see `namesToCheck`).
+ * - an idea whose name mentions a main ingredient it does not use (`nameMentionsOther`) is left out; `onDrop` hears of it as "name".
+ * `atHome` is given the key of a name (see `namesToCheck`); `homeNames` are the names at home, for the name check.
  */
-export function checkNowIdeas(ideas: readonly RawNowIdea[], atHome: (key: string) => boolean): NowIdeaView[] {
+export function checkNowIdeas(
+  ideas: readonly RawNowIdea[],
+  atHome: (key: string) => boolean,
+  homeNames: readonly string[] = [],
+  onDrop: (reason: "name") => void = () => {},
+): NowIdeaView[] {
   const kept: NowIdeaView[] = [];
   for (const idea of ideas) {
     const uses = new Map<string, string>();
@@ -67,6 +109,10 @@ export function checkNowIdeas(ideas: readonly RawNowIdea[], atHome: (key: string
       (atHome(key) ? uses : missing).set(key, name);
     }
     if (uses.size === 0 || missing.size > 1) continue;
+    if (nameMentionsOther(idea.name, [...uses.values(), ...missing.values()], homeNames)) {
+      onDrop("name");
+      continue;
+    }
     kept.push({ name: idea.name, how: idea.how, kind: idea.kind, uses: [...uses.values()], missing: [...missing.values()] });
   }
   return kept;

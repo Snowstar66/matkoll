@@ -3,9 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useContext } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
-import { AiJobActionsContext } from "@/lib/ai-jobs-client";
 import { ok } from "@/lib/errors";
-import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import type { RecipeListItem } from "../domain/recipe-list";
 import { Library, type LibraryOffers } from "./library";
 import { OffersSheetControlContext } from "./offers-sheet-control";
@@ -21,7 +19,6 @@ const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 vi.mock("../actions/save-recipe", () => ({ saveRecipe: vi.fn() }));
 vi.mock("../actions/set-favorite", () => ({ setFavorite: vi.fn() }));
-const server = createFakeAiJobsServer();
 
 const recipe = (id: number, title: string, missingCount: number | null, overrides: Partial<RecipeListItem> = {}): RecipeListItem => ({
   id: `00000000-0000-4000-8000-00000000000${id}`,
@@ -66,15 +63,7 @@ function offers(overrides: Partial<LibraryOffers> = {}): LibraryOffers {
 function renderLibrary(props: Partial<LibraryOffers> | null = {}) {
   return render(
     <ToastProvider>
-      <AiJobActionsContext.Provider value={server.actions}>
-        <Library
-          recipes={library}
-          pantryUnavailable={false}
-          site={null}
-          searchIngredients={async () => ok([])}
-          offers={props === null ? undefined : offers(props)}
-        />
-      </AiJobActionsContext.Provider>
+      <Library recipes={library} pantryUnavailable={false} site={null} offers={props === null ? undefined : offers(props)} />
     </ToastProvider>,
   );
 }
@@ -86,7 +75,6 @@ beforeEach(() => {
   resetRecipeFilterStore();
   resetRecipeViewStores();
   refresh.mockReset();
-  server.install();
 });
 
 afterEach(() => {

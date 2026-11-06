@@ -51,6 +51,8 @@ export type CookNowButtonProps = {
   readCookNow: () => Promise<Result<CookNowData>>;
   /** recipes.saveRecipe: "Spara som recept" is the only thing that writes. */
   saveRecipe: (draft: RecipeDraft, recipeId: string) => Promise<Result<{ id: string }>>;
+  /** feedback.sendFeedback: "Stämmer inte" tells the Tyck till inbox that an idea was wrong. */
+  sendFeedback: (input: { kind: "problem"; body: string; area: "matvaror"; page: string }) => Promise<Result<null>>;
 };
 
 /** An idea of the model as the sheet holds it, with a key of its own. */
@@ -98,7 +100,7 @@ export function CookNowButton(props: CookNowButtonProps) {
 const finishedOf = (job: { id: string; status: string } | undefined) =>
   job && (job.status === "done" || job.status === "failed" || job.status === "cancelled" || job.status === "superseded") ? job.id : null;
 
-function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonProps & { open: boolean; onClose: () => void }) {
+function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: CookNowButtonProps & { open: boolean; onClose: () => void }) {
   const { jobs, start, fetchResult, cancel, dismiss } = useAiJobs();
   const { showToast } = useToast();
   const [data, setData] = useState<CookNowData | null>(null);
@@ -115,6 +117,8 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
   const [recipeStarting, setRecipeStarting] = useState(false);
   const [recipeJobId, setRecipeJobId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** Ideas marked "Stämmer inte": hidden here and in the kept result. */
+  const [hidden, setHidden] = useState<ReadonlySet<number>>(new Set());
   const nextKey = useRef(0);
   const handled = useRef(new Set<string>());
   /** The names shown in this opening, so "Andra förslag" never repeats them. */
@@ -305,9 +309,23 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
     showToast(`${current.suggestion.draft.title} finns nu i Recept.`);
   }
 
+  /** "Stämmer inte": the idea goes to the Tyck till inbox as a Fel, and is hidden. */
+  async function wrong(idea: Idea) {
+    const used = idea.uses.length > 0 ? idea.uses.join(", ") : "ingenting hemma";
+    const sent = await sendFeedback({ kind: "problem", body: `Idé stämmer inte: ${idea.name} — använder: ${used}`, area: "matvaror", page: "/hemma" });
+    if (!sent.ok) {
+      showToast(sent.error.message, { role: "alert" });
+      return;
+    }
+    setHidden((current) => new Set(current).add(idea.key));
+    if (kept) kept = { ...kept, ideas: kept.ideas.filter((candidate) => candidate.name !== idea.name) };
+    showToast("Tack, vi tittar på den.");
+  }
+
   const toggle = (id: string) => setExpanded((current) => (current === id ? null : id));
-  const perfect = ideas.filter((idea) => idea.missing.length === 0);
-  const oneMissingIdeas = ideas.filter((idea) => idea.missing.length === 1);
+  const shownIdeas = ideas.filter((idea) => !hidden.has(idea.key));
+  const perfect = shownIdeas.filter((idea) => idea.missing.length === 0);
+  const oneMissingIdeas = shownIdeas.filter((idea) => idea.missing.length === 1);
   const oneMissingCount = (data?.oneMissing.length ?? 0) + oneMissingIdeas.length;
   const own = data?.own ?? [];
   const nothing = data !== null && !loading && own.length === 0 && perfect.length === 0 && oneMissingCount === 0;
@@ -371,15 +389,25 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe }: CookNowButtonP
                   <span className="text-meta text-ink-2">{idea.kind}</span>
                 </p>
                 <p className="text-body">{idea.how}</p>
+                {idea.uses.length > 0 ? (
+                  <p data-testid="cook-now-uses" className="text-meta text-ink-3">
+                    Använder: {idea.uses.join(", ")}
+                  </p>
+                ) : null}
                 {recipe?.ideaKey !== idea.key ? (
-                  <button
-                    type="button"
-                    disabled={recipeLoading || loading}
-                    onClick={() => void makeRecipe(idea)}
-                    className="-ml-1 min-h-9 rounded-md px-1 text-row-title text-accent disabled:opacity-50"
-                  >
-                    Gör ett recept av den
-                  </button>
+                  <div className="-ml-1 flex flex-wrap items-center gap-x-3">
+                    <button
+                      type="button"
+                      disabled={recipeLoading || loading}
+                      onClick={() => void makeRecipe(idea)}
+                      className="min-h-9 rounded-md px-1 text-row-title text-accent disabled:opacity-50"
+                    >
+                      Gör ett recept av den
+                    </button>
+                    <button type="button" onClick={() => void wrong(idea)} className="min-h-9 rounded-md px-1 text-meta text-ink-2">
+                      Stämmer inte
+                    </button>
+                  </div>
                 ) : (
                   <RecipePreview
                     loading={recipeLoading}

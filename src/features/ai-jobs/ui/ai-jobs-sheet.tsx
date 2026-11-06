@@ -46,7 +46,11 @@ export function AiJobsSheet({ open, onClose }: { open: boolean; onClose: () => v
   async function retry(job: AiJob) {
     setError(null);
     await dismiss(job.id);
-    const started = await start(startPath, { kind: "suggest", avoidTitles: [] }, crypto.randomUUID());
+    const started = await start(
+      startPath,
+      { kind: "suggest", avoidTitles: [], ...(job.context.mode === "offers" ? { mode: "offers" } : {}) },
+      crypto.randomUUID(),
+    );
     if (!started.ok) setError(started.error);
   }
 

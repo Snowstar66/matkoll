@@ -28,6 +28,7 @@ const library: CookNowData = {
 };
 const readCookNow = vi.fn<() => Promise<Result<CookNowData>>>();
 const saveRecipe = vi.fn<(draft: RecipeDraft, recipeId: string) => Promise<Result<{ id: string }>>>();
+const sendFeedback = vi.fn<(input: { kind: "problem"; body: string; area: "matvaror"; page: string }) => Promise<Result<null>>>();
 
 const dish = (title: string, toBuy: string[] = []) => ({
   draft: {
@@ -73,7 +74,7 @@ function renderButton() {
   return render(
     <ToastProvider>
       <AiJobActionsContext.Provider value={server.actions}>
-        <CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} />
+        <CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />
       </AiJobActionsContext.Provider>
     </ToastProvider>,
   );
@@ -95,6 +96,7 @@ beforeEach(() => {
   server.actions.dismiss.mockClear();
   readCookNow.mockReset().mockResolvedValue(ok(library));
   saveRecipe.mockReset().mockResolvedValue(ok({ id: "saved-1" }));
+  sendFeedback.mockReset().mockResolvedValue(ok(null));
   push.mockReset();
   resetCookNowKept();
 });
@@ -189,6 +191,46 @@ describe("the sheet Kan lagas nu", () => {
     expect(group).toHaveTextContent("Saknar bröd");
     // No bin on any row: the ideas are temporary.
     expect(screen.queryByRole("button", { name: /Ta bort/ })).toBeNull();
+  });
+
+  it("says what each idea uses in a muted line", async () => {
+    renderButton();
+    await userEvent.setup().click(card());
+    await screen.findByTestId("cook-now-loading");
+    await finish(result([{ ...burger, uses: ["falukorv", "krossade tomater"] }]));
+    expect(await screen.findByTestId("cook-now-uses")).toHaveTextContent("Använder: falukorv, krossade tomater");
+  });
+
+  it("sends Stämmer inte to the Tyck till inbox as a Fel with the idea and what it uses, and hides the idea", async () => {
+    renderButton();
+    const user = userEvent.setup();
+    await user.click(card());
+    await screen.findByTestId("cook-now-loading");
+    await finish(result([{ ...burger, uses: ["falukorv", "krossade tomater"] }, dip]));
+    const [row] = await screen.findAllByTestId("cook-now-idea");
+    await user.click(within(row).getByRole("button", { name: "Stämmer inte" }));
+    await waitFor(() => expect(sendFeedback).toHaveBeenCalledTimes(1));
+    expect(sendFeedback).toHaveBeenCalledWith({
+      kind: "problem",
+      body: "Idé stämmer inte: Burgersås — använder: falukorv, krossade tomater",
+      area: "matvaror",
+      page: "/hemma",
+    });
+    await waitFor(() => expect(screen.getAllByTestId("cook-now-idea")).toHaveLength(1));
+    expect(screen.queryByText("Burgersås")).toBeNull();
+  });
+
+  it("keeps the idea and says so when the feedback cannot be sent", async () => {
+    sendFeedback.mockResolvedValue(fail("feedback_send_failed"));
+    renderButton();
+    const user = userEvent.setup();
+    await user.click(card());
+    await screen.findByTestId("cook-now-loading");
+    await finish(result([burger]));
+    const [row] = await screen.findAllByTestId("cook-now-idea");
+    await user.click(within(row).getByRole("button", { name: "Stämmer inte" }));
+    expect(await screen.findByRole("alert")).toBeVisible();
+    expect(screen.getAllByTestId("cook-now-idea")).toHaveLength(1);
   });
 
   it("writes the recipe of one idea as a job of the mode now with that idea, and shows it with Spara som recept, which saves nothing before the tap", async () => {

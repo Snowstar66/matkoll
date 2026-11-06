@@ -69,10 +69,9 @@ const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
     }
   },
 }));
-const getSelectedStore = vi.fn<() => Promise<{ id: string } | null>>();
 const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
 const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
-vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes, ideasNow }), getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes, ideasNow }), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
 const ai = withInputValidation(createMockAiService());
@@ -129,7 +128,6 @@ beforeEach(() => {
   suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
   ideasNow.mockReset().mockImplementation(ai.ideasNow);
   staplesRules = noStaples;
-  getSelectedStore.mockReset().mockResolvedValue({ id: "store" });
   listStores.mockReset().mockResolvedValue([{ id: "store", name: "Maxi ICA Stormarknad Östersund" }, { id: "krokom", name: "ICA Kvantum Krokom" }]);
   getActiveOffers.mockReset().mockResolvedValue([]);
 });
@@ -649,9 +647,10 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     expect(kyckling.onOffer).toEqual(["Kyckling 99 kr"]);
   });
 
-  it("reads the offers of the given store (Story 9.13), else the selected one, and refuses a store that is not the user's", async () => {
+  it("reads the offers of the given store (Story 9.13), else of all the user's stores (Story 25.3), and refuses a store that is not the user's", async () => {
     await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
-    expect(getActiveOffers).toHaveBeenLastCalledWith("store");
+    expect(getActiveOffers.mock.calls.map(([id]) => id)).toEqual(["store", "krokom"]);
+    getActiveOffers.mockClear();
     await suggestFromPantry({ avoidTitles: [], mode: "offers", storeId: "krokom" }, { signal: signal() });
     expect(getActiveOffers).toHaveBeenLastCalledWith("krokom");
     getActiveOffers.mockClear();
@@ -668,7 +667,7 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
   });
 
   it.each([
-    ["without a store", () => getSelectedStore.mockResolvedValue(null), "offers_store_missing"],
+    ["without a store", () => listStores.mockResolvedValue([]), "offers_store_missing"],
     ["without offers", () => getActiveOffers.mockResolvedValue([]), "offers_none"],
     ["when the offers cannot be read", () => getActiveOffers.mockRejectedValue(new OffersDataError("read_failed")), "offers_unavailable"],
   ])("fails %s, before the model is asked", async (_name, arrange, code) => {

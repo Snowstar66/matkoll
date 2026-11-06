@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkNowIdeas, namesToCheck, nowIdeasResultSchema, type RawNowIdea } from "./now-ideas";
+import { checkNowIdeas, nameMentionsOther, namesToCheck, nowIdeasResultSchema, type RawNowIdea } from "./now-ideas";
 
 // The check that keeps the friendly answer honest (Story 25.4).
 
@@ -71,5 +71,37 @@ describe("nowIdeasResultSchema", () => {
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [] }).success).toBe(false);
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [idea({ missing: ["a", "b"] })] }).success).toBe(false);
     expect(nowIdeasResultSchema.safeParse({ ...ok, ideas: [idea({ kind: "efterrätt" as never })] }).success).toBe(false);
+  });
+});
+
+describe("the name guard", () => {
+  const pantry = new Set(["falukorv", "krossade tomater", "spagetti"]);
+  const homeNames = [...pantry];
+  const spagetti = (name: string): RawNowIdea => ({ name, how: "bra", kind: "rätt", uses: ["falukorv", "krossade tomater", "spagetti"], missing: [] });
+
+  it("drops Spagetti och köttfärssås when the idea uses korv and no köttfärs is at home", () => {
+    const dropped: string[] = [];
+    const kept = checkNowIdeas([spagetti("Spagetti och köttfärssås")], (key) => pantry.has(key), homeNames, (reason) => dropped.push(reason));
+    expect(kept).toEqual([]);
+    expect(dropped).toEqual(["name"]);
+  });
+
+  it("keeps Spagetti med korvsås", () => {
+    expect(checkNowIdeas([spagetti("Spagetti med korvsås")], (key) => pantry.has(key), homeNames).map(({ name }) => name)).toEqual(["Spagetti med korvsås"]);
+  });
+
+  it("keeps a name whose main ingredient is at home, or listed as the one thing missing", () => {
+    expect(nameMentionsOther("Köttfärssås", ["spagetti"], ["köttfärs"])).toBe(false);
+    expect(nameMentionsOther("Kycklinggryta", ["ris"], [])).toBe(true);
+    expect(nameMentionsOther("Kycklinggryta", ["ris", "kyckling"], [])).toBe(false);
+  });
+
+  it("sees compounds and inflections, and not words that only start alike", () => {
+    expect(nameMentionsOther("Laxpasta", ["pasta"], [])).toBe(true);
+    expect(nameMentionsOther("Räksmörgås", ["bröd"], [])).toBe(true);
+    expect(nameMentionsOther("Ägg på burk", ["bröd"], [])).toBe(true);
+    expect(nameMentionsOther("Färsk potatis med smör", ["potatis", "smör"], [])).toBe(false);
+    expect(nameMentionsOther("Äggplanta med ost", ["ost"], [])).toBe(false);
+    expect(nameMentionsOther("Fiskpinnar", ["fiskpinnar"], [])).toBe(false);
   });
 });
