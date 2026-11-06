@@ -1496,7 +1496,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await page.goto("/prylar");
   const field = page.getByRole("textbox", { name: "Sök eller fråga" });
   const chat = page.getByTestId("chat");
-  await expect(page.getByText("Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger")).toBeVisible();
+  await expect(page.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeVisible();
 
   // While typing only the database is asked: nothing matches, and the line says what ↑ does.
   await field.fill("Passen ligger i översta byrålådan i sovrummet");
