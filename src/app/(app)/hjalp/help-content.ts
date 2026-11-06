@@ -45,7 +45,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan utan dag, och knappen Välj dag låter dig välja en dag om du vill.",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag, och knappen Byt dag låter dig flytta det om du vill.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",
@@ -68,7 +68,7 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Öppna fliken På erbjudande under Lägg till rätter. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Hittar du inget kan du få 2 nya idéer med erbjudandena; de sparas först när du granskat dem och trycker Spara och lägg på veckan.",
       },
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
-      { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
+      { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
       { question: "Måste jag skriva inköpslistan själv?", answer: "Nej, Inköpslistan räknas fram från veckans matsedel." },
       { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },
     ],

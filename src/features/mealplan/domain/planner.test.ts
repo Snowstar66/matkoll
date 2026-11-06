@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedToWeekText, dayChipText, dishFromRow, dishNoteText, itemsText, shownDishes, weekBarText } from "./planner";
+import { addedToWeekText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, onWeekLabel, shownDishes, weekBarText } from "./planner";
 import type { PlanDish } from "./meal-plan";
 
 const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): PlanDish => ({
@@ -14,9 +14,14 @@ const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): Plan
 
 describe("the words of the planning view", () => {
   it("says the toast after +", () => {
-    expect(addedToWeekText("Korvstroganoff", 3)).toBe("Korvstroganoff på veckan. 3 varor på listan.");
-    expect(addedToWeekText("Tacos", 1)).toBe("Tacos på veckan. 1 vara på listan.");
-    expect(addedToWeekText("Soppa", 0)).toBe("Soppa på veckan. Inget att köpa.");
+    expect(addedToWeekText("Korvstroganoff", 3, 4)).toBe("Korvstroganoff på torsdag. 3 varor på listan.");
+    expect(addedToWeekText("Tacos", 1, 1)).toBe("Tacos på måndag. 1 vara på listan.");
+    expect(addedToWeekText("Soppa", 0, 7)).toBe("Soppa på söndag. Inget att köpa.");
+    expect(addedToWeekText("Soppa", 2, null)).toBe("Soppa på veckan. Alla dagar har en rätt. 2 varor på listan.");
+    expect(changeDayLabel(4)).toBe("Byt dag");
+    expect(changeDayLabel(null)).toBe("Välj dag");
+    expect(onWeekLabel(4)).toBe("Tor");
+    expect(onWeekLabel(null)).toBe("På veckan");
     expect(itemsText(2)).toBe("2 varor");
   });
 
@@ -43,6 +48,21 @@ describe("the words of the planning view", () => {
 });
 
 describe("shownDishes", () => {
+  it("orders by weekday Mån to Sön, no day last, and by when added within a day", () => {
+    const shown = shownDishes(
+      [dish("a", 0, { weekday: null }), dish("b", 1, { weekday: 5 }), dish("c", 2, { weekday: 2 }), dish("d", 3, { weekday: 5 }), dish("e", 4, { weekday: 1 })],
+      new Set(),
+      [],
+    );
+    expect(shown.map((d) => d.id)).toEqual(["e", "c", "b", "d", "a"]);
+    expect(compareByWeekday({ id: "x", position: 0, weekday: 7 }, { id: "y", position: 1, weekday: null })).toBeLessThan(0);
+  });
+
+  it("puts a day just chosen in its place", () => {
+    const shown = shownDishes([dish("a", 0, { weekday: 3 }), dish("b", 1, { weekday: 4 })], new Set(), [], { b: 1 });
+    expect(shown.map((d) => d.id)).toEqual(["b", "a"]);
+  });
+
   it("drops the removed, adds the just added the server does not have yet, in plan order", () => {
     const server = [dish("a", 0), dish("b", 1)];
     const added = [dish("c", 2), dish("b", 1)];

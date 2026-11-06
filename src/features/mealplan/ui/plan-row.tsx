@@ -4,7 +4,7 @@ import { RecipeImage } from "@/components/recipe-image";
 
 // A compact row of "Lägg till rätter" (Story 25.3): a 44 px picture (the
 // recipe's own photo, else the quiet tile, never an emoji), the title, a line
-// with what is known about the dish, the offer line, and "+" or "På veckan".
+// with what is known about the dish, the offer line, and "+" or its day.
 
 export type PlanRowProps = {
   title: string;
@@ -14,8 +14,8 @@ export type PlanRowProps = {
   meta: string;
   /** "Falukorv och grädde på erbjudande · spara 21 kr". */
   deal?: string | null;
-  /** The dish is already on the week: "På veckan" in place of "+". */
-  onWeek?: boolean;
+  /** The dish is already on the week: its day ("Tor"), or "På veckan", in place of "+". */
+  onWeekLabel?: string;
   /** "+" is tapped; left out, there is no button (the dish is on the week, or the add is on its way). */
   onAdd?: () => void;
   disabled?: boolean;
@@ -26,7 +26,7 @@ export type PlanRowProps = {
   testId?: string;
 };
 
-export function PlanRow({ title, imageUrl, meta, deal, onWeek = false, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
+export function PlanRow({ title, imageUrl, meta, deal, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
       <RecipeImage src={imageUrl} iconSize={20} className="size-11 shrink-0 rounded-[10px]" />
@@ -39,9 +39,9 @@ export function PlanRow({ title, imageUrl, meta, deal, onWeek = false, onAdd, di
           </p>
         ) : null}
       </div>
-      {onWeek ? (
+      {onWeekLabel ? (
         <span data-testid="on-week" className="shrink-0 text-badge font-semibold text-mint-ink">
-          På veckan
+          {onWeekLabel}
         </span>
       ) : children ? (
         children

@@ -540,31 +540,44 @@ describe("RecipeView: the portion selector", () => {
     expect(setFavorite).not.toHaveBeenCalled();
   });
 
-  it("puts the recipe on this week with the servings shown and no day, with one tap", async () => {
+  it("puts the recipe on the first free day with the servings shown, with one tap", async () => {
     const user = userEvent.setup();
-    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish" }));
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 4 }));
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-    expect(await screen.findByTestId("toast")).toHaveTextContent("På veckans matsedel. Kycklinglårfilé och rödlök står på inköpslistan.");
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekday: null });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Krämig kycklinggryta på torsdag. Kycklinglårfilé och rödlök står på inköpslistan.");
+    // Both the toast and the button on the page say Byt dag.
+    expect(screen.getAllByRole("button", { name: "Byt dag" })).toHaveLength(2);
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String) });
+    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på torsdag");
+  });
+
+  it("says the week is full when the dish got no day, and offers Välj dag", async () => {
+    const user = userEvent.setup();
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+    expect(await screen.findByTestId("toast")).toHaveTextContent("på veckan. Alla dagar har en rätt. Kycklinglårfilé och rödlök står på inköpslistan.");
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String) });
     // The rows flip to På listan and the button asks for the day, which is optional.
     expect(screen.getAllByText("På listan")).toHaveLength(2);
     expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
-    expect(screen.getByRole("button", { name: "Välj dag" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Välj dag" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /Köp det som saknas/ })).not.toBeInTheDocument();
   });
 
   it("sends the servings shown when the recipe is put on the week", async () => {
     const user = userEvent.setup();
-    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish" }));
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 2 }));
     render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={addToPlan} />);
     await user.click(stepper.more());
     await user.click(stepper.more());
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
     await vi.waitFor(() => expect(addToPlan).toHaveBeenCalledTimes(1));
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String), weekday: null });
-    expect(await screen.findByTestId("toast")).toHaveTextContent("På veckans matsedel. Kycklinglårfilé står på inköpslistan.");
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String) });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("på tisdag. Kycklinglårfilé står på inköpslistan.");
   });
 
   it("shows a failed add as an alert and keeps the button", async () => {

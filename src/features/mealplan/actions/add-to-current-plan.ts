@@ -11,8 +11,7 @@ import { addToCurrentPlanIn } from "../data/write";
 import {
   addToPlanSchema,
   clampServings,
-  defaultWeekday,
-  todayWeekday,
+  firstFreeWeekday,
   type AddToPlanInput,
   type PlanRecipeRow,
 } from "../domain/meal-plan";
@@ -51,11 +50,11 @@ export async function addToCurrentPlan(input: AddToPlanInput): Promise<Result<Pl
       return fail("mealplan_add_failed");
     }
     const db = await createClient();
-    // No day given: the first free day from today (Story 13.5), or from Monday in a coming week;
-    // `null` is "Ingen dag än" on purpose.
+    // No day given: the first free day from today (Story 13.5), or from Monday in a coming week,
+    // `null` when the week is full; an explicit `null` is "Ingen dag än" on purpose.
     const day =
       weekday === undefined
-        ? defaultWeekday((await getCurrentPlanIn(db, week))?.recipes ?? [], ahead === 0 ? todayWeekday(new Date()) : 1)
+        ? firstFreeWeekday(((await getCurrentPlanIn(db, week))?.recipes ?? []).map((dish) => dish.weekday), new Date(), week)
         : weekday;
     const added = await addToCurrentPlanIn(db, {
       id: id ?? crypto.randomUUID(),

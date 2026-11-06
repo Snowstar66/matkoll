@@ -10,6 +10,7 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
+import { weekdayWord } from "@/features/mealplan";
 import { PlanRow } from "@/features/mealplan/ui/plan-row";
 import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
@@ -21,14 +22,14 @@ import type { Result } from "@/lib/errors";
 // Matsedel (Story 25.3): the AI job of Story 9.5 in the mode offers, over the
 // offers of all the user's stores, its dishes in the same compact rows as
 // the recipes. Nothing is saved until the preview "Spara och lägg på veckan";
-// the dish is then saved as a recipe first and goes on the week with no day.
+// the dish is then saved as a recipe first and goes on the first free day of the week.
 
 /** At most this many new dishes are shown. */
 export const maxIdeas = 2;
 
 const ideaSteps = ["Letar efter idéer …", "Väger ihop förslagen …", "Sätter ihop rätterna …"];
 
-type AddToWeek = (input: { recipeId: string; id: string; weekStart: string; weekday: null }) => Promise<Result<unknown>>;
+type AddToWeek = (input: { recipeId: string; id: string; weekStart: string }) => Promise<Result<{ weekday?: number | null }>>;
 
 export type OfferIdeasProps = {
   weekStart: string;
@@ -132,8 +133,8 @@ export function OfferIdeas({ weekStart, addToWeek, searchIngredients }: OfferIde
         week={{
           weekStart,
           add: addToWeek,
-          onAdded: (title) => {
-            showToast(`${title} sparad och på veckan.`);
+          onAdded: (title, weekday) => {
+            showToast(weekday ? `${title} sparad, på ${weekdayWord(weekday)}.` : `${title} sparad och på veckan. Alla dagar har en rätt.`);
             router.refresh();
           },
         }}

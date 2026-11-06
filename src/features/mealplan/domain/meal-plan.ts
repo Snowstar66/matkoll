@@ -7,7 +7,7 @@ import {
   type StapleRules,
   type StatusLine,
 } from "@/features/pantry";
-import { weekAnchorDate, weekStartSchema } from "./week";
+import { weekAnchorDate, weekStartOf, weekStartSchema } from "./week";
 
 // Matsedel (FR-13, AD-22): the current meal plan with its dishes, what the
 // actions take, and the plan's name. Pure, so it is tested without a database.
@@ -65,7 +65,7 @@ export const addToPlanSchema = z.object({
   recipeId: z.uuid(),
   servings: servingsSchema.optional(),
   id: z.uuid().optional(),
-  /** 1–7 for a day, `null` for "Ingen dag än"; left out, the dish gets defaultWeekday (Story 13.5). */
+  /** 1–7 for a day, `null` for "Ingen dag än"; left out, the dish gets firstFreeWeekday (Story 13.5). */
   weekday: weekdaySchema.nullable().optional(),
   /** The Monday of the week to add to (Story 13.7); left out, this week. */
   weekStart: weekStartSchema.optional(),
@@ -368,13 +368,19 @@ export function shoppingRowText(weekNumber: number): string {
 }
 
 /**
- * The day a new dish gets when Pontus does not choose: the first day from
- * today to Sunday with no dish yet, so a week fills up one day at a time with
- * no extra step; `null` ("Ingen dag än") when every remaining day has a dish.
+ * The day a new dish gets: the first day with no dish on the week starting
+ * `weekStart` (a Monday). In this week it starts from today (never a past day),
+ * in a coming week from Monday. `null` when every day from there has a dish, so
+ * the dish goes on the week with no day.
  */
-export function defaultWeekday(dishes: readonly Pick<PlanRecipe, "weekday">[], today: number): number | null {
-  const taken = new Set(dishes.map((dish) => dish.weekday));
-  for (let day = Math.min(7, Math.max(1, today)); day <= 7; day += 1) {
+export function firstFreeWeekday(
+  plannedWeekdays: readonly (number | null | undefined)[],
+  today: Date,
+  weekStart: string,
+): number | null {
+  const taken = new Set(plannedWeekdays);
+  const first = weekStartOf(today) === weekStart ? todayWeekday(today) : 1;
+  for (let day = first; day <= 7; day += 1) {
     if (!taken.has(day)) return day;
   }
   return null;

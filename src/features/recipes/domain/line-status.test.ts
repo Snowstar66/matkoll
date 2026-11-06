@@ -151,10 +151,11 @@ describe("texts", () => {
   });
 
   it("says the toast after Lägg på matsedeln, with at most three names", () => {
-    expect(plannedToastText(["Falukorv", "grädde", "ris"])).toBe("På veckans matsedel. Falukorv, grädde och ris står på inköpslistan.");
-    expect(plannedToastText(["falukorv"])).toBe("På veckans matsedel. Falukorv står på inköpslistan.");
-    expect(plannedToastText(["a", "b", "c", "d", "e"])).toBe("På veckans matsedel. A, b, c och 2 till står på inköpslistan.");
-    expect(plannedToastText([])).toBe("På veckans matsedel.");
+    expect(plannedToastText("Pasta", "torsdag", ["Falukorv", "grädde", "ris"])).toBe("Pasta på torsdag. Falukorv, grädde och ris står på inköpslistan.");
+    expect(plannedToastText("Pasta", "måndag", ["falukorv"])).toBe("Pasta på måndag. Falukorv står på inköpslistan.");
+    expect(plannedToastText("Pasta", "söndag", ["a", "b", "c", "d", "e"])).toBe("Pasta på söndag. A, b, c och 2 till står på inköpslistan.");
+    expect(plannedToastText("Pasta", "fredag", [])).toBe("Pasta på fredag.");
+    expect(plannedToastText("Pasta", null, [])).toBe("Pasta på veckan. Alla dagar har en rätt.");
     expect(namesText([])).toBe("");
   });
 
