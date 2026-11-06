@@ -16,7 +16,7 @@ import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import { useDishSuggestions, type ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
-import { ok, type Result } from "@/lib/errors";
+import type { Result } from "@/lib/errors";
 
 // "Nya idéer med extrapris": the one flow for AI ideas around the offers, in
 // the card Rätter med extrapris (Veckans erbjudanden) and under På erbjudande
@@ -196,34 +196,29 @@ function addedIdeaText(title: string, weekday: number | null | undefined): strin
   return weekday ? `${title} sparad, på ${weekdayWord(weekday)}.` : `${title} sparad och på veckan. Alla dagar har en rätt.`;
 }
 
-/** While no preview is open nothing searches; the sheet is closed. */
-const noSearch: SearchIngredients = async () => ok([]);
-
 /** Shows the preview OfferIdeas opened from inside another sheet; rendered once, in the app layout. */
 export function OfferIdeaPreviewHost() {
   const router = useRouter();
   const { showToast } = useToast();
   const preview = useSyncExternalStore(subscribePreview, () => outsidePreview, () => null);
+  // Nothing is rendered until an idea is opened: the layout is prerendered, and the sheet makes ids when it renders.
+  if (!preview) return null;
   return (
     <AiSuggestionSheet
-      key={preview ? preview.suggestion.key : "stängt"}
-      suggestion={preview?.suggestion ?? null}
-      searchIngredients={preview?.searchIngredients ?? noSearch}
-      week={
-        preview
-          ? {
-              weekStart: preview.weekStart,
-              add: preview.addToWeek,
-              onAdded: (title, weekday) => {
-                showToast(addedIdeaText(title, weekday));
-                router.refresh();
-              },
-            }
-          : undefined
-      }
+      key={preview.suggestion.key}
+      suggestion={preview.suggestion}
+      searchIngredients={preview.searchIngredients}
+      week={{
+        weekStart: preview.weekStart,
+        add: preview.addToWeek,
+        onAdded: (title, weekday) => {
+          showToast(addedIdeaText(title, weekday));
+          router.refresh();
+        },
+      }}
       onClose={() => setOutsidePreview(null)}
       onSaved={(key) => {
-        preview?.onSaved(key);
+        preview.onSaved(key);
         setOutsidePreview(null);
       }}
     />
