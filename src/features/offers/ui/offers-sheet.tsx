@@ -93,6 +93,12 @@ export type OffersSheetProps = {
    * Left out when there are no such dishes or they could not be read.
    */
   dishes?: ReactNode;
+  /**
+   * Called once after a fetch that saved offers, with no wait for it: the page's Server Action that prepares the
+   * AI dish ideas for the new offers in the background (route → ui, AD-1: this module never imports suggestions).
+   * Its answer and any failure are ignored; the card Rätter med extrapris shows the ideas when they are ready.
+   */
+  onFetched?: () => Promise<unknown>;
 };
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
@@ -159,6 +165,7 @@ export function OffersSheet({
   best = null,
   fitIds,
   dishes,
+  onFetched,
 }: OffersSheetProps & { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -229,6 +236,8 @@ export function OffersSheet({
     setProgress(null);
     const saved = done.flatMap((run) => (run.result.ok ? [run.result.data] : []));
     if (saved.length > 0) {
+      // The ideas for the new offers are prepared in the background; nobody waits for them.
+      if (onFetched) void onFetched().catch(() => undefined);
       const count = saved.reduce((sum, data) => sum + data.saved, 0);
       showToast(
         chosenStores.length === 1 ? offersFetchedText(count, saved[0].weekStart) : offersFetchedManyText(count, saved.length, saved[0].weekStart),

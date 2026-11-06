@@ -29,4 +29,16 @@ export {
   type PlanTab,
 } from "./domain/plan-options";
 export { nowIdeasResultSchema, nowIdeaSchema, type NowIdeaView, type NowIdeasResultView } from "./domain/now-ideas";
-export { cookNowLists, cookNowNameIds, maxCookNowRecipes, type CookNowRecipe, type CookNowOneMissing, type CookNowLists } from "./domain/cook-now";
+export {
+  dropSavedIdeas,
+  maxOfferIdeas,
+  noOfferIdeas,
+  parseSavedIdeas,
+  pollSetMs,
+  staleSetMs,
+  toOfferIdeasView,
+  type OfferIdea,
+  type OfferIdeasState,
+  type OfferIdeasView,
+} from "./domain/offer-idea-set";
+export { cookNowLists,cookNowNameIds, maxCookNowRecipes, type CookNowRecipe, type CookNowOneMissing, type CookNowLists } from "./domain/cook-now";

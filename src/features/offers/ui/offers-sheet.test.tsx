@@ -114,6 +114,32 @@ describe("OffersSheet", () => {
     expect(within(dialog).queryByText("Hämtar erbjudandena från ica.se …")).not.toBeInTheDocument();
   });
 
+  it("calls onFetched once after a fetch that saved offers, without waiting for it, and never after a refusal", async () => {
+    const onFetched = vi.fn(() => new Promise<unknown>(() => {}));
+    render({ onFetched });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    expect(await screen.findAllByText("Hämtade 7 erbjudanden för vecka 44.")).not.toHaveLength(0);
+    expect(onFetched).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onFetched when the fetch failed or onFetched itself fails", async () => {
+    const onFetched = vi.fn().mockRejectedValue(new Error("offline"));
+    fetchStoreOffers.mockResolvedValue(fail("offers_fetch_failed"));
+    const first = render({ onFetched });
+    const opened = await open();
+    await opened.user.click(within(opened.dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
+    expect(onFetched).not.toHaveBeenCalled();
+    first.unmount();
+    fetchStoreOffers.mockResolvedValue(ok({ saved: 7, skipped: 0, matched: 1, weekStart: "2026-10-26" }));
+    render({ onFetched });
+    const second = await open();
+    await second.user.click(within(second.dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    expect(await screen.findAllByText("Hämtade 7 erbjudanden för vecka 44.")).not.toHaveLength(0);
+    expect(onFetched).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the slot Rätter med extrapris at the top when there are offers, and not without", async () => {
     const dishes = <section data-testid="offer-dishes">Rätter med extrapris</section>;
     const first = render({ offers, dishes });

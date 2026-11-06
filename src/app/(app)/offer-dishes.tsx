@@ -7,7 +7,7 @@ import { RecipeDataError } from "@/features/recipes/server";
 import { SettingsDataError } from "@/features/settings/server";
 import { PantryDataError } from "@/features/pantry/server";
 import { optionsForTab } from "@/features/suggestions";
-import { weekPlanOptions } from "@/features/suggestions/server";
+import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, weekPlanOptions } from "@/features/suggestions/server";
 import { OfferDishesCard } from "./offer-dishes-card";
 
 /** At most this many dishes are shown at the top of Veckans erbjudanden. */
@@ -18,7 +18,7 @@ const maxOfferDishes = 3;
  * slot (route → ui, AD-1: the offers module never imports mealplan, suggestions
  * or recipes). The dishes are the same as Matsedel's tab "På erbjudande"
  * (weekPlanOptions and optionsForTab, most saved first), the first three, and
- * under them "Nya idéer med extrapris", so the card is there whenever the
+ * under them "Nya idéer" (saved, prepared in the background), so the card is there whenever the
  * sheet has offers, also without a matching dish. `null` when the dishes
  * cannot be read (logged, never thrown): the sheet is then shown without the card.
  */
@@ -29,7 +29,24 @@ export async function loadOfferDishes(): Promise<ReactNode> {
     const dishes = optionsForTab(options, "offers").slice(0, maxOfferDishes);
     const onWeek: Record<string, number | null> = {};
     for (const dish of view.dishes) if (dish.recipeId && !(dish.recipeId in onWeek)) onWeek[dish.recipeId] = dish.weekday ?? null;
-    return <OfferDishesCard dishes={dishes} onWeek={onWeek} weekStart={weekStart} addToWeek={addToCurrentPlan} searchIngredients={searchIngredients} />;
+    // The saved ideas, prepared in the background; a set that cannot be read leaves the card without them.
+    const ideas = await loadOfferIdeas().catch((error: unknown) => {
+      if (!isOfferIdeaError(error)) throw error;
+      console.error("offer_ideas_unavailable", { reason: "detail" in error ? error.detail : "recipes" });
+      return null;
+    });
+    return (
+      <OfferDishesCard
+        dishes={dishes}
+        onWeek={onWeek}
+        weekStart={weekStart}
+        addToWeek={addToCurrentPlan}
+        searchIngredients={searchIngredients}
+        ideas={ideas}
+        startIdeas={startOfferIdeas}
+        readIdeas={readOfferIdeas}
+      />
+    );
   } catch (error) {
     if (
       !(

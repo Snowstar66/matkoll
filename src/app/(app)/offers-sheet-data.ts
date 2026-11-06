@@ -8,6 +8,7 @@ import { loadOfferDishes } from "./offer-dishes";
 import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getIngredientRecipeCounts, RecipeDataError } from "@/features/recipes/server";
 import { listStores, SettingsDataError } from "@/features/settings/server";
+import { prepareOfferIdeas } from "@/features/suggestions/server";
 
 /**
  * What the sheet Veckans erbjudanden needs, read for a page (route → ui, AD-1):
@@ -84,6 +85,8 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
       best,
       fitIds,
       dishes,
+      // After a fetch the AI dish ideas for the new offers are prepared in the background (composed here: AD-1).
+      onFetched: prepareOfferIdeas,
     },
   };
 }

@@ -150,6 +150,8 @@ const coverage: Record<IsolatedTable, Coverage> = {
   household_note: { row: () => ({ text: "Sugen på fisksoppa idag, kan du handla?", mood: "love", actions: [{ kind: "list" }] }) },
   // Basvaror: one staple the household always has (the defaults have no maker; this one is a's).
   household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
+  // Idéerna är klara när du öppnar erbjudandena: the saved AI ideas of one offer week (household-scoped, one row per week).
+  offer_idea_set: { row: () => ({ week_start: "2026-10-26", status: "ready", intro: "Billigt i veckan.", ideas: [] }) },
   // Story 23.3: one device a person turned notifications on for, and what they want to be told about.
   push_preference: { row: () => ({ lista: false, forrad: true }) },
   push_subscription: { row: () => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${randomUUID()}`, p256dh: "key", auth: "secret" }) },
@@ -188,6 +190,7 @@ const seedOrder: IsolatedTable[] = [
   "thing_change",
   "household_note",
   "household_staple",
+  "offer_idea_set",
   "push_preference",
   "push_subscription",
   "welcome_tour",

@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
 import { addedToWeekText, clampServings, onWeekLabel, type PlanRecipeRow } from "@/features/mealplan";
 import { PlanRow } from "@/features/mealplan/ui/plan-row";
-import type { PlanOption } from "@/features/suggestions";
+import type { OfferIdeasView, PlanOption } from "@/features/suggestions";
 import { OfferIdeas } from "./offer-ideas";
 
 type AddToWeek = (input: { recipeId: string; servings?: number; id: string; weekStart: string }) => Promise<Result<PlanRecipeRow>>;
@@ -18,8 +18,8 @@ type AddToWeek = (input: { recipeId: string; servings?: number; id: string; week
  * three of the user's own dishes that use an offer, most saved first, with "+"
  * (first free day of this week) or the day when the dish is already on the
  * week. "Visa alla" opens Recept with the filter Erbjudanden. Under them
- * "Nya idéer med extrapris" (OfferIdeas), shown also when none of the user's
- * dishes match.
+ * "Nya idéer" (OfferIdeas): the AI ideas prepared in the background and saved,
+ * shown also when none of the user's dishes match.
  */
 export function OfferDishesCard({
   dishes,
@@ -27,6 +27,9 @@ export function OfferDishesCard({
   weekStart,
   addToWeek,
   searchIngredients,
+  ideas,
+  startIdeas,
+  readIdeas,
 }: {
   dishes: readonly PlanOption[];
   /** The day (or `null`) of each recipe already on this week, by recipe id. */
@@ -34,6 +37,10 @@ export function OfferDishesCard({
   weekStart: string;
   addToWeek: AddToWeek;
   searchIngredients: SearchIngredients;
+  /** The saved "Nya idéer" as the server read it; `null` when they could not be read. */
+  ideas: OfferIdeasView | null;
+  startIdeas: ComponentProps<typeof OfferIdeas>["start"];
+  readIdeas: ComponentProps<typeof OfferIdeas>["read"];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -99,7 +106,7 @@ export function OfferDishesCard({
           Visa alla
         </Link>
       ) : null}
-      <OfferIdeas weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside />
+      <OfferIdeas initial={ideas} start={startIdeas} read={readIdeas} weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside />
     </section>
   );
 }

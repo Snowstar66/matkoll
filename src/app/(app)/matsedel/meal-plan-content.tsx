@@ -14,8 +14,8 @@ import { RecipeDataError } from "@/features/recipes/server";
 import { SettingsDataError } from "@/features/settings/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { getShoppingList } from "@/features/shopping/server";
-import type { PlanOption } from "@/features/suggestions";
-import { weekPlanOptions } from "@/features/suggestions/server";
+import type { OfferIdeasView, PlanOption } from "@/features/suggestions";
+import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, weekPlanOptions } from "@/features/suggestions/server";
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
@@ -42,6 +42,17 @@ async function optionsOrNull(): Promise<PlanOption[] | null> {
     )
       throw error;
     console.error("mealplan_recipes_unavailable", { reason: error instanceof CatalogDataError ? error.code : error.detail });
+    return null;
+  }
+}
+
+/** The saved "Nya idéer med extrapris" for the footer of På erbjudande, or `null` when they cannot be read: no ideas then. */
+async function ideasOrNull(): Promise<OfferIdeasView | null> {
+  try {
+    return await loadOfferIdeas();
+  } catch (error) {
+    if (!isOfferIdeaError(error)) throw error;
+    console.error("mealplan_ideas_unavailable", { reason: "detail" in error ? error.detail : "recipes" });
     return null;
   }
 }
@@ -104,13 +115,15 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   let sites: PantrySite[] | null;
   let counts: Record<string, number>;
   let toBuy: number | null;
+  let ideas: OfferIdeasView | null;
   try {
-    [view, options, counts, sites, toBuy] = await Promise.all([
+    [view, options, counts, sites, toBuy, ideas] = await Promise.all([
       getMealPlanView(weekStart),
       optionsOrNull(),
       countsOrEmpty(overview),
       sitesOrNull(),
       itemsToBuy(weekStart),
+      ideasOrNull(),
     ]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
@@ -149,7 +162,16 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           dishes={view.dishes}
           options={options}
           toBuy={toBuy}
-          offersFooter={<OfferIdeas weekStart={weekStart} addToWeek={addToCurrentPlan} searchIngredients={searchIngredients} />}
+          offersFooter={
+            <OfferIdeas
+              initial={ideas}
+              start={startOfferIdeas}
+              read={readOfferIdeas}
+              weekStart={weekStart}
+              addToWeek={addToCurrentPlan}
+              searchIngredients={searchIngredients}
+            />
+          }
         />
       </div>
     </>
