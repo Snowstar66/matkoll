@@ -106,13 +106,32 @@ describe("Library, the filter Erbjudanden", () => {
     expect(titles()).toEqual(["Grytan med allt", "Risotto", "Laxpasta", "Korvstroganoff"]);
   });
 
-  it("gives a card up to two offer tags and +N", async () => {
+  it("gives a card its own line with up to two offers and +N, and says why the dishes are suggested", async () => {
     const user = userEvent.setup();
     renderLibrary();
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     const [card] = screen.getAllByTestId("recipe-card");
-    const list = within(card).getByRole("list", { name: "Erbjudanden" });
-    expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Falukorv", "Gul lök", "+2 erbjudanden till"]);
+    expect(within(card).getByTestId("offer-tags")).toHaveTextContent("Extrapris: falukorv, gul lök +2");
+    expect(screen.getByTestId("offers-reason")).toHaveTextContent("Förslag för att varorna har extrapris den här veckan.");
+  });
+
+  it("shows the same line in the list view, apart from the grey meta line", async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    await user.click(screen.getByRole("radio", { name: "Lista" }));
+    await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
+    const [row] = screen.getAllByTestId("recipe-row");
+    expect(within(row).getByTestId("offer-tags")).toHaveTextContent("Extrapris: falukorv, gul lök +2");
+    expect(row).not.toHaveTextContent("Erbjudanden:");
+  });
+
+  it("opens with the filter Erbjudanden when the address asks for it", () => {
+    render(
+      <ToastProvider>
+        <Library recipes={library} pantryUnavailable={false} site={null} offers={offers()} initialFilter="offers" />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Erbjudanden" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("says the week (and the store) and opens the offers sheet with Visa erbjudanden", async () => {

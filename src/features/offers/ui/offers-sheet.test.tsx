@@ -114,6 +114,17 @@ describe("OffersSheet", () => {
     expect(within(dialog).queryByText("Hämtar erbjudandena från ica.se …")).not.toBeInTheDocument();
   });
 
+  it("shows the slot Rätter med extrapris at the top when there are offers, and not without", async () => {
+    const dishes = <section data-testid="offer-dishes">Rätter med extrapris</section>;
+    const first = render({ offers, dishes });
+    const { dialog } = await open();
+    expect(within(dialog).getByTestId("offer-dishes")).toBeInTheDocument();
+    first.unmount();
+    render({ offers: [], dishes });
+    const second = await open();
+    expect(within(second.dialog).queryByTestId("offer-dishes")).not.toBeInTheDocument();
+  });
+
   it("shows the offers under their categories, with the price and conditions, and the store's page last", async () => {
     render({ offers, stores: [{ ...store, fetchedAt: "2026-10-28T06:12:00Z" }] });
     const { dialog } = await open();
