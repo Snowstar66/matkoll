@@ -27,6 +27,8 @@ vi.mock("../actions/search-recipes", () => ({
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
+const deleteRecipe = vi.fn<(id: string) => Promise<Result<{ id: string }>>>();
+vi.mock("../actions/delete-recipe", () => ({ deleteRecipe: (id: string) => deleteRecipe(id) }));
 vi.mock("../actions/save-recipe", () => ({ saveRecipe: vi.fn() }));
 const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
 vi.mock("../actions/set-favorite", () => ({ setFavorite: (change: FavoriteChange) => setFavorite(change) }));
@@ -61,10 +63,12 @@ let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
 let serverPantryUnavailable = false;
 let serverSite: SelectedSite | null = null;
+let serverOnMenuIds: string[] | undefined;
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
   const [site] = useState(serverSite);
+  const onMenuIds = serverOnMenuIds;
   useEffect(() => {
     rerenderServer = setRecipes;
   }, []);
@@ -73,16 +77,18 @@ function Server() {
       recipes={recipes}
       pantryUnavailable={serverPantryUnavailable}
       site={site}
+      onMenuIds={onMenuIds}
     />
   );
 }
 
-type RenderOptions = { pantryUnavailable?: boolean; site?: SelectedSite | null };
+type RenderOptions = { pantryUnavailable?: boolean; site?: SelectedSite | null; onMenuIds?: string[] };
 
 function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: RenderOptions = {}) {
   serverRecipes = recipes;
   serverPantryUnavailable = options.pantryUnavailable ?? false;
   serverSite = options.site ?? null;
+  serverOnMenuIds = options.onMenuIds;
   return render(
     <ToastProvider>
       <Server />
@@ -107,6 +113,7 @@ beforeEach(() => {
   resetRecipeFilterStore();
   resetRecipeViewStores();
   refresh.mockReset();
+  deleteRecipe.mockReset().mockImplementation(async (id) => ok({ id }));
   searchPantryUnavailable = false;
   searchSite = null;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
@@ -636,6 +643,52 @@ describe("Library, view, sort and categories", () => {
     expect(within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
     await user.click(within(second).getByRole("button", { name: "Favorit, Linssoppa" }));
     expect(setFavorite).toHaveBeenCalledWith({ id: soppa.id, isFavorite: true });
+  });
+
+  describe("swipe away (compact list)", () => {
+    const openRemoval = async (user: ReturnType<typeof userEvent.setup>, onMenuIds?: string[]) => {
+      renderLibrary(withCategories, { onMenuIds });
+      await user.click(screen.getByRole("radio", { name: "Lista" }));
+      await user.click(screen.getByRole("button", { name: "Svep bort Linssoppa" }));
+    };
+
+    it("asks first, then removes the row, says so and refreshes", async () => {
+      const user = userEvent.setup();
+      await openRemoval(user);
+      const question = screen.getByRole("dialog", { name: "Ta bort Linssoppa?" });
+      expect(question).toHaveTextContent("Det går inte att ångra.");
+      expect(question).not.toHaveTextContent("matsedeln");
+      expect(deleteRecipe).not.toHaveBeenCalled();
+      await user.click(within(question).getByRole("button", { name: /^Ta bort$/ }));
+      await waitFor(() => expect(deleteRecipe).toHaveBeenCalledWith(soppa.id));
+      await waitFor(() => expect(rowTitles()).toEqual(["Krämig kycklinggryta", "Pannkakor"]));
+      expect(screen.getByRole("status")).toHaveTextContent("Tog bort Linssoppa.");
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("keeps the row when the question is answered with Avbryt", async () => {
+      const user = userEvent.setup();
+      await openRemoval(user);
+      await user.click(within(screen.getByRole("dialog", { name: "Ta bort Linssoppa?" })).getByRole("button", { name: "Avbryt" }));
+      expect(deleteRecipe).not.toHaveBeenCalled();
+      expect(rowTitles()).toHaveLength(3);
+    });
+
+    it("says when the recipe is on the meal plan, and keeps the row when removing fails", async () => {
+      const user = userEvent.setup();
+      deleteRecipe.mockResolvedValue(fail("recipe_delete_failed"));
+      await openRemoval(user, [soppa.id]);
+      const question = screen.getByRole("dialog", { name: "Ta bort Linssoppa?" });
+      expect(question).toHaveTextContent("Den ligger på matsedeln och tas bort därifrån.");
+      await user.click(within(question).getByRole("button", { name: /^Ta bort$/ }));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Det gick inte att ta bort receptet."));
+      expect(rowTitles()).toHaveLength(3);
+    });
+
+    it("is not in the card view", () => {
+      renderLibrary(withCategories);
+      expect(screen.queryByRole("button", { name: /^Svep bort/ })).not.toBeInTheDocument();
+    });
   });
 
   it("has no soptunna in either view", async () => {

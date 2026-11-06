@@ -7,6 +7,7 @@ import { matchOffersWithAi, recipeOfferTags } from "@/features/suggestions/serve
 import { offerDisplay, recipeOffersLineText } from "@/features/offers";
 import { loadOffersSheetData } from "../offers-sheet-data";
 import { RecipeOffersSheet } from "./recipe-offers-sheet";
+import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
@@ -46,7 +47,12 @@ export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
 
 async function RecipesContent() {
   await requireUserOrRedirect("/recept");
-  const [{ recipes, pantryUnavailable, site }, offers] = await Promise.all([listLibrary(), readLibraryOffers()]);
+  const [{ recipes, pantryUnavailable, site }, offers, plan] = await Promise.all([
+    listLibrary(),
+    readLibraryOffers(),
+    // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
+    getCurrentPlan().catch(() => null),
+  ]);
   if (recipes.length === 0) {
     return (
       <>
@@ -63,6 +69,7 @@ async function RecipesContent() {
       pantryUnavailable={pantryUnavailable}
       site={site}
       offers={offers}
+      onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
     />
     </>
   );

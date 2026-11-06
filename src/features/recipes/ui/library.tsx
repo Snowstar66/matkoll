@@ -98,9 +98,11 @@ export type LibraryProps = {
   site: SelectedSite | null;
   /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
   offers?: LibraryOffers;
+  /** The ids of the recipes on the current meal plan, for the question before a swipe-away delete. */
+  onMenuIds?: readonly string[];
 };
 
-export function Library({ recipes, pantryUnavailable, site, offers }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   const [view, setView] = useRecipeView();
@@ -233,7 +235,7 @@ export function Library({ recipes, pantryUnavailable, site, offers }: LibraryPro
   } else if (visible.length > 0) {
     const ranked = false;
     content = compact ? (
-      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} />
+      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} onMenuIds={onMenuIds} />
     ) : (
       <RecipeList
         recipes={visible}

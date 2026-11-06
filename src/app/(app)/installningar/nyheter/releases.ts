@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-06",
+    title: "Svep bort recept",
+    bullets: [
+      "I receptlistan kan du svepa ett recept åt vänster och trycka Ta bort.",
+      "Du får först en fråga, så inget försvinner av misstag.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Enklare Förråd",
     bullets: [
       "Nu finns en enda kamera i rummet: tryck Fota, ta en eller flera bilder och tryck Klar. Välj från album ligger som en liten länk bredvid.",
