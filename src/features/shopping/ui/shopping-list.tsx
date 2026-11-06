@@ -1103,6 +1103,7 @@ export function ShoppingList({
                 <PutInPantryButton
                   disabled={pantry.pending || saving}
                   busy={pantry.pending}
+                  count={toPantry.length}
                   onPut={() => void pantry.put(toPantry)}
                 />
               ) : null
