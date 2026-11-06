@@ -56,6 +56,9 @@ import {
   parseMergePairs,
   parseAnalyzeItems,
   parseRecipeAnswer,
+  nowIdeasAnswer,
+  parseNowIdeas,
+  type NowIdea,
   parseThings,
   suggestDishesAnswerCompactFor,
   type PhotoItem,
@@ -109,7 +112,18 @@ export type SuggestDishesInput = {
    * and an answer of one to three dishes, "better one good dish than three odd ones". The code counts what is missing.
    */
   now?: boolean;
+  /**
+   * Story 25.4: with `now`, the one dish to write a recipe for ("Burgersås: dressing + ketchup och lite senap"),
+   * from "Gör ett recept av den". Data for the model, never instructions.
+   */
+  dish?: string;
 };
+
+/** What ideasNow gets (Story 25.4): what is at home and what has lain long, like suggestDishes; no titles to avoid. */
+export type NowIdeasInput = { pantry: SuggestPantryItem[]; oldItems?: SuggestOldItem[]; /** Ideas already shown, for "Andra förslag"; the model is asked not to give them again. */ avoidTitles?: string[] };
+
+/** What ideasNow answers (Story 25.4): a warm sentence or two, and one to four small ideas. */
+export type NowIdeasResult = { intro: string; ideas: NowIdea[] };
 
 export type RunOptions = {
   /**
@@ -304,6 +318,14 @@ export interface AiService {
    */
   suggestDishes(input: SuggestDishesInput, signal: AbortSignal, options?: SuggestDishesOptions): Promise<Result<AiRecipe[]>>;
   /**
+   * Story 25.4: "Vad kan jag laga nu?" as a friend would answer: a short intro and one to four small ideas (a sauce, a
+   * dip, a side, a dish) from what is at home, without amounts or steps. On Claude it runs on Haiku whatever model is
+   * chosen (createAdapter); every other provider uses its own model. Fails with `validation` (no pantry item, or input
+   * outside inputLimits.suggest), `ai_unavailable` (also when the deadline leaves too little time), `ai_rejected` or
+   * `ai_invalid` (no idea left).
+   */
+  ideasNow(input: NowIdeasInput, signal: AbortSignal, options?: RunOptions): Promise<Result<NowIdeasResult>>;
+  /**
    * The food items the model sees in a photo of a place at home, possibly
    * none, and possibly more than inputLimits.analyze.maxItems (the caller
    * keeps the first ones). Each item is checked on its own: one that does not
@@ -494,6 +516,8 @@ export const inputLimits = {
    * extra, so failing fast is better than keeping the model busy.
    */
   locate: { attemptMs: 30_000 },
+  /** ideasNow (Story 25.4): an intro of up to three sentences and four ideas of two short lines each, about 250 tokens; 600 leave room for a model that writes around them. */
+  ideas: { maxOutputTokens: 600 },
 } as const;
 
 /** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */
@@ -612,6 +636,11 @@ export function locateLimitsFrom(limits: Limits): Limits {
   };
 }
 
+/** True for a pantry and old items within inputLimits.suggest, with something at home (Story 25.4). */
+export function isValidNowIdeasInput(input: NowIdeasInput): boolean {
+  return input.pantry.length > 0 && isValidSuggestDishesInput({ pantry: input.pantry, oldItems: input.oldItems, avoidTitles: input.avoidTitles ?? [] });
+}
+
 /** True when there is at least one pantry entry and the input stays within inputLimits.suggest. */
 export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
   const limits = inputLimits.suggest;
@@ -626,6 +655,7 @@ export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
   if (!pantry.every(isValidPantryEntry)) return false;
   if (pantryLinesLength(pantry) > limits.maxPantryChars) return false;
   if (avoidTitles.length > limits.maxAvoidTitles) return false;
+  if (input.dish !== undefined && !(input.now === true && input.dish !== "" && input.dish === cleanModelText(input.dish) && input.dish.length <= limits.maxTitleChars + 200)) return false;
   return avoidTitles.every((title) => title !== "" && title === cleanModelText(title) && title.length <= limits.maxTitleChars);
 }
 
@@ -651,6 +681,10 @@ export function withInputValidation(service: AiService): AiService {
     async suggestDishes(input, signal, options) {
       if (!isValidSuggestDishesInput(input)) return fail("validation");
       return service.suggestDishes(input, signal, options);
+    },
+    async ideasNow(input, signal, options) {
+      if (!isValidNowIdeasInput(input)) return fail("validation");
+      return service.ideasNow(input, signal, options);
     },
     async analyzeImage(input, signal, options) {
       if (!isValidAnalyzeImageInput(input)) return fail("validation");
@@ -695,7 +729,7 @@ export function withInputValidation(service: AiService): AiService {
 }
 
 /** The port on top of a real model, with the shared run rules in run.ts. */
-export function createModelAiService(target: ModelTarget, limits: Limits = defaultLimits): AiService {
+export function createModelAiService(target: ModelTarget, limits: Limits = defaultLimits, ideasTarget: ModelTarget = target): AiService {
   return {
     async parseRecipe(input, signal) {
       const answer = await runStructured(
@@ -736,6 +770,33 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       return ok(answer.data.suggestions.map(fromCompactDish));
+    },
+    async ideasNow(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        // Story 25.4: the friendly answer is short and asks for no recipe, so on Claude it has a model of its own.
+        ideasTarget,
+        {
+          schema: nowIdeasAnswer,
+          system: prompts.nowIdeas,
+          messages: [{ role: "user", content: suggestDishesContent({ pantry: input.pantry, oldItems: input.oldItems, avoidTitles: input.avoidTitles ?? [] }) }],
+          maxOutputTokens: inputLimits.ideas.maxOutputTokens,
+          onTruncated: () => console.info("ideas_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const parsed = parseNowIdeas(answer.data);
+      if (parsed.ideas.length === 0) {
+        console.error("ai_invalid", { reason: "no_ideas" });
+        return fail("ai_invalid");
+      }
+      return ok(parsed);
     },
     async analyzeImage(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -1118,6 +1179,7 @@ export function suggestDishesContent(input: SuggestDishesInput): string {
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
   if (input.now) {
     parts.push("Använd bara varorna i lagret, med exakt samma namn, och salt, peppar, olja och vatten. Hellre en bra rätt än tre konstiga.");
+    if (input.dish) parts.push(`Skriv ett recept på just den här idén, och bara den (en rätt):\n${input.dish}`);
   } else if (input.strict) {
     parts.push("Påminnelse: använd bara varor från lagret, och högst två varor som inte finns där, utöver salt, peppar, olja och vatten.");
   }
@@ -1203,6 +1265,8 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
           options.fastPhotoReading ? photoReadingOptionsFor(model(env.AI_MODEL)) : undefined,
         ),
         options.limits,
+        // Story 25.4: "Idéer" in "Vad kan jag laga nu?" is a short, warm answer: Haiku writes it best and cheapest, whatever model is chosen.
+        createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: ideasModel, effort, fetch: options.fetch }),
       );
     case "openai":
       if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -1212,6 +1276,9 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
       );
   }
 }
+
+/** Story 25.4: the Claude model that answers ideasNow, whatever the household chose. */
+export const ideasModel = "claude-haiku-5-5";
 
 /** The target with the fridge photo's fast options when given (the eval's "after"). */
 function withFastPhotoReading(target: ModelTarget, fast: ProviderOptions | undefined): ModelTarget {

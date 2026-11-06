@@ -16,12 +16,12 @@ describe("category icons", () => {
     for (const entry of Object.values(categoryIcons)) expect(Object.keys(entry)).toEqual(["icon"]);
   });
 
-  it("gives every category an emoji of its own, and Skafferi and Såser & smaksättare different ones", () => {
+  it("gives every category an emoji of its own, and Torrvaror & konserver and Såser & smaksättare different ones", () => {
     const icons = Object.values(categoryIcons).map(({ icon }) => icon);
     for (const icon of icons) expect(icon).toMatch(/^\p{Extended_Pictographic}\uFE0F?$/u);
     expect(new Set(icons).size).toBe(icons.length);
-    expect(categoryIcons.Skafferi.icon).not.toBe(categoryIcons["Såser & smaksättare"].icon);
-    expect(categoryIcons.Frys.icon).toBe("\u2744\uFE0F");
+    expect(categoryIcons["Torrvaror & konserver"].icon).not.toBe(categoryIcons["Såser & smaksättare"].icon);
+    expect(categoryIcons.Fryst.icon).toBe("\u2744\uFE0F");
     expect(categoryIcons["Övrigt"].icon).toBe("\u{1F6CD}\uFE0F");
   });
 });

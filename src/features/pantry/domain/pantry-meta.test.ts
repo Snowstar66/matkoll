@@ -99,7 +99,7 @@ describe("groupPantryByCategory", () => {
     const salt = item({ id: "7", name: "Salt", section: "Skafferi", location: "Skafferi" });
     const pasta = item({ id: "8", name: "Pasta", section: "Skafferi", location: "Skafferi", amount: 500, unit: "g" });
     expect(groupPantryByCategory([salt, pasta]).map(({ category, items }) => [category, items.length])).toEqual([
-      ["Skafferi", 1],
+      ["Torrvaror & konserver", 1],
       ["Såser & smaksättare", 1],
     ]);
     expect(groupPantryByCategory([])).toEqual([]);

@@ -7,6 +7,8 @@ import type { FeedbackItem } from "./domain/feedback";
 
 // Server-only entry of Tyck till (Story 20.3).
 
+export { sendFeedback } from "./actions/send-feedback";
+
 /**
  * The owner's first name for the sheets ("Pontus"), from OWNER_EMAIL; in development
  * without it, the auto-login user's, as `pnpm owner:sync` does. Null when neither is

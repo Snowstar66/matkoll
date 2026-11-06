@@ -235,10 +235,10 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
             type="button"
             disabled={sending}
             onClick={openQuick}
-            className="inline-flex min-h-button w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-center text-headline text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-center text-row-title text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             data-testid="quick-camera-open"
           >
-            <CameraIcon size={22} className="shrink-0" />
+            <CameraIcon size={20} className="shrink-0" />
             {quickCameraText}
           </button>
           <div className="flex flex-wrap items-center justify-center gap-x-4">
