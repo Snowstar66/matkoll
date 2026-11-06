@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { seenOnText } from "./thing-merge";
+import { closedBoxesText } from "./thing-closed";
 
 // A thing the AI read from a card (Story 18.2): name, category, where in the
 // photo and how sure. Things never touch food: no list, no recipe, no pantry.
@@ -88,9 +89,9 @@ export function thingMeta(thing: Pick<Thing, "confidence" | "whereHint"> & { see
   return [isMaybe(thing) ? maybeText : null, thing.whereHint, seenOnText(thing.seenOn ?? 1)].filter(Boolean).join(" · ");
 }
 
-/** "Innehållet i 3 lådor syns inte – fota insidan", or the model's own sentence when it gave no count, or nothing. */
+/** "3 lådor där innehållet inte syns", or the model's own sentence when it gave no count, or nothing. */
 export function unseenText(count: number, note: string | null): string | null {
-  if (count > 0) return `Innehållet i ${count === 1 ? "1 låda" : `${count} lådor`} syns inte – fota insidan`;
+  if (count > 0) return closedBoxesText(count);
   return note;
 }
 

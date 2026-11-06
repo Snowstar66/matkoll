@@ -8,14 +8,14 @@ import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { fail, type Result } from "@/lib/errors";
 import { createThingBox } from "../actions/create-box";
+import { ClosedRow } from "./closed-boxes";
 import { addBoxText, emptyBoxText, maxPlaceNameChars } from "../domain/thing-place";
 
 // "Lägg till låda" (Story 18.5): a sheet with the box's name, on a place's
 // page. The box is a place of its own in the same room, so "Lägg till" opens
 // the room's page with the camera ready (`?fota=<box>`), to photograph the inside. The same
-// sheet opens from the row "Innehållet i 3 lådor syns inte – fota insidan",
-// which is then a button: the unseen boxes are named and photographed one at a
-// time. A name that is empty or taken is said under the field; a place that is
+// sheet opens from the row "3 lådor där innehållet inte syns" when the AI did
+// not name the boxes, which is then a button: a box is named and photographed. A name that is empty or taken is said under the field; a place that is
 // gone is said at the top, and the page is read again.
 
 export type AddBoxProps = {
@@ -82,14 +82,7 @@ export function AddBox({ placeId, variant, label, roomHref }: AddBoxProps) {
   return (
     <>
       {variant === "row" ? (
-        <button
-          type="button"
-          onClick={openSheet}
-          data-testid="unseen-note"
-          className="rounded-md bg-sand px-4 py-3 text-left text-body text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        >
-          {label}
-        </button>
+        <ClosedRow label={label ?? ""} onClick={openSheet} />
       ) : (
         <Button variant="text" onClick={openSheet} className="self-start">
           {addBoxText}

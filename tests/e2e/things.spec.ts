@@ -63,7 +63,7 @@ const content = (page: Page) => page.locator("main").filter({ visible: true });
 
 /**
  * Takes cards in a room: from the start page it opens the room (or makes it with "+ Nytt rum"), then on the room's
- * page (Story 18.16) "Välj från Bilder" is clicked there; with a part or box "Mer exakt plats …" opens the sheet.
+ * page (Story 18.16) "Välj från album" is clicked there; with a part or box "Var i rummet? (valfritt)" opens the sheet.
  */
 async function takeCards(page: Page, files: string | string[], { room, part, box = false }: { room?: string; part?: string; box?: boolean } = {}) {
   const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
@@ -81,14 +81,14 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
   }
   let scope: Locator = page.locator("main").filter({ visible: true });
   if (part) {
-    await page.getByRole("button", { name: "Mer exakt plats …" }).click();
+    await page.getByTestId("room-exact").click();
     scope = dialog;
-    await dialog.getByRole("button", { name: /Mer exakt plats \(valfritt\)/ }).click();
+    await dialog.getByRole("button", { name: /Var i rummet\? \(valfritt\)/ }).click();
     if (box) await dialog.getByRole("radio", { name: "Låda" }).click();
     await dialog.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
   }
   const chooser = page.waitForEvent("filechooser");
-  await scope.getByRole("button", { name: /Välj från Bilder/ }).click();
+  await scope.getByRole("button", { name: /Välj från album/ }).click();
   await (await chooser).setFiles(files);
 }
 
@@ -137,7 +137,7 @@ test("+ Nytt rum is the last row, asks for a name, says an empty one, makes the 
   await dialog.getByRole("button", { name: "Skapa rum" }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/vinden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vinden");
-  await expect(page.getByRole("button", { name: /Välj från Bilder/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Välj från album/ })).toBeVisible();
   await page.goto("/prylar");
   await expect(rooms(page)).toHaveCount(2);
   await expect(rooms(page).filter({ hasText: "Vinden" })).toContainText("Inget kort än");
@@ -170,11 +170,9 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await expect(page).toHaveURL(/\/prylar\/rum\//);
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/skr%C3%A4pf%C3%B6rr%C3%A5det$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet");
-  const summary = page.getByTestId("room-summary");
-  await expect(summary).toContainText("12föremål");
-  await expect(summary).toContainText("7kategorier");
-  await expect(summary).toContainText("1kort");
-  await expect(page.getByText(`Senaste kort ${shortDateText(new Date())}`)).toBeVisible();
+  // No summary above the list and no "Senaste kort" row: the list is what the page is for.
+  await expect(page.getByTestId("room-summary")).toHaveCount(0);
+  await expect(page.getByText(/Senaste kort/)).toHaveCount(0);
 
   // The categories are folded in with their counts; a category's rows come only when it is opened.
   await expect(page.getByTestId("room-category")).toHaveCount(7);
@@ -187,7 +185,7 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await page.getByRole("button", { name: "Hushåll · 1" }).click();
   await expect(page.getByText("kanske · överst, höger")).toBeVisible();
   await expect(page.getByText(/kanske/)).toHaveCount(1);
-  await expect(page.getByTestId("unseen-note")).toHaveText("Innehållet i 3 lådor syns inte – fota insidan");
+  await expect(page.getByTestId("unseen-note")).toContainText(/där innehållet inte syns/);
 
   // What is open is remembered on the device.
   await page.reload();
@@ -264,7 +262,7 @@ test("a new card adds to the room and replaces nothing; Ta om replaces only that
   const retake = page.getByRole("dialog", { name: "Ta om kortet" });
   await expect(retake.getByTestId("retake-detail")).toContainText("Rättelser och tillagda föremål på det gamla kortet ersätts av den nya läsningen.");
   const chooser = page.waitForEvent("filechooser");
-  await retake.getByRole("button", { name: /Välj från Bilder/ }).click();
+  await retake.getByRole("button", { name: /Välj från album/ }).click();
   await (await chooser).setFiles(photo);
   // The new card is read first: until then both old cards are there.
   await expect.poll(async () => (await cardsOf()).length, { timeout: 15_000 }).toBe(3);
@@ -317,7 +315,7 @@ test("a finished reading is confirmed while Pontus is in another tab, with a bad
   await page.getByTestId("toast").getByRole("button", { name: "Visa" }).click();
   // The old place address opens the room the place is in.
   await expect(page).toHaveURL(/\/prylar\/rum\/[0-9a-f-]{36}\/boden$/);
-  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
+  await expect(page.getByTestId("room-category").first()).toBeVisible();
   // Seen here: the badge goes.
   await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
 });
@@ -337,7 +335,7 @@ test("Pontus 1 Nov: the Förråd badge is told on the room's row as 1 nytt kort,
   await shot(page, "forrad-nytt-kort-mork");
   await page.emulateMedia({ colorScheme: "light" });
   await boden.click();
-  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
+  await expect(page.getByTestId("room-category").first()).toBeVisible();
   await expect.poll(async () => (await adminClient().from("ai_job").select("seen_at").eq("user_id", userId).eq("kind", "things")).data?.every((job) => job.seen_at !== null)).toBe(true);
   await page.goto("/prylar");
   await expect(rooms(page).filter({ hasText: "Boden" })).toBeVisible();
@@ -381,7 +379,7 @@ test("the side menu at desktop width has Förråd too, and the start page and a 
 async function seedPlace(
   siteId: string,
   room: string,
-  names: { name: string; category: string; where?: string }[],
+  names: { name: string; category: string; where?: string; box?: [number, number, number, number] }[],
   { part = null, takenAt = "2026-10-31T10:00:00Z", hidden = 0, box = false }: { part?: string | null; takenAt?: string; hidden?: number; box?: boolean } = {},
 ): Promise<string> {
   const admin = adminClient();
@@ -415,6 +413,7 @@ async function seedPlace(
       where_hint: thing.where ?? null,
       confidence: "high",
       position,
+      ...(thing.box ? { box_left: thing.box[0], box_top: thing.box[1], box_width: thing.box[2], box_height: thing.box[3] } : {}),
     })),
   );
   if (items.error) throw items.error;
@@ -711,10 +710,60 @@ test("old place addresses open the room, and an unknown one is 'Sidan finns inte
   await expect(page.getByText("Sidan finns inte.")).toBeVisible();
 });
 
+test("Pontus 6 Nov: Lista and Kort are an icon switch that is remembered, and the room has no summary", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }, { name: "Spade", category: "Trädgård" }]);
+  await page.goto(roomUrl("Garaget"));
+  await expect(page.getByTestId("room-summary")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "Lista" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Fota" })).toBeVisible();
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  await shot(page, "forrad-rum");
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await expect(page.getByTestId("room-cards")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Kort" })).toBeChecked();
+  await expect(page.getByTestId("room-cards")).toBeVisible();
+  // A card opens its big view.
+  await page.getByTestId("open-card").click();
+  await expect(page).toHaveURL(/\/prylar\/kort\//);
+});
+
+test("Pontus 6 Nov: the closed boxes are one readable row, a sheet lists exactly those boxes, and Fota insidan opens the camera for one", async ({ page }) => {
+  await seedPlace(
+    hemma,
+    "Skräpförrådet",
+    [
+      { name: "Blå back", category: "Förvaring & lådor", where: "på översta hyllan", box: [0.1, 0.1, 0.3, 0.3] },
+      { name: "Röd låda", category: "Förvaring & lådor", where: "på golvet", box: [0.5, 0.5, 0.3, 0.4] },
+      { name: "Hammare", category: "Verktyg" },
+    ],
+    { hidden: 2 },
+  );
+  const card = (await adminClient().from("thing_photo").select("object_path").eq("user_id", userId).single()).data!;
+  await adminClient().storage.from("thing-photo").upload(card.object_path, readFileSync(photo), { contentType: "image/png" });
+  await page.goto(roomUrl("Skräpförrådet"));
+  const row = page.getByRole("button", { name: "2 lådor där innehållet inte syns" });
+  await expect(row).toBeVisible();
+  await row.click();
+  const sheet = page.getByRole("dialog", { name: "Lådor där innehållet inte syns" });
+  await expect(sheet.getByText("Fota insidan så vet du vad som finns i dem.")).toBeVisible();
+  await expect(sheet.getByTestId("closed-box")).toHaveCount(2);
+  await expect(sheet.getByTestId("closed-box").first()).toContainText("Blå back");
+  await expect(sheet.getByTestId("closed-box").first()).toContainText("på översta hyllan · Kort från 31 okt");
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  await shot(page, "forrad-lador");
+  await sheet.getByRole("button", { name: "Fota insidan: Blå back" }).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\/[0-9a-f-]{36}\/skr%C3%A4pf%C3%B6rr%C3%A5det\?fota=[0-9a-f-]{36}$/);
+  await expect(page.getByTestId("upload-card-row")).toContainText("Fota insidan av Blå back");
+  // The box has its own place now, so it is no longer listed as closed.
+  await page.goto(roomUrl("Skräpförrådet"));
+  await expect(page.getByRole("button", { name: "1 låda där innehållet inte syns" })).toBeVisible();
+});
+
 test("a box is added from the line about closed boxes, and its things are 'i Kartong jul' in the room's list and in search", async ({ page }) => {
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }], { hidden: 3 });
   await page.goto(roomUrl("Skräpförrådet"));
-  await page.getByRole("button", { name: "Innehållet i 3 lådor syns inte – fota insidan" }).click();
+  await page.getByRole("button", { name: "3 lådor där innehållet inte syns" }).click();
   const sheet = page.getByRole("dialog", { name: "Lägg till låda" });
   await sheet.getByRole("button", { name: "Lägg till och fota" }).click();
   await expect(sheet.getByText("Ange ett namn, till exempel Blå backen.")).toBeVisible();
@@ -728,7 +777,6 @@ test("a box is added from the line about closed boxes, and its things are 'i Kar
   // A box with a card: its things say where they are, in the room's list, on the card and in search.
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Julgransprydnad", category: "Hushåll" }], { part: "Kartong jul", box: true });
   await page.goto(roomUrl("Skräpförrådet"));
-  await expect(page.getByTestId("room-summary")).toContainText("2föremål");
   await page.getByRole("button", { name: "Hushåll · 1" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Julgransprydnad" })).toContainText("i Kartong jul");
   await page.getByRole("radio", { name: "Kort" }).click();
@@ -751,8 +799,6 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await expect(rooms(page)).toContainText(`12 föremål · 2 kort · ${shortDateText(new Date())}`);
   await rooms(page).click();
   await expect(page).toHaveURL(/\/prylar\/rum\//);
-  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
-  await expect(page.getByTestId("room-summary")).toContainText("2kort");
   await page.getByRole("button", { name: "Verktyg · 4" }).click();
   const things = page.getByTestId("thing");
   await expect(things).toHaveCount(4);
@@ -773,8 +819,7 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await page.getByTestId("room-card").filter({ hasText: "0 föremål" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
   await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
-  await page.getByRole("radio", { name: "Föremål" }).click();
-  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
+  await page.getByRole("radio", { name: "Lista" }).click();
   await page.getByRole("button", { name: "Verktyg · 4" }).click();
   await expect(page.getByText("syns på 2 kort")).toHaveCount(0);
 });
@@ -783,7 +828,6 @@ test("a room with hundreds of things shows its categories folded in and renders 
   const names = Array.from({ length: 300 }, (_, index) => ({ name: `Skruv ${String(index).padStart(3, "0")}`, category: "Byggmaterial" }));
   await seedPlace(hemma, "Garaget", [...names, { name: "Lövblås", category: "Trädgård" }]);
   await page.goto(roomUrl("Garaget"));
-  await expect(page.getByTestId("room-summary")).toContainText("301föremål");
   await expect(page.getByRole("button", { name: "Byggmaterial · 300" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByTestId("thing")).toHaveCount(0);
   await page.getByRole("button", { name: "Byggmaterial · 300" }).click();
@@ -801,25 +845,22 @@ test("a room with hundreds of things shows its categories folded in and renders 
 test.describe("on a phone", () => {
   test.use({ hasTouch: true, isMobile: true });
 
-  test("the camera opens from the room's page, and 'Ta ett till' takes another card of the same place", async ({ page }) => {
+  test("Fota on the room's page opens the one camera: one tap and Klar sends a single card", async ({ page }) => {
     await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
     await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
     await page.goto("/prylar");
     await rooms(page).filter({ hasText: "Garaget" }).click();
     await expect(page).toHaveURL(/\/prylar\/rum\//);
-    await expect(page.getByRole("button", { name: /Välj från Bilder/ })).toBeVisible();
-    const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: /Ta foto/ }).click();
-    await (await chooser).setFiles(photo);
-    await expect(page.getByTestId("take-another")).toBeVisible({ timeout: 15_000 });
-
-    const again = page.waitForEvent("filechooser");
-    await page.getByTestId("take-another").click();
-    await (await again).setFiles(photo);
-    await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(4);
+    await expect(page.getByRole("button", { name: /Välj från album/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Ta foto|Snabbkamera/ })).toHaveCount(0);
+    await page.getByTestId("quick-camera-open").click();
+    const camera = page.getByRole("dialog", { name: "Kamera, Garaget" });
+    await camera.getByRole("button", { name: "Ta kort", exact: true }).click();
+    await camera.getByRole("button", { name: "Klar, skicka 1 kort" }).click();
+    await expect(camera).toBeHidden();
+    await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(3);
     const garage = (await adminClient().from("thing_place").select("id").eq("user_id", userId).eq("room_key", "garaget").single()).data!.id;
-    const added = (await cardsOf()).filter((card) => card.place_id === garage);
-    expect(added).toHaveLength(3);
+    expect((await cardsOf()).filter((card) => card.place_id === garage)).toHaveLength(2);
   });
 });
 
@@ -864,7 +905,6 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
 
   // Written and photographed things show together: counts, lists ("i Black box") and the Kort view.
   await page.goto(roomUrl("Skräpförrådet"));
-  await expect(page.getByTestId("room-summary")).toContainText("5föremål");
   await expect(page.getByTestId("room-box")).toContainText("skrivet 4 föremål");
   await page.getByRole("button", { name: "Elektronik · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skarvsladdar" })).toContainText("i Black box");
@@ -977,8 +1017,7 @@ test("Lägg till föremål on a card writes things tied to that card, sorted by 
   expect((await admin.from("ai_usage").select("model").eq("user_id", userId)).data).toEqual([{ model: "mock" }]);
   // They show like the others: counted in the room, in the list of the category, and on the card.
   await expect(page.getByTestId("room-card")).toContainText("3 föremål");
-  await page.getByRole("radio", { name: "Föremål" }).click();
-  await expect(page.getByTestId("room-summary")).toContainText("3föremål");
+  await page.getByRole("radio", { name: "Lista" }).click();
   await page.getByRole("button", { name: "Verktyg · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skiftnyckel" })).toBeVisible();
 
@@ -1121,14 +1160,15 @@ test("Rensa förrådet in Inställningar asks for RENSA, removes all of Förråd
 });
 
 // Story 18.16: two clear buttons, HEIC, rename and remove.
-test("a room's page has Ta foto and Välj från Bilder in place of Ta fler kort, and a HEIC is turned into a JPEG first", async ({ page }) => {
+test("a room's page has one Fota button and a Välj från album link in place of Ta fler kort, and a HEIC is turned into a JPEG first", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
   await page.goto(roomUrl("Garaget"));
   await expect(page.getByRole("button", { name: "Ta fler kort" })).toHaveCount(0);
   const capture = page.getByTestId("room-capture");
-  await expect(capture.getByRole("button", { name: /Ta foto/ })).toBeVisible();
-  await expect(capture.getByRole("button", { name: /Välj från Bilder/ })).toBeVisible();
-  await expect(capture.getByText("Senaste kort 31 okt")).toBeVisible();
+  await expect(capture.getByRole("button", { name: "Fota" })).toBeVisible();
+  await expect(capture.getByRole("button", { name: /Välj från album/ })).toBeVisible();
+  await expect(capture.getByRole("button", { name: /Ta foto|Snabbkamera/ })).toHaveCount(0);
+  await expect(capture.getByText(/Senaste kort/)).toHaveCount(0);
   const before = (await cardsOf()).length;
   // Chromium cannot decode HEIC: heic2any makes a JPEG, which is downscaled and uploaded as any photo.
   await takeCards(page, "tests/fixtures/ai/kyl.heic");
@@ -1146,7 +1186,7 @@ test("a HEIC that cannot be turned into JPEG says so calmly, per image, and the 
   const broken = { name: "trasig.heic", mimeType: "image/heic", buffer: Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from("ftypheic"), Buffer.alloc(40, 1)]) };
   const before = (await cardsOf()).length;
   const chooser = page.waitForEvent("filechooser");
-  await page.getByTestId("room-capture").getByRole("button", { name: /Välj från Bilder/ }).click();
+  await page.getByTestId("room-capture").getByRole("button", { name: /Välj från album/ }).click();
   await (await chooser).setFiles([broken, { name: "kyl.png", mimeType: "image/png", buffer: readFileSync(photo) }]);
   await expect(page.getByText(/trasig\.heic: bilden gick inte att göra om från HEIC/)).toBeVisible({ timeout: 30_000 });
   await expect.poll(async () => (await cardsOf()).length, { timeout: 30_000 }).toBe(before + 1);
@@ -1181,7 +1221,6 @@ test("Byt namn på rummet renames, and merges into a room that has the name afte
   expect(places.map((place) => place.room)).toEqual(["Boden", "Boden"]);
   expect(places.map((place) => place.part).sort()).toEqual(["Hyllan", "Väggen"]);
   expect((await cardsOf()).length).toBe(3);
-  await expect(page.getByTestId("room-summary").filter({ visible: true })).toContainText("3");
 });
 
 test("a part or a box can be renamed and removed from its ⋯, and removing asks first and says what goes", async ({ page }) => {
@@ -1653,11 +1692,11 @@ test("the field is there in a boende with rooms but no föremål, and Kom ihåg 
   await expect(rooms(page)).toHaveText([/Sovrummet\s*1 föremål/]);
 });
 
-// Story 18.10: Snabbkamera with Chromium's fake camera (playwright.config.ts).
-test("Snabbkamera: tap, tap, tap, drop one with ×, and Klar sends each shot as its own card", async ({ page }) => {
+// Story 18.10: the one camera, Fota, with Chromium's fake camera (playwright.config.ts).
+test("Fota: tap, tap, tap, drop one with ×, and Klar sends each shot as its own card", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
   await page.goto(roomUrl("Garaget"));
-  const open = page.getByTestId("room-capture").getByRole("button", { name: /Snabbkamera/ });
+  const open = page.getByTestId("room-capture").getByRole("button", { name: "Fota" });
   await expect(open).toBeVisible();
   // With E2E_SHOTS: the room's page at 390 px, 390 px dark and 1280 px, without the dev badge.
   if (process.env.E2E_SHOTS) {
@@ -1672,7 +1711,7 @@ test("Snabbkamera: tap, tap, tap, drop one with ×, and Klar sends each shot as 
   }
   const before = (await cardsOf()).length;
   await open.click();
-  const camera = page.getByRole("dialog", { name: "Snabbkamera, Garaget" });
+  const camera = page.getByRole("dialog", { name: "Kamera, Garaget" });
   await expect(camera.getByRole("heading", { name: "Garaget" })).toBeVisible();
   const shutter = camera.getByRole("button", { name: "Ta kort", exact: true });
   await expect(shutter).toBeEnabled();
@@ -1699,18 +1738,18 @@ test("Snabbkamera: tap, tap, tap, drop one with ×, and Klar sends each shot as 
   expect(saved.map((row) => row.media_type)).toEqual(["image/jpeg", "image/jpeg"]);
 });
 
-test("Snabbkamera without a camera says so calmly and falls back to Ta foto", async ({ page }) => {
+test("Fota without a camera says so calmly and falls back to Välj från album", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error("none"), { name: "NotFoundError" }));
   });
   await page.goto(roomUrl("Garaget"));
-  await page.getByTestId("room-capture").getByRole("button", { name: /Snabbkamera/ }).click();
-  const camera = page.getByRole("dialog", { name: "Snabbkamera, Garaget" });
+  await page.getByTestId("room-capture").getByRole("button", { name: "Fota" }).click();
+  const camera = page.getByRole("dialog", { name: "Kamera, Garaget" });
   await expect(camera.getByRole("alert")).toContainText("Hittar ingen kamera här");
-  // A desktop's Ta foto is the file window.
+  // The album is the file window.
   const chooser = page.waitForEvent("filechooser");
-  await camera.getByRole("button", { name: "Använd Ta foto" }).click();
+  await camera.getByRole("button", { name: "Välj från album" }).click();
   await chooser;
   await expect(camera).toBeHidden();
 });

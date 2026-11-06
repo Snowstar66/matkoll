@@ -55,6 +55,13 @@ function useStored(key: string): [string | null, (value: string) => void] {
 export const lastRoomKey = (siteId: string) => `matkoll.prylar.rum.${siteId}`;
 export const openCategoriesKey = (siteId: string, room: string) => `matkoll.prylar.oppna.${siteId}.${room}`;
 
+export const roomViewKey = "matkoll.prylar.vy";
+
+/** The room page's view ("things" for Lista, "cards" for Kort), on this device; `null` until it is chosen. */
+export function useRoomViewStored(): [string | null, (view: string) => void] {
+  return useStored(roomViewKey);
+}
+
 /** The room a card was last taken in, in this boende, on this device. */
 export function useLastRoom(siteId: string): [string | null, (room: string) => void] {
   return useStored(lastRoomKey(siteId));

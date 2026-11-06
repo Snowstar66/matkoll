@@ -70,7 +70,7 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
     );
   }
 
-  const { summary, categories, cards, places, written, clearCounts, placeCounts } = page;
+  const { summary, categories, cards, places, written, clearCounts, placeCounts, closedBoxes } = page;
   const parent = places.find((place) => place.kind === "part" && place.part === null) ?? places.find((place) => place.kind === "part") ?? null;
   const box = typeof fota === "string" ? places.find((place) => place.id === fota && place.kind === "box") : undefined;
   const empty = isEmptyRoom(clearCounts.things, cards.length);
@@ -87,6 +87,7 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
         summary={summary}
         categories={categories}
         cards={cards}
+        closedBoxes={closedBoxes}
         written={written}
         rooms={rooms}
         boxParent={parent?.id ?? null}

@@ -69,7 +69,7 @@ export function RoomCards({
   /** The ⋯ of a place's label (Story 18.16): "Byt namn" and "Ta bort" for a part or a box; `null` for the whole room. */
   menuFor?: (placeId: string) => ReactNode;
 }) {
-  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Ta foto eller Välj från Bilder ovanför.</Notice>;
+  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Fota ovanför.</Notice>;
   return (
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (

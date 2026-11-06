@@ -26,13 +26,14 @@ export const captureTitle = "Var tar du kortet?";
 export const takeCardText = "Ta kort";
 export const takeCardSubText = "Fota ett rum, en hylla eller en låda";
 export const moreCardsText = "Ta fler kort";
-export const openCameraText = "Ta foto";
-export const pickImagesText = "Välj från Bilder";
+export const openCameraText = "Fota";
+export const pickImagesText = "Välj från album";
 /** The file types the picker takes: a HEIC from an iPhone has no `image/*` type in every browser. */
 export const pickerAccept = "image/*,.heic,.heif";
-export const roomExactText = "Mer exakt plats …";
+export const roomExactText = "Var i rummet? (valfritt)";
 export const captureHintText = `Efter varje kort: "Ta ett till". ${appName} läser korten i bakgrunden.`;
-export const exactPlaceText = "Mer exakt plats (valfritt)";
+export const exactPlaceText = "Var i rummet? (valfritt)"
+export const partExampleText = "t.ex. översta hyllan i garderoben";
 export const newRoomText = "+ Nytt rum";
 // The "Nytt rum" sheet on Förråd's start page (Story 18.21).
 export const newRoomTitle = "Nytt rum";

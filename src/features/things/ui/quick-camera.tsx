@@ -11,7 +11,6 @@ import {
   discardShotsText,
   fallbackCameraText,
   keepShootingText,
-  quickCameraText,
   removeShotText,
   sendQueue,
   sendShotsLabel,
@@ -30,7 +29,7 @@ import {
 // shutter shows the shots, an × drops one, and "Klar" hands them over in order;
 // the caller sends them as cards the usual way (downscaled, one at a time).
 // The camera stops on Avbryt, on Klar and while the page is hidden. Without a
-// camera or permission a calm line offers today's "Ta foto" instead. With shots
+// camera or permission a calm line offers "Välj från album" instead. With shots
 // in the strip, Avbryt and Esc first ask "Kasta 3 kort?" (Kasta, Fortsätt fota),
 // while the camera keeps running behind the question.
 
@@ -40,7 +39,7 @@ export type QuickCameraProps = {
   onCancel: () => void;
   /** The photos, in the order they were taken. */
   onDone: (photos: File[]) => void;
-  /** "Använd Ta foto": called in the tap itself, after the camera has closed, so an input can be clicked. */
+  /** "Välj från album": called in the tap itself, after the camera has closed, so an input can be clicked. */
   onFallback: () => void;
 };
 
@@ -218,7 +217,7 @@ export function QuickCamera({ room, onCancel, onDone, onFallback }: QuickCameraP
     <>
       <dialog
         ref={dialogRef}
-        aria-label={`${quickCameraText}, ${room}`}
+        aria-label={`Kamera, ${room}`}
         onCancel={(event) => {
           // Esc is Avbryt.
           event.preventDefault();
