@@ -159,6 +159,30 @@ test("the offers sheet only lists offers: no Föreslå rätter and no store choi
   await expect(sheet(page).getByTestId("offer-row").first()).toBeVisible();
 });
 
+// Rätter med extrapris: the top of Veckans erbjudanden names the user's dishes that use an offer.
+test("the offers sheet shows Rätter med extrapris, + adds the dish to the week, and Visa alla opens Recept's filter", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  await seedFalukorvRecipe();
+  await page.goto("/lista");
+  await page.getByRole("button", { name: "Erbjudanden" }).click();
+  const card = sheet(page).getByTestId("offer-dishes");
+  await expect(card).toContainText("Rätter med extrapris");
+  await expect(card).toContainText("Förslag för att varorna har extrapris den här veckan.");
+  const row = card.getByTestId("offer-dish").filter({ hasText: "Falukorv med potatismos" });
+  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på extrapris");
+  await row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" }).click();
+  await expect(row.getByTestId("on-week")).toBeVisible();
+  const plan = await adminClient().from("meal_plan_recipe").select("recipe_title").eq("user_id", userId);
+  expect(plan.data).toEqual([{ recipe_title: "Falukorv med potatismos" }]);
+
+  await card.getByRole("link", { name: "Visa alla" }).click();
+  await expect(page).toHaveURL(/\/recept/);
+  await expect(page.getByRole("button", { name: "Erbjudanden" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("offers-reason")).toContainText("Förslag för att varorna har extrapris den här veckan.");
+  expect(errors).toEqual([]);
+});
+
 // Story 25.3: Matsedel is where the week is planned: På erbjudande, "+" and the dish is on the week with no day.
 test("Matsedel: På erbjudande, + puts the dish on the first free day and the bar follows", async ({ page }) => {
   const errors = watchErrors(page);
@@ -171,7 +195,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
-  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
+  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på extrapris");
   await row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" }).click();
 
   await expect(weekDishes(page)).toHaveCount(1);

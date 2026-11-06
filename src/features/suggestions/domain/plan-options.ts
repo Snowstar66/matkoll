@@ -28,7 +28,7 @@ export type PlanRecipe = {
 
 /** What the offer line of a row says. */
 export type PlanDeal = {
-  /** "Falukorv och grädde på erbjudande · spara 21 kr". */
+  /** "Falukorv och grädde på extrapris · spara 21 kr". */
   text: string;
   /** Kronor saved on the offers the dish uses, or `null` when no offer has a price to compare. */
   savingKr: number | null;
@@ -120,7 +120,7 @@ export function dealOf(offers: readonly PlanOffer[], recipe: Pick<PlanRecipe, "l
   const sentence = joinNames(names);
   const saving = savingPhrase({ savingKr, savingPercent });
   return {
-    text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)} på erbjudande${saving ? ` · ${saving}` : ""}`,
+    text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)} på extrapris${saving ? ` · ${saving}` : ""}`,
     savingKr,
     savingPercent,
   };
