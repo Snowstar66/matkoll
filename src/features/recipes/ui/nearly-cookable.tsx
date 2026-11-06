@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { nameInSentence } from "@/features/catalog";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
@@ -10,7 +11,7 @@ import { recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 /** "Saknar grädde, dill" (names in the recipe's order), or "Saknar 2 varor" if the names are not known. */
 export function missingLineText(recipe: Pick<RecipeListItem, "missingCount" | "missingNames">): string {
   const names = recipe.missingNames ?? [];
-  if (names.length > 0 && names.length === recipe.missingCount) return `Saknar ${names.join(", ")}`;
+  if (names.length > 0 && names.length === recipe.missingCount) return `Saknar ${names.map(nameInSentence).join(", ")}`;
   const count = recipe.missingCount ?? 0;
   return `Saknar ${count} ${count === 1 ? "vara" : "varor"}`;
 }

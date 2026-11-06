@@ -167,9 +167,9 @@ test("Kan lagas nu shows only what can be cooked, with Nästan below, and keeps 
   await nearlyToggle(page, 2).click();
   await expect(nearlyRows(page)).toHaveCount(2);
   await expect(nearlyRows(page).nth(0)).toContainText(fisk);
-  await expect(nearlyRows(page).nth(0)).toContainText("Saknar Torsk");
+  await expect(nearlyRows(page).nth(0)).toContainText("Saknar torsk");
   await expect(nearlyRows(page).nth(1)).toContainText(soppa);
-  await expect(nearlyRows(page).nth(1)).toContainText("Saknar Röda linser, Gul lök");
+  await expect(nearlyRows(page).nth(1)).toContainText("Saknar röda linser, gul lök");
   await expectNoHorizontalScroll(page);
 
   await page.reload();
@@ -221,7 +221,7 @@ test("with an empty pantry nothing can be cooked now, and Nästan has all three"
   await expect(page.getByText("Inget kan lagas helt just nu.").filter({ visible: true })).toBeVisible();
   await nearlyToggle(page, 3).click();
   await expect(nearlyRows(page)).toHaveCount(3);
-  await expect(nearlyRows(page).first()).toContainText("Saknar Grädde");
+  await expect(nearlyRows(page).first()).toContainText("Saknar grädde");
   await expectNoHorizontalScroll(page);
 
   await page.setViewportSize(desktop);
