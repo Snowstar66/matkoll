@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { useToast } from "@/components/toast";
 import { type Result } from "@/lib/errors";
@@ -133,10 +133,45 @@ export function usePutInPantry(
  * above "Kopiera till ICA-varukorgen" (ListActions). Disabled while the flow or a check's
  * save runs.
  */
-export function PutInPantryButton({ disabled, busy, onPut }: { disabled: boolean; busy: boolean; onPut: () => void }) {
+export function PutInPantryButton({
+  disabled,
+  busy,
+  onPut,
+  count = 0,
+}: {
+  disabled: boolean;
+  busy: boolean;
+  onPut: () => void;
+  /** How many checked lines go to Matvaror on a tap; shown as a small badge when more than 0. */
+  count?: number;
+}) {
+  const countId = useId();
   return (
-    <Button fullWidth disabled={disabled} aria-busy={busy || undefined} onClick={onPut}>
-      {putInPantryButtonText}
-    </Button>
+    <>
+      <Button
+        fullWidth
+        disabled={disabled}
+        aria-busy={busy || undefined}
+        // The name stays "Lägg till i Matvaror"; the count is read after it ("5 varor"), from outside the button.
+        aria-describedby={count > 0 ? countId : undefined}
+        onClick={onPut}
+      >
+        {putInPantryButtonText}
+        {count > 0 ? (
+          <span
+            aria-hidden="true"
+            data-testid="put-in-pantry-count"
+            className="inline-flex min-w-6 items-center justify-center rounded-full bg-on-accent px-1.5 text-badge font-semibold text-accent tabular-nums"
+          >
+            {count}
+          </span>
+        ) : null}
+      </Button>
+      {count > 0 ? (
+        <span id={countId} className="sr-only">
+          {count === 1 ? "1 vara" : `${count} varor`}
+        </span>
+      ) : null}
+    </>
   );
 }

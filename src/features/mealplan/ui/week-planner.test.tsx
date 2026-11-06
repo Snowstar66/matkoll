@@ -55,10 +55,10 @@ const onWeek = (n: number, title: string, weekday: number | null = null): PlanDi
   recipe: null,
 });
 
-function renderPlanner(dishes: PlanDish[] = [], opts: PlanOption[] | null = options, toBuy: number | null = 0) {
+function renderPlanner(dishes: PlanDish[] = [], opts: PlanOption[] | null = options, toBuy: number | null = 0, firstOpenDay = 1) {
   return render(
     <ToastProvider>
-      <WeekPlanner weekStart="2026-11-02" dishes={dishes} options={opts} toBuy={toBuy} offersFooter={<p>Idéer</p>} />
+      <WeekPlanner weekStart="2026-11-02" firstOpenDay={firstOpenDay} dishes={dishes} options={opts} toBuy={toBuy} offersFooter={<p>Idéer</p>} />
     </ToastProvider>,
   );
 }
@@ -153,7 +153,8 @@ describe("WeekPlanner, adding without a day", () => {
     );
     renderPlanner();
     await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
-    expect(await screen.findByTestId("plan-dish")).toHaveTextContent("Ingen dag");
+    expect(await screen.findByTestId("plan-dish")).toHaveTextContent("Tacos");
+    expect(screen.getByTestId("no-day-label")).toHaveTextContent("Ingen dag");
     expect(screen.getByRole("status")).toHaveTextContent("Tacos på veckan. Alla dagar har en rätt. Tortillabröd, gräddfil, tomat och 1 till står på inköpslistan.");
     expect(screen.getByRole("button", { name: "Välj dag" })).toBeInTheDocument();
     expect(within(screen.getAllByTestId("plan-option")[0]).getByTestId("on-week")).toHaveTextContent("På veckan");
@@ -237,5 +238,61 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     renderPlanner([onWeek(1, "Tacos"), onWeek(2, "Korvstroganoff")], options, 6);
     expect(screen.getByTestId("week-bar-count")).toHaveTextContent("2 rätter · 6 varor att köpa");
     expect(screen.queryByRole("link", { name: "Inköpslistan" })).not.toBeInTheDocument();
+  });
+});
+
+describe("WeekPlanner as a calendar of the week", () => {
+  it("shows each dish's day and date in a column and the free days as rows", () => {
+    renderPlanner([onWeek(1, "Tacos", 1), onWeek(2, "Korvstroganoff", 3)]);
+    const [mon, wed] = screen.getAllByTestId("dish-day");
+    expect(mon).toHaveTextContent("Mån2/11");
+    expect(wed).toHaveTextContent("Ons4/11");
+    expect(screen.getAllByTestId("free-day").map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Lägg till en rätt på tisdag",
+      "Lägg till en rätt på torsdag",
+      "Lägg till en rätt på fredag",
+      "Lägg till en rätt på lördag",
+      "Lägg till en rätt på söndag",
+    ]);
+  });
+
+  it("leaves out free days before today", () => {
+    renderPlanner([onWeek(1, "Tacos", 1)], options, 0, 4);
+    expect(screen.getAllByTestId("free-day")).toHaveLength(4);
+    expect(screen.queryByRole("button", { name: "Lägg till en rätt på tisdag" })).not.toBeInTheDocument();
+  });
+
+  it("lists dishes with no day last, under Ingen dag", () => {
+    renderPlanner([onWeek(1, "Tacos", null), onWeek(2, "Korvstroganoff", 2)]);
+    const titles = screen.getAllByTestId("plan-dish").map((row) => row.textContent);
+    expect(titles[0]).toContain("Korvstroganoff");
+    expect(titles.at(-1)).toContain("Tacos");
+    expect(screen.getByTestId("no-day-label")).toHaveTextContent("Ingen dag");
+  });
+
+  it("shows the day on the first of several dishes on one day", () => {
+    renderPlanner([onWeek(1, "Tacos", 2), onWeek(2, "Korvstroganoff", 2)]);
+    const [first, second] = screen.getAllByTestId("dish-day");
+    expect(first).toHaveTextContent("Tis3/11");
+    expect(second).not.toHaveTextContent("Tis");
+  });
+
+  it("puts the next + on a free day that was tapped, then clears it", async () => {
+    const user = userEvent.setup();
+    renderPlanner([onWeek(2, "Korvstroganoff", 1)]);
+    await user.click(screen.getByRole("button", { name: "Lägg till en rätt på onsdag" }));
+    expect(screen.getByTestId("target-day")).toHaveTextContent("Läggs på onsdag");
+    await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
+    expect(addToCurrentPlan).toHaveBeenCalledWith(expect.objectContaining({ recipeId: uuid(1), weekday: 3 }));
+    await waitFor(() => expect(screen.queryByTestId("target-day")).not.toBeInTheDocument());
+  });
+
+  it("lets the chosen day go with Ta bort dag", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    await user.click(screen.getByRole("button", { name: "Lägg till en rätt på tisdag" }));
+    await user.click(screen.getByRole("button", { name: "Ta bort dag" }));
+    await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
+    expect(addToCurrentPlan.mock.calls.at(-1)?.[0]).not.toHaveProperty("weekday");
   });
 });
