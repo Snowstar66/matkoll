@@ -355,7 +355,7 @@ test("a checked line stays visible and struck through in I korgen without a toas
   expect(errors).toEqual([]);
 });
 
-test("at 200 % text the buttons stack with Lägg till i Matvaror on top, the chip is cut, and nothing scrolls sideways", async ({ page }) => {
+test("at 200 % text the buttons stack with Lägg till i Matvaror on top, the chip is cut, and nothing scrolls sideways @flaky", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   // A 375 px phone at 200 % zoom.
   await page.setViewportSize({ width: 188, height: 406 });

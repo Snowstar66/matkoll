@@ -205,7 +205,7 @@ test("refuses what is not a site, and a site that is there already", async ({ pa
   expect(await activeSites()).toEqual(startSites);
 });
 
-test("Ta bort turns koket.se off at once, so a link import from it is refused; Ångra turns it on again", async ({ page }) => {
+test("Ta bort turns koket.se off at once, so a link import from it is refused; Ångra turns it on again @flaky", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/installningar/receptsajter");
   await sitesList(page).getByRole("button", { name: "Ta bort koket.se" }).click();

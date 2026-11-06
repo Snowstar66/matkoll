@@ -168,6 +168,8 @@ export function SwipeRow({ children, actionLabel, actionName, onAction, classNam
         onPointerUp={(event) => endDrag(event, false)}
         onPointerCancel={(event) => endDrag(event, true)}
         onClickCapture={onClickCapture}
+        // A row that is a link would otherwise start the browser's own drag of the link when swiped with a mouse.
+        onDragStart={(event) => event.preventDefault()}
         style={{ transform: offset === 0 ? undefined : `translateX(${offset}px)` }}
         className={cx(
           "relative z-[1] touch-pan-y bg-surface select-none",

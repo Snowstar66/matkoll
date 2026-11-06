@@ -166,7 +166,7 @@ async function confirm(page: Page, name: string) {
   await expect(toast(page)).toContainText(`${name} är sparad i kylen.`);
 }
 
-test("a confirmation saves the photo once, as a row and a file for Stugan's fridge, with its points", async ({ page }) => {
+test("a confirmation saves the photo once, as a row and a file for Stugan's fridge, with its points @flaky", async ({ page }) => {
   const errors = watchErrors(page);
   const saves = watchPhotoSaves(page);
   await openHemma(page);

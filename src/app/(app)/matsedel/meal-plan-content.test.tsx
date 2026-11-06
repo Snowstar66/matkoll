@@ -38,7 +38,7 @@ vi.mock("../lista/list-offers", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The AI ideas have their own tests (week-planner e2e); the page only places them.
-vi.mock("./offer-ideas", () => ({ OfferIdeas: () => <div data-testid="offer-ideas" /> }));
+vi.mock("../offer-ideas", () => ({ OfferIdeas: () => <div data-testid="offer-ideas" /> }));
 
 const dish = {
   id: "11111111-1111-4111-8111-111111111111",

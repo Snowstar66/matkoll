@@ -1,4 +1,5 @@
 {
+  "intro": "Falukorv, broccoli och kycklingfilé är billigt i veckan, och du har makaroner hemma.",
   "suggestions": [
     {
       "title": "Falukorv med stuvade makaroner",
@@ -70,6 +71,11 @@
         "Koka makaronerna enligt anvisningen på förpackningen.",
         "Skär falukorven i bitar och stek den.",
         "Smält smöret, rör ner mjölet och späd med mjölk. Smaka av med salt och blanda med makaronerna."
+      ],
+      "why": "Falukorven är billig och det mesta finns redan hemma.",
+      "uses": [
+        "falukorv",
+        "makaroner"
       ]
     },
     {
@@ -142,6 +148,10 @@
         "Hacka löken och dela broccolin.",
         "Koka broccolin och löken i buljongen i 10 minuter.",
         "Mixa soppan, rör ner grädde och ost och smaka av med salt."
+      ],
+      "why": "Broccolin är billig och soppan går fort.",
+      "uses": [
+        "broccoli"
       ]
     },
     {
@@ -214,6 +224,10 @@
         "Koka pastan enligt anvisningen.",
         "Stek kycklingen och löken i oljan.",
         "Tillsätt krossade tomater, smaka av med salt och blanda med pastan."
+      ],
+      "why": "Kycklingfilén har extrapris.",
+      "uses": [
+        "kycklingfilé"
       ]
     }
   ]

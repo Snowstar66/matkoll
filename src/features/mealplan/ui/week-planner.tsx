@@ -53,7 +53,7 @@ export type WeekPlannerProps = {
   options: readonly PlanOption[] | null;
   /** How many items the week's dishes still need, or `null` when it could not be counted. */
   toBuy: number | null;
-  /** Under the rows of På erbjudande: "Hittar du inget? Få 2 nya idéer med erbjudandena" and the ideas. */
+  /** Under the rows of På erbjudande: "Nya idéer med extrapris" and the ideas. */
   offersFooter?: ReactNode;
 };
 

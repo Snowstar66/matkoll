@@ -20,7 +20,7 @@ import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
 import { loadBoendeCounts } from "../boende-counts";
-import { OfferIdeas } from "./offer-ideas";
+import { OfferIdeas } from "../offer-ideas";
 
 /**
  * The library as rows for "Lägg till rätter", or `null` when it cannot be read

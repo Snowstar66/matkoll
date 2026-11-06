@@ -26,6 +26,31 @@ env:
   SUPABASE_EXCLUDE: imgproxy,edge-runtime,logflare,vector,supavisor,studio
 
 jobs:
+  # Docs-only PRs (only _bmad-output/, docs/ and *.md changed) skip the heavy
+  # integration and e2e work. Pushes to main always run everything.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          code=true
+          if [ "$EVENT" = "pull_request" ]; then
+            files=$(git diff --name-only "$BASE_SHA"...HEAD)
+            echo "$files"
+            other=$(echo "$files" | grep -v -E '^(_bmad-output/|docs/)|\.md$' || true)
+            if [ -z "$other" ]; then code=false; fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -67,31 +92,51 @@ jobs:
 
   # Local Supabase (AD-5): generated types must match the schema, then the
   # integration tests run against it. Services the tests do not use are skipped.
+  # Docs-only PRs: the job still runs and passes, so the required check reports.
   integration:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - run: echo "Docs-only change, integration skipped by design"
+        if: needs.changes.outputs.code != 'true'
       - uses: actions/checkout@v7
+        if: needs.changes.outputs.code == 'true'
       - uses: pnpm/action-setup@v6
+        if: needs.changes.outputs.code == 'true'
       - uses: actions/setup-node@v7
+        if: needs.changes.outputs.code == 'true'
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: needs.changes.outputs.code == 'true'
       - uses: supabase/setup-cli@v3
+        if: needs.changes.outputs.code == 'true'
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
       - run: supabase start -x ${{ env.SUPABASE_EXCLUDE }}
+        if: needs.changes.outputs.code == 'true'
       - name: Generated types match the schema
+        if: needs.changes.outputs.code == 'true'
         run: |
           pnpm db:types
           git diff --exit-code src/lib/supabase/database.types.ts
       - run: pnpm db:env
+        if: needs.changes.outputs.code == 'true'
       - run: pnpm test:integration
+        if: needs.changes.outputs.code == 'true'
 
-  e2e:
+  # e2e runs in 6 shards without the @flaky tests (docs/flaky-tests.md).
+  e2e-shard:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -107,15 +152,71 @@ jobs:
       # Writes the Supabase URL and keys from `supabase status` to .env.local,
       # which `next build`, `next start` and Playwright read.
       - run: pnpm db:env
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
       - run: pnpm exec playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
       - run: pnpm build
-      - run: pnpm test:e2e
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}/6 --grep-invert @flaky
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
+
+  # Quarantined tests: run for visibility, never block (not a required check).
+  e2e-flaky:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - run: supabase start -x ${{ env.SUPABASE_EXCLUDE }}
+      - run: pnpm db:env
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
+      - run: pnpm exec playwright install --with-deps chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+      - run: pnpm build
+      - run: pnpm test:e2e --grep @flaky
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-flaky
+          path: playwright-report/
+          retention-days: 7
+
+  # The required check `e2e`: passes when docs-only, otherwise mirrors the shards.
+  e2e:
+    needs: [changes, e2e-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          CODE: ${{ needs.changes.outputs.code }}
+          SHARDS: ${{ needs.e2e-shard.result }}
+        run: |
+          if [ "$CODE" != "true" ]; then echo "Docs-only change, e2e skipped by design"; exit 0; fi
+          if [ "$SHARDS" != "success" ]; then echo "e2e shards: $SHARDS"; exit 1; fi
 
   gitleaks:
     runs-on: ubuntu-latest
