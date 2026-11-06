@@ -109,7 +109,8 @@ describe("offers.yml", () => {
   it("checks the secrets first, and reads them only through env, never printing them", () => {
     expect(check[0]).toBe("        name: Check the secrets");
     const secretLines = lines.filter((line) => /\bsecrets\./.test(line));
-    expect(secretLines.length).toBe(secretNames.length * 2);
+    // The check, the fetch and the ideas step each read the three.
+    expect(secretLines.length).toBe(secretNames.length * 3);
     for (const line of secretLines) {
       const match = line.match(/^ {10}(\w+): \$\{\{ secrets\.(\w+) \}\}$/);
       expect(match, line).not.toBeNull();
@@ -118,6 +119,18 @@ describe("offers.yml", () => {
     }
     expect(workflow).not.toMatch(/echo[^\n]*\$(\{)?SUPABASE_(SERVICE_ROLE|PUBLISHABLE)_KEY/);
     expect(workflow).not.toMatch(/set -x/);
+  });
+
+  it("prepares the ideas after the fetch, also when a page failed, from the public SITE_URL variable and no new secret", () => {
+    const ideas = all.find((step) => step[0] === "        name: Prepare the ideas");
+    expect(ideas, "the ideas step").toBeDefined();
+    expect(all.indexOf(ideas!)).toBe(all.length - 1);
+    expect(ideas!.join("\n")).toContain("if: ${{ !cancelled() }}");
+    expect(ideas!.join("\n")).toContain("SITE_URL: ${{ vars.SITE_URL }}");
+    expect(runOf(ideas!)).toMatch(/^pnpm offers:ideas$/m);
+    const packageJson = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(packageJson.scripts["offers:ideas"]).toMatch(/scripts\/offer-ideas\.ts$/);
+    expect(packageJson.scripts["offers:ideas"]).not.toMatch(/env-file/);
   });
 
   it("passes with every secret", () => {

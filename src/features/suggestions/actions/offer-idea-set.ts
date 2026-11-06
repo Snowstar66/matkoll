@@ -51,7 +51,7 @@ function toSavedIdeas(suggestions: readonly Omit<SavedIdea, "recipeId">[]): Save
  * schedules `run` with after()): claims the set, and gives the run to do, or `null` when another run holds
  * the set or it is ready already (and `replace` is not asked). `offers_none` without offers. Never runs the model itself.
  */
-export async function claimOfferIdeas(replace: boolean): Promise<Result<{ run: (() => Promise<void>) | null }>> {
+export async function claimOfferIdeas(replace: boolean): Promise<Result<{ run: (() => Promise<boolean>) | null }>> {
   let week: string | null;
   try {
     week = await offerWeekOfUser();
@@ -93,12 +93,14 @@ export async function claimOfferIdeas(replace: boolean): Promise<Result<{ run: (
         if (answered.ok && ideas.length > 0) {
           await finishSetIn(db, week, held, { intro: answered.data.intro, ideas });
           console.info("offer_ideas_ready", { ideas: ideas.length });
+          return true;
         } else {
           // An answer without a single idea is a failure too, never an empty ready set.
           const code = answered.ok ? "ai_invalid" : answered.error.code;
           console.error("offer_ideas_failed", { reason: code });
           if (previous) await finishSetIn(db, week, held, previous);
           else await failSetIn(db, week, held, code);
+          return false;
         }
       } catch (error) {
         console.error("offer_ideas_failed", { reason: error instanceof OfferIdeaSetError ? error.detail : "exception" });
@@ -108,7 +110,23 @@ export async function claimOfferIdeas(replace: boolean): Promise<Result<{ run: (
         } catch {
           // The set stays pending until its claim goes stale, and the next view takes it over.
         }
+        return false;
       }
     },
   });
+}
+
+/** How a prepare run ended, for the scheduled job's counts. */
+export type PrepareOutcome = "prepared" | "failed" | "skipped" | "none" | "unavailable";
+
+/**
+ * The scheduled job's trigger (POST /api/offer-ideas/prepare): claims the set of the household's offer week and, when
+ * it got it, runs the model now and waits for it (the Route Handler has the time; no after()). `skipped` when a set is
+ * ready or another run holds it: so a rerun never makes a second set. `none` without offers. Never throws what is expected.
+ */
+export async function prepareOfferIdeasNow(): Promise<PrepareOutcome> {
+  const claimed = await claimOfferIdeas(false);
+  if (!claimed.ok) return claimed.error.code === "offers_none" ? "none" : "unavailable";
+  if (!claimed.data.run) return "skipped";
+  return (await claimed.data.run()) ? "prepared" : "failed";
 }

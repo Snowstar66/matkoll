@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
+import { actingClient } from "./acting";
 import { authCookieOptions, supabaseConfig } from "./config";
 import type { Database } from "./database.types";
 
@@ -19,6 +20,9 @@ export type CreateClientOptions = {
  * Create one per request; it never uses the service role.
  */
 export async function createClient({ forwardedFor }: CreateClientOptions = {}) {
+  // Inside the scheduled ideas job (acting.ts) the session is the member's token session, not a cookie.
+  const acting = actingClient();
+  if (acting) return acting as unknown as ReturnType<typeof createServerClient<Database>>;
   // Session data is per request: never part of a prerender, where the client's
   // Date.now() expiry checks are not allowed (AD-18).
   await connection();
