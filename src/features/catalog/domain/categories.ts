@@ -13,8 +13,8 @@ export const CATEGORIES = [
   "Bröd",
   "Mejeri & ägg",
   "Kött, fisk & chark",
-  "Frys",
-  "Skafferi",
+  "Fryst",
+  "Torrvaror & konserver",
   "Såser & smaksättare",
   "Dryck",
   "Övrigt",
@@ -24,11 +24,11 @@ export const categorySchema = z.enum(CATEGORIES);
 export type Category = z.infer<typeof categorySchema>;
 
 /**
- * Words that make an item in Skafferi a sauce or seasoning: its normalised
+ * Words that make an item in Torrvaror & konserver a sauce or seasoning: its normalised
  * name is one of them, its first word is one ("Senap grov", "Peppar svart
  * hel"), or its last word ends with one ("sojasås" on "sås", "dijonsenap" on
  * "senap", "flingsalt" on "salt"). Only the end of the last word counts, so
- * "saltgurka" and "pepparkakor" stay in Skafferi. The list may grow; each
+ * "saltgurka" and "pepparkakor" stay in Torrvaror & konserver. The list may grow; each
  * word is in the table test. See `displayCategory` for the full rule.
  */
 export const SAUCE_WORDS = [
@@ -105,15 +105,15 @@ export const SAUCE_WORDS = [
   "fänkålsfrö",
 ] as const;
 
-/** The category of each section; Skafferi may still become Såser & smaksättare by name. */
+/** The category of each section; Torrvaror & konserver may still become Såser & smaksättare by name. */
 const sectionCategory: Record<Section, Category> = {
   "Frukt och grönt": "Frukt & grönt",
   Bröd: "Bröd",
   Mejeri: "Mejeri & ägg",
   "Kött och fisk": "Kött, fisk & chark",
   Chark: "Kött, fisk & chark",
-  Frys: "Frys",
-  Skafferi: "Skafferi",
+  Frys: "Fryst",
+  Skafferi: "Torrvaror & konserver",
   Dryck: "Dryck",
   Övrigt: "Övrigt",
 };
@@ -182,12 +182,12 @@ function isSauceName(name: string | null | undefined): boolean {
 /**
  * Written section texts that already name a category: a category's own name
  * ("Mejeri & ägg", "Såser & smaksättare"), or "kryddor" and "såser". They win
- * over `toSection`, which knows only the store sections. Skafferi is left out,
+ * over `toSection`, which knows only the store sections. Torrvaror & konserver is left out,
  * so its items are still checked for sauces by name.
  */
 const sauces: Category = "Såser & smaksättare";
 const writtenCategories = new Map<string, Category>([
-  ...CATEGORIES.filter((category) => category !== "Skafferi").map(
+  ...CATEGORIES.filter((category) => category !== "Torrvaror & konserver").map(
     (category) => [simplifyLabel(category), category] as const,
   ),
   ...["krydda", "kryddor", "sås", "såser", "smaksättare", "kryddor och såser", "såser och kryddor"].map(
@@ -197,7 +197,7 @@ const writtenCategories = new Map<string, Category>([
 
 /**
  * The one rule for the category an item is shown under: its section's
- * category, except that an item in Skafferi whose name is a sauce or
+ * category, except that an item in Torrvaror & konserver whose name is a sauce or
  * seasoning is Såser & smaksättare. The section may be written text (an AI
  * hint, an old row): a category's own name, "kryddor" or "såser" give that
  * category; otherwise it goes through `toSection`, and an unknown one is
@@ -215,7 +215,7 @@ export function displayCategory(section: string | null | undefined, name: string
   const written = writtenCategories.get(simplifyLabel(section));
   if (written) return written;
   const category = sectionCategory[toSection(section)];
-  return category === "Skafferi" && isSauceName(name) ? "Såser & smaksättare" : category;
+  return category === "Torrvaror & konserver" && isSauceName(name) ? "Såser & smaksättare" : category;
 }
 
 /** The place of a category in the store's order; an unknown text comes after Övrigt. */

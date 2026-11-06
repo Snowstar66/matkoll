@@ -156,7 +156,7 @@ describe("ShoppingList", () => {
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
       "Mejeri & ägg",
-      "Skafferi",
+      "Torrvaror & konserver",
       "Såser & smaksättare",
       "Övrigt",
     ]);
@@ -165,7 +165,7 @@ describe("ShoppingList", () => {
     // Story 19.7: "Till 2 rätter" for a line from two dishes, the amount to the right in grey.
     expect(mejeri.getByText("Till 2 rätter")).toBeInTheDocument();
     expect(mejeri.getByText("3 dl")).toHaveClass("text-ink-2");
-    expect(within(screen.getByRole("list", { name: "Skafferi" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
+    expect(within(screen.getByRole("list", { name: "Torrvaror & konserver" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
       "Mjöl Till Paj2 dl (hemma: 1 kg)",
     ]);
     // A vague line: no amount, and "Saknas i Matvaror" before the dishes; no "Finns hemma?".
@@ -664,7 +664,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
       "Frukt & grönt",
       "Mejeri & ägg",
       "Kött, fisk & chark",
-      "Skafferi",
+      "Torrvaror & konserver",
       "Såser & smaksättare",
       // The folded basket row is a heading too, so heading navigation finds it.
       "I korgen (6)",

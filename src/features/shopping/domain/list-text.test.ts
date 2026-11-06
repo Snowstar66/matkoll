@@ -204,7 +204,7 @@ describe("list texts", () => {
       ["Frukt & grönt", ["lok"]],
       ["Mejeri & ägg", ["gradde"]],
       ["Kött, fisk & chark", ["lax", "falukorv"]],
-      ["Skafferi", ["tomat"]],
+      ["Torrvaror & konserver", ["tomat"]],
       ["Såser & smaksättare", ["soja"]],
       ["Övrigt", ["okand"]],
     ]);
