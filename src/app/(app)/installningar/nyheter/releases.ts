@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-06",
+    title: "Tydligare Sök eller fråga i Förråd",
+    bullets: [
+      "Fältet Sök eller fråga ser nu ut som ett sökfält med kant och förstoringsglas, och skicka-pilen sitter i fältet.",
+      "Ledtexten står under fältet, så det syns vad du skriver i och vad som bara är en förklaring.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     title: "Nya kategorinamn",
     bullets: [
       "Kategorin Skafferi heter nu Torrvaror & konserver och Frys heter Fryst, så de inte blandas ihop med lagren.",

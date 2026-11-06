@@ -54,7 +54,7 @@ describe("the one field to search and ask", () => {
     searchThingsAction.mockResolvedValue(ok({ hits: [] }));
     renderIt();
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
-    expect(screen.getByText("Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger")).toBeInTheDocument();
+    expect(screen.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeInTheDocument();
     expect(searchThingsAction).not.toHaveBeenCalled();
     await userEvent.type(field(), "h");
     await new Promise((resolve) => setTimeout(resolve, 400));
