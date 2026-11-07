@@ -59,6 +59,10 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Kan jag ta tid på ett steg?",
         answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med tiden som är kvar. När den är slut ringer och vibrerar telefonen och raden säger Klar. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },
+      {
+        question: "Vad är kortet Dagens överst i Recept?",
+        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Allt räknas ut i appen.",
+      },
     ],
   },
   {

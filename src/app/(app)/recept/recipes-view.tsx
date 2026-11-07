@@ -13,6 +13,7 @@ import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
+import { TodayCard } from "@/features/today";
 import { WarmAi } from "../warm-ai";
 
 
@@ -55,9 +56,12 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
   ]);
+  // Dagens names a recipe by its title; the card reads today's date in the browser.
+  const dagens = <TodayCard recipes={recipes.map(({ id, title }) => ({ id, title }))} />;
   if (recipes.length === 0) {
     return (
       <>
+        {dagens}
         <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
           Inga recept än.
         </EmptyState>
@@ -65,7 +69,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
     );
   }
   return (
-    <>
+    <div className="flex flex-col gap-3">
+    {dagens}
     <Library
       recipes={recipes}
       pantryUnavailable={pantryUnavailable}
@@ -74,7 +79,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
       initialFilter={offers ? initialFilter : undefined}
     />
-    </>
+    </div>
   );
 }
 
