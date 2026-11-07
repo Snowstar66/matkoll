@@ -61,6 +61,8 @@ export type IngredientNutrition = {
   per100g: Per100g | null;
   /** Grams of one whole piece ("2 st"), or `null`. */
   gramsPerPiece: number | null;
+  /** Grams of one slice ("2 skivor"), or `null`. */
+  gramsPerSlice: number | null;
   /** Grams in 1 dl, or `null` when volume amounts cannot be converted. */
   gramsPerDl: number | null;
 };

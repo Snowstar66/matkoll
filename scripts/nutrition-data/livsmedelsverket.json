@@ -51,6 +51,15 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "94": {
+      "name": "Salladsost fett 22%",
+      "version": "2026-06-29T00:21:00.763",
+      "kcal": 272,
+      "protein_g": 16.7,
+      "fat_g": 22.1,
+      "carbs_g": 2.1,
+      "fiber_g": 0
+    },
     "96": {
       "name": "Ost hårdost fett 28%",
       "version": "2026-06-29T00:21:04.21",
@@ -906,6 +915,15 @@
       "carbs_g": 68.2,
       "fiber_g": 2.9
     },
+    "875": {
+      "name": "Bruna bönor torkade",
+      "version": "2026-06-29T00:39:54.053",
+      "kcal": 317,
+      "protein_g": 22,
+      "fat_g": 1.5,
+      "carbs_g": 45.1,
+      "fiber_g": 16.4
+    },
     "879": {
       "name": "Vita bönor torkade",
       "version": "2026-06-29T00:40:00.127",
@@ -1158,6 +1176,15 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "1164": {
+      "name": "Kyckling kött rå u. skinn",
+      "version": "2026-06-29T00:46:19.93",
+      "kcal": 115,
+      "protein_g": 21.5,
+      "fat_g": 3.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
     "1173": {
       "name": "Kyckling bröstfilé rå u. skinn",
       "version": "2026-06-29T00:46:46.17",
@@ -1311,6 +1338,15 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "1255": {
+      "name": "Lax odlad Norge fjordlax rå",
+      "version": "2026-06-29T00:49:26.76",
+      "kcal": 210,
+      "protein_g": 20.2,
+      "fat_g": 14.1,
+      "carbs_g": 0.7,
+      "fiber_g": 0
+    },
     "1258": {
       "name": "Rödspätta rå",
       "version": "2026-06-29T00:49:34.2",
@@ -1327,15 +1363,6 @@
       "protein_g": 17,
       "fat_g": 25,
       "carbs_g": 0,
-      "fiber_g": 0
-    },
-    "1261": {
-      "name": "Regnbågslax odlad rå",
-      "version": "2026-06-29T00:49:41.647",
-      "kcal": 106,
-      "protein_g": 18.1,
-      "fat_g": 3.5,
-      "carbs_g": 0.4,
       "fiber_g": 0
     },
     "1263": {
@@ -1462,6 +1489,15 @@
       "protein_g": 9.1,
       "fat_g": 20.6,
       "carbs_g": 5.1,
+      "fiber_g": 0
+    },
+    "1491": {
+      "name": "Korv fläskkorv kokt kött 48%",
+      "version": "2026-06-29T00:56:56.563",
+      "kcal": 234,
+      "protein_g": 9.1,
+      "fat_g": 20.5,
+      "carbs_g": 3.8,
       "fiber_g": 0
     },
     "1498": {
@@ -1643,6 +1679,15 @@
       "fat_g": 0.2,
       "carbs_g": 35.3,
       "fiber_g": 1
+    },
+    "1886": {
+      "name": "Kakaopulver fett 20-22%",
+      "version": "2026-06-29T01:08:49.087",
+      "kcal": 394,
+      "protein_g": 23.5,
+      "fat_g": 21.5,
+      "carbs_g": 10.6,
+      "fiber_g": 34
     },
     "1892": {
       "name": "Socker",
@@ -2004,15 +2049,6 @@
       "carbs_g": 15.9,
       "fiber_g": 9.6
     },
-    "3823": {
-      "name": "Röda linser konserv. u. lag",
-      "version": "2026-06-29T01:42:49.97",
-      "kcal": 89,
-      "protein_g": 6.9,
-      "fat_g": 0.5,
-      "carbs_g": 11.9,
-      "fiber_g": 4.1
-    },
     "3938": {
       "name": "Huvudsallat",
       "version": "2026-06-29T01:43:16.95",
@@ -2147,15 +2183,6 @@
       "fat_g": 0.2,
       "carbs_g": 1.8,
       "fiber_g": 2.5
-    },
-    "5866": {
-      "name": "Bruna bönor torkade kokta m. salt",
-      "version": "2026-06-29T01:57:46.4",
-      "kcal": 137,
-      "protein_g": 8.8,
-      "fat_g": 0.9,
-      "carbs_g": 16.8,
-      "fiber_g": 13.2
     },
     "5974": {
       "name": "Bröd vitt vetetortilla",

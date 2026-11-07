@@ -2,19 +2,20 @@
 // (Livsmedelsdatabasen). Read only by scripts/nutrition-data.mjs, which turns it
 // into the committed artifact. Not part of the app.
 //
-// Why names and not catalog ids: catalog ingredients are per user (each has a
-// user_id), so there is no shared id to point at. Rows are keyed by the
+// Why names and not catalog ids: catalog ingredients are per household (each has a
+// household_id), so there is no shared id to point at. Rows are keyed by the
 // normalised ingredient name instead (catalog.normalizeIngredientText: lower
 // case, single spaces) and the app looks them up by it.
 //
-// Each entry: [names, lmv, group, gramsPerPiece, gramsPerDl]
+// Each entry: [names, lmv, group, gramsPerPiece, gramsPerDl, gramsPerSlice?]
 //   names         normalised ingredient names (and common synonyms) with these values
 //   lmv           Livsmedelsverket food number (`nummer`); prefer raw / plain variants.
 //                 null for "not counted" (spices, salt, water, stock cubes ...)
 //   group         kostrad group (see src/features/nutrition/domain/groups.ts)
 //   gramsPerPiece grams of one "st" (whole piece) as bought and weighed in a recipe, or null
 //   gramsPerDl    grams in 1 dl, for dry or thick things measured by volume, or null
-//                 (liquids default to 100 g/dl in the domain, so are left null when ~water)
+//                 (there is no default density: volume amounts without one are not counted)
+//   gramsPerSlice grams of one "skiva" (slice), or null/omitted
 //
 // Assumptions: dry goods (rice, pasta, grains, flour) are the uncooked
 // variant, because recipes list them uncooked; canned things are the drained
@@ -34,6 +35,7 @@ export const MAPPING = [
   [["gul lök", "lök", "köksslök", "lökar"], 344, "gronsak", 110, 60],
   [["rödlök", "röd lök"], 4947, "gronsak", 100, 60],
   [["vitlök"], 371, "gronsak", 40, 70],
+  [["vitlöksklyfta", "vitlöksklyftor"], 371, "gronsak", 4, null],
   [["purjolök"], 354, "gronsak", 200, null],
   [["tomat", "tomater", "färska tomater"], 364, "gronsak", 100, 60],
   [["körsbärstomat", "körsbärstomater", "cocktailtomat", "cocktailtomater", "plommontomat", "plommontomater"], 4937, "gronsak", 15, 65],
@@ -46,7 +48,7 @@ export const MAPPING = [
   [["broccoli"], 325, "gronsak", 300, 35],
   [["blomkål"], 322, "gronsak", 600, 40],
   [["spenat", "färsk spenat", "babyspenat", "bladspenat"], 4941, "gronsak", null, 15],
-  [["frysta spenat", "spenat fryst", "djupfryst spenat"], 361, "gronsak", null, 70],
+  [["fryst spenat", "frysta spenat", "spenat fryst", "djupfryst spenat"], 361, "gronsak", null, 70],
   [["isbergssallad", "isbergssallat"], 340, "gronsak", 400, 20],
   [["sallad", "huvudsallad", "huvudsallat", "grönsallad", "salladsmix", "blandsallad"], 3938, "gronsak", 250, 20],
   [["romansallad", "romansallat"], 2559, "gronsak", 250, 20],
@@ -84,7 +86,7 @@ export const MAPPING = [
   [["svarta oliver", "oliver", "gröna oliver"], 402, "gronsak", 4, 80],
   [["citron"], 559, "gronsak", 100, null],
   [["lime"], 572, "gronsak", 70, null],
-  [["citronjuice", "limejuice"], 645, "gronsak", null, 100],
+  [["citronjuice", "limejuice"], 645, "ovrigt", null, 100],
   [["apelsin"], 551, "gronsak", 200, null],
   [["äpple", "äpplen"], 588, "gronsak", 150, 65],
   [["banan", "bananer"], 553, "gronsak", 120, null],
@@ -94,20 +96,20 @@ export const MAPPING = [
   [["blåbär"], 555, "gronsak", null, 55],
   [["hallon"], 523, "gronsak", null, 50],
   [["mango"], 574, "gronsak", 300, 90],
-  [["ananas"], 550, "gronsak", 900, 90],
+  [["ananas"], 550, "gronsak", 500, 90],
   [["kiwi"], 565, "gronsak", 80, null],
   [["melon", "vattenmelon"], 549, "gronsak", null, 90],
   [["persika"], 580, "gronsak", 130, null],
   [["plommon"], 582, "gronsak", 40, null],
   [["nektarin"], 576, "gronsak", 130, null],
-  [["lingon", "lingonsylt"], 573, "gronsak", null, 60],
+  [["lingon"], 573, "gronsak", null, 60],
   [["tranbär"], 584, "gronsak", null, 45],
   [["russin"], 610, "gronsak", null, 70],
   [["aprikos"], 552, "gronsak", 40, null],
   [["fikon"], 561, "gronsak", 50, null],
   [["grapefrukt"], 521, "gronsak", 300, null],
   [["clementin", "mandarin", "clementiner"], 560, "gronsak", 70, null],
-  [["apelsinjuice"], 641, "gronsak", null, 100],
+  [["apelsinjuice"], 641, "ovrigt", null, 100],
   [["ingefära", "färsk ingefära"], 2269, "gronsak", null, 50],
   [["chili", "röd chili", "grön chili", "chilipeppar"], 380, "gronsak", 15, null],
   [["persilja", "bladpersilja", "krusig persilja", "färsk persilja"], 352, "gronsak", null, 15],
@@ -118,14 +120,14 @@ export const MAPPING = [
   // --- Baljväxter, soja ---
   [["kikärtor", "kikärter", "kikärtor på burk"], 3815, "baljvaxt", null, 85],
   [["torkade kikärtor"], 881, "baljvaxt", null, 80],
-  [["röda linser"], 3823, "baljvaxt", null, 85],
+  [["röda linser"], 884, "baljvaxt", null, 80],
   [["linser", "gröna linser", "bruna linser"], 884, "baljvaxt", null, 80],
   [["kokta linser"], 3821, "baljvaxt", null, 85],
   [["kidneybönor", "röda bönor"], 3816, "baljvaxt", null, 85],
   [["svarta bönor"], 3817, "baljvaxt", null, 85],
   [["vita bönor", "cannellinibönor", "stora vita bönor"], 3760, "baljvaxt", null, 85],
   [["torkade vita bönor"], 879, "baljvaxt", null, 80],
-  [["bruna bönor"], 5866, "baljvaxt", null, 85],
+  [["bruna bönor"], 875, "baljvaxt", null, 80],
   [["gula ärtor", "torkade gula ärtor"], 891, "baljvaxt", null, 85],
   [["sojabönor", "edamame"], 5860, "baljvaxt", null, 65],
   [["tofu", "fast tofu", "naturell tofu"], 905, "baljvaxt", null, null],
@@ -135,7 +137,7 @@ export const MAPPING = [
   [["hummus"], 3051, "baljvaxt", null, 100],
 
   // --- Fisk och skaldjur ---
-  [["lax", "laxfilé", "laxfiléer", "färsk lax"], 1261, "fisk", 150, null],
+  [["lax", "laxfilé", "laxfiléer", "färsk lax"], 1255, "fisk", 150, null],
   [["rökt lax", "kallrökt lax"], 1269, "fisk", null, null],
   [["gravad lax", "gravlax"], 1285, "fisk", null, null],
   [["torsk", "torskfilé", "torskrygg"], 1246, "fisk", 150, null],
@@ -183,14 +185,15 @@ export const MAPPING = [
   [["fläskkotlett", "kotlett", "kotletter"], 971, "rott_kott", 150, null],
   [["revbensspjäll", "revben"], 972, "rott_kott", null, null],
   [["sidfläsk", "stekfläsk", "rimmat sidfläsk"], 985, "rott_kott", null, null],
-  [["bacon", "baconskivor"], 1003, "rott_kott", 12, null],
-  [["skinka", "kokt skinka", "rökt skinka", "skinkstrimlor"], 1009, "rott_kott", 15, null],
+  [["bacon", "baconskivor"], 1003, "rott_kott", null, null, 12],
+  [["skinka", "kokt skinka", "rökt skinka", "skinkstrimlor"], 1009, "rott_kott", null, null, 15],
   [["kassler"], 1006, "rott_kott", null, null],
-  [["korv", "grillkorv", "fläskkorv"], 1508, "rott_kott", 80, null],
-  [["falukorv"], 1488, "rott_kott", null, null],
+  [["korv", "grillkorv"], 1508, "rott_kott", 80, null],
+  [["fläskkorv"], 1491, "rott_kott", 600, null],
+  [["falukorv"], 1488, "rott_kott", null, null, 10],
   [["prinskorv", "prinskorvar"], 1516, "rott_kott", 25, null],
   [["chorizo"], 1513, "rott_kott", 80, null],
-  [["salami"], 1498, "rott_kott", 5, null],
+  [["salami"], 1498, "rott_kott", null, null, 5],
   [["leverpastej"], 1476, "rott_kott", null, null],
   [["lammkotlett", "lammkotletter"], 921, "rott_kott", 120, null],
   [["lammstek", "lammbog", "lamm"], 924, "rott_kott", null, null],
@@ -200,7 +203,8 @@ export const MAPPING = [
   [["renkött", "renskav"], 965, "rott_kott", null, null],
 
   // --- Fågel ---
-  [["kycklingfilé", "kycklingfiléer", "kycklingbröst", "kyckling", "kycklingbröstfilé"], 1173, "fagel", 150, null],
+  [["kycklingfilé", "kycklingfiléer", "kycklingbröst", "kycklingbröstfilé"], 1173, "fagel", 150, null],
+  [["kyckling", "hel kyckling"], 1164, "fagel", 1200, null],
   [["kycklinglår", "kycklinglårfilé", "kycklinglårfiléer", "kycklingben"], 1174, "fagel", 120, null],
   [["kycklingfärs"], 1173, "fagel", null, null],
   [["kokt kyckling", "tillagad kyckling"], 1190, "fagel", null, null],
@@ -212,12 +216,12 @@ export const MAPPING = [
   [["äggula", "äggulor"], 1226, "agg", 18, null],
 
   // --- Mejeri ---
-  [["mjölk", "standardmjölk", "mellanmjölk"], 150, "mejeri", null, 103],
-  [["mjölk 3%", "mjölk fett 3%", "standardmjölk 3%"], 123, "mejeri", null, 103],
+  [["mellanmjölk"], 150, "mejeri", null, 103],
+  [["mjölk", "standardmjölk", "mjölk 3%", "mjölk fett 3%", "standardmjölk 3%"], 123, "mejeri", null, 103],
   [["lättmjölk"], 151, "mejeri", null, 103],
   [["filmjölk", "naturell filmjölk"], 2048, "mejeri", null, 103],
-  [["yoghurt", "naturell yoghurt", "turkisk yoghurt"], 124, "mejeri", null, 103],
-  [["grekisk yoghurt"], 6113, "mejeri", null, 103],
+  [["yoghurt", "naturell yoghurt"], 124, "mejeri", null, 103],
+  [["grekisk yoghurt", "turkisk yoghurt"], 6113, "mejeri", null, 103],
   [["kvarg", "naturell kvarg"], 3243, "mejeri", null, 105],
   [["gräddfil"], 1713, "mejeri", null, 100],
   [["crème fraiche", "creme fraiche", "crème fraîche"], 7137, "mejeri", null, 100],
@@ -227,10 +231,10 @@ export const MAPPING = [
   [["mellangrädde"], 1716, "mejeri", null, 100],
   [["färskost", "philadelphia", "cream cheese", "kryddad färskost"], 107, "mejeri", null, 100],
   [["cottage cheese", "keso"], 70, "mejeri", null, 100],
-  [["ost", "riven ost", "hårdost", "gratängost", "prästost", "grevé", "grevéost", "cheddar", "västerbottensost", "svecia"], 96, "mejeri", null, 40],
+  [["ost", "riven ost", "hårdost", "gratängost", "prästost", "grevé", "grevéost", "cheddar", "västerbottensost", "svecia"], 96, "mejeri", null, 40, 10],
   [["parmesan", "parmesanost", "grana padano"], 103, "mejeri", null, 40],
   [["mozzarella", "buffelmozzarella"], 2255, "mejeri", 125, 70],
-  [["fetaost", "feta", "salladsost"], 98, "mejeri", null, 60],
+  [["fetaost", "feta", "salladsost"], 94, "mejeri", null, 60],
   [["brie", "camembert", "vitmögelost"], 98, "mejeri", null, 60],
   [["getost", "chèvre"], 111, "mejeri", null, 60],
   [["halloumi"], 100, "mejeri", null, null],
@@ -242,11 +246,11 @@ export const MAPPING = [
   [["fullkornsris", "råris", "brunt ris"], 2478, "fullkorn", null, 85],
   [["bulgur"], 829, "fullkorn", null, 70],
   [["quinoa"], 7025, "fullkorn", null, 80],
-  [["grahamsmjöl", "fullkornsvetemjöl", "fullkornsmjöl"], 1935, "fullkorn", null, 60],
+  [["grahamsmjöl", "fullkornsvetemjöl", "fullkornsmjöl", "vetemjöl fullkorn"], 1935, "fullkorn", null, 60],
   [["rågmjöl"], 1934, "fullkorn", null, 60],
   [["kornmjöl"], 1932, "fullkorn", null, 60],
-  [["fullkornsbröd", "grovt bröd", "rågbröd", "formbröd fullkorn"], 3797, "fullkorn", null, null],
-  [["knäckebröd", "hårt bröd", "fullkornsknäckebröd"], 169, "fullkorn", 12, null],
+  [["fullkornsbröd", "grovt bröd", "rågbröd", "formbröd fullkorn"], 3797, "fullkorn", null, null, 35],
+  [["knäckebröd", "hårt bröd", "fullkornsknäckebröd"], 169, "fullkorn", 12, null, 12],
   [["vildris"], 817, "fullkorn", null, 85],
 
   // --- Raffinerade kolhydrater ---
@@ -254,14 +258,18 @@ export const MAPPING = [
   [["ris", "långkornigt ris","risgryn", "vitt ris"], 2481, "raffinerad", null, 85],
   [["basmati", "basmatiris"], 2475, "raffinerad", null, 85],
   [["jasminris"], 2477, "raffinerad", null, 85],
-  [["pasta", "spaghetti", "penne", "makaroner", "fusilli", "tagliatelle", "farfalle", "tortellini", "lasagneplattor", "lasagne"], 845, "raffinerad", null, 40],
+  [["pasta", "spaghetti", "penne", "makaroner", "fusilli", "tagliatelle", "farfalle", "lasagneplattor", "lasagne"], 845, "raffinerad", null, 40],
   [["nudlar", "äggnudlar"], 870, "raffinerad", null, 35],
   [["risnudlar"], 4447, "raffinerad", null, 35],
   [["couscous"], 831, "raffinerad", null, 80],
-  [["vetemjöl", "mjöl", "vetemjöl special", "vetemjöl fullkorn"], 1941, "raffinerad", null, 60],
+  [["vetemjöl", "mjöl", "vetemjöl special"], 1941, "raffinerad", null, 60],
   [["durumvete", "durumvetemjöl"], 6542, "raffinerad", null, 60],
-  [["majsstärkelse", "maizena", "potatismjöl"], 1945, "raffinerad", null, 60],
-  [["bröd", "vitt bröd", "formbröd", "toast", "baguette", "ciabatta", "limpa"], 202, "raffinerad", 30, null],
+  [["majsstärkelse", "maizena"], 1945, "raffinerad", null, 60],
+  [["potatismjöl"], 1945, "raffinerad", null, 80],
+  [["bröd", "vitt bröd", "formbröd", "toast"], 202, "raffinerad", 30, null, 30],
+  [["baguette"], 202, "raffinerad", 250, null, 25],
+  [["ciabatta"], 202, "raffinerad", 250, null, 40],
+  [["limpa"], 202, "raffinerad", 700, null, 35],
   [["tortilla", "tortillabröd", "tortillas", "wraps"], 5974, "raffinerad", 60, null],
   [["pitabröd", "pita"], 193, "raffinerad", 60, null],
   [["hamburgerbröd", "korvbröd"], 3818, "raffinerad", 60, null],
@@ -280,13 +288,14 @@ export const MAPPING = [
   [["majonnäs"], 50, "fett", null, 95],
 
   // --- Socker och sött ---
-  [["socker", "strösocker", "florsocker", "farinsocker", "muscovadosocker"], 1892, "socker", null, 85],
+  [["socker", "strösocker", "farinsocker", "muscovadosocker"], 1892, "socker", null, 85],
+  [["florsocker"], 1892, "socker", null, 55],
   [["honung", "flytande honung"], 1896, "socker", null, 140],
   [["sirap", "ljus sirap", "mörk sirap", "agavesirap", "lönnsirap"], 1894, "socker", null, 140],
   [["mörk choklad", "chokladbitar"], 6907, "socker", null, 60],
   [["mjölkchoklad"], 2055, "socker", null, 60],
   [["ketchup"], 1969, "socker", null, 110],
-  [["sylt", "marmelad"], 1798, "socker", null, 130],
+  [["sylt", "marmelad", "lingonsylt"], 1798, "socker", null, 130],
 
   // --- Övrigt (nötter, frön, såser, drycker) ---
   [["mandel", "mandlar", "sötmandel"], 1575, "ovrigt", null, 60],
@@ -315,7 +324,7 @@ export const MAPPING = [
   [["grönsaksbuljong", "grönsaksfond"], 545, "ovrigt", null, 100],
   [["fiskbuljong", "fiskfond"], 1422, "ovrigt", null, 100],
   [["näringsjäst"], 6998, "ovrigt", null, 25],
-  [["kakao", "kakaopulver"], 6907, "socker", null, 45],
+  [["kakao", "kakaopulver"], 1886, "ovrigt", null, 45],
 
   // --- Räknas inte (kryddor, salt, vatten, smakgivare, bakning) ---
   [

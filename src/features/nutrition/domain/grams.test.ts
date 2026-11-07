@@ -35,13 +35,21 @@ describe("toGrams", () => {
     expect(toGrams(2, null, meat)).toBeNull();
   });
 
+  it("converts slices with the slice weight, not the piece weight", () => {
+    const bread = food("bröd", "raffinerad", per(284), { gramsPerPiece: 700, gramsPerSlice: 30 });
+    expect(toGrams(3, "skiva", bread)).toBe(90);
+    expect(toGrams(2, "skivor", bread)).toBe(60);
+    expect(toGrams(1, "st", bread)).toBe(700);
+    expect(toGrams(1, "skiva", egg)).toBeNull();
+  });
+
   it("counts a clove as 4 g for garlic only", () => {
     expect(toGrams(3, "klyfta", garlic)).toBe(3 * GARLIC_CLOVE_G);
     expect(toGrams(1, "klyfta", egg)).toBeNull();
   });
 
   it("gives null for sizes that are not known", () => {
-    for (const unit of ["förp", "kruka", "knippe", "skiva", "näve", "burk"]) expect(toGrams(1, unit, flour)).toBeNull();
+    for (const unit of ["förp", "kruka", "knippe", "näve", "burk"]) expect(toGrams(1, unit, flour)).toBeNull();
   });
 
   it("gives null without a usable amount", () => {

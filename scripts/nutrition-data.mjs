@@ -90,7 +90,7 @@ const num = (amount) => (amount === null ? "null" : String(amount));
 function buildRows(foods) {
   const seen = new Map();
   const rows = [];
-  for (const [names, lmv, group, perPiece, perDl] of MAPPING) {
+  for (const [names, lmv, group, perPiece, perDl, perSlice = null] of MAPPING) {
     if (!GROUPS.includes(group)) throw new Error(`Unknown group ${group}`);
     if ((lmv === null) !== (group === "ej_raknad")) throw new Error(`${names[0]}: lmv null must mean ej_raknad`);
     const food = lmv === null ? null : foods[lmv];
@@ -99,7 +99,7 @@ function buildRows(foods) {
       const key = name.normalize("NFC").trim().toLocaleLowerCase("sv-SE");
       if (seen.has(key)) throw new Error(`Duplicate ingredient name "${key}" (${seen.get(key)} and ${names[0]})`);
       seen.set(key, names[0]);
-      rows.push({ name: key, lmv, food, group, perPiece, perDl });
+      rows.push({ name: key, lmv, food, group, perPiece, perDl, perSlice });
     }
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name, "sv-SE"));
@@ -107,8 +107,8 @@ function buildRows(foods) {
 
 function buildSql(rows) {
   const values = rows.map(
-    ({ name, lmv, food, group, perPiece, perDl }) =>
-      `  (${quote(name)}, ${num(lmv)}, ${food ? quote(food.name) : "null"}, ${num(food?.kcal ?? null)}, ${num(food?.protein_g ?? null)}, ${num(food?.fat_g ?? null)}, ${num(food?.carbs_g ?? null)}, ${num(food?.fiber_g ?? null)}, ${num(perPiece)}, ${num(perDl)}, ${quote(group)})`,
+    ({ name, lmv, food, group, perPiece, perDl, perSlice }) =>
+      `  (${quote(name)}, ${num(lmv)}, ${food ? quote(food.name) : "null"}, ${num(food?.kcal ?? null)}, ${num(food?.protein_g ?? null)}, ${num(food?.fat_g ?? null)}, ${num(food?.carbs_g ?? null)}, ${num(food?.fiber_g ?? null)}, ${num(perPiece)}, ${num(perSlice)}, ${num(perDl)}, ${quote(group)})`,
   );
   return `-- Nutrition values per ingredient name (the nutrition feature; purely additive).
 --
@@ -138,6 +138,7 @@ create table public.ingredient_nutrition (
   carbs_g numeric(5, 1),
   fiber_g numeric(5, 1),
   grams_per_piece numeric(7, 1),
+  grams_per_slice numeric(6, 1),
   grams_per_dl numeric(6, 1),
   kostrad_group text not null,
   constraint ingredient_nutrition_name_check check (normalized_name <> '' and normalized_name = lower(btrim(normalized_name))),
@@ -159,6 +160,7 @@ create table public.ingredient_nutrition (
     and coalesce(carbs_g, 0) between 0 and 100
     and coalesce(fiber_g, 0) between 0 and 100
     and coalesce(grams_per_piece, 1) > 0
+    and coalesce(grams_per_slice, 1) > 0
     and coalesce(grams_per_dl, 1) > 0
   )
 );
@@ -173,7 +175,7 @@ revoke all on table public.ingredient_nutrition from public, anon, authenticated
 grant select on table public.ingredient_nutrition to authenticated, service_role;
 
 insert into public.ingredient_nutrition
-  (normalized_name, lmv_number, lmv_name, kcal, protein_g, fat_g, carbs_g, fiber_g, grams_per_piece, grams_per_dl, kostrad_group)
+  (normalized_name, lmv_number, lmv_name, kcal, protein_g, fat_g, carbs_g, fiber_g, grams_per_piece, grams_per_slice, grams_per_dl, kostrad_group)
 values
 ${values.join(",\n")};
 `;

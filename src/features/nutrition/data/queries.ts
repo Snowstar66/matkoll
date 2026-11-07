@@ -31,6 +31,7 @@ export function toIngredientNutrition(row: Row): IngredientNutrition | null {
       ? { kcal: row.kcal!, proteinG: row.protein_g!, fatG: row.fat_g!, carbsG: row.carbs_g!, fiberG: row.fiber_g! }
       : null,
     gramsPerPiece: row.grams_per_piece,
+    gramsPerSlice: row.grams_per_slice,
     gramsPerDl: row.grams_per_dl,
   };
 }

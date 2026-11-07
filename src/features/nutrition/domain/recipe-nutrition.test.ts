@@ -33,8 +33,8 @@ describe("recipeNutrition", () => {
     expect(result.coverage).toEqual({ counted: 1, total: 1 });
   });
 
-  it("leaves out a vague line with no amount and no ingredient", () => {
-    const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true)], rows, 1);
+  it("leaves out a vague line with no amount, with or without an ingredient", () => {
+    const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true), line("beef", null, null, true)], rows, 1);
     expect(result.coverage).toEqual({ counted: 1, total: 1 });
   });
 
@@ -44,14 +44,15 @@ describe("recipeNutrition", () => {
         line("pasta", 100, "g"),
         line(null, 2, "dl"), // no catalog ingredient
         line("beef", 1, "förp"), // size unknown
-        line("beef", null, null, true), // vague, no amount
+        line("beef", null, null), // no amount, not vague
         line("unknown-id", 100, "g"), // no nutrition row
         line("pasta", 1, "st"), // no piece weight
+        line("pasta", 2, "skiva"), // no slice weight
       ],
       rows,
       1,
     );
-    expect(result.coverage).toEqual({ counted: 1, total: 6 });
+    expect(result.coverage).toEqual({ counted: 1, total: 7 });
     expect(result.gramsPerServing).toBe(100);
   });
 

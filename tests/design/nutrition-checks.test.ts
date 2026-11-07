@@ -18,7 +18,7 @@ const data = JSON.parse(readFileSync(path("../../scripts/nutrition-data/livsmede
   foods: Record<string, { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number }>;
 };
 
-type Entry = readonly [string[], number | null, string, number | null, number | null];
+type Entry = readonly [string[], number | null, string, number | null, number | null, number?];
 const mapping = MAPPING as readonly Entry[];
 
 describe("nutrition migration", () => {
@@ -72,6 +72,25 @@ describe("nutrition mapping", () => {
       expect(KOSTRAD_GROUPS, mapped[0]).toContain(group);
       expect(lmv === null, mapped[0]).toBe(group === "ej_raknad");
     }
+  });
+
+  it("maps the reviewed names to the right foods and weights", () => {
+    const find = (name: string) => mapping.find((entry) => entry[0].includes(name))!;
+    expect(find("lax")[1]).toBe(1255);
+    expect(find("feta")[1]).toBe(94);
+    expect(find("röda linser")[1]).toBe(884);
+    expect(find("bruna bönor")[1]).toBe(875);
+    expect(find("lingonsylt")[1]).toBe(1798);
+    expect(find("vetemjöl fullkorn")[1]).toBe(1935);
+    expect(find("mjölk")[1]).toBe(123);
+    expect(find("turkisk yoghurt")[1]).toBe(6113);
+    expect(find("kakaopulver")[1]).toBe(1886);
+    expect(find("apelsinjuice")[2]).toBe("ovrigt");
+    expect(find("fryst spenat")[1]).toBe(361);
+    expect([find("baguette")[3], find("ciabatta")[3], find("limpa")[3], find("kyckling")[3], find("fläskkorv")[3]]).toEqual([250, 250, 700, 1200, 600]);
+    expect([find("bröd")[5], find("bacon")[5], find("skinka")[5], find("salami")[5], find("riven ost")[5]]).toEqual([30, 12, 15, 5, 10]);
+    expect(find("vitlöksklyfta")[3]).toBe(4);
+    expect(names.includes("tortellini")).toBe(false);
   });
 
   it("has sane piece weights and densities", () => {

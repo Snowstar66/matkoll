@@ -80,11 +80,13 @@ const emptyGroups = (): Record<KostradGroup, number> =>
  * What counts as a line and what is counted:
  * - A line is left out of both numbers of the coverage when its ingredient is
  *   one that never counts (salt, spices, water, stock cubes: group `ej_raknad`),
- *   or when it is vague, has no amount and no catalog ingredient ("salt efter smak").
+ *   or when it is vague and has no amount ("olja till stekning", "salt efter
+ *   smak"), whatever its ingredient: such a line cannot be weighed, and
+ *   it must not drag the coverage down.
  * - Every other line is in `total`. It is `counted` when its ingredient has
  *   nutrition values and its amount and unit give grams (toGrams). A line
- *   without a catalog ingredient, a vague line with an unknown ingredient
- *   amount, an unknown unit or a missing density or piece weight is not counted.
+ *   without a catalog ingredient, an unknown ingredient, an unknown unit or a
+ *   missing density, piece weight or slice weight is not counted.
  * - `servings` that is not a positive number is taken as 1, as scaleFactor does.
  */
 export function recipeNutrition(
@@ -103,7 +105,7 @@ export function recipeNutrition(
   for (const line of lines) {
     const nutrition = line.ingredientId !== null && Object.hasOwn(byIngredientId, line.ingredientId) ? byIngredientId[line.ingredientId] : null;
     if (nutrition?.group === "ej_raknad") continue;
-    if (line.isVague && line.amount === null && line.ingredientId === null) continue;
+    if (line.isVague && line.amount === null) continue;
     total++;
     if (!nutrition?.per100g) continue;
     const lineGrams = toGrams(line.amount, line.unit, nutrition);
