@@ -139,6 +139,14 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Ja, Fota finns för varje plats: kylen, frysen och skafferiet.",
       },
       { question: "Kan jag ändra ett förslag från fotot?", answer: "Ja. Ändra eller avvisa varje förslag innan du sparar." },
+      {
+        question: "Vad händer när jag trycker Lägg till?",
+        answer: "Förslagen sparas och granskningen stängs. Kylen är uppdaterad visas en stund med Ångra, som tar bort det du just lade till. Vill du inte ha förslagen alls trycker du Släng förslagen.",
+      },
+      {
+        question: "Vad betyder att varor syntes inte på fotot?",
+        answer: "Efter ett foto kan ett litet kort fråga om varor du har i appen men som inte syntes. Tryck Behåll om de finns kvar, eller Välj vilka och bocka för det som är slut. Det du lagt in de senaste tre dagarna räknas aldrig dit.",
+      },
       { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
     ],
   },

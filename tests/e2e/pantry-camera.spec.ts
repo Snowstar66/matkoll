@@ -404,7 +404,7 @@ test("the suggestions go when Matvaror is left through the tab bar and opened ag
   await expect(page.getByTestId("pantry-suggestion")).toHaveCount(0);
 });
 
-test("Förkasta inläsningen throws the reading away, writes nothing, closes the job, and Ångra brings it back (Kylfoto)", async ({
+test("Släng förslagen throws the reading away, writes nothing, closes the job, and Ångra brings it back (Kylfoto)", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -413,13 +413,12 @@ test("Förkasta inläsningen throws the reading away, writes nothing, closes the
   await photograph(page, "Fota", kyl);
   await expect(cards(page)).toHaveCount(6);
 
-  await section(page).getByRole("button", { name: "Förkasta inläsningen" }).click();
+  await section(page).getByRole("button", { name: "Släng förslagen" }).click();
   await expect(section(page)).toHaveCount(0);
   await expect(cameraButton(page, "Fota")).toBeFocused();
   const toast = page.getByTestId("toast").filter({ visible: true });
-  await expect(toast).toContainText("Förkastade inläsningen.");
-  // The job is closed: no "Förslag klara" on the card, and no job left for the badge.
-  await expect(card(page, "Kyl")).not.toContainText("Förslag klara");
+  await expect(toast).toContainText("Slängde förslagen.");
+  // The job is closed: no job left for the badge.
   await expect.poll(async () => (await jobs()).length).toBe(0);
 
   await toast.getByRole("button", { name: "Ångra" }).click();

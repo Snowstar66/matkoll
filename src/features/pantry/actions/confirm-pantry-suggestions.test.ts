@@ -70,7 +70,7 @@ beforeEach(() => {
 describe("confirmPantrySuggestions", () => {
   it("commits the ingredients, sets each amount exactly in the same order, and revalidates", async () => {
     const result = await confirmPantrySuggestions([existing(mjolk), fresh("ägg"), existing(smor, { amount: null, unit: null })]);
-    expect(result).toEqual(ok({ count: 3 }));
+    expect(result).toEqual(ok({ count: 3, setRows: expect.any(Array) }));
     expect(commitIngredients).toHaveBeenCalledWith([
       { text: "", ingredient: { kind: "match", ingredientId: mjolk, confidence: "exact" } },
       {
@@ -112,7 +112,7 @@ describe("confirmPantrySuggestions", () => {
       fresh("Ägg"),
       fresh("ägg", { amount: 4 }),
     ]);
-    expect(result).toEqual(ok({ count: 2 }));
+    expect(result).toEqual(ok({ count: 2, setRows: expect.any(Array) }));
     expect(commitIngredients.mock.calls[0][0]).toHaveLength(2);
     expect(setPantryItemsIn).toHaveBeenCalledWith(db, [
       { ingredientId: mjolk, location: "Kyl", amount: 3, unit: "förp" },
@@ -137,7 +137,7 @@ describe("confirmPantrySuggestions", () => {
     ]);
     expect(commitIngredients.mock.calls[0][0]).toHaveLength(2);
     expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: gurka, location: "Kyl", amount: 3, unit: "st" }], null, stugan);
-    expect(result).toEqual(ok({ count: 1 }));
+    expect(result).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
   });
 
   it("saves each item's label, and leaves it out for an item without one (Story 11.2)", async () => {
@@ -221,7 +221,7 @@ describe("confirmPantrySuggestions", () => {
 
   it("takes 40 items", async () => {
     const items = Array.from({ length: 40 }, (_, index) => existing(mjolk, { amount: index + 1 }));
-    expect(await confirmPantrySuggestions(items)).toEqual(ok({ count: 1 }));
+    expect(await confirmPantrySuggestions(items)).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
   });
 
   it("gives pantry_confirm_failed for an id not in the catalog, and leaves the pantry", async () => {
@@ -255,7 +255,7 @@ describe("confirmPantrySuggestions", () => {
     });
     expect(revalidateFor).not.toHaveBeenCalled();
     // commit_ingredients gives the id of the ingredient made the first time.
-    expect(await confirmPantrySuggestions(items)).toEqual(ok({ count: 1 }));
+    expect(await confirmPantrySuggestions(items)).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
     expect(setPantryItemsIn.mock.calls.map(([, set]) => set[0].ingredientId)).toEqual([agg, agg]);
     expect(revalidateFor).toHaveBeenCalledTimes(1);
   });
@@ -288,15 +288,15 @@ describe("confirmPantrySuggestions on the photo's place (Story 8.4)", () => {
 
   it("sends null for a user without places, the only case it is allowed", async () => {
     loadPantrySitesIn.mockResolvedValue([]);
-    expect(await confirmOn({ siteId: null, items: [existing(mjolk)] })).toEqual(ok({ count: 1 }));
+    expect(await confirmOn({ siteId: null, items: [existing(mjolk)] })).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
     expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, null);
   });
 
   it("takes the bare list of a client of before Story 8.4 for the one place there is, and refuses it with several", async () => {
-    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1 }));
+    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
     expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, stugan);
     loadPantrySitesIn.mockResolvedValue([]);
-    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1 }));
+    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1, setRows: expect.any(Array) }));
     expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, null);
     loadPantrySitesIn.mockResolvedValue([
       { id: stugan, name: "Stugan", isSelected: true },

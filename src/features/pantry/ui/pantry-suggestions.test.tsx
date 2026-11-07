@@ -479,9 +479,9 @@ describe("Senaste foto (Story 10.1)", () => {
     expect(JSON.parse(String(form.get("reading")))).toEqual(reading);
     expect(form.get("points")).toBeNull();
 
-    await screen.findByRole("checkbox", { name: "Ta med mjölk" });
-    confirmOnly("mjölk");
-    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(2));
+    // UX-08: Lägg till closes the review, so nothing more can be written from it.
+    await waitFor(() => expect(screen.queryByTestId("pantry-suggestions")).toBeNull());
+    expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1);
     expect(photoPosts()).toHaveLength(1);
   });
 
@@ -547,10 +547,16 @@ describe("Senaste foto (Story 10.1)", () => {
   it("sends the photo once more at the next write after no answer, and not after a refusal", async () => {
     render(<Hemma />);
     await analyzeWith();
-    confirmOnly("grädde");
+    // Two writes from the same suggestions, each through Rätta's Bekräfta (Lägg till would close the review).
+    const correct = (name: string) => {
+      fireEvent.click(screen.getByRole("button", { name: `Rätta ${name}` }));
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Bekräfta" }));
+    };
+    correct("grädde");
     await waitFor(() => expect(photoPosts()).toHaveLength(1));
     await act(async () => photoPosts()[0].answer({ kind: "retry" }));
-    confirmOnly("mjölk");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    correct("mjölk");
     await waitFor(() => expect(photoPosts()).toHaveLength(2));
     await act(async () => photoPosts()[1].answer({ kind: "final" }));
   });

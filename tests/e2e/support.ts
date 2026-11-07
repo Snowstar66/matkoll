@@ -653,6 +653,12 @@ export async function addOnly(section: Locator, names: readonly string[] | "all"
   await section.getByRole("button", { name: /^Lägg till \d+ var(a|or)$/ }).click();
 }
 
+/** UX-08: saves one suggestion alone, as Rätta's Bekräfta does; "Lägg till N varor" closes the whole review. */
+export async function confirmInSheet(page: Page, section: Locator, name: string) {
+  await section.getByRole("button", { name: `Rätta ${name}`, exact: true }).click();
+  await page.getByRole("dialog").filter({ visible: true }).getByRole("button", { name: "Bekräfta" }).click();
+}
+
 /** Kylfoto D: presses "Lägg till N varor" with the rows as they are ticked. */
 export async function addTicked(section: Locator) {
   await section.getByRole("button", { name: /^Lägg till \d+ var(a|or)$/ }).click();

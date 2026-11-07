@@ -238,9 +238,9 @@ export function photoTimeText(takenAt: Date, now: Date): string {
   return `${taken.day} ${shortMonths[taken.month - 1]} ${time}`;
 }
 
-/** The line under "Fotografera kylen" (Story 14.6): "Senaste idag 15:42". */
-export function latestPhotoText(time: string): string {
-  return `Senaste foto ${time}`;
+/** The line under "Fota" (UX-08): "Senaste foto av kylen: idag 15:42". */
+export function latestPhotoText(time: string, location: Location): string {
+  return `Senaste foto av ${definite[location]}: ${time}`;
 }
 
 /** The same line when the location has no photo younger than 30 days. */

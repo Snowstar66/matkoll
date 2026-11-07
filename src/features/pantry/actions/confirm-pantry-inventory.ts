@@ -32,6 +32,8 @@ export type ConfirmedInventory = {
   undoable: number;
   /** The catalog ids the call set (new ones included), so the client can take them out of "Syns inte längre". */
   setIngredientIds: string[];
+  /** UX-08: the rows the call set, so "Ångra" after "Lägg till N varor" can take the new ones out again. */
+  setRows: { id: string; ingredientId: string }[];
   /** The operation id the rows are kept under: the one sent, or a new one when it was taken. */
   operationId: string | null;
 };
@@ -142,6 +144,7 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     removedCount: applied.removedCount,
     undoable: applied.undoable,
     setIngredientIds: [...new Set(sets.map((item) => item.ingredientId))],
+    setRows: applied.set.map((row) => ({ id: row.id, ingredientId: row.ingredientId })),
     operationId: usedOperation,
   });
 }
