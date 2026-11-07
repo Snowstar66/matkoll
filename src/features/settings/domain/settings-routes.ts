@@ -15,6 +15,8 @@ export const settingsPages = [
   "installera",
   // Färgtema: the colour theme, chosen per device.
   "utseende",
+  // Tillval: switches for the quiet extras, per device.
+  "tillval",
   // Story 23.2: the number on the app's icon, opt-in per device.
   "appikon",
   // Story 23.3: push notifications and what to be told about.
