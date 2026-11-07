@@ -7,7 +7,7 @@ import { SettingsMenuContent } from "./settings-menu-content";
 
 // Inställningar (FR7, FR-28, UX-DR16, Story 14.7): a short start page of
 // groups, and one page per row (konto, boenden, butiker, receptsajter,
-// spara-i-matkoll, ai, installera, om). The shell shows one of them at a time
+// telefon, ai, installera, om). The shell shows one of them at a time
 // on a phone and both from 1024 px. The start page's values are read inside a
 // <Suspense> (AD-18), so a failure in one never hides the rest; "Logga ut"
 // sits in the menu's own group and needs no data, so it works even when

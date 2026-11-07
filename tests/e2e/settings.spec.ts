@@ -100,7 +100,7 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
   await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siffra på appikonen", "Notiser", "Siri och genvägar", "Om Livskoll"]) {
+  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Receptsajter", "Modell", "Installera appen", "Siffra på appikonen", "Notiser", "Använd med telefonen", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -151,8 +151,12 @@ test("the side menu leads to Inställningar on desktop, with the start page besi
 
 test("the old anchors lead to the page that holds them now", async ({ page }) => {
   await page.goto("/installningar#spara-i-matkoll");
-  await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeVisible();
+  await expect(page).toHaveURL(/\/installningar\/telefon$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Använd med telefonen" })).toBeVisible();
+  await page.goto("/installningar/siri");
+  await expect(page).toHaveURL(/\/installningar\/telefon$/);
+  await page.goto("/installningar/spara-i-matkoll");
+  await expect(page).toHaveURL(/\/installningar\/telefon$/);
   await page.goto("/installningar#godkanda-receptsajter");
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await page.goto("/installningar#ai");
@@ -281,10 +285,12 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   await context.close();
 });
 
-test("Spara i Livskoll: one guide at a time; the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
-  await page.goto("/installningar/spara-i-matkoll");
+test("Använd med telefonen: one guide at a time; the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
+  await page.goto("/installningar/telefon");
   const section = page.getByTestId("save-to-matkoll");
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Använd med telefonen" })).toBeVisible();
+  await expect(section.getByRole("heading", { name: "Spara recept från Safari" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lägg till varor med Siri" })).toBeVisible();
   const origin = new URL(baseURL ?? page.url()).origin;
   // A desktop browser starts on Dator; the other guides are not shown.
   await expect(section.getByRole("radio", { name: "Dator" })).toBeChecked();
@@ -293,15 +299,17 @@ test("Spara i Livskoll: one guide at a time; the bookmarklet and the iPhone addr
   expect(await bookmarklet.getAttribute("href")).toContain(`${origin}/recept/importera?url=`);
   await expect(section.getByTestId("import-prefix")).toHaveCount(0);
   await section.getByRole("radio", { name: "iPhone" }).click();
+  // Without a shared shortcut link the steps are folded under "Bygg genvägen själv".
+  await section.getByText("Bygg genvägen själv").click();
   await expect(section.getByTestId("import-prefix")).toHaveText(`${origin}/recept/importera?url=`);
+  await expect(section.getByTestId("guide-iphone")).toContainText("Koda URL");
   await expect(section.getByTestId("bookmarklet")).toHaveCount(0);
   await section.getByRole("radio", { name: "Android" }).click();
   await expect(section.getByTestId("guide-android")).toBeVisible();
   await expect(section.getByTestId("guide-iphone")).toHaveCount(0);
-  await expect(section.getByRole("link", { name: "godkända receptsajterna" })).toBeVisible();
 });
 
-test("Story 1.14: Importera recept lists the approved sites with new-tab links and leads to Spara i Livskoll", async ({ page }) => {
+test("Story 1.14: Importera recept lists the approved sites with new-tab links and leads to Använd med telefonen", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/recept");
   await page.getByRole("button", { name: "Importera recept" }).first().click();
@@ -317,9 +325,9 @@ test("Story 1.14: Importera recept lists the approved sites with new-tab links a
   await section.getByRole("button", { name: "här" }).click();
   await expect(page.getByLabel("Länk till receptet")).toBeFocused();
   await section.getByRole("link", { name: "Spara i Livskoll" }).click();
-  await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
+  await expect(page).toHaveURL(/\/installningar\/telefon$/);
   await expect(page.getByTestId("guide-computer")).toContainText("⌘⇧B");
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeInViewport();
+  await expect(page.getByRole("heading", { level: 1, name: "Använd med telefonen" })).toBeInViewport();
 });
 
 test("Story 17.5: the page AI saves the choice, which is read again after a reload", async ({ page }) => {
@@ -427,8 +435,8 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await page.setViewportSize(mobile);
 
   await page.goto("/installningar");
-  await page.getByTestId("settings-row").filter({ hasText: "Siri och genvägar" }).click();
-  await expect(page).toHaveURL(/\/installningar\/siri$/);
+  await page.getByTestId("settings-row").filter({ hasText: "Använd med telefonen" }).click();
+  await expect(page).toHaveURL(/\/installningar\/telefon$/);
   await expect(page.getByText("Inga nycklar än.")).toBeVisible();
   const shot = async (name: string) => {
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/${name}.png`, fullPage: true });
@@ -439,6 +447,7 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await expect(shown).toBeVisible();
   const key = (await shown.textContent())!;
   expect(key).toMatch(/^lk_[A-Za-z0-9_-]{43}$/);
+  await page.getByText("Bygg genvägen själv").last().click();
   await expect(page.getByTestId("shortcut-guide")).toContainText("Diktera text");
   await expect(page.getByTestId("api-key")).toContainText("Aldrig använd");
   await shot("siri-after");
@@ -473,7 +482,7 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await expect(page.getByRole("button", { name: "Konto" })).toBeVisible();
 
   // Revoke: the key stops working at once, and the page lists it as revoked.
-  await page.goto("/installningar/siri");
+  await page.goto("/installningar/telefon");
   await expect(page.getByTestId("api-key")).toContainText("Senast använd");
   await page.getByRole("button", { name: /^Återkalla nyckeln/ }).click();
   await expect(page.getByTestId("api-key-revoked")).toBeVisible();

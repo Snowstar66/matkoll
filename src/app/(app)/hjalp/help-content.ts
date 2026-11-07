@@ -35,7 +35,7 @@ export const helpAreas: readonly HelpArea[] = [
     faq: [
       {
         question: "Kan jag spara direkt från webbläsaren?",
-        answer: `Ja, med Spara i ${appName} skickar du ett recept från en receptsajt utan att kopiera länken. Hur du slår på det står under Inställningar.`,
+        answer: `Ja, med Spara i ${appName} skickar du ett recept från en receptsajt utan att kopiera länken. På iPhone lägger du till genvägen under Inställningar, Använd med telefonen, och trycker sedan Dela i Safari.`,
       },
       {
         question: "Vad betyder märket på receptet?",
@@ -192,7 +192,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur sätter jag upp Siri?",
-        answer: `Skapa en personlig nyckel under Inställningar, Siri och genvägar, och följ stegen i appen Genvägar på iPhone. Sedan säger du ”Hej Siri, ${appName}” och till exempel ”mjölk och ägg”.`,
+        answer: `Gå till Inställningar, Använd med telefonen. Skapa en nyckel, tryck Lägg till genvägen och klistra in rubriken när genvägen frågar. Sedan säger du ”Hej Siri, ${appName}” och till exempel ”mjölk och ägg”.`,
       },
       {
         question: "Hur gör jag snabbtillägget?",
