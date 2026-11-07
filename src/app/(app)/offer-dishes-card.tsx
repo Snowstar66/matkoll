@@ -21,7 +21,7 @@ export type OfferWeek = { weekStart: string; offset: number; number: number; onW
 const defaultWeekOffset = 1;
 
 /**
- * "Rätter med extrapris" at the top of the sheet Veckans erbjudanden: up to
+ * "Rätter med erbjudanden" at the top of the sheet Veckans erbjudanden: up to
  * three of the user's own dishes that use an offer, most saved first, with "+"
  * (first free day of the chosen week, next week at first, picked with a
  * three-way segment) or the day when the dish is already on that week. "Visa alla" opens Recept with the filter Erbjudanden. Under them
@@ -92,13 +92,13 @@ export function OfferDishesCard({
     <section aria-labelledby="offer-dishes-heading" data-testid="offer-dishes" className="flex flex-col gap-2.5 rounded-lg bg-mint/40 p-4">
       <div className="flex flex-col gap-0.5">
         <h3 id="offer-dishes-heading" className="text-body font-semibold text-ink">
-          Rätter med extrapris
+          Rätter med erbjudanden
         </h3>
-        <p className="text-meta text-ink-2">Förslag för att varorna har extrapris den här veckan.</p>
+        <p className="text-meta text-ink-2">Förslag för att varorna är på erbjudande den här veckan.</p>
       </div>
       {weeks.length > 0 ? <WeekPicker weeks={weeks} selected={week?.offset ?? offset} onSelect={setOffset} testId="offer-week" /> : null}
       {dishes.length > 0 ? (
-      <ul aria-label="Rätter med extrapris" className="flex flex-col gap-2">
+      <ul aria-label="Rätter med erbjudanden" className="flex flex-col gap-2">
         {dishes.map((option) => (
           <PlanRow
             key={option.id}

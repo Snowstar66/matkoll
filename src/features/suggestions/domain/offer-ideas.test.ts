@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkOfferIdeas, isOnOffer, type RawOfferIdea } from "./offer-ideas";
 
-// The check that keeps "Nya idéer med extrapris" honest: names must be on offer or at home.
+// The check that keeps "Nya idéer med erbjudanden" honest: names must be on offer or at home.
 
 const offers = ["Fläskfilé", "broccoli", "falukorv"];
 const home = new Set(["ris", "grädde"]);

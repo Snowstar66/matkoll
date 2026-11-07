@@ -28,12 +28,12 @@ vi.mock("../actions/request-password-reset", () => ({
   requestPasswordReset: (input: { email: string; next?: string }) => requestPasswordReset(input),
 }));
 
-const sentText = "Vi har skickat en länk och en kod till din e-post.";
+const sentText = "Vi har skickat en länk och en kod till pontus@example.com. Tryck på länken, eller skriv koden här.";
 const invalidText = "Koden stämmer inte eller har gått ut. Skicka en ny länk.";
 
 async function sendLink(email = "pontus@example.com") {
   await userEvent.type(screen.getByLabelText("E-postadress"), email);
-  await userEvent.click(screen.getByRole("button", { name: "Skicka länk" }));
+  await userEvent.click(screen.getByRole("button", { name: "Skicka länk och kod" }));
   await screen.findByText(sentText);
 }
 
@@ -49,7 +49,9 @@ beforeEach(() => {
 describe("LoginForm", () => {
   it("has no code field before the link is sent", () => {
     render(<LoginForm />);
-    expect(screen.getByRole("button", { name: "Skicka länk" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skicka länk och kod" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Logga in utan lösenord" })).toBeInTheDocument();
+    expect(screen.getByText("Vi mejlar en länk och en kod till adressen ovan.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Kod från mejlet")).not.toBeInTheDocument();
   });
 
@@ -78,7 +80,7 @@ describe("LoginForm", () => {
   it("asks for a reset mail with the address only, and answers the same for everyone", async () => {
     render(<LoginForm next="/recept" />);
     await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Första gången eller glömt lösenordet? Välj lösenord" }));
+    await userEvent.click(screen.getByRole("button", { name: "Välj lösenord" }));
     expect(screen.queryByLabelText("Lösenord")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Skicka länk för att välja lösenord" }));
     expect(requestPasswordReset).toHaveBeenCalledWith({ email: "pontus@example.com", next: "/recept" });
@@ -98,8 +100,11 @@ describe("LoginForm", () => {
     expect(code).toHaveAttribute("autocomplete", "one-time-code");
     expect(code).toHaveAttribute("pattern", "[0-9]{6}");
     expect(code).toHaveClass("text-body");
-    // One primary button: "Logga in" now, with "Skicka länk" as the secondary.
-    expect(screen.getByRole("button", { name: "Skicka länk" })).toHaveClass("bg-surface");
+    expect(code).toHaveAttribute("placeholder", "6 siffror");
+    // The password is gone and "Logga in" is the one primary button, with "Skicka igen" as a text button.
+    expect(screen.queryByLabelText("Lösenord")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skicka länk och kod" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skicka igen" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Logga in" })).toHaveClass("bg-accent");
   });
 
@@ -166,7 +171,7 @@ describe("LoginForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Logga in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(invalidText);
 
-    await userEvent.click(screen.getByRole("button", { name: "Skicka länk" }));
+    await userEvent.click(screen.getByRole("button", { name: "Skicka igen" }));
     await vi.waitFor(() => expect(sendMagicLink).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(screen.getByLabelText("Kod från mejlet")).toHaveValue("");
@@ -199,17 +204,19 @@ describe("LoginForm", () => {
     expect(screen.getByLabelText("Kod från mejlet")).toBeInTheDocument();
   });
 
-  it("opens the code step without sending with Jag har redan en kod", async () => {
-    render(<LoginForm />);
-    await userEvent.click(screen.getByRole("button", { name: "Jag har redan en kod" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Ange en giltig e-postadress.");
-    expect(screen.queryByLabelText("Kod från mejlet")).not.toBeInTheDocument();
+  it("folds the part without a password when the invitation is opened, and opens it again", async () => {
+    render(<LoginForm invite={<label>Kod från inbjudan<input placeholder="K7Q4 MP2X" /></label>} />);
+    expect(screen.getByText("Skriv koden från inbjudan")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Kod från inbjudan")).not.toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Jag har redan en kod" }));
-    expect(screen.getByLabelText("Kod från mejlet")).toBeInTheDocument();
-    expect(sendMagicLink).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    await userEvent.click(screen.getByRole("button", { name: /Har du fått en inbjudan\?/ }));
+    const field = screen.getByLabelText("Kod från inbjudan");
+    expect(field).toHaveAttribute("placeholder", "K7Q4 MP2X");
+    expect(screen.queryByRole("button", { name: "Skicka länk och kod" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Logga in utan lösenord" }));
+    expect(screen.getByRole("button", { name: "Skicka länk och kod" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Kod från inbjudan")).not.toBeInTheDocument();
   });
 
   it.each(["123 456", "123-456", "\uff11\uff12\uff13\uff14\uff15\uff16"])("sends %j on to the server", async (value) => {

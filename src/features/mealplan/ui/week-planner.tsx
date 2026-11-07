@@ -396,7 +396,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
               </div>
               {tab === "offers" ? (
                 <p data-testid="offers-hint" className="text-meta text-deal-ink">
-                  Förslag för att varorna har extrapris den här veckan.
+                  Förslag för att varorna är på erbjudande den här veckan.
                 </p>
               ) : null}
               {rows.length === 0 ? (

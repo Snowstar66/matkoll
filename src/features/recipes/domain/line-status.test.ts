@@ -152,14 +152,14 @@ describe("texts", () => {
   });
 
   it("says the toast after Lägg på matsedeln, with at most three names", () => {
-    expect(plannedToastText("Pasta", "torsdag", ["Falukorv", "grädde", "ris"])).toBe("Pasta på torsdag. Falukorv, grädde och ris står på inköpslistan.");
-    expect(plannedToastText("Pasta", "måndag", ["falukorv"])).toBe("Pasta på måndag. Falukorv står på inköpslistan.");
-    expect(plannedToastText("Pasta", "söndag", ["a", "b", "c", "d", "e"])).toBe("Pasta på söndag. A, b, c och 2 till står på inköpslistan.");
-    expect(plannedToastText("Pasta", "fredag", [])).toBe("Pasta på fredag.");
-    expect(plannedToastText("Pasta", null, [])).toBe("Pasta på veckan. Alla dagar har en rätt.");
+    expect(plannedToastText("Pasta", "torsdag", ["Falukorv", "grädde", "ris"])).toBe("Pasta ligger på torsdag. Falukorv, grädde och ris står på inköpslistan.");
+    expect(plannedToastText("Pasta", "måndag", ["falukorv"])).toBe("Pasta ligger på måndag. Falukorv står på inköpslistan.");
+    expect(plannedToastText("Pasta", "söndag", ["a", "b", "c", "d", "e"])).toBe("Pasta ligger på söndag. A, b, c och 2 till står på inköpslistan.");
+    expect(plannedToastText("Pasta", "fredag", [])).toBe("Pasta ligger på fredag.");
+    expect(plannedToastText("Pasta", null, [])).toBe("Pasta ligger på veckan. Alla dagar har en rätt.");
     expect(namesText([])).toBe("");
-    expect(plannedToastText("Pasta", "måndag", ["falukorv"], "nästa vecka")).toBe("Pasta på måndag nästa vecka. Falukorv står på inköpslistan.");
-    expect(plannedToastText("Pasta", null, [], "om 2 veckor")).toBe("Pasta om 2 veckor. Alla dagar har en rätt.");
+    expect(plannedToastText("Pasta", "måndag", ["falukorv"], "nästa vecka")).toBe("Pasta ligger på måndag nästa vecka. Falukorv står på inköpslistan.");
+    expect(plannedToastText("Pasta", null, [], "om 2 veckor")).toBe("Pasta ligger om 2 veckor. Alla dagar har en rätt.");
     expect(plannedChipText("onsdag", "nästa vecka")).toBe("På matsedeln på onsdag nästa vecka");
     expect(plannedChipText(null, "nästa vecka")).toBe("På matsedeln nästa vecka");
     expect(whenText(0)).toBeNull();

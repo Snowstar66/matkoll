@@ -28,9 +28,9 @@ export const helpAreas: readonly HelpArea[] = [
     id: "recept",
     title: "Recept",
     steps: [
-      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
+      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
-      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
+      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas (blå ring) och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
       {
@@ -49,7 +49,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur tar jag bort ett recept?",
-        answer: "Svep receptet åt vänster i listan och tryck Ta bort, eller öppna receptet och välj Ta bort i menyn. Du får en fråga först, eftersom det inte går att ångra.",
+        answer: "Öppna receptet och välj Ta bort i menyn ⋯ uppe till höger. Du får en fråga först, eftersom det inte går att ångra.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",
@@ -69,7 +69,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
         question: "Hur hittar jag rätter som är på erbjudande?",
-        answer: "Fäll ut Lägg till nya rätter och öppna fliken På erbjudande. Där står dina egna recept där en huvudvara är på erbjudande, med det mesta sparade överst och vad du sparar i kronor. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
+        answer: "Fäll ut Lägg till nya rätter och öppna fliken På erbjudande. Där står dina egna recept där en huvudvara är på erbjudande, med störst rabatt överst. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
       },
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
       { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
@@ -112,7 +112,7 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
-        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen på Inköpslista och Matsedel visar dem, och överst står Rätter med extrapris: dina recept och några nya idéer som passar veckans priser. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
+        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Knappen Erbjudanden på Inköpslista och Matsedel visar dem, och överst står Rätter med erbjudanden: dina recept och några nya idéer som passar veckans erbjudanden. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",
@@ -205,7 +205,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur går jag med i ett hushåll?",
-        answer: `Öppna länken du fått, eller tryck Har du en kod? på inloggningssidan. Välj e-post och lösenord, så får du en egen inloggning och ser samma recept, matsedel, lista, matvaror och ${things} som de andra. Har du redan egna recept eller varor i ${appName} går det inte än.`,
+        answer: `Öppna länken du fått, eller tryck Har du fått en inbjudan? på inloggningssidan och skriv koden. Välj e-post och lösenord, så får du en egen inloggning och ser samma recept, matsedel, lista, matvaror och ${things} som de andra. Har du redan egna recept eller varor i ${appName} går det inte än.`,
       },
       {
         question: "Hur lämnar jag hushållet, eller tar bort någon?",

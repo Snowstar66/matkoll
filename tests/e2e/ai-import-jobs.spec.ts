@@ -71,13 +71,13 @@ async function expectReading(page: Page) {
 async function readText(page: Page, text: string) {
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await expectReading(page);
 }
 
 async function readLink(page: Page, url: string) {
   await sheet(page).getByLabel("Länk till receptet").fill(url);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await expectReading(page);
 }
 
@@ -249,7 +249,7 @@ test("the job row names the site while a link is read, and a site that refuses i
 test("a site that is not approved is refused at once, without a job", async ({ page }) => {
   await openImport(page);
   await sheet(page).getByLabel("Länk till receptet").fill("https://www.example.org/recept/x");
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await expect(sheet(page).getByRole("alert")).toContainText("example.org är inte en godkänd receptsajt.");
   await expect(sheet(page).getByRole("button", { name: "Öppna inställningar" })).toBeVisible();
   expect(await jobs()).toEqual([]);
@@ -258,7 +258,7 @@ test("a site that is not approved is refused at once, without a job", async ({ p
 test("Avbryt stops the job and keeps the text", async ({ page }) => {
   await openImport(page);
   await readText(page, linssoppa);
-  await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+  await sheet(page).getByRole("button", { name: "Avbryt inläsningen" }).click();
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["cancelled"]);
   await expect(sheet(page).getByLabel("Recepttext")).toHaveValue(linssoppa);
 });

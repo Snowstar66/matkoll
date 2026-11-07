@@ -67,7 +67,7 @@ async function importLink(page: Page, url: string) {
   await page.goto("/recept");
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
   await importSheet(page).getByLabel("Länk till receptet").fill(url);
-  await importSheet(page).getByRole("button", { name: "Tolka" }).click();
+  await importSheet(page).getByRole("button", { name: "Läs in recept" }).click();
 }
 
 // The tests share the user's sites, so they run one at a time even if the
