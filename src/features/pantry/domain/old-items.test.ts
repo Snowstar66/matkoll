@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eatFirstTipText, lainText, oldPantryItems, usesOldText } from "./old-items";
+import { byOvershoot, eatFirstTipText, lainText, oldPantryItems, usesOldText } from "./old-items";
 
 // Tuesday 27 October 2026, 10:00 in Stockholm.
 const now = new Date("2026-10-27T09:00:00Z");
@@ -28,9 +28,9 @@ describe("oldPantryItems", () => {
       now,
     );
     expect(old).toEqual([
-      { ingredientId: "lax", name: "lax", days: 61 },
-      { ingredientId: "koriander", name: "koriander", days: 12 },
-      { ingredientId: "lime", name: "lime", days: 9 },
+      { ingredientId: "lax", name: "lax", days: 61, limit: 60 },
+      { ingredientId: "koriander", name: "koriander", days: 12, limit: 7 },
+      { ingredientId: "lime", name: "lime", days: 9, limit: 7 },
     ]);
   });
 
@@ -52,24 +52,36 @@ describe("oldPantryItems", () => {
       now,
     );
     expect(old).toEqual([
-      { ingredientId: "milk", name: "mjölk", days: 7 },
-      { ingredientId: "farce", name: "köttfärs", days: 2 },
+      { ingredientId: "milk", name: "mjölk", days: 7, limit: 7 },
+      { ingredientId: "farce", name: "köttfärs", days: 2, limit: 2 },
     ]);
   });
 
   it("a row of the same ingredient with a shorter limit makes it due", () => {
     const old = oldPantryItems([row("köttfärs", "Kyl", 2, "farce", 2), row("köttfärs", "Kyl", 1, "farce", 2)], now);
-    expect(old).toEqual([{ ingredientId: "farce", name: "köttfärs", days: 2 }]);
+    expect(old).toEqual([{ ingredientId: "farce", name: "köttfärs", days: 2, limit: 2 }]);
   });
 
   it("merges rows of one ingredient and keeps the oldest", () => {
     const old = oldPantryItems([row("lime", "Kyl", 9, "i1"), row("lime", "Frys", 70, "i1")], now);
-    expect(old).toEqual([{ ingredientId: "i1", name: "lime", days: 70 }]);
+    expect(old).toEqual([{ ingredientId: "i1", name: "lime", days: 70, limit: 60 }]);
   });
 
   it("is empty for nothing old", () => {
     expect(oldPantryItems([row("mjölk", "Kyl", 1)], now)).toEqual([]);
     expect(oldPantryItems([], now)).toEqual([]);
+  });
+});
+
+describe("byOvershoot", () => {
+  it("puts what is furthest past its limit first, then by name", () => {
+    const sorted = byOvershoot([
+      { ingredientId: "a", name: "Lax", days: 61, limit: 60 },
+      { ingredientId: "b", name: "Köttfärs", days: 1, limit: 1 },
+      { ingredientId: "c", name: "Grädde", days: 9, limit: 5 },
+      { ingredientId: "d", name: "Ägg", days: 28, limit: 28 },
+    ]);
+    expect(sorted.map((item) => item.name)).toEqual(["Grädde", "Lax", "Köttfärs", "Ägg"]);
   });
 });
 

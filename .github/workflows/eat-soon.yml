@@ -1,6 +1,6 @@
 name: Eat soon
 
-# "Ät snart": once a day around 15:00 Swedish time the app tells every household with notifications on about the
+# "Ät snart": once a day in the afternoon (about 15:00 Swedish time) the app tells every household with notifications on about the
 # food in the fridge and freezer that is due today or overdue (per ingredient shelf life). The job signs in as a
 # member of each household with the service role (in GitHub only) and calls POST /api/eat-soon/notify with that
 # member's session, as the offers job does for the ideas (scripts/eat-soon.ts; the service role never reaches the
@@ -11,10 +11,11 @@ name: Eat soon
 # the repository variable SITE_URL (public, not a secret); without it the step says so and ends well. No new secrets.
 on:
   schedule:
-    # In UTC, so one of the two lines is 15:00 in Sweden whatever the clock: 13:00 UTC is 15:00 in summer (CEST),
-    # 14:00 UTC is 15:00 in winter (CET). The step below runs only when it is 15 in Sweden, so there is one send a day.
-    - cron: "0 13 * * *"
-    - cron: "0 14 * * *"
+    # In UTC, off the full hour when scheduled runs pile up: 13:17 UTC is 15:17 in summer (CEST), 14:17 UTC is
+    # 15:17 in winter (CET). The step below runs when it is 15 or 16 in Sweden; in summer both lines qualify, and
+    # the app's daily claim (claim_eat_soon_devices) makes the second one send nothing.
+    - cron: "17 13 * * *"
+    - cron: "17 14 * * *"
   workflow_dispatch:
 
 permissions:
@@ -30,15 +31,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Is it 15:00 in Sweden?
+      - name: Is it the afternoon in Sweden?
         id: hour
         env:
           EVENT: ${{ github.event_name }}
         run: |
           hour=$(TZ=Europe/Stockholm date +%H)
-          if [ "$EVENT" = "schedule" ] && [ "$hour" != "15" ]; then
+          if [ "$EVENT" = "schedule" ] && [ "$hour" != "15" ] && [ "$hour" != "16" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Not 15:00 in Sweden (it is $hour), the other schedule line runs." >> "$GITHUB_STEP_SUMMARY"
+            echo "Not 15 or 16 in Sweden (it is $hour), the other schedule line runs." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi

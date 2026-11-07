@@ -54,7 +54,9 @@ type Coverage = {
 // tests/integration/feedback.test.ts covers both, with the same intruders.
 // Story 23.3: push_event, the queue of changes to tell about, has RLS and no policy and no grant for
 // any client; push.test.ts shows that nobody reads or writes it, and claims only their own household's.
-const coveredInFeedbackTest = ["app_owner", "feedback", "push_event"];
+// Ät snart: eat_soon_sent, the day a household was told, is the same: RLS, no policy, no grant;
+// eat-soon.test.ts shows the claim gives a household its day once and leaves other households alone.
+const coveredInFeedbackTest = ["app_owner", "feedback", "push_event", "eat_soon_sent"];
 
 // Story 21.1: the owner's allow list of invited addresses; no client reads or writes it, and the
 // functions around it answer only the owner (app-invites.test.ts tries each as owner, user and anon).
@@ -391,7 +393,7 @@ describe("household isolation", () => {
     for (const table of tables) {
       const isShared = (shared as string[]).includes(table.name);
       if (isShared) expect(table.has_household, `${table.name} has household_id`).toBe(true);
-      else if (!["household_member", "household_invite", "push_event"].includes(table.name)) {
+      else if (!["household_member", "household_invite", "push_event", "eat_soon_sent"].includes(table.name)) {
         expect(table.has_household, `${table.name} is a person's (or the app's), without household_id`).toBe(false);
       }
     }
@@ -952,7 +954,7 @@ describe("household isolation", () => {
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).
       "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
       // Ät snart: the caller's own household's devices that want the daily push (eat-soon.test.ts tries it).
-      "eat_soon_devices",
+      "claim_eat_soon_devices",
       // Pure functions of their arguments.
       "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];

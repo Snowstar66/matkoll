@@ -8,7 +8,8 @@ import { daysSinceAdded, oldLimitDays } from "./pantry-meta";
 // read it.
 
 /** An ingredient that has lain long: its catalog name and the days since the oldest row of it was added. */
-export type OldPantryItem = { ingredientId: string; name: string; days: number };
+/** `limit` is the days it keeps: `days` equal to it is "idag", above it overdue. */
+export type OldPantryItem = { ingredientId: string; name: string; days: number; limit: number };
 
 /** At most this many old items go to the model: the payload stays small. */
 export const maxOldItems = 8;
@@ -25,9 +26,14 @@ export function oldPantryItems(items: readonly Pick<PantryItem, "ingredientId" |
     const days = daysSinceAdded(item.createdAt, now);
     if (days === null || days < limit) continue;
     const known = byIngredient.get(item.ingredientId);
-    if (!known || days > known.days) byIngredient.set(item.ingredientId, { ingredientId: item.ingredientId, name: item.name, days });
+    if (!known || days > known.days) byIngredient.set(item.ingredientId, { ingredientId: item.ingredientId, name: item.name, days, limit });
   }
   return [...byIngredient.values()].sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, "sv"));
+}
+
+/** The old items furthest past their limit first, then by name: what is due today is not hidden behind items that lie far over a long limit. */
+export function byOvershoot(old: readonly OldPantryItem[]): OldPantryItem[] {
+  return [...old].sort((a, b) => b.days - b.limit - (a.days - a.limit) || a.name.localeCompare(b.name, "sv"));
 }
 
 /** The sheet "Kan lagas nu" (Story 25.2): "Grädde har legat i 6 dagar. Rätterna med den står först." */

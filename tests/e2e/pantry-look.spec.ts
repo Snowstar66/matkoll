@@ -40,7 +40,7 @@ const fridge: Seed[] = [
   { name: "Mellanmjölk", section: "Mejeri", amount: 1, unit: "l", label: "Arla laktosfri", days: 3 },
   { name: "Gräddfil", section: "Mejeri", amount: 3, unit: "dl", label: null, days: 4 },
   { name: "Ägg", section: "Mejeri", amount: 6, unit: "st", label: null, days: 0 },
-  { name: "Kycklingfilé", section: "Kött och fisk", amount: 500, unit: "g", label: null, days: 1 },
+  { name: "Kycklingfilé", section: "Kött och fisk", amount: 500, unit: "g", label: null, days: 0 },
   { name: "Senap", section: "Skafferi", amount: null, unit: null, label: "Johnny's", days: 10 },
   { name: "Gurka", section: "Frukt och grönt", amount: 1, unit: "st", label: null, days: 24 },
 ];

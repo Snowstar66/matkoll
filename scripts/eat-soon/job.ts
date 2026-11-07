@@ -33,6 +33,8 @@ export type EatSoonSummary = {
   notifications: number;
   /** Nothing was due. */
   none: number;
+  /** Today's send was made already (or no device wants it). */
+  already: number;
   /** The app could not do it (no keys, a read failed); the next day tries again. */
   unavailable: number;
   banned: number;
@@ -42,7 +44,7 @@ export type EatSoonSummary = {
 /** Runs the households one after the other. */
 export async function runEatSoonJob(deps: EatSoonDeps): Promise<EatSoonSummary> {
   const targets = await deps.listTargets();
-  const summary: EatSoonSummary = { households: targets.length, sent: 0, notifications: 0, none: 0, unavailable: 0, banned: 0, errors: 0 };
+  const summary: EatSoonSummary = { households: targets.length, sent: 0, notifications: 0, none: 0, already: 0, unavailable: 0, banned: 0, errors: 0 };
   for (const target of targets) {
     let session: EatSoonSession | null = null;
     try {
@@ -56,6 +58,7 @@ export async function runEatSoonJob(deps: EatSoonDeps): Promise<EatSoonSummary> 
         summary.sent += 1;
         summary.notifications += answer.sent;
       } else if (answer.outcome === "none") summary.none += 1;
+      else if (answer.outcome === "already") summary.already += 1;
       else {
         summary.unavailable += 1;
         deps.log("eat_soon_unavailable", { outcome: answer.outcome });

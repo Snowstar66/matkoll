@@ -22,7 +22,7 @@ export const pushPreferencesSchema = z.object({
 export const pushChoices: readonly { kind: PushPreferenceKind; label: string; hint: string }[] = [
   { kind: "lista", label: "Nya varor på listan", hint: "När någon annan lägger till något." },
   { kind: "lappar", label: "Lappar", hint: "När någon skriver en lapp till hushållet." },
-  { kind: "atsnart", label: "Ät snart", hint: "En påminnelse vid 15 när något bör ätas." },
+  { kind: "atsnart", label: "Ät snart", hint: "En påminnelse på eftermiddagen när något bör ätas." },
   { kind: "forrad", label: "Nya kort i Förråd", hint: "När någon annan fotograferar något nytt." },
   { kind: "matsedel", label: "Ändrad matsedel", hint: "När någon annan lägger till, tar bort eller flyttar en rätt." },
 ];

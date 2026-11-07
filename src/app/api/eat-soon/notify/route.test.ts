@@ -33,7 +33,7 @@ beforeEach(() => {
   setSession.mockResolvedValue({ data: { session: { user: {} } }, error: null });
   requireUser.mockResolvedValue({ ok: true, data: { id: "u", email: "a@b.se" } });
   pushConfig.mockReturnValue({ publicKey: "p", privateKey: "k", subject: "mailto:a@b.se" });
-  listHouseholdOldItems.mockResolvedValue([{ ingredientId: "i1", name: "Köttfärs", days: 2 }]);
+  listHouseholdOldItems.mockResolvedValue([{ ingredientId: "i1", name: "Köttfärs", days: 2, limit: 2 }]);
   sendEatSoonIn.mockResolvedValue({ devices: 2, sent: 2, failed: 0, dropped: 0 });
 });
 
@@ -62,7 +62,12 @@ describe("POST /api/eat-soon/notify", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, data: { outcome: "sent", due: 1, sent: 2, failed: 0, dropped: 0 } });
     expect(sendEatSoonIn).toHaveBeenCalledTimes(1);
-    expect(sendEatSoonIn.mock.calls[0][1]).toEqual(["Köttfärs"]);
+    expect(sendEatSoonIn.mock.calls[0][1]).toEqual([{ name: "Köttfärs", today: true }]);
+  });
+
+  it("answers already when today's send was made", async () => {
+    sendEatSoonIn.mockResolvedValue({ devices: 0, sent: 0, failed: 0, dropped: 0 });
+    expect(await (await POST(request(good))).json()).toEqual({ ok: true, data: { outcome: "already", due: 1, sent: 0, failed: 0, dropped: 0 } });
   });
 
   it("sends nothing when nothing is due", async () => {

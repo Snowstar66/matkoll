@@ -5,8 +5,8 @@ import type { PantryItem } from "../domain/pantry-item";
 import { PantryDataError, type PantryDb } from "./client";
 import { pantryPageSize } from "./queries";
 
-// "Ät snart" for the whole household (the daily push): the fridge and freezer
-// rows of every place, with the catalog's names and shelf life, the little the
+// "Ät snart" for the whole household (the daily push): the fridge rows of
+// every place (the freezer is left out: it would be told about every day), with the catalog's names and shelf life, the little the
 // old-item rule reads. Not summed or shown anywhere: only the set of due items
 // leaves this file (old-items.ts). Needs the signed-in member's session client;
 // RLS limits the rows to their household.
@@ -14,7 +14,7 @@ import { pantryPageSize } from "./queries";
 /** What the old-item rule reads of a row. */
 export type OldCandidate = Pick<PantryItem, "ingredientId" | "name" | "location" | "createdAt" | "keepsDays">;
 
-/** The household's Kyl and Frys rows over all places. Throws PantryDataError. */
+/** The household's Kyl rows over all places. Throws PantryDataError. */
 export async function listOldCandidatesIn(
   db: PantryDb,
   ingredientSummaries: (ids: readonly string[]) => Promise<Record<string, IngredientSummary>>,
@@ -24,7 +24,7 @@ export async function listOldCandidatesIn(
     const { data, error } = await db
       .from("pantry_item")
       .select("ingredient_id, location, created_at")
-      .in("location", ["Kyl", "Frys"])
+      .eq("location", "Kyl")
       .order("id")
       .range(from, from + pantryPageSize - 1);
     if (error) throw new PantryDataError(`query_failed ${error.code}`);

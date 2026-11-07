@@ -58,15 +58,20 @@ function eatSoonList(names: readonly string[]): string {
   return `${parts.slice(0, -1).join(", ")} och ${parts[parts.length - 1]}`;
 }
 
+/** An item the daily "Ät snart" is about: its catalog name, and whether today is its last day (it is not yet overdue). */
+export type EatSoonItem = { name: string; today: boolean };
+
 /**
  * The daily "Ät snart" notification for the household's items that are due
- * today or overdue: "Köttfärs bör användas idag", "Grädde och köttfärs bör
- * användas snart". `names` are catalog names, oldest first; none gives no
- * notification (`null`). Tapping it opens Matvaror.
+ * today or overdue: "Köttfärs bör användas idag" (one item, exactly on its
+ * last day), otherwise "Grädde och köttfärs bör användas snart". `items` are
+ * in the order they are listed; none gives no notification (`null`). Tapping
+ * it opens Matvaror.
  */
-export function eatSoonMessage(names: readonly string[], appTitle: string): PushMessage | null {
-  const list = eatSoonList(names);
+export function eatSoonMessage(items: readonly EatSoonItem[], appTitle: string): PushMessage | null {
+  const clean = items.filter((item) => item.name.trim());
+  const list = eatSoonList(clean.map((item) => item.name));
   if (!list) return null;
-  const count = names.filter((name) => name.trim()).length;
-  return { title: appTitle, body: count === 1 ? `${list} bör användas idag` : `${list} bör användas snart`, url: "/hemma", tag: "atsnart" };
+  const today = clean.length === 1 && clean[0].today;
+  return { title: appTitle, body: today ? `${list} bör användas idag` : `${list} bör användas snart`, url: "/hemma", tag: "atsnart" };
 }

@@ -36,19 +36,18 @@ describe("runEatSoonJob", () => {
     const summary = await runEatSoonJob(deps);
     expect(calls).toEqual(["u-h1", "u-h2", "u-h3", "u-h4"]);
     expect(signedOut).toEqual(calls);
-    expect(summary).toEqual({ households: 4, sent: 4, notifications: 12, none: 0, unavailable: 0, banned: 0, errors: 0 });
+    expect(summary).toEqual({ households: 4, sent: 4, notifications: 12, none: 0, already: 0, unavailable: 0, banned: 0, errors: 0 });
   });
 
-  it("counts nothing due, an app that could not, a banned member and an error apart", async () => {
+  it("counts nothing due, a day sent already, a banned member and an error apart", async () => {
     const { deps, signedOut, logs } = setup(
-      { "u-h1": { outcome: "none", due: 0, sent: 0 }, "u-h2": { outcome: "unavailable", due: 0, sent: 0 }, "u-h4": new Error("eat_soon_http_500") },
+      { "u-h1": { outcome: "none", due: 0, sent: 0 }, "u-h2": { outcome: "already", due: 1, sent: 0 }, "u-h4": new Error("eat_soon_http_500") },
       { signIn: async (userId) => (userId === "u-h3" ? null : { accessToken: `access-${userId}`, refreshToken: "r", signOut: async () => void signedOut.push(userId) }) },
     );
-    expect(await runEatSoonJob(deps)).toEqual({ households: 4, sent: 0, notifications: 0, none: 1, unavailable: 1, banned: 1, errors: 1 });
+    expect(await runEatSoonJob(deps)).toEqual({ households: 4, sent: 0, notifications: 0, none: 1, already: 1, unavailable: 0, banned: 1, errors: 1 });
     // The banned member never had a session; the others are signed out also after an error.
     expect(signedOut).toEqual(["u-h1", "u-h2", "u-h4"]);
     expect(logs).toEqual([
-      { event: "eat_soon_unavailable", fields: { outcome: "unavailable" } },
       { event: "eat_soon_error", fields: { code: "eat_soon_http_500" } },
     ]);
   });
@@ -71,7 +70,7 @@ describe("runEatSoonJob", () => {
 
   it("does nothing without households", async () => {
     const { deps, calls } = setup({}, { listTargets: async () => [] });
-    expect(await runEatSoonJob(deps)).toEqual({ households: 0, sent: 0, notifications: 0, none: 0, unavailable: 0, banned: 0, errors: 0 });
+    expect(await runEatSoonJob(deps)).toEqual({ households: 0, sent: 0, notifications: 0, none: 0, already: 0, unavailable: 0, banned: 0, errors: 0 });
     expect(calls).toEqual([]);
   });
 });

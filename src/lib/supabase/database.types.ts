@@ -121,6 +121,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"eat_soon_sent": {
+                  Row: {
+                    "day": string,"household_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "day": string,"household_id": string
+                  }
+                  Update: {
+                    "day"?: string,"household_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"feedback": {
                   Row: {
                     "app_version": string | null,"area": string | null,"body": string,"created_at": string,"digest": string | null,"id": string,"kind": string,"page": string | null,"read_at": string | null,"sender_email": string,"stars": number | null,"user_id": string
@@ -1079,6 +1093,11 @@ isOneToOne: false
 "claim_app_invite":
 { Args: { "code": string }; Returns: boolean
                            },
+"claim_eat_soon_devices":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "auth": string,"endpoint": string,"p256dh": string,"user_id": string
+            }[]
+                           },
 "claim_push_batches":
 { Args: { "max_wait"?: string,"quiet"?: string }; Returns: {
               "actor_name": string,"auth": string,"endpoint": string,"kind": string,"n": number,"note_text": string,"p256dh": string,"user_id": string
@@ -1128,11 +1147,6 @@ isOneToOne: false
                            },
 "drop_push_subscriptions":
 { Args: { "endpoints": (string)[] }; Returns: number
-                           },
-"eat_soon_devices":
-{ Args: Record<PropertyKey, never>; Returns: {
-              "auth": string,"endpoint": string,"p256dh": string,"user_id": string
-            }[]
                            },
 "empty_pantry_place":
 { Args: { "operation_id": string,"place": string,"site"?: string }; Returns: Json

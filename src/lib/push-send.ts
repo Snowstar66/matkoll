@@ -10,6 +10,7 @@ import {
   pushKinds,
   pushMaxWaitSeconds,
   type PushMessage,
+  type EatSoonItem,
   eatSoonMessage,
   pushMessageFor,
   pushQuietSeconds,
@@ -132,18 +133,19 @@ export type EatSoonResult = { devices: number; sent: number; failed: number; dro
 
 /**
  * The daily "Ät snart" (a scheduled job's request, as a member): sends one
- * notification about `names` (the household's due items) to every device of the
- * members who want it (eat_soon_devices). Nothing due, or no device, sends
- * nothing. A device the push service says is gone is removed. Not part of the
+ * notification about `items` (the household's due items) to every device of the
+ * members who want it. The household's day is claimed first
+ * (claim_eat_soon_devices): a second call the same day gets no devices, so
+ * nothing is sent twice. Nothing due sends nothing and claims nothing. A device the push service says is gone is removed. Not part of the
  * queue. Throws PushSendError. Only counts are returned.
  */
-export async function sendEatSoonIn(db: Db, names: readonly string[], send: SendPush, appTitle: string): Promise<EatSoonResult> {
-  const message = eatSoonMessage(names, appTitle);
+export async function sendEatSoonIn(db: Db, items: readonly EatSoonItem[], send: SendPush, appTitle: string): Promise<EatSoonResult> {
+  const message = eatSoonMessage(items, appTitle);
   if (!message) return { devices: 0, sent: 0, failed: 0, dropped: 0 };
-  const { data, error } = await db.rpc("eat_soon_devices");
+  const { data, error } = await db.rpc("claim_eat_soon_devices");
   if (error) throw new PushSendError(`devices_failed ${error.code}`);
   // A target carries a batch for the sender's type; this kind has none of the queue's content.
-  const batch: PushBatch = { kind: "lista", count: names.length, actorName: null, noteText: null };
+  const batch: PushBatch = { kind: "lista", count: items.length, actorName: null, noteText: null };
   const outcomes = await Promise.all(
     data.map(async (device) => ({ endpoint: device.endpoint, outcome: await send({ endpoint: device.endpoint, p256dh: device.p256dh, auth: device.auth, batch }, message) })),
   );

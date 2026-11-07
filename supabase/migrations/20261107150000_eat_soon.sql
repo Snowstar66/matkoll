@@ -14,13 +14,13 @@
 --      the values are given by this function: it backfills the existing
 --      ingredients now, and a before-insert trigger gives every new
 --      ingredient its value. A value given on insert is kept.
---   3. push_preference.atsnart (default on) and eat_soon_devices(): the
---      devices of the household's members who want the daily "Ät snart"
---      notification. The send itself is the app's (POST /api/eat-soon/notify,
+--   3. push_preference.atsnart (default on) and claim_eat_soon_devices():
+--      once a day per household it gives the devices of the members who want
+--      the daily "Ät snart" notification (table eat_soon_sent keeps the day). The send itself is the app's (POST /api/eat-soon/notify,
 --      called by a scheduled job as a member), with the same web-push sender
 --      as the other kinds. push_event (the queue) is not involved.
 --
--- Additive: one nullable column, one defaulted column, three functions.
+-- Additive: one nullable column, one defaulted column, one small table, three functions.
 
 set local lock_timeout = '5s';
 
@@ -42,8 +42,10 @@ as $$
   select (case
     -- Smoked, cured or salted fish lasts longer than fresh.
     when n ~ '(rökt|gravad|gravlax|ansjovis|surströmming|(^|[ -])sill)' then 5
-    -- Raw minced meat, poultry, fish and shellfish: two days.
-    when n ~ '(färs($|[^k])|kyckling|kalkon|fisk|lax|torsk|(^|[ -])sej|abborre|röding|räk|skaldjur|mussl|krabb|hummer)' then 2
+    -- Sauces, stock and seasoning named after meat or fish keep like pantry goods: no rule.
+    when n ~ '(sås|buljong|fond|krydda|tärning|extrakt)' then null
+    -- Raw minced meat, poultry, fish and shellfish: flagged the day after purchase.
+    when n ~ '(färs($|[^k])|kyckling|kalkon|fisk|lax|torsk|(^|[ -])sej|abborre|röding|räk|skaldjur|mussl|krabb|hummer)' then 1
     -- Other raw meat.
     when n ~ '(biff|entrecote|entrecôte|oxfilé|fläskfilé|karré|kotlett|schnitzel|lamm|högrev|revben|medaljong|(^|[ -])anka|tärnat kött|strimlat kött)' then 3
     -- Cold cuts and sausages (opened packs keep a few days).
@@ -73,7 +75,8 @@ revoke all on function public.ingredient_keeps_days(text) from public, anon, aut
 grant execute on function public.ingredient_keeps_days(text) to authenticated, service_role;
 
 -- The ingredients that exist now.
-update public.ingredient set keeps_days = public.ingredient_keeps_days(normalized_name) where keeps_days is null;
+update public.ingredient set keeps_days = public.ingredient_keeps_days(normalized_name)
+where keeps_days is null and public.ingredient_keeps_days(normalized_name) is not null;
 
 -- New ingredients get their value when they are created; one that is given a
 -- value on insert keeps it.
@@ -101,20 +104,44 @@ alter table public.push_preference add column atsnart boolean not null default t
 grant insert (atsnart) on table public.push_preference to authenticated;
 grant update (atsnart) on table public.push_preference to authenticated;
 
--- The devices of the caller's household's members who want "Ät snart" (no
--- choice made means yes). Read for the daily send; push_subscription is
--- otherwise a person's own.
-create function public.eat_soon_devices()
+-- One send per household and day: the claim below inserts the day, and only
+-- the call that inserted it gets the devices. No policy and no grants: only
+-- the function touches it. No foreign key, so removing a household never
+-- waits on it.
+create table public.eat_soon_sent (
+  household_id uuid not null,
+  day date not null,
+  constraint eat_soon_sent_pkey primary key (household_id, day)
+);
+
+alter table public.eat_soon_sent enable row level security;
+revoke all on table public.eat_soon_sent from public, anon, authenticated, service_role;
+
+-- The daily claim, as a member of the household: takes today's (Swedish day)
+-- send for the caller's household, and gives the devices of the members who
+-- want "Ät snart" (no choice made means yes). A second call the same day gives
+-- nothing, so the push cannot be repeated and the devices cannot be read at
+-- will. push_subscription is otherwise a person's own. Rows older than a week
+-- are cleared on the way.
+create function public.claim_eat_soon_devices()
 returns table (user_id uuid, endpoint text, p256dh text, auth text)
 language plpgsql
-stable
+volatile
 security definer
 set search_path = ''
 as $$
 declare
   hid uuid := public.my_household_id();
+  today date := (now() at time zone 'Europe/Stockholm')::date;
+  claimed integer;
 begin
   if hid is null then
+    return;
+  end if;
+  delete from public.eat_soon_sent as e where e.day < today - 7;
+  insert into public.eat_soon_sent (household_id, day) values (hid, today) on conflict do nothing;
+  get diagnostics claimed = row_count;
+  if claimed = 0 then
     return;
   end if;
   return query
@@ -126,5 +153,5 @@ begin
 end;
 $$;
 
-revoke all on function public.eat_soon_devices() from public, anon, authenticated, service_role;
-grant execute on function public.eat_soon_devices() to authenticated;
+revoke all on function public.claim_eat_soon_devices() from public, anon, authenticated, service_role;
+grant execute on function public.claim_eat_soon_devices() to authenticated;
