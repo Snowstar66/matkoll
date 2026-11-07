@@ -94,7 +94,7 @@ export function cardViewMeta(card: Pick<CardView, "room" | "part" | "takenAt"> &
 /** The line under the photo when nothing is marked: how to mark, or how to look one up on a card without boxes. */
 export function cardHintText(things: readonly Pick<CardThing, "box">[]): string {
   return things.some((thing) => thing.box !== null)
-    ? `Tryck på ${thingNoun.indefinite} eller en ruta för att markera det.`
+    ? `Tryck på ${thingNoun.indefinite} eller en siffra på fotot för att markera det.`
     : `Tryck på ${thingNoun.indefinite} för att leta upp det på bilden.`;
 }
 
@@ -108,21 +108,58 @@ export const notFoundOnCardText = "Kunde inte peka ut den på bilden.";
 export const cardReadingText = "Kortet läses fortfarande.";
 export const cardFailedViewText = "Kortet kunde inte läsas. Försök igen från rummet.";
 
+/** A föremål's dot on the photo: its number and the middle of its box, in percent of the photo. */
+export type ThingDot = { id: string; number: number; left: number; top: number };
+
 /**
- * The föremål whose box contains the point (0 to 1), the smallest one when
- * boxes overlap (a thing on a shelf is inside the shelf's box), or `null`.
+ * The dots of the föremål that have a box: numbered 1..n in the list's order
+ * (a föremål without a box has no number), at the middle of the box (far more
+ * forgiving than its edges when the model's box is a little off).
  */
-export function thingAtPoint<T extends Pick<CardThing, "box">>(things: readonly T[], x: number, y: number): T | null {
-  let best: T | null = null;
-  let bestArea = Infinity;
+export function thingDots(things: readonly Pick<CardThing, "id" | "box">[]): ThingDot[] {
+  const dots: ThingDot[] = [];
   for (const thing of things) {
-    const box = thing.box;
-    if (!box || x < box.left || x > box.left + box.width || y < box.top || y > box.top + box.height) continue;
-    const area = box.width * box.height;
-    if (area < bestArea) {
-      best = thing;
-      bestArea = area;
+    if (!thing.box) continue;
+    dots.push({
+      id: thing.id,
+      number: dots.length + 1,
+      left: (thing.box.left + thing.box.width / 2) * 100,
+      top: (thing.box.top + thing.box.height / 2) * 100,
+    });
+  }
+  return dots;
+}
+
+/** How near a tap on the photo must be to a dot (px) to mark it: a finger's width. */
+export const dotTapRadius = 30;
+
+/**
+ * The dot nearest to a tap at `x`, `y` (0 to 1 of the photo) on a photo shown
+ * `size` px large, when it is within `radius` px; the first one on a tie. `null`
+ * when none is near.
+ */
+export function dotNearPoint<T extends Pick<ThingDot, "left" | "top">>(
+  dots: readonly T[],
+  x: number,
+  y: number,
+  size: { width: number; height: number },
+  radius = dotTapRadius,
+): T | null {
+  let best: T | null = null;
+  let bestDistance = radius;
+  for (const dot of dots) {
+    const distance = Math.hypot((dot.left / 100 - x) * size.width, (dot.top / 100 - y) * size.height);
+    if (distance <= bestDistance && (best === null || distance < bestDistance)) {
+      best = dot;
+      bestDistance = distance;
     }
   }
   return best;
+}
+
+/** The soft spotlight round a marked föremål, in px: from its box's smaller side, never smaller than 44 or larger than 110. */
+export function spotlightRadius(box: NonNullable<CardThing["box"]>, size: { width: number; height: number } | null): number {
+  if (!size) return 64;
+  const side = Math.min(box.width * size.width, box.height * size.height);
+  return Math.round(Math.min(110, Math.max(44, side * 0.75)));
 }

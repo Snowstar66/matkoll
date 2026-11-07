@@ -7,7 +7,9 @@ import {
   cardViewMeta,
   cardViewTitle,
   markedText,
-  thingAtPoint,
+  dotNearPoint,
+  spotlightRadius,
+  thingDots,
   thingBoxSchema,
 } from "./thing-card";
 
@@ -56,19 +58,43 @@ describe("the big view of a card (Story 18.7)", () => {
   });
 
   it("says how to mark, or how to look one up when the card has no boxes, and what is marked", () => {
-    expect(cardHintText([{ box: null }, { box: { left: 0, top: 0, width: 0.1, height: 0.1 } }])).toBe("Tryck på ett föremål eller en ruta för att markera det.");
+    expect(cardHintText([{ box: null }, { box: { left: 0, top: 0, width: 0.1, height: 0.1 } }])).toBe("Tryck på ett föremål eller en siffra på fotot för att markera det.");
     expect(cardHintText([{ box: null }])).toBe("Tryck på ett föremål för att leta upp det på bilden.");
     expect(markedText({ name: "Hammare", whereHint: "på väggen, mitten" })).toBe("Hammare · på väggen, mitten");
     expect(markedText({ name: "Hammare", whereHint: null })).toBe("Hammare");
   });
 
-  it("finds the föremål under a tap, the smallest when boxes overlap", () => {
+  it("numbers the föremål that have a box in the list's order, with the dot at the middle of the box", () => {
     const shelf = { id: "shelf", box: { left: 0.1, top: 0.1, width: 0.8, height: 0.5 } };
     const hammer = { id: "hammer", box: { left: 0.2, top: 0.2, width: 0.1, height: 0.1 } };
     const none = { id: "none", box: null };
-    const things = [none, shelf, hammer];
-    expect(thingAtPoint(things, 0.25, 0.25)?.id).toBe("hammer");
-    expect(thingAtPoint(things, 0.5, 0.5)?.id).toBe("shelf");
-    expect(thingAtPoint(things, 0.95, 0.95)).toBeNull();
+    const dots = thingDots([none, shelf, hammer]);
+    expect(dots.map((dot) => [dot.id, dot.number])).toEqual([["shelf", 1], ["hammer", 2]]);
+    expect(dots[0].left).toBeCloseTo(50);
+    expect(dots[0].top).toBeCloseTo(35);
+    expect(dots[1].left).toBeCloseTo(25);
+  });
+
+  it("finds the dot nearest to a tap within a finger's width, and none when it is far", () => {
+    const size = { width: 400, height: 300 };
+    const dots = [
+      { id: "a", number: 1, left: 25, top: 25 },
+      { id: "b", number: 2, left: 30, top: 25 },
+    ];
+    // 25 % of 400 px = 100 px; b is 20 px to the right of a.
+    expect(dotNearPoint(dots, 0.26, 0.25, size)?.id).toBe("a");
+    expect(dotNearPoint(dots, 0.29, 0.25, size)?.id).toBe("b");
+    expect(dotNearPoint(dots, 0.25, 0.25 + 29 / 300, size)?.id).toBe("a");
+    expect(dotNearPoint(dots, 0.25, 0.25 + 40 / 300, size)).toBeNull();
+    expect(dotNearPoint(dots, 0.9, 0.9, size)).toBeNull();
+    expect(dotNearPoint([], 0.5, 0.5, size)).toBeNull();
+  });
+
+  it("sizes the spotlight from the box's smaller side, within 44 and 110 px", () => {
+    const size = { width: 400, height: 300 };
+    expect(spotlightRadius({ left: 0, top: 0, width: 0.5, height: 0.2 }, size)).toBe(45);
+    expect(spotlightRadius({ left: 0, top: 0, width: 0.01, height: 0.01 }, size)).toBe(44);
+    expect(spotlightRadius({ left: 0, top: 0, width: 1, height: 1 }, size)).toBe(110);
+    expect(spotlightRadius({ left: 0, top: 0, width: 0.5, height: 0.5 }, null)).toBe(64);
   });
 });
