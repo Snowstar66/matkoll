@@ -105,6 +105,7 @@ export function OfferDishesCard({
             testId="offer-dish"
             title={option.title}
             imageUrl={option.imageUrl}
+            dish={option.dish}
             meta=""
             deal={option.deal?.text ?? null}
             onWeekLabel={option.id in placed ? onWeekLabel(placed[option.id]) : undefined}

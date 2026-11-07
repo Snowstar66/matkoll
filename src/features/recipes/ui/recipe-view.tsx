@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
+import { dishKind } from "@/lib/dish-kind";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
-import { offerSavedText } from "../domain/dish-emoji";
+import { offerSavedText } from "../domain/offer-saved";
 import type { LineOffer } from "../domain/line-status";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
@@ -94,7 +95,12 @@ export function RecipeView({
       </div>
 
       <header className="flex items-center gap-3.5">
-        <RecipeImage src={recipe.imageUrl} title={recipe.title} iconSize={36} className="size-[72px] shrink-0 rounded-lg" />
+        <RecipeImage
+          src={recipe.imageUrl}
+          dish={dishKind(recipe.title, recipe.lines.map((line) => line.originalText))}
+          artSize={56}
+          className="size-[72px] shrink-0 rounded-lg"
+        />
         <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="min-w-0 text-recipe-title wrap-break-word text-ink">{recipe.title}</h1>
         {/* UX-12: the source is shown only when it is a link; "Inklistrad text" is not something to press. */}

@@ -112,9 +112,11 @@ describe("RecipeView", () => {
     expect(screen.getByRole("link", { name: /^koket\.se/ })).toHaveAttribute("href", recipe.sourceUrl);
   });
 
-  it("shows a thumbnail tile with the dish emoji on mint, and the line for a recipe saved from the offers", () => {
+  it("shows a thumbnail tile with a drawing of the dish, and the line for a recipe saved from the offers", () => {
     render(<RecipeView recipe={{ ...recipe, offerNames: ["Falukorv", "Grädde"] }} snapshot={allHome} />);
-    expect(screen.getByTestId("recipe-illustration")).toBeInTheDocument();
+    // UX-13b: "Krämig kycklinggryta" is drawn as a pot on the clay plate.
+    expect(screen.getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "gryta");
+    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-tile-clay");
     expect(screen.getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     expect(screen.getByTestId("recipe-offers")).toHaveTextContent("Sparad från veckans erbjudanden: Falukorv, Grädde");
   });

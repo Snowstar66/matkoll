@@ -56,7 +56,8 @@ De gemensamma byggstenarna ligger i `src/components/` och följer Component Patt
 | `SwipeRow` (svep vänster visar en åtgärd, t.ex. "Ta bort"; nås också med Tab) | `swipe-row.tsx` |
 | `IngredientPicker` (sök i katalogen, "Lägg till … som ny"; Byt ingrediens i recept, arket Lagervara) | `ingredient-picker.tsx` |
 | `Notice`, `ToastProvider`/`useToast`, `Skeleton` (efter 300 ms), `EmptyState` | `notice.tsx`, `toast.tsx`, `skeleton.tsx`, `empty-state.tsx` |
-| `RecipeImage` (receptets bild utan referrer, platshållare utan bild; receptrad, receptvy, matsedelsrätt) | `recipe-image.tsx` |
+| `RecipeImage` (receptets bild utan referrer, annars en tecknad rätt; receptrad, receptvy, matsedelsrätt) | `recipe-image.tsx` |
+| `DishArt` (tecknad rätt i två färger, UX-13b; sorten väljs av `dishKind` i `src/lib/dish-kind.ts`) | `dish-art.tsx`, `dish-drawings.ts` |
 | `CategoryHeader` (kategorirubrik: platta med emoji, `h2`, antal som läses "3 varor"; kartan kategori → ikon och platta finns bara här) | `category-header.tsx` |
 | `ListGroup` (vitt kort som lista, avdelare i `hairline`) och `ListRow` (minst 56 px, namnet och raden under med "…", kontroll till vänster och höger, `onPress` eller `href`) | `list-group.tsx`, `list-row.tsx` |
 | `TrashButton` (grå soptunna, 44 × 44 px, tar bort direkt, ett andra tryck inom 400 ms räknas inte), `focusAfterRemoval` (fokus till nästa soptunna efter en borttagning) och `Meter` (mätare 0–1, `default` eller `small`, `aria-hidden`) | `trash-button.tsx`, `meter.tsx` |

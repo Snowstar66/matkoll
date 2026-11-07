@@ -47,6 +47,8 @@ const libraryItem = {
   ...Object.fromEntries(Object.entries(libraryRow).filter(([key]) => key !== "lines")),
   // Pasta, from the title, and Snabbt, from the 20 minutes.
   categories: ["vegetarian", "pasta", "quick"],
+  // Drawn as a bowl of pasta (UX-13b).
+  dish: "pasta",
 };
 
 let log: ReturnType<typeof vi.spyOn>;
