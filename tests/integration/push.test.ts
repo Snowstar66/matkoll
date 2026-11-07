@@ -58,14 +58,14 @@ describe("devices and choices", () => {
   it("are a person's own: the household's other members and other households see none", async () => {
     const mine = device("a");
     await saveSubscriptionIn(a.db, mine);
-    await savePreferencesIn(a.db, { lista: false, forrad: true, matsedel: true, lappar: false });
+    await savePreferencesIn(a.db, { lista: false, forrad: true, matsedel: true, lappar: false, atsnart: true });
     expect((await a2.db.from("push_subscription").select("id")).data).toEqual([]);
     expect((await b.db.from("push_subscription").select("id")).data).toEqual([]);
-    expect(await loadPreferencesIn(a.db)).toEqual({ lista: false, forrad: true, matsedel: true, lappar: false });
-    expect(await loadPreferencesIn(a2.db), "a2 has made no choice: the defaults").toEqual({ lista: true, forrad: false, matsedel: false, lappar: true });
+    expect(await loadPreferencesIn(a.db)).toEqual({ lista: false, forrad: true, matsedel: true, lappar: false, atsnart: true });
+    expect(await loadPreferencesIn(a2.db), "a2 has made no choice: the defaults").toEqual({ lista: true, forrad: false, matsedel: false, lappar: true, atsnart: true });
     expect((await anonClient().from("push_subscription").select("id")).error?.code).toBe("42501");
     // Saving the choices twice changes the one row.
-    await savePreferencesIn(a.db, { lista: true, forrad: true, matsedel: false, lappar: true });
+    await savePreferencesIn(a.db, { lista: true, forrad: true, matsedel: false, lappar: true, atsnart: true });
     expect((await adminClient().from("push_preference").select("id").eq("user_id", a.id)).data).toHaveLength(1);
   });
 
@@ -218,7 +218,7 @@ describe("claim_push_batches", () => {
     ]);
     const byDefault = await claimBatchesIn(a.db, quiet, maxWait);
     expect(byDefault.map((target) => target.batch.kind).sort()).toEqual(["lappar", "lista"]);
-    await savePreferencesIn(a2.db, { lista: false, forrad: true, matsedel: true, lappar: false });
+    await savePreferencesIn(a2.db, { lista: false, forrad: true, matsedel: true, lappar: false, atsnart: true });
     await adminClient().from("push_event").insert([
       { household_id: householdA, kind: "lista", actor_id: a.id },
       { household_id: householdA, kind: "forrad", actor_id: a.id },
