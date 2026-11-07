@@ -16,7 +16,9 @@ export type Database = {
                   Update: {
                     "daily_cap_sek"?: number,"id"?: boolean,"updated_at"?: string,"updated_by"?: string | null
                   }
-                  Relationships: []
+                  Relationships: [
+                    
+                  ]
                 },"ai_job": {
                   Row: {
                     "client_key": string,"context": NonNullable<Json>,"created_at": string,"error_code": string | null,"expires_at": string,"finished_at": string | null,"household_id": string,"id": string,"kind": string,"result": Json | null,"seen_at": string | null,"started_at": string | null,"status": string,"user_id": string | null
@@ -1025,6 +1027,9 @@ isOneToOne: false
                            },
 "ai_day_start":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"ai_household_exempt":
+{ Args: { "hid": string }; Returns: boolean
                            },
 "ai_job_expire":
 { Args: Record<PropertyKey, never>; Returns: undefined
