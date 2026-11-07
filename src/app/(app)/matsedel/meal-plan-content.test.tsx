@@ -15,6 +15,7 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/mealplan/server")>()),
   getMealPlanView: vi.fn(),
   getWeekCounts: vi.fn(async () => ({})),
+  resolveViewedWeek: vi.fn(async (vecka: string | null | undefined) => (await import("@/features/mealplan")).viewedWeek(vecka)),
   addToCurrentPlan: vi.fn(),
 }));
 vi.mock("@/features/suggestions/server", () => ({
@@ -101,12 +102,12 @@ describe("MealPlanContent", () => {
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
   });
 
-  it("puts Erbjudanden in the header, returning to Matsedel after sign-in, and no + for a sheet or suggestions panel", async () => {
+  it("puts Erbjudanden and the + Lägg till rätt in the header, returning to Matsedel after sign-in", async () => {
     vi.mocked(getMealPlanView).mockResolvedValue(view);
     await show();
     const header = within(screen.getByRole("banner"));
     expect(header.getByRole("button", { name: "Erbjudanden" })).toHaveAttribute("data-next", "/matsedel");
-    expect(header.queryByRole("button", { name: "Lägg till rätt" })).not.toBeInTheDocument();
+    expect(header.getByRole("button", { name: "Lägg till rätt" })).toBeInTheDocument();
     expect(screen.queryByTestId("suggestions-from-offers")).not.toBeInTheDocument();
   });
 

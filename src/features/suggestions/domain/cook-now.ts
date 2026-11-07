@@ -1,6 +1,7 @@
 import { nameInSentence } from "@/features/catalog";
 import { noStaples, recipeStatus, type PantrySnapshot, type StapleRules } from "@/features/pantry";
 import type { RecipeListRow } from "@/features/recipes";
+import { dishKind, type DishKind } from "@/lib/dish-kind";
 
 // "Vad kan jag laga nu?" (Story 25.2): the library recipes that can be cooked
 // with what is at home ("Dina recept": nothing missing beyond Basvaror) and
@@ -18,6 +19,8 @@ export type CookNowRecipe = {
   id: string;
   title: string;
   imageUrl: string | null;
+  /** UX-13b: the kind of dish drawn when there is no photo; from the title when left out. */
+  dish?: DishKind;
   totalMinutes: number | null;
   servings: number;
   /** The catalog names (in lower case) of the recipe's ingredients, each once, as "Använder …" lists them. */
@@ -70,7 +73,15 @@ export function cookNowLists(
       const uses = [...new Set(used.flatMap((id) => inSentence(id) ?? []))].slice(0, maxUsesNames);
       const ranks = used.map((id) => oldIds.indexOf(id)).filter((index) => index >= 0);
       own.push({
-        recipe: { id: row.id, title: row.title, imageUrl: row.imageUrl, totalMinutes: row.totalMinutes, servings: row.originalServings, uses },
+        recipe: {
+          id: row.id,
+          title: row.title,
+          imageUrl: row.imageUrl,
+          dish: dishKind(row.title, row.lines.map((line) => line.originalText)),
+          totalMinutes: row.totalMinutes,
+          servings: row.originalServings,
+          uses,
+        },
         rank: ranks.length > 0 ? Math.min(...ranks) : Infinity,
       });
     } else if (status.missingCount === 1) {

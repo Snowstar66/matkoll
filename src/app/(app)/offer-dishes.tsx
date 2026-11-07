@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { copyTargets, weekNumber } from "@/features/mealplan";
-import { addToCurrentPlan, getMealPlanView, MealPlanDataError } from "@/features/mealplan/server";
+import { copyTargets, currentWeekStart, weekNumber, weeksBetween } from "@/features/mealplan";
+import { addToCurrentPlan, getMealPlanView, getRememberedWeek, MealPlanDataError } from "@/features/mealplan/server";
 import { CatalogDataError, searchIngredients } from "@/features/catalog/server";
 import { OffersDataError } from "@/features/offers/server";
 import { RecipeDataError } from "@/features/recipes/server";
@@ -26,8 +26,12 @@ const maxOfferDishes = 3;
  */
 export async function loadOfferDishes(offers: readonly StoreOffer[] = []): Promise<ReactNode> {
   try {
-    // This week and the next two (the week picker), each with the dishes already on it.
-    const targets = copyTargets();
+    // This week and the next two, and the week last viewed when that is further ahead (UX-04), each with the dishes already on it.
+    const remembered = await getRememberedWeek();
+    const base = copyTargets().map((target) => ({ weekStart: target.weekStart, offset: target.offset }));
+    const targets = base.some((target) => target.weekStart === remembered)
+      ? base
+      : [...base, { weekStart: remembered, offset: weeksBetween(currentWeekStart(), remembered) }];
     const [options, ...views] = await Promise.all([weekPlanOptions(), ...targets.map((target) => getMealPlanView(target.weekStart))]);
     const dishes = optionsForTab(options, "offers").slice(0, maxOfferDishes);
     const weeks: OfferWeek[] = targets.map((target, index) => {
@@ -48,6 +52,7 @@ export async function loadOfferDishes(offers: readonly StoreOffer[] = []): Promi
       <OfferDishesCard
         dishes={dishes}
         weeks={weeks}
+        defaultWeekStart={remembered}
         addToWeek={addToCurrentPlan}
         searchIngredients={searchIngredients}
         ideas={ideas}

@@ -14,6 +14,7 @@ import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import type { ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { maxOfferIdeas, pollSetMs, type OfferIdea, type OfferIdeasView } from "@/features/suggestions";
+import { dishKind } from "@/lib/dish-kind";
 import { errorMessages, type Result } from "@/lib/errors";
 import { uniqueTags, type OfferTagData } from "@/lib/offer-tag";
 
@@ -195,7 +196,16 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
       {view.state === "ready" && ideas.length > 0 ? (
         <ListGroup label="Nya idéer">
           {ideas.map((idea) => (
-            <PlanRow key={idea.recipeId} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} tags={ideaTags(idea, tagsByLabel)}>
+            <PlanRow
+              key={idea.recipeId}
+              testId="ai-option"
+              title={idea.draft.title}
+              imageUrl={null}
+              dish={dishKind(idea.draft.title, idea.draft.lines.map((line) => line.originalText))}
+              meta={ideaMeta(idea)}
+              note={idea.why || null}
+              tags={ideaTags(idea, tagsByLabel)}
+            >
               <button
                 type="button"
                 onClick={() =>

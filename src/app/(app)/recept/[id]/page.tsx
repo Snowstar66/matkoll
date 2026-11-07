@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { copyTargets, weekNumber, type MealPlan } from "@/features/mealplan";
-import { addToCurrentPlan, getCurrentPlan, getPlanForWeek, setWeekday } from "@/features/mealplan/server";
+import { copyTargets, currentWeekStart, weekNumber, weeksBetween, type MealPlan } from "@/features/mealplan";
+import { addToCurrentPlan, getCurrentPlan, getPlanForWeek, getRememberedWeek, removePlanRecipe } from "@/features/mealplan/server";
 import { getActiveOffers } from "@/features/offers/server";
 import { lineOffers, type LineOffer } from "@/features/recipes";
 import { listStores } from "@/features/settings/server";
@@ -78,17 +78,25 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
-  // The three weeks the recipe can be planned for, with its dish on each (the week picker).
+  // The weeks the recipe can be planned for, with its dish on each: the three coming ones and the week last
+  // viewed on Matsedel or Inköpslista when that is further ahead (UX-04, UX-05).
+  const remembered = await getRememberedWeek();
   const targets = copyTargets();
-  const [plan, ...comingPlans] = await Promise.all(
-    targets.map((target) => (target.offset === 0 ? getCurrentPlan() : getPlanForWeek(target.weekStart)).catch((): MealPlan | null => null)),
+  const rememberedTarget = targets.some((target) => target.weekStart === remembered)
+    ? []
+    : [{ weekStart: remembered, offset: weeksBetween(currentWeekStart(), remembered) }];
+  const planWeeks = [...targets.map((target) => ({ weekStart: target.weekStart, offset: target.offset })), ...rememberedTarget];
+  const [plan, ...otherPlans] = await Promise.all(
+    planWeeks.map((target) => (target.offset === 0 ? getCurrentPlan() : getPlanForWeek(target.weekStart)).catch((): MealPlan | null => null)),
   );
-  const weeks: RecipeWeek[] = targets.map((target, index) => {
-    const found = (index === 0 ? plan : comingPlans[index - 1])?.recipes.find((candidate) => candidate.recipeId === recipe.id);
+  const weeks: RecipeWeek[] = planWeeks.map((target, index) => {
+    const weekPlan = index === 0 ? plan : otherPlans[index - 1];
+    const found = weekPlan?.recipes.find((candidate) => candidate.recipeId === recipe.id && !candidate.cookedAt);
     return {
       weekStart: target.weekStart,
       offset: target.offset,
       number: weekNumber(target.weekStart),
+      count: weekPlan?.recipes.length ?? 0,
       dish: found ? { id: found.id, weekday: found.weekday ?? null } : null,
     };
   });
@@ -109,9 +117,10 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       offers={offers}
       listedIds={listedIds}
       weeks={weeks}
+      defaultWeekStart={remembered}
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
-      setWeekday={setWeekday}
+      removeFromPlan={removePlanRecipe}
       finish={
         dish ? (
           <MarkCookedButton

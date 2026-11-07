@@ -73,10 +73,9 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await openSavedImport(page, title);
   await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
 
-  // Put it on the meal plan. The page plans for next week at first; Lista below is this week's.
-  await page.getByTestId("recipe-week-option").filter({ hasText: "Denna vecka" }).click();
+  // Put it on the meal plan, with no week to pick: it goes on the week last viewed, this week here, which Lista below shows.
   await page.getByRole("button", { name: "Lägg på matsedeln" }).filter({ visible: true }).click();
-  await expect(toast(page)).toContainText(/ på (måndag|tisdag|onsdag|torsdag|fredag|lördag|söndag|veckan)\./);
+  await expect(toast(page)).toContainText(/Lagd på matsedeln v\. \d+\./);
 
   // Lista: check one line off and put it in the pantry.
   await tab(page, "Inköpslista").click();

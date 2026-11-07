@@ -968,8 +968,6 @@ describe("the filter Egna / Till rätter", () => {
     expect(screen.getByRole("button", { name: "Egna 0" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryAllByTestId("shopping-line")).toHaveLength(0);
     expect(screen.getByText("Inga egna varor den här veckan.")).toBeInTheDocument();
-    // The + is still there.
-    expect(screen.getByTestId("add-item-fab")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Egna 0" }));
     expect(screen.queryByText("Inga egna varor den här veckan.")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("shopping-line")).toHaveLength(6);

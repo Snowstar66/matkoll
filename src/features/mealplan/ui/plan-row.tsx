@@ -3,15 +3,18 @@ import { PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
 import { RecipeImage } from "@/components/recipe-image";
 import type { OfferTagData } from "@/lib/offer-tag";
+import type { DishKind } from "@/lib/dish-kind";
 
 // A compact row of "Lägg till rätter" (Story 25.3): a 44 px picture (the
-// recipe's own photo, else the quiet tile, never an emoji), the title, a line
+// recipe's own photo, else a drawing of the dish, UX-13b), the title, a line
 // with what is known about the dish, the offer line, and "+" or its day.
 
 export type PlanRowProps = {
   title: string;
-  /** The recipe's own photo, or `null` for the quiet tile. */
+  /** The recipe's own photo, or `null` for a drawing of the dish. */
   imageUrl: string | null;
+  /** UX-13b: the kind of dish drawn without a photo; from the title when left out. */
+  dish?: DishKind;
   /** "Favorit · lagad 6 gånger". */
   meta: string;
   /** A short thought under the title, e.g. why an AI idea is a good one. */
@@ -30,10 +33,10 @@ export type PlanRowProps = {
   testId?: string;
 };
 
-export function PlanRow({ title, imageUrl, meta, note, tags, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
+export function PlanRow({ title, imageUrl, dish, meta, note, tags, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
-      <RecipeImage src={imageUrl} title={title} iconSize={26} className="size-11 shrink-0 rounded-[10px]" />
+      <RecipeImage src={imageUrl} dish={dish} title={title} artSize={36} className="size-11 shrink-0 rounded-[10px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{title}</p>
         {meta ? <p className="text-meta text-ink-2">{meta}</p> : null}

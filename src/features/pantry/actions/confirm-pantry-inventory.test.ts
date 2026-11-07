@@ -89,7 +89,7 @@ describe("confirmPantryInventory", () => {
   it("commits the ingredients, then replaces, removes and sets in one write, and revalidates", async () => {
     const result = await confirmPantryInventory(input());
     expect(result).toEqual(
-      ok({ set: 2, removed: [removedRow], removedCount: 1, undoable: 1, setIngredientIds: [mjolk, agg], operationId: operation }),
+      ok({ set: 2, removed: [removedRow], removedCount: 1, undoable: 1, setIngredientIds: [mjolk, agg], setRows: expect.any(Array), operationId: operation }),
     );
     expect(commitIngredients).toHaveBeenCalledWith([
       { text: "", ingredient: { kind: "match", ingredientId: mjolk, confidence: "exact" } },
@@ -117,7 +117,7 @@ describe("confirmPantryInventory", () => {
   it("removes without asking the catalog when there are only removals", async () => {
     const result = await confirmPantryInventory(input({ items: [], replaceRowIds: [] }));
     expect(result).toEqual(
-      ok({ set: 0, removed: [removedRow], removedCount: 1, undoable: 1, setIngredientIds: [], operationId: operation }),
+      ok({ set: 0, removed: [removedRow], removedCount: 1, undoable: 1, setIngredientIds: [], setRows: expect.any(Array), operationId: operation }),
     );
     expect(commitIngredients).not.toHaveBeenCalled();
     expect(applyPantryInventoryIn).toHaveBeenCalledWith(db, {
@@ -212,7 +212,7 @@ describe("confirmPantryInventory", () => {
       unreadable: false,
     });
     expect(await confirmPantryInventory(input({ items: [] }))).toEqual(
-      ok({ set: 0, removed: [], removedCount: 0, undoable: 0, setIngredientIds: [], operationId: operation }),
+      ok({ set: 0, removed: [], removedCount: 0, undoable: 0, setIngredientIds: [], setRows: expect.any(Array), operationId: operation }),
     );
     expect(console.info).toHaveBeenCalledWith("pantry_inventory_skipped", { requested: 1, removed: 0 });
     expect(console.info).toHaveBeenCalledWith("pantry_inventory_replace_skipped", { requested: 1, replaced: 0 });

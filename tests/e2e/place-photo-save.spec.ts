@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import {
   addOnly,
+  confirmInSheet,
   adminClient,
   e2eUserId,
   notAnItem,
@@ -162,7 +163,8 @@ async function rejectAll(page: Page) {
 }
 
 async function confirm(page: Page, name: string) {
-  await addOnly(section(page), [name]);
+  // One row alone, from its sheet: Lägg till N varor would close the whole review (UX-08).
+  await confirmInSheet(page, section(page), name);
   await expect(toast(page)).toContainText(`${name} är sparad i kylen.`);
 }
 

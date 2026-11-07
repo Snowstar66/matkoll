@@ -7,6 +7,7 @@ import {
   type StapleRules,
   type StatusLine,
 } from "@/features/pantry";
+import { dishKind, type DishKind } from "@/lib/dish-kind";
 import { recipeCategories, type RecipeCategory } from "./recipe-category";
 
 // The recipe library (FR-8, FR-9, FR-22): what a recipe row shows, the search
@@ -36,6 +37,8 @@ export type RecipeListItem = {
   missingNames?: readonly string[];
   /** Story 1.17: worked out from the title, the lines and the time (recipeCategories); none when not given. */
   categories?: readonly RecipeCategory[];
+  /** UX-13b: the kind of dish drawn when the recipe has no photo (dishKind of the title and the lines); from the title when not given. */
+  dish?: DishKind;
 };
 
 /**
@@ -61,16 +64,15 @@ export function withStatus(
   staples: StapleRules = noStaples,
 ): RecipeListItem[] {
   return rows.map(({ lines, ...row }) => {
-    const categories = recipeCategories({
-      title: row.title,
-      ingredients: lines.map((line) => line.originalText),
-      totalMinutes: row.totalMinutes,
-    });
-    if (!snapshot) return { ...row, categories, missingCount: null };
+    const ingredients = lines.map((line) => line.originalText);
+    const categories = recipeCategories({ title: row.title, ingredients, totalMinutes: row.totalMinutes });
+    const dish = dishKind(row.title, ingredients);
+    if (!snapshot) return { ...row, categories, dish, missingCount: null };
     const status = recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot, staples);
     return {
       ...row,
       categories,
+      dish,
       missingCount: status.missingCount,
       missingNames: status.missingIngredientIds.flatMap((id) => (names[id] ? [names[id]] : [])),
     };

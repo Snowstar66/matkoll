@@ -18,17 +18,17 @@ beforeEach(() => {
 
 describe("Lägg till rum", () => {
   it("asks for the room's name in a sheet, with the field focused", async () => {
-    render(<NewRoom siteId={site} />);
+    render(<NewRoom siteId={site} variant="icon" />);
     await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
     expect(screen.getByRole("dialog", { name: "Lägg till rum" })).toBeInTheDocument();
     expect(screen.getByLabelText("Namn på rummet")).toHaveFocus();
     expect(screen.getByText("Sedan fotar du rummet, en hylla eller en låda där.")).toBeInTheDocument();
-    expect(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till rum" })).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till" })).toBeInTheDocument();
   });
 
   it("makes the room as a whole-room place and opens its page", async () => {
     ensureCapturePlace.mockResolvedValue(ok({ placeId: "p1" }));
-    render(<NewRoom siteId={site} />);
+    render(<NewRoom siteId={site} variant="icon" />);
     await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
     await userEvent.type(screen.getByLabelText("Namn på rummet"), "Vinden{Enter}");
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/prylar/rum/${site}/vinden`));
@@ -37,9 +37,9 @@ describe("Lägg till rum", () => {
 
   it("says an empty name under the field and goes nowhere", async () => {
     ensureCapturePlace.mockResolvedValue(fail("validation", { room: "Ange ett rum, till exempel Skräpförrådet." }));
-    render(<NewRoom siteId={site} />);
+    render(<NewRoom siteId={site} variant="icon" />);
     await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
-    await userEvent.click(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till rum" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till" }));
     expect(await screen.findByText("Ange ett rum, till exempel Skräpförrådet.")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });

@@ -223,7 +223,8 @@ describe("PantrySuggestionList", () => {
     expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("1 uppdateras");
     expect(addButton()).toHaveTextContent("Lägg till 1 vara");
     fireEvent.click(box("smör"));
-    expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("Inget valt");
+    // UX-08: no "Inget valt": the line is empty, and the button waits for a tick.
+    expect(within(section()).getByTestId("pantry-suggestions-summary")).toBeEmptyDOMElement();
     expect(addButton()).toBeDisabled();
   });
 
@@ -281,10 +282,10 @@ describe("PantrySuggestionList", () => {
     expect(click).toHaveBeenCalled();
   });
 
-  it("throws the whole reading away with Förkasta inläsningen, closes its job, and brings it back with Ångra", async () => {
+  it("throws the whole reading away with Släng förslagen, closes its job, and brings it back with Ångra", async () => {
     render(<Hemma />);
     await analyze();
-    const discard = button("Förkasta inläsningen");
+    const discard = button("Släng förslagen");
     // Under "Fota igen", quiet and muted red.
     expect(button("Fota igen").compareDocumentPosition(discard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(discard).toHaveClass("text-danger");
@@ -295,7 +296,7 @@ describe("PantrySuggestionList", () => {
     // The job is closed, so no badge or "Förslag klara" stays.
     await waitFor(() => expect(fakeAi.dismissed).toContain(jobId));
     await waitFor(() => expect(cameraButton()).toHaveFocus());
-    expect(toast()).toHaveTextContent("Förkastade inläsningen.");
+    expect(toast()).toHaveTextContent("Slängde förslagen.");
 
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
     expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
@@ -305,7 +306,7 @@ describe("PantrySuggestionList", () => {
   it("does not bring a discarded reading back over a newer one", async () => {
     render(<Hemma />);
     await analyze();
-    fireEvent.click(button("Förkasta inläsningen"));
+    fireEvent.click(button("Släng förslagen"));
     const undo = within(toast()).getByRole("button", { name: "Ångra" });
     await analyze({ ...fridge, suggestions: fridge.suggestions.slice(0, 1) });
     fireEvent.click(undo);
@@ -335,7 +336,10 @@ const cardNames = () =>
   screen.queryAllByTestId("pantry-suggestion").map((card) => within(card).getByRole("heading", { level: 3 }).querySelector("span")?.textContent);
 const toast = () => screen.getByTestId("toast");
 const lastConfirm = () => confirms[confirms.length - 1];
-const answerConfirm = async (result: Result<{ count: number }> = ok({ count: 1 })) => {
+const addedRow = { id: "00000000-0000-4000-8000-000000000001", ingredientId: "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01" };
+const answerConfirm = async (
+  result: Result<{ count: number; setRows?: { id: string; ingredientId: string }[] }> = ok({ count: 1, setRows: [addedRow] }),
+) => {
   await act(async () => lastConfirm().answer(result));
 };
 const sheet = () => screen.getByRole("dialog");
@@ -367,8 +371,10 @@ describe("Bekräfta", () => {
       { ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Kyl", amount: 1, unit: "förp" },
     ]);
     await answerConfirm();
-    expect(cardNames()).toEqual(["gurka", "ketchup", "smör"]);
-    expect(toast()).toHaveTextContent("mjölk är sparad i kylen.");
+    // UX-08: "Lägg till N varor" closes the review, also for the rows that were left unticked.
+    expect(screen.queryByRole("region", { name: "Förslag från fotot av kylen" })).toBeNull();
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 1 ny.");
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
   it("disables every suggestion button while saving, and the card says Sparar …", async () => {
@@ -388,32 +394,17 @@ describe("Bekräfta", () => {
     fireEvent.click(addButton());
     expect(confirms).toHaveLength(1);
     await answerConfirm();
-    await waitFor(() => expect(button("Rätta ketchup")).toBeEnabled());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Förslag från fotot av kylen" })).toBeNull());
   });
 
-  it("moves focus to the camera button after a save, also with rows left", async () => {
+  it("closes the review after a save, and moves focus to the camera button", async () => {
     render(<Hemma />);
     await analyze();
-    // A bulk save always gives focus to the camera button, also with rows left.
     confirmOnly("ketchup");
     await answerConfirm();
-    await waitFor(() => expect(cameraButton()).toHaveFocus());
-    expect(cardNames()).toEqual(["gurka", "mjölk", "smör"]);
-
-    confirmOnly("smör");
-    await answerConfirm();
-    await waitFor(() => expect(cameraButton()).toHaveFocus());
-
-    confirmOnly("mjölk");
-    await answerConfirm();
-    await waitFor(() => expect(cameraButton()).toHaveFocus());
-
-    confirmOnly("gurka");
-    await answerConfirm();
-    // The last one: the section goes, and the camera button takes focus.
     expect(screen.queryByRole("region")).toBeNull();
     await waitFor(() => expect(cameraButton()).toHaveFocus());
-    expect(toast()).toHaveTextContent("gurka är sparad i kylen.");
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 1 ny.");
   });
 
   it("keeps the suggestions after a failure, says so at the top of the section, and gives focus back", async () => {
@@ -432,7 +423,7 @@ describe("Bekräfta", () => {
     confirmOnly("mjölk");
     expect(within(section()).queryByRole("alert")).toBeNull();
     await answerConfirm();
-    expect(cardNames()).toEqual(["gurka", "ketchup", "smör"]);
+    expect(screen.queryByRole("region", { name: "Förslag från fotot av kylen" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -477,7 +468,7 @@ describe("Bekräfta alla", () => {
     expect(within(section()).getAllByText("Sparar …")).toHaveLength(5);
     await answerConfirm(ok({ count: 4 }));
     expect(screen.queryByRole("region")).toBeNull();
-    expect(toast()).toHaveTextContent("Lagt 4 varor i Matvaror.");
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 4 nya.");
     await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 
@@ -491,7 +482,7 @@ describe("Bekräfta alla", () => {
       { ingredient: { kind: "existing", ingredientId: smorId }, location: "Kyl", amount: null, unit: null },
     ]);
     await answerConfirm();
-    expect(toast()).toHaveTextContent("smör är sparad i kylen.");
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 1 ny.");
   });
 
   it("keeps the suggestions after a failure, with focus back on Bekräfta alla", async () => {
@@ -681,30 +672,18 @@ describe("Review patches", () => {
     },
   );
 
-  it("Ångra while a confirmation is saved waits for it, and puts the suggestion back by its neighbours", async () => {
+  it("Ångra for a rejection that waits for a save does nothing once the save has closed the review", async () => {
     render(<Hemma />);
     await analyze();
     reject("ketchup");
-    // A card's Bekräfta while the rejection's Ångra still shows.
+    // Lägg till N varor while the rejection's Ångra still shows.
     confirmOnly("gurka");
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
-    // Not yet: the confirmation is on its way.
     expect(cardNames()).toEqual(["gurka", "mjölk", "smör"]);
     await answerConfirm();
-    // gurka, before ketchup, is gone: ketchup goes back before mjölk, the one after it.
-    expect(cardNames()).toEqual(["ketchup", "mjölk", "smör"]);
-    await waitFor(() => expect(button("Rätta ketchup")).toHaveFocus());
-  });
-
-  it("updates I kylen nu on the suggestions left for the same ingredient and place", async () => {
-    const mjolkLiter: PantrySuggestion = { ...fridge.suggestions[2], id: "s5", amount: 1, unit: "l" };
-    render(<Hemma />);
-    await analyze({ ...fridge, suggestions: [...fridge.suggestions, mjolkLiter] });
-    confirmOnly("mjölk", 0);
-    await answerConfirm();
-    expect(cardNames()).toEqual(["gurka", "ketchup", "smör", "mjölk"]);
-    // 2 förp was set to 1 förp; the place has no litres yet.
-    expect(cards()[3]).toHaveTextContent("finns redan 1 förp");
+    // UX-08: the review is closed, so the rejected card has nowhere to come back to.
+    expect(cardNames()).toEqual([]);
+    expect(screen.queryByRole("region", { name: "Förslag från fotot av kylen" })).toBeNull();
   });
 
   it("marks the suggestions the server refuses, and Bekräfta alla leaves them out next time", async () => {
@@ -722,8 +701,9 @@ describe("Review patches", () => {
     fireEvent.click(addButton());
     expect(lastConfirm().items).toHaveLength(3);
     await answerConfirm(ok({ count: 3 }));
-    expect(cardNames()).toEqual(["ketchup"]);
-    expect(toast()).toHaveTextContent("Lagt 3 varor i Matvaror.");
+    // The review closes, and the refused card with it.
+    expect(cardNames()).toEqual([]);
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya.");
   });
 
   it("counts a confirmation without an answer in 30 s as failed, so the buttons work again", async () => {
@@ -792,18 +772,9 @@ describe("Story 6.5: labels and unsure suggestions", () => {
       [labelled.suggestions[0], labelled.suggestions[2], labelled.suggestions[3]].map(({ ingredient }) => ingredient),
     );
     await answerConfirm(ok({ count: 3 }));
-    expect(toast()).toHaveTextContent("Lagt 3 varor i Matvaror.");
-    expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
-    // The unsure row starts unticked: with it left alone nothing more is added.
-    expect(within(section()).getByTestId("pantry-suggestions-summary")).toHaveTextContent("Inget valt");
-    expect(addButton()).toBeDisabled();
-
-    fireEvent.click(box("senap"));
-    fireEvent.click(addButton());
-    expect(lastConfirm().items.map((item) => item.ingredient)).toEqual([labelled.suggestions[1].ingredient]);
-    await answerConfirm();
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya.");
+    // UX-08: the review closes; the unsure row that was left unticked goes with it.
     expect(screen.queryByRole("region")).toBeNull();
-    expect(toast()).toHaveTextContent("senap är sparad i kylen.");
   });
 
   it("does not count an unsure card the server refused, and gives focus to the camera button when none is left", async () => {
@@ -821,9 +792,9 @@ describe("Story 6.5: labels and unsure suggestions", () => {
     fireEvent.click(addButton());
     expect(lastConfirm().items).toHaveLength(3);
     await answerConfirm(ok({ count: 3 }));
-    // The refused card is still there, and stays unticked.
-    expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
-    expect(toast()).toHaveTextContent(/^Lagt 3 varor i Matvaror\.$/);
+    // The review closes, the refused card with it.
+    expect(cardNames()).toEqual([]);
+    expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya.");
     await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 });
@@ -978,13 +949,8 @@ describe("the photo during review", () => {
     expect(photoSheet()).toBeInTheDocument();
     await answerConfirm();
     expect(screen.queryByTestId("pantry-suggestion")).toBeNull();
-    expect(photoSheet()).toBeInTheDocument();
-    expect(within(photoSheet()).getByRole("img")).toHaveAttribute("src", "blob:photo-1");
-    expect(cameraButton()).not.toHaveFocus();
-    expect(revoke).not.toHaveBeenCalled();
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Klar" }));
+    // UX-08: "Lägg till N varor" closes the review as a whole, the photo and its sheet with it.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // The move to the camera button that waited for the sheet.
     await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 
@@ -1346,7 +1312,7 @@ describe("numbers on the photo (Story 6.6)", () => {
     expect(created).toEqual(["blob:photo-1", "blob:photo-2"]);
   });
 
-  it("looks nothing up without a reading, for an answer without cards, or for Syns inte längre and unchanged items alone", async () => {
+  it("looks nothing up without a reading, for an answer without cards, or for unchanged items alone", async () => {
     render(<Hemma />);
     await (await startPhoto(png()))(fridge);
     expect(status()).toBeEmptyDOMElement();
@@ -1356,13 +1322,13 @@ describe("numbers on the photo (Story 6.6)", () => {
       suggestions: numbered.suggestions.slice(3).map((suggestion) => ({ ...suggestion, change: "unchanged" as const })),
       inventory: { kind: "compared", incomplete: false, missing: [missingSmor] },
     });
-    expect(within(section()).getAllByTestId("pantry-missing")).toHaveLength(1);
-    expect(status()).toBeEmptyDOMElement();
-    expect(slots()).toHaveLength(0);
-    expect(badges()).toEqual([]);
+    // What the photo did not show has its own card (NotSeenCard), not a row here.
+    expect(screen.queryByTestId("pantry-missing")).toBeNull();
+    expect(screen.queryByTestId("pantry-suggestions")).toBeNull();
+    expect(screen.queryAllByTestId("pantry-photo-number")).toEqual([]);
   });
 
-  it("gives unchanged items and Syns inte längre cards no number and no marker", async () => {
+  it("gives unchanged items no number and no marker", async () => {
     render(<Hemma />);
     await analyzeNumbered({
       ...numbered,
@@ -1374,7 +1340,6 @@ describe("numbers on the photo (Story 6.6)", () => {
     });
     await answerLocate(ok(located));
     await waitFor(() => expect(badges()).toEqual(["3"]));
-    expect(within(within(section()).getByTestId("pantry-missing")).queryByTestId("pantry-photo-number")).toBeNull();
     fireEvent.click(thumbnail());
     decode();
     // Smör (item 2) is unchanged: it has a point, but no card and so no marker.

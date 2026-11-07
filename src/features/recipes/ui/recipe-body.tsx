@@ -1,14 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
-import { WeekPicker } from "@/components/week-picker";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
-import { clampServings, maxServings, weekdayWord } from "@/features/mealplan";
+import { clampServings, maxServings, weekOffsetLabel, weekQueryAlways, weekShortName } from "@/features/mealplan";
 import {
   atHomeSummaryText,
   noStaples,
@@ -29,7 +29,6 @@ import {
   offerChipText,
   plannedChipText,
   plannedToastText,
-  whenText,
   staplesNote,
   summarizeLines,
   type LineOffer,
@@ -37,7 +36,7 @@ import {
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
 import { BuyMissingSheet } from "./buy-missing-sheet";
-import { ChooseDaySheet } from "./choose-day-sheet";
+import { ChooseWeekSheet } from "./choose-week-sheet";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
 import { formatQuantity } from "@/features/catalog";
 
@@ -75,13 +74,13 @@ export type BuyMissing = (input: {
 /** shopping.removeKeyedItems from the page: the undo of BuyMissing. */
 export type UndoBuy = (input: { keys: string[] }) => Promise<Result<unknown>>;
 
-/** mealplan.setWeekday from the page. */
-export type SetDishWeekday = (change: { id: string; weekday: number | null }) => Promise<Result<unknown>>;
+/** mealplan.removePlanRecipe from the page: the undo of "Lägg på matsedeln" (and the first half of "Byt vecka"). */
+export type RemoveFromPlan = (id: string) => Promise<Result<unknown>>;
 
 /** The recipe's dish on this week's meal plan, or `null` when it is not on it. */
 export type PlanDishInfo = { id: string; weekday: number | null };
 
-/** A week the recipe can be planned for (this week and the next two), with the recipe's dish on it. */
+/** A week the recipe can be planned for (this week and the next two, and the remembered week), with the recipe's dish on it. */
 export type RecipeWeek = {
   /** The Monday, `YYYY-MM-DD`. */
   weekStart: string;
@@ -89,11 +88,10 @@ export type RecipeWeek = {
   offset: number;
   /** The ISO week number: 46. */
   number: number;
+  /** How many dishes the week has: "v. 46 · 2 rätter" in the sheet. */
+  count: number;
   dish: PlanDishInfo | null;
 };
-
-/** The week a recipe is planned for unless the person picks another: next week. */
-const defaultWeekOffset = 1;
 
 export type RecipeBodyProps = {
   recipe: SavedRecipe;
@@ -112,13 +110,15 @@ export type RecipeBodyProps = {
   offers?: Record<string, LineOffer>;
   /** The catalog ingredients that stand on the shopping list now. */
   listedIds?: readonly string[];
-  /** This week and the next two with the recipe's dish on each: the week picker; next week is chosen first. */
+  /** This week and the next two (and the remembered week) with the recipe's dish on each. */
   weeks?: readonly RecipeWeek[];
-  /** The recipe's dish on this week's plan, which turns "Lägg på matsedeln" into "Välj dag". */
+  /** The Monday "Lägg på matsedeln" puts the dish on: the week last viewed on Matsedel or Inköpslista, else this week (UX-04). */
+  defaultWeekStart?: string;
+  /** The recipe's dish on this week's plan; used without `weeks`. */
   dish?: PlanDishInfo | null;
   buyMissing?: BuyMissing;
   undoBuy?: UndoBuy;
-  setWeekday?: SetDishWeekday;
+  removeFromPlan?: RemoveFromPlan;
   /** mealplan's "Markera som lagad" for this recipe's dish, from the page: shown under the steps (Story 13.4). */
   finish?: ReactNode;
 };
@@ -135,9 +135,11 @@ export type RecipeBodyProps = {
  * The bottom bar has two buttons. "Köp det som saknas (N)" opens a sheet with
  * the missing ingredients ticked and puts them, and only them, on the list
  * (keyed items, so a retry is the same items); afterwards it is "På listan ✓ ·
- * Ångra", which removes just those. "Lägg på matsedeln" is one tap: this week,
- * without a day, and the recipe's missing ingredients stand on the list through
- * the plan; the button then becomes "Välj dag" / "Byt dag", an optional sheet.
+ * Ångra", which removes just those. "Lägg på matsedeln" is one tap (UX-05): the
+ * week last viewed on Matsedel or Inköpslista, without a day, and the recipe's
+ * missing ingredients stand on the list through the plan. The toast has "Ångra"
+ * and "Byt vecka" (the sheet "Vilken vecka?"), and the page then says "På
+ * matsedeln v. 46", a link to Matsedel on that week.
  */
 export function RecipeBody({
   recipe,
@@ -149,9 +151,10 @@ export function RecipeBody({
   listedIds = [],
   dish = null,
   weeks,
+  defaultWeekStart,
   buyMissing,
   undoBuy,
-  setWeekday,
+  removeFromPlan,
   finish,
 }: RecipeBodyProps) {
   const router = useRouter();
@@ -166,14 +169,17 @@ export function RecipeBody({
   // What this visit put on the list or on the plan shows at once; the server's list catches up after the action.
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const [bought, setBought] = useState<readonly string[] | null>(null);
-  // The week the dish goes on: next week unless the person picks another (only with the `weeks` of the page).
-  const [weekOffset, setWeekOffset] = useState(defaultWeekOffset);
-  const week = weeks?.find((candidate) => candidate.offset === weekOffset) ?? null;
-  const [planned, setPlanned] = useState<Readonly<Record<string, PlanDishInfo>>>({});
-  const weekKey = week?.weekStart ?? "";
-  const onPlan = planned[weekKey] ?? (week ? week.dish : dish);
-  const when = week ? whenText(week.offset) : null;
-  const listed = useMemo(() => new Set([...listedIds, ...added]), [listedIds, added]);
+  // The week the dish goes on: the remembered one (UX-04). What this visit did (put it on a week, moved it,
+  // took it back) is laid over what the page read, until the page has caught up.
+  const target = weeks?.find((candidate) => candidate.weekStart === defaultWeekStart) ?? weeks?.[0] ?? null;
+  const [local, setLocal] = useState<{ weekStart: string | null; dish: PlanDishInfo } | "none" | null>(null);
+  const placed: { weekStart: string | null; dish: PlanDishInfo } | null =
+    local === "none" ? null : local ?? (target ? (target.dish ? { weekStart: target.weekStart, dish: target.dish } : null) : dish ? { weekStart: null, dish } : null);
+  const onPlan = placed?.dish ?? null;
+  const placedWeek = placed?.weekStart ? weeks?.find((candidate) => candidate.weekStart === placed.weekStart) ?? null : null;
+  const placedName = placed?.weekStart ? weekShortName(placed.weekStart) : "denna vecka";
+  const [planListed, setPlanListed] = useState<readonly string[]>([]);
+  const listed = useMemo(() => new Set([...listedIds, ...added, ...planListed]), [listedIds, added, planListed]);
   const states = useMemo(() => (status ? lineStates(lines, status, listed, offers) : null), [lines, status, listed, offers]);
   const toBuy = useMemo(() => (states ? itemsToBuy(lines, states) : []), [lines, states]);
   const summary = useMemo(() => (states ? summarizeLines(lines, states) : null), [lines, states]);
@@ -182,14 +188,9 @@ export function RecipeBody({
   const siteName = status ? shownSiteName(site) : null;
 
   const [buyOpen, setBuyOpen] = useState(false);
-  const [dayOpen, setDayOpen] = useState(false);
+  const [weekOpen, setWeekOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const planDishId = useRef<string | null>(null);
-  function pickWeek(offset: number) {
-    // A retry id left by a failed tap belongs to the old week.
-    planDishId.current = null;
-    setWeekOffset(offset);
-  }
 
   const rows = toBuy.map((item) => {
     const line = lines.find((candidate) => candidate.id === item.lineId);
@@ -244,12 +245,13 @@ export function RecipeBody({
     planDishId.current ??= crypto.randomUUID();
     let result: Result<{ weekday?: number | null }>;
     try {
-      // No day sent: the server puts the dish on the first free day of the week.
+      // UX-05: no day (`null`), on the remembered week; the day is chosen later on Matsedel.
       result = await addToPlan({
         recipeId: recipe.id,
         servings: clampServings(servings),
         id: planDishId.current,
-        ...(week ? { weekStart: week.weekStart } : {}),
+        weekday: null,
+        ...(target ? { weekStart: target.weekStart } : {}),
       });
     } catch {
       result = fail("mealplan_add_failed");
@@ -258,36 +260,57 @@ export function RecipeBody({
     if (result.ok) {
       const id = planDishId.current;
       planDishId.current = null;
-      const day = result.data.weekday ?? null;
-      setPlanned((current) => ({ ...current, [weekKey]: { id, weekday: day } }));
+      setLocal({ weekStart: target?.weekStart ?? null, dish: { id, weekday: null } });
       // The recipe's missing ingredients stand on the list through the plan.
       const names = toBuy.map((item) => item.name);
-      setAdded((current) => new Set([...current, ...toBuy.map((item) => item.ingredientId)]));
+      setPlanListed(toBuy.map((item) => item.ingredientId));
       setBought(null);
-      // UX-12: "Byt dag" is the pinned button; the toast no longer repeats it.
-      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names, when));
+      showToast(plannedToastText(target ? weekShortName(target.weekStart) : "denna vecka", names), {
+        onUndo: () => void undoPlan(id),
+        show: { label: "Byt vecka", onShow: () => setWeekOpen(true) },
+      });
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
   }
 
-  async function chooseDay(weekday: number | null) {
-    if (!setWeekday || !onPlan) return;
-    const result = await setWeekday({ id: onPlan.id, weekday }).catch(() => fail("mealplan_weekday_failed"));
+  async function undoPlan(id: string) {
+    if (!removeFromPlan) return;
+    const result = await removeFromPlan(id).catch(() => fail("mealplan_remove_failed"));
     if (result.ok) {
-      setPlanned((current) => ({ ...current, [weekKey]: { id: onPlan.id, weekday } }));
-      showToast(
-        weekday === null
-          ? `Ingen dag vald. Rätten ligger på ${when ?? "veckan"}.`
-          : `${recipe.title} ligger på ${weekdayWord(weekday)}${when ? ` ${when}` : ""}.`,
-      );
+      setLocal("none");
+      setPlanListed([]);
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
+  }
+
+  // "Byt vecka": the dish goes on the chosen week first, and then comes off the old one, so a failure never loses it.
+  async function moveToWeek(weekStart: string) {
+    if (!addToPlan || !removeFromPlan || !onPlan || working) return;
+    setWorking(true);
+    const id = crypto.randomUUID();
+    let added: Result<{ weekday?: number | null }>;
+    try {
+      added = await addToPlan({ recipeId: recipe.id, servings: clampServings(servings), id, weekday: null, weekStart });
+    } catch {
+      added = fail("mealplan_add_failed");
+    }
+    if (!added.ok) {
+      setWorking(false);
+      if (added.error.code === "unauthorized") router.refresh();
+      else showToast(added.error.message, { role: "alert" });
+      return;
+    }
+    const removed = await removeFromPlan(onPlan.id).catch(() => fail("mealplan_remove_failed"));
+    setWorking(false);
+    setLocal({ weekStart, dish: { id, weekday: null } });
+    if (removed.ok) showToast(`Flyttad till matsedeln ${weekShortName(weekStart)}.`);
+    else showToast(removed.error.message, { role: "alert" });
   }
 
   const wide = useWideScreen();
   const showBuy = Boolean(buyMissing) && !onPlan && (toBuy.length > 0 || bought !== null);
   const showUndo = bought !== null && toBuy.length === 0;
-  const hasActions = Boolean(addToPlan) || showBuy;
+  const hasActions = (Boolean(addToPlan) && !onPlan) || showBuy;
   const actions = (
     <>
       {showBuy ? (
@@ -306,11 +329,7 @@ export function RecipeBody({
           </Button>
         )
       ) : null}
-      {addToPlan && onPlan ? (
-        <Button variant="secondary" disabled={working} onClick={() => setDayOpen(true)} className={cx(wide ? "w-full" : "grow basis-auto")}>
-          {onPlan.weekday ? "Byt dag" : "Välj dag"}
-        </Button>
-      ) : addToPlan ? (
+      {addToPlan && !onPlan ? (
         <Button disabled={working} onClick={addToWeek} className={wide ? "w-full" : "grow-[999] basis-auto"}>
           Lägg på matsedeln
         </Button>
@@ -336,9 +355,16 @@ export function RecipeBody({
             {status && summary ? (
               <ul aria-live="polite" aria-label="Status" className="flex flex-wrap gap-2" data-testid="recipe-chips">
                 {onPlan ? (
-                  <Chip tone="accent" testId="recipe-planned">
-                    {plannedChipText(onPlan.weekday ? weekdayWord(onPlan.weekday) : null, when)}
-                  </Chip>
+                  <li>
+                    {/* UX-05: a pill, not a button; it leads to the week on Matsedel, where the day is chosen. */}
+                    <Link
+                      href={`/matsedel${placed?.weekStart ? weekQueryAlways(placed.weekStart) : ""}`}
+                      data-testid="recipe-planned"
+                      className="block rounded-full bg-mint px-2.5 py-1.5 text-meta font-semibold text-mint-ink"
+                    >
+                      {plannedChipText(placedName)}
+                    </Link>
+                  </li>
                 ) : null}
                 {status.ingredientCount > 0 ? (
                   <Chip tone="mint" testId="recipe-at-home">
@@ -358,8 +384,6 @@ export function RecipeBody({
               </ul>
             ) : null}
           </div>
-
-          {weeks && addToPlan ? <WeekPicker weeks={weeks} selected={weekOffset} onSelect={pickWeek} testId="recipe-week" /> : null}
 
           {wide && hasActions ? <div className="flex flex-col gap-2">{actions}</div> : null}
 
@@ -435,11 +459,18 @@ export function RecipeBody({
       {buyMissing ? (
         <BuyMissingSheet open={buyOpen} onClose={() => setBuyOpen(false)} rows={rows} onConfirm={confirmBuy} pending={working} />
       ) : null}
-      {setWeekday ? (
-        <ChooseDaySheet open={dayOpen} onClose={() => setDayOpen(false)}
-          weekday={onPlan?.weekday ?? null}
-          onChoose={chooseDay}
-          weekLabel={week ? `Vecka ${week.number}${when ? `, ${when}` : ""}` : undefined}
+      {weeks && removeFromPlan && addToPlan ? (
+        <ChooseWeekSheet
+          open={weekOpen}
+          onClose={() => setWeekOpen(false)}
+          recipeTitle={recipe.title}
+          current={placedWeek?.weekStart ?? null}
+          onChoose={moveToWeek}
+          options={weeks.map((week) => ({
+            weekStart: week.weekStart,
+            label: weekOffsetLabel(week.offset),
+            detail: `v. ${week.number} · ${week.count === 0 ? "Tom" : week.count === 1 ? "1 rätt" : `${week.count} rätter`}`,
+          }))}
         />
       ) : null}
     </>

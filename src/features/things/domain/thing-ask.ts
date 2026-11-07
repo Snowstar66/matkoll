@@ -48,10 +48,9 @@ export function cleanHistory(turns: readonly ChatTurn[], clean: (text: string) =
 /** What the chat says and does, in Swedish. */
 export const questionTooLongText = `Frågan får vara högst ${maxQuestionChars} tecken.`;
 export const askLabel = "Sök eller fråga";
-export const askPlaceholder = "Sök eller fråga …";
-export const askButtonText = "Skicka";
+export const askPlaceholder = "Sök, eller fråga: var är passen?";
+export const askButtonText = "Fråga";
 export const newQuestionText = "Ny fråga";
-export const askHintText = "Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.";
 
 /** A reference in an answer: a card (or the box a thing was written into) to tap. */
 export type ChatRef = {

@@ -8,10 +8,10 @@ import { EmptyPlaceButton } from "./empty-place";
 import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
 import { LocationCards } from "./location-cards";
 import { PantryCamera } from "./pantry-camera";
+import { NotSeenCard } from "./not-seen-card";
 import { PantryList } from "./pantry-list";
 import { applyPantryChanges, usePantryRemoval } from "./pantry-removal";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
-import { usePantrySuggestions } from "./pantry-suggestions";
 
 export type PantryPlaceProps = {
   /** The place Hemma shows: the selected one (Story 8.2). */
@@ -42,19 +42,19 @@ export type PantryPlaceProps = {
  */
 export function PantryPlace({ site, location, counts, items, photo = null, photos, findDishes }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
-  const { readyLocations } = usePantrySuggestions();
   // The removals keep a change until the server's items show it.
   useEffect(() => report(site.id, location, items), [report, site.id, location, items]);
   const shown = applyPantryChanges(items, site.id, location, changes);
   return (
     <div className="flex flex-col gap-3">
-      <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} ready={readyLocations(site.id)} />
+      <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
       {/* An empty place gives no useful suggestions. */}
       {Object.values({ ...counts, [location]: shown.length }).some((count) => count > 0) ? findDishes : null}
       <PantryCamera site={site} location={location}>
         <LatestPhoto photo={photo} photos={photos} location={location} />
       </PantryCamera>
       <PantrySuggestionList siteId={site.id} />
+      <NotSeenCard siteId={site.id} location={location} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
       <PantryList
         key={`${site.id}:${location}`}

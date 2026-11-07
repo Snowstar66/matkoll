@@ -2,6 +2,7 @@ import { nameInSentence, normalizeIngredientText, type Unit } from "@/features/c
 import { offerDisplay, savingKronor, textUnitPrice } from "@/features/offers";
 import { noStaples, type StapleRules } from "@/features/pantry";
 import { offerTagOf, uniqueTags, type OfferTagData } from "@/lib/offer-tag";
+import { dishKind, type DishKind } from "@/lib/dish-kind";
 import { toBuyNames, type DishLine, type OfferInfo } from "./offer-input";
 import { isMainLine } from "./recipe-offers";
 
@@ -25,6 +26,8 @@ export type PlanRecipe = {
   totalMinutes: number | null;
   servings: number;
   lines: readonly PlanLine[];
+  /** UX-13b: the drawing when there is no photo, from the title and the lines as written; from the title and the line names when left out. */
+  dish?: DishKind;
 };
 
 /** What the offer line of a row says. */
@@ -45,6 +48,8 @@ export type PlanOption = {
   title: string;
   isFavorite: boolean;
   imageUrl: string | null;
+  /** UX-13b: the kind of dish drawn when there is no photo; from the title when left out. */
+  dish?: DishKind;
   totalMinutes: number | null;
   servings: number;
   /** How many times the dish has been marked cooked. */
@@ -150,6 +155,7 @@ export function planOptions(
       title: recipe.title,
       isFavorite: recipe.isFavorite,
       imageUrl: recipe.imageUrl,
+      dish: recipe.dish ?? dishKind(recipe.title, recipe.lines.map((line) => line.name)),
       totalMinutes: recipe.totalMinutes,
       servings: recipe.servings,
       cookedTimes,

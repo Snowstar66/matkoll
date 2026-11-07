@@ -103,19 +103,11 @@ test("labels are the rows' titles, a repeat is one row, and an unsure item start
   // The analysis writes nothing.
   expect(await pantry()).toEqual([]);
 
-  // Lägg till saves the two ticked ones, and the unsure row stays.
+  // Lägg till saves the two ticked ones; the review closes, and the unsure row that stayed unticked goes with it (UX-08).
   await addTicked(section(page));
-  await expect(toast(page)).toHaveText("Lagt 2 varor i Matvaror.");
-  await expect(titles(page)).toHaveText(cardTitles(["Gul flaska, troligen senap"]));
-  await expect(section(page).getByRole("button", { name: "Lägg till 0 varor" })).toBeDisabled();
-  await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
-
-  // Ticked, it is saved too.
-  await section(page).getByRole("checkbox", { name: "Ta med Senap" }).click();
-  await addTicked(section(page));
-  await expect(toast(page)).toHaveText("Senap är sparad i kylen.");
+  await expect(toast(page)).toHaveText("Kylen är uppdaterad: 2 nya.Ångra");
   await expect(section(page)).toHaveCount(0);
-  await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*3 varor$/);
-  await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Senap 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
+  await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*2 varor$/);
+  await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
   expect(errors).toEqual([]);
 });

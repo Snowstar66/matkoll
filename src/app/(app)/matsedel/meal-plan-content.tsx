@@ -1,8 +1,8 @@
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
-import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday, viewedWeek } from "@/features/mealplan";
+import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, resolveViewedWeek, type MealPlanView } from "@/features/mealplan/server";
+import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import type { PantrySite } from "@/features/pantry";
@@ -19,6 +19,7 @@ import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, week
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
+import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
 import { OfferIdeas } from "../offer-ideas";
 
@@ -105,7 +106,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const params = await searchParams;
   const vecka = params?.vecka;
   const now = new Date();
-  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
+  const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
 
   const overview = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
   if (!overview.includes(weekStart)) overview.push(weekStart);
@@ -143,9 +144,12 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         title="Matsedel"
         tab="/matsedel"
         action={
-          <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
-            <ListOffers next="/matsedel" />
-          </Suspense>
+          <>
+            <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
+              <ListOffers next="/matsedel" />
+            </Suspense>
+            <AddDishesButton />
+          </>
         }
       />
       {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}

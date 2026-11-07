@@ -39,7 +39,7 @@ test("an item added on one phone gets a badge on the other's tab, not on its own
 
   // Phone A adds an item on Inköpslista.
   await a.goto("/lista");
-  await a.getByTestId("add-item-fab").filter({ visible: true }).click();
+  await a.getByTestId("add-item-header").filter({ visible: true }).click();
   const sheet = a.getByRole("dialog", { name: "Lägg till vara" });
   await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel");
   await sheet.getByRole("button", { name: "Lägg till" }).click();

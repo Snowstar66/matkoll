@@ -10,7 +10,7 @@ import { adminClient, cardTitles, e2eUserId, inventoryEmail, inventoryStorageSta
 // "Senap", and "Grädde", "Gurka" and "Ketchup" (so no item of the photo is a
 // new catalog ingredient and the comparison is complete), and the pantry
 // items "Mjölk 2 förp", "Smör" (unlimited), "Ägg 6 st", "Yoghurt 2 förp" and
-// "Senap" (unlimited) in Kyl. Frys is empty. The tests run in order, since
+// "Senap" (unlimited) in Kyl, all added ten days ago (UX-08: items from the last 3 days are never "syntes inte"). Frys is empty. The tests run in order, since
 // they share the user.
 
 const kyl = "tests/fixtures/ai/kyl.png";
@@ -50,12 +50,13 @@ test.beforeEach(async () => {
   // Story 10.4: the catalog stores the name with a capital, so it is found normalised.
   const id = (name: string) =>
     catalog.data.find((row) => normalizeIngredientText(row.name) === normalizeIngredientText(name))!.id;
+  const added = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
   const inserted = await admin.from("pantry_item").insert([
-    { user_id: userId, ingredient_id: id("Mjölk"), location: "Kyl", amount: 2, unit: "förp" },
-    { user_id: userId, ingredient_id: id("Smör"), location: "Kyl", amount: null, unit: null },
-    { user_id: userId, ingredient_id: id("Ägg"), location: "Kyl", amount: 6, unit: "st" },
-    { user_id: userId, ingredient_id: id("Yoghurt"), location: "Kyl", amount: 2, unit: "förp" },
-    { user_id: userId, ingredient_id: id("Senap"), location: "Kyl", amount: null, unit: null },
+    { user_id: userId, ingredient_id: id("Mjölk"), location: "Kyl", amount: 2, unit: "förp", created_at: added },
+    { user_id: userId, ingredient_id: id("Smör"), location: "Kyl", amount: null, unit: null, created_at: added },
+    { user_id: userId, ingredient_id: id("Ägg"), location: "Kyl", amount: 6, unit: "st", created_at: added },
+    { user_id: userId, ingredient_id: id("Yoghurt"), location: "Kyl", amount: 2, unit: "förp", created_at: added },
+    { user_id: userId, ingredient_id: id("Senap"), location: "Kyl", amount: null, unit: null, created_at: added },
   ]);
   if (inserted.error) throw inserted.error;
 });
@@ -102,13 +103,8 @@ const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: tr
 /** The visible rows' names, in the list's order. */
 const rowNames = (page: Page) => rows(page).evaluateAll((targets) => targets.map((target) => target.firstElementChild?.textContent));
 const toast = (page: Page) => page.getByTestId("toast");
-/** Kylfoto D: the names under the folded "Syns inte längre", shown or not. */
-const missingNames = (page: Page) => section(page).getByTestId("pantry-missing").locator("h4");
-/** Kylfoto D: unfolds "Syns inte längre (N)". */
-async function openMissing(page: Page) {
-  const toggle = section(page).getByTestId("pantry-missing-toggle");
-  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
-}
+/** UX-08: the card after a photo, "2 varor syntes inte på fotot. Ta bort dem?". */
+const notSeen = (page: Page) => page.getByTestId("pantry-not-seen").filter({ visible: true });
 
 async function photograph(page: Page, button: string) {
   const chooser = page.waitForEvent("filechooser");
@@ -118,7 +114,7 @@ async function photograph(page: Page, button: string) {
 
 async function photographFridge(page: Page) {
   await page.goto("/hemma");
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*5 varor(\s?Förslag klara)?$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*5 varor$/);
   await photograph(page, "Fota");
   await expect(section(page).getByRole("heading", { level: 2, name: "Förslag från fotot av kylen" })).toBeVisible();
 }
@@ -137,20 +133,10 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
     "finns redan 2 förp",
   );
   await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("3 nya · 1 uppdateras");
-  // Kylfoto D: one folded row; unfolded, each item has an empty tick box (nothing goes without a tick).
-  const toggle = section(page).getByRole("button", { name: "Syns inte längre (2)" });
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(section(page).getByTestId("pantry-missing").first()).toBeHidden();
-  await toggle.click();
-  await expect(missingNames(page)).toHaveText(["Senap", "Yoghurt"]);
-  const missing = section(page).getByTestId("pantry-missing");
-  await expect(missing.filter({ hasText: "Senap" })).toContainText("I kylen nu: finns hemma");
-  await expect(missing.filter({ hasText: "Yoghurt" })).toContainText("I kylen nu: 2 förp");
-  for (const name of ["Senap", "Yoghurt"]) {
-    const box = section(page).getByRole("checkbox", { name: `Ta bort ${name}`, exact: true });
-    await expect(box).toHaveAttribute("aria-checked", "false");
-    expect((await box.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  }
+  // UX-08: no "Syns inte längre" in the review: what the photo did not show is asked about afterwards.
+  await expect(section(page).getByTestId("pantry-missing-toggle")).toHaveCount(0);
+  await expect(section(page).getByText(/Syns inte längre/)).toHaveCount(0);
+  await expect(notSeen(page)).toHaveCount(0);
   // No cards for smör and ägg, which match the fridge.
   await expect(section(page).getByRole("heading", { name: "Smör" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -158,7 +144,7 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
   expect(errors).toEqual([]);
 });
 
-test("Lägg till adds and changes the ticked rows in one go, and leaves Syns inte längre that is not ticked", async ({
+test("Lägg till closes the review, asks about what the photo did not show, and leaves it alone", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -168,9 +154,13 @@ test("Lägg till adds and changes the ticked rows in one go, and leaves Syns int
 
   await section(page).getByRole("button", { name: "Lägg till 4 varor" }).click();
   await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya och 1 ändrad.");
-  await expect(section(page).getByTestId("pantry-suggestion")).toHaveCount(0);
-  await expect(missingNames(page)).toHaveText(["Senap", "Yoghurt"]);
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
+  await expect(section(page)).toHaveCount(0);
+  // UX-08: the card, with the names, and no "Förslag klara" on Kyl.
+  await expect(notSeen(page)).toContainText("2 varor syntes inte på fotot. Ta bort dem?");
+  await expect(notSeen(page)).toContainText("Senap och Yoghurt");
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor$/);
+  await notSeen(page).getByRole("button", { name: "Behåll" }).click();
+  await expect(notSeen(page)).toHaveCount(0);
   await expect
     .poll(() => rowNames(page))
     .toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Yoghurt", "Ägg", "Ketchup", "Senap"]);
@@ -191,32 +181,49 @@ test("Lägg till adds and changes the ticked rows in one go, and leaves Syns int
   expect(errors).toEqual([]);
 });
 
-test("a ticked Syns inte längre item goes with Lägg till, and Ångra borttagning puts the row back with the same id", async ({
-  page,
-}) => {
+test("Välj vilka removes the ticked items, and Ångra puts the row back with the same id", async ({ page }) => {
   const errors = watchErrors(page);
   const yoghurt = (await pantry()).find((row) => row.name === "Yoghurt")!;
   await photographFridge(page);
+  await section(page).getByRole("button", { name: "Lägg till 4 varor" }).click();
+  await expect(notSeen(page)).toContainText("2 varor syntes inte på fotot");
 
-  await openMissing(page);
-  await section(page).getByRole("checkbox", { name: "Ta bort Yoghurt", exact: true }).click();
-  await expect(section(page).getByTestId("pantry-suggestions-summary")).toHaveText("3 nya · 1 uppdateras · 1 tas bort");
-  await section(page).getByRole("button", { name: "Lägg till 4 · ta bort 1" }).click();
-  await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya, 1 ändrad och 1 borttagen.");
-  await expect(missingNames(page)).toHaveText(["Senap"]);
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*7 varor(\s?Förslag klara)?$/);
+  await notSeen(page).getByRole("button", { name: "Välj vilka" }).click();
+  const sheet = page.getByRole("dialog").filter({ visible: true });
+  await expect(sheet.getByRole("checkbox")).toHaveCount(2);
+  await expect(sheet.getByRole("button", { name: "Ta bort 0 varor" })).toBeDisabled();
+  await sheet.getByRole("checkbox", { name: "Ta bort Yoghurt", exact: true }).click();
+  await sheet.getByRole("button", { name: "Ta bort 1 vara" }).click();
+  await expect(toast(page).filter({ hasText: "Tog bort Yoghurt." })).toBeVisible();
+  await expect(notSeen(page)).toHaveCount(0);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*7 varor$/);
   expect((await pantry()).some((row) => row.name === "Yoghurt")).toBe(false);
 
-  await toast(page).getByRole("button", { name: "Ångra borttagning" }).click();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor(\s?Förslag klara)?$/);
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor$/);
   await expect(rows(page).filter({ hasText: /^Yoghurt(?:\s|$)/ })).toHaveCount(1);
   await expect.poll(async () => (await pantry()).find((row) => row.name === "Yoghurt")).toEqual(yoghurt);
   expect(errors).toEqual([]);
 });
 
+test("Ångra after Lägg till takes the new rows out again", async ({ page }) => {
+  const errors = watchErrors(page);
+  await photographFridge(page);
+  await section(page).getByRole("button", { name: "Lägg till 4 varor" }).click();
+  await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya och 1 ändrad.");
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*8 varor$/);
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*5 varor$/);
+  const names = (await pantry()).map((row) => row.name);
+  expect(names).not.toEqual(expect.arrayContaining(["Grädde"]));
+  expect(names).not.toEqual(expect.arrayContaining(["Gurka"]));
+  expect(names).not.toEqual(expect.arrayContaining(["Ketchup"]));
+  expect(errors).toEqual([]);
+});
+
 test("a photo of the empty freezer gives the plain list, without groups", async ({ page }) => {
   await page.goto("/hemma?plats=frys");
-  await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor(\s?Förslag klara)?$/);
+  await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor$/);
   await photograph(page, "Fota");
   await expect(section(page).getByRole("heading", { level: 2, name: "Förslag från fotot av frysen" })).toBeVisible();
   await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText(cardTitles([

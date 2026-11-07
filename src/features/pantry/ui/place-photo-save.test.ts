@@ -55,6 +55,19 @@ describe("photoSave", () => {
     expect(form.get("points")).toBeNull();
   });
 
+  it("tells once that the photo is saved, so the page can show it, and not after a refusal", async () => {
+    for (const [answer, times] of [[{ kind: "saved", id: photoId }, 1], [{ kind: "final" }, 0]] as const) {
+      const { calls, posts } = fakeCalls();
+      const onSaved = vi.fn();
+      const save = photoSave({ ...photo, onSaved }, calls);
+      save.written();
+      posts[0].answer(answer);
+      await settle();
+      save.written();
+      expect(onSaved).toHaveBeenCalledTimes(times);
+    }
+  });
+
   it("sends it once, whatever writes follow, after it was saved or refused", async () => {
     for (const answer of [{ kind: "saved", id: photoId }, { kind: "final" }] as const) {
       const { calls, posts } = fakeCalls();
