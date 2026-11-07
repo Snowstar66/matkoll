@@ -22,7 +22,7 @@ import { ThingChat } from "./thing-chat";
 // One field to search and ask (Story 18.17, joining Stories 18.4 and 18.14): on
 // the Förråd tab, "Sök eller fråga …" under "Ta kort". From two characters the
 // database's matches show under it as you type (typos are fine, no AI, nothing
-// loaded up front); ↑ or Enter sends the text to the chat. While the matches
+// loaded up front); "Fråga" or Enter sends the text to the chat. While the matches
 // show they replace the rooms (`children`, which stay mounted underneath), and
 // they are hidden while a conversation is going on.
 
@@ -47,7 +47,7 @@ function Hits({ query, siteId }: { query: string; siteId?: string }) {
   if (shown === "failed") return <p className="px-1 text-body text-ink-2" role="alert">{searchFailedText}</p>;
   if (shown.length === 0) {
     return (
-      // Story 18.19: ↑ also saves where something is (the help line).
+      // Story 18.19: Fråga also saves where something is (the help line).
       <EmptyState hint={noHitsAskText} className="py-6">
         {noHitsText(query)}
       </EmptyState>
