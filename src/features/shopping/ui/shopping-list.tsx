@@ -69,6 +69,8 @@ import {
 } from "../domain/list-text";
 import { useAddItemSheet } from "./add-item";
 import { CustomItemSheet } from "./custom-item-sheet";
+import { existingLinesOf } from "../domain/list-import";
+import type { MatchNames } from "./list-import";
 import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { UnpackSheet } from "./unpack-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
@@ -152,6 +154,11 @@ export type ShoppingListProps = {
    * it, the sheet suggests nothing.
    */
   searchIngredients?: SearchIngredients;
+  /**
+   * "Fota en lista" and "Klistra in en lista" in Lägg till vara: the catalog's match of names (catalog.matchIngredientNames,
+   * passed down from the page, AD-1). Without it the rows of a list are added without a catalog link.
+   */
+  matchNames?: MatchNames;
   /**
    * Story 17.9: Lägg till vara is open from the start, with focus in the field (the quick-add
    * address). Only without an AddItemProvider; the provider opens it on the page.
@@ -660,6 +667,7 @@ export function ShoppingList({
   checksUnavailable = false,
   pendingClear = 0,
   searchIngredients = noSuggestions,
+  matchNames,
   store = null,
   storeUnavailable = false,
   productChoices = noChoices,
@@ -688,6 +696,8 @@ export function ShoppingList({
       }),
     [planId, removal.shown, checks],
   );
+  // "Finns redan" in the review of a list that was photographed or pasted.
+  const existingLines = useMemo(() => existingLinesOf(lines), [lines]);
   const own = useOwnChanges(savedLines);
   const router = useRouter();
   const pantry = usePutInPantry(planId, site?.id ?? null, savedLines, own);
@@ -1027,7 +1037,13 @@ export function ShoppingList({
           {errorMessages.shopping_export_store_missing}
         </Notice>
       ) : null}
-      <CustomItemSheet open={sheet.open} session={sheet.session} searchIngredients={searchIngredients} onClose={closeSheet} />
+      <CustomItemSheet
+        open={sheet.open}
+        session={sheet.session}
+        searchIngredients={searchIngredients}
+        listImport={{ matchNames, existing: existingLines }}
+        onClose={closeSheet}
+      />
       {plan === null && !hasLines ? (
         <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
       ) : (

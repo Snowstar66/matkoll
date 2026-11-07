@@ -103,3 +103,6 @@ export async function findIngredientIds(query: string): Promise<string[]> {
  * client component of another module, which cannot import this file (AD-1).
  */
 export { searchIngredients } from "./actions/search-ingredients";
+
+/** Server Action: the catalog ingredient each name is, for a list read from a photo or pasted (passed down by a page, AD-1). */
+export { matchIngredientNames } from "./actions/match-names";

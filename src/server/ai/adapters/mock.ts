@@ -8,6 +8,8 @@ import {
   aiRecipe,
   analyzeImageAnswer,
   listThingsAnswer,
+  parseShoppingList,
+  shoppingListAnswer,
   parseAnalyzeItems,
   parseThings,
   suggestDishesAnswerCompact,
@@ -16,7 +18,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, SuggestDishesInput, SuggestedDish } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, ReadShoppingListResult, SuggestDishesInput, SuggestedDish } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -76,6 +78,8 @@ type Manifest = {
   analyze?: { default: string; cases: { name: string }[] };
   /** listThings (Story 18.2): the answer <things>.things.json for any photo that is not a reserved image. */
   things?: string;
+  /** readShoppingList: the answer <list>.list.json for any photo that is not a reserved image. */
+  list?: string;
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -102,6 +106,12 @@ type ThingsFixtures = {
   /** SHA-256 of the image bytes → an error code, for the reserved images. */
   errors: Map<string, MockErrorCode>;
   answer: Omit<ListThingsResult, "invalid" | "trimmed">;
+};
+
+type ListFixtures = {
+  /** SHA-256 of the image bytes → an error code, for the reserved images. */
+  errors: Map<string, MockErrorCode>;
+  answer: ReadShoppingListResult;
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -219,6 +229,21 @@ function loadThingsFixtures(dir: string): ThingsFixtures {
     if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
   }
   return { errors, answer: parsed };
+}
+
+function loadListFixtures(dir: string): ListFixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  if (!manifest.list) throw new Error("list missing");
+  const raw = shoppingListAnswer.parse(JSON.parse(read(`${manifest.list}.list.json`)));
+  const parsed = parseShoppingList(raw);
+  // Every line must pass as it is: a fixture is a valid answer.
+  if (parsed.invalid > 0 || parsed.items.length !== raw.items.length) throw new Error("invalid list fixture");
+  const errors = new Map<string, MockErrorCode>();
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
+  }
+  return { errors, answer: { items: parsed.items } };
 }
 
 /**
@@ -476,6 +501,7 @@ function countingCalls(service: AiService): AiService {
     analyzeImage: counted(service.analyzeImage),
     listThings: counted(service.listThings),
     locateThing: counted(service.locateThing),
+    readShoppingList: counted(service.readShoppingList),
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
     matchOffers: counted(service.matchOffers),
@@ -494,6 +520,7 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
   const thingsFixtures = lazily(() => loadThingsFixtures(dir));
+  const listFixtures = lazily(() => loadListFixtures(dir));
   // The suggest fixtures hold the reserved texts askThings fails on (a question that contains one).
   const askErrors = lazily(() => loadSuggestFixtures(dir).errors);
 
@@ -578,6 +605,16 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
       return ok({ ...structuredClone(current.answer), invalid: 0, trimmed: 0 });
+    },
+    async readShoppingList(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = logged(listFixtures());
+      if (!current) return fail("ai_unavailable");
+      const code = current.errors.get(sha256(input.image.data));
+      // A photo the mock does not know takes the delay, so a reading can be seen in progress.
+      if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
+      if (code) return fail(code);
+      return ok(structuredClone(current.answer));
     },
     async locateThing(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");

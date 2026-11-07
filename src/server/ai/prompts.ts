@@ -10,6 +10,7 @@ import parseRecipePrompt from "./prompts/parse-recipe.md?raw";
 import suggestDishesPrompt from "./prompts/suggest-dishes.md?raw";
 import suggestDishesNowPrompt from "./prompts/suggest-dishes-now.md?raw";
 import suggestDishesFriendPrompt from "./prompts/suggest-dishes-friend.md?raw";
+import readShoppingListPrompt from "./prompts/read-shopping-list.md?raw";
 import nowIdeasPrompt from "./prompts/now-ideas.md?raw";
 
 // System prompts for the AI port, kept as files in prompts/ (AD-9). They are
@@ -29,4 +30,5 @@ export const prompts = {
   matchOffers: matchOffersPrompt,
   categorizeThings: categorizeThingsPrompt,
   thingSearchTerms: thingSearchTermsPrompt,
+  readShoppingList: readShoppingListPrompt,
 } as const;

@@ -620,6 +620,64 @@ export const listThingsAnswer = z.object({
   hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
 });
 
+/** Inköpslista from a photo: at most this many items are kept; the prompt asks for no more. */
+export const maxListItems = 60;
+/** The longest item name kept, in characters. */
+export const maxListNameChars = 80;
+
+/**
+ * What the model answers to readShoppingList: the lines of a list on a photo
+ * (a handwritten note, a screenshot), a name each with an amount and a unit
+ * when the line has them. Loose on purpose (like listThingsAnswer): each item
+ * is checked on its own (parseShoppingList), so one bad line never makes the
+ * whole answer invalid.
+ */
+export const shoppingListAnswer = z.object({
+  items: z
+    .array(
+      z.object({
+        name: z.string().describe("Varans namn på svenska, utan punkt, kryssruta eller mängd, t.ex. mjölk"),
+        amount: z.number().nullable().describe("Mängden som tal om raden har en, annars null"),
+        unit: z.string().nullable().describe("Enheten om raden har en, t.ex. st, dl, kg, annars null"),
+      }),
+    )
+    .describe("Varorna på listan i den ordning de står, tom lista om bilden inte visar en lista"),
+});
+
+/** One line of a shopping list as the port returns it. */
+export type AiListItem = { name: string; amount: number | null; unit: string | null };
+
+/**
+ * The items of a readShoppingList answer that pass: a name on one line (cleaned, cut to maxListNameChars), an
+ * amount that is a positive number below a million with a unit (else both are dropped, the item stays), the
+ * first maxListItems, a name once (labelKey). `invalid` counts the lines without a usable name, `trimmed` the
+ * ones cut by the maximum. Counts only, never the names, are for the log.
+ */
+export function parseShoppingList(answer: z.output<typeof shoppingListAnswer>): { items: AiListItem[]; invalid: number; trimmed: number } {
+  let invalid = 0;
+  let trimmed = 0;
+  const seen = new Set<string>();
+  const items: AiListItem[] = [];
+  for (const entry of answer.items) {
+    const name = cutCodePoints(cleanModelText(entry.name), maxListNameChars);
+    if (name === "") {
+      invalid++;
+      continue;
+    }
+    const key = labelKey(name);
+    if (seen.has(key)) continue;
+    if (items.length >= maxListItems) {
+      trimmed++;
+      continue;
+    }
+    seen.add(key);
+    const unit = entry.unit === null ? "" : cleanModelText(entry.unit);
+    const hasAmount = entry.amount !== null && Number.isFinite(entry.amount) && entry.amount > 0 && entry.amount < 1_000_000 && unit !== "";
+    items.push({ name, amount: hasAmount ? entry.amount : null, unit: hasAmount ? unit : null });
+  }
+  return { items, invalid, trimmed };
+}
+
 /** The most places an answer to askThings may point to. */
 export const maxAskRefs = 5;
 /** The longest answer to askThings, in characters: it is a short answer. */

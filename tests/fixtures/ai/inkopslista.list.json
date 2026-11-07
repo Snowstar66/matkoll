@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "name": "Mjölk",
+      "amount": 2,
+      "unit": "l"
+    },
+    {
+      "name": "Bananer",
+      "amount": 6,
+      "unit": "st"
+    },
+    {
+      "name": "Hushållspapper",
+      "amount": null,
+      "unit": null
+    },
+    {
+      "name": "Kaffe",
+      "amount": null,
+      "unit": null
+    },
+    {
+      "name": "Skogsbärsyoghurt",
+      "amount": null,
+      "unit": null
+    }
+  ]
+}

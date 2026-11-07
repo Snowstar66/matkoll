@@ -8,6 +8,9 @@ import {
   matchOffersAnswer,
   minLoopRepeats,
   parseOfferMatches,
+  parseShoppingList,
+  shoppingListAnswer,
+  maxListItems,
   parseAnalyzeItems,
   pointScale,
   parseRecipeAnswer,
@@ -505,5 +508,58 @@ describe("parseOfferMatches (Story 9.10)", () => {
     );
     // Offer 1's first answer was out of range and still used the offer up; offer 2's first answer was not whole.
     expect(pairs).toEqual([]);
+  });
+});
+
+describe("shoppingListAnswer and parseShoppingList (Fota en lista)", () => {
+  const parse = (items: unknown[]) => parseShoppingList(shoppingListAnswer.parse({ items }));
+
+  it("needs every property, so strict providers can decode it", () => {
+    expect(shoppingListAnswer.safeParse({ items: [{ name: "Mjölk" }] }).success).toBe(false);
+    expect(shoppingListAnswer.safeParse({}).success).toBe(false);
+    expect(shoppingListAnswer.safeParse({ items: [] }).success).toBe(true);
+  });
+
+  it("cleans each name, drops empty lines and keeps a name once", () => {
+    const result = parse([
+      { name: "  Mjölk\n", amount: null, unit: null },
+      { name: "mjölk", amount: null, unit: null },
+      { name: "   ", amount: null, unit: null },
+      { name: "Bröd", amount: null, unit: null },
+    ]);
+    expect(result).toEqual({
+      items: [
+        { name: "Mjölk", amount: null, unit: null },
+        { name: "Bröd", amount: null, unit: null },
+      ],
+      invalid: 1,
+      trimmed: 0,
+    });
+  });
+
+  it("keeps an amount only with a unit and as a positive number below a million", () => {
+    const result = parse([
+      { name: "Mjölk", amount: 2, unit: " l " },
+      { name: "Ägg", amount: 6, unit: null },
+      { name: "Smör", amount: 0, unit: "g" },
+      { name: "Salt", amount: -1, unit: "g" },
+      { name: "Ris", amount: 2_000_000, unit: "g" },
+      { name: "Kaffe", amount: null, unit: "g" },
+    ]);
+    expect(result.items).toEqual([
+      { name: "Mjölk", amount: 2, unit: "l" },
+      { name: "Ägg", amount: null, unit: null },
+      { name: "Smör", amount: null, unit: null },
+      { name: "Salt", amount: null, unit: null },
+      { name: "Ris", amount: null, unit: null },
+      { name: "Kaffe", amount: null, unit: null },
+    ]);
+  });
+
+  it("keeps the first maxListItems and counts the rest as trimmed", () => {
+    const items = Array.from({ length: maxListItems + 5 }, (_, index) => ({ name: `Vara ${index}`, amount: null, unit: null }));
+    const result = parse(items);
+    expect(result.items).toHaveLength(maxListItems);
+    expect(result.trimmed).toBe(5);
   });
 });

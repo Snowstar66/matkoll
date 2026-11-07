@@ -48,6 +48,9 @@ import {
   type ThingToRemember,
   parseAskAnswer,
   listThingsAnswer,
+  shoppingListAnswer,
+  parseShoppingList,
+  type AiListItem,
   locateThingAnswer,
   parseLocatedBox,
   mergeThingsAnswer,
@@ -204,6 +207,14 @@ export type ListThingsResult = {
   hiddenContainers: number;
   hiddenNote: string | null;
 };
+
+export type ReadShoppingListInput = {
+  /** A photo or screenshot of a list, already resized in the client (AD-15). Never stored or logged by the port. */
+  image: ImageInput;
+};
+
+/** What readShoppingList answers: the lines that passed parseShoppingList, at most maxListItems, a name once. */
+export type ReadShoppingListResult = { items: AiListItem[] };
 
 /** A place as askThings gets it (Story 18.4): text only, never an image. Data for the model, never instructions. */
 export type AskThingsPlace = {
@@ -367,6 +378,13 @@ export interface AiService {
    */
   locateThing(input: LocateThingInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateThingResult>>;
   /**
+   * The items of a shopping list on a photo (a handwritten note, a screenshot of Microsoft To Do): a name each,
+   * with an amount and a unit when the line has them, at most maxListItems. Possibly none. Fails with `validation`
+   * (an image outside the limits), `ai_unavailable` (also when the deadline leaves too little time),
+   * `ai_rejected` or `ai_invalid`.
+   */
+  readShoppingList(input: ReadShoppingListInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ReadShoppingListResult>>;
+  /**
    * A short answer in Swedish to a question about Pontus's things (Story
    * 18.4), from the lists the cards gave (text only, no image) and the
    * numbers of the places it is about, each checked to be in the list. Fails
@@ -473,6 +491,8 @@ export const inputLimits = {
    * Haiku 5.5.
    */
   things: { maxOutputTokens: 5_000 },
+  /** readShoppingList: an item is about 15 tokens of answer, so 60 are about 900; 3 000 leave room for a model that writes around them. */
+  shoppingList: { maxOutputTokens: 3_000 },
   /**
    * locateThing (Story 18.7): a name of at most 80 characters and a "where" of
    * at most 120 (as thing_item holds them) with the photo; the answer is a flag
@@ -703,6 +723,10 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidImage(input.image)) return fail("validation");
       return service.listThings(input, signal, options);
     },
+    async readShoppingList(input, signal, options) {
+      if (!isValidImage(input.image)) return fail("validation");
+      return service.readShoppingList(input, signal, options);
+    },
     async locateThing(input, signal, options) {
       if (!isValidLocateThingInput(input)) return fail("validation");
       return service.locateThing(input, signal, options);
@@ -897,6 +921,30 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("things_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
       return ok(parsed);
     },
+    async readShoppingList(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: shoppingListAnswer,
+          system: prompts.readShoppingList,
+          messages: [{ role: "user", content: readShoppingListContent(input) }],
+          maxOutputTokens: inputLimits.shoppingList.maxOutputTokens,
+          sampling: target.imageSampling,
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const parsed = parseShoppingList(answer.data);
+      // Counts only, never the names.
+      if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("shopping_list_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
+      return ok({ items: parsed.items });
+    },
     async askThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1086,6 +1134,14 @@ export function analyzeImageContent(input: AnalyzeImageInput) {
 export function listThingsContent(input: ListThingsInput) {
   return [
     { type: "text" as const, text: `Bilden visar en plats hemma. Lista ${thingNoun.definitePlural}.` },
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+  ];
+}
+
+/** The user message for readShoppingList: a line and the photo as a `file` part. */
+export function readShoppingListContent(input: ReadShoppingListInput) {
+  return [
+    { type: "text" as const, text: "Bilden visar en inköpslista. Läs av varorna." },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
   ];
 }
