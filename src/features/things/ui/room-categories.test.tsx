@@ -18,6 +18,10 @@ const categories = [
   { category: "Verktyg" as const, things: 214 },
   { category: "Trädgård" as const, things: 3 },
 ];
+const smallRoom = [
+  { category: "Verktyg" as const, things: 4 },
+  { category: "Trädgård" as const, things: 3 },
+];
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -34,6 +38,18 @@ const view = () =>
   );
 
 describe("the room's categories", () => {
+  it("are open from the start in a small room, under headings like Matvaror's, and read every category", async () => {
+    render(
+      <ToastProvider>
+        <RoomCategories siteId={site} roomKey="skräpförrådet" categories={smallRoom} />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole("heading", { name: "Verktyg" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Verktyg/ })).not.toBeInTheDocument();
+    expect((await screen.findAllByText("Skiftnyckel")).length).toBeGreaterThan(0);
+    expect(loadRoomCategoryThings).toHaveBeenCalledTimes(2);
+  });
+
   it("are folded in with their count, and read nothing until one is opened", async () => {
     view();
     const toggle = screen.getByRole("button", { name: "Verktyg · 214" });

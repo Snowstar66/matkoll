@@ -40,7 +40,9 @@ function itemCountText(count: number): string {
 
 export type CategoryHeaderProps = {
   /** From `displayCategory` in `@/features/catalog`. An unknown name gets Övrigt's icon. */
-  category: CategoryName;
+  category: CategoryName | (string & {});
+  /** An emoji of its own, for categories that are not the nine of the food catalog (Förråd's: "Verktyg"). */
+  icon?: string;
   /** How many items are under the heading; shown as a number, read as "3 varor". Not a whole number ≥ 0: 0. */
   count: number;
   /** The heading's id, for `aria-labelledby` on the ListGroup below it. */
@@ -60,9 +62,9 @@ export type CategoryHeaderProps = {
  * description, so it is heard when moving by headings. The emoji has a fixed
  * size in px, so the row holds at 200 % text; a long name wraps instead.
  */
-export function CategoryHeader({ category, count, id, level = 2, className }: CategoryHeaderProps) {
+export function CategoryHeader({ category, icon: ownIcon, count, id, level = 2, className }: CategoryHeaderProps) {
   const countId = useId();
-  const { icon } = (categoryIcons as Record<string, { icon: string }>)[category] ?? categoryIcons["Övrigt"];
+  const icon = ownIcon ?? (categoryIcons as Record<string, { icon: string }>)[category]?.icon ?? categoryIcons["Övrigt"].icon;
   const shown = itemCount(count);
   const Heading = `h${level}` as const;
   return (

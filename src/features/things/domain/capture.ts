@@ -34,13 +34,13 @@ export const roomExactText = "Var i rummet? (valfritt)";
 export const captureHintText = `Efter varje kort: "Ta ett till". ${appName} läser korten i bakgrunden.`;
 export const exactPlaceText = "Var i rummet? (valfritt)"
 export const partExampleText = "t.ex. översta hyllan i garderoben";
-export const newRoomText = "+ Nytt rum";
-// The "Nytt rum" sheet on Förråd's start page (Story 18.21).
-export const newRoomTitle = "Nytt rum";
+export const newRoomText = "Lägg till rum";
+// The "Lägg till rum" sheet on Förråd's start page (Story 18.21).
+export const newRoomTitle = "Lägg till rum";
 export const newRoomLabel = "Namn på rummet";
 export const newRoomExample = "Garaget";
 export const newRoomHint = "Sedan fotar du rummet, en hylla eller en låda där.";
-export const createRoomText = "Skapa rum";
+export const createRoomText = "Lägg till rum";
 export const takeAnotherText = "Ta ett till";
 export const emptyCaptureRoomText = "Ange ett rum, till exempel Skräpförrådet.";
 export const retakeText = "Ta om";

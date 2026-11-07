@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { use, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
-import { PrivacyNote } from "@/features/auth/ui/privacy-note";
 import type { MemberColor } from "@/features/household";
 import { NamePrompt } from "@/features/household/ui/name-prompt";
 import { welcomeRoute } from "@/features/welcome";
@@ -21,8 +20,7 @@ const noNameAsk: Promise<NameAsk> = Promise.resolve(null);
 /**
  * The first things someone sees, one at a time, over the page they landed on: "Vad heter du?" the
  * first time someone without a name signs in (Story 21.2b), the welcome tour the first time someone
- * opens the app (Story 20.1), and the privacy note (Story 17.2) only once both are closed, never on
- * top of them. `seen` and `name` are the server's answers; the layout hands over the promises and
+ * opens the app (Story 20.1) (the privacy line is on its last page, UX-24). `seen` and `name` are the server's answers; the layout hands over the promises and
  * this waits for them inside its own <Suspense> with nothing as the fallback, so someone who has
  * seen them never sees them flash, and the shell never waits (AD-18). The replay at /valkomst shows
  * its own tour, so none is shown there.
@@ -47,7 +45,7 @@ export function WelcomeGate({ seen, name = noNameAsk }: { seen: Promise<boolean>
       />
     );
   }
-  return <PrivacyNote />;
+  return null;
 }
 
 /** "Välkommen till Hushållet Hellgren." once after joining (a message, no Ångra); the parameter then goes from the address. */

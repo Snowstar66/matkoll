@@ -23,8 +23,8 @@ describe("the P button (Story 19.2)", () => {
     await user.click(button);
     const sheet = await screen.findByRole("dialog", { name: /Pontus.*pontus@matkoll.local/ });
     expect(screen.getByRole("link", { name: "Inställningar" })).toHaveAttribute("href", "/installningar");
-    expect(screen.getByRole("link", { name: /Hjälp och tips/ })).toHaveAttribute("href", "/hjalp#recept");
-    expect(screen.getByRole("link", { name: /Hjälp och tips/ })).toHaveTextContent("Om Recept");
+    expect(screen.getByRole("link", { name: "Bjud in någon" })).toHaveAttribute("href", "/installningar/medlemmar");
+    expect(screen.getByRole("link", { name: "Hjälp för Recept" })).toHaveAttribute("href", "/hjalp#recept");
     expect(sheet).toContainElement(screen.getByRole("button", { name: "Logga ut" }));
   });
 

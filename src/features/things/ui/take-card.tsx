@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, useCallback, useId, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { FieldError, FieldLabel, Input } from "@/components/field";
@@ -21,6 +21,7 @@ import {
   captureTitle,
   emptyCaptureRoomText,
   exactPlaceText,
+  newRoomLabel,
   newRoomText,
   openCameraText,
   partExampleText,
@@ -100,6 +101,12 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   const [quickOpen, setQuickOpen] = useState(false);
   const refresh = useCallback(() => router.refresh(), [router]);
   const upload = useCardUpload(refresh);
+  // UX-27: "Kortet läses i bakgrunden." goes away when the reading is done: the state it was said for is remembered.
+  const uploadState = useRef(upload.state);
+  useEffect(() => {
+    uploadState.current = upload.state;
+  }, [upload.state]);
+  const [readFor, setReadFor] = useState<unknown>(null);
   const [problem, setProblem] = useState<AppError | null>(null);
 
   // The results of this tab's jobs are shown by the page that reads itself again, so no confirmation says what is already there.
@@ -108,7 +115,10 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   useOnAiJobsFinished(
     useCallback(
       (finished: AiJob[]) => {
-        if (finished.some((job) => job.kind === "things")) router.refresh();
+        if (finished.some((job) => job.kind === "things")) {
+          setReadFor(uploadState.current);
+          router.refresh();
+        }
       },
       [router],
     ),
@@ -279,7 +289,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
         ) : null}
         {state.kind === "sent" ? (
           <div className="flex flex-col gap-2">
-            {state.count > 0 ? <p className="text-body text-ink">{sentText(state.count)}</p> : null}
+            {state.count > 0 && readFor !== state ? <p className="text-body text-ink">{sentText(state.count)}</p> : null}
             {viaCamera && touch ? (
               <Button variant="secondary" onClick={another} data-testid="take-another">
                 <CameraIcon size={20} />
@@ -319,12 +329,12 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
                 </Chip>
               ))}
               <Chip role="radio" aria-checked={choice === newRoom} selected={choice === newRoom} dashed onClick={() => setChoice(newRoom)}>
-                {newRoomText}
+                {`+ ${newRoomText}`}
               </Chip>
             </div>
             {choice === newRoom ? (
               <div className="flex flex-col gap-2">
-                <FieldLabel htmlFor={`${ids}-new`}>Nytt rum</FieldLabel>
+                <FieldLabel htmlFor={`${ids}-new`}>{newRoomLabel}</FieldLabel>
                 <Input
                   ref={newRoomRef}
                   id={`${ids}-new`}
