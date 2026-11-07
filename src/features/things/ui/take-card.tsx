@@ -27,7 +27,11 @@ import {
   partExampleText,
   pickerAccept,
   pickImagesText,
-  roomExactText,
+  wherePlaceText,
+  wholeRoomText,
+  shelfText,
+  boxChipText,
+  otherPlaceText,
   skippedImageText,
   sendingText,
   sentText,
@@ -70,13 +74,17 @@ export type TakeCardProps = {
   sub?: string;
   /** The row is hidden (not unmounted), so a card being sent keeps its state and status. */
   hideRow?: boolean;
+  /** A room's page: the room's own boxes and parts, offered as chips beside "Hylla" and "Låda" (UX-28). */
+  places?: readonly { name: string; box: boolean }[];
 };
 
 const newRoom = "\u0000new";
 
+type Spot = { kind: "room" } | { kind: "shelf" } | { kind: "newbox" } | { kind: "other" } | { kind: "place"; name: string; box: boolean };
+
 type Where = { siteId: string; room: string; part: string; box: boolean };
 
-export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", title, sub, hideRow = false }: TakeCardProps) {
+export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", title, sub, hideRow = false, places = [] }: TakeCardProps) {
   const router = useRouter();
   const touch = useCoarsePointer();
   const ids = useId();
@@ -99,6 +107,9 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   const reuse = useRef(false);
   const [viaCamera, setViaCamera] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  // UX-28: where on a room's page; stays until another chip is chosen, so cards in a row land on the same place.
+  const [spot, setSpot] = useState<Spot>({ kind: "room" });
+  const [spotName, setSpotName] = useState("");
   const refresh = useCallback(() => router.refresh(), [router]);
   const upload = useCardUpload(refresh);
   // UX-27: "Kortet läses i bakgrunden." goes away when the reading is done: the state it was said for is remembered.
@@ -153,17 +164,35 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   function choose(camera: boolean, direct = false) {
     if (placing) return;
     const room = direct ? (defaultRoom ?? "") : chosenRoom();
+    const here = direct ? roomSpot() : null;
     if (room === "") {
       setErrors({ room: emptyCaptureRoomText });
       newRoomRef.current?.focus();
       return;
     }
     const exact = !direct && exactOpen;
-    where.current = { siteId, room, part: exact ? part : "", box: exact && box === "box" };
+    where.current = here ? { siteId, room, ...here } : { siteId, room, part: exact ? part : "", box: exact && box === "box" };
     reuse.current = false;
     setViaCamera(camera);
     // Without a camera input (a desktop) "Ta foto" is the file picker.
     (camera && cameraRef.current ? cameraRef : pickerRef).current?.click();
+  }
+
+  /** The part or box the chip row stands on; "Hela rummet" (and an empty own name) is the whole room. */
+  function roomSpot(): { part: string; box: boolean } {
+    const typed = spotName.trim();
+    switch (spot.kind) {
+      case "shelf":
+        return { part: shelfText, box: false };
+      case "newbox":
+        return { part: typed || boxChipText, box: true };
+      case "other":
+        return { part: typed, box: false };
+      case "place":
+        return { part: spot.name, box: spot.box };
+      default:
+        return { part: "", box: false };
+    }
   }
 
   function another() {
@@ -182,7 +211,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   /** Snabbkamera on a room's page: the room is the page's own. */
   function openQuick() {
     if (placing || upload.state.kind === "sending") return;
-    where.current = { siteId, room: defaultRoom ?? "", part: "", box: false };
+    where.current = { siteId, room: defaultRoom ?? "", ...roomSpot() };
     reuse.current = false;
     setQuickOpen(true);
   }
@@ -240,37 +269,66 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   return (
     <div className="flex flex-col gap-3" data-testid="take-card">
       {layout === "room" ? (
-        <div className="flex flex-col items-center gap-1" data-testid="room-capture">
+        <div className="flex flex-col gap-2" data-testid="room-capture">
+          <p id={`${ids}-where`} className="px-1 text-meta text-ink-2">
+            {wherePlaceText}
+          </p>
+          <div role="radiogroup" aria-labelledby={`${ids}-where`} className="flex flex-wrap gap-2">
+            <Chip role="radio" aria-checked={spot.kind === "room"} selected={spot.kind === "room"} onClick={() => setSpot({ kind: "room" })}>
+              {wholeRoomText}
+            </Chip>
+            <Chip role="radio" aria-checked={spot.kind === "shelf"} selected={spot.kind === "shelf"} onClick={() => setSpot({ kind: "shelf" })}>
+              {shelfText}
+            </Chip>
+            <Chip role="radio" aria-checked={spot.kind === "newbox"} selected={spot.kind === "newbox"} onClick={() => setSpot({ kind: "newbox" })}>
+              {boxChipText}
+            </Chip>
+            {places
+              .filter((place) => ![shelfText, boxChipText].includes(place.name))
+              .map((place) => {
+                const on = spot.kind === "place" && spot.name === place.name && spot.box === place.box;
+                return (
+                  <Chip key={`${place.box}-${place.name}`} role="radio" aria-checked={on} selected={on} onClick={() => setSpot({ kind: "place", name: place.name, box: place.box })}>
+                    {place.name}
+                  </Chip>
+                );
+              })}
+            <Chip role="radio" aria-checked={spot.kind === "other"} selected={spot.kind === "other"} dashed onClick={() => setSpot({ kind: "other" })}>
+              {otherPlaceText}
+            </Chip>
+          </div>
+          {spot.kind === "other" || spot.kind === "newbox" ? (
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor={`${ids}-spot`}>{spot.kind === "newbox" ? "Namn på lådan" : "Del av rummet"}</FieldLabel>
+              <Input
+                id={`${ids}-spot`}
+                placeholder={spot.kind === "newbox" ? "Blå backen" : partExampleText}
+                autoComplete="off"
+                maxLength={maxPlaceNameChars * 2}
+                value={spotName}
+                onChange={(event) => setSpotName(event.target.value)}
+              />
+            </div>
+          ) : null}
           <button
             type="button"
             disabled={sending}
             onClick={openQuick}
-            className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-center text-row-title text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="mt-1 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-center text-row-title text-on-accent select-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             data-testid="quick-camera-open"
           >
             <CameraIcon size={20} className="shrink-0" />
             {quickCameraText}
           </button>
-          <div className="flex flex-wrap items-center justify-center gap-x-4">
-            <button
-              type="button"
-              disabled={sending}
-              onClick={() => choose(false, true)}
-              className="flex min-h-tap items-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
-              data-testid="pick-images"
-            >
-              {pickImagesText}
-            </button>
-            <button
-              type="button"
-              disabled={sending}
-              onClick={openSheet}
-              className="flex min-h-tap items-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
-              data-testid="room-exact"
-            >
-              {roomExactText}
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => choose(false, true)}
+            className="flex min-h-tap items-center self-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+            data-testid="pick-images"
+          >
+            {pickImagesText}
+          </button>
         </div>
       ) : (
         <PhotoRow title={title} onClick={openSheet} disabled={sending} hidden={hideRow} variant={variant === "primary" ? "primary" : "default"}>
