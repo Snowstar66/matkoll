@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  type ReactNode,
   startTransition,
   useActionState,
   useEffect,
@@ -11,6 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/button";
+import { ChevronDownIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { errorMessages, type Result } from "@/lib/errors";
@@ -21,13 +23,16 @@ import { sendMagicLink, type SendMagicLinkState } from "../actions/send-magic-li
 import { verifyEmailCode } from "../actions/verify-email-code";
 
 // The same text whether or not the address is allowed (AD-3).
-const sentMessage = "Vi har skickat en länk och en kod till din e-post.";
+const sentMessage = (email: string) =>
+  `Vi har skickat en länk och en kod till ${email}. Tryck på länken, eller skriv koden här.`;
 
 type LoginFormProps = {
   /** Where to go after the link is opened or the code is entered; checked again on the server. */
   next?: string;
   /** A message to show before the form is used, e.g. for an expired link. */
   notice?: string;
+  /** The invitation code field, shown under "Har du fått en inbjudan?" (the household feature's, passed in by the page). */
+  invite?: ReactNode;
 };
 
 type VerifyCodeState = Result<never> | null;
@@ -95,20 +100,23 @@ const modeLabels: Record<Mode, string> = {
 const resetSentMessage = "Om adressen har ett konto skickar vi ett mejl med en länk där du väljer lösenord.";
 
 /**
- * Logga in (FR-1, AD-3, Story 17.2): e-mail address and password with "Logga
- * in". Accounts are made by `pnpm users:sync`, so a first sign-in and a
- * forgotten password both go through "Välj lösenord", a mail with a link.
- * Under it, "Skicka länk" is the one-time link without a
- * password, and once the mail is sent, "Kod från mejlet" and "Logga in" (Story
- * 11.6). The link signs in the browser it is opened in; the code signs in here,
- * which is what the app on the iPhone home screen needs, since the link opens
- * in Safari. While the code step shows, the address is the one the link went
- * to and cannot be edited; "Byt adress" goes back. "Jag har redan en kod" opens
- * the code step without sending a new mail.
+ * Logga in (FR-1, AD-3, Story 17.2, UX-10): three parts from the top. E-mail
+ * address and password with "Logga in"; accounts are made by `pnpm
+ * users:sync`, so a first sign-in and a forgotten password both go through
+ * "Välj lösenord", a mail with a link. Then "Logga in utan lösenord": "Skicka
+ * länk och kod" mails a one-time link and a code, and once it is sent, "Kod
+ * från mejlet" and "Logga in" (Story 11.6). The link signs in the browser it is
+ * opened in; the code signs in here, which is what the app on the iPhone home
+ * screen needs, since the link opens in Safari. While the code step shows, the
+ * address is the one the link went to and cannot be edited; "Byt adress" goes
+ * back. Last, a folded row "Har du fått en inbjudan?" with the invitation
+ * code; open, it folds the part without a password.
  */
-export function LoginForm({ next, notice }: LoginFormProps) {
+export function LoginForm({ next, notice, invite }: LoginFormProps) {
   const [codeStep, setCodeStep] = useState<CodeStep | null>(null);
   const [mode, setMode] = useState<Mode>("login");
+  // "Har du fått en inbjudan?" open: the part without a password folds into a row.
+  const [inviteOpen, setInviteOpen] = useState(false);
   const sends = useRef(0);
   const [state, formAction, linkPending] = useActionState<SendMagicLinkState, FormData>(async (previous, formData) => {
     const result = await sendMagicLink(previous, formData);
@@ -143,6 +151,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
   const hydrated = useHydrated();
   const emailRef = useRef<HTMLInputElement>(null);
   const emailId = useId();
+  const formId = useId();
   const errorId = useId();
   const passwordId = useId();
   const passwordErrorId = useId();
@@ -178,18 +187,6 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     }
   }
 
-  function openCodeStepWithoutSending() {
-    const result = loginSchema.safeParse({ email });
-    if (!result.success) {
-      setClientError(loginFieldErrors(result.error).email ?? null);
-      emailRef.current?.focus();
-      return;
-    }
-    setClientError(null);
-    storeStep(result.data.email, false);
-    setCodeStep({ email: result.data.email, sent: false, key: ++sends.current });
-  }
-
   function changeAddress() {
     clearStoredStep();
     setCodeStep(null);
@@ -202,9 +199,17 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     setClientError(null);
   }
 
+  const passwordless = mode === "login" || codeStep !== null;
+
   return (
-    <div className="flex w-full flex-col gap-6">
-      <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="flex w-full flex-col gap-3">
+    <div className="flex w-full flex-col gap-3">
+      <form
+        id={formId}
+        action={formAction}
+        onSubmit={validateBeforeSubmit}
+        noValidate
+        className="flex w-full flex-col gap-3"
+      >
         {showNotice ? <Notice role="alert">{notice}</Notice> : null}
         {next ? <input type="hidden" name="next" value={next} /> : null}
         <FieldLabel htmlFor={emailId}>E-postadress</FieldLabel>
@@ -225,7 +230,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
             setEmail(event.target.value);
             setClientError(null);
             setMainEdited(true);
-                }}
+          }}
         />
         {fieldError ? (
           <FieldError id={errorId} role="alert">
@@ -267,48 +272,111 @@ export function LoginForm({ next, notice }: LoginFormProps) {
               {modeLabels[mode]}
             </Button>
             {mode === "reset" ? (
-              <p role="status" aria-live="polite" className="text-body text-ink-2">
-                {resetSent ? resetSentMessage : null}
+              <>
+                <p role="status" aria-live="polite" className="text-body text-ink-2">
+                  {resetSent ? resetSentMessage : null}
+                </p>
+                <Button variant="text" className="-ml-3 self-start text-left" onClick={() => chooseMode("login")}>
+                  Tillbaka till inloggning
+                </Button>
+              </>
+            ) : (
+              <p className="text-meta text-ink-2">
+                Glömt lösenordet eller första gången?{" "}
+                <button type="button" className="font-medium text-accent" onClick={() => chooseMode("reset")}>
+                  Välj lösenord
+                </button>
               </p>
-            ) : null}
-            <Button
-              variant="text"
-              className="-ml-3 self-start text-left"
-              onClick={() => chooseMode(mode === "login" ? "reset" : "login")}
-            >
-              {mode === "login" ? "Första gången eller glömt lösenordet? Välj lösenord" : "Tillbaka till inloggning"}
-            </Button>
+            )}
           </>
         )}
-        {mode === "login" || codeStep ? (
+        {passwordless ? (
           <>
-            {codeStep ? null : <p className="mt-2 text-body text-ink-2">Eller logga in utan lösenord:</p>}
-            <Button type="submit" variant="secondary" fullWidth disabled={pending || !hydrated}>
-              Skicka länk
-            </Button>
-            <p role="status" aria-live="polite" className="text-body text-ink-2">
-              {codeStep?.sent ? sentMessage : null}
-            </p>
-            {codeStep ? null : (
-              <Button
-                variant="text"
-                className="-ml-3 self-start"
-                disabled={!hydrated}
-                onClick={openCodeStepWithoutSending}
-              >
-                Jag har redan en kod
-              </Button>
+            <hr className="border-border" />
+            {inviteOpen ? (
+              <FoldedRow title="Logga in utan lösenord" onClick={() => setInviteOpen(false)} />
+            ) : (
+              <section className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-row-title font-semibold text-ink">
+                    Logga in utan lösenord
+                  </h2>
+                  {codeStep ? (
+                    <p role="status" aria-live="polite" className="text-meta text-ink-2">
+                      {codeStep.sent ? sentMessage(codeStep.email) : "Skriv koden från mejlet."}
+                    </p>
+                  ) : (
+                    <p className="text-meta text-ink-2">Vi mejlar en länk och en kod till adressen ovan.</p>
+                  )}
+                </div>
+                {codeStep ? null : (
+                  <Button type="submit" variant="secondary" fullWidth disabled={pending || !hydrated}>
+                    Skicka länk och kod
+                  </Button>
+                )}
+              </section>
             )}
           </>
         ) : null}
       </form>
-      {codeStep ? <CodeForm key={codeStep.key} email={codeStep.email} sent={codeStep.sent} next={next} /> : null}
+      {codeStep && passwordless && !inviteOpen ? (
+        <CodeForm
+          key={codeStep.key}
+          email={codeStep.email}
+          sent={codeStep.sent}
+          next={next}
+          formId={formId}
+          resending={linkPending}
+        />
+      ) : null}
+      <hr className="border-border" />
+      {inviteOpen ? (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-row-title font-semibold text-ink">
+            Har du fått en inbjudan?
+          </h2>
+          {invite}
+        </section>
+      ) : (
+        <FoldedRow title="Har du fått en inbjudan?" subtitle="Skriv koden från inbjudan" onClick={() => setInviteOpen(true)} />
+      )}
     </div>
   );
 }
 
+/** A folded part of the page: a row with a chevron that opens it. */
+function FoldedRow({ title, subtitle, onClick }: { title: string; subtitle?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={false}
+      className="flex min-h-tap w-full items-center justify-between gap-3 text-left"
+    >
+      <span className="flex flex-col">
+        <span className="text-row-title font-medium text-ink">{title}</span>
+        {subtitle ? <span className="text-meta text-ink-2">{subtitle}</span> : null}
+      </span>
+      <ChevronDownIcon className="shrink-0 text-ink-3" aria-hidden="true" />
+    </button>
+  );
+}
+
 /** "Kod från mejlet" and "Logga in": the six digits from the same e-mail as the link. */
-function CodeForm({ email, sent, next }: { email: string; sent: boolean; next?: string }) {
+function CodeForm({
+  email,
+  sent,
+  next,
+  formId,
+  resending,
+}: {
+  email: string;
+  sent: boolean;
+  next?: string;
+  /** The form that sends the link again, for "Skicka igen". */
+  formId: string;
+  resending: boolean;
+}) {
   const [state, formAction, pending] = useActionState<VerifyCodeState, FormData>(async (_previous, formData) => {
     // Gone once signed in (the action then leaves the page); back if the code was refused.
     clearStoredStep();
@@ -346,6 +414,7 @@ function CodeForm({ email, sent, next }: { email: string; sent: boolean; next?: 
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern={emailCodePattern}
+        placeholder="6 siffror"
         required
         value={code}
         aria-invalid={error ? true : undefined}
@@ -363,6 +432,9 @@ function CodeForm({ email, sent, next }: { email: string; sent: boolean; next?: 
       ) : null}
       <Button type="submit" fullWidth disabled={pending}>
         Logga in
+      </Button>
+      <Button type="submit" form={formId} variant="text" className="self-center" disabled={resending}>
+        Skicka igen
       </Button>
     </form>
   );

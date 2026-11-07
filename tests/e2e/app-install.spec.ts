@@ -19,7 +19,7 @@ import {
 // each test that signs in, so a retry starts over, also with Auth's limits.
 
 const mobile = { width: 375, height: 812 };
-const sentText = "Vi har skickat en länk och en kod till din e-post.";
+const sentText = /^Vi har skickat en länk och en kod till .+\. Tryck på länken, eller skriv koden här\.$/;
 const invalidText = "Koden stämmer inte eller har gått ut. Skicka en ny länk.";
 // The session cookie (in chunks); not the PKCE verifier "Skicka länk" leaves.
 const authCookie = /^sb-.+-auth-token(\.\d+)?$/;
@@ -158,7 +158,7 @@ test.describe("signing in with the code", () => {
     await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept%3Fflik%3Dx$/);
     await expect(codeField(page)).toHaveCount(0);
     await page.getByLabel("E-postadress").fill(appInstallEmail);
-    await page.getByRole("button", { name: "Skicka länk" }).click();
+    await page.getByRole("button", { name: "Skicka länk och kod" }).click();
     await expect(page.getByRole("status")).toHaveText(sentText);
     await expect(page.getByLabel("E-postadress")).toHaveValue(appInstallEmail);
     await expect(codeField(page)).toHaveAttribute("inputmode", "numeric");
@@ -202,7 +202,7 @@ test.describe("signing in with the code", () => {
     const before = await lastSignIn(outsiderEmail);
     await page.goto("/logga-in");
     await page.getByLabel("E-postadress").fill(outsiderEmail);
-    await page.getByRole("button", { name: "Skicka länk" }).click();
+    await page.getByRole("button", { name: "Skicka länk och kod" }).click();
     await expect(page.getByRole("status")).toHaveText(sentText);
     await codeField(page).fill(code);
     await page.getByRole("button", { name: "Logga in" }).click();

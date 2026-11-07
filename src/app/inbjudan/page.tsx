@@ -42,7 +42,7 @@ async function InvitationContent({ searchParams }: Pick<PageProps<"/inbjudan">, 
         {title}
         <p className="text-body text-ink-2">Skriv koden från inbjudan. Den har {appInviteCodeLength} tecken, till exempel K7Q4 MP2X.</p>
         {raw ? <Notice role="alert">Koden finns inte. Kontrollera den och försök igen.</Notice> : null}
-        <CodeEntry kind="app" />
+        <CodeEntry />
       </>
     );
   }
@@ -66,7 +66,7 @@ async function InvitationContent({ searchParams }: Pick<PageProps<"/inbjudan">, 
       <>
         {title}
         <Notice role="alert">Koden finns inte. Kontrollera den och försök igen.</Notice>
-        <CodeEntry kind="app" />
+        <CodeEntry />
       </>
     );
   }

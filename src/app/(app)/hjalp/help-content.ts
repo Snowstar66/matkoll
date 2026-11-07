@@ -205,7 +205,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur går jag med i ett hushåll?",
-        answer: `Öppna länken du fått, eller tryck Har du en kod? på inloggningssidan. Välj e-post och lösenord, så får du en egen inloggning och ser samma recept, matsedel, lista, matvaror och ${things} som de andra. Har du redan egna recept eller varor i ${appName} går det inte än.`,
+        answer: `Öppna länken du fått, eller tryck Har du fått en inbjudan? på inloggningssidan och skriv koden. Välj e-post och lösenord, så får du en egen inloggning och ser samma recept, matsedel, lista, matvaror och ${things} som de andra. Har du redan egna recept eller varor i ${appName} går det inte än.`,
       },
       {
         question: "Hur lämnar jag hushållet, eller tar bort någon?",

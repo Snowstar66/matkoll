@@ -53,8 +53,8 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await page.goto("/recept");
   await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept$/);
   await page.getByLabel("E-postadress").fill(coreFlowEmail);
-  await page.getByRole("button", { name: "Skicka länk" }).click();
-  await expect(page.getByText("Vi har skickat en länk och en kod till din e-post.")).toBeVisible();
+  await page.getByRole("button", { name: "Skicka länk och kod" }).click();
+  await expect(page.getByText(/Vi har skickat en länk och en kod till .+\. Tryck på länken/)).toBeVisible();
   await expect.poll(async () => (await mailsTo(coreFlowEmail)).length, { timeout: 10_000 }).toBe(1);
   const [mail] = await mailsTo(coreFlowEmail);
   const href = (await mailHtml(mail.ID)).match(/href="([^"]*\/auth\/confirm\?[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
