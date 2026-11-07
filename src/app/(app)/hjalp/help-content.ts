@@ -28,9 +28,9 @@ export const helpAreas: readonly HelpArea[] = [
     id: "recept",
     title: "Recept",
     steps: [
-      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
+      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
-      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
+      { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas (blå ring) och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
       {
@@ -49,7 +49,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur tar jag bort ett recept?",
-        answer: "Svep receptet åt vänster i listan och tryck Ta bort, eller öppna receptet och välj Ta bort i menyn. Du får en fråga först, eftersom det inte går att ångra.",
+        answer: "Öppna receptet och välj Ta bort i menyn ⋯ uppe till höger. Du får en fråga först, eftersom det inte går att ångra.",
       },
       {
         question: "Hur markerar jag en rätt som lagad?",

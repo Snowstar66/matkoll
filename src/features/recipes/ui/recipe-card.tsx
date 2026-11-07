@@ -120,7 +120,8 @@ export function RecipeCard({
         <RecipeImage
           src={imageUrl}
           emoji={emoji}
-          iconSize={emoji ? 56 : 40}
+          title={title}
+          iconSize={56}
           className={cx("w-full rounded-t-lg", "h-card-image desktop:h-[180px]")}
         />
         {badge ? (

@@ -64,7 +64,7 @@ async function openImport(page: Page, tab: "Länk" | "Text" = "Text") {
 
 async function parse(page: Page, text: string) {
   await textField(page).fill(text);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
 }
 
 test.use({ storageState: importStorageState, viewport: mobile });
@@ -134,7 +134,7 @@ test("the sheet opens on the Länk tab, with Text and Foto beside it", async ({ 
   const tabs = sheet(page).getByRole("tab");
   await expect(tabs).toHaveText(["Länk", "Text", "Foto"]);
   await expect(linkField(page)).toBeVisible();
-  const tolka = sheet(page).getByRole("button", { name: "Tolka" });
+  const tolka = sheet(page).getByRole("button", { name: "Läs in recept" });
   await expect(tolka).toBeDisabled();
   await linkField(page).fill("   ");
   await expect(tolka).toBeDisabled();
@@ -210,7 +210,7 @@ test("Avbryt stops the import and goes back to the text without an error", async
   await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
   await expect(sheet(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(textField(page)).toHaveValue(linssoppa);
-  await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+  await sheet(page).getByRole("button", { name: "Avbryt inläsningen" }).click();
 
   await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
   await expect(textField(page)).toHaveValue(linssoppa);
@@ -291,7 +291,7 @@ const chowMein = "https://www.koket.se/chow-mein-med-lovbiff";
 
 async function parseLink(page: Page, url: string) {
   await linkField(page).fill(url);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
 }
 
 test.describe("import from a link", () => {
@@ -723,7 +723,8 @@ test.describe("import from a photo", () => {
     const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
     if (error) throw error;
     expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
-    await expect(page.getByText("Foto av kokbok")).toBeVisible();
+    // UX-12: a source that is not a link is not shown.
+    await expect(page.getByText("Foto av kokbok")).toHaveCount(0);
   });
 
   test("a Linas Matkasse card keeps its ingredient groups, staples and step headings in the recipe", async ({ page }) => {
@@ -861,7 +862,7 @@ test.describe("import from a photo", () => {
     await openImport(page, "Länk");
     await choosePhoto(page, photoPath);
     await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
-    await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+    await sheet(page).getByRole("button", { name: "Avbryt inläsningen" }).click();
 
     await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
     await expect(sheet(page).getByRole("alert")).toHaveCount(0);

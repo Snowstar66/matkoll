@@ -222,7 +222,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   const errors = watchErrors(page);
   // Two places, Hemma selected: the line names Hemma, and the recipe can be cooked now.
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(0);
+  await expect(view(page).getByRole("img", { name: "saknas", exact: true })).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Hemma$/);
 
   await selectSite(stugan);
@@ -256,7 +256,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await expectBoende(page, "Hemma");
   await expect(dish(page).getByTestId("dish-note")).toHaveText("Allt finns hemma");
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(0);
+  await expect(view(page).getByRole("img", { name: "saknas", exact: true })).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Hemma$/);
   expect(errors).toEqual([]);
 });
@@ -301,7 +301,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   await expect(rows(page).filter({ hasText: title }).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await rows(page).filter({ hasText: title }).getByRole("link").first().click();
   await expect(page).toHaveURL(new RegExp(`/recept/${recipeId}$`));
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(0);
+  await expect(view(page).getByRole("img", { name: "saknas", exact: true })).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText("2 av 2 hemma i Hemma");
 
   await tab(page, "Matsedel").click();
@@ -317,7 +317,7 @@ test("with one place there is no line Lager anywhere, as in 1.0", async ({ page 
   const errors = watchErrors(page);
   await removeStugan();
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(0);
+  await expect(view(page).getByRole("img", { name: "saknas", exact: true })).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-at-home")).not.toContainText(" i ");
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();

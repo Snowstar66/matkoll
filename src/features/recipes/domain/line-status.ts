@@ -243,8 +243,8 @@ export function plannedToastText(
   when: string | null = null,
 ): string {
   const where = weekdayWord
-    ? `${title} på ${weekdayWord}${when ? ` ${when}` : ""}.`
-    : `${title} ${when ?? "på veckan"}. Alla dagar har en rätt.`;
+    ? `${title} ligger på ${weekdayWord}${when ? ` ${when}` : ""}.`
+    : `${title} ligger ${when ?? "på veckan"}. Alla dagar har en rätt.`;
   return names.length > 0 ? `${where} ${namesText(names)} står på inköpslistan.` : where;
 }
 

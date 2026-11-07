@@ -58,7 +58,7 @@ async function importAndSave(page: Page, text: string, title: string) {
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await openSavedImport(page, title);
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
@@ -81,7 +81,7 @@ async function expectTitles(page: Page, titles: string[]) {
 
 test("an empty library offers Importera recept", async ({ page }) => {
   await page.goto("/recept");
-  await expect(page.getByText("Inga recept än. Klistra in en länk till ett recept du gillar.")).toBeVisible();
+  await expect(page.getByText("Inga recept än.")).toBeVisible();
   await expect(page.getByRole("main").getByRole("button", { name: "Importera recept" })).toHaveCount(2);
   await expect(searchField(page)).toHaveCount(0);
 });
@@ -149,13 +149,13 @@ test("search finds titles and ingredients, also through the catalog's names and 
   await expectTitles(page, [soppa, gryta]);
 });
 
-test("no hit says so, and Visa alla recept empties the field", async ({ page }) => {
+test("no hit says so, and Rensa sökning empties the field", async ({ page }) => {
   await page.goto("/recept");
   await expectTitles(page, [soppa, gryta]);
   await searchField(page).fill("xyz");
-  await expect(page.getByText("Inga recept matchar.")).toBeVisible();
+  await expect(page.getByText("Inget matchar ”xyz”.")).toBeVisible();
   await expect(rows(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "Visa alla recept" }).click();
+  await page.getByTestId("library-results").getByRole("button", { name: "Rensa sökning" }).click();
   await expect(searchField(page)).toHaveValue("");
   await expect(searchField(page)).toBeFocused();
   await expectTitles(page, [soppa, gryta]);
@@ -222,7 +222,7 @@ test("Favoriter shows only favourites, works with search, and is kept after a re
   await tapHeart(page, heart(row(page, soppa)));
   await expectTitles(page, [gryta]);
   await searchField(page).fill("kokosmjölk");
-  await expect(page.getByText("Inga recept matchar.")).toBeVisible();
+  await expect(page.getByText("Inget matchar ”kokosmjölk”.")).toBeVisible();
   await searchField(page).fill("gryta");
   await expectTitles(page, [gryta]);
 
