@@ -13,7 +13,7 @@ import {
   userStorageState,
 } from "./support";
 
-const sentText = "Vi har skickat en länk och en kod till din e-post.";
+const sentText = /^Vi har skickat en länk och en kod till .+\. Tryck på länken, eller skriv koden här\.$/;
 // Shown only once the page has checked the session (inside <Suspense>).
 const emptyLibrary = "Inga recept än.";
 
@@ -36,13 +36,13 @@ test.describe("without a session", () => {
   test("the start page leads to the login page", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept$/);
-    await expect(page.getByRole("heading", { name: "Logga in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Logga in", exact: true })).toBeVisible();
   });
 
   test("an invalid address gets a validation message", async ({ page }) => {
     await page.goto("/logga-in");
     await page.getByLabel("E-postadress").fill("inte-en-adress");
-    await page.getByRole("button", { name: "Skicka länk" }).click();
+    await page.getByRole("button", { name: "Skicka länk och kod" }).click();
     await expect(page.getByText("Ange en giltig e-postadress.")).toBeVisible();
     await expect(page.getByText(sentText)).toHaveCount(0);
   });
@@ -52,7 +52,7 @@ test.describe("without a session", () => {
     await page.goto("/recept?flik=x");
     await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept%3Fflik%3Dx$/);
     await page.getByLabel("E-postadress").fill(e2eEmail);
-    await page.getByRole("button", { name: "Skicka länk" }).click();
+    await page.getByRole("button", { name: "Skicka länk och kod" }).click();
     await expect(page.getByText(sentText)).toBeVisible();
 
     await expect.poll(async () => (await mailsTo(e2eEmail)).length, { timeout: 10_000 }).toBe(1);
@@ -76,7 +76,7 @@ test.describe("without a session", () => {
     const stranger = `okand-${Date.now()}@matkoll.test`;
     await page.goto("/logga-in");
     await page.getByLabel("E-postadress").fill(stranger);
-    await page.getByRole("button", { name: "Skicka länk" }).click();
+    await page.getByRole("button", { name: "Skicka länk och kod" }).click();
     await expect(page.getByText(sentText)).toBeVisible();
 
     await page.waitForTimeout(1_000);
@@ -125,7 +125,7 @@ test.describe("without a session", () => {
     for (const email of [e2eEmail, stranger]) {
       await page.goto("/logga-in");
       await page.getByLabel("E-postadress").fill(email);
-      await page.getByRole("button", { name: "Första gången eller glömt lösenordet? Välj lösenord" }).click();
+      await page.getByRole("button", { name: "Välj lösenord" }).click();
       await page.getByRole("button", { name: "Skicka länk för att välja lösenord" }).click();
       await expect(page.getByText("Om adressen har ett konto skickar vi ett mejl")).toBeVisible();
     }

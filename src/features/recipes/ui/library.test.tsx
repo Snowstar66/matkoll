@@ -185,7 +185,7 @@ describe("Library, the line Boende", () => {
     searchSite = stugan;
     searchRecipes.mockResolvedValueOnce(ok([]));
     await user.type(field, "xyz{Enter}");
-    await screen.findByText("Inga recept matchar.");
+    await screen.findByText("Inget matchar ”xyz”.");
     expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
 
     searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
@@ -236,7 +236,7 @@ describe("Library", () => {
     expect(within(row).getByText("35 min · 4 portioner")).toBeInTheDocument();
   });
 
-  it("searches after the pause and shows the answer; no hit offers Visa alla recept, which empties the field", async () => {
+  it("searches after the pause and shows the answer; no hit offers Rensa sökning, which empties the field", async () => {
     const user = userEvent.setup();
     renderLibrary();
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
@@ -248,10 +248,10 @@ describe("Library", () => {
     await user.clear(screen.getByRole("searchbox"));
     expect(titles()).toEqual(["Krämig kycklinggryta", "Linssoppa"]);
     await user.type(screen.getByRole("searchbox"), "xyz");
-    await screen.findByText("Inga recept matchar.");
+    await screen.findByText("Inget matchar ”xyz”.");
     expect(screen.queryAllByTestId("recipe-card")).toHaveLength(0);
 
-    await user.click(screen.getByRole("button", { name: "Visa alla recept" }));
+    await user.click(screen.getAllByRole("button", { name: "Rensa sökning" }).at(-1)!);
     expect(screen.getByRole("searchbox")).toHaveValue("");
     expect(screen.getByRole("searchbox")).toHaveFocus();
     expect(titles()).toEqual(["Krämig kycklinggryta", "Linssoppa"]);
@@ -345,7 +345,7 @@ describe("Library", () => {
     expect(titles()).toEqual(["Krämig kycklinggryta"]);
     searchRecipes.mockResolvedValue(ok([soppa]));
     await user.type(screen.getByRole("searchbox"), "b{Enter}");
-    expect(await screen.findByText("Inga recept matchar.")).toBeInTheDocument();
+    expect(await screen.findByText("Inget matchar ”ab”.")).toBeInTheDocument();
   });
 
   it("uses Alla when localStorage cannot be read, and still switches", async () => {

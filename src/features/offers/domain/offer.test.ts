@@ -74,10 +74,10 @@ describe("texts", () => {
     expect(offerMetaText({ ...offer, validTo: "2026-11-01" }, "2026-10-26")).toBe("89 kr/kg · Stammis · Max 1 köp/hushåll");
     expect(offerMetaText({ ...offer, price: "2 för 30 kr", memberOnly: false, note: null, validTo: null }, "2026-10-26")).toBe("2 för 30 kr");
     expect(offerMetaText({ ...offer, regularPrice: 111.9, savingPercent: 20 }, "2026-10-26")).toBe(
-      "89 kr/kg · Ord. 111,90 kr · spara 20 % · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov",
+      "89 kr/kg · Ord. 111,90 kr · −20 % · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov",
     );
     expect(offerMetaText({ ...offer, price: "25% rabatt", note: null, validTo: null, memberOnly: false, savingPercent: 25 }, "2026-10-26")).toBe(
-      "25% rabatt · spara 25 %",
+      "25% rabatt · −25 %",
     );
   });
 

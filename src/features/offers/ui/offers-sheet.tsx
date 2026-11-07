@@ -16,8 +16,8 @@ import { errorMessages, fail, type ErrorCode, type Result } from "@/lib/errors";
 import { clearOtherStoreOffers } from "../actions/clear-other-store-offers";
 import { fetchStoreOffers, type FetchStoreOffersResult } from "../actions/fetch-store-offers";
 import {
-  addedToListText,
-  addToListText,
+  addedOfferText,
+  removedOfferText,
   fetchedAtText,
   fetchedLineText,
   fetchingOffersText,
@@ -33,6 +33,7 @@ import {
   openOffersPageText,
   type StoreOffer,
 } from "../domain/offer";
+import { offerDisplay } from "../domain/offer-display";
 import { topDealPercent } from "../domain/offer-saving";
 import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
@@ -67,6 +68,8 @@ export type OffersListing = {
     planId?: string | null;
     items: { key: string; label: string; ingredientId: string | null }[];
   }) => Promise<Result<{ count: number }>>;
+  /** Takes back what `add` put on the list (the offer keys), for "Ångra". */
+  remove: (input: { keys: readonly string[] }) => Promise<Result<{ removed: number }>>;
 };
 
 export type OffersSheetProps = {
@@ -165,9 +168,10 @@ export function OffersSheet({
 }: OffersSheetProps & { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  /** "Lade gul lök på inköpslistan." for screen readers, in the sheet itself. */
+  const [addedStatus, setAddedStatus] = useState("");
   const [addError, setAddError] = useState<{ message: string; attempt: number } | null>(null);
   const [sort, setSort] = useState<"category" | "saving">("category");
   const [storeFilter, setStoreFilter] = useState<string>("all");
@@ -191,7 +195,6 @@ export function OffersSheet({
   const filterId = storeFilter !== "all" && storesWithOffers.some((store) => store.id === storeFilter) ? storeFilter : "all";
   const fits = useMemo(() => new Set(fitIds ?? []), [fitIds]);
   const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
-  const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
   const bestInfo = best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
   const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
   const shown = useMemo(() => {
@@ -241,28 +244,46 @@ export function OffersSheet({
     }
   }
 
-  async function addChosen() {
-    if (!listing || chosen.length === 0 || adding) return;
-    const items = chosen.map((offer) => offerListItem(offer, badges.get(offer.storeId)?.text));
+  /** UX-31: one tap on a row's + adds that offer at once; "Ångra" takes it off the list again. */
+  async function addOne(offer: StoreOffer) {
+    if (!listing || adding || onList.has(offer.id)) return;
+    const item = offerListItem(offer, badges.get(offer.storeId)?.text);
     setAdding(true);
     setAddError(null);
     let answer: Awaited<ReturnType<OffersListing["add"]>>;
     try {
-      answer = await listing.add({ planId: listing.planId, items });
+      answer = await listing.add({ planId: listing.planId, items: [item] });
     } catch {
       answer = fail("shopping_save_failed");
     }
     setAdding(false);
     if (answer.ok) {
-      setAdded((before) => new Set([...before, ...chosen.map((offer) => offer.id)]));
-      setPicked(new Set());
-      // The sheet closes, so the toast and its link are within reach.
-      onClose();
-      showToast(addedToListText(chosen.length), {
-        show: { label: "Inköpslista", onShow: () => router.push("/lista") },
-      });
+      setAdded((before) => new Set([...before, offer.id]));
+      // The sheet is modal, so a toast would lie behind it: the row has its own "Ångra" and the sheet a quiet status line.
+      setAddedStatus(addedOfferText(offerDisplay(offer.label).title));
     } else {
       if (answer.error.code === "unauthorized" || answer.error.code === "shopping_plan_changed") router.refresh();
+      setAddError({ message: answer.error.message, attempt: (addError?.attempt ?? 0) + 1 });
+    }
+  }
+
+  async function undoAdd(offer: StoreOffer) {
+    if (!listing) return;
+    let answer: Awaited<ReturnType<OffersListing["remove"]>>;
+    try {
+      answer = await listing.remove({ keys: [offer.id] });
+    } catch {
+      answer = fail("shopping_remove_failed");
+    }
+    if (answer.ok) {
+      setAdded((before) => {
+        const next = new Set(before);
+        next.delete(offer.id);
+        return next;
+      });
+      setAddedStatus(removedOfferText(offerDisplay(offer.label).title));
+      router.refresh();
+    } else {
       setAddError({ message: answer.error.message, attempt: (addError?.attempt ?? 0) + 1 });
     }
   }
@@ -271,6 +292,11 @@ export function OffersSheet({
   const siteName = withLink[0]?.siteName ?? "ica.se";
   const lastFetch = latestFetch(withLink);
   const single = withLink[0];
+  // UX-29: after a failed fetch with a way on, the notice's own link is the only one (and an empty week needs no line of its own).
+  const pageFailure =
+    !pending &&
+    withLink.length === 1 &&
+    runs.some((run) => !run.result.ok && pageActions.has(run.result.error.code) && Boolean(withLink[0].offersUrl));
 
   let body: ReactNode;
   if (stores.length === 0) {
@@ -310,7 +336,7 @@ export function OffersSheet({
       <div className="flex flex-col gap-4">
         {offers.length === 0 ? (
           <div className="flex flex-col gap-4">
-            <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>
+            {pageFailure ? null : <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>}
             {many ? fetchPanel : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
           </div>
         ) : (
@@ -403,18 +429,7 @@ export function OffersSheet({
                   fits={fits}
                   selection={
                     listing
-                      ? {
-                          picked,
-                          onList,
-                          disabled: adding,
-                          onToggle: (id, on) =>
-                            setPicked((before) => {
-                              const next = new Set(before);
-                              if (on) next.add(id);
-                              else next.delete(id);
-                              return next;
-                            }),
-                        }
+                      ? { onList, undoable: added, disabled: adding, onAdd: (offer) => void addOne(offer), onUndo: (offer) => void undoAdd(offer) }
                       : undefined
                   }
                 />
@@ -423,7 +438,7 @@ export function OffersSheet({
           </>
         )}
         <div className="-ml-3 flex flex-col items-start">
-          {withLink.map((store) => (
+          {(pageFailure ? [] : withLink).map((store) => (
             <OpenPageLink
               key={store.id}
               href={store.offersUrl ?? ""}
@@ -453,13 +468,6 @@ export function OffersSheet({
       }
       preventClose={pending || adding}
       initialFocus="title"
-      footer={
-        chosen.length > 0 ? (
-          <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
-            {addToListText(chosen.length)}
-          </Button>
-        ) : undefined
-      }
     >
       <div className="flex flex-col gap-4">
         {skipped > 0 && !pending ? (
@@ -467,6 +475,9 @@ export function OffersSheet({
             {offersSkippedText(skipped)}
           </p>
         ) : null}
+        <p role="status" aria-live="polite" className="sr-only" data-testid="offers-added-status">
+          {addedStatus}
+        </p>
         {/* Mounted empty, so the progress is announced when its text arrives. */}
         <div role="status" aria-live="polite" className="text-meta text-ink-2 empty:hidden" data-testid="offers-progress">
           {progressText}
@@ -495,7 +506,7 @@ export function OffersSheet({
                     settingsActions.has(error.code) ? (
                       <SettingsLink />
                     ) : pageActions.has(error.code) && store.offersUrl ? (
-                      <OpenPageLink href={store.offersUrl} />
+                      <OpenPageLink href={store.offersUrl} text={many ? undefined : openOffersPageText(store.siteName ?? "ica.se")} />
                     ) : undefined
                   }
                 >
@@ -605,7 +616,7 @@ function storeFetchLine(store: OffersStore, count: number, now: string): string 
 }
 
 /**
- * The icon button "Erbjudanden" (a price tag) in Inköpslista's header, which opens the
+ * The button "Erbjudanden" (a price tag) in Inköpslista's header, which opens the
  * sheet Veckans erbjudanden (Story 9.1). The page passes it to the header as
  * a slot, so the shopping list never imports the offers module (AD-1).
  */
@@ -613,15 +624,16 @@ export function OffersSheetButton(props: OffersSheetProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {/* Story 19.2: an icon button like the "+" of the other tabs, named for screen readers. */}
+      {/* The price tag only: with the word the header wrapped to two rows at 375 px, and the approved header (UX-07) is [erbjudanden] [+] [konto] as icons. The name stays for screen readers. */}
       <button
         type="button"
         aria-label="Erbjudanden"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="flex size-tap items-center justify-center rounded-full text-ink-2"
+        data-testid="offers-button"
+        className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-ink-2"
       >
-        <TagIcon size={24} />
+        <TagIcon size={20} />
       </button>
       <OffersSheet {...props} open={open} onClose={() => setOpen(false)} />
     </>

@@ -130,7 +130,7 @@ test("the rows say Saknas and the offer, and Köp det som saknas puts them on th
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 
   // The status is on the rows, and the old status box is gone.
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(3);
+  await expect(view(page).getByRole("img", { name: "saknas" })).toHaveCount(3);
   await expect(page.getByText(/^Saknar \d+ var/)).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText("1 av 4 hemma");
   await expect(rows(page).filter({ hasText: "falukorv" }).getByTestId("recipe-line-offer")).toHaveText(
@@ -147,7 +147,7 @@ test("the rows say Saknas and the offer, and Köp det som saknas puts them on th
 
   // Afterwards: På listan on the rows and Ångra on the button, and only the list was touched.
   await expect(view(page).getByText("På listan", { exact: true })).toHaveCount(3);
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(0);
+  await expect(view(page).getByRole("img", { name: "saknas" })).toHaveCount(0);
   await expect(view(page).getByTestId("recipe-listed")).toHaveText("3 på inköpslistan");
   await expect(bar(page)).toHaveText("På listan ✓ · Ångra");
   expect(await listedCount()).toBe(3);
@@ -156,7 +156,7 @@ test("the rows say Saknas and the offer, and Köp det som saknas puts them on th
 
   // Ångra takes just those items off again.
   await bar(page).click();
-  await expect(view(page).getByText("Saknas", { exact: true })).toHaveCount(3);
+  await expect(view(page).getByRole("img", { name: "saknas" })).toHaveCount(3);
   await expect(bar(page)).toHaveText("Köp det som saknas (3)");
   expect(await listedCount()).toBe(0);
   expect(errors).toEqual([]);

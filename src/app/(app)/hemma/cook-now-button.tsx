@@ -362,7 +362,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                 <RowButton
                   expanded={expanded === recipe.id}
                   onClick={() => toggle(recipe.id)}
-                  lead={<RecipeImage src={recipe.imageUrl} iconSize={20} className="size-11 rounded-md" />}
+                  lead={<RecipeImage src={recipe.imageUrl} title={recipe.title} iconSize={26} className="size-11 rounded-md" />}
                   title={recipe.title}
                   meta={recipeMetaText(recipe.totalMinutes, recipe.servings)}
                 />

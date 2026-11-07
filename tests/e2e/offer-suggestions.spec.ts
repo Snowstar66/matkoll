@@ -160,18 +160,18 @@ test("the offers sheet only lists offers: no Föreslå rätter and no store choi
   await expect(sheet(page).getByTestId("offer-row").first()).toBeVisible();
 });
 
-// Rätter med extrapris: the top of Veckans erbjudanden names the user's dishes that use an offer.
-test("the offers sheet shows Rätter med extrapris, + adds the dish to the week, and Visa alla opens Recept's filter", async ({ page }) => {
+// Rätter med erbjudanden: the top of Veckans erbjudanden names the user's dishes that use an offer.
+test("the offers sheet shows Rätter med erbjudanden, + adds the dish to the week, and Visa alla opens Recept's filter", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
   await seedFalukorvRecipe();
   await page.goto("/lista");
   await page.getByRole("button", { name: "Erbjudanden" }).click();
   const card = sheet(page).getByTestId("offer-dishes");
-  await expect(card).toContainText("Rätter med extrapris");
-  await expect(card).toContainText("Förslag för att varorna har extrapris den här veckan.");
+  await expect(card).toContainText("Rätter med erbjudanden");
+  await expect(card).toContainText("Förslag för att varorna är på erbjudande den här veckan.");
   const row = card.getByTestId("offer-dish").filter({ hasText: "Falukorv med potatismos" });
-  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på extrapris");
+  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
   // The week is picked in the card: next week is preselected, and the toast names it.
   const options = card.getByTestId("offer-week-option");
   await expect(options).toHaveText(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
@@ -196,11 +196,11 @@ test("the offers sheet shows Rätter med extrapris, + adds the dish to the week,
   await expect(page).toHaveURL(/\/recept/);
   // Lista stays mounted but hidden after the client navigation, with its own header button Erbjudanden: only the pressed filter pill counts.
   await expect(page.getByRole("button", { name: "Erbjudanden", exact: true, pressed: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByTestId("offers-reason")).toContainText("Förslag för att varorna har extrapris den här veckan.");
+  await expect(page.getByTestId("offers-reason")).toContainText("Förslag för att varorna är på erbjudande den här veckan.");
   expect(errors).toEqual([]);
 });
 
-// The card Rätter med extrapris is there whenever there are offers, also when none of the user's dishes match. The ideas are
+// The card Rätter med erbjudanden is there whenever there are offers, also when none of the user's dishes match. The ideas are
 // prepared in the background (here on the first view, since the offers were seeded, not fetched): nobody taps a start button.
 test("the offers sheet shows the Nya idéer ready without a button, + opens the preview, and Andra idéer replaces the set", async ({ page }) => {
   const errors = watchErrors(page);
@@ -208,10 +208,10 @@ test("the offers sheet shows the Nya idéer ready without a button, + opens the 
   await page.goto("/lista");
   await page.getByRole("button", { name: "Erbjudanden" }).click();
   const card = sheet(page).getByTestId("offer-dishes");
-  await expect(card).toContainText("Rätter med extrapris");
+  await expect(card).toContainText("Rätter med erbjudanden");
   await expect(card.getByTestId("offer-dish")).toHaveCount(0);
   await expect(card.getByRole("link", { name: "Visa alla" })).toHaveCount(0);
-  await expect(card.getByRole("button", { name: /Nya idéer med extrapris/ })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: /Nya idéer med erbjudanden/ })).toHaveCount(0);
   await expect(card.getByRole("heading", { name: "Nya idéer" })).toBeVisible();
   await expect(card.getByTestId("ai-option")).toHaveCount(3, jobTime);
   await expect(card.getByTestId("offer-ideas-intro")).toContainText("billigt i veckan");
@@ -261,7 +261,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
-  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på extrapris");
+  await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
   await row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" }).click();
 
   await expect(weekDishes(page)).toHaveCount(1);
@@ -299,7 +299,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
 });
 
 // "Nya idéer": the saved set (prepared in the background by the job of Story 9.5 over all stores), told like a friend (intro and a why per dish), the same rows, and the preview first.
-// The same component sits in the card Rätter med extrapris (previous test) and under På erbjudande on Matsedel.
+// The same component sits in the card Rätter med erbjudanden (previous test) and under På erbjudande on Matsedel.
 test("Matsedel: the new ideas are ready under På erbjudande and are reviewed and saved before they go on the week", async ({ page }) => {
   const errors = watchErrors(page);
   await seed({ withOffers: true });
@@ -311,7 +311,7 @@ test("Matsedel: the new ideas are ready under På erbjudande and are reviewed an
   await page.goto("/matsedel");
   await openLibrary(page);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
-  await expect(page.getByRole("button", { name: /Nya idéer med extrapris/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Nya idéer med erbjudanden/ })).toHaveCount(0);
   const ideas = page.getByTestId("ai-option");
   await expect(ideas).toHaveCount(3, jobTime);
   // Like a friend: a thought on the offers, and a why under each idea.
@@ -324,7 +324,7 @@ test("Matsedel: the new ideas are ready under På erbjudande and are reviewed an
 
   const idea = ideas.filter({ hasText: dishName });
   await expect(idea).toContainText("AI-förslag");
-  await expect(idea.getByTestId("plan-option-deal")).toContainText("Falukorv på extrapris");
+  await expect(idea.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
   await idea.getByRole("button", { name: `Granska och spara: ${dishName}` }).click();
   const preview = page.getByRole("dialog", { name: "Spara AI-förslag" });
   await expect(preview).toBeVisible();
@@ -368,7 +368,7 @@ test("the filter Erbjudanden shows the recipe that uses an offer, with its tag, 
   const cards = page.getByTestId("recipe-card");
   await expect(cards).toHaveCount(1);
   await expect(cards.first()).toContainText("Falukorv med potatismos");
-  await expect(cards.first().getByTestId("offer-tags")).toHaveText("Extrapris: falukorv");
+  await expect(cards.first().getByTestId("offer-tags")).toHaveText("Erbjudande: falukorv");
   await expect(page.getByTestId("offers-line")).toContainText(/^Recept med veckans erbjudanden från Matkoll Testbutik, vecka \d+\./);
   await page.getByRole("button", { name: "Visa erbjudanden" }).click();
   await expect(sheet(page)).toBeVisible();

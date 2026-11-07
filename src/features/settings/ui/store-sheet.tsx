@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type FormEvent, startTransition, useActionState, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { ChevronRightIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { FilterPills } from "@/components/filter-pills";
 import { Notice } from "@/components/notice";
@@ -115,6 +116,7 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
   const refs = { name: nameRef, externalStoreId: externalStoreIdRef, address: addressRef, url: urlRef, offersUrl: offersUrlRef };
   const ids = useId();
   const editing = store !== undefined;
+  const [moreOpen, setMoreOpen] = useState(() => Boolean(initial.externalStoreId || initial.url));
 
   // A new session: the form starts from the store, or empty (state adjusted while rendering).
   if (session !== formSession) {
@@ -126,6 +128,7 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
     setError(null);
     setServerFields({});
     setAttempted(false);
+    setMoreOpen(Boolean(fresh.externalStoreId || fresh.url));
   }
 
   function showError(text: string) {
@@ -174,6 +177,7 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
   const checked = attempted ? storeFormSchema.safeParse({ ...values, id: checkId, mode: "add" }) : null;
   const ownErrors = checked && !checked.success ? storeFieldErrors(checked.error) : {};
   const fieldError = (field: Field) => serverFields[field] ?? ownErrors[field] ?? null;
+  const moreForced = Boolean(fieldError("externalStoreId") || fieldError("url"));
 
   /** A change to any field: the last save's messages no longer apply. The id stays. */
   const update = (changes: Partial<FormValues>) => {
@@ -293,28 +297,6 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
             </p>
           ) : null}
         </div>
-        {textField(
-          "externalStoreId",
-          "Butiks-id",
-          { spellCheck: false },
-          undefined,
-          true,
-        )}
-        {textField("address", "Adress", {}, undefined, true)}
-        {textField(
-          "url",
-          "URL",
-          {
-            type: "url",
-            inputMode: "url",
-            autoCapitalize: "none",
-            autoCorrect: "off",
-            spellCheck: false,
-            placeholder: "https://",
-          },
-          undefined,
-          true,
-        )}
         {/* The link to the weekly offers (Story 9.1): only for a chain with an offer site. */}
         {offerSiteFor(values.chain) ? (
           textField(
@@ -339,6 +321,42 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
             </p>
           </div>
         )}
+        {textField("address", "Adress", {}, undefined, true)}
+        {/* UX-39: the store id and the link to the web shop are rarely needed, so they sit under "Mer om butiken" (open from the start when they have a value or a message). */}
+        <details
+          open={moreOpen || moreForced}
+          onToggle={(event) => setMoreOpen(event.currentTarget.open)}
+          className="group flex flex-col gap-5"
+          data-testid="store-more"
+        >
+          <summary className="flex min-h-tap cursor-pointer list-none items-center gap-1 text-body text-accent [&::-webkit-details-marker]:hidden">
+            Mer om butiken
+            <ChevronRightIcon size={16} className="transition-transform group-open:rotate-90" />
+          </summary>
+          <div className="flex flex-col gap-5">
+        {textField(
+          "externalStoreId",
+          "Butiks-id",
+          { spellCheck: false },
+          undefined,
+          true,
+        )}
+        {textField(
+          "url",
+          "Länk till e-handeln",
+          {
+            type: "url",
+            inputMode: "url",
+            autoCapitalize: "none",
+            autoCorrect: "off",
+            spellCheck: false,
+            placeholder: "https://",
+          },
+          undefined,
+          true,
+        )}
+          </div>
+        </details>
         {editing ? null : (
           <label className="flex min-h-tap items-center gap-3 text-body text-ink">
             <input

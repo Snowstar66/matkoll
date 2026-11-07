@@ -159,7 +159,7 @@ test("refuses to fetch again within 15 minutes, without fetching", async ({ page
   await expect(dialog.getByTestId("offers-summary")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Hämta igen" }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Erbjudandena hämtades nyss. Försök igen om en stund.");
+  await expect(dialog.getByRole("alert")).toHaveText("Du försökte nyss. Vänta en stund och försök igen.");
   expect(await storedOffers()).toHaveLength(7);
 });
 
@@ -217,22 +217,24 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
   await expect(dialog.getByTestId("offers-summary")).toBeVisible();
 
-  // Nothing is picked, so there is no button.
+  // UX-31: each row has a round + (no checkboxes, no button with a count).
   await expect(dialog.getByTestId("add-offers-to-list")).toHaveCount(0);
-  // Story 16.12: the checkboxes are always there, none of them ticked.
-  await expect(dialog.getByRole("checkbox", { checked: true })).toHaveCount(0);
-  const herrgard = dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 89 kr per kg/ });
-  await expect(herrgard).toHaveAttribute("aria-checked", "false");
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  const herrgard = dialog.getByRole("button", { name: /^Lägg Gårdens Herrgård, Präst på inköpslistan$/ });
   const box = await herrgard.boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
   await herrgard.click();
-  await dialog.getByRole("checkbox", { name: /^Gul lök/ }).click();
-  await dialog.getByRole("button", { name: "Lägg 2 i inköpslistan" }).click();
-  await expect(page.getByTestId("toast")).toContainText("Lade 2 erbjudanden i inköpslistan.");
-  // The sheet closes, so the toast is within reach.
-  await expect(dialog).toBeHidden();
+  await expect(dialog.getByTestId("offers-added-status")).toHaveText("Lade gårdens Herrgård, Präst på inköpslistan.");
+  await dialog.getByRole("button", { name: /^Lägg Gul lök på inköpslistan$/ }).click();
+  await expect(dialog.getByTestId("offers-added-status")).toHaveText("Lade gul lök på inköpslistan.");
+  // The sheet stays open; the rows say På listan, with Ångra, which takes the offer off again.
+  await expect(dialog.getByText("På listan")).toHaveCount(2);
+  await dialog.getByRole("button", { name: "Ångra, ta Gul lök från inköpslistan" }).click();
+  await expect(dialog.getByText("På listan")).toHaveCount(1);
+  await dialog.getByRole("button", { name: /^Lägg Gul lök på inköpslistan$/ }).click();
+  await expect(dialog.getByText("På listan")).toHaveCount(2);
 
   const items = await admin.from("shopping_custom_item").select("label").eq("user_id", userId).order("label");
   expect(items.error).toBeNull();
@@ -241,15 +243,13 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
     expect.stringMatching(/^.+ \(Erbjudande Matkoll: 89 kr\/kg\)$/),
   ]);
 
-  // The toast's link goes to the list, which has the items; a reload and a new opening keep "På listan".
-  await page.getByTestId("toast").getByRole("button", { name: "Inköpslista" }).click();
-  await expect(page).toHaveURL(/\/lista$/);
+  // The list has the items; a reload and a new opening keep "På listan".
+  await dialog.getByRole("button", { name: "Klar" }).click();
   await page.reload();
   await expect(page.getByText("Gul lök")).toBeVisible();
   await page.getByRole("button", { name: "Erbjudanden" }).click();
   await expect(sheet(page).getByText("På listan")).toHaveCount(2);
-  await expect(sheet(page).getByRole("checkbox", { name: /^Gårdens Herrgård, Präst/ })).toBeDisabled();
-  await expect(sheet(page).getByTestId("add-offers-to-list")).toHaveCount(0);
+  await expect(sheet(page).getByRole("button", { name: /^Lägg Gårdens Herrgård, Präst på inköpslistan$/ })).toHaveCount(0);
   const after = await admin.from("shopping_custom_item").select("id").eq("user_id", userId);
   expect(after.data).toHaveLength(2);
   expect(errors).toEqual([]);
@@ -290,7 +290,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   await dialog.getByRole("button", { name: "Hämta igen" }).click();
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   // Krokom was fetched a moment ago: it is skipped with its own message, the other store still goes.
-  await expect(dialog.getByRole("alert")).toHaveText("Krokom: Erbjudandena hämtades nyss. Försök igen om en stund.");
+  await expect(dialog.getByRole("alert").filter({ hasText: "Krokom:" })).toHaveText("Krokom: Du försökte nyss. Vänta en stund och försök igen.");
   await expect(dialog.getByTestId("offers-store-result")).toHaveText("Matkoll: Hämtade 7 erbjudanden.");
   expect(await storedOffers()).toHaveLength(14);
 
@@ -370,9 +370,8 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
-  await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();
-  await dialog.getByRole("button", { name: "Lägg 1 i inköpslistan" }).click();
-  await expect(dialog).toBeHidden();
+  await dialog.getByRole("button", { name: /^Lägg Gårdens Herrgård, Präst på inköpslistan$/ }).click();
+  await expect(dialog.getByTestId("offers-added-status")).toContainText("på inköpslistan.");
   const items = await admin.from("shopping_custom_item").select("label").eq("user_id", userId);
   expect(items.data?.map((item) => item.label)).toEqual([expect.stringMatching(/^.+ \(Erbjudande Krokom: 79 kr\/kg\)$/)]);
 });

@@ -46,7 +46,7 @@ describe("the words of the planning view", () => {
   });
 
   it("says a dish's note: the offer line, else what is left to buy", () => {
-    expect(dishNoteText({ buy: 2, deal: { text: "Falukorv på erbjudande · spara 21 kr" } })).toBe("Falukorv på erbjudande · spara 21 kr");
+    expect(dishNoteText({ buy: 2, deal: { text: "Falukorv på erbjudande · −21 kr" } })).toBe("Falukorv på erbjudande · −21 kr");
     expect(dishNoteText({ buy: 4, deal: null })).toBe("4 varor att köpa");
     expect(dishNoteText({ buy: 0, deal: null })).toBe("Allt finns hemma");
     expect(dishNoteText(undefined)).toBe("");

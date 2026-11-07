@@ -26,8 +26,8 @@ const option = (id: string, title: string, deal: string): PlanOption => ({
   deal: { text: deal, savingKr: 21, savingPercent: 20 },
 });
 
-const korv = option("r1", "Korvstroganoff", "Falukorv och grädde på extrapris · spara 21 kr");
-const lax = option("r2", "Laxpasta", "Laxfilé på extrapris · spara 12 kr");
+const korv = option("r1", "Korvstroganoff", "Falukorv och grädde på erbjudande · −21 kr");
+const lax = option("r2", "Laxpasta", "Laxfilé på erbjudande · −12 kr");
 
 const addToWeek = vi.fn();
 
@@ -53,10 +53,10 @@ beforeEach(() => {
 describe("OfferDishesCard", () => {
   it("explains why the dishes are suggested, with the deal line and a link to the filter", () => {
     renderCard();
-    expect(screen.getByRole("heading", { name: "Rätter med extrapris" })).toBeInTheDocument();
-    expect(screen.getByText("Förslag för att varorna har extrapris den här veckan.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rätter med erbjudanden" })).toBeInTheDocument();
+    expect(screen.getByText("Förslag för att varorna är på erbjudande den här veckan.")).toBeInTheDocument();
     const rows = screen.getAllByTestId("offer-dish");
-    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på extrapris · spara 21 kr");
+    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
     expect(screen.getByRole("link", { name: "Visa alla" })).toHaveAttribute("href", "/recept?filter=erbjudanden");
   });
 
@@ -67,7 +67,7 @@ describe("OfferDishesCard", () => {
 
   it("without dishes shows the card with the ideas and no list or Visa alla", () => {
     renderCard({}, []);
-    expect(screen.getByRole("heading", { name: "Rätter med extrapris" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rätter med erbjudanden" })).toBeInTheDocument();
     expect(screen.getByTestId("offer-ideas")).toBeInTheDocument();
     expect(screen.queryByTestId("offer-dish")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Visa alla" })).not.toBeInTheDocument();

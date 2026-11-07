@@ -43,7 +43,7 @@ describe("offerDetailText and offerSpokenName", () => {
 
   it("reads naturally", () => {
     expect(offerSpokenName({ label: "ICA. Spanien Aubergine", price: "12 kr/st", savingPercent: 20 })).toBe(
-      "Aubergine, 12 kr per st, spara 20 %",
+      "Aubergine, 12 kr per st, 20 % rabatt",
     );
     expect(offerSpokenName({ label: "Mjölk", price: null, savingPercent: null })).toBe("Mjölk");
   });

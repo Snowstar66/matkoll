@@ -252,7 +252,7 @@ test("Lägg på matsedeln in the recipe view is one tap onto the first free day,
   await page.getByTestId("recipe-week-option").filter({ hasText: "Denna vecka" }).click();
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
   await expect(toast(page)).toContainText(
-    expectedDay ? `${gryta} på ${dayWords[expectedDay - 1]}.` : `${gryta} på veckan. Alla dagar har en rätt.`,
+    expectedDay ? `${gryta} ligger på ${dayWords[expectedDay - 1]}.` : `${gryta} ligger på veckan. Alla dagar har en rätt.`,
   );
   const added = await admin.from("meal_plan_recipe").select("id, weekday, servings, position, meal_plan_id").eq("user_id", userId).eq("recipe_title", gryta).single();
   if (added.error) throw added.error;
@@ -263,7 +263,7 @@ test("Lägg på matsedeln in the recipe view is one tap onto the first free day,
   await expect(page.getByTestId("recipe-planned")).toHaveText(
     expectedDay ? `På matsedeln på ${dayWords[expectedDay - 1]}` : "På matsedeln denna vecka",
   );
-  await toast(page).getByRole("button", { name: expectedDay ? "Byt dag" : "Välj dag" }).click();
+  await page.getByRole("button", { name: expectedDay ? "Byt dag" : "Välj dag" }).click();
   await page.getByRole("dialog", { name: "Vilken dag?" }).getByRole("button", { name: "Onsdag" }).click();
   await expect(page.getByRole("button", { name: "Byt dag" })).toBeVisible();
   await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln på onsdag");
@@ -328,12 +328,12 @@ test("Lägg på matsedeln in the recipe view plans next week from Monday unless 
   await expect(page.getByTestId("recipe-week-line")).toHaveText(/^Matsedel för vecka \d+$/);
 
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
-  await expect(toast(page)).toContainText(`${gryta} på måndag nästa vecka.`);
+  await expect(toast(page)).toContainText(`${gryta} ligger på måndag nästa vecka.`);
   await expect(page.getByTestId("recipe-planned")).toHaveText("På matsedeln på måndag nästa vecka");
   await expect.poll(async () => (await nextWeekRows()).map((row) => row.weekday)).toEqual([1]);
   // This week is untouched, and "Byt dag" names the week it changes.
   expect(await dishCount()).toBe(dishesBefore + 1);
-  await toast(page).getByRole("button", { name: "Byt dag" }).click();
+  await page.getByRole("button", { name: "Byt dag" }).click();
   const sheet = page.getByRole("dialog", { name: "Vilken dag?" });
   await expect(sheet).toContainText("nästa vecka");
   await sheet.getByRole("button", { name: "Onsdag" }).click();

@@ -58,8 +58,8 @@ describe("texts", () => {
   it("writes the regular price and the saving, or nothing", () => {
     expect(regularPriceText(111.9)).toBe("Ord. 111,90 kr");
     expect(regularPriceText(30)).toBe("Ord. 30 kr");
-    expect(savingText({ regularPrice: 111.9, savingPercent: 20 })).toBe("Ord. 111,90 kr · spara 20 %");
-    expect(savingText({ regularPrice: null, savingPercent: 33 })).toBe("spara 33 %");
+    expect(savingText({ regularPrice: 111.9, savingPercent: 20 })).toBe("Ord. 111,90 kr · −20 %");
+    expect(savingText({ regularPrice: null, savingPercent: 33 })).toBe("−33 %");
     expect(savingText({ regularPrice: 20, savingPercent: null })).toBe("Ord. 20 kr");
     expect(savingText({ regularPrice: null, savingPercent: null })).toBe("");
   });

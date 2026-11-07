@@ -130,7 +130,7 @@ describe("StoreSheet", () => {
     const dialog = sheet("Ny butik");
     expect(within(dialog).getByRole("checkbox", { name: "Använd för varukorgen" })).toBeChecked();
     expect(within(dialog).getByRole("radio", { name: "ICA" })).toBeChecked();
-    expect(within(dialog).getByLabelText("URL")).toHaveAttribute("type", "url");
+    expect(within(dialog).getByLabelText("Länk till e-handeln")).toHaveAttribute("type", "url");
 
     await user.type(within(dialog).getByLabelText("Namn"), "Willys Lindhagen");
     await user.click(within(dialog).getByRole("radio", { name: "Willys" }));
@@ -168,7 +168,7 @@ describe("StoreSheet", () => {
     render([maxi]);
     await user.click(screen.getByRole("button", { name: "Lägg till butik" }));
     const dialog = sheet("Ny butik");
-    await user.type(within(dialog).getByLabelText("URL"), "handla.ica.se");
+    await user.type(within(dialog).getByLabelText("Länk till e-handeln"), "handla.ica.se");
     await user.click(within(dialog).getByRole("button", { name: "Spara" }));
 
     expect(await within(dialog).findByText("Ange butikens namn.")).toBeInTheDocument();
@@ -322,5 +322,31 @@ describe("StoreSheet", () => {
     rerender(<StoreSettings stores={[maxi]} />);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(saveStore).not.toHaveBeenCalled();
+  });
+
+  it("keeps the store id and the web-shop link under Mer om butiken, closed for a new store (UX-39)", async () => {
+    const user = userEvent.setup();
+    render([maxi]);
+    await user.click(screen.getByRole("button", { name: "Lägg till butik" }));
+    const dialog = sheet("Ny butik");
+    expect(within(dialog).getByLabelText("Länk till veckans erbjudanden")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("URL")).not.toBeInTheDocument();
+    const more = within(dialog).getByTestId("store-more");
+    expect(more).not.toHaveAttribute("open");
+    await user.click(within(dialog).getByText("Mer om butiken"));
+    expect(more).toHaveAttribute("open");
+    expect(within(more).getByLabelText("Butiks-id")).toBeInTheDocument();
+    expect(within(more).getByLabelText("Länk till e-handeln")).toBeInTheDocument();
+  });
+
+  it("opens Mer om butiken by itself when a field in it has a message (UX-39)", async () => {
+    const user = userEvent.setup();
+    render([maxi]);
+    await user.click(screen.getByRole("button", { name: "Lägg till butik" }));
+    const dialog = sheet("Ny butik");
+    await user.type(within(dialog).getByLabelText("Länk till e-handeln"), "handla.ica.se");
+    await user.click(within(dialog).getByRole("button", { name: "Spara" }));
+    expect(await within(dialog).findByText("Ange en adress som börjar med https://.")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("store-more")).toHaveAttribute("open");
   });
 });

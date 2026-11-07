@@ -28,7 +28,7 @@ export type PlanRecipe = {
 
 /** What the offer line of a row says. */
 export type PlanDeal = {
-  /** "Falukorv och grädde på extrapris · spara 21 kr". */
+  /** "Falukorv och grädde på erbjudande · −21 kr". */
   text: string;
   /** Kronor saved on the offers the dish uses, or `null` when no offer has a price to compare. */
   savingKr: number | null;
@@ -75,10 +75,10 @@ export function planMeta({ isFavorite, totalMinutes }: { isFavorite: boolean; to
   return [isFavorite ? "Favorit" : null, second].filter(Boolean).join(" · ");
 }
 
-/** "spara 21 kr" (whole kronor, at least 1), "spara 25 %" when kronor are not known, or "". */
+/** "−21 kr" (whole kronor, at least 1), "−25 %" when kronor are not known, or "". */
 export function savingPhrase({ savingKr, savingPercent }: { savingKr: number | null; savingPercent: number | null }): string {
-  if (savingKr !== null) return `spara ${Math.max(1, Math.round(savingKr))} kr`;
-  if (savingPercent !== null) return `spara ${savingPercent} %`;
+  if (savingKr !== null) return `−${Math.max(1, Math.round(savingKr))} kr`;
+  if (savingPercent !== null) return `−${savingPercent} %`;
   return "";
 }
 
@@ -122,7 +122,7 @@ export function dealOf(offers: readonly PlanOffer[], recipe: Pick<PlanRecipe, "l
   const sentence = joinNames(names);
   const saving = savingPhrase({ savingKr, savingPercent });
   return {
-    text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)} på extrapris${saving ? ` · ${saving}` : ""}`,
+    text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)} på erbjudande${saving ? ` · ${saving}` : ""}`,
     savingKr,
     savingPercent,
   };

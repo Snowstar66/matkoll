@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { cx } from "@/components/cx";
-import { EmptyState } from "@/components/empty-state";
+import { clearSearchText, EmptyState, noMatchText } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
@@ -300,11 +300,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
       <EmptyState
         action={
           <Button variant="text" onClick={() => searchField.current?.clear()}>
-            Visa alla recept
+            {clearSearchText}
           </Button>
         }
       >
-        Inga recept matchar.
+        {noMatchText(search.query)}
       </EmptyState>
     );
   } else {

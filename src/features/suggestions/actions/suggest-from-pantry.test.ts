@@ -647,7 +647,7 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     expect(kyckling.onOffer).toEqual(["Kyckling 99 kr"]);
   });
 
-  describe("nya idéer med extrapris: the friend's way, kept honest", () => {
+  describe("nya idéer med erbjudanden: the friend's way, kept honest", () => {
     /** The mock's answer with its friend part changed by `change`. */
     const told = (change: (dishes: { friend?: { intro: string; why: string; uses: string[] } }[]) => void) =>
       suggestDishes.mockImplementation(async (input, abort, options) => {
