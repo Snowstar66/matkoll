@@ -146,7 +146,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "forrad",
     title: "Förråd",
     steps: [
-      { icon: "door", title: "Börja med ett rum", text: "Tryck + Nytt rum, till exempel Förrådet eller Garaget." },
+      { icon: "door", title: "Börja med ett rum", text: "Tryck Lägg till rum, till exempel Förrådet eller Garaget." },
       { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Fota. ${appName} listar ${things}en på bilden.` },
       { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
     ],
@@ -201,7 +201,7 @@ export const helpAreas: readonly HelpArea[] = [
       // Story 21.2b: medlemmar och inbjudan.
       {
         question: "Hur bjuder jag in någon i hushållet?",
-        answer: `Under Inställningar, Medlemmar, trycker du Bjud in någon. Dela länken i ett meddelande eller läs upp koden på 6 tecken. Den gäller i 7 dagar och för en person, och inget mejl skickas. Alla i hushållet kan bjuda in.`,
+        answer: `Tryck på ditt konto uppe till höger och välj Bjud in någon (eller gå via Inställningar, Medlemmar). Tryck Dela inbjudan och skicka den i ett meddelande, eller läs upp koden på 6 tecken. Den gäller i 7 dagar och för en person, och inget mejl skickas. Alla i hushållet kan bjuda in.`,
       },
       {
         question: "Hur går jag med i ett hushåll?",

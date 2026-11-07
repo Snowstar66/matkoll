@@ -57,7 +57,7 @@ describe("WelcomeTour", () => {
     expect(screen.getByRole("button", { name: "Fortsätt" })).toHaveAttribute("inert");
     expect(screen.getByRole("button", { name: "Hoppa över" })).toHaveAttribute("inert");
     expect(screen.getByText("Rundturen finns kvar under Hjälp och tips.")).toBeInTheDocument();
-    for (const choice of ["Lägg till ett recept", "Fotografera kylen", "Titta runt själv"]) {
+    for (const choice of ["Lägg till ett recept", "Fota kylen", "Titta runt själv", "Bjud in någon i hushållet"]) {
       expect(screen.getByRole("button", { name: new RegExp(choice) })).toBeInTheDocument();
     }
   });
@@ -115,12 +115,12 @@ describe("WelcomeTour", () => {
     expect(markTourSeen).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the camera from Fotografera kylen and hands the photo on", async () => {
+  it("opens the camera from Fota kylen and hands the photo on", async () => {
     const { onExit, dialog } = await renderTour();
     await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
     const input = within(dialog).getByTestId("welcome-tour-camera") as HTMLInputElement;
     const click = vi.spyOn(input, "click");
-    await userEvent.click(screen.getByRole("button", { name: /Fotografera kylen/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Fota kylen/ }));
     expect(click).toHaveBeenCalled();
     // Cancelling the camera keeps the tour open.
     fireEvent.change(input, { target: { files: [] } });

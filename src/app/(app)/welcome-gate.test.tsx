@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
-import { resetPrivacyNoteStore } from "@/features/auth/ui/privacy-note-store";
 
 let pathname = "/recept";
 const push = vi.fn();
@@ -22,8 +21,6 @@ vi.mock("@/features/pantry/ui/photo-handover", () => ({
 
 const { WelcomeGate } = await import("./welcome-gate");
 
-const note = "Det du sparar i Livskoll syns bara för ditt hushåll och lagras i EU. Som i de flesta appar kan den som driver tjänsten tekniskt komma åt datan.";
-
 beforeEach(() => {
   pathname = "/recept";
   searchParams = new URLSearchParams();
@@ -33,7 +30,6 @@ beforeEach(() => {
   requestImportSheet.mockReset();
   handOverPlacePhoto.mockReset();
   window.localStorage.clear();
-  resetPrivacyNoteStore();
 });
 
 async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" } | null = null) {
@@ -51,21 +47,34 @@ async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" }
 }
 
 describe("WelcomeGate", () => {
-  it("shows no tour to someone who has seen it, only the privacy note", async () => {
+  it("shows nothing to someone who has seen the tour (the privacy line is on the tour's last page)", async () => {
     await renderGate(true);
     expect(screen.queryByTestId("welcome-tour")).not.toBeInTheDocument();
-    expect(screen.getByText(note)).toBeInTheDocument();
+    expect(screen.queryByTestId("privacy-note")).not.toBeInTheDocument();
   });
 
-  it("shows the tour first, and the privacy note only once it is closed, where the user was", async () => {
+  it("shows the tour first, and nothing once it is closed, where the user was", async () => {
     await renderGate(false);
     expect(screen.getByTestId("welcome-tour")).toBeInTheDocument();
-    expect(screen.queryByText(note)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Hoppa över" }));
     expect(screen.queryByTestId("welcome-tour")).not.toBeInTheDocument();
-    expect(screen.getByText(note)).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("opens Medlemmar for Bjud in någon i hushållet", async () => {
+    await renderGate(false);
+    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: /Bjud in någon i hushållet/ }));
+    expect(push).toHaveBeenCalledWith("/installningar/medlemmar");
+  });
+
+  it("says who sees the data on the last page, with Läs mer to Hjälp at Konto", async () => {
+    await renderGate(false);
+    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    expect(screen.getByText(/syns bara för ditt hushåll och lagras i EU/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Läs mer" }));
+    expect(push).toHaveBeenCalledWith("/hjalp#konto");
   });
 
   it("opens Importera recept on Recept for Lägg till ett recept", async () => {
@@ -93,11 +102,10 @@ describe("WelcomeGate", () => {
     expect(requestImportSheet).not.toHaveBeenCalled();
   });
 
-  it("leaves the replay route to its own tour, without the note", async () => {
+  it("leaves the replay route to its own tour", async () => {
     pathname = "/valkomst";
     await renderGate(false);
     expect(screen.queryByTestId("welcome-tour")).not.toBeInTheDocument();
-    expect(screen.queryByText(note)).not.toBeInTheDocument();
   });
 
   // Story 21.2b: "Vad heter du?" comes first, once, prefilled; the tour after it.

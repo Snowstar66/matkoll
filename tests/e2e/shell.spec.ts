@@ -98,7 +98,8 @@ test.describe("mobile, 390 × 844", () => {
     await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
     const sheet = page.getByRole("dialog").filter({ visible: true });
     await expect(sheet.getByRole("link", { name: "Inställningar" })).toBeVisible();
-    await expect(sheet.getByRole("link", { name: /Hjälp och tips/ })).toContainText("Om Recept");
+    await expect(sheet.getByRole("link", { name: "Bjud in någon" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Hjälp för Recept" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Logga ut" })).toBeVisible();
     await sheet.getByRole("link", { name: "Inställningar" }).click();
     await expect(page).toHaveURL(/\/installningar$/);
@@ -113,7 +114,7 @@ test.describe("mobile, 390 × 844", () => {
   test("Hjälp och tips opens on the area of the tab the P button was opened from, with its chip chosen @flaky", async ({ page }) => {
     await page.goto("/matsedel");
     await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
-    await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: /Hjälp och tips/ }).click();
+    await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: "Hjälp för Matsedel" }).click();
     await expect(page).toHaveURL(/\/hjalp#matsedel$/);
     await expect(page.getByRole("heading", { level: 1, name: "Hjälp och tips" })).toBeVisible();
     const areas = page.getByRole("group", { name: "Område" }).filter({ visible: true });

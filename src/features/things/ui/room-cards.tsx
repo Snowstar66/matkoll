@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/button";
-import { Notice } from "@/components/notice";
+import { EmptyState } from "@/components/empty-state";
 import { useAiJobs } from "@/lib/ai-jobs-client";
 import { cardFailureText, retryText, shortDateText } from "../domain/thing-photo";
 import { cardMeta, type RoomCard } from "../domain/thing-room";
@@ -69,7 +69,7 @@ export function RoomCards({
   /** The ⋯ of a place's label (Story 18.16): "Byt namn" and "Ta bort" for a part or a box; `null` for the whole room. */
   menuFor?: (placeId: string) => ReactNode;
 }) {
-  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Fota ovanför.</Notice>;
+  if (cards.length === 0 && written.length === 0) return <EmptyState className="py-8">Inget kort än. Fota en hylla eller en låda.</EmptyState>;
   return (
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (

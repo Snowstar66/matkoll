@@ -33,6 +33,13 @@ describe("helpAreas", () => {
   });
 });
 
+describe("the names of buttons", () => {
+  it("are the ones the app has now, not the ones it had before the glossary", () => {
+    const all = JSON.stringify(helpAreas);
+    for (const old of ["Nytt rum", "Skapa rum", "Fotografera", "Kopiera inbjudan"]) expect(all).not.toContain(old);
+  });
+});
+
 describe("areaFromHash", () => {
   it("is the area the address names, else Recept", () => {
     expect(areaFromHash("#matvaror")).toBe("matvaror");

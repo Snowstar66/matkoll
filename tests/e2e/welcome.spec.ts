@@ -19,7 +19,6 @@ test.beforeEach(async () => {
 });
 
 const tour = (page: Page) => page.getByRole("dialog").filter({ visible: true });
-const privacyNote = (page: Page) => page.getByRole("region", { name: "Om din data" }).filter({ visible: true });
 
 async function seenRows(): Promise<number> {
   const { count, error } = await adminClient().from("welcome_tour").select("id", { count: "exact", head: true }).eq("user_id", userId);
@@ -35,20 +34,11 @@ async function toLastPage(page: Page) {
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("shows the tour full screen the first time, before the privacy note, and never again after Hoppa över", async ({ page }) => {
-    // The saved session has pressed Okej on the privacy note (openMagicLink); this test needs it unpressed.
-    await page.addInitScript(() => {
-      try {
-        window.localStorage.removeItem("matkoll.integritet.okej");
-      } catch {
-        // No storage: the note shows anyway.
-      }
-    });
+  test("shows the tour full screen the first time and never again after Hoppa över", async ({ page }) => {
     await page.goto("/recept");
     const dialog = tour(page);
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAccessibleName("Välkommen till Livskoll");
-    await expect(privacyNote(page)).toHaveCount(0);
     // Full screen: the dialog covers the window, tab bar and all.
     const box = (await dialog.boundingBox())!;
     expect(box).toMatchObject({ x: 0, y: 0, width: 390, height: 844 });
@@ -64,12 +54,6 @@ test.describe("on a phone", () => {
     await dialog.getByRole("button", { name: "Hoppa över" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page).toHaveURL(/\/recept$/);
-    await expect(privacyNote(page)).toBeVisible();
-    // Pontus 1 Nov: a card floating above the tab bar, not a banner at the top.
-    const note = (await privacyNote(page).boundingBox())!;
-    const bar = (await page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true }).boundingBox())!;
-    expect(note.y + note.height).toBeLessThanOrEqual(bar.y);
-    expect(note.y).toBeGreaterThan(400);
     await expect.poll(seenRows).toBe(1);
 
     await page.reload();
@@ -111,11 +95,21 @@ test.describe("on a phone", () => {
     await expect.poll(seenRows).toBe(1);
   });
 
-  test("Fotografera kylen opens the camera and reads the photo in Matvaror, Kyl", async ({ page }) => {
+  test("the last page says who sees the data, and Bjud in någon i hushållet opens Medlemmar", async ({ page }) => {
+    await page.goto("/recept");
+    await toLastPage(page);
+    await expect(tour(page)).toContainText("syns bara för ditt hushåll och lagras i EU");
+    await expect(tour(page).getByRole("button", { name: "Läs mer" })).toBeVisible();
+    await tour(page).getByRole("button", { name: /Bjud in någon i hushållet/ }).click();
+    await expect(page).toHaveURL(/\/installningar\/medlemmar$/);
+    await expect.poll(seenRows).toBe(1);
+  });
+
+  test("Fota kylen opens the camera and reads the photo in Matvaror, Kyl", async ({ page }) => {
     await page.goto("/recept");
     await toLastPage(page);
     const chooser = page.waitForEvent("filechooser");
-    await tour(page).getByRole("button", { name: /Fotografera kylen/ }).click();
+    await tour(page).getByRole("button", { name: /Fota kylen/ }).click();
     await (await chooser).setFiles(plainPng(40));
     await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
     await expect(page.getByTestId("pantry-camera").filter({ visible: true }).getByRole("status").first()).toContainText(

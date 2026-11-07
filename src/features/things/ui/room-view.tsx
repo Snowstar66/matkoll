@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { GridIcon, ListIcon } from "@/components/icons";
 import { Segment, type SegmentOption } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
@@ -148,9 +149,11 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
       {view === "things" ? (
         <>
           {summary.things === 0 ? (
-            <p className="px-1 text-body text-ink-2" data-testid="room-empty">
-              {summary.cards === 0 ? `Inget kort än. Ta ett kort, så listar ${appName} vad som finns.` : `Inga ${thingNoun.plural} hittades på korten.`}
-            </p>
+            <div data-testid="room-empty">
+              <EmptyState className="py-8">
+                {summary.cards === 0 ? `Inget kort än. Fota en hylla, så listar ${appName} vad som finns.` : `Inga ${thingNoun.plural} hittades på korten.`}
+              </EmptyState>
+            </div>
           ) : (
             <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />
           )}

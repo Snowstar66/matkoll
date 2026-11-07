@@ -1,4 +1,4 @@
-// Välkomstturen (Story 20.1): six pages, the last one with three choices.
+// Välkomstturen (Story 20.1): six pages, the last one with four choices.
 // Plain data and rules; the pictures and the dialog are in ui/.
 
 /** The number of pages in the tour. */
@@ -32,10 +32,10 @@ export function pageAfterSwipe(index: number, dx: number): number {
 }
 
 /**
- * How the tour was closed. Every way counts as seen. `skip` is Hoppa över or Esc; the other three
- * are the last page's choices.
+ * How the tour was closed. Every way counts as seen. `skip` is Hoppa över or Esc; `add-recipe`,
+ * `photo-fridge`, `explore` and `invite` are the last page's choices, and `privacy` is its "Läs mer".
  */
-export type TourExit = "skip" | "add-recipe" | "photo-fridge" | "explore";
+export type TourExit = "skip" | "add-recipe" | "photo-fridge" | "explore" | "invite" | "privacy";
 
 /** Where the replay (/valkomst) goes when it is closed with Hoppa över or Esc: back to Hjälp when it came from there. */
 export function replayReturnPath(from: string | string[] | undefined): "/hjalp" | "/recept" {
@@ -43,9 +43,12 @@ export function replayReturnPath(from: string | string[] | undefined): "/hjalp" 
   return value === "hjalp" ? "/hjalp" : "/recept";
 }
 
-/** Where a choice on the last page leads (Recept for Lägg till ett recept and Titta runt själv, Matvaror's Kyl for the photo). */
-export function choicePath(exit: Exclude<TourExit, "skip">): "/recept" | "/hemma?plats=kyl" {
-  return exit === "photo-fridge" ? "/hemma?plats=kyl" : "/recept";
+/** Where a choice on the last page leads (Recept for Lägg till ett recept and Titta runt själv, Matvaror's Kyl for the photo, Medlemmar for the invitation, Hjälp at Konto for Läs mer). */
+export function choicePath(exit: Exclude<TourExit, "skip">): "/recept" | "/hemma?plats=kyl" | "/installningar/medlemmar" | "/hjalp#konto" {
+  if (exit === "photo-fridge") return "/hemma?plats=kyl";
+  if (exit === "invite") return "/installningar/medlemmar";
+  if (exit === "privacy") return "/hjalp#konto";
+  return "/recept";
 }
 
 /** The route of the replay; Hjälp och tips links to it with `?fran=hjalp`. */

@@ -38,5 +38,7 @@ describe("where the tour leads", () => {
     expect(choicePath("add-recipe")).toBe("/recept");
     expect(choicePath("explore")).toBe("/recept");
     expect(choicePath("photo-fridge")).toBe("/hemma?plats=kyl");
+    expect(choicePath("invite")).toBe("/installningar/medlemmar");
+    expect(choicePath("privacy")).toBe("/hjalp#konto");
   });
 });

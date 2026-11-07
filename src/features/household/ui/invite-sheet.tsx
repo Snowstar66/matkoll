@@ -2,7 +2,6 @@
 
 import { useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
-import { Chip } from "@/components/chip";
 import { ShareIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -24,8 +23,8 @@ async function copy(text: string): Promise<boolean> {
 
 /**
  * "Bjud in till hushållet" (Story 21.2b): the code large (3+3, monospace), how
- * long it is valid, the link with Kopiera, and Dela inbjudan (the phone's share
- * sheet; on a computer without one, "Kopiera inbjudan"). Återkalla inbjudan
+ * long it is valid, the link, and the one button Dela inbjudan (the phone's share
+ * sheet; on a computer without one it copies the text, UX-35). Återkalla inbjudan
  * closes it ("Tog bort inbjudan." with Ångra, from the page). Klar closes the sheet.
  */
 export function InviteSheet({
@@ -74,7 +73,7 @@ export function InviteSheet({
         <div className="flex flex-col gap-1">
           <Button fullWidth onClick={() => void share()} data-testid="invite-share">
             <ShareIcon size={20} />
-            {canShare ? "Dela inbjudan" : "Kopiera inbjudan"}
+            Dela inbjudan
           </Button>
           <Button variant="danger" fullWidth onClick={() => invite && onRevoke(invite)}>
             Återkalla inbjudan
@@ -92,19 +91,12 @@ export function InviteSheet({
             </p>
             <p className="text-meta text-ink-2">Gäller till {inviteValidUntil(invite.expiresAt)} · för en person</p>
           </div>
-          <div className="mt-2.5 flex min-h-12 items-center gap-2 rounded-md border border-border py-1 pr-1 pl-3.5">
+          <div className="mt-2.5 flex min-h-12 items-center rounded-md border border-border px-3.5 py-1">
             <span className="min-w-0 flex-1 truncate text-[15px] text-ink-2" data-testid="invite-link">
               {link.replace(/^https?:\/\//, "")}
             </span>
-            <Chip
-              selected={false}
-              action
-              onClick={async () => showToast((await copy(link)) ? "Kopierade länken." : "Det gick inte att kopiera.")}
-            >
-              Kopiera
-            </Chip>
           </div>
-          <p className="mt-3 text-meta text-ink-2">Inget mejl skickas. Dela länken i ett meddelande, eller läs upp koden.</p>
+          <p className="mt-3 text-meta text-ink-2">Inget mejl skickas. Dela inbjudan i ett meddelande, eller läs upp koden.</p>
         </div>
       ) : null}
     </Sheet>

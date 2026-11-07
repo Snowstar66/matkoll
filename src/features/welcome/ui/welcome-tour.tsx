@@ -24,7 +24,7 @@ import { TourArt, type TourArtName } from "./tour-art";
 // the native modal <dialog>, so focus stays inside and the app behind is inert.
 //
 // Fortsätt, a swipe, a dot or the arrow keys change the page; Hoppa över and Esc
-// close it. On the last page Fortsätt and Hoppa över give way to three choices,
+// close it. On the last page Fortsätt and Hoppa över give way to four choices,
 // each of which closes it. Every way of closing records on the server that the
 // tour has been seen. The pages slide 460 ms; the drawing is drawn out (1.1 s)
 // and the title and sentence rise 12 px. With "Minska rörelse" the page only
@@ -271,7 +271,7 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
                         />
                         <Choice
                           icon={<DuoCameraIcon size={26} />}
-                          title="Fotografera kylen"
+                          title="Fota kylen"
                           text={`${appName} föreslår varorna`}
                           onClick={() => cameraRef.current?.click()}
                         />
@@ -281,7 +281,21 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
                           text="Börja på Recept"
                           onClick={() => exit("explore")}
                         />
+                        <Choice
+                          icon={<DuoHouseIcon size={26} />}
+                          title="Bjud in någon i hushållet"
+                          text="Dela lista och matsedel"
+                          onClick={() => exit("invite")}
+                        />
                       </div>
+                    ) : null}
+                    {isLastTourPage(i) ? (
+                      <p className="mx-auto mt-5 max-w-[310px] text-meta text-ink-3">
+                        Det du sparar syns bara för ditt hushåll och lagras i EU.{" "}
+                        <button type="button" onClick={() => exit("privacy")} className="rounded-sm font-medium text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                          Läs mer
+                        </button>
+                      </p>
                     ) : null}
                   </div>
                 </div>

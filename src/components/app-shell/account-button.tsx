@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { type ReactNode, Suspense, useState } from "react";
-import { HelpIcon, SettingsIcon, ChevronRightIcon, PenIcon } from "../icons";
+import { HelpIcon, SettingsIcon, ChevronRightIcon, PenIcon, UsersIcon } from "../icons";
 import { Sheet } from "../sheet";
 import { useAccount, useHasAccount, useSignOutSlots } from "./account";
 import { Avatar } from "./avatar";
 import { useShellNote } from "./note-slot";
 import { type Destination, helpDestination, helpHref as helpHrefFor, mainDestinations, settingsDestination } from "./destinations";
+
+/** Where "Bjud in någon" leads (UX-25): Inställningar, Medlemmar, where the code is made. */
+const inviteHref = "/installningar/medlemmar";
 
 /** The tabs that have a P button in their header, by address. */
 export type HeaderTab = (typeof mainDestinations)[number]["href"];
@@ -93,11 +96,11 @@ function AccountSheetButton({ tab }: { tab?: HeaderTab }) {
             />
           ) : null}
           <SheetRow href={settingsDestination.href} Icon={SettingsIcon} label={settingsDestination.label} onClick={close} />
+          <SheetRow href={inviteHref} Icon={UsersIcon} label="Bjud in någon" onClick={close} />
           <SheetRow
             href={helpHref}
             Icon={HelpIcon}
-            label={helpDestination.label}
-            value={tabLabel ? `Om ${tabLabel}` : undefined}
+            label={tabLabel ? `Hjälp för ${tabLabel}` : helpDestination.label}
             onClick={close}
           />
         </ul>
@@ -114,8 +117,8 @@ function Placeholder() {
 
 /**
  * The P button at the right of a tab's header (Story 19.2): a small round avatar
- * with the account's initial that opens a sheet with Inställningar, Hjälp och
- * tips and Logga ut. On a desktop those three are at the bottom of the side
+ * with the account's initial that opens a sheet with Inställningar, Bjud in någon, Hjälp
+ * och tips and Logga ut. On a desktop those three are at the bottom of the side
  * menu, so there is no button. Nothing without an account.
  */
 export function AccountButton({ tab }: { tab?: HeaderTab }) {
