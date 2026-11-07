@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
-import { Segment } from "@/components/segment";
 import { TagIcon } from "@/components/icons";
 import { Button, buttonClasses } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
@@ -367,20 +366,16 @@ export function OffersSheet({
               </div>
             ) : null}
             {hasSaving ? (
-              <div className="flex items-center gap-3" data-testid="offers-sort">
-                <span aria-hidden="true" className="text-meta text-ink-2">
-                  Sortera
-                </span>
-                <Segment
-                  label="Sortera"
-                  options={[
-                    { value: "category", label: sortLabels.category },
-                    { value: "saving", label: sortLabels.saving },
-                  ]}
-                  value={sort}
-                  onChange={setSort}
-                  className="flex-1"
-                />
+              <div className="-mb-2 flex justify-end">
+                <button
+                  type="button"
+                  data-testid="offers-sort"
+                  aria-label={`Sortera: ${sortLabels[sort]}. Tryck för att byta.`}
+                  onClick={() => setSort(sort === "category" ? "saving" : "category")}
+                  className="-mr-2 flex min-h-tap shrink-0 items-center px-2 text-meta text-ink-2 underline decoration-ink-3/60 underline-offset-2"
+                >
+                  Sortera: {sortLabels[sort]}
+                </button>
               </div>
             ) : null}
             <OffersList
