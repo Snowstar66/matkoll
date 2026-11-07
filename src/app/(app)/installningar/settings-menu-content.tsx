@@ -160,6 +160,7 @@ export async function SettingsMenuContent() {
       label: "Appen",
       rows: [
         { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
+        { href: settingsPageHref("utseende"), icon: "palette", tile: "mint", title: "Utseende" },
         { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen" },
         { href: settingsPageHref("notiser"), icon: "bell", tile: "sky", title: "Notiser" },
         { href: settingsPageHref("telefon"), icon: "mic", tile: "lilac", title: "Använd med telefonen" },

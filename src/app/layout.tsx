@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { appDescription, appName } from "./app-info";
+import { paletteBootScript } from "@/lib/palette";
 import { themeColors } from "./theme-colors";
 
 export const metadata: Metadata = {
@@ -25,8 +26,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="sv" className="h-full antialiased">
-      <body className="flex min-h-full flex-col">{children}</body>
+    // suppressHydrationWarning: the inline script at the top of <body> (an explicit <head> broke the tab scroll memory in shell.spec) sets data-palette (and --hue) on <html> before React hydrates.
+    <html lang="sv" className="h-full antialiased" suppressHydrationWarning>
+      <body className="flex min-h-full flex-col">
+        {/* Färgtema: the device's chosen palette, applied before first paint. Static, no request data. */}
+        <script dangerouslySetInnerHTML={{ __html: paletteBootScript() }} />
+        {children}
+      </body>
     </html>
   );
 }

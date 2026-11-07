@@ -383,6 +383,18 @@ export function SparkleIcon(props: IconProps) {
   );
 }
 
+/** A paint palette: Utseende in Inställningar. */
+export function PaletteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-.6-.3-1-.6-1.4-.3-.4-.5-.8-.5-1.3 0-.9.7-1.6 1.6-1.6H16a4.5 4.5 0 0 0 4.5-4.5C20.5 6.7 16.7 3.5 12 3.5z" />
+      <circle cx="7.8" cy="11" r="1" />
+      <circle cx="10.5" cy="7.6" r="1" />
+      <circle cx="14.8" cy="7.9" r="1" />
+    </Icon>
+  );
+}
+
 /** A coin: the month's cost in Inställningar. */
 export function CoinIcon(props: IconProps) {
   return (
