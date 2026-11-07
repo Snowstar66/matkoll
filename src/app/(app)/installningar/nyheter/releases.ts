@@ -16,7 +16,6 @@ export const releases: readonly Release[] = [
     title: "Erbjudanden, tydligare",
     bullets: [
       "Nu heter det erbjudande överallt, inte extrapris. Rabatten visas som −33 % och ordet spara är borta.",
-      "Knappen Erbjudanden i Inköpslista och Matsedel har fått text, så du ser vad den gör.",
       "I Veckans erbjudanden lägger du en vara på inköpslistan med ett tryck på plus, och Ångra tar bort den igen.",
       "Gick hämtningen inte att göra står det bara en ruta med ett sätt att öppna butikens sida.",
       "I Ändra butik står länken till veckans erbjudanden först, och Butiks-id och länk till e-handeln ligger under Mer om butiken.",

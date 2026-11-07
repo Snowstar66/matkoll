@@ -616,7 +616,7 @@ function storeFetchLine(store: OffersStore, count: number, now: string): string 
 }
 
 /**
- * The button "Erbjudanden" (a price tag and the word) in Inköpslista's header, which opens the
+ * The button "Erbjudanden" (a price tag) in Inköpslista's header, which opens the
  * sheet Veckans erbjudanden (Story 9.1). The page passes it to the header as
  * a slot, so the shopping list never imports the offers module (AD-1).
  */
@@ -624,19 +624,16 @@ export function OffersSheetButton(props: OffersSheetProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {/* UX-37: a text button "Erbjudanden" with the tag in front; at 200 % zoom (under 20 rem wide) only the tag stays, and the name stays for screen readers. */}
+      {/* The price tag only: with the word the header wrapped to two rows at 375 px, and the approved header (UX-07) is [erbjudanden] [+] [konto] as icons. The name stays for screen readers. */}
       <button
         type="button"
         aria-label="Erbjudanden"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         data-testid="offers-button"
-        className="flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-full px-2.5 text-body font-medium text-ink-2"
+        className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-ink-2"
       >
         <TagIcon size={20} />
-        <span aria-hidden="true" className="max-[20rem]:hidden">
-          Erbjudanden
-        </span>
       </button>
       <OffersSheet {...props} open={open} onClose={() => setOpen(false)} />
     </>
