@@ -45,7 +45,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet, välj vecka under portionerna (Nästa vecka är förvalt) och tryck Lägg på matsedeln. Det hamnar på första lediga dag den veckan, och Byt dag låter dig flytta det om du vill.",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan du senast tittade på i Matsedel eller Inköpslista (annars denna vecka), under Ingen dag. Meddelandet har Ångra och Byt vecka, och pillen På matsedeln öppnar veckan där du väljer dag.",
       },
       {
         question: "Hur tar jag bort ett recept?",
@@ -61,7 +61,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "matsedel",
     title: "Matsedel",
     steps: [
-      { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
+      { icon: "calendar", title: "Välj vecka", text: "Denna vecka, Nästa eller Om 2 v. Veckan du valt gäller också Inköpslistan och när du lägger en rätt på matsedeln från receptet." },
       { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Tryck + i rubriken eller fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
       { icon: "house", title: "Se vad som ska köpas", text: "Raden under Veckans rätter räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
@@ -94,7 +94,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag handla till nästa vecka?",
-        answer: "Ja. Tryck Denna vecka överst i kortet med antal varor kvar och välj vecka. Dina egna varor syns vilken vecka du än väljer.",
+        answer: "Ja. Välj Nästa eller Om 2 v i raden överst, där varje vecka visar hur många varor den har. Dina egna varor syns vilken vecka du än väljer.",
       },
       {
         question: "Hur lägger jag det jag handlat i Matvaror?",

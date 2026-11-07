@@ -149,10 +149,13 @@ export function weekTileLabel(offset: number): string {
 }
 
 /** A tile's accessible name: "Vecka 45, nästa vecka, 3 rätter". */
-export function weekTileName(weekStart: string, offset: number, count: number): string {
+export function weekTileName(weekStart: string, offset: number, count: number, unit: "dishes" | "items" = "dishes"): string {
   const when = weekOffsetLabel(offset).toLocaleLowerCase("sv-SE");
-  const dishes = count === 0 ? "inga rätter" : count === 1 ? "1 rätt" : `${count} rätter`;
-  return `${weekName(weekStart)}, ${when}, ${dishes}`;
+  const what =
+    unit === "items"
+      ? count === 0 ? "inga varor" : count === 1 ? "1 vara" : `${count} varor`
+      : count === 0 ? "inga rätter" : count === 1 ? "1 rätt" : `${count} rätter`;
+  return `${weekName(weekStart)}, ${when}, ${what}`;
 }
 
 /** The weeks "Kopiera till …" offers: this week, next week and the week after. */
@@ -163,11 +166,6 @@ export function copyTargets(now: Date = new Date()): WeekChoice[] {
 /** What a week already has, as on the week tiles: "Tom", "1 rätt", "3 rätter". */
 export function weekFillText(count: number): string {
   return count === 0 ? "Tom" : count === 1 ? "1 rätt" : `${count} rätter`;
-}
-
-/** A week's dishes in the week menu on Inköpslista: "Inga rätter", "1 rätt", "3 rätter". */
-export function weekDishesText(count: number): string {
-  return count === 0 ? "Inga rätter" : count === 1 ? "1 rätt" : `${count} rätter`;
 }
 
 /** "Kopierade 5 rätter till vecka 46". */
@@ -192,4 +190,22 @@ export function weekdayDateText(weekStart: string, weekday: number): string {
 export function firstOpenWeekday(weekStart: string, now: Date, todayDay: number): number {
   const ahead = weeksBetween(currentWeekStart(now), weekStart);
   return ahead < 0 ? 8 : ahead === 0 ? todayDay : 1;
+}
+
+/** The `?vecka=` query for a week, also for this week: used where the plain address would mean the remembered week. */
+export function weekQueryAlways(weekStart: string): string {
+  return `?vecka=${weekParam(weekStart)}`;
+}
+
+/** The cookie that remembers the week last viewed on Matsedel or Inköpslista, on this device (UX-04). */
+export const rememberedWeekCookie = "livskoll-vecka";
+
+/** A week's items to buy in the Inköpslista segment: "Tom", "1 vara", "38 varor". */
+export function weekItemsText(count: number): string {
+  return count === 0 ? "Tom" : count === 1 ? "1 vara" : `${count} varor`;
+}
+
+/** "v. 46": the week as the recipe page and its toast name it. */
+export function weekShortName(weekStart: string): string {
+  return `v. ${weekNumber(weekStart)}`;
 }

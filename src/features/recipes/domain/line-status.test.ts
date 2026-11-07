@@ -12,7 +12,6 @@ import {
   offerTagText,
   plannedChipText,
   plannedToastText,
-  whenText,
   staplesNote,
   summarizeLines,
   type LineOffer,
@@ -147,24 +146,15 @@ describe("texts", () => {
   it("says the chips", () => {
     expect(offerChipText({ onOffer: 2, savingKr: 21 })).toBe("2 på erbjudande · spara 21 kr");
     expect(offerChipText({ onOffer: 1, savingKr: 0 })).toBe("1 på erbjudande");
-    expect(plannedChipText(null)).toBe("På matsedeln denna vecka");
-    expect(plannedChipText("onsdag")).toBe("På matsedeln på onsdag");
+    expect(plannedChipText("v. 46")).toBe("På matsedeln v. 46");
   });
 
   it("says the toast after Lägg på matsedeln, with at most three names", () => {
-    expect(plannedToastText("Pasta", "torsdag", ["Falukorv", "grädde", "ris"])).toBe("Pasta ligger på torsdag. Falukorv, grädde och ris står på inköpslistan.");
-    expect(plannedToastText("Pasta", "måndag", ["falukorv"])).toBe("Pasta ligger på måndag. Falukorv står på inköpslistan.");
-    expect(plannedToastText("Pasta", "söndag", ["a", "b", "c", "d", "e"])).toBe("Pasta ligger på söndag. A, b, c och 2 till står på inköpslistan.");
-    expect(plannedToastText("Pasta", "fredag", [])).toBe("Pasta ligger på fredag.");
-    expect(plannedToastText("Pasta", null, [])).toBe("Pasta ligger på veckan. Alla dagar har en rätt.");
+    expect(plannedToastText("v. 46", ["Falukorv", "grädde", "ris"])).toBe("Lagd på matsedeln v. 46. Falukorv, grädde och ris står på inköpslistan.");
+    expect(plannedToastText("v. 46", ["falukorv"])).toBe("Lagd på matsedeln v. 46. Falukorv står på inköpslistan.");
+    expect(plannedToastText("v. 45", ["a", "b", "c", "d", "e"])).toBe("Lagd på matsedeln v. 45. A, b, c och 2 till står på inköpslistan.");
+    expect(plannedToastText("v. 46", [])).toBe("Lagd på matsedeln v. 46.");
     expect(namesText([])).toBe("");
-    expect(plannedToastText("Pasta", "måndag", ["falukorv"], "nästa vecka")).toBe("Pasta ligger på måndag nästa vecka. Falukorv står på inköpslistan.");
-    expect(plannedToastText("Pasta", null, [], "om 2 veckor")).toBe("Pasta ligger om 2 veckor. Alla dagar har en rätt.");
-    expect(plannedChipText("onsdag", "nästa vecka")).toBe("På matsedeln på onsdag nästa vecka");
-    expect(plannedChipText(null, "nästa vecka")).toBe("På matsedeln nästa vecka");
-    expect(whenText(0)).toBeNull();
-    expect(whenText(1)).toBe("nästa vecka");
-    expect(whenText(2)).toBe("om 2 veckor");
   });
 
   it("says the sheet's button and the key of an item", () => {

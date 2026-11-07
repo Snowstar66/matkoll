@@ -15,6 +15,7 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/mealplan/server")>()),
   getMealPlanView: vi.fn(),
   getWeekCounts: vi.fn(async () => ({})),
+  resolveViewedWeek: vi.fn(async (vecka: string | null | undefined) => (await import("@/features/mealplan")).viewedWeek(vecka)),
   addToCurrentPlan: vi.fn(),
 }));
 vi.mock("@/features/suggestions/server", () => ({
