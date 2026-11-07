@@ -23,6 +23,8 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   ai_queue_timeout: 504,
   ai_job_lost: 410,
   ai_job_gone: 404,
+  // Tak för AI-kostnad: the household's daily cap is reached.
+  ai_cap_reached: 429,
   catalog_unavailable: 503,
   pantry_unavailable: 503,
   // Story 8.4: the photo's place is removed, or not the user's; the AI was not asked.

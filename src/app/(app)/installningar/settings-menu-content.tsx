@@ -82,6 +82,8 @@ export async function SettingsMenuContent() {
               { href: settingsPageHref("inkorg"), icon: "inbox", tile: "sky", title: "Inkorg", badge: newCountText(inbox.unread) },
               // Story 21.1: invite an address without touching Vercel; shown with the inbox, to the owner only.
               { href: settingsPageHref("inbjudningar"), icon: "users", tile: "mint", title: "Inbjudningar" },
+              // Tak för AI-kostnad: the daily cap per household and what each has cost; to the owner only.
+              { href: settingsPageHref("ai-kostnad"), icon: "coin", tile: "sand", title: "AI-kostnad" },
             ],
           } satisfies SettingsGroupData,
         ]

@@ -5,7 +5,19 @@ export type Database = {
   
   "public": {
           Tables: {
-            "ai_job": {
+            "ai_cap": {
+                  Row: {
+                    "daily_cap_sek": number,"id": boolean,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "daily_cap_sek"?: number,"id"?: boolean,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "daily_cap_sek"?: number,"id"?: boolean,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: []
+                },"ai_job": {
                   Row: {
                     "client_key": string,"context": NonNullable<Json>,"created_at": string,"error_code": string | null,"expires_at": string,"finished_at": string | null,"household_id": string,"id": string,"kind": string,"result": Json | null,"seen_at": string | null,"started_at": string | null,"status": string,"user_id": string | null
                   }
@@ -1001,11 +1013,27 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"ai_cap_households":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "cap_sek": number,"day_input_tokens": number,"day_output_tokens": number,"exempt": boolean,"household_id": string,"members": string,"model": string,"month_input_tokens": number,"month_output_tokens": number,"name": string
+            }[]
+                           },
+"ai_cap_status":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "cap_sek": number,"exempt": boolean,"input_tokens": number,"model": string,"output_tokens": number
+            }[]
+                           },
+"ai_day_start":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "ai_job_expire":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "ai_job_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"ai_month_start":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "ai_usage_month":
 { Args: { "from_at": string,"to_at": string }; Returns: {
@@ -1449,6 +1477,9 @@ isOneToOne: false
       } },
 "select_store":
 { Args: { "store_id": string }; Returns: undefined
+                           },
+"set_ai_cap":
+{ Args: { "new_cap": number }; Returns: number
                            },
 "set_ai_job_result":
 { Args: { "job_id": string,"job_result": Json }; Returns: boolean

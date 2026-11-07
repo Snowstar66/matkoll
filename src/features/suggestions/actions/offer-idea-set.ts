@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { listRecipeTitles, RecipeDataError } from "@/features/recipes/server";
-import { listStores, SettingsDataError } from "@/features/settings/server";
+import { isAiCapReached, listStores, SettingsDataError } from "@/features/settings/server";
 import { toAvoidTitles } from "../domain/suggestions";
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -122,9 +122,11 @@ export type PrepareOutcome = "prepared" | "failed" | "skipped" | "none" | "unava
 /**
  * The scheduled job's trigger (POST /api/offer-ideas/prepare): claims the set of the household's offer week and, when
  * it got it, runs the model now and waits for it (the Route Handler has the time; no after()). `skipped` when a set is
- * ready or another run holds it: so a rerun never makes a second set. `none` without offers. Never throws what is expected.
+ * ready or another run holds it, or the household has reached its daily AI cap: so a rerun never makes a second set. `none` without offers. Never throws what is expected.
  */
 export async function prepareOfferIdeasNow(): Promise<PrepareOutcome> {
+  // Tak för AI-kostnad: a household that has reached its daily cap is skipped quietly (no claim, no failed set).
+  if (await isAiCapReached()) return "skipped";
   const claimed = await claimOfferIdeas(false);
   if (!claimed.ok) return claimed.error.code === "offers_none" ? "none" : "unavailable";
   if (!claimed.data.run) return "skipped";

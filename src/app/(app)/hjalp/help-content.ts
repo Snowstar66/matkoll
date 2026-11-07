@@ -216,6 +216,11 @@ export const helpAreas: readonly HelpArea[] = [
         question: `Hur får någon tillgång till ${appName}?`,
         answer: `Appens ägare bjuder in från Inställningar, Inbjudningar: skriv personens e-postadress och tryck Bjud in, och dela länken i ett meddelande. Personen gör ett eget konto med samma adress och får ett eget hushåll, som sedan kan bjuda in sin familj under Medlemmar. Inget mejl skickas. Frågar du efter tillgång, be ägaren om en inbjudan.`,
       },
+      // Tak för AI-kostnad per hushåll.
+      {
+        question: "Vad betyder att dagens AI-tak är nått?",
+        answer: "Varje hushåll får använda AI för ett visst belopp per dag, så att kostnaden hålls nere. När det är slut går det inte att be AI:n om något förrän nästa dag (från midnatt), men allt annat i appen fungerar som vanligt. Appens ägare bestämmer taket under Inställningar, AI-kostnad.",
+      },
       {
         question: "Var ändrar jag mitt namn?",
         answer: "Under Inställningar, Konto. Namnet syns för de andra i hushållet.",

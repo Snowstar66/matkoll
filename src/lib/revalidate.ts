@@ -99,6 +99,8 @@ const routesByTable = {
   feedback: [{ path: "/installningar", type: "layout" }],
   // Story 21.1: the owner's page Inbjudningar under Inställningar.
   app_invite: [{ path: "/installningar", type: "layout" }],
+  // Tak för AI-kostnad: the owner's page AI-kostnad under Inställningar.
+  ai_cap: [{ path: "/installningar", type: "layout" }],
   // Story 21.2b: who is in the household. Every page shows the member's own name (the P button), and
   // joining or leaving changes all the data a page shows, so the whole app.
   household_member: [{ path: "/", type: "layout" }],

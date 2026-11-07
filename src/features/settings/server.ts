@@ -3,11 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/server/env";
 import { loadAiSettingIn } from "./data/ai-setting";
 import { listApiKeysIn } from "./data/api-keys";
+import { SettingsDataError } from "./data/client";
+import { loadAiCapStatusIn, loadHouseholdCostsIn } from "./data/ai-cap";
 import { insertAiUsageIn, loadAiUsageIn } from "./data/ai-usage";
 import { insertUserDefaults } from "./data/defaults";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
 import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
 import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
+import { aiCapReached, type HouseholdCost } from "./domain/ai-cap";
 import { stockholmMonth, usageCostSek, type AiMonthUsage } from "./domain/ai-usage";
 import { compareDomains } from "./domain/domain-name";
 import { compareStores, type Store } from "./domain/store";
@@ -160,7 +163,42 @@ export async function getAiServiceForUser(): Promise<import("@/server/ai").AiSer
   const { getAiServiceFor } = await import("@/server/ai");
   const choice = await getAiChoice();
   const db = await createClient();
-  return getAiServiceFor(choice, (usage) => insertAiUsageIn(db, usage));
+  return getAiServiceFor(
+    choice,
+    (usage) => insertAiUsageIn(db, usage),
+    async () => !(await capReachedIn(db)),
+  );
+}
+
+/**
+ * Tak för AI-kostnad: whether the signed-in user's household has reached today's cap (an estimate of
+ * what its calls cost, against the cap the app's owner sets; the owner's household is exempt). Fails
+ * OPEN: a failed read is logged (the reason only) and counts as "not reached", so a database hiccup
+ * never takes the AI away from anyone. Never throws.
+ */
+async function capReachedIn(db: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+  try {
+    const status = await loadAiCapStatusIn(db);
+    if (!status || !aiCapReached(status)) return false;
+    console.info("ai_cap_reached");
+    return true;
+  } catch (error) {
+    console.error("ai_cap_check_failed", { reason: error instanceof SettingsDataError ? error.detail : "exception" });
+    return false;
+  }
+}
+
+/** Tak för AI-kostnad: the same check for code that decides before it starts a run (the morning job skips a capped household quietly). Never throws. */
+export async function isAiCapReached(): Promise<boolean> {
+  return capReachedIn(await createClient());
+}
+
+/**
+ * The owner's page AI-kostnad: every household's estimated cost today and this month, and the daily cap, or
+ * `null` for anyone but the app's owner (decided by is_app_owner() in the database). Throws SettingsDataError.
+ */
+export async function getHouseholdCosts(): Promise<{ capSek: number; households: HouseholdCost[] } | null> {
+  return loadHouseholdCostsIn(await createClient());
 }
 
 /** Story 17.9: the signed-in user's personal keys for Siri and shortcuts (never the keys themselves). Throws SettingsDataError. */

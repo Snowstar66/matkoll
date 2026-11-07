@@ -60,6 +60,10 @@ const coveredInFeedbackTest = ["app_owner", "feedback", "push_event"];
 // functions around it answer only the owner (app-invites.test.ts tries each as owner, user and anon).
 const coveredInAppInvitesTest = ["app_invite"];
 
+// Tak för AI-kostnad: the owner's one-row daily cap; no client reads or writes it, and the functions
+// around it answer the caller's own household or only the owner (ai-cap.test.ts tries each).
+const coveredInAiCapTest = ["ai_cap"];
+
 // Story 21.2a: the household itself, its members and its invitations. Covered
 // below in "the household and its members". Story 21.2b: the count of wrong
 // invitation codes, which no client reads or writes (household-members.test.ts).
@@ -375,7 +379,7 @@ describe("household isolation", () => {
     const tables = liveTables();
     const live = tables.map((table) => table.name);
     const covered = Object.keys(coverage).sort();
-    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...householdTables];
+    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...coveredInAiCapTest, ...householdTables];
     const missing = live.filter((table) => !known.includes(table));
     const gone = known.filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);
@@ -941,6 +945,8 @@ describe("household isolation", () => {
       "create_household_invite", "household_invites", "household_members", "leave_household", "rename_household", "set_my_display_name",
       // Story 21.1: the owner's invitations and the person's own claim (app-invites.test.ts tries each).
       "create_app_invite", "app_invites", "remove_app_invite", "claim_app_invite", "app_invite_preview", "app_invited_access",
+      // Tak för AI-kostnad: the caller's own household's usage, and the owner's list and cap (ai-cap.test.ts tries each).
+      "ai_cap_status", "ai_cap_households", "set_ai_cap",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).

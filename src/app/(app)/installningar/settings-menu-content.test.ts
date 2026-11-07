@@ -59,7 +59,7 @@ describe("the group Appens ägare (Story 20.3, named so in 21.2b)", () => {
   it("is right under the account, with Inkorg and the count of new, for the owner", async () => {
     getOwnerInbox.mockResolvedValue({ unread: 3 });
     const groups = await groupLabels();
-    expect(groups[0]).toMatchObject({ label: "Appens ägare", rows: [{ title: "Inkorg", badge: "3 nya" }, { title: "Inbjudningar", href: "/installningar/inbjudningar" }] });
+    expect(groups[0]).toMatchObject({ label: "Appens ägare", rows: [{ title: "Inkorg", badge: "3 nya" }, { title: "Inbjudningar", href: "/installningar/inbjudningar" }, { title: "AI-kostnad", href: "/installningar/ai-kostnad" }] });
   });
 
   it("is not there at all for anyone else, or when it cannot be read", async () => {
