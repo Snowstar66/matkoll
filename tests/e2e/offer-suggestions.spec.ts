@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
 import { weekStartOf } from "@/features/offers/domain/week";
-import { adminClient, dayWords, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState, todayDay } from "./support";
+import { adminClient, dayWords, e2eUserId, offerSuggestionsEmail, offerSuggestionsStorageState, openLibrary, todayDay } from "./support";
 
 // Story 9.5 and 25.3, and "Idéerna är klara när du öppnar erbjudandena": the offers and what is made of
 // them, with AI_PROVIDER=mock (the server answers the three dishes in
@@ -241,6 +241,7 @@ test("a saved idea does not show again on Matsedel", async ({ page }) => {
   await page.getByRole("dialog", { name: "Spara AI-förslag" }).getByRole("button", { name: "Spara och lägg på veckan" }).click();
   await expect(page.getByRole("dialog", { name: "Spara AI-förslag" })).toBeHidden();
   await page.goto("/matsedel");
+  await openLibrary(page);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("ai-option")).toHaveCount(2);
   await expect(page.getByTestId("ai-option").filter({ hasText: dishName })).toHaveCount(0);
@@ -256,6 +257,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   await expect(page.getByTestId("week-empty")).toBeVisible();
   // An empty week says "Inga rätter än" instead of a count.
   await expect(bar(page)).toHaveCount(0);
+  await openLibrary(page);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
@@ -270,7 +272,8 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(new RegExp(`^${short}\\d`));
   await expect(toast(page)).toContainText(new RegExp(`Falukorv med potatismos på ${dayWords[today - 1]}\\. .+ står på inköpslistan\\.`));
   await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
-  await expect(row.getByTestId("on-week")).toHaveText(short);
+  // A dish on the week leaves the library list.
+  await expect(row).toHaveCount(0);
   await expect(bar(page)).toHaveText(/^1 rätt · [1-9]\d* var(a|or) att köpa$/);
 
   // What is saved: on this week's plan, on today.
@@ -306,6 +309,7 @@ test("Matsedel: the new ideas are ready under På erbjudande and are reviewed an
   });
 
   await page.goto("/matsedel");
+  await openLibrary(page);
   await page.getByRole("radio", { name: "På erbjudande" }).click();
   await expect(page.getByRole("button", { name: /Nya idéer med extrapris/ })).toHaveCount(0);
   const ideas = page.getByTestId("ai-option");

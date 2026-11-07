@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedToWeekText, calendarRows, targetDayText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, onWeekLabel, shownDishes, weekBarText } from "./planner";
+import { addedToWeekText, calendarRows, targetDayText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, notOnWeek, onWeekLabel, shownDishes, weekBarText } from "./planner";
 import type { PlanDish } from "./meal-plan";
 
 const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): PlanDish => ({
@@ -28,6 +28,7 @@ describe("the words of the planning view", () => {
     expect(onWeekLabel(4)).toBe("Tor");
     expect(onWeekLabel(null)).toBe("På veckan");
     expect(itemsText(2)).toBe("2 varor");
+    expect(notOnWeek([{ id: "a" }, { id: "b" }, { id: "c" }], [{ recipeId: "b" }, { recipeId: null }]).map((o) => o.id)).toEqual(["a", "c"]);
   });
 
   it("says the day chip: the short weekday or Ingen dag", () => {

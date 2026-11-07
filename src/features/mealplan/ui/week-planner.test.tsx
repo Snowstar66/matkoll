@@ -66,6 +66,8 @@ function renderPlanner(dishes: PlanDish[] = [], opts: PlanOption[] | null = opti
 const rowTitles = () => screen.queryAllByTestId("plan-option").map((row) => row.querySelector("p")?.textContent);
 
 beforeEach(() => {
+  // The library is folded until opened; most tests start with it open.
+  window.localStorage.setItem("matkoll.mealplan.library-open", "1");
   addToCurrentPlan.mockReset().mockImplementation(async (input: { recipeId: string; id: string; weekday?: number | null }) =>
     ok({
       id: input.id,
@@ -116,9 +118,39 @@ describe("WeekPlanner, the tabs", () => {
     expect(screen.getByTestId("options-empty")).toHaveTextContent("Inget av dina recept har en huvudvara på erbjudande just nu.");
   });
 
+  it("leaves out dishes already on the week, and says so when a tab has nothing else", () => {
+    renderPlanner([onWeek(1, "Tacos", 2), onWeek(2, "Korvstroganoff", 3)]);
+    expect(rowTitles()).toEqual([]);
+    expect(screen.getByTestId("options-empty")).toHaveTextContent("Alla dina favoriter ligger redan på veckan.");
+    expect(screen.queryByTestId("on-week")).not.toBeInTheDocument();
+  });
+
   it("says when the library cannot be read", () => {
     renderPlanner([], null);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
+  });
+});
+
+describe("WeekPlanner, the folded library", () => {
+  it("is collapsed until opened, remembers the choice, and a free day opens it", async () => {
+    window.localStorage.removeItem("matkoll.mealplan.library-open");
+    const user = userEvent.setup();
+    const { unmount } = renderPlanner();
+    const toggle = screen.getByRole("button", { name: "Lägg till nya rätter" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("radio", { name: "Favoriter" })).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("radio", { name: "Favoriter" })).toBeVisible();
+    unmount();
+    renderPlanner();
+    expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Lägg till nya rätter" }));
+    expect(window.localStorage.getItem("matkoll.mealplan.library-open")).toBe("0");
+    await user.click(screen.getAllByTestId("free-day")[0]);
+    expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
+    // The stored choice is left as it was.
+    expect(window.localStorage.getItem("matkoll.mealplan.library-open")).toBe("0");
   });
 });
 
@@ -139,10 +171,8 @@ describe("WeekPlanner, adding without a day", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Tacos på torsdag. Tortillabröd, gräddfil, tomat och 1 till står på inköpslistan.");
     expect(screen.getByRole("button", { name: "Byt dag" })).toBeInTheDocument();
     expect(refresh).toHaveBeenCalled();
-    // The row now says the day instead of +.
-    const row = screen.getAllByTestId("plan-option")[0];
-    expect(within(row).getByTestId("on-week")).toHaveTextContent("Tor");
-    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+    // The dish leaves the library list at once.
+    expect(rowTitles()).toEqual(["Korvstroganoff"]);
     expect(screen.getByTestId("week-bar-count")).toHaveTextContent("1 rätt");
   });
 
@@ -157,7 +187,7 @@ describe("WeekPlanner, adding without a day", () => {
     expect(screen.getByTestId("no-day-label")).toHaveTextContent("Ingen dag");
     expect(screen.getByRole("status")).toHaveTextContent("Tacos på veckan. Alla dagar har en rätt. Tortillabröd, gräddfil, tomat och 1 till står på inköpslistan.");
     expect(screen.getByRole("button", { name: "Välj dag" })).toBeInTheDocument();
-    expect(within(screen.getAllByTestId("plan-option")[0]).getByTestId("on-week")).toHaveTextContent("På veckan");
+    expect(rowTitles()).toEqual(["Korvstroganoff"]);
   });
 
   it("opens the day picker from Byt dag and moves the dish", async () => {
@@ -180,10 +210,9 @@ describe("WeekPlanner, adding without a day", () => {
     expect(screen.queryByTestId("plan-dish")).not.toBeInTheDocument();
   });
 
-  it("marks recipes already on the week with their day", () => {
+  it("leaves recipes already on the week out of the library, and shows them in the week", () => {
     renderPlanner([onWeek(2, "Korvstroganoff", 2)]);
-    const row = screen.getAllByTestId("plan-option")[1];
-    expect(within(row).getByTestId("on-week")).toHaveTextContent("Tis");
+    expect(rowTitles()).toEqual(["Tacos"]);
     expect(screen.getByTestId("dish-day")).toHaveTextContent("Tis");
   });
 });

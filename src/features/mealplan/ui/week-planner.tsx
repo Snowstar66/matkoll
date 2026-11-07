@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip } from "@/components/chip";
-import { CloseIcon } from "@/components/icons";
+import { ChevronDownIcon, CloseIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
-import { optionsForTab, onWeekIds, type PlanOption, type PlanTab } from "@/features/suggestions";
+import { optionsForTab, type PlanOption, type PlanTab } from "@/features/suggestions";
 import { weekdayShortName, weekdayWord } from "../domain/meal-plan";
 import { addToCurrentPlan } from "../actions/add-to-current-plan";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
@@ -23,7 +23,7 @@ import {
   type ServingsChange,
   type WeekdayChange,
 } from "../domain/meal-plan";
-import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, onWeekLabel, shownDishes, targetDayText, weekBarText } from "../domain/planner";
+import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
 import { weekdayDateText } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
@@ -40,10 +40,33 @@ const tabs: { value: PlanTab; label: string }[] = [
   { value: "all", label: "Alla recept" },
 ];
 
+/** Remembers per viewer whether the library panel was opened; the panel is collapsed until then. */
+const openKey = "matkoll.mealplan.library-open";
+
+function readStoredOpen(): boolean {
+  try {
+    return window.localStorage.getItem(openKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function subscribeToStorage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
 const emptyText: Record<PlanTab, string> = {
   favorites: "Inga favoriter än. Tryck på hjärtat på ett recept.",
   offers: "Inget av dina recept har en huvudvara på erbjudande just nu.",
   all: "Inga recept än. Lägg till ett i Recept.",
+};
+
+/** What a tab says when its dishes are all on the week already. */
+const plannedText: Record<PlanTab, string> = {
+  favorites: "Alla dina favoriter ligger redan på veckan.",
+  offers: "Alla dina rätter på erbjudande ligger redan på veckan.",
+  all: "Alla dina recept ligger redan på veckan.",
 };
 
 export type WeekPlannerProps = {
@@ -81,15 +104,29 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
   /** The free day tapped in Veckans rätter: the next "+" puts its dish there. */
   const [targetDay, setTargetDay] = useState<number | null>(null);
   const addRef = useRef<HTMLElement>(null);
+  const bodyId = useId();
+  /** The viewer's stored choice: collapsed on the server and on the first paint, the stored value after hydration. */
+  const stored = useSyncExternalStore(subscribeToStorage, readStoredOpen, () => false);
+  /** What was chosen on this page (a tap on the heading, or a free day), until then the stored choice. */
+  const [choice, setChoice] = useState<boolean | null>(null);
+  const open = choice ?? stored;
+  const setOpen = setChoice;
+
+  function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(openKey, next ? "1" : "0");
+    } catch {
+      // Not remembered, still works.
+    }
+  }
   const dishIds = useRef(new Map<string, string>());
 
   const shown = shownDishes(dishes, hidden, added, days);
   const byId = new Map((options ?? []).map((option) => [option.id, option]));
-  const onWeek = onWeekIds(shown);
-  /** The day of each recipe already on the week (the first with one). */
-  const onWeekDay = new Map<string, number | null>();
-  for (const dish of shown) if (dish.recipeId && !onWeekDay.get(dish.recipeId)) onWeekDay.set(dish.recipeId, dish.weekday ?? null);
-  const rows = optionsForTab(options ?? [], tab);
+  const tabRows = optionsForTab(options ?? [], tab);
+  const rows = notOnWeek(tabRows, shown);
 
   function failed(error: { code: string; message: string }) {
     if (error.code === "unauthorized") router.refresh();
@@ -214,7 +251,10 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
 
   function chooseFreeDay(weekday: number) {
     setTargetDay((current) => (current === weekday ? null : weekday));
-    addRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    // Opens the panel for this tap only: the stored preference is left as the viewer set it.
+    setOpen(true);
+    // After the panel is open, so the scroll lands on its content.
+    requestAnimationFrame(() => addRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   }
 
   const rowsOfWeek = calendarRows(shown, firstOpenDay);
@@ -320,58 +360,69 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
 
       <section ref={addRef} aria-labelledby="add-dishes-heading" className="flex scroll-mt-4 flex-col gap-2.5 rounded-xl bg-fill p-3">
         <h2 id="add-dishes-heading" className="text-section-title text-ink">
-          Lägg till från dina recept
+          <button
+            type="button"
+            data-testid="add-dishes-toggle"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={toggleOpen}
+            className="-m-3 flex min-h-tap w-[calc(100%+1.5rem)] items-center justify-between gap-2 p-3 text-left"
+          >
+            <span className="min-w-0 wrap-break-word">Lägg till nya rätter</span>
+            <ChevronDownIcon size={20} className={`shrink-0 text-ink-3 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
         </h2>
-        {targetDay ? (
-          <div data-testid="target-day" className="flex items-center justify-between gap-2 rounded-lg bg-mint px-3.5 text-mint-ink">
-            <p className="text-control font-semibold">{targetDayText(targetDay)}</p>
-            <button type="button" onClick={() => setTargetDay(null)} className="min-h-tap px-1 text-control font-semibold underline">
-              Ta bort dag
-            </button>
-          </div>
-        ) : null}
-        {options === null ? (
-          <p role="alert" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
-            {errorMessages.mealplan_recipes_unavailable}
-          </p>
-        ) : (
-          <>
-            <div role="radiogroup" aria-label="Rätter att lägga till" className="-mx-3 flex gap-2 overflow-x-auto px-3">
-              {tabs.map(({ value, label }) => (
-                <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
-                  {label}
-                </Chip>
-              ))}
+        <div id={bodyId} hidden={!open && options !== null} className="flex flex-col gap-2.5">
+          {targetDay ? (
+            <div data-testid="target-day" className="flex items-center justify-between gap-2 rounded-lg bg-mint px-3.5 text-mint-ink">
+              <p className="text-control font-semibold">{targetDayText(targetDay)}</p>
+              <button type="button" onClick={() => setTargetDay(null)} className="min-h-tap px-1 text-control font-semibold underline">
+                Ta bort dag
+              </button>
             </div>
-            {tab === "offers" ? (
-              <p data-testid="offers-hint" className="text-meta text-deal-ink">
-                Förslag för att varorna har extrapris den här veckan.
-              </p>
-            ) : null}
-            {rows.length === 0 ? (
-              <p data-testid="options-empty" className="text-body text-ink-2">
-                {emptyText[tab]}
-              </p>
-            ) : (
-              <ul aria-label={tabs.find((candidate) => candidate.value === tab)?.label} className="flex flex-col gap-2">
-                {rows.map((option) => (
-                  <PlanRow
-                    key={option.id}
-                    title={option.title}
-                    imageUrl={option.imageUrl}
-                    meta={option.meta}
-                    deal={option.deal?.text ?? null}
-                    onWeekLabel={onWeek.has(option.id) ? onWeekLabel(onWeekDay.get(option.id)) : undefined}
-                    onAdd={() => void add(option)}
-                    disabled={adding.has(option.id)}
-                  />
+          ) : null}
+          {options === null ? (
+            <p role="alert" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
+              {errorMessages.mealplan_recipes_unavailable}
+            </p>
+          ) : (
+            <>
+              <div role="radiogroup" aria-label="Rätter att lägga till" className="-mx-3 flex gap-2 overflow-x-auto px-3">
+                {tabs.map(({ value, label }) => (
+                  <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
+                    {label}
+                  </Chip>
                 ))}
-              </ul>
-            )}
-            {/* Mounted while the tab is not shown, so the ideas and their job stay when the tab changes. */}
-            {offersFooter ? <div hidden={tab !== "offers"}>{offersFooter}</div> : null}
-          </>
-        )}
+              </div>
+              {tab === "offers" ? (
+                <p data-testid="offers-hint" className="text-meta text-deal-ink">
+                  Förslag för att varorna har extrapris den här veckan.
+                </p>
+              ) : null}
+              {rows.length === 0 ? (
+                <p data-testid="options-empty" className="text-body text-ink-2">
+                  {tabRows.length > 0 ? plannedText[tab] : emptyText[tab]}
+                </p>
+              ) : (
+                <ul aria-label={tabs.find((candidate) => candidate.value === tab)?.label} className="flex flex-col gap-2">
+                  {rows.map((option) => (
+                    <PlanRow
+                      key={option.id}
+                      title={option.title}
+                      imageUrl={option.imageUrl}
+                      meta={option.meta}
+                      deal={option.deal?.text ?? null}
+                      onAdd={() => void add(option)}
+                      disabled={adding.has(option.id)}
+                    />
+                  ))}
+                </ul>
+              )}
+              {/* Mounted while the tab is not shown, so the ideas and their job stay when the tab changes. */}
+              {offersFooter ? <div hidden={tab !== "offers"}>{offersFooter}</div> : null}
+            </>
+          )}
+        </div>
       </section>
 
       <MoveToDaySheet

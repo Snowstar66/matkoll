@@ -132,12 +132,12 @@ test("fetches the week's offers with one tap and shows them under their categori
   await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
   await expect(dialog.getByTestId("offer-top-tag")).toHaveCount(1);
   await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
-  await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
+  await dialog.getByRole("button", { name: /^Sortera: Avdelning/ }).click();
   const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
   await expect(best.first()).toContainText("Köp 3 betala för 2");
   await expect(best.first()).toContainText("\u221233 %");
   await expect(best.last()).not.toContainText("%");
-  await dialog.getByRole("radio", { name: "Avdelning" }).click();
+  await dialog.getByRole("button", { name: /^Sortera: Bäst rabatt/ }).click();
   await expect(dialog.getByRole("heading", { level: 3, name: "Bröd" })).toBeVisible();
   await expect(dialog.getByText("Ljusfabriken Kronljus")).toHaveCount(0);
   const page$ = dialog.getByRole("link", { name: /^Öppna sidan på ica\.se/ });
@@ -301,7 +301,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   // The same product on offer in both stores shows twice.
   await expect(dialog.getByText("Havets Laxfilé")).toHaveCount(2);
 
-  await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
+  await dialog.getByRole("button", { name: /^Sortera: Avdelning/ }).click();
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(7);
@@ -332,7 +332,7 @@ test("Story 16.8: fetching only one store removes the other store's offers", asy
   await dialog.getByRole("button", { name: "Hämta valda (1)" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");
   await expect(dialog.getByTestId("offers-summary")).toContainText("7 erbjudanden");
-  await expect(dialog.getByTestId("list-filters")).not.toContainText("Visa butik");
+  await expect(dialog.getByText("Visa butik")).toHaveCount(0);
   const rows = await storedOffers();
   expect(rows).toHaveLength(7);
   const stores = await adminClient().from("store_offer").select("store_id").eq("user_id", userId);
