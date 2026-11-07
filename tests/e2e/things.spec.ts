@@ -1370,28 +1370,30 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Boden");
   await expect(page.getByTestId("card-meta")).toHaveText(`Hela rummet · Kort från ${shortDateText(new Date())} · 12 föremål`);
-  // The whole photo, never cropped, with a thin box and the name of each of the twelve.
+  // The whole photo, never cropped, with a numbered dot on each of the twelve, the same numbers as in the list.
   const photo = page.getByTestId("card-photo");
   await expect(photo.getByRole("img", { name: "Kort: Boden" })).toBeVisible();
-  await expect(page.getByTestId("card-box")).toHaveCount(12);
-  await expect(page.getByTestId("card-box").first()).toHaveText("Hammare");
-  await expect(page.getByTestId("card-hint")).toHaveText("Tryck på ett föremål eller en ruta för att markera det.");
+  await expect(page.getByTestId("card-dot")).toHaveCount(12);
+  await expect(page.getByTestId("card-dot").first()).toHaveText("1");
+  await expect(page.getByTestId("marker-badge").first()).toHaveText("1");
+  await expect(page.getByTestId("card-dot-name")).toHaveCount(0);
+  await expect(page.getByTestId("card-hint")).toHaveText("Tryck på ett föremål eller en siffra på fotot för att markera det.");
   const ratio = await photo.evaluate((element) => element.getBoundingClientRect().width / element.getBoundingClientRect().height);
   expect(ratio).toBeCloseTo(1200 / 900, 1);
   await shot(page, "18-7-alla");
 
   // A row marks its föremål and dims the rest; the photo stays in sight while the list scrolls.
   await page.getByRole("button", { name: /^Förlängningssladd/ }).click();
-  await expect(page.getByTestId("card-box-selected")).toHaveText("Förlängningssladd");
+  await expect(page.getByTestId("card-dot-name")).toHaveText("Förlängningssladd");
   await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("card-hint")).toHaveText("Förlängningssladd · mellersta hyllan, mitten");
   await shot(page, "18-7-markerad");
-  // A tap on another box moves the mark; a second tap on it clears it.
+  // A tap on another dot moves the mark; a second tap on it clears it.
   const area = (await photo.boundingBox())!;
   await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
-  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare");
+  await expect(page.getByTestId("card-dot-name")).toHaveText("Hammare");
   await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
-  await expect(page.getByTestId("card-box-selected")).toHaveCount(0);
+  await expect(page.getByTestId("card-dot-selected")).toHaveCount(0);
   await page.emulateMedia({ colorScheme: "dark" });
   await page.getByRole("button", { name: /^Hammare/ }).click();
   await shot(page, "18-7-markerad-mork");
@@ -1457,7 +1459,7 @@ test("a search hit and a chat reference open the card big with the föremål mar
   // The card has no boxes: one small call looks the hammer up ("Letar …"), saves it and marks it.
   await expect(page.getByTestId("card-looking")).toContainText("Letar …");
   await shot(page, "18-7-letar");
-  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare", { timeout: 10_000 });
+  await expect(page.getByTestId("card-dot-name")).toHaveText("Hammare", { timeout: 10_000 });
   await expect.poll(async () => (await adminClient().from("thing_item").select("box_left").eq("id", ids[0]).single()).data?.box_left).toBeCloseTo(0.197, 3);
 
   // A föremål the AI cannot see is said so, remembered, and never asked for again.
@@ -1481,7 +1483,7 @@ test("a search hit and a chat reference open the card big with the föremål mar
   await expect(ref).toHaveAttribute("href", `/prylar/kort/${cardId}?foremal=${ids[0]}`);
   await shot(page, "18-7-chatt");
   await ref.click();
-  await expect(page.getByTestId("card-box-selected")).toHaveText("Hammare");
+  await expect(page.getByTestId("card-dot-name")).toHaveText("Hammare");
   await page.getByRole("link", { name: "Tillbaka" }).click();
   await expect(page).toHaveURL(/\/prylar$/);
 });

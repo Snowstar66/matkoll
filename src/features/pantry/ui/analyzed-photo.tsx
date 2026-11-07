@@ -15,6 +15,7 @@ import {
   analyzedPhotoTitle,
   markerLabel,
 } from "../domain/pantry-suggestion";
+import { markerInset, photoMarkerClasses } from "@/components/photo-marker";
 import { notPointedText, photoNumberText, spreadMarkers, type PhotoMarker } from "../domain/photo-numbers";
 import type { ReviewPhoto } from "./use-pantry-analysis";
 
@@ -254,7 +255,7 @@ export function ReviewPhotoPanel({
                         top: `clamp(${markerInset}, ${marker.top}%, calc(100% - ${markerInset}))`,
                       }}
                       className={cx(
-                        reviewMarkerClasses(marker.tone),
+                        photoMarkerClasses(marker.tone),
                         "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 transition-[scale,opacity,box-shadow] duration-200 motion-reduce:transition-none",
                         // A 44 px tap area around the 22 px marker.
                         "before:absolute before:-inset-[11px] before:content-['']",
@@ -355,7 +356,7 @@ export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
           left: `clamp(${markerInset}, ${left}%, calc(100% - ${markerInset}))`,
           top: `clamp(${markerInset}, ${top}%, calc(100% - ${markerInset}))`,
         }}
-        className={cx(reviewMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
+        className={cx(photoMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
       >
         {number}
       </span>
@@ -374,23 +375,6 @@ const numberClasses = "inline-flex shrink-0 items-center justify-center rounded-
 /** A card's number, 20 px; Story 10.2's list of the reading has the same. */
 export const badgeClasses = cx(numberClasses, "min-h-5 min-w-5 border border-border px-1 text-ink-2");
 const markerClasses = cx(numberClasses, "min-h-6 min-w-6 bg-accent px-1 py-0.5 text-on-accent");
-
-/**
- * Kylfoto D: a marker on the review photo and in the sheet's crop: 22 px,
- * filled, with a white edge (dark in dark mode) and a shadow; accent when
- * its row is ticked, dark grey when not, warm when unsure and not ticked.
- */
-function reviewMarkerClasses(tone: ReviewMarker["tone"]) {
-  return cx(
-    numberClasses,
-    "min-h-[22px] min-w-[22px] border-2 border-marker-edge px-[5px] text-[12px] font-semibold shadow-(--marker-shadow)",
-    tone === "on" && "bg-accent text-on-accent",
-    tone === "off" && "bg-marker-off text-photo-mark",
-    tone === "unsure" && "bg-warm text-on-warm",
-  );
-}
-/** Half a marker and its border, at 200 % text: a marker is kept this far inside the photo's edges. */
-const markerInset = "14px";
 
 /**
  * A card's number on the photo (Story 6.6), as seen; hidden from screen

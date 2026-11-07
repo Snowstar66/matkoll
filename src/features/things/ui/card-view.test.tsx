@@ -56,17 +56,21 @@ beforeEach(() => {
 });
 
 describe("the card big (Story 18.7)", () => {
-  it("shows the whole photo with a thin box and the name of every föremål that has one, and the list under it", () => {
+  it("shows the whole photo with a numbered dot at the middle of every föremål that has a box, and the list under it, with the same numbers", () => {
     renderIt([hammer, saw, drill]);
     const photo = screen.getByTestId("card-photo");
     expect(within(photo).getByRole("img", { name: "Kort: Boden" })).toHaveAttribute("src", "/api/things/photo/0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01");
     // The photo is never cropped: it is contained in a frame of its own proportions.
     expect(within(photo).getByRole("img")).toHaveClass("object-contain");
-    const boxes = within(photo).getAllByTestId("card-box");
-    expect(boxes.map((box) => box.textContent)).toEqual(["Hammare", "Cirkelsåg"]);
-    expect(boxes[0]).toHaveStyle({ left: "20%", top: "15%", width: "14%" });
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en ruta för att markera det.");
-    expect(screen.getAllByTestId("card-thing").map((button) => button.textContent)).toEqual(["Hammarepå väggen, mitten", "Cirkelsågöversta hyllan", "Skruvdragare"]);
+    const dots = within(photo).getAllByTestId("card-dot");
+    expect(dots.map((dot) => dot.textContent)).toEqual(["1", "2"]);
+    expect(dots[0].style.left).toContain("27%");
+    expect(dots[0].style.top).toContain("25.5%");
+    // The unmarked föremål have no name chip on the photo; the list has the same numbers.
+    expect(within(photo).queryByTestId("card-dot-name")).toBeNull();
+    expect(screen.getAllByTestId("marker-badge").map((badge) => badge.textContent)).toEqual(["1", "2"]);
+    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    expect(screen.getAllByTestId("card-thing").map((button) => button.textContent)).toEqual(["1Hammarepå väggen, mitten", "2Cirkelsågöversta hyllan", "Skruvdragare"]);
     // The card's buttons, Ta bort kortet last.
     expect(screen.getAllByRole("button").slice(-3).map((button) => button.textContent)).toEqual(["Ta om", "Lägg till föremål", "Ta bort kortet"]);
     expect(locateThingOnCard).not.toHaveBeenCalled();
@@ -77,16 +81,18 @@ describe("the card big (Story 18.7)", () => {
     await userEvent.click(row("Cirkelsåg"));
     expect(row("Cirkelsåg")).toHaveAttribute("aria-pressed", "true");
     expect(row("Hammare")).toHaveAttribute("aria-pressed", "false");
-    const selected = screen.getByTestId("card-box-selected");
-    expect(selected).toHaveTextContent("Cirkelsåg");
-    // The other box stays, dimmed and without its name.
-    const [other] = screen.getAllByTestId("card-box");
-    expect(other).toHaveClass("opacity-35");
-    expect(other).toHaveTextContent("");
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
+    expect(screen.getByTestId("card-dot-name")).toHaveTextContent("Cirkelsåg");
+    expect(screen.getByTestId("card-spotlight")).toBeInTheDocument();
+    // The other dot stays, dimmed and without a name.
+    const [other] = screen.getAllByTestId("card-dot");
+    expect(other.firstElementChild).toHaveClass("opacity-35");
+    expect(other).toHaveTextContent("1");
     expect(screen.getByTestId("card-hint")).toHaveTextContent("Cirkelsåg · översta hyllan");
     await userEvent.click(row("Cirkelsåg"));
-    expect(screen.queryByTestId("card-box-selected")).toBeNull();
-    expect(screen.getAllByTestId("card-box")).toHaveLength(2);
+    expect(screen.queryByTestId("card-dot-selected")).toBeNull();
+    expect(screen.queryByTestId("card-spotlight")).toBeNull();
+    expect(screen.getAllByTestId("card-dot")).toHaveLength(2);
   });
 
   it("opens the föremål's sheet from the › at the end of its row, with its count and Ta bort föremålet, and no Visa på kortet", async () => {
@@ -102,20 +108,22 @@ describe("the card big (Story 18.7)", () => {
     expect(row("Cirkelsåg")).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("marks the föremål under a tap on the photo", async () => {
+  it("marks the föremål whose dot is nearest to a tap on the photo, and none when the tap is far from every dot", async () => {
     renderIt([hammer, saw]);
     const photo = screen.getByTestId("card-photo");
     photo.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => ({}) });
-    await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.5 * 400, clientY: 0.2 * 300 } });
-    expect(screen.getByTestId("card-box-selected")).toHaveTextContent("Cirkelsåg");
+    await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.52 * 400, clientY: 0.2 * 300 } });
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
+    await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.9 * 400, clientY: 0.9 * 300 } });
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
   });
 
   it("opens with the föremål of a search hit marked, and ignores one that is not on the card", () => {
     renderIt([hammer, saw], hammer.id);
-    expect(screen.getByTestId("card-box-selected")).toHaveTextContent("Hammare");
+    expect(screen.getByTestId("card-dot-name")).toHaveTextContent("Hammare");
     expect(row("Hammare")).toHaveAttribute("aria-pressed", "true");
     renderIt([hammer, saw], "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a99");
-    expect(screen.getAllByTestId("card-box-selected")).toHaveLength(1);
+    expect(screen.getAllByTestId("card-dot-selected")).toHaveLength(1);
   });
 
   it("looks a föremål without a box up once, with Letar … over the photo, and shows the box it finds", async () => {
@@ -127,7 +135,7 @@ describe("the card big (Story 18.7)", () => {
     expect(locateThingOnCard).toHaveBeenCalledWith(drill.id);
     await act(async () => answer(ok({ box: { left: 0.6, top: 0.15, width: 0.1, height: 0.14 } })));
     expect(screen.queryByTestId("card-looking")).toBeNull();
-    expect(screen.getByTestId("card-box-selected")).toHaveTextContent("Skruvdragare");
+    expect(screen.getByTestId("card-dot-name")).toHaveTextContent("Skruvdragare");
     // Unmarked and marked again: no second call.
     await userEvent.click(row("Skruvdragare"));
     await userEvent.click(row("Skruvdragare"));
@@ -137,10 +145,10 @@ describe("the card big (Story 18.7)", () => {
   it("says it could not point it out when the lookup finds nothing or fails, and asks only once", async () => {
     locateThingOnCard.mockResolvedValueOnce(ok({ box: null }));
     renderIt([drill, saw]);
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en ruta för att markera det.");
+    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
     await userEvent.click(row("Skruvdragare"));
     expect(await screen.findByTestId("card-missed")).toHaveTextContent("Kunde inte peka ut den på bilden.");
-    expect(screen.queryByTestId("card-box-selected")).toBeNull();
+    expect(screen.queryByTestId("card-dot-selected")).toBeNull();
     await userEvent.click(row("Skruvdragare"));
     await userEvent.click(row("Skruvdragare"));
     expect(locateThingOnCard).toHaveBeenCalledTimes(1);
@@ -160,7 +168,7 @@ describe("the card big (Story 18.7)", () => {
   it("says how to look one up on an older card without boxes", () => {
     renderIt([drill]);
     expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål för att leta upp det på bilden.");
-    expect(screen.queryAllByTestId("card-box")).toHaveLength(0);
+    expect(screen.queryAllByTestId("card-dot")).toHaveLength(0);
   });
 
   it("shows a card that is still read without its list or buttons", () => {

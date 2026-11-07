@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-07",
+    title: "Siffror på fotot i Förrådet",
+    bullets: [
+      "På ett kort i Förrådet visas varje föremål nu som en siffra på fotot, precis som i Kylfoto. Samma siffra står vid föremålet i listan under.",
+      "Tryck på en siffra eller en rad: siffran blir större, namnet visas och resten av fotot dämpas mjukt runt föremålet.",
+      "Det blir lugnare på bilden, och en siffra som sitter lite snett pekar fortfarande på rätt sak.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Tak för AI-kostnad",
     bullets: [
       "Varje hushåll får använda AI för ett visst belopp per dag, till att börja med 10 kr. Är taket nått får du veta det, och kan prova igen från midnatt.",

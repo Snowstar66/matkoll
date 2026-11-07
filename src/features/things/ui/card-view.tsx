@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { cx } from "@/components/cx";
 import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
+import { markerPosition, MarkerBadge, photoMarkerClasses } from "@/components/photo-marker";
+import { spreadMarkers } from "@/lib/spread-markers";
 import type { ThingBox } from "@/lib/thing-box";
 import { lookUpBox } from "./locate-client";
 import {
@@ -17,7 +19,9 @@ import {
   lookingText,
   markedText,
   notFoundOnCardText,
-  thingAtPoint,
+  dotNearPoint,
+  spotlightRadius,
+  thingDots,
   type CardThing,
   type CardView as Card,
 } from "../domain/thing-card";
@@ -30,20 +34,30 @@ import { ThingSheet } from "./thing-sheet";
 import { openThingText } from "../domain/thing-edit";
 
 // Kortet i stort (Story 18.7): the card's whole photo, never cropped, with a
-// thin box and the name of every föremål that has a box, and the föremål listed
-// under it (beside it on a desktop). A tap on a row or a box marks that föremål:
-// its box is drawn thick and the rest of the photo is shaded; a second tap
-// clears the mark. A föremål without a box (a card read before the boxes came)
+// numbered dot (as in Kylfoto) at the middle of every föremål's box, and the föremål listed
+// under it (beside it on a desktop). A tap on a row or a dot marks that föremål:
+// its dot grows and shows the name, the rest of the photo is shaded softly round
+// it and the other dots dim; a second tap clears the mark. A föremål without a box (a card read before the boxes came)
 // is looked up with one small AI call the first time it is marked ("Letar …");
 // when that finds nothing it says so. The › at the end of a row opens the
 // föremål's sheet (Pontus 1 Nov: count, name, Ta bort föremålet), as in the room
 // and in search. The card's buttons (Ta om, Lägg till föremål, Ta bort kortet
 // last) are here too.
 
-/** A box's place on the photo, in percent. */
-function boxStyle(box: ThingBox) {
-  const percent = (fraction: number) => `${Math.round(fraction * 100_000) / 1_000}%`;
-  return { left: percent(box.left), top: percent(box.top), width: percent(box.width), height: percent(box.height) };
+/** The photo's size as shown, in px, so dots that would overlap are nudged apart and the spotlight is sized; null until it is measured. */
+function useFrameSize(frame: RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const element = frame.current;
+    if (!element) return;
+    const measure = () => setSize(element.clientWidth > 0 && element.clientHeight > 0 ? { width: element.clientWidth, height: element.clientHeight } : null);
+    measure();
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [frame]);
+  return size;
 }
 
 function CardPhoto({
@@ -60,12 +74,19 @@ function CardPhoto({
   onPick: (id: string) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
+  const size = useFrameSize(frame);
+  // The same numbers as in the list, at the middle of each box, nudged apart where they would overlap.
+  const dots = useMemo(() => {
+    const all = thingDots(things);
+    return size ? spreadMarkers(all, size) : all;
+  }, [things, size]);
+  const selectedDot = selected ? (dots.find((dot) => dot.id === selected.id) ?? null) : null;
 
-  // A tap on the photo marks the smallest box under it; the list is the way for a keyboard and a screen reader.
+  // A tap on the photo marks the dot nearest to it; the list is the way for a keyboard and a screen reader.
   function onClick(event: MouseEvent<HTMLDivElement>) {
     const rect = frame.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
-    const hit = thingAtPoint(things, (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+    const hit = dotNearPoint(dots, (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height, rect);
     if (hit) onPick(hit.id);
   }
 
@@ -74,7 +95,7 @@ function CardPhoto({
     <div
       ref={frame}
       onClick={onClick}
-      // At most half the screen high on a phone (a portrait card would leave no room for the list), and more on a desktop; the width follows, so the boxes stay on their föremål.
+      // At most half the screen high on a phone (a portrait card would leave no room for the list), and more on a desktop; the width follows, so the dots stay on their föremål.
       className="relative mx-auto max-w-full overflow-hidden rounded-md bg-border select-none [--photo-max-h:50svh] desktop:[--photo-max-h:75svh]"
       style={{ aspectRatio: `${card.width} / ${card.height}`, width: `min(100%, calc(var(--photo-max-h) * ${card.width / card.height}))` }}
       data-testid="card-photo"
@@ -83,40 +104,52 @@ function CardPhoto({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/things/photo/${card.id}`} alt={`Kort: ${cardViewTitle(card)}`} className="absolute inset-0 size-full object-contain" draggable={false} />
       {looking ? <div aria-hidden="true" className="absolute inset-0 bg-photo-veil" /> : null}
-      {things.map((thing) => {
-        if (!thing.box) return null;
-        const isSelected = selected?.id === thing.id;
+      {selected?.box && selectedDot ? (
+        // A soft spotlight round the marked föremål: the rest of the photo is shaded.
+        <div
+          aria-hidden="true"
+          data-testid="card-spotlight"
+          className="pointer-events-none absolute inset-0 z-[5]"
+          style={{ background: spotlight(spotlightRadius(selected.box, size), selectedDot) }}
+        />
+      ) : null}
+      {dots.map((dot) => {
+        const thing = things.find((candidate) => candidate.id === dot.id);
+        if (!thing) return null;
+        const isSelected = selected?.id === dot.id;
         const dimmed = selected !== null && !isSelected;
         return (
           <div
-            key={thing.id}
+            key={dot.id}
             aria-hidden="true"
-            data-testid={isSelected ? "card-box-selected" : "card-box"}
-            className={cx(
-              "pointer-events-none absolute",
-              isSelected
-                ? "z-10 rounded-[6px] border-3 border-photo-mark shadow-[0_0_0_2px_var(--accent),0_0_0_9999px_var(--photo-shade)]"
-                : "rounded-[4px] border-[1.5px] border-photo-mark shadow-[0_0_0_1px_var(--photo-edge)]",
-              dimmed && "opacity-35",
-            )}
-            style={boxStyle(thing.box)}
+            data-testid={isSelected ? "card-dot-selected" : "card-dot"}
+            data-number={dot.number}
+            className={cx("pointer-events-none absolute size-0", isSelected ? "z-20" : "z-10")}
+            style={markerPosition(dot.left, dot.top)}
           >
+            <span
+              className={cx(
+                photoMarkerClasses(isSelected ? "on" : "off"),
+                "absolute -translate-x-1/2 -translate-y-1/2 transition-[scale,opacity,box-shadow] duration-200 motion-reduce:transition-none",
+                isSelected && "scale-140 shadow-(--marker-lit)",
+                dimmed && "opacity-35",
+              )}
+            >
+              {dot.number}
+            </span>
             {isSelected ? (
               <span
+                data-testid="card-dot-name"
                 className={cx(
                   "absolute max-w-56 truncate rounded-[6px] bg-accent px-1.5 py-0.5 text-meta font-semibold text-on-accent",
-                  // Under the box when it is at the top of the photo, and anchored right near its right edge, so the name is never cut off.
-                  thing.box.top < 0.1 ? "top-full mt-1" : "bottom-full mb-1",
-                  thing.box.left > 0.6 ? "-right-[3px]" : "-left-[3px]",
+                  // Under the dot when it is at the top of the photo; anchored left, right or centred by where it is, so the name is never cut off.
+                  dot.top < 12 ? "top-full mt-4" : "bottom-full mb-4",
+                  dot.left < 35 ? "-left-3" : dot.left > 65 ? "-right-3" : "left-0 -translate-x-1/2",
                 )}
               >
                 {thing.name}
               </span>
-            ) : dimmed ? null : (
-              <span className="absolute top-0 left-0 max-w-[max(100%,60px)] truncate rounded-[0_0_5px_0] bg-photo-chip px-1 text-[10.5px] leading-[1.35] font-semibold text-photo-mark">
-                {thing.name}
-              </span>
-            )}
+            ) : null}
           </div>
         );
       })}
@@ -129,10 +162,18 @@ function CardPhoto({
   );
 }
 
-function ThingRowTitle({ thing, selected }: { thing: CardThing; selected: boolean }) {
+/** The shade over the photo with a clear, soft-edged round hole of `radius` px at the point (percent). */
+function spotlight(radius: number, point: { left: number; top: number }) {
+  return `radial-gradient(circle ${radius}px at ${point.left}% ${point.top}%, transparent ${Math.round(radius * 0.55)}px, var(--photo-shade) ${radius}px)`;
+}
+
+function ThingRowTitle({ thing, selected, number }: { thing: CardThing; selected: boolean; number: number | undefined }) {
   return (
     <span className="flex items-baseline justify-between gap-3">
-      <span className={cx("min-w-0 wrap-break-word", selected ? "font-semibold text-mint-ink" : "font-normal")}>{thing.name}</span>
+      <span className="flex min-w-0 items-center gap-2.5 text-left">
+        {number !== undefined ? <MarkerBadge number={number} tone={selected ? "on" : "off"} /> : null}
+        <span className={cx("min-w-0 wrap-break-word", selected ? "font-semibold text-mint-ink" : "font-normal")}>{thing.name}</span>
+      </span>
       {thing.whereHint || thing.quantity != null ? (
         <span className={cx("max-w-[45%] shrink-0 text-right text-meta font-normal", selected ? "text-mint-ink" : "text-ink-3")}>
           {/* Story 18.23: the count the card shows, first. */}
@@ -157,6 +198,8 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     [card.things, found],
   );
   const selected = things.find((thing) => thing.id === selectedId) ?? null;
+  // The dots' numbers, shown on the rows too.
+  const numbers = useMemo(() => new Map(thingDots(things).map((dot) => [dot.id, dot.number])), [things]);
   const needsLookup = selected !== null && selected.box === null && !selected.boxMissed && !(selected.id in found);
   const missed = selected !== null && selected.box === null && !needsLookup;
 
@@ -223,7 +266,7 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
                 return (
                   <ListRow
                     key={thing.id}
-                    title={<ThingRowTitle thing={thing} selected={isSelected} />}
+                    title={<ThingRowTitle thing={thing} selected={isSelected} number={numbers.get(thing.id)} />}
                     onPress={() => pick(thing.id)}
                     pressProps={{ "aria-pressed": isSelected, "data-testid": "card-thing" }}
                     className={isSelected ? "bg-mint" : undefined}
