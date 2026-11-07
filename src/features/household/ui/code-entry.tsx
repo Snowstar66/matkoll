@@ -8,12 +8,13 @@ import { appInviteCodeLength, appJoinRoute, isAppInviteCodeShape } from "@/featu
 import { inviteCodeLength, isInviteCodeShape, joinRoute, normalizeInviteCode } from "../domain/invite-code";
 
 /**
- * "Har du en kod?" (Story 21.2b): a field for the 6 characters that leads to
- * /ga-med with the code. On the login page it starts as a text button.
+ * The field for an invitation code (Story 21.2b, UX-10): 6 characters from a
+ * household, 8 from the app's owner, with or without spaces. It leads to
+ * /ga-med or /inbjudan with the code. The same field is on the login page
+ * (under "Har du fått en inbjudan?"), /ga-med and /inbjudan.
  */
-export function CodeEntry({ collapsed = false, kind = "household" }: { collapsed?: boolean; kind?: "household" | "app" }) {
+export function CodeEntry({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
   const router = useRouter();
-  const [open, setOpen] = useState(!collapsed);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fieldId = useId();
@@ -26,19 +27,12 @@ export function CodeEntry({ collapsed = false, kind = "household" }: { collapsed
       return;
     }
     if (!isInviteCodeShape(code)) {
-      setError(kind === "app" ? `Koden har ${appInviteCodeLength} tecken, till exempel K7Q4 MP2X.` : `Koden har ${inviteCodeLength} tecken, till exempel K7Q 4MP.`);
+      setError(`Koden har ${inviteCodeLength} eller ${appInviteCodeLength} tecken, till exempel K7Q4 MP2X.`);
       return;
     }
     router.push(`${joinRoute}?${new URLSearchParams({ kod: normalizeInviteCode(code) })}`);
   }
 
-  if (!open) {
-    return (
-      <Button variant="text" className="self-center" onClick={() => setOpen(true)} data-testid="have-code">
-        Har du en kod?
-      </Button>
-    );
-  }
   return (
     <form onSubmit={submit} noValidate className="flex w-full flex-col gap-3" data-testid="code-entry">
       <div className="flex flex-col gap-1.5">
@@ -50,6 +44,7 @@ export function CodeEntry({ collapsed = false, kind = "household" }: { collapsed
             setCode(event.target.value);
             setError(null);
           }}
+          placeholder="K7Q4 MP2X"
           autoCapitalize="characters"
           autoComplete="one-time-code"
           spellCheck={false}
@@ -60,8 +55,8 @@ export function CodeEntry({ collapsed = false, kind = "household" }: { collapsed
         />
         {error ? <FieldError id={`${fieldId}-error`}>{error}</FieldError> : null}
       </div>
-      <Button type="submit" variant={collapsed ? "secondary" : "primary"} fullWidth>
-        Fortsätt
+      <Button type="submit" variant={variant} fullWidth>
+        Gå med
       </Button>
     </form>
   );

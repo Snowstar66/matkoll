@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { errorMessages } from "@/lib/errors";
 import { resumeDevAutoLogin } from "@/features/auth/server";
 import { devAutoLoginApplies } from "@/lib/supabase/dev-auto-login-server";
-import { LoginForm } from "@/features/auth/ui/login-form";
 import { CodeEntry } from "@/features/household/ui/code-entry";
+import { LoginForm } from "@/features/auth/ui/login-form";
 import { AppLogo } from "@/components/app-logo";
 import { appName, appTagline } from "@/app/app-info";
 
@@ -19,7 +19,6 @@ export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
       </p>
       <p className="-mt-3 text-meta text-ink-3">{appTagline}</p>
       <h1 className="text-page-title text-ink">Logga in</h1>
-      <p className="text-body text-ink-2">Logga in med e-post och lösenord. Första gången eller glömt lösenordet? Välj lösenord via länken nedanför.</p>
       {/* No form as fallback: a form typed into would be replaced when the real one streams in. */}
       <Suspense fallback={null}>
         <LoginFormWithParams searchParams={searchParams} />
@@ -42,9 +41,7 @@ async function LoginFormWithParams({ searchParams }: Pick<PageProps<"/logga-in">
   const showResume = await devAutoLoginApplies();
   return (
     <>
-      <LoginForm next={next} notice={notice} />
-      {/* Story 21.2b: someone invited without the link types the code here and goes on to /ga-med. */}
-      <CodeEntry collapsed />
+      <LoginForm next={next} notice={notice} invite={<CodeEntry variant="secondary" />} />
       {showResume ? (
         <form action={resumeDevAutoLogin}>
           <button type="submit" className="text-body text-accent underline">
