@@ -13,8 +13,9 @@ import { compareShoppingLines, type ShoppingLine } from "../domain/compute-list"
 import { parseLineKey } from "../domain/line-key";
 import { lineName, restoreFailedText } from "../domain/list-text";
 
-// "Ta bort" on a list line with "Ångra" (FR-17, AD-20): no question first
-// (EXPERIENCE.md, Interaction Primitives). The line leaves the list at once
+// "Ta bort" on a list line with "Ångra" (FR-17, AD-20). The list asks before the
+// first removal and then not for 60 s (shopping-list.tsx, Story 13.1); this hook
+// only removes. The line leaves the list at once
 // and the short confirmation offers "Ångra" for 5 s. An own item (Story 3.5)
 // is deleted for good and "Ångra" puts it back with the same id, so under the
 // same section and with the same check. A recipe line (Story 3.6) is hidden

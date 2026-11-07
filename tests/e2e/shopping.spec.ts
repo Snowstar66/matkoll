@@ -396,6 +396,15 @@ const toast = (page: Page) => page.getByTestId("toast");
 // An own item's row also holds its "Ta bort", behind the row until it is swiped.
 
 /** Swipes the row to the left from its text with the mouse, which sends the same pointer events as a finger. */
+/** The list asks before the first removal (Story 13.1); "Ta bort" in the question removes. */
+const removalQuestion = (page: Page, name: string) => page.getByRole("dialog", { name: `Ta bort ${name} från inköpslistan?` });
+async function confirmRemoval(page: Page, name: string) {
+  const question = removalQuestion(page, name);
+  await expect(question).toBeVisible();
+  await actionsAnswered(page, 1, () => question.getByRole("button", { name: "Ta bort", exact: true }).click());
+  await expect(question).toHaveCount(0);
+}
+
 async function swipeLeft(page: Page, row: Locator, distance = 150) {
   // A taller top can push the row under the tab bar: bring it to the middle first.
   await row.scrollIntoViewIfNeeded();
@@ -515,7 +524,8 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect(toast(page)).toHaveCount(0);
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
-  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort diskmedel" }).click());
+  await page.getByRole("button", { name: "Svep bort diskmedel" }).click();
+  await confirmRemoval(page, "diskmedel");
   await expect(region(page, "I korgen")).toHaveCount(0);
   await expect(toast(page)).toContainText("Tog bort Diskmedel.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
@@ -746,7 +756,8 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   const row = lineOf(page, "Grädde");
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
-  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort Grädde" }).click());
+  await page.getByRole("button", { name: "Svep bort Grädde" }).click();
+  await confirmRemoval(page, "Grädde");
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
   await expect(toast(page)).toContainText("Tog bort Grädde.");
   // "varor kvar" leaves the hidden line out.
@@ -776,7 +787,8 @@ test("Ta bort in the detail hides a line, which stays hidden when the list is co
   await expect(detailSheet(page, "Salt")).toHaveCount(0);
 
   await nameOf(page, "Grädde").click();
-  await actionsAnswered(page, 1, () => detailSheet(page, "Grädde").getByRole("button", { name: "Ta bort" }).click());
+  await detailSheet(page, "Grädde").getByRole("button", { name: "Ta bort" }).click();
+  await confirmRemoval(page, "Grädde");
   await expect(detailSheet(page, "Grädde")).toHaveCount(0);
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
   await expect(toast(page)).toContainText("Tog bort Grädde.");
@@ -832,9 +844,10 @@ test("an own item's detail changes it in place, keeping its id and check", async
   expect(errors).toEqual([]);
 });
 
-// Story 19.4: the bin on a row never asks: the removal can be undone, so it goes at once and says "Tog bort X." with Ångra.
-test("the bin removes at once, without a question, and offers Ångra", async ({ page }) => {
-  await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }, { label: "svamp" }]);
+// Story 13.1 (back 2026-11-07): the list asks before the first removal, then every removal within 60 s goes at once.
+test("the bin asks first, then removes at once for 60 s, and asks again after that", async ({ page }) => {
+  await page.clock.install();
+  await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }, { label: "svamp" }, { label: "mjölk" }]);
   await seedChecks([]);
   await page.goto("/lista");
   const bin = (name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true });
@@ -842,17 +855,38 @@ test("the bin removes at once, without a question, and offers Ångra", async ({ 
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
-  await actionsAnswered(page, 1, () => bin("diskmedel").click());
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The first time: a question; Avbryt keeps the line and starts no window.
+  await bin("diskmedel").click();
+  await expect(removalQuestion(page, "diskmedel")).toBeVisible();
+  await expect(removalQuestion(page, "diskmedel")).not.toContainText("Det går inte att ångra");
+  await removalQuestion(page, "diskmedel").getByRole("button", { name: "Avbryt" }).click();
+  await expect(removalQuestion(page, "diskmedel")).toHaveCount(0);
+  await expect(bin("diskmedel")).toHaveCount(1);
+
+  await page.clock.runFor(1000);
+  await bin("diskmedel").click();
+  await confirmRemoval(page, "diskmedel");
   await expect(bin("diskmedel")).toHaveCount(0);
   await expect(toast(page)).toContainText("Tog bort Diskmedel.");
   await expect(toast(page).getByRole("button", { name: "Ångra" })).toBeVisible();
 
-  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
-  await page.waitForTimeout(500);
+  // Within the window no question, and the window starts again (a second pointer press within 400 ms is ignored on purpose).
+  await page.clock.runFor(30_000);
   await actionsAnswered(page, 1, () => bin("tvättmedel").click());
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bin("tvättmedel")).toHaveCount(0);
+
+  // 59 s after that removal: still no question.
+  await page.clock.runFor(59_000);
+  await actionsAnswered(page, 1, () => bin("svamp").click());
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(bin("svamp")).toHaveCount(0);
+
+  // 61 s without a removal: the list asks again.
+  await page.clock.runFor(61_000);
+  await bin("mjölk").click();
+  await expect(removalQuestion(page, "mjölk")).toBeVisible();
+  await removalQuestion(page, "mjölk").getByRole("button", { name: "Avbryt" }).click();
 });
 
 test("an own item stays on the list in another week, also one without a plan, until it is checked off (Story 17.10)", async ({

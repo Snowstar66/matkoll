@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/toast";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { ShoppingLine } from "../domain/compute-list";
 import type { CustomItemFormInput, CustomItemRow } from "../domain/custom-item";
+import { startDeleteGrace } from "@/components/confirm-delete";
 import type { HiddenLine, LineAmountFormInput, LineOverrideRow, LineRef, RestoreLine } from "../domain/line-override";
 import { ShoppingList, type ShoppingListProps } from "./shopping-list";
 
@@ -98,6 +99,9 @@ const previous: LineOverrideRow = { id: overrideId, planId, key: graddeKey, amou
 const hiddenUpdatedAt = "2026-10-26T05:12:29.123456+00:00";
 
 beforeEach(() => {
+  // These tests are about the removal itself, not the question: the list's window is open, so a removal goes at once.
+  // The question and the window have their own tests (confirm-delete.test.tsx, shopping-list-confirm.test.tsx).
+  startDeleteGrace("shopping-list");
   // This test starts from I korgen folded; Story 3.9 opens it by default.
   window.localStorage.setItem("matkoll:basket-open", "0");
   setLineAmount.mockReset().mockImplementation(async (input) => ok(input));

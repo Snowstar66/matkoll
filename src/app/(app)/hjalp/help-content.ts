@@ -86,6 +86,10 @@ export const helpAreas: readonly HelpArea[] = [
       { icon: "bag", title: "Lägg till i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
+      {
+        question: "Varför frågar listan innan jag tar bort en vara?",
+        answer: "Första gången du trycker på soptunnan (eller sveper bort en vara) frågar Inköpslistan om du vill ta bort den. Svarar du Ta bort går de följande borttagningarna direkt i en minut, och Ångra finns alltid kvar. Efter en minut utan borttagning frågar den igen, så ett felklick inte tar bort något.",
+      },
       { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + i rubriken, eller säg det till Siri. Har du en hel lista att lägga in, välj Fota en lista eller Klistra in en lista i samma ruta." },
       {
         question: "Kan jag fota en lista?",
