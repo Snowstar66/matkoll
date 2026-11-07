@@ -26,6 +26,8 @@ export const settingsPages = [
   "inkorg",
   // Story 21.1: the owner invites an address; its row shows only for the owner.
   "inbjudningar",
+  // Tak för AI-kostnad: the daily cap per household and each household's cost; its row shows only for the owner.
+  "ai-kostnad",
 ] as const;
 
 export type SettingsPage = (typeof settingsPages)[number];

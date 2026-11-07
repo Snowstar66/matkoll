@@ -19,6 +19,10 @@ describe("usageCostSek", () => {
     expect(usageCostSek(models)).toBeCloseTo(0.025);
     expect(usageCostSek([])).toBe(0);
   });
+
+  it("prices a Claude id missing from the table as the dearest model, so the cap keeps counting", () => {
+    expect(usageCostSek([{ model: "claude-sonnet-5-5-20261001", calls: 1, inputTokens: 100_000, outputTokens: 10_000 }])).toBeCloseTo(6);
+  });
 });
 
 describe("formatMonthCost", () => {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ErrorCode } from "@/lib/errors";
+import { type ErrorCode, errorMessages } from "@/lib/errors";
 import { thingNoun } from "./thing-noun";
 
 // Kort i Prylar (Story 18.2): a card is a photo of a place. It goes to the
@@ -86,6 +86,7 @@ export const noThingsText = `Inga ${thingNoun.plural} hittades på kortet. Prova
 
 /** Why a card failed, in words; an unknown code is the AI being out of reach. */
 export function cardFailureText(code: ErrorCode | null): string {
+  if (code === "ai_cap_reached") return `${errorMessages.ai_cap_reached} Kortet ligger kvar.`;
   if (code === "ai_invalid") return "Det gick inte att tolka svaret från AI:n. Kortet ligger kvar, så du kan försöka igen.";
   return cardFailedText;
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { fail } from "@/lib/errors";
 import { env } from "@/server/env";
 import { createAiService, type AiChoice, type AiService } from "./service";
 import { withUsageSink, type AiUsageSink } from "./usage";
@@ -63,9 +64,39 @@ const choiceServices = new Map<string, AiService>();
  * Story 17.6: with a `sink`, every call of the returned service reports the
  * model and the tokens it used to it (once per call, over all attempts).
  */
-export function getAiServiceFor(choice: AiChoice | null, sink?: AiUsageSink): AiService {
+export function getAiServiceFor(choice: AiChoice | null, sink?: AiUsageSink, gate?: AiGate): AiService {
   const base = choiceService(choice);
-  return sink ? withSink(base, sink) : base;
+  const counted = sink ? withSink(base, sink) : base;
+  return gate ? withGate(counted, gate) : counted;
+}
+
+/**
+ * Tak för AI-kostnad: asked before each call of the port; `false` stops the call, which then answers
+ * `ai_cap_reached` without reaching the model. Must not throw (a failed check is for the caller to let through).
+ */
+export type AiGate = () => Promise<boolean>;
+
+/** The service whose calls (not warmUp) first ask `gate` and, when it says no, answer `ai_cap_reached`. */
+function withGate(service: AiService, gate: AiGate): AiService {
+  const gated =
+    <Args extends unknown[], Answer>(call: (...args: Args) => Promise<Answer>) =>
+    async (...args: Args): Promise<Answer | ReturnType<typeof fail>> =>
+      (await gate()) ? call(...args) : fail("ai_cap_reached");
+  return {
+    parseRecipe: gated(service.parseRecipe),
+    suggestDishes: gated(service.suggestDishes),
+    ideasNow: gated(service.ideasNow),
+    analyzeImage: gated(service.analyzeImage),
+    listThings: gated(service.listThings),
+    locateThing: gated(service.locateThing),
+    askThings: gated(service.askThings),
+    mergeThings: gated(service.mergeThings),
+    matchOffers: gated(service.matchOffers),
+    thingSearchTerms: gated(service.thingSearchTerms),
+    categorizeThings: gated(service.categorizeThings),
+    warmUp: service.warmUp,
+    warmUpKey: service.warmUpKey,
+  };
 }
 
 function choiceService(choice: AiChoice | null): AiService {

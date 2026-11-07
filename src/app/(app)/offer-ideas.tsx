@@ -13,7 +13,7 @@ import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import type { ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { maxOfferIdeas, pollSetMs, type OfferIdea, type OfferIdeasView } from "@/features/suggestions";
-import type { Result } from "@/lib/errors";
+import { errorMessages, type Result } from "@/lib/errors";
 
 // "Nya idéer med extrapris": the AI ideas around the offers, in the card Rätter med extrapris (Veckans
 // erbjudanden) and under På erbjudande on Matsedel. Pontus 2026-11-06: nobody starts them. The server
@@ -166,7 +166,12 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
       <div role="status">
         {view.state === "pending" ? <p className="text-meta text-ink-2">Idéerna förbereds …</p> : null}
       </div>
-      {view.state === "failed" ? (
+      {view.state === "failed" && view.errorCode === "ai_cap_reached" ? (
+        // The day's cap is reached: trying again today does not help, so no "Försök igen".
+        <p role="alert" className="text-body text-ink">
+          {errorMessages.ai_cap_reached}
+        </p>
+      ) : view.state === "failed" ? (
         <p role="alert" className="flex flex-wrap items-center gap-x-2 text-body text-ink">
           Det gick inte att ta fram idéer just nu.
           <Button variant="text" onClick={() => void prepare(false)}>
