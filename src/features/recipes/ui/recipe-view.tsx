@@ -82,10 +82,10 @@ export function RecipeView({
       {/* A compact top bar instead of a big picture (Pontus 2026-11-06): back on the left, the heart and ⋯ on the right.
           Matkoll on the home screen has no browser back button (AD-27): back in history when opened within Matkoll, else to Recept. */}
       <div className="flex items-center justify-between pt-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] desktop:mt-10 desktop:pt-0">
-        <BackLink fallbackHref="/recept" aria-label="Tillbaka" className="-ml-2 flex size-tap items-center justify-center">
-          <span className="flex size-10 items-center justify-center rounded-full bg-surface text-ink">
-            <ChevronLeftIcon size={22} />
-          </span>
+        {/* UX-26: the same back link as every page: an arrow and the parent's name. */}
+        <BackLink fallbackHref="/recept" className="-ml-2 flex min-h-tap min-w-tap items-center gap-1 rounded-md px-2 text-body text-accent">
+          <ChevronLeftIcon size={20} />
+          Recept
         </BackLink>
         <div className="-mr-2 flex">
           <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} glass="large" />
@@ -94,27 +94,28 @@ export function RecipeView({
       </div>
 
       <header className="flex items-center gap-3.5">
-        <RecipeImage src={recipe.imageUrl} iconSize={26} className="size-[72px] shrink-0 rounded-lg" />
+        <RecipeImage src={recipe.imageUrl} title={recipe.title} iconSize={36} className="size-[72px] shrink-0 rounded-lg" />
         <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="min-w-0 text-recipe-title wrap-break-word text-ink">{recipe.title}</h1>
-        <p className="text-meta text-ink-2" data-testid="recipe-meta">
-          {time ? <span>{time}</span> : null}
-          {time ? " · " : ""}
-          {recipe.sourceKind === "url" && recipe.sourceUrl ? (
-            <a
-              href={recipe.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent underline underline-offset-2"
-            >
-              {source}
-              <span aria-hidden="true"> ↗</span>
-              <span className="sr-only"> (öppnas i ny flik)</span>
-            </a>
-          ) : (
-            source
-          )}
-        </p>
+        {/* UX-12: the source is shown only when it is a link; "Inklistrad text" is not something to press. */}
+        {time || (recipe.sourceKind === "url" && recipe.sourceUrl) ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-meta">
+            {time ? <span>{time}</span> : null}
+            {time && recipe.sourceKind === "url" && recipe.sourceUrl ? " · " : ""}
+            {recipe.sourceKind === "url" && recipe.sourceUrl ? (
+              <a
+                href={recipe.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-2"
+              >
+                {source}
+                <span aria-hidden="true"> ↗</span>
+                <span className="sr-only"> (öppnas i ny flik)</span>
+              </a>
+            ) : null}
+          </p>
+        ) : null}
         {offerLine ? (
           <p className="text-meta text-ink-2" data-testid="recipe-offers">
             {offerLine}

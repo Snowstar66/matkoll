@@ -31,7 +31,7 @@ export type PlanRowProps = {
 export function PlanRow({ title, imageUrl, meta, note, deal, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
-      <RecipeImage src={imageUrl} iconSize={20} className="size-11 shrink-0 rounded-[10px]" />
+      <RecipeImage src={imageUrl} title={title} iconSize={26} className="size-11 shrink-0 rounded-[10px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{title}</p>
         {meta ? <p className="text-meta text-ink-2">{meta}</p> : null}
