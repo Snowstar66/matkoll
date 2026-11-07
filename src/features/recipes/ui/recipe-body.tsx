@@ -19,6 +19,7 @@ import {
   type StapleRules,
 } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
+import { useOption } from "@/lib/use-option";
 import { groupLines } from "../domain/line-groups";
 import {
   boughtText,
@@ -38,6 +39,10 @@ import { scaleFactor, scaleLines } from "../domain/scale";
 import { BuyMissingSheet } from "./buy-missing-sheet";
 import { ChooseWeekSheet } from "./choose-week-sheet";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
+import { StepText } from "./step-text";
+import { TimerBar } from "./timer-bar";
+import { useStepTimers } from "./use-step-timers";
+import { useWakeLock } from "./use-wake-lock";
 import { formatQuantity } from "@/features/catalog";
 
 const wideQuery = "(min-width: 1024px)";
@@ -159,6 +164,10 @@ export function RecipeBody({
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  // The screen stays on while the recipe is open, and a time in a step starts a timer (no separate cooking mode).
+  const timerOption = useOption("recipeTimer");
+  useWakeLock(useOption("recipeAwake"));
+  const timers = useStepTimers(recipe.id);
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
   const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
@@ -339,6 +348,7 @@ export function RecipeBody({
 
   return (
     <>
+      <TimerBar timers={timers.timers} onFinish={timers.finish} onDismiss={timers.dismiss} />
       {/* Mobile: ingredients above the steps. Desktop: portions, buttons and ingredients in the left column, the steps beside it. */}
       <div className="flex flex-col gap-5 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start desktop:gap-6">
         <div className="flex flex-col gap-5">
@@ -442,7 +452,14 @@ export function RecipeBody({
                         {step.title}
                       </h3>
                     ) : null}
-                    <p className="text-body text-ink">{step.text}</p>
+                    <p className="text-body text-ink">
+                      <StepText
+                        text={step.text}
+                        stepKey={step.id}
+                        label={step.title ? step.title : `Steg ${index + 1}`}
+                        onStart={timerOption ? timers.start : undefined}
+                      />
+                    </p>
                   </div>
                 </li>
               ))}
