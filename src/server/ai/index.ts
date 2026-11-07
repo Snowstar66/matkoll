@@ -32,6 +32,8 @@ export type {
   LocateThingInput,
   LocateThingResult,
   ParseRecipeInput,
+  ReadShoppingListInput,
+  ReadShoppingListResult,
   RunOptions,
   SuggestDishesInput,
   SuggestPantryItem,
@@ -42,8 +44,8 @@ export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, i
 export type { AiChoice, AiEffort } from "./service";
 export type { NowIdea, NowIdeaKind } from "./schemas";
 export { nowIdeaKinds } from "./schemas";
-export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
-export { maxThings, thingCategories, thingConfidences } from "./schemas";
+export type { AiListItem, AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
+export { maxListItems, maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 export type { AiUsage, AiUsageSink } from "./usage";
 
@@ -89,6 +91,7 @@ function withGate(service: AiService, gate: AiGate): AiService {
     analyzeImage: gated(service.analyzeImage),
     listThings: gated(service.listThings),
     locateThing: gated(service.locateThing),
+    readShoppingList: gated(service.readShoppingList),
     askThings: gated(service.askThings),
     mergeThings: gated(service.mergeThings),
     matchOffers: gated(service.matchOffers),
@@ -119,6 +122,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
     analyzeImage: (input, signal, options) => withUsageSink(sink, () => service.analyzeImage(input, signal, options)),
     listThings: (input, signal, options) => withUsageSink(sink, () => service.listThings(input, signal, options)),
     locateThing: (input, signal, options) => withUsageSink(sink, () => service.locateThing(input, signal, options)),
+    readShoppingList: (input, signal, options) => withUsageSink(sink, () => service.readShoppingList(input, signal, options)),
     askThings: (input, signal, options) => withUsageSink(sink, () => service.askThings(input, signal, options)),
     mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
     matchOffers: (input, signal, options) => withUsageSink(sink, () => service.matchOffers(input, signal, options)),

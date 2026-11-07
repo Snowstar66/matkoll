@@ -86,7 +86,11 @@ export const helpAreas: readonly HelpArea[] = [
       { icon: "bag", title: "Lägg till i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
-      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + i rubriken, eller säg det till Siri." },
+      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + i rubriken, eller säg det till Siri. Har du en hel lista att lägga in, välj Fota en lista eller Klistra in en lista i samma ruta." },
+      {
+        question: "Kan jag fota en lista?",
+        answer: "Ja. Tryck + i rubriken och välj Fota en lista: ta en bild av en handskriven lapp, eller välj en skärmdump från till exempel Microsoft To Do. Appen läser raderna, och du ser dem innan något läggs till: bocka av det du inte vill ha och tryck Lägg till. Varor som redan står på listan är inte ibockade. Bilden sparas inte, och när dagens AI-tak är nått kan du i stället välja Klistra in en lista: en vara per rad, med eller utan punkter och mängder, och den läses utan AI.",
+      },
       {
         // Basvaror (Pontus 2026-11-02).
         question: "Varför står inte salt på listan?",

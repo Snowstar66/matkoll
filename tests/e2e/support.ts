@@ -316,6 +316,11 @@ export const notesEmail = "e2e-lappar@matkoll.test";
 export const staplesEmail = "e2e-basvaror@matkoll.test";
 export const notesPartnerEmail = "e2e-lappar-2@matkoll.test";
 /**
+ * The E2E user of list-import.spec.ts alone (Fota eller klistra in en inköplista): a household with a
+ * catalog of its own and an empty list, so "Finns redan" and the sections depend on nothing else.
+ */
+export const listImportEmail = "e2e-lista-import@matkoll.test";
+/**
  * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
  * that has not seen the welcome tour, so it shows. Every other E2E user is
  * marked as having seen it (markWelcomeTourSeen), so it never covers their pages.
@@ -382,6 +387,7 @@ export const e2eEmails = [
   welcomeEmail,
   newsEmail,
   staplesEmail,
+  listImportEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -437,6 +443,7 @@ export const notesStorageState = "tests/e2e/.auth/notes.json";
 export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";
 export const staplesStorageState = "tests/e2e/.auth/staples.json";
+export const listImportStorageState = "tests/e2e/.auth/list-import.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 

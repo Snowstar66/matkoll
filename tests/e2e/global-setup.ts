@@ -63,6 +63,8 @@ import {
   notesStorageState,
   staplesEmail,
   staplesStorageState,
+  listImportEmail,
+  listImportStorageState,
   newsEmail,
   newsStorageState,
   outsiderEmail,
@@ -202,6 +204,7 @@ export default async function globalSetup(config: FullConfig) {
       [welcomeEmail, welcomeStorageState],
       [newsEmail, newsStorageState],
       [staplesEmail, staplesStorageState],
+      [listImportEmail, listImportStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

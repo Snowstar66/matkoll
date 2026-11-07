@@ -6,7 +6,7 @@ import { buttonClasses } from "@/components/button";
 import { addWeeks, currentWeekStart, overviewWeeks, weekQueryAlways, weeksBetween } from "@/features/mealplan";
 import { resolveViewedWeek } from "@/features/mealplan/server";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
-import { searchIngredients } from "@/features/catalog/server";
+import { matchIngredientNames, searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
@@ -127,6 +127,7 @@ export async function ShoppingListContent({
         checksUnavailable={checksUnavailable}
         pendingClear={pendingClear}
         searchIngredients={searchIngredients}
+        matchNames={matchIngredientNames}
         store={store}
         storeUnavailable={storeUnavailable}
         productChoices={productChoices}

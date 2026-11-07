@@ -40,3 +40,35 @@ describe("the cost cap gate (Tak för AI-kostnad)", () => {
     expect(answer.ok || answer.error.code !== "ai_cap_reached").toBe(true);
   });
 });
+
+describe("readShoppingList (Fota en lista) goes through the gate and the usage sink", () => {
+  const image = { data: new Uint8Array([1, 2, 3]), mediaType: "image/png" as const };
+
+  it("answers ai_cap_reached without reaching the model when the gate says no", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(false));
+    const answer = await service.readShoppingList({ image }, AbortSignal.timeout(5_000));
+    expect(answer).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
+    expect(sink).not.toHaveBeenCalled();
+  });
+
+  it("reads the list and counts the call when the gate says yes", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(true));
+    const answer = await service.readShoppingList({ image }, AbortSignal.timeout(5_000));
+    expect(answer.ok && answer.data.items.map((item) => item.name)).toEqual(["Mjölk", "Bananer", "Hushållspapper", "Kaffe", "Skogsbärsyoghurt"]);
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+
+  it("is gated like every other method of the port: all but warmUp and warmUpKey ask the gate", async () => {
+    const methods = Object.keys(getAiServiceFor(null)).filter((name) => name !== "warmUp" && name !== "warmUpKey");
+    expect(methods).toContain("readShoppingList");
+    const gate = vi.fn().mockResolvedValue(false);
+    const service = getAiServiceFor(null, undefined, gate);
+    for (const name of methods) {
+      const call = service[name as keyof typeof service] as unknown as (...args: unknown[]) => Promise<unknown>;
+      expect(await call({}, AbortSignal.timeout(5_000)), name).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
+    }
+    expect(gate).toHaveBeenCalledTimes(methods.length);
+  });
+});

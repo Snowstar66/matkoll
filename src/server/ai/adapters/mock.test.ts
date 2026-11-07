@@ -593,6 +593,37 @@ describe("mock listThings (Story 18.2)", () => {
   });
 });
 
+describe("mock readShoppingList (Fota en lista)", () => {
+  const service = createMockAiService();
+  const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
+
+  it("answers any photo with the list fixture: five items, two with an amount", async () => {
+    const result = await service.readShoppingList({ image: photo("kyl.png") }, signal());
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        items: [
+          { name: "Mjölk", amount: 2, unit: "l" },
+          { name: "Bananer", amount: 6, unit: "st" },
+          { name: "Hushållspapper", amount: null, unit: null },
+          { name: "Kaffe", amount: null, unit: null },
+          { name: "Skogsbärsyoghurt", amount: null, unit: null },
+        ],
+      },
+    });
+  });
+
+  it.each(mockAnalyzeErrorCodes)("gives %s for its reserved image", async (code) => {
+    expect(await service.readShoppingList({ image: photo(`reserved-${code}.png`) }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("is ai_unavailable for a call that is stopped", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.readShoppingList({ image: photo("kyl.png") }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
+
 describe("usage (Story 17.6)", () => {
   it("counts an answered call as a call of the model mock with no tokens", async () => {
     const seen: AiUsage[] = [];

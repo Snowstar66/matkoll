@@ -23,6 +23,8 @@ import { newsKey } from "@/lib/news";
 import { noteOwnNews } from "@/lib/news-client";
 import { addCustomItem } from "../actions/add-custom-item";
 import { updateCustomItem } from "../actions/update-custom-item";
+import type { ExistingLines } from "../domain/list-import";
+import { type MatchNames, useListImport } from "./list-import";
 import {
   customItemFieldErrors,
   customItemFormSchema,
@@ -131,7 +133,14 @@ export type CustomItemSheetProps = {
    * given whether the form is saving and whether it has unsaved changes.
    */
   renderAfterForm?: (saving: boolean, dirty: boolean) => ReactNode;
+  /**
+   * "Fota en lista" and "Klistra in en lista" under the field of a new item: the catalog's match of names (passed down
+   * from the page, AD-1) and what the list has already, for "Finns redan". Without it the sheet has no such choices.
+   */
+  listImport?: { matchNames?: MatchNames; existing: ExistingLines };
 };
+
+const noExistingLines: ExistingLines = { labelKeys: new Set(), ingredientIds: new Set() };
 
 /**
  * Arket Lägg till vara: the text field (16 px, in focus from the start)
@@ -156,8 +165,18 @@ export function CustomItemSheet({
   subtitle,
   onRemove,
   renderAfterForm,
+  listImport: listImportProps,
 }: CustomItemSheetProps) {
   const router = useRouter();
+  const listImport = useListImport({
+    open,
+    session,
+    matchNames: listImportProps?.matchNames,
+    existing: listImportProps?.existing ?? noExistingLines,
+    onClose,
+  });
+  /** The photo, pasted text or review of a list is on screen instead of the form. */
+  const importView = !item && listImportProps ? listImport.view : null;
   const [formSession, setFormSession] = useState(session);
   const [initial, setInitial] = useState(() => valuesOf(item));
   const [values, setValues] = useState(initial);
@@ -386,20 +405,24 @@ export function CustomItemSheet({
       open={open}
       onClose={onClose}
       title={
-        unitStep
-          ? "Enhet"
-          : item
-            ? (title ?? item.label)
-            : addSheetTitle
+        importView
+          ? importView.title
+          : unitStep
+            ? "Enhet"
+            : item
+              ? (title ?? item.label)
+              : addSheetTitle
       }
       subtitle={item && !unitStep ? subtitle : undefined}
-      onBack={unitStep ? () => setUnitStep(false) : undefined}
+      onBack={importView ? importView.onBack : unitStep ? () => setUnitStep(false) : undefined}
       // "Klar" once something was added: what is added is saved (the sheet rule, Story 19.4).
       closeLabel={added && !item ? "Klar" : "Avbryt"}
-      isDirty={isFormDirty(values, initial)}
+      isDirty={importView ? false : isFormDirty(values, initial)}
       preventClose={saving}
       footer={
-        unitStep ? undefined : (
+        importView ? (
+          importView.footer
+        ) : unitStep ? undefined : (
           <>
             {item ? null : (
               // Mounted empty, so the first "La till …" is announced; just above "Lägg till", over the keyboard.
@@ -449,12 +472,13 @@ export function CustomItemSheet({
           }}
         />
       ) : null}
+      {importView ? importView.body : null}
       <form
         id={formId}
         onSubmit={submit}
         noValidate
         inert={saving}
-        hidden={unitStep}
+        hidden={unitStep || importView !== null}
         className="flex flex-col gap-5"
       >
         <div className="flex flex-col gap-1.5">
@@ -501,6 +525,13 @@ export function CustomItemSheet({
             </div>
           ) : null}
         </div>
+
+        {!item && listImportProps ? (
+          <div className="-mt-3 flex flex-col">
+            {listImport.choices}
+            {listImport.notice}
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-2">
           <FieldLabel htmlFor={`${ids}-amount`}>

@@ -1010,6 +1010,57 @@ describe("listThings on a model (Story 18.2)", () => {
   });
 });
 
+describe("readShoppingList on a model (Fota en lista)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
+  const answer = (items: unknown[]) => JSON.stringify({ items });
+
+  it("sends the read-shopping-list prompt and the photo as a file part, and returns the cleaned items", async () => {
+    const model = fakeModel(
+      answer([
+        { name: "  Mjölk ", amount: 2, unit: "l" },
+        { name: "mjölk", amount: null, unit: null },
+        { name: "Ägg", amount: 6, unit: null },
+        { name: "   ", amount: null, unit: null },
+        { name: "Kaffe", amount: null, unit: null },
+      ]),
+    );
+    const result = await createModelAiService({ model }, limits).readShoppingList({ image: png() }, signal());
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        items: [
+          { name: "Mjölk", amount: 2, unit: "l" },
+          { name: "Ägg", amount: null, unit: null },
+          { name: "Kaffe", amount: null, unit: null },
+        ],
+      },
+    });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.shoppingList.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.readShoppingList });
+    const parts = user.content as { type: string; mediaType?: string }[];
+    expect(parts.find((part) => part.type === "file")).toMatchObject({ mediaType: "image/png" });
+  });
+
+  it("answers an empty list when the photo shows none", async () => {
+    const result = await createModelAiService({ model: fakeModel(answer([])) }, limits).readShoppingList({ image: png() }, signal());
+    expect(result).toEqual({ ok: true, data: { items: [] } });
+  });
+
+  it("is ai_invalid for an answer that is not the shape, ai_unavailable when the deadline leaves too little time, and validation for an empty photo", async () => {
+    const broken = await createModelAiService({ model: fakeModel("{}", "{}", "{}") }, limits).readShoppingList({ image: png() }, signal());
+    expect(broken).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    const late = await createModelAiService({ model: fakeModel(answer([])) }, limits).readShoppingList({ image: png() }, signal(), { deadline: Date.now() + 1_000 });
+    expect(late).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(answer([])) }, limits));
+    expect(await wrapped.readShoppingList({ image: { data: new Uint8Array(0), mediaType: "image/png" } }, signal())).toMatchObject({
+      ok: false,
+      error: { code: "validation" },
+    });
+  });
+});
+
 describe("locateThing on a model (Story 18.7)", () => {
   it("has one attempt of at most 30 s after the health check, and keeps shorter limits shorter", () => {
     const base = { healthMs: 5_000, attemptMs: 100_000, totalMs: 115_000, maxAttempts: 3, minRetryMs: 20_000 };
