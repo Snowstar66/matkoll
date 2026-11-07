@@ -8,7 +8,6 @@ import { useToast } from "@/components/toast";
 import { errorMessages } from "@/lib/errors";
 import { createApiKey, revokeApiKey } from "../actions/api-keys";
 import { type ApiKeyView, keyDateText, keyStatusText, maxApiKeys, quickAddUrl } from "../domain/api-key";
-import { appName } from "@/app/app-info";
 import { siriShortcutUrl } from "../domain/phone-shortcuts";
 import { AddShortcutButton, BuildItYourself, cardClass } from "./shortcut-parts";
 
@@ -120,9 +119,6 @@ export function ApiKeys({ keys }: { keys: readonly ApiKeyView[] }) {
             </ol>
           </BuildItYourself>
         )}
-        <p className="text-meta text-ink-3">
-          Genvägen når bara {appName} när appen ligger i molnet. En telefon kan inte nå localhost.
-        </p>
         {newKey ? (
           <Button variant="text" disabled={busy || working.length >= maxApiKeys} onClick={create}>
             Skapa en till nyckel

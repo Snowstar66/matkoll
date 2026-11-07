@@ -28,7 +28,7 @@ export function PhoneSetup({ keys }: { keys: readonly ApiKeyView[] }) {
   return (
     <div className="flex flex-col gap-4" data-testid="phone-setup">
       <p className="px-1 desktop:px-0 text-meta text-ink-3">
-        Två genvägar gör {appName} snabbare på telefonen. Telefonen når {appName} först när appen är publicerad.
+        Två genvägar gör {appName} snabbare på telefonen.
       </p>
       <SaveRecipeCard />
       <ApiKeys keys={keys} />
