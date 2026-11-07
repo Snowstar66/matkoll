@@ -53,7 +53,6 @@ export {
   parseRecipeFilter,
   filterRecipes,
   rankByOffers,
-  offerTagsShown,
   withStatus,
   toLibrary,
   type RecipeLibrary,

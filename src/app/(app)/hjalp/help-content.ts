@@ -69,7 +69,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
         question: "Hur hittar jag rätter som är på erbjudande?",
-        answer: "Fäll ut Lägg till nya rätter och öppna fliken På erbjudande. Där står dina egna recept där en huvudvara är på erbjudande, med störst rabatt överst. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
+        answer: "Fäll ut Lägg till nya rätter och öppna fliken På erbjudande. Där står dina egna recept där en huvudvara är på erbjudande, med störst rabatt överst och en grön etikett för varje vara som är på erbjudande, till exempel Gul lök 10 kr/kg. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
       },
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
       { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
@@ -112,7 +112,7 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
-        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Knappen Erbjudanden på Inköpslista och Matsedel visar dem, och överst står Rätter med erbjudanden: dina recept och några nya idéer som passar veckans erbjudanden. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
+        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Knappen Erbjudanden på Inköpslista och Matsedel visar dem. Överst står butik, vecka och när de hämtades, sedan Rätter med erbjudanden: dina recept och några nya idéer som passar veckans erbjudanden, med små gröna etiketter som Gul lök 10 kr/kg. Själva erbjudandena står längst ned, ordnade per avdelning. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",

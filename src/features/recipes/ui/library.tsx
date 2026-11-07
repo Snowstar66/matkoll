@@ -10,12 +10,12 @@ import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
 import { siteLineText, type SelectedSite } from "@/features/pantry";
+import type { OfferTagData } from "@/lib/offer-tag";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
 import { recipeCategoryLabels } from "../domain/recipe-category";
 import {
   filterByCategory,
-  extraPriceReason,
   filterRecipes,
   nearlyCookable,
   rankByOffers,
@@ -75,9 +75,9 @@ type Search =
  * (`open` and `onClose`), so the library never imports the offers module (AD-1).
  */
 export type LibraryOffers = {
-  /** The offers each recipe uses on a main ingredient, by recipe id (suggestions.recipeOfferTags), labels cleaned for a tag. */
-  tags: Readonly<Record<string, readonly string[]>>;
-  /** "Recept med veckans erbjudanden, vecka 45." with the store when there is one. */
+  /** The offers each recipe uses on a main ingredient, by recipe id (suggestions.recipeOfferTags), as OfferTag data (short name and price, UX-20). */
+  tags: Readonly<Record<string, readonly OfferTagData[]>>;
+  /** "Veckans erbjudanden från Maxi ICA, vecka 45" with the store when there is one; "Visa" follows it. */
   line: string;
   /** Whether any store has offers this week. */
   hasOffers: boolean;
@@ -342,12 +342,17 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         </p>
       ) : null}
       {onOffers ? (
-        <div className="flex flex-wrap items-center justify-between gap-x-3" data-testid="offers-line">
-          <p className="min-w-0 text-meta break-words text-ink-2">{offers.line}</p>
-          <Button variant="text" onClick={() => setOffersOpen(true)}>
-            Visa erbjudanden
-          </Button>
-        </div>
+        <p className="text-meta break-words text-ink-2" data-testid="offers-line">
+          {offers.line} {"\u00B7"}{" "}
+          <button
+            type="button"
+            aria-label="Visa erbjudanden"
+            onClick={() => setOffersOpen(true)}
+            className="-my-3 inline-flex min-h-tap items-center align-middle font-medium text-accent underline underline-offset-2"
+          >
+            Visa
+          </button>
+        </p>
       ) : null}
       {onOffers ? (
         <div role="status" className="text-meta text-ink-2">
@@ -372,11 +377,6 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         {/* Always there in Kan lagas nu, so the notice is read out when it appears. */}
         {cookable ? (
           <div role="status">{notRanked ? <Notice className="mb-3">{notRankedMessage}</Notice> : null}</div>
-        ) : null}
-        {onOffers && visible.length > 0 ? (
-          <p data-testid="offers-reason" className="mb-3 text-meta text-deal-ink">
-            {extraPriceReason}
-          </p>
         ) : null}
         {content}
         {nearly.length > 0 ? <NearlyCookable recipes={nearly} /> : null}

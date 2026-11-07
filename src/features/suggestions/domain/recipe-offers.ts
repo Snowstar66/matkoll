@@ -1,5 +1,6 @@
 import { isStaple, noStaples, type StapleRules } from "@/features/pantry";
 import type { Unit } from "@/features/catalog";
+import { offerTagOf, type OfferTagData } from "@/lib/offer-tag";
 import { offersUsed, type OfferInfo } from "./offer-input";
 
 // The filter Erbjudanden in Recept (Story 9.3): which of the library's recipes
@@ -28,22 +29,26 @@ export function isMainLine(line: OfferRecipeLine, staples: StapleRules = noStapl
 }
 
 /**
- * The labels of the offers each recipe uses on a main ingredient, by recipe
- * id, in the sheet's order, each offer once. A recipe where only a spice or a
- * vague line is on offer has no entry.
+ * The offers each recipe uses on a main ingredient as tags (UX-20: the short
+ * item name and the price), by recipe id, in the sheet's order, each offer
+ * once. A recipe where only a spice or a vague line is on offer has no entry.
  */
 export function offerTagsByRecipe(
   offers: readonly OfferInfo[],
   recipes: readonly OfferRecipe[],
   staples: StapleRules = noStaples,
-): Record<string, string[]> {
-  const tags: Record<string, string[]> = {};
+): Record<string, OfferTagData[]> {
+  const tags: Record<string, OfferTagData[]> = {};
   if (offers.length === 0) return tags;
   for (const recipe of recipes) {
     const main = new Set(recipe.lines.filter((line) => isMainLine(line, staples)).flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])));
     if (main.size === 0) continue;
     const labels = offersUsed(offers, main, []);
-    if (labels.length > 0) tags[recipe.id] = labels;
+    const used = labels.flatMap((label) => {
+      const offer = offers.find((candidate) => candidate.label === label);
+      return offer ? [offerTagOf(offer)] : [];
+    });
+    if (used.length > 0) tags[recipe.id] = used;
   }
   return tags;
 }

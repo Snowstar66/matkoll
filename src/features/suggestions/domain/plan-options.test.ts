@@ -39,6 +39,13 @@ describe("dealOf", () => {
     expect(deal).toMatchObject({ savingKr: 21, text: "Falukorv och grädde på erbjudande · −21 kr" });
   });
 
+  it("gives the offers as tags with the short name and the price (UX-20)", () => {
+    expect(dealOf(offers, recipe("a", [["Falukorv", "korv"], ["Lax", "lax"]]))?.tags).toEqual([
+      { name: "Falukorv", price: "20 kr/st" },
+      { name: "Laxfilé", price: null },
+    ]);
+  });
+
   it("falls back to percent when no offer has a price to compare", () => {
     expect(dealOf(offers, recipe("a", [["Lax", "lax"]]))?.text).toBe("Laxfilé på erbjudande · −25 %");
   });

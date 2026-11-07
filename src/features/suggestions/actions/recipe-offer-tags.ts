@@ -2,6 +2,7 @@ import "server-only";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { listRecipeRows } from "@/features/recipes/server";
 import { offerTagsByRecipe } from "../domain/recipe-offers";
+import type { OfferTagData } from "@/lib/offer-tag";
 import type { OfferInfo } from "../domain/offer-input";
 
 /**
@@ -10,7 +11,7 @@ import type { OfferInfo } from "../domain/offer-input";
  * offers of all the user's stores (the page reads them once, for the sheet too).
  * A read, counted without AI. Throws what the recipe and pantry reads throw.
  */
-export async function recipeOfferTags(offers: readonly OfferInfo[]): Promise<Record<string, string[]>> {
+export async function recipeOfferTags(offers: readonly OfferInfo[]): Promise<Record<string, OfferTagData[]>> {
   if (offers.length === 0) return {};
   const [rows, { staples }] = await Promise.all([listRecipeRows(), getPantryForStatus()]);
   return offerTagsByRecipe(

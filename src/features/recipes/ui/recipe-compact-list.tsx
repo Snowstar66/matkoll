@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { OfferTags } from "@/components/offer-tag";
+import type { OfferTagData } from "@/lib/offer-tag";
 import { HeartToggle } from "@/components/heart-toggle";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
 import { SwipeRow } from "@/components/swipe-row";
-import { offerTagsLine, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
+import { recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 import { useRecipeDelete } from "./recipe-delete";
 
 export type RecipeCompactListProps = {
@@ -17,8 +19,8 @@ export type RecipeCompactListProps = {
   onFavoriteChange: (id: string, isFavorite: boolean) => void;
   /** Whether the rows are ranked fewest missing first, which the list's name says. */
   ranked?: boolean;
-  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row has its own line "Extrapris: falukorv, gul lök +1". */
-  offerTags?: Readonly<Record<string, readonly string[]>>;
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id; a row has OfferTags on a line of its own (two, then "+N"). */
+  offerTags?: Readonly<Record<string, readonly OfferTagData[]>>;
   /** The ids of the recipes on the current meal plan, which "Ta bort X?" says (Story 13.2). */
   onMenuIds?: readonly string[];
 };
@@ -76,9 +78,7 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
                 {status ? " · " : ""}
                 {status}
                 {offerTags && offerTags[recipe.id]?.length ? (
-                  <span data-testid="offer-tags" className="block font-semibold text-deal-ink">
-                    {offerTagsLine(offerTags[recipe.id])}
-                  </span>
+                  <OfferTags tags={offerTags[recipe.id]} className="mt-1" />
                 ) : null}
               </>
             }

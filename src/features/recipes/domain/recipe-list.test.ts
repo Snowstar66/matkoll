@@ -7,7 +7,6 @@ import {
   nearlyCookable,
   parseRecipeFilter,
   parseRecipeSort,
-  offerTagsShown,
   parseRecipeView,
   rankByOffers,
   RECIPE_FILTERS,
@@ -313,12 +312,5 @@ describe("rankByOffers (Story 9.3)", () => {
 
   it("shows nothing without tags", () => {
     expect(rankByOffers([row("a", 0)], {})).toEqual([]);
-  });
-});
-
-describe("offerTagsShown", () => {
-  it("shows two tags and counts the rest", () => {
-    expect(offerTagsShown(["a"])).toEqual({ shown: ["a"], more: 0 });
-    expect(offerTagsShown(["a", "b", "c", "d"])).toEqual({ shown: ["a", "b"], more: 2 });
   });
 });

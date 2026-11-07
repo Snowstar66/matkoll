@@ -46,6 +46,8 @@ export type SheetProps = {
    * Tillbaka on the left, the heading centred, and no close button. Tillbaka never asks about changes.
    */
   onBack?: () => void;
+  /** UX-18: the app's grey page background instead of white, so white list groups lie on it as cards (Veckans erbjudanden). */
+  grey?: boolean;
 };
 
 type SheetEntry = {
@@ -90,6 +92,7 @@ export function Sheet({
   initialFocus,
   heading,
   onBack,
+  grey = false,
 }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -277,7 +280,8 @@ export function Sheet({
         pointerDownOnBackdrop.current = false;
       }}
       className={cx(
-        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface-2 p-0 text-ink",
+        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl p-0 text-ink",
+        grey ? "bg-bg" : "bg-surface-2",
         "motion-safe:transition-transform motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(.2,.8,.2,1)] motion-safe:starting:open:translate-y-full",
         "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl desktop:shadow-float",
         "desktop:motion-safe:starting:open:translate-y-4 desktop:motion-safe:starting:open:opacity-0 desktop:motion-safe:transition-[transform,opacity]",
