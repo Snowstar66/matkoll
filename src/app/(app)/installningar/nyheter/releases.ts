@@ -13,6 +13,16 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-07",
+    title: "Lugnare matsedel och diskretare sortering",
+    bullets: [
+      "På Matsedel är Lägg till nya rätter ihopfälld tills du själv fäller ut den, och appen kommer ihåg ditt val.",
+      "Rätter som redan ligger på veckan visas inte i listan, så den blir kortare och renare.",
+      "Ett tryck på en ledig dag fäller ut listan åt dig.",
+      "I Veckans erbjudanden är Sortera nu en liten text bredvid antalet: tryck för att växla mellan Avdelning och Bäst rabatt.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Tak för AI-kostnad",
     bullets: [
       "Varje hushåll får använda AI för ett visst belopp per dag, till att börja med 10 kr. Är taket nått får du veta det, och kan prova igen från midnatt.",

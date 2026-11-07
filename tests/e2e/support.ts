@@ -7,6 +7,14 @@ import { localSupabaseUrl } from "../local-supabase";
 
 // Shared by global-setup and the specs. The service role is allowed in tests (AD-4).
 
+/** Opens "Lägg till nya rätter" on Matsedel (collapsed until opened), whatever its state. */
+export async function openLibrary(page: Page) {
+  const toggle = page.getByTestId("add-dishes-toggle").filter({ visible: true });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
+
 /**
  * The E2E user whose library stays empty: the specs that expect "Inga recept
  * än." (auth, shell, import) use it, and nothing saves a recipe for it.
