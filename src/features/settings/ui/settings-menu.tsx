@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PantryIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
+import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PaletteIcon, PantryIcon, PinIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { NewsDot } from "./news-seen";
 
@@ -25,6 +25,7 @@ export const settingsIcons = {
   inbox: InboxIcon,
   users: UsersIcon,
   pantry: PantryIcon,
+  palette: PaletteIcon,
 } as const;
 
 export type SettingsIconName = keyof typeof settingsIcons;

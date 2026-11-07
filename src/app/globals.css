@@ -680,3 +680,177 @@
     opacity: 0;
   }
 }
+
+/*
+ * Farg-tema (Installningar, Utseende): a palette overrides only the accent family and the tinted surfaces
+ * (--accent, --on-accent, --mint, --mint-ink, --illus-bg, --fill, --seg-track); semantic colours stay.
+ * Chosen per device and set as data-palette on <html> before first paint (src/lib/palette.ts). Green is
+ * the default and is not set on <html>; its block is here only for the swatch in the settings page.
+ * "custom" rotates the hue (--hue, 0-360) at fixed lightness and chroma, so contrast always holds
+ * (tests/design/palette.test.ts). To roll the feature back, delete from here to the end of the file.
+ */
+[data-palette="gron"] {
+  --accent: #3E7C62;
+  --on-accent: #FFFFFF;
+  --mint: #DDEFE5;
+  --mint-ink: #2C5E48;
+  --illus-bg: #EEF4F0;
+  --fill: #EAEDEB;
+  --seg-track: #E9ECEA;
+}
+
+[data-palette="bla"] {
+  --accent: #3F6E94;
+  --on-accent: #FFFFFF;
+  --mint: #DEEDFB;
+  --mint-ink: #295171;
+  --illus-bg: #ECF4FA;
+  --fill: #E9EDF0;
+  --seg-track: #E8ECEF;
+}
+
+[data-palette="lavendel"] {
+  --accent: #6C5F92;
+  --on-accent: #FFFFFF;
+  --mint: #ECE8FA;
+  --mint-ink: #50456F;
+  --illus-bg: #F3F1FA;
+  --fill: #ECEBF0;
+  --seg-track: #EBEAEF;
+}
+
+[data-palette="persika"] {
+  --accent: #A75A2F;
+  --on-accent: #FFFFFF;
+  --mint: #FBE6DC;
+  --mint-ink: #6F3F25;
+  --illus-bg: #FAF0EB;
+  --fill: #F0EBE8;
+  --seg-track: #EFEAE7;
+}
+
+[data-palette="sand"] {
+  --accent: #796739;
+  --on-accent: #FFFFFF;
+  --mint: #F1EBDC;
+  --mint-ink: #5B4B24;
+  --illus-bg: #F5F2EB;
+  --fill: #EDECE8;
+  --seg-track: #ECEBE7;
+}
+
+[data-palette="rosa"] {
+  --accent: #95515F;
+  --on-accent: #FFFFFF;
+  --mint: #FDE4E7;
+  --mint-ink: #723945;
+  --illus-bg: #FBEFF1;
+  --fill: #F1EAEB;
+  --seg-track: #F0E9EA;
+}
+
+[data-palette="custom"] {
+  --accent: oklch(0.52 0.08 var(--hue, 150));
+  --on-accent: #FFFFFF;
+  --mint: oklch(0.94 0.024 var(--hue, 150));
+  --mint-ink: oklch(0.42 0.07 var(--hue, 150));
+  --illus-bg: oklch(0.962 0.012 var(--hue, 150));
+  --fill: oklch(0.943 0.006 var(--hue, 150));
+  --seg-track: oklch(0.94 0.006 var(--hue, 150));
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-palette="gron"] {
+    --accent: #6FB394;
+    --on-accent: #0F1A15;
+    --mint: #1F3A2D;
+    --mint-ink: #A8D9BF;
+    --illus-bg: #16211B;
+    --fill: #242927;
+    --seg-track: #1A1F1C;
+  }
+
+  [data-palette="bla"] {
+    --accent: #77ABD7;
+    --on-accent: #0E171F;
+    --mint: #1E3548;
+    --mint-ink: #ABD3F6;
+    --illus-bg: #161F27;
+    --fill: #24282C;
+    --seg-track: #1A1E22;
+  }
+
+  [data-palette="lavendel"] {
+    --accent: #A89AD5;
+    --on-accent: #17141E;
+    --mint: #342E47;
+    --mint-ink: #D0C6F5;
+    --illus-bg: #1F1C27;
+    --fill: #28272C;
+    --seg-track: #1E1D22;
+  }
+
+  [data-palette="persika"] {
+    --accent: #D59371;
+    --on-accent: #1E130E;
+    --mint: #472B1C;
+    --mint-ink: #F6C0A6;
+    --illus-bg: #271B15;
+    --fill: #2C2623;
+    --seg-track: #221C19;
+  }
+
+  [data-palette="sand"] {
+    --accent: #B7A270;
+    --on-accent: #1A160B;
+    --mint: #3B321B;
+    --mint-ink: #DDCCA5;
+    --illus-bg: #211E15;
+    --fill: #292723;
+    --seg-track: #1F1D19;
+  }
+
+  [data-palette="rosa"] {
+    --accent: #DA8A99;
+    --on-accent: #1E1214;
+    --mint: #49272E;
+    --mint-ink: #FABAC4;
+    --illus-bg: #281A1C;
+    --fill: #2D2526;
+    --seg-track: #231B1D;
+  }
+
+  [data-palette="custom"] {
+    --accent: oklch(0.72 0.085 var(--hue, 150));
+    --on-accent: oklch(0.2 0.02 var(--hue, 150));
+    --mint: oklch(0.32 0.045 var(--hue, 150));
+    --mint-ink: oklch(0.85 0.065 var(--hue, 150));
+    --illus-bg: oklch(0.235 0.02 var(--hue, 150));
+    --fill: oklch(0.275 0.01 var(--hue, 150));
+    --seg-track: oklch(0.233 0.01 var(--hue, 150));
+  }
+}
+
+/* The "Ton" slider of Utseende: a rainbow track and a round thumb in the chosen accent. */
+.hue-slider {
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(to right, oklch(0.72 0.09 0), oklch(0.72 0.09 60), oklch(0.72 0.09 120), oklch(0.72 0.09 180), oklch(0.72 0.09 240), oklch(0.72 0.09 300), oklch(0.72 0.09 360));
+}
+.hue-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 3px solid var(--accent);
+}
+.hue-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 3px solid var(--accent);
+}

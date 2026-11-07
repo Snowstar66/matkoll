@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-07",
+    title: "Välj färgtema",
+    bullets: [
+      "Under Inställningar, Utseende, kan du byta färg på appen: Grön som förut, eller Blå, Lavendel, Persika, Sand och Rosa.",
+      "Med Egen ställer du in tonen själv med ett reglage. Texten är alltid lätt att läsa, vilken ton du än väljer.",
+      "Färgen ändras direkt och gäller bara på den här enheten. Återställ till Grön tar dig tillbaka.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Inköpslistan frågar innan första borttagningen",
     bullets: [
       "Första gången du tar bort en vara från Inköpslistan, med soptunnan, svepet eller Ta bort på varan, frågar listan om du vill ta bort den.",

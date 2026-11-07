@@ -207,6 +207,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Under Inställningar, Boenden, lägger du till ett boende, byter namn eller tar bort ett.",
       },
       {
+        question: "Kan jag byta färg på appen?",
+        answer: `Ja. Under Inställningar, Utseende, väljer du Grön, Blå, Lavendel, Persika, Sand, Rosa eller Egen, där du ställer in tonen själv med reglaget. Färgen ändras direkt, men bara på den här enheten, och Återställ till Grön tar dig tillbaka till hur ${appName} såg ut från början.`,
+      },
+      {
         question: "Hur sätter jag upp Siri?",
         answer: `Gå till Inställningar, Använd med telefonen. Skapa en nyckel, tryck Lägg till genvägen och klistra in rubriken när genvägen frågar. Sedan säger du ”Hej Siri, ${appName}” och till exempel ”mjölk och ägg”.`,
       },
