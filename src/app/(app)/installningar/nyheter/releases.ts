@@ -13,6 +13,17 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-07",
+    title: "Erbjudanden, tydligare",
+    bullets: [
+      "Nu heter det erbjudande överallt, inte extrapris. Rabatten visas som −33 % och ordet spara är borta.",
+      "Knappen Erbjudanden i Inköpslista och Matsedel har fått text, så du ser vad den gör.",
+      "I Veckans erbjudanden lägger du en vara på inköpslistan med ett tryck på plus, och Ångra tar bort den igen.",
+      "Gick hämtningen inte att göra står det bara en ruta med ett sätt att öppna butikens sida.",
+      "I Ändra butik står länken till veckans erbjudanden först, och Butiks-id och länk till e-handeln ligger under Mer om butiken.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Siffror på fotot i Förrådet",
     bullets: [
       "På ett kort i Förrådet visas varje föremål nu som en siffra på fotot, precis som i Kylfoto. Samma siffra står vid föremålet i listan under.",

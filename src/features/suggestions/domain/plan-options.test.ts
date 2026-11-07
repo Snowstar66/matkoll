@@ -27,8 +27,8 @@ describe("savings", () => {
   });
 
   it("says kronor, else percent, else nothing", () => {
-    expect(savingPhrase({ savingKr: 21, savingPercent: 10 })).toBe("spara 21 kr");
-    expect(savingPhrase({ savingKr: null, savingPercent: 25 })).toBe("spara 25 %");
+    expect(savingPhrase({ savingKr: 21, savingPercent: 10 })).toBe("−21 kr");
+    expect(savingPhrase({ savingKr: null, savingPercent: 25 })).toBe("−25 %");
     expect(savingPhrase({ savingKr: null, savingPercent: null })).toBe("");
   });
 });
@@ -36,11 +36,11 @@ describe("savings", () => {
 describe("dealOf", () => {
   it("adds the kronor of the offers a dish uses and names them", () => {
     const deal = dealOf(offers, recipe("a", [["Falukorv", "korv"], ["Grädde", "cream"]]));
-    expect(deal).toMatchObject({ savingKr: 21, text: "Falukorv och grädde på extrapris · spara 21 kr" });
+    expect(deal).toMatchObject({ savingKr: 21, text: "Falukorv och grädde på erbjudande · −21 kr" });
   });
 
   it("falls back to percent when no offer has a price to compare", () => {
-    expect(dealOf(offers, recipe("a", [["Lax", "lax"]]))?.text).toBe("Laxfilé på extrapris · spara 25 %");
+    expect(dealOf(offers, recipe("a", [["Lax", "lax"]]))?.text).toBe("Laxfilé på erbjudande · −25 %");
   });
 
   it("is null when nothing used is on offer, and for a spice on offer", () => {

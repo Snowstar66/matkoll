@@ -82,12 +82,12 @@ export function spokenPrice(price: string): string {
   return price.replace(/\s*\/\s*/g, " per ");
 }
 
-/** The row's name for a screen reader: "Aubergine, 12 kr per st, spara 20 %". */
+/** The row's name for a screen reader: "Aubergine, 12 kr per st, 20 % rabatt". */
 export function offerSpokenName(offer: Pick<StoreOffer, "label" | "price" | "savingPercent">): string {
   return [
     offerDisplay(offer.label).title,
     offer.price ? spokenPrice(offer.price) : null,
-    offer.savingPercent === null ? null : `spara ${offer.savingPercent} %`,
+    offer.savingPercent === null ? null : `${offer.savingPercent} % rabatt`,
   ]
     .filter(Boolean)
     .join(", ");
