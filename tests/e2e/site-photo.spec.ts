@@ -278,7 +278,7 @@ test("an empty freezer on Stugan gives the plain list, although Hemma's freezer 
   await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor$/);
   await photograph(page, "Fota");
 
-  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen");
+  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Förslag från fotot av frysen");
   // The plain list: six cards, and none of the groups of a compared photo.
   await expect(section(page).getByTestId("pantry-suggestion")).toHaveCount(6);
   for (const title of ["Nytt", "Ändrat", "Syns inte längre"]) {

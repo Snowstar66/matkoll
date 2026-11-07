@@ -7,6 +7,7 @@ import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import type { SearchFieldHandle } from "@/components/search-field";
 import { SwipeRow } from "@/components/swipe-row";
+import { TrashButton } from "@/components/trash-button";
 import { formatQuantity, type Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import { filterPantry, groupPantryByCategory, oldItemText, type PantryCategoryGroup } from "../domain/pantry-meta";
@@ -35,7 +36,7 @@ type RowNames = {
   meta: string | null;
   /** For screen readers only, after the two lines: the amount ("1 l") or the row's number when the name and the brand are both the same as another row's. */
   extra: string | undefined;
-  /** The swipe action's name: "Ta bort Mjölk", with the brand and the extra when the name is not enough. */
+  /** The bin's name: "Ta bort Mjölk" (the swipe action says "Svep bort Mjölk"), with the brand and the extra when the name is not enough. */
   removeLabel: string;
 };
 
@@ -85,9 +86,9 @@ function rowNames(items: readonly PantryItem[]): Map<string, RowNames> {
  * amount to the right when it has one ("4 st"); an item that has lain longer
  * than its location's limit (oldItemText) has a small sand label ("9 dagar").
  * A tap on a row opens the sheet Lagervara (needs a PantrySheetProvider
- * above). There is no bin: swiping the row to the left reveals "Ta bort"
- * (SwipeRow, also reached with Tab after the row), and the sheet has "Ta
- * bort" too; both remove at once and the confirmation offers "Ångra"
+ * above). A grey bin on the right of each row (UX-03) removes at once; swiping
+ * the row to the left reveals "Ta bort" as a shortcut (SwipeRow, also reached
+ * with Tab after the row), and the sheet has "Ta bort" too; all remove at once and the confirmation offers "Ångra"
  * (PantryRemovalProvider).
  *
  * Focus after "Ta bort" (EXPERIENCE.md) moves only for the keyboard or a
@@ -188,7 +189,7 @@ export function PantryList({ location, items, after }: PantryListProps) {
     return (
       <>
         <div ref={rootRef}>
-          <EmptyState action={<AddPantryItemButton variant="primary" />}>{emptyPlaceText(location)}</EmptyState>
+          <EmptyState action={<AddPantryItemButton variant="text" />}>{emptyPlaceText(location)}</EmptyState>
         </div>
         {after}
       </>
@@ -246,7 +247,7 @@ function CategoryGroup({
           const old = oldItemText(item, location, now);
           return (
             <li key={item.id}>
-              <SwipeRow actionLabel="Ta bort" actionName={removeLabel} onAction={(via) => onRemove(item, via === "keyboard")}>
+              <SwipeRow actionLabel="Ta bort" actionName={removeLabel.replace(/^Ta bort/, "Svep bort")} onAction={(via) => onRemove(item, via === "keyboard")}>
                 <ListRow
                   as="div"
                   plain
@@ -258,18 +259,17 @@ function CategoryGroup({
                   onPress={() => openItem(item)}
                   pressProps={{ "data-testid": "pantry-row", [itemAttribute]: item.id, "aria-haspopup": "dialog" }}
                   trailing={
-                    amount || old ? (
-                      // The amount to the right of the name, and when the item has lain too long a small sand label (Story 14.6).
-                      // "dagar" is hidden from nobody: the label is the text.
-                      <span className="flex items-center gap-2 pr-2">
-                        {amount ? <span className="text-[15px] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
-                        {old ? (
-                          <span className="rounded-full bg-sand px-2 py-0.5 text-badge text-sand-ink" data-testid="pantry-old">
-                            {old}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : undefined
+                    // The amount to the right of the name, and when the item has lain too long a small sand label (Story 14.6);
+                    // then the bin (UX-03), the same as on Inköpslista. "dagar" is hidden from nobody: the label is the text.
+                    <span className="flex items-center gap-2">
+                      {amount ? <span className="text-[15px] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
+                      {old ? (
+                        <span className="rounded-full bg-sand px-2 py-0.5 text-badge text-sand-ink" data-testid="pantry-old">
+                          {old}
+                        </span>
+                      ) : null}
+                      <TrashButton label={removeLabel} onPress={(_bin, press) => onRemove(item, !press.pointer)} />
+                    </span>
                   }
                 />
               </SwipeRow>

@@ -117,7 +117,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   expect(before.count).toBe(0);
   await addTicked(section(page));
   // The fridge's cards are all handled: the freezer's result, which waited, takes their place.
-  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen", { timeout: 10_000 });
+  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Förslag från fotot av frysen", { timeout: 10_000 });
   await expect(cards(page)).toHaveCount(6);
 
   // The fridge's job is closed, its photo is saved as the latest of the fridge, and the pantry has the six items.

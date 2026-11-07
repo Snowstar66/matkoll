@@ -20,6 +20,13 @@ describe("helpAreas", () => {
     }
   });
 
+  it("names no button or word the app no longer has (UX-30)", () => {
+    const all = JSON.stringify(helpAreas);
+    for (const gone of ["Lägg i Matvaror", "Svep en rad", "bredvid Att handla", "Tryck Kopiera till varukorgen", "Lagerförslag", "Fotografera"]) {
+      expect(all).not.toContain(gone);
+    }
+  });
+
   it("lets Konto take over Siri, the quick add, Boenden and who sees the data", () => {
     const konto = JSON.stringify(helpAreas.find((area) => area.id === "konto"));
     for (const fact of ["Använd med telefonen", "/lista/lagg-till", "Inställningar, Boenden", "syns bara för ditt hushåll och lagras i EU"]) expect(konto).toContain(fact);

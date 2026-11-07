@@ -76,7 +76,7 @@ async function photographDoor(page: Page) {
   const chooser = page.waitForEvent("filechooser");
   await camera(page).getByRole("button", { name: "Fota" }).click();
   await (await chooser).setFiles(door);
-  await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" })).toBeVisible();
+  await expect(section(page).getByRole("heading", { level: 2, name: "Förslag från fotot av kylen" })).toBeVisible();
 }
 
 test("labels are the rows' titles, a repeat is one row, and an unsure item starts unticked", async ({ page }) => {

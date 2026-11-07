@@ -140,7 +140,8 @@ describe("ShoppingList", () => {
     expect(within(row("c:gradde")).getByTestId("line-new")).toHaveTextContent("Ny");
     expect(within(row("c:gradde")).getByTestId("line-mark")).toHaveTextContent("M");
     expect(within(row("c:gradde")).getByText("ny, tillagd av Martina")).toBeInTheDocument();
-    expect(within(row("r:smor:st")).getByText("ny")).toBeInTheDocument();
+    // UX-01: my own planning's line is never "Ny", however new.
+    expect(within(row("r:smor:st")).queryByTestId("line-new")).toBeNull();
     // Exactly 48 h: no longer new.
     expect(within(row("r:mjolk:l")).queryByTestId("line-new")).toBeNull();
     // Ticked (in I korgen): no "Ny", however new.

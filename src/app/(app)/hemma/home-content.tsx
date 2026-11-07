@@ -5,7 +5,6 @@ import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import { photoTimeText, type PantryItem, type SelectedSite } from "@/features/pantry";
 import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
-import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
@@ -80,8 +79,6 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
           <LatestPhoto photo={(await photoRead)[0] ?? null} photos={await photoRead} location={location} />
         </PantryCamera>
         <PantrySuggestionList siteId={site.id} />
-        {/* With one place, the sheet Boenden is reached only from here (needs a SiteSwitch above). */}
-        {site.siteCount === 1 ? <AddSiteButton /> : null}
       </div>
     );
   }

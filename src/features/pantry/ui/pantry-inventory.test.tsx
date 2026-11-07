@@ -177,7 +177,7 @@ async function analyze(result: AnalyzeResult = fridge) {
   await act(async () => fakeAi.calls[sent].answer(ok(result)));
 }
 
-const section = () => screen.getByRole("region", { name: "Lagerförslag från kylen" });
+const section = () => screen.getByRole("region", { name: "Förslag från fotot av kylen" });
 const button = (name: string) => within(section()).getByRole("button", { name });
 const toast = () => screen.getByTestId("toast");
 const cameraButton = () => within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Fota" });
@@ -227,7 +227,7 @@ describe("the groups", () => {
   it("shows one list of rows and Syns inte längre, counts the unchanged ones, and saves nothing", async () => {
     render(<Hemma />);
     await analyze();
-    expect(within(section()).getByRole("heading", { level: 2 })).toHaveTextContent("Lagerförslag från kylen");
+    expect(within(section()).getByRole("heading", { level: 2 })).toHaveTextContent("Förslag från fotot av kylen");
     expect(within(section()).getByText("2 varor stämmer med matvarorna.")).toBeInTheDocument();
     expect(rowNames()).toEqual(["grädde", "gurka", "ketchup", "mjölk"]);
     expect(within(section()).queryByRole("heading", { name: "Nytt" })).toBeNull();

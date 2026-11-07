@@ -13,6 +13,16 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-07",
+    title: "Lugnare listor och samma soptunna överallt",
+    bullets: [
+      "Ta bort ser nu likadant ut i Matvaror, Inköpslista och Matsedel: en grå soptunna på raden, med Ångra en stund. Att svepa fungerar fortfarande som genväg.",
+      "På Inköpslistan visas Ny bara på det någon annan i hushållet lagt dit, och veckovalet ligger i kortet med antal varor kvar.",
+      "Flytta till dag på Matsedel heter nu efter rätten, visar datum och vad som redan ligger på dagen, och döljer dagar som gått.",
+      "Vad kan jag laga nu? säger tydligt när inget recept kan lagas helt, och en tom Matvaror visar bara Fota och Lägg till vara.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Lugnare Förråd, rundtur och inbjudan",
     bullets: [
       "I Förrådet är kategorierna öppna från början i ett litet rum, med samma rubriker som i Matvaror. Knappen heter nu Lägg till rum.",

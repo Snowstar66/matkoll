@@ -156,7 +156,7 @@ test("ticking, correcting, Inte en vara and Lägg till save only what Pontus cho
   await expect(sheet(page).getByRole("button", { name: "Ligger i Kyl · Flytta" })).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Inte en vara" })).toBeVisible();
   await sheet(page).getByRole("button", { name: "Byt vara" }).click();
-  await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("Matlagningsgrädde");
+  await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("Matlagningsgrädde");
   // New on a first run; already in the catalog on a retry.
   await sheet(page)
     .getByRole("button", { name: "Lägg till Matlagningsgrädde som ny" })

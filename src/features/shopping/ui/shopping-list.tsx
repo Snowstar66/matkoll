@@ -203,6 +203,8 @@ export type ShoppingListProps = {
   addedAt?: LineAddedAt;
   /** The server's now (ISO 8601) that "Ny" is counted against; without it no line is new. */
   now?: string | null;
+  /** UX-36: the quiet week choice ("Denna vecka ⌄"); it sits in the progress card, or alone above an empty list. */
+  weekMenu?: ReactNode;
 };
 
 /** How long an announcement stays in the live region before it is cleared. */
@@ -674,6 +676,7 @@ export function ShoppingList({
   marks = noMarks,
   addedAt = noAddedAt,
   now = null,
+  weekMenu = null,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
@@ -940,7 +943,8 @@ export function ShoppingList({
       checkingOff={checksUnavailable}
       ignoredTap={ignored?.key === line.key ? ignored.id : null}
       mark={shownMark(line, marks)}
-      isNew={now !== null && isNewLine(line, addedAt, now)}
+      // UX-01: "Ny" only on what someone else added; never on a line from my own planning or my own items.
+      isNew={now !== null && !line.checked && shownMark(line, marks)?.kind === "added" && isNewLine(line, addedAt, now)}
     />
   );
 
@@ -1025,6 +1029,7 @@ export function ShoppingList({
         </Notice>
       ) : null}
       <CustomItemSheet open={sheet.open} session={sheet.session} searchIngredients={searchIngredients} onClose={closeSheet} />
+      {!hasLines && weekMenu ? <div className="flex">{weekMenu}</div> : null}
       {plan === null && !hasLines ? (
         <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
       ) : (
@@ -1039,7 +1044,7 @@ export function ShoppingList({
           ) : (
             <div data-list-lines className="flex flex-col gap-4">
               {/* The progress is the whole list's, whatever the filter shows. */}
-              <ProgressRow left={itemsLeft(lines)} checked={lines.filter((line) => line.checked).length} total={lines.length} />
+              <ProgressRow left={itemsLeft(lines)} checked={lines.filter((line) => line.checked).length} total={lines.length} weekMenu={weekMenu} />
               <ListFilterChips filter={filter} onChange={changeFilter} lines={lines} />
               {filter !== null && groups.length === 0 ? (
                 <EmptyState className="py-8">{filterEmptyText(filter, inBasket.length > 0)}</EmptyState>
@@ -1195,21 +1200,25 @@ function ListActions({
  * when everything is checked off. The meter is hidden from screen readers:
  * the text says the same.
  */
-function ProgressRow({ left, checked, total }: { left: number; checked: number; total: number }) {
+function ProgressRow({ left, checked, total, weekMenu }: { left: number; checked: number; total: number; weekMenu?: ReactNode }) {
   const text = progressText(left, checked, total);
   return (
-    <div data-testid="list-progress" className="flex flex-col gap-3 rounded-lg bg-surface p-4">
-      {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}
-      <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-row-title font-semibold text-ink">{text.left}</span>
-        {text.basket ? (
-          <>
-            {" "}
-            <span className="text-meta text-ink-2">{text.basket}</span>
-          </>
-        ) : null}
-      </p>
-      <Meter value={total === 0 ? 0 : checked / total} />
+    <div className="flex flex-col gap-3 rounded-lg bg-surface p-4">
+      {/* UX-36: the week choice is the card's first line, so the page has one heading less. */}
+      {weekMenu ? <div className="-mb-1 flex">{weekMenu}</div> : null}
+      <div data-testid="list-progress" className="flex flex-col gap-3">
+        {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}
+        <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span className="text-row-title font-semibold text-ink">{text.left}</span>
+          {text.basket ? (
+            <>
+              {" "}
+              <span className="text-meta text-ink-2">{text.basket}</span>
+            </>
+          ) : null}
+        </p>
+        <Meter value={total === 0 ? 0 : checked / total} />
+      </div>
     </div>
   );
 }

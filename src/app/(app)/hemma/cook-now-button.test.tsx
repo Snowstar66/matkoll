@@ -8,7 +8,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import { CookNowButton, cookNowReuseMs, resetCookNowKept, type CookNowData } from "./cook-now-button";
 
-// "Vad kan jag laga nu?" (Story 25.2): the card and the sheet "Kan lagas nu",
+// "Vad kan jag laga nu?" (Story 25.2): the card and the sheet "Vad kan jag laga nu?",
 // with the real AI jobs client against a stand-in server; readCookNow and
 // saveRecipe are stubbed.
 
@@ -113,9 +113,9 @@ describe("CookNowButton", () => {
     expect(card()).toHaveTextContent("Med det du har i kyl, frys och skafferi");
     expect(screen.queryByTestId("cook-now-sheet")).toBeNull();
     await userEvent.setup().click(card());
-    expect(await screen.findByRole("dialog", { name: "Kan lagas nu" })).toBeVisible();
+    expect(await screen.findByRole("dialog", { name: "Vad kan jag laga nu?" })).toBeVisible();
     expect(push).not.toHaveBeenCalled();
-    expect(screen.getByText("Allt finns hemma. Basvaror räknas som hemma.")).toBeVisible();
+    expect(screen.getByText("Idéer med det du har hemma. Basvaror räknas som hemma.")).toBeVisible();
   });
 });
 
@@ -413,7 +413,7 @@ describe("the sheet Kan lagas nu", () => {
     await screen.findByTestId("cook-now-loading");
     server.failJob(server.latest.id, "ai_invalid");
     await server.read();
-    expect(await screen.findByText("Inget går att laga med bara det du har just nu.")).toBeVisible();
+    expect(await screen.findByText("Inget av dina recept kan lagas helt just nu.")).toBeVisible();
     expect(screen.queryByTestId("cook-now-tip")).toBeNull();
   });
 });

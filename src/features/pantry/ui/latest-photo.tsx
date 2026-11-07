@@ -18,7 +18,6 @@ import {
   latestPhotoOpenLabel,
   latestPhotoOpenText,
   latestPhotoText,
-  noPhotoText,
   photoOfLabel,
   photoReadingHeading,
   photoTimeText,
@@ -221,11 +220,7 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
             {latestPhotoOpenText}
           </button>
         </div>
-      ) : (
-        <p data-testid="pantry-no-photo" className="text-meta text-ink-2">
-          {noPhotoText}
-        </p>
-      )}
+      ) : null /* UX-17: no row at all without a photo, no "Inget foto än" */}
       {all.length >= 2 ? (
         <div className="-mt-1 flex">
           <button

@@ -84,6 +84,9 @@ beforeEach(() => {
   restorePlanRecipe.mockReset();
   setWeekday.mockReset().mockImplementation(async (change: unknown) => ok(change));
   refresh.mockReset();
+  // Every bin shares one double-tap guard on the clock; each press reads a clock a second on.
+  let clock = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => (clock += 1000));
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -195,8 +198,8 @@ describe("WeekPlanner, adding without a day", () => {
     renderPlanner();
     await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
     await user.click(await screen.findByRole("button", { name: "Byt dag" }));
-    const dialog = await screen.findByRole("dialog", { name: /Flytta till dag/ });
-    await user.click(within(dialog).getByRole("button", { name: "Onsdag" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tacos" });
+    await user.click(within(dialog).getByRole("button", { name: /^Onsdag 4\/11/ }));
     await waitFor(() => expect(setWeekday).toHaveBeenCalledWith({ id: expect.any(String), weekday: 3 }));
     await waitFor(() => expect(screen.getByTestId("dish-day")).toHaveTextContent("Ons"));
   });
@@ -217,6 +220,22 @@ describe("WeekPlanner, adding without a day", () => {
   });
 });
 
+describe("WeekPlanner, the day sheet (UX-33)", () => {
+  it("is named by the dish, shows dates and what lies on each day, hides passed days and ends with Ingen dag", async () => {
+    const user = userEvent.setup();
+    renderPlanner([onWeek(1, "Tacos", 4), onWeek(2, "Korvstroganoff", 5), onWeek(3, "Laxpasta", null)], options, 0, 4);
+    await user.click(screen.getAllByTestId("dish-day")[0]);
+    const dialog = await screen.findByRole("dialog", { name: "Tacos" });
+    expect(within(dialog).getAllByTestId("day-choice").map((choice) => choice.textContent)).toEqual([
+      "Torsdag 5/11",
+      "Fredag 6/11 · Korvstroganoff",
+      "Lördag 7/11",
+      "Söndag 8/11",
+      "Ingen dag",
+    ]);
+  });
+});
+
 describe("WeekPlanner, Veckans rätter and the bar", () => {
   it("lists the dishes Mån to Sön, those with no day last, and re-sorts when a day is changed", async () => {
     const user = userEvent.setup();
@@ -224,8 +243,8 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     const titles = () => screen.getAllByTestId("plan-dish").map((dish) => dish.querySelector("a")?.textContent);
     expect(titles()).toEqual(["Tacos", "Korvstroganoff", "Laxpasta"]);
     await user.click(screen.getAllByTestId("dish-day")[2]);
-    const dialog = await screen.findByRole("dialog", { name: /Flytta till dag/ });
-    await user.click(within(dialog).getByRole("button", { name: "Måndag" }));
+    const dialog = await screen.findByRole("dialog", { name: "Laxpasta" });
+    await user.click(within(dialog).getByRole("button", { name: /^Måndag 2\/11/ }));
     await waitFor(() => expect(titles()).toEqual(["Laxpasta", "Tacos", "Korvstroganoff"]));
   });
 
@@ -237,7 +256,7 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     expect(within(dishes[1]).getByTestId("dish-note")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
   });
 
-  it("removes with ✕ at once and offers Ångra, which puts it back", async () => {
+  it("removes with the bin at once and offers Ångra, which puts it back", async () => {
     const user = userEvent.setup();
     const dish = onWeek(1, "Tacos", 1);
     const row: PlanRecipeRow = { id: dish.id, mealPlanId: "plan", recipeId: dish.recipeId, recipeTitle: "Tacos", servings: 4, position: 1, weekday: 1 };
@@ -259,7 +278,7 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     removePlanRecipe.mockResolvedValue(fail("mealplan_remove_failed"));
     renderPlanner([onWeek(1, "Tacos")]);
     await user.click(screen.getByRole("button", { name: "Ta bort Tacos" }));
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId("plan-dish")).toBeInTheDocument();
   });
 

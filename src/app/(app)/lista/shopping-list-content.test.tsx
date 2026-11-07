@@ -110,7 +110,7 @@ describe("ShoppingListContent", () => {
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
   });
 
-  it("shows one list, Att handla, with the week as a quiet menu, and a week without dishes offers to plan it", async () => {
+  it("shows one list with the week as a quiet menu, and a week without dishes offers to plan it", async () => {
     const now = new Date();
     const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
     const thisWeek = currentWeekStart(now);
@@ -122,7 +122,8 @@ describe("ShoppingListContent", () => {
     const { unmount } = render(
       <ToastProvider>{await ShoppingListContent({ searchParams: Promise.resolve({ vecka: weekParam(nextWeek) }) })}</ToastProvider>,
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Att handla" })).toBeInTheDocument();
+    // UX-36: no second heading above the list.
+    expect(screen.queryByRole("heading", { level: 2, name: "Att handla" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("week-nav")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Vecka: Nästa vecka, inga rätter" })).toBeInTheDocument();
     expect(getShoppingList).toHaveBeenLastCalledWith(nextWeek);

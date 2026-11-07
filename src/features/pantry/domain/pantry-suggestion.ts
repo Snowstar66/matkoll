@@ -494,9 +494,9 @@ export function cameraButtonText(_location?: Location): string {
 /** The discreet link under "Fota" that opens the photo library, the same as in Förråd. */
 export const albumLinkText = "Välj från album";
 
-/** The section's heading: "Lagerförslag från kylen". */
+/** The section's heading: "Förslag från fotot av kylen". */
 export function suggestionsHeading(location: Location): string {
-  return `Lagerförslag från ${definite[location]}`;
+  return `Förslag från fotot av ${definite[location]}`;
 }
 
 /** The photo the suggestions were read from, during review: "Fotot av kylen". */

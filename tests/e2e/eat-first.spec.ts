@@ -110,7 +110,7 @@ test("Vad kan jag laga nu? opens the sheet in place with a library recipe that i
   await page.goto("/hemma");
   await card(page).click();
   await expect(page).toHaveURL(/\/hemma/);
-  await expect(page.getByRole("dialog", { name: "Kan lagas nu" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Vad kan jag laga nu?" })).toBeVisible();
   const own = page.getByTestId("cook-now-own").filter({ hasText: "Linssoppa" });
   await expect(own).toBeVisible();
   await expect(own).toContainText("Allt hemma");

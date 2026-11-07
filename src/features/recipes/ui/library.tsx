@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { cx } from "@/components/cx";
 import { clearSearchText, EmptyState, noMatchText } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
@@ -282,7 +283,18 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
       </EmptyState>
     );
   } else if (cookable && !statusUnavailable && inCategory.length > 0) {
-    content = <EmptyState>Inget kan lagas helt just nu.</EmptyState>;
+    // UX-16: one sentence and the next step, which lives on Matvaror.
+    content = (
+      <EmptyState
+        action={
+          <Link href="/hemma" className={buttonClasses("text")}>
+            Vad kan jag laga nu?
+          </Link>
+        }
+      >
+        Inget kan lagas helt just nu.
+      </EmptyState>
+    );
   } else if (search.kind === "done") {
     content = (
       <EmptyState

@@ -193,7 +193,7 @@ test("adding an item in Matvaror makes another recipe cookable", async ({ page }
   await tab(page, "Matvaror").click();
   await expect(page).toHaveURL(/\/hemma$/);
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
-  await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("torsk");
+  await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("torsk");
   await sheet(page).getByRole("button", { name: /^torsk$/i }).click();
   await sheet(page).getByLabel("Mängd").fill("400");
   await chooseUnit(sheet(page), "g");

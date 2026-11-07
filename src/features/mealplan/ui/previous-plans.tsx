@@ -18,7 +18,7 @@ export function PreviousPlans({ plans }: PreviousPlansProps) {
   return (
     <div className="flex flex-col gap-4">
       {plans.length === 0 ? (
-        <EmptyState>Inga tidigare matsedlar än.</EmptyState>
+        <EmptyState hint="Veckor du planerat hamnar här.">Inga tidigare matsedlar än.</EmptyState>
       ) : (
         <ul aria-label="Tidigare matsedlar" className="flex flex-col gap-3">
           {plans.map((plan) => (
