@@ -116,7 +116,7 @@ describe("RecipeView", () => {
     render(<RecipeView recipe={{ ...recipe, offerNames: ["Falukorv", "Grädde"] }} snapshot={allHome} />);
     // UX-13b: "Krämig kycklinggryta" is drawn as a pot on the clay plate.
     expect(screen.getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "gryta");
-    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-tile-clay");
+    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-mint");
     expect(screen.getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     expect(screen.getByTestId("recipe-offers")).toHaveTextContent("Sparad från veckans erbjudanden: Falukorv, Grädde");
   });

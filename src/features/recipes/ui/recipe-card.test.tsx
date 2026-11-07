@@ -93,7 +93,7 @@ describe("RecipeCard", () => {
   it("shows a drawing of the dish as tall as a photo, with the badge, when the recipe has no image", () => {
     const { card } = renderCard({ imageUrl: null, dish: "fisk" });
     const placeholder = within(card).getByTestId("recipe-image-placeholder").parentElement!;
-    expect(placeholder).toHaveClass("bg-sky", "h-card-image");
+    expect(placeholder).toHaveClass("bg-mint", "h-card-image");
     expect(within(card).getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "fisk");
     expect(placeholder).not.toHaveClass("h-16");
     expect(within(card).getByText("Kan lagas nu")).toBeInTheDocument();

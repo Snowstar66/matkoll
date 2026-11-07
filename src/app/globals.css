@@ -17,8 +17,8 @@
   /* Tracks and field fills inside a sheet: ink at about 6 % (8 % in dark mode). */
   --fill: #EAEDEB;
   --ink: #1B2420;
-  --ink-2: #56635D;
-  --ink-3: #6B7872;
+  --ink-2: #4A5650;
+  --ink-3: #59665F;
   --hairline: #E8ECE9;
   --border: #DCE2DE;
   --accent: #3E7C62;
@@ -205,8 +205,8 @@
     --surface-2: #202622;
     --fill: #242927;
     --ink: #E6EBE8;
-    --ink-2: #A3AFA9;
-    --ink-3: #86928C;
+    --ink-2: #B6C1BB;
+    --ink-3: #9AA6A0;
     --hairline: #262D29;
     --border: #313934;
     --accent: #6FB394;

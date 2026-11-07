@@ -22,6 +22,14 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-07",
+    title: "Tydligare text och grönare bilder",
+    bullets: [
+      "Den grå texten i hela appen är ett snäpp mörkare, så den är lättare att läsa.",
+      "De tecknade rätterna står på appens mintgröna platta.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Fota eller klistra in en inköpslista",
     bullets: [
       "I Lägg till vara (+ i rubriken på Inköpslista) finns nu Fota en lista: ta en bild av en handskriven lapp, eller välj en skärmdump från till exempel Microsoft To Do.",
