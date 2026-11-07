@@ -1,9 +1,9 @@
 import type { PantryItem } from "./pantry-item";
 import { daysSinceAdded, oldLimitDays } from "./pantry-meta";
 
-// "Ät det här först" (Story 16.13): the items that have lain longer than the
-// limit of their location (Story 14.6: 7 days Kyl, 60 days Frys, none for
-// Skafferi), one entry per catalog ingredient, the oldest first. Pure, so it
+// "Ät det här först" (Story 16.13) and "Ät snart": the items that have reached
+// their limit (oldLimitDays: the ingredient's own days in Kyl, else 7; 60 days
+// Frys; none for Skafferi), one entry per catalog ingredient, the oldest first. Pure, so it
 // is tested with a fixed `now`. The suggestions and the row in Matvaror both
 // read it.
 
@@ -14,16 +14,16 @@ export type OldPantryItem = { ingredientId: string; name: string; days: number }
 export const maxOldItems = 8;
 
 /**
- * The old items among `items`: those past their location's limit, merged per
+ * The old items among `items`: those that have reached their limit (due today or overdue), merged per
  * ingredient (the oldest row counts), sorted oldest first and then by name.
  */
-export function oldPantryItems(items: readonly Pick<PantryItem, "ingredientId" | "name" | "location" | "createdAt">[], now: Date): OldPantryItem[] {
+export function oldPantryItems(items: readonly Pick<PantryItem, "ingredientId" | "name" | "location" | "createdAt" | "keepsDays">[], now: Date): OldPantryItem[] {
   const byIngredient = new Map<string, OldPantryItem>();
   for (const item of items) {
-    const limit = oldLimitDays(item.location);
+    const limit = oldLimitDays(item.location, item.keepsDays);
     if (limit === null || !item.createdAt) continue;
     const days = daysSinceAdded(item.createdAt, now);
-    if (days === null || days <= limit) continue;
+    if (days === null || days < limit) continue;
     const known = byIngredient.get(item.ingredientId);
     if (!known || days > known.days) byIngredient.set(item.ingredientId, { ingredientId: item.ingredientId, name: item.name, days });
   }
@@ -37,6 +37,7 @@ export function eatFirstTipText(name: string, days: number): string {
 
 /** How long, as the reason line says it: "en vecka", "3 veckor", "2 månader". */
 export function lainText(days: number): string {
+  if (days < 7) return days <= 1 ? "en dag" : `${days} dagar`;
   if (days < 14) return "en vecka";
   if (days < 60) return `${Math.floor(days / 7)} veckor`;
   return `${Math.floor(days / 30)} månader`;

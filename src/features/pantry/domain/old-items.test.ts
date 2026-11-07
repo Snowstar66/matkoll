@@ -5,15 +5,16 @@ import { eatFirstTipText, lainText, oldPantryItems, usesOldText } from "./old-it
 const now = new Date("2026-10-27T09:00:00Z");
 
 const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
-const row = (name: string, location: "Kyl" | "Frys" | "Skafferi", days: number | null, ingredientId = name) => ({
+const row = (name: string, location: "Kyl" | "Frys" | "Skafferi", days: number | null, ingredientId = name, keepsDays: number | null = null) => ({
   ingredientId,
   name,
   location,
   createdAt: days === null ? null : daysAgo(days),
+  keepsDays,
 });
 
 describe("oldPantryItems", () => {
-  it("takes the items past the limit of their location, oldest first", () => {
+  it("takes the items that reached the limit of their location, oldest first", () => {
     const old = oldPantryItems(
       [
         row("mjölk", "Kyl", 3),
@@ -33,9 +34,32 @@ describe("oldPantryItems", () => {
     ]);
   });
 
-  it("an item at exactly the limit is not old, one day past it is", () => {
-    expect(oldPantryItems([row("a", "Kyl", 7)], now)).toEqual([]);
+  it("an item is due on its last day: one day before the limit is not old, the limit and after are", () => {
+    expect(oldPantryItems([row("a", "Kyl", 6)], now)).toEqual([]);
+    expect(oldPantryItems([row("a", "Kyl", 7)], now)).toHaveLength(1);
     expect(oldPantryItems([row("a", "Kyl", 8)], now)).toHaveLength(1);
+  });
+
+  it("follows each ingredient's own shelf life in Kyl", () => {
+    const old = oldPantryItems(
+      [
+        row("köttfärs", "Kyl", 2, "farce", 2),
+        row("grädde", "Kyl", 4, "cream", 5),
+        row("hårdost", "Kyl", 9, "cheese", 30),
+        row("mjölk", "Kyl", 7, "milk", 7),
+        row("fisk i frysen", "Frys", 3, "fish", 2),
+      ],
+      now,
+    );
+    expect(old).toEqual([
+      { ingredientId: "milk", name: "mjölk", days: 7 },
+      { ingredientId: "farce", name: "köttfärs", days: 2 },
+    ]);
+  });
+
+  it("a row of the same ingredient with a shorter limit makes it due", () => {
+    const old = oldPantryItems([row("köttfärs", "Kyl", 2, "farce", 2), row("köttfärs", "Kyl", 1, "farce", 2)], now);
+    expect(old).toEqual([{ ingredientId: "farce", name: "köttfärs", days: 2 }]);
   });
 
   it("merges rows of one ingredient and keeps the oldest", () => {
@@ -56,6 +80,8 @@ describe("texts", () => {
   });
 
   it("says how long in weeks and months", () => {
+    expect(lainText(1)).toBe("en dag");
+    expect(lainText(2)).toBe("2 dagar");
     expect(lainText(9)).toBe("en vecka");
     expect(lainText(13)).toBe("en vecka");
     expect(lainText(21)).toBe("3 veckor");

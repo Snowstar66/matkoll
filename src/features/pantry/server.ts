@@ -14,6 +14,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { placePhotosNeedSweepIn } from "./actions/photo-sweep";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
+import { listOldCandidatesIn } from "./data/old";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
 import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFileExists } from "./data/photos";
@@ -134,6 +135,16 @@ export async function listPantry(location: Location, siteId?: string): Promise<P
 export async function listOldPantryItems(siteId?: string, now: Date = new Date()): Promise<OldPantryItem[]> {
   const [fridge, freezer] = await Promise.all([listPantry("Kyl", siteId), listPantry("Frys", siteId)]);
   return oldPantryItems([...fridge, ...freezer], now);
+}
+
+/**
+ * "Ät snart" for the whole household (the daily push, POST /api/eat-soon/notify):
+ * the items in Kyl and Frys over all places that are due today or overdue, one
+ * per ingredient, the oldest first. Runs as the signed-in member. Throws
+ * PantryDataError.
+ */
+export async function listHouseholdOldItems(now: Date = new Date()): Promise<OldPantryItem[]> {
+  return oldPantryItems(await listOldCandidatesIn(await createClient(), getIngredientSummaries), now);
 }
 
 /**

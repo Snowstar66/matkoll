@@ -10,6 +10,7 @@ import {
   pushKinds,
   pushMaxWaitSeconds,
   type PushMessage,
+  eatSoonMessage,
   pushMessageFor,
   pushQuietSeconds,
 } from "./push-message";
@@ -121,6 +122,35 @@ export async function flushPushBatchesIn(
   const gone = outcomes.filter((entry) => entry.outcome === "gone").map((entry) => entry.target.endpoint);
   const dropped = await dropSubscriptionsIn(db, gone);
   return {
+    sent: outcomes.filter((entry) => entry.outcome === "sent").length,
+    failed: outcomes.filter((entry) => entry.outcome === "failed").length,
+    dropped,
+  };
+}
+
+export type EatSoonResult = { devices: number; sent: number; failed: number; dropped: number };
+
+/**
+ * The daily "Ät snart" (a scheduled job's request, as a member): sends one
+ * notification about `names` (the household's due items) to every device of the
+ * members who want it (eat_soon_devices). Nothing due, or no device, sends
+ * nothing. A device the push service says is gone is removed. Not part of the
+ * queue. Throws PushSendError. Only counts are returned.
+ */
+export async function sendEatSoonIn(db: Db, names: readonly string[], send: SendPush, appTitle: string): Promise<EatSoonResult> {
+  const message = eatSoonMessage(names, appTitle);
+  if (!message) return { devices: 0, sent: 0, failed: 0, dropped: 0 };
+  const { data, error } = await db.rpc("eat_soon_devices");
+  if (error) throw new PushSendError(`devices_failed ${error.code}`);
+  // A target carries a batch for the sender's type; this kind has none of the queue's content.
+  const batch: PushBatch = { kind: "lista", count: names.length, actorName: null, noteText: null };
+  const outcomes = await Promise.all(
+    data.map(async (device) => ({ endpoint: device.endpoint, outcome: await send({ endpoint: device.endpoint, p256dh: device.p256dh, auth: device.auth, batch }, message) })),
+  );
+  const gone = outcomes.filter((entry) => entry.outcome === "gone").map((entry) => entry.endpoint);
+  const dropped = await dropSubscriptionsIn(db, gone);
+  return {
+    devices: data.length,
     sent: outcomes.filter((entry) => entry.outcome === "sent").length,
     failed: outcomes.filter((entry) => entry.outcome === "failed").length,
     dropped,

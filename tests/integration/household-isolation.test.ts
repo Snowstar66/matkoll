@@ -951,8 +951,10 @@ describe("household isolation", () => {
       "reset_household_staples",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).
       "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
+      // Ät snart: the caller's own household's devices that want the daily push (eat-soon.test.ts tries it).
+      "eat_soon_devices",
       // Pure functions of their arguments.
-      "catalog_display_name", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
+      "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
 
     /** What B is calling, with A's ids. */

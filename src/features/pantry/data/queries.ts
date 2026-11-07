@@ -152,6 +152,7 @@ export async function listPantryIn(
       label: readableLabel(row.label),
       createdAt: row.created_at,
       section: summary.section,
+      keepsDays: summary.keepsDays ?? null,
       lastChange: lastChangeOf(others, row),
     };
   });

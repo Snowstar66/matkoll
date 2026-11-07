@@ -42,7 +42,7 @@ const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">):
   amount: null,
   unit: null,
   label: null,
-  createdAt: "2026-10-20T10:00:00+00:00",
+  createdAt: "2026-10-21T10:00:00+00:00",
   section: "Mejeri",
   ...overrides,
 });
@@ -107,7 +107,7 @@ describe("PantryList", () => {
     expect(screen.getAllByTestId("pantry-amount").map((amount) => amount.textContent)).toEqual(["3 dl", "1 l", "6 st", "500 g"]);
     expect(screen.queryByText(/Tillagd|Med mängd|Finns hemma/)).toBeNull();
     expect(screen.queryByTestId("pantry-tag")).toBeNull();
-    // 6 days in Kyl is within the limit of 7: no "dagar" label.
+    // Under 7 days in Kyl is within the limit: no "dagar" label.
     expect(screen.queryByTestId("pantry-old")).toBeNull();
   });
 

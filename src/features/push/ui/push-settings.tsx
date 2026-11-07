@@ -8,7 +8,7 @@ import { Notice } from "@/components/notice";
 import { errorMessages } from "@/lib/errors";
 import { platformNow, platformOnServer, platformSubscribe, type Platform } from "@/features/settings";
 import { savePushPreferences, subscribePush, unsubscribePush } from "../actions/push";
-import type { PushKind } from "@/lib/push-message";
+import type { PushPreferenceKind } from "@/lib/push-message";
 import { pushChoices, type PushPreferences } from "../domain/push";
 import { currentSubscription, notificationPermission, pushSupported, subscribeThisDevice, unsubscribeThisDevice } from "./push-client";
 
@@ -78,7 +78,7 @@ export function PushSettings({ publicKey, preferences }: PushSettingsProps) {
     });
   }
 
-  function choose(kind: PushKind, value: boolean) {
+  function choose(kind: PushPreferenceKind, value: boolean) {
     const next = { ...choices, [kind]: value };
     setChoices(next);
     startTransition(async () => {

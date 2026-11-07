@@ -251,14 +251,14 @@ isOneToOne: false
                   ]
                 },"ingredient": {
                   Row: {
-                    "created_at": string,"default_unit": string | null,"household_id": string,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string | null
+                    "created_at": string,"default_unit": string | null,"household_id": string,"id": string,"keeps_days": number | null,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"default_unit"?: string | null,"household_id"?: string,"id"?: string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id"?: string | null
+                    "created_at"?: string,"default_unit"?: string | null,"household_id"?: string,"id"?: string,"keeps_days"?: number | null,"location": string,"name": string,"normalized_name": string,"section": string,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"default_unit"?: string | null,"household_id"?: string,"id"?: string,"location"?: string,"name"?: string,"normalized_name"?: string,"section"?: string,"user_id"?: string | null
+                    "created_at"?: string,"default_unit"?: string | null,"household_id"?: string,"id"?: string,"keeps_days"?: number | null,"location"?: string,"name"?: string,"normalized_name"?: string,"section"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -533,14 +533,14 @@ isOneToOne: false
                   ]
                 },"push_preference": {
                   Row: {
-                    "created_at": string,"forrad": boolean,"id": string,"lappar": boolean,"lista": boolean,"matsedel": boolean,"user_id": string
+                    "atsnart": boolean,"created_at": string,"forrad": boolean,"id": string,"lappar": boolean,"lista": boolean,"matsedel": boolean,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
+                    "atsnart"?: boolean,"created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
+                    "atsnart"?: boolean,"created_at"?: string,"forrad"?: boolean,"id"?: string,"lappar"?: boolean,"lista"?: boolean,"matsedel"?: boolean,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -1129,6 +1129,11 @@ isOneToOne: false
 "drop_push_subscriptions":
 { Args: { "endpoints": (string)[] }; Returns: number
                            },
+"eat_soon_devices":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "auth": string,"endpoint": string,"p256dh": string,"user_id": string
+            }[]
+                           },
 "empty_pantry_place":
 { Args: { "operation_id": string,"place": string,"site"?: string }; Returns: Json
                            },
@@ -1203,6 +1208,9 @@ isOneToOne: false
                            },
 "household_staple_seed":
 { Args: { "hid": string }; Returns: undefined
+                           },
+"ingredient_keeps_days":
+{ Args: { "normalized_name": string }; Returns: number
                            },
 "is_app_owner":
 { Args: Record<PropertyKey, never>; Returns: boolean

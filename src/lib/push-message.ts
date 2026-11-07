@@ -6,6 +6,9 @@
 export const pushKinds = ["lista", "forrad", "matsedel", "lappar"] as const;
 export type PushKind = (typeof pushKinds)[number];
 
+/** The choices a person can make: the queue's kinds and the daily "Ät snart", which is not queued (see eatSoonMessage). */
+export type PushPreferenceKind = PushKind | "atsnart";
+
 /** One notification as the service worker shows it. */
 export type PushMessage = { title: string; body: string; url: string; tag: string };
 
@@ -41,3 +44,29 @@ export function pushMessageFor(batch: PushBatch, appTitle: string): PushMessage 
 export const pushQuietSeconds = 120;
 /** The longest a change waits, however many follow it, in seconds. */
 export const pushMaxWaitSeconds = 300;
+
+/** How many names the "Ät snart" notification lists before it says "och N till". */
+const eatSoonNames = 3;
+
+/** "Köttfärs", "Grädde och köttfärs", "Grädde, köttfärs och 2 till": the first name keeps its capital, the others are lower case. */
+function eatSoonList(names: readonly string[]): string {
+  const clean = names.map((name) => name.trim()).filter(Boolean);
+  const shown = clean.slice(0, eatSoonNames).map((name, index) => (index === 0 ? name : name.toLocaleLowerCase("sv-SE")));
+  const rest = clean.length - shown.length;
+  const parts = rest > 0 ? [...shown, `${rest} till`] : shown;
+  if (parts.length <= 1) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} och ${parts[parts.length - 1]}`;
+}
+
+/**
+ * The daily "Ät snart" notification for the household's items that are due
+ * today or overdue: "Köttfärs bör användas idag", "Grädde och köttfärs bör
+ * användas snart". `names` are catalog names, oldest first; none gives no
+ * notification (`null`). Tapping it opens Matvaror.
+ */
+export function eatSoonMessage(names: readonly string[], appTitle: string): PushMessage | null {
+  const list = eatSoonList(names);
+  if (!list) return null;
+  const count = names.filter((name) => name.trim()).length;
+  return { title: appTitle, body: count === 1 ? `${list} bör användas idag` : `${list} bör användas snart`, url: "/hemma", tag: "atsnart" };
+}
