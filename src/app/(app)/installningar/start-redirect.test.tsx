@@ -14,7 +14,7 @@ describe("StartRedirect (Story 14.7)", () => {
   it("sends an old anchor to the page that holds it", () => {
     window.location.hash = "#spara-i-matkoll";
     render(<StartRedirect />);
-    expect(replace).toHaveBeenCalledWith("/installningar/spara-i-matkoll");
+    expect(replace).toHaveBeenCalledWith("/installningar/telefon");
   });
 
   it("does nothing without an anchor, or with an unknown one", () => {

@@ -9,13 +9,17 @@ import { errorMessages } from "@/lib/errors";
 import { createApiKey, revokeApiKey } from "../actions/api-keys";
 import { type ApiKeyView, keyDateText, keyStatusText, maxApiKeys, quickAddUrl } from "../domain/api-key";
 import { appName } from "@/app/app-info";
+import { siriShortcutUrl } from "../domain/phone-shortcuts";
+import { AddShortcutButton, BuildItYourself, cardClass } from "./shortcut-parts";
+
+const siriPhrase = "Inköpslistan";
 
 const noSubscription = () => () => {};
 const originNow = () => window.location.origin;
 const originOnServer = () => null;
 
 /**
- * "Siri och genvägar" (Story 17.9): the personal keys with "Återkalla", "Skapa nyckel", and,
+ * "Lägg till varor med Siri" (Story 17.9): the personal keys with "Återkalla", "Skapa nyckel", and,
  * once a key is made, the key itself with "Kopiera" and the guide for the iOS shortcut. The key is
  * kept in this component's state only: it is shown this once and is not stored anywhere readable.
  */
@@ -61,47 +65,70 @@ export function ApiKeys({ keys }: { keys: readonly ApiKeyView[] }) {
   const address = origin ? quickAddUrl(origin) : "";
 
   return (
-    <section aria-label="Siri och genvägar" className="flex flex-col gap-4" data-testid="api-keys">
-      <p className="px-1 desktop:px-0 text-meta text-ink-3">
-        Med en personlig nyckel kan en genväg på iPhone lägga till varor i inköpslistan när du säger dem till Siri.
-      </p>
-      {error ? <Notice role="alert">{error}</Notice> : null}
+    <section aria-labelledby="siri-heading" className="flex flex-col gap-4" data-testid="api-keys">
+      <div className={cardClass}>
+        <h2 id="siri-heading" className="text-row-title text-ink">
+          Lägg till varor med Siri
+        </h2>
+        <p className="text-body text-ink-2">
+          Säg ”Hej Siri, {siriPhrase}” och sedan ”mjölk och ägg”. Varorna hamnar i inköpslistan.
+        </p>
+        {error ? <Notice role="alert">{error}</Notice> : null}
 
-      {newKey ? (
-        <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="new-key">
-          <p className="text-row-title text-ink">Din nyckel</p>
-          <p className="text-meta text-ink-3">Den visas bara nu. Kopiera den till genvägen innan du lämnar sidan.</p>
-          <code data-testid="new-key-value" className="block break-all rounded-md bg-bg p-3 text-meta text-ink select-all">
-            {newKey}
-          </code>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => copy(newKey, "Nyckeln är kopierad.")}>
-              Kopiera nyckeln
-            </Button>
-            <Button variant="text" onClick={() => copy(`Bearer ${newKey}`, "Rubriken är kopierad.")}>
-              Kopiera som rubrik
-            </Button>
+        <p className="text-body text-ink">1. Skapa en nyckel</p>
+        {newKey ? (
+          <div className="flex flex-col gap-3 rounded-md bg-bg p-3" data-testid="new-key">
+            <p className="text-meta text-ink-3">Nyckeln visas bara nu. Kopiera den innan du lämnar sidan.</p>
+            <code data-testid="new-key-value" className="block break-all rounded-md bg-surface p-3 text-meta text-ink select-all">
+              {newKey}
+            </code>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => copy(newKey, "Nyckeln är kopierad.")}>
+                Kopiera nyckeln
+              </Button>
+              <Button variant="text" onClick={() => copy(`Bearer ${newKey}`, "Rubriken är kopierad.")}>
+                Kopiera som rubrik
+              </Button>
+            </div>
           </div>
-          <ol className="flex list-decimal flex-col gap-2 pl-5 text-body text-ink-2" data-testid="shortcut-guide">
-            <li>Öppna appen Genvägar på iPhone, tryck på + och döp genvägen till ”{appName}”.</li>
-            <li>Lägg till åtgärden Diktera text.</li>
-            <li>
-              Lägg till Hämta innehållet i URL. Adress: <span className="break-all text-ink">{address}</span>. Metod: POST.
-            </li>
-            <li>
-              Under Rubriker lägger du till Authorization med värdet Bearer och nyckeln (knappen Kopiera som rubrik ger hela värdet).
-            </li>
-            <li>
-              Under Begärans innehåll väljer du JSON och lägger till texten <span className="text-ink">text</span> med Dikterad text som värde.
-            </li>
-            <li>Lägg till Visa resultat sist.</li>
-            <li>Säg ”Hej Siri, {appName}” och sedan vad du vill lägga till, till exempel ”mjölk och ägg”.</li>
-          </ol>
-          <p className="text-meta text-ink-3">
-            Genvägen når bara {appName} när appen ligger i molnet. En telefon kan inte nå localhost.
-          </p>
-        </div>
-      ) : null}
+        ) : (
+          <Button fullWidth disabled={busy || working.length >= maxApiKeys} onClick={create}>
+            Skapa nyckel
+          </Button>
+        )}
+
+        <p className="text-body text-ink">2. Lägg till genvägen</p>
+        {siriShortcutUrl ? (
+          <>
+            <AddShortcutButton url={siriShortcutUrl} />
+            <p className="text-meta text-ink-3">Klistra in rubriken när genvägen frågar. Den kopierar du med Kopiera som rubrik.</p>
+          </>
+        ) : (
+          <BuildItYourself testId="build-siri-shortcut">
+            <ol className="flex list-decimal flex-col gap-2 pl-5 text-body text-ink-2" data-testid="shortcut-guide">
+              <li>Öppna appen Genvägar på iPhone, tryck + och döp genvägen till ”{siriPhrase}”.</li>
+              <li>Lägg till åtgärden Diktera text.</li>
+              <li>
+                Lägg till Hämta innehållet i URL. Adress: <span className="break-all text-ink">{address}</span>. Metod: POST.
+              </li>
+              <li>Under Rubriker lägger du till Authorization. Värdet är rubriken du kopierade med Kopiera som rubrik.</li>
+              <li>
+                Under Begärans innehåll väljer du JSON och lägger till texten <span className="text-ink">text</span> med Dikterad text som värde.
+              </li>
+              <li>Lägg till Visa resultat sist.</li>
+              <li>Säg ”Hej Siri, {siriPhrase}” och sedan vad du vill lägga till.</li>
+            </ol>
+          </BuildItYourself>
+        )}
+        <p className="text-meta text-ink-3">
+          Genvägen når bara {appName} när appen ligger i molnet. En telefon kan inte nå localhost.
+        </p>
+        {newKey ? (
+          <Button variant="text" disabled={busy || working.length >= maxApiKeys} onClick={create}>
+            Skapa en till nyckel
+          </Button>
+        ) : null}
+      </div>
 
       {working.length > 0 ? (
         <ListGroup label="Nycklar">
@@ -126,10 +153,6 @@ export function ApiKeys({ keys }: { keys: readonly ApiKeyView[] }) {
       ) : (
         <p className="text-body text-ink-2">Inga nycklar än.</p>
       )}
-
-      <Button fullWidth disabled={busy || working.length >= maxApiKeys} onClick={create}>
-        Skapa nyckel
-      </Button>
 
       {revoked.length > 0 ? (
         <ListGroup label="Återkallade nycklar">

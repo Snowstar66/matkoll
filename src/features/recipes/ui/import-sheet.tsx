@@ -21,6 +21,8 @@ import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
+import { type Device, recipeSiteLink } from "@/lib/device";
+import { useDevice } from "@/lib/use-device";
 import { downscaleImage } from "@/lib/downscale-image";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { type AiJob } from "@/lib/ai-job-shape";
@@ -718,7 +720,20 @@ function FindRecipes({
 }) {
   const domains = sites ? use(sites) : [];
   const headingId = useId();
+  const { device, standalone } = useDevice();
   const linkClass = "text-accent underline";
+  const settingsLink = (label: string) => (
+    <Link
+      href="/installningar/telefon"
+      onClick={(event) => {
+        event.preventDefault();
+        onSettings("/telefon");
+      }}
+      className={linkClass}
+    >
+      {label}
+    </Link>
+  );
   return (
     <section aria-labelledby={headingId} data-testid="find-recipes" className="mt-6 flex flex-col gap-3 border-t border-hairline pt-4">
       <h3 id={headingId} className="text-section-label text-ink-2">
@@ -729,31 +744,23 @@ function FindRecipes({
           <ul className="flex flex-wrap gap-2">
             {domains.map((domain) => (
               <li key={domain}>
-                <a
-                  href={`https://${domain}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Öppna ${domain} i en ny flik`}
-                  className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
-                >
-                  {domain}
-                </a>
+                <SiteLink domain={domain} device={device} standalone={standalone} />
               </li>
             ))}
           </ul>
           <p className="text-meta text-ink-2">
-            Hittat ett recept? Använd bokmärket{" "}
-            <Link
-              href="/installningar/spara-i-matkoll"
-              onClick={(event) => {
-                event.preventDefault();
-                onSettings("/spara-i-matkoll");
-              }}
-              className={linkClass}
-            >
-              Spara i {appName}
-            </Link>{" "}
-            på datorn, eller kopiera länken och klistra in den{" "}
+            {device === "iphone" ? (
+              <>
+                {standalone ? "Öppnas i Safari. Där trycker du" : "Hittat ett recept? Tryck"} Dela → {settingsLink("Spara i " + appName)}, eller{" "}
+                {standalone ? "kopierar" : "kopiera"} länken och {standalone ? "klistrar" : "klistra"} in den{" "}
+              </>
+            ) : device === "android" ? (
+              <>Hittat ett recept? Tryck Dela → {appName}, eller kopiera länken och klistra in den </>
+            ) : (
+              <>
+                Hittat ett recept? Använd bokmärket {settingsLink("Spara i " + appName)} på datorn, eller kopiera länken och klistra in den{" "}
+              </>
+            )}
             <button type="button" onClick={onPaste} className={`${linkClass} min-h-tap`}>
               här
             </button>
@@ -777,6 +784,24 @@ function FindRecipes({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * One recipe site's chip. In the installed app on iPhone it opens in Safari (a plain link
+ * would open a view without an address bar); everywhere else in a new tab.
+ */
+function SiteLink({ domain, device, standalone }: { domain: string; device: Device | null; standalone: boolean }) {
+  const { href, newTab } = recipeSiteLink(domain, device, standalone);
+  return (
+    <a
+      href={href}
+      {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      aria-label={newTab ? `Öppna ${domain} i en ny flik` : `Öppna ${domain} i Safari`}
+      className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
+    >
+      {domain}
+    </a>
   );
 }
 
