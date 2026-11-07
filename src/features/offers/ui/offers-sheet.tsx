@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
 import { TagIcon } from "@/components/icons";
-import { Segment } from "@/components/segment";
 import { Button, buttonClasses } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { ListGroup } from "@/components/list-group";
@@ -102,10 +101,7 @@ export type OffersSheetProps = {
 };
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
-const sortOptions = [
-  { value: "category", label: "Avdelning" },
-  { value: "saving", label: "Bäst rabatt" },
-] as const;
+const sortLabels = { category: "Avdelning", saving: "Bäst rabatt" } as const;
 
 /** One store's answer in the last fetch. */
 type StoreRun = { storeId: string; result: FetchStoreOffersResult; attempt: number };
@@ -361,7 +357,7 @@ export function OffersSheet({
               </div>
             ) : null}
             <hr className="m-0 border-border" />
-            {filterStores || hasSaving ? (
+            {filterStores ? (
               <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
                 {filterStores ? (
                   <>
@@ -378,21 +374,24 @@ export function OffersSheet({
                     />
                   </>
                 ) : null}
-                {hasSaving ? (
-                  <>
-                    <span aria-hidden="true" className="text-meta text-ink-2">
-                      Sortera
-                    </span>
-                    <Segment label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="w-full" />
-                  </>
-                ) : null}
               </div>
             ) : null}
             <div className="flex flex-col">
-              <div className="flex min-h-tap items-center border-b border-border">
+              <div className="flex min-h-tap items-center justify-between gap-3 border-b border-border">
                 <p data-testid="offers-summary" className="text-meta text-ink-2">
                   {offersCountWords(shown.length)}
                 </p>
+                {hasSaving ? (
+                  <button
+                    type="button"
+                    data-testid="offers-sort"
+                    aria-label={`Sortera: ${sortLabels[sort]}. Tryck för att byta.`}
+                    onClick={() => setSort(sort === "category" ? "saving" : "category")}
+                    className="-mr-2 flex min-h-tap shrink-0 items-center px-2 text-meta text-ink-2 underline decoration-ink-3/60 underline-offset-2"
+                  >
+                    Sortera: {sortLabels[sort]}
+                  </button>
+                ) : null}
               </div>
               <div className="pt-4">
                 <OffersList

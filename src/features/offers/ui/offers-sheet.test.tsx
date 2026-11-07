@@ -381,7 +381,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).getAllByTestId("store-badge").map((badge) => badge.textContent)).toEqual(["Krokom", "Maxi", "Krokom"]);
     // The same product in two stores shows twice.
     expect(within(dialog).getAllByText("Havets Laxfilé")).toHaveLength(2);
-    await user.click(within(dialog).getByRole("radio", { name: "Bäst rabatt" }));
+    await user.click(within(dialog).getByRole("button", { name: /^Sortera: Avdelning/ }));
     const best = within(dialog).getByRole("list", { name: "Bäst rabatt först" }).querySelectorAll("[data-testid=offer-row]");
     expect(best[0]).toHaveTextContent("Krokom");
     expect(best[1]).toHaveTextContent("Maxi");
@@ -398,8 +398,10 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
     const filters = within(dialog).getByTestId("list-filters");
     expect(filters).toHaveTextContent("Visa butik");
-    expect(filters).toHaveTextContent("Sortera");
-    expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
+    // Sorting is a quiet text button in the summary row, not a control of its own.
+    expect(filters).not.toHaveTextContent("Sortera");
+    const sort = within(within(dialog).getByTestId("offers-summary").parentElement as HTMLElement).getByRole("button", { name: /^Sortera: Avdelning/ });
+    expect(sort).toHaveTextContent("Sortera: Avdelning");
     expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
   });

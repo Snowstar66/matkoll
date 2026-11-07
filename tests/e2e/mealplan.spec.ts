@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
-import { adminClient, dayWords, e2eUserId, firstFree, mealplanEmail, mealplanStorageState, todayDay } from "./support";
+import { adminClient, dayWords, e2eUserId, firstFree, mealplanEmail, mealplanStorageState, openLibrary, todayDay } from "./support";
 
 // Story 3.1 and 25.3: Matsedel as the place to plan the week: "Veckans rätter"
 // with their day chip and ✕ (with "Ångra"), and "Lägg till rätter" with
@@ -105,8 +105,10 @@ const tab = (page: Page, name: "Recept" | "Matsedel") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const bar = (page: Page) => page.getByTestId("week-bar-count").filter({ visible: true });
 const chip = (row: Locator) => row.getByTestId("dish-day");
-const addTab = (page: Page, name: "Favoriter" | "På erbjudande" | "Alla recept") =>
-  page.getByRole("radio", { name }).filter({ visible: true }).click();
+const addTab = async (page: Page, name: "Favoriter" | "På erbjudande" | "Alla recept") => {
+  await openLibrary(page);
+  await page.getByRole("radio", { name }).filter({ visible: true }).click();
+};
 const plus = (page: Page, title: string) =>
   page.getByRole("button", { name: `Lägg ${title} på veckan` }).filter({ visible: true });
 
@@ -140,7 +142,19 @@ test("an empty week says so, with the library to choose from under it", async ({
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   await expect(page.getByTestId("week-empty")).toHaveText("Inga rätter än. Välj bland dina recept här under.");
-  await expect(page.getByRole("heading", { name: "Lägg till från dina recept" })).toBeVisible();
+  // The library is folded until opened.
+  const toggle = page.getByRole("button", { name: "Lägg till nya rätter" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("radio", { name: "Favoriter" })).toBeHidden();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("radio", { name: "Favoriter" })).toBeVisible();
+  // The choice is kept for the next visit.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Lägg till nya rätter" }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "false");
   // An empty week says "Inga rätter än" instead of a count.
   await expect(bar(page)).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -151,6 +165,8 @@ test("a free day tapped in the week gets the next dish added with +", async ({ p
   await page.goto("/matsedel");
   // Sunday is free from any day of the week on.
   await page.getByRole("button", { name: "Lägg till en rätt på söndag" }).click();
+  // A free day opens the folded library.
+  await expect(page.getByTestId("add-dishes-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByTestId("target-day")).toHaveText(/Läggs på söndag/);
   await plus(page, gryta).click();
   await expect(dishes(page)).toHaveCount(1);
@@ -169,6 +185,7 @@ test("a free day tapped in the week gets the next dish added with +", async ({ p
 test("a favourite is on the first free day after one tap on +, with its own servings", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
+  await openLibrary(page);
   await expect(page.getByRole("radio", { name: "Favoriter" })).toBeChecked();
   await expect(page.getByTestId("plan-option")).toHaveCount(1);
   await plus(page, gryta).click();
@@ -178,9 +195,9 @@ test("a favourite is on the first free day after one tap on +, with its own serv
   await expect(chip(dish(page, gryta))).toHaveText(new RegExp(`^${dayWords[day! - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase())}\\d`));
   await expect(toast(page)).toContainText(`${gryta} på ${dayWords[day! - 1]}. Inget att köpa.`);
   await expect(toast(page).getByRole("button", { name: "Byt dag" })).toBeVisible();
-  await expect(page.getByTestId("plan-option").filter({ hasText: gryta }).getByTestId("on-week")).toHaveText(
-    dayWords[day! - 1]!.slice(0, 3).replace(/^./, (c) => c.toUpperCase()),
-  );
+  // A dish on the week leaves the library list.
+  await expect(page.getByTestId("plan-option").filter({ hasText: gryta })).toHaveCount(0);
+  await expect(page.getByTestId("options-empty")).toHaveText("Alla dina favoriter ligger redan på veckan.");
   await expect(bar(page)).toHaveText("1 rätt · 0 varor att köpa");
   const saved = await adminClient().from("meal_plan_recipe").select("servings, weekday").eq("user_id", userId);
   expect(saved.data).toEqual([{ servings: 4, weekday: day }]);
@@ -189,13 +206,16 @@ test("a favourite is on the first free day after one tap on +, with its own serv
   expect(errors).toEqual([]);
 });
 
-test("Alla recept lists every recipe, and what is not at home counts in the bar", async ({ page }) => {
+test("Alla recept lists every recipe not yet on the week, and what is not at home counts in the bar", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   await addTab(page, "Alla recept");
-  await expect(page.getByTestId("plan-option")).toHaveCount(2);
+  // Gryta is on the week from the test before, so only soppa is left to add.
+  await expect(page.getByTestId("plan-option")).toHaveCount(1);
   await plus(page, soppa).click();
   await expect(dishes(page)).toHaveCount(2);
+  await expect(page.getByTestId("plan-option")).toHaveCount(0);
+  await expect(page.getByTestId("options-empty")).toHaveText("Alla dina recept ligger redan på veckan.");
   // The first day from today that gryta did not take, or none on a Sunday.
   const soppaDay = firstFree([todayDay()]);
   // The toast names what went on the list.

@@ -40,6 +40,12 @@ export function onWeekLabel(weekday: number | null | undefined): string {
   return weekday ? weekdayShortName(weekday) : "På veckan";
 }
 
+/** The library rows that are not yet on the week: a dish already planned is left out, so the list stays short. */
+export function notOnWeek<T extends { id: string }>(options: readonly T[], dishes: readonly { recipeId: string | null }[]): T[] {
+  const planned = new Set(dishes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
+  return options.filter((option) => !planned.has(option.id));
+}
+
 /** Veckans rätter in order: Mån to Sön, dishes with no day last; the plan's order (when added) within a day. */
 export function compareByWeekday(
   a: Pick<PlanDish, "weekday" | "id" | "position">,
