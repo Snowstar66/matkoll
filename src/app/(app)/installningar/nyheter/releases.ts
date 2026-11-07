@@ -23,6 +23,25 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-07",
+    title: "Lugnare receptsida och enklare import",
+    bullets: [
+      "På receptsidan är det som saknas nu markerat med en blå ring, utan ordet Saknas på varje rad.",
+      "Tillbakaknappen heter Recept, och ett recept utan bild får samma lilla illustration överallt.",
+      "Importera recept: knappen heter Läs in recept, och finns länken redan får du välja mellan att öppna receptet och att spara en kopia.",
+      "Sökningen i Recept säger Inget matchar och erbjuder Rensa sökning.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Använd med telefonen",
+    bullets: [
+      "Spara i Livskoll och Siri och genvägar är nu en enda sida: Använd med telefonen, med ett kort för recept och ett för Siri.",
+      "Receptsajterna i Importera recept öppnas i riktiga Safari när du använder appen på iPhone. Där finns adressfältet och Dela-knappen.",
+      "Stegen för att bygga genvägen själv är omskrivna och ligger ihopfällda under Bygg genvägen själv.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Siffror på fotot i Förrådet",
     bullets: [
       "På ett kort i Förrådet visas varje föremål nu som en siffra på fotot, precis som i Kylfoto. Samma siffra står vid föremålet i listan under.",

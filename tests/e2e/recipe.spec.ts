@@ -47,7 +47,7 @@ async function importRecipe(page: Page) {
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(fiskgratang);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await openSavedImport(page, fixtureTitle);
 }
 
@@ -64,10 +64,9 @@ test("an import saves the recipe by itself and Öppna opens the recipe view", as
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await expect(page).toHaveTitle(`${title} – Livskoll`);
   await expectReceptCurrent(page);
-  // The recipe has no time, so the meta line is the source alone; the portion selector shows the servings.
-  await expect(page.getByTestId("recipe-meta").filter({ visible: true })).not.toContainText("min");
+  // The recipe has no time and its source is pasted text, which is not shown (UX-12): no meta line; the portion selector shows the servings.
+  await expect(page.getByTestId("recipe-meta").filter({ visible: true })).toHaveCount(0);
   await expect(page.getByRole("article").filter({ visible: true }).getByText("4 portioner", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("recipe-meta").filter({ visible: true }).filter({ hasText: "Inklistrad text" })).toBeVisible();
   // No image address from pasted text: the placeholder takes its place. The
   // library stays mounted but hidden after navigation, so only visible ones count.
   await expect(page.getByTestId("recipe-image-placeholder").filter({ visible: true })).toHaveCount(1);

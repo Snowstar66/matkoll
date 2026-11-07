@@ -21,6 +21,8 @@ import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
+import { type Device, recipeSiteLink } from "@/lib/device";
+import { useDevice } from "@/lib/use-device";
 import { downscaleImage } from "@/lib/downscale-image";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { type AiJob } from "@/lib/ai-job-shape";
@@ -35,6 +37,7 @@ import {
   offersPasteTextInstead,
   type ImportKind,
 } from "../domain/import";
+import { findRecipeBySource } from "../actions/find-recipe-by-source";
 import { kindOfJob } from "./saved-imports";
 import { appName } from "@/app/app-info";
 import { AiWorking } from "@/components/ai-working";
@@ -149,6 +152,9 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
   /** The page under /installningar the pending "Öppna inställningar" goes to. */
   const settingsHash = useRef("");
   const [confirm, setConfirm] = useState<"settings" | null>(null);
+  /** UX-23: the recipe already saved from the pasted link, asked about before the link is read again. */
+  const [duplicate, setDuplicate] = useState<{ id: string; title: string } | null>(null);
+  const checking = useRef(false);
   /** The pasted link was longer than a link may be, so it was not put in the field. */
   const [pastedTooLong, setPastedTooLong] = useState(false);
   const router = useRouter();
@@ -233,8 +239,21 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
 
   function requestParse() {
     // One import at a time: Enter in the read-only field while reading does nothing.
-    if (view === "reading" || !valueFor(kind).trim()) return;
-    void parse(kind);
+    if (view === "reading" || !valueFor(kind).trim() || checking.current) return;
+    if (kind === "url") void checkThenParse();
+    else void parse(kind);
+  }
+
+  /** UX-23: a link already in the recipe book asks before it is read and saved a second time. */
+  async function checkThenParse() {
+    checking.current = true;
+    const found = await findRecipeBySource(url).catch(() => null);
+    checking.current = false;
+    if (found?.ok && found.data) {
+      setDuplicate(found.data);
+      return;
+    }
+    void parse("url");
   }
 
   /** "Öppna inställningar": leaves the sheet, asking first when there are unsaved changes, like closing. */
@@ -263,6 +282,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
    */
   async function parse(of: ImportKind, photoToSend: Photo | null = photo, valueOverride?: string) {
     setConfirm(null);
+    setDuplicate(null);
     const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : (valueOverride ?? valueFor(of));
     if (!value.trim()) return;
     if (of === "photo") setPhoto(photoToSend);
@@ -556,13 +576,13 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
   } else if (view === "input") {
     footer = (
       <Button fullWidth disabled={!valueFor(kind).trim()} onClick={requestParse}>
-        Tolka
+        Läs in recept
       </Button>
     );
   } else if (reading) {
     footer = (
       <Button variant="secondary" fullWidth onClick={cancel}>
-        Avbryt
+        Avbryt inläsningen
       </Button>
     );
   }
@@ -618,6 +638,29 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
               {id === "link" ? (
                 <div className="flex flex-col gap-3">
                   {errorNotice("url")}
+                  {duplicate ? (
+                    <Notice
+                      role="status"
+                      action={
+                        <div className="flex flex-wrap">
+                          <Button
+                            variant="text"
+                            onClick={() => {
+                              close();
+                              router.push(`/recept/${duplicate.id}`);
+                            }}
+                          >
+                            Öppna receptet
+                          </Button>
+                          <Button variant="text" onClick={() => void parse("url")}>
+                            Spara en kopia
+                          </Button>
+                        </div>
+                      }
+                    >
+                      {duplicate.title} finns redan.
+                    </Notice>
+                  ) : null}
                   <FieldLabel htmlFor={`${ids}-url`}>Länk till receptet</FieldLabel>
                   <Input
                     ref={urlRef}
@@ -633,6 +676,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                     placeholder="https://www.koket.se/…"
                     onChange={(event) => {
                       setUrl(event.target.value);
+                      setDuplicate(null);
                       setPastedTooLong(false);
                     }}
                     aria-invalid={pastedTooLong || undefined}
@@ -718,7 +762,20 @@ function FindRecipes({
 }) {
   const domains = sites ? use(sites) : [];
   const headingId = useId();
+  const { device, standalone } = useDevice();
   const linkClass = "text-accent underline";
+  const settingsLink = (label: string) => (
+    <Link
+      href="/installningar/telefon"
+      onClick={(event) => {
+        event.preventDefault();
+        onSettings("/telefon");
+      }}
+      className={linkClass}
+    >
+      {label}
+    </Link>
+  );
   return (
     <section aria-labelledby={headingId} data-testid="find-recipes" className="mt-6 flex flex-col gap-3 border-t border-hairline pt-4">
       <h3 id={headingId} className="text-section-label text-ink-2">
@@ -729,31 +786,23 @@ function FindRecipes({
           <ul className="flex flex-wrap gap-2">
             {domains.map((domain) => (
               <li key={domain}>
-                <a
-                  href={`https://${domain}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Öppna ${domain} i en ny flik`}
-                  className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
-                >
-                  {domain}
-                </a>
+                <SiteLink domain={domain} device={device} standalone={standalone} />
               </li>
             ))}
           </ul>
           <p className="text-meta text-ink-2">
-            Hittat ett recept? Använd bokmärket{" "}
-            <Link
-              href="/installningar/spara-i-matkoll"
-              onClick={(event) => {
-                event.preventDefault();
-                onSettings("/spara-i-matkoll");
-              }}
-              className={linkClass}
-            >
-              Spara i {appName}
-            </Link>{" "}
-            på datorn, eller kopiera länken och klistra in den{" "}
+            {device === "iphone" ? (
+              <>
+                {standalone ? "Öppnas i Safari. Där trycker du" : "Hittat ett recept? Tryck"} Dela → {settingsLink("Spara i " + appName)}, eller{" "}
+                {standalone ? "kopierar" : "kopiera"} länken och {standalone ? "klistrar" : "klistra"} in den{" "}
+              </>
+            ) : device === "android" ? (
+              <>Hittat ett recept? Tryck Dela → {appName}, eller kopiera länken och klistra in den </>
+            ) : (
+              <>
+                Hittat ett recept? Använd bokmärket {settingsLink("Spara i " + appName)} på datorn, eller kopiera länken och klistra in den{" "}
+              </>
+            )}
             <button type="button" onClick={onPaste} className={`${linkClass} min-h-tap`}>
               här
             </button>
@@ -777,6 +826,24 @@ function FindRecipes({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * One recipe site's chip. In the installed app on iPhone it opens in Safari (a plain link
+ * would open a view without an address bar); everywhere else in a new tab.
+ */
+function SiteLink({ domain, device, standalone }: { domain: string; device: Device | null; standalone: boolean }) {
+  const { href, newTab } = recipeSiteLink(domain, device, standalone);
+  return (
+    <a
+      href={href}
+      {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      aria-label={newTab ? `Öppna ${domain} i en ny flik` : `Öppna ${domain} i Safari`}
+      className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
+    >
+      {domain}
+    </a>
   );
 }
 

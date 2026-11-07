@@ -37,7 +37,7 @@ export function lineCoverage(status: RecipeStatus, lineId: string): LineCoverage
 function LineMark({ state, coverage }: { state: LineState | null; coverage: LineCoverage }) {
   if (state?.kind === "missing") {
     return (
-      <Mark label="saknas" className="text-hot">
+      <Mark label="saknas" className="text-sky-ink">
         <RingIcon size={18} />
       </Mark>
     );
@@ -109,7 +109,8 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
     name !== null && normalizeIngredientText(line.originalText) !== normalizeIngredientText(name);
   const short = coverage !== null && coverage.kind !== "unlinked" && isShort(coverage);
   const missing = state?.kind === "missing";
-  const statusWord = state?.kind === "missing" ? "Saknas" : state?.kind === "listed" ? "På listan" : null;
+  // UX-06: only "På listan" is said in words; the blue ring and "2 av 12 hemma" already say what is missing.
+  const statusWord = state?.kind === "listed" ? "På listan" : null;
   const offer = state?.offer ?? null;
   const atHome = coverage?.kind === "partial" || coverage?.kind === "other-unit" ? coverage.amounts : null;
   // Story 4.3: a calm word under the name; the ring in front already says it to screen readers.
@@ -141,7 +142,7 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
               {formatQuantity(line.amount, line.unit)}
             </span>
             {statusWord ? (
-              <span className={cx("text-meta font-semibold", missing ? "text-hot" : "text-sky-ink")} data-testid="recipe-line-status">
+              <span className="text-meta font-semibold text-sky-ink" data-testid="recipe-line-status">
                 {statusWord}
               </span>
             ) : null}
@@ -163,7 +164,7 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
             {tag}
           </span>
           {statusWord ? (
-            <span className={cx("shrink-0 text-meta font-semibold", missing ? "text-hot" : "text-sky-ink")} data-testid="recipe-line-status">
+            <span className="shrink-0 text-meta font-semibold text-sky-ink" data-testid="recipe-line-status">
               {statusWord}
             </span>
           ) : null}
