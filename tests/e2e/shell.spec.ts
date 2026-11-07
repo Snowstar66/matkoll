@@ -62,7 +62,7 @@ test.describe("mobile, 390 × 844", () => {
     const color = (name: string) => mainMenu(page).getByRole("link", { name }).evaluate((el) => getComputedStyle(el).color);
     // Polled: until the bar has hydrated it has no current tab (AD-18), which a busy machine shows for a while.
     await expect.poll(() => color("Recept")).toBe("rgb(62, 124, 98)");
-    await expect.poll(() => color("Matsedel")).toBe("rgb(107, 120, 114)");
+    await expect.poll(() => color("Matsedel")).toBe("rgb(89, 102, 95)");
 
     await expectSurface(page, surfaces[0]);
     for (const surface of [...surfaces.slice(1), surfaces[0]]) {
