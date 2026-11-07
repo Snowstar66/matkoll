@@ -292,9 +292,10 @@ test("the library shows recipe cards with the image on top, the status and the h
   // The title under the image.
   expect((await box(korvCard.getByRole("link", { name: korv }))).y).toBeGreaterThanOrEqual(imageBox.y + imageBox.height);
 
-  // No image, or one that answers 404: the mint placeholder.
+  // No image, or one that answers 404: a drawing of the dish (UX-13b), a plate when the title names no kind.
   await expect(card(page, pannkakor).getByTestId("recipe-image-placeholder")).toBeVisible();
   await expect(card(page, fisk).getByTestId("recipe-image-placeholder")).toBeVisible();
+  await expect(card(page, fisk).getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "gratang");
   await expectNoHorizontalScroll(page);
   expect(errors).toEqual([]);
 });

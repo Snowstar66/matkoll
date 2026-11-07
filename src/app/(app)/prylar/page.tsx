@@ -21,7 +21,7 @@ export default function PrylarPage() {
       fallback={
         <>
           {/* The size of "+", so the header does not move when it arrives. */}
-          <PageHeader title="Förråd" tab="/prylar" />
+          <PageHeader title="Förråd" tab="/prylar" action={<span aria-hidden="true" inert className="size-tap" />} />
           <Skeleton rows={3} />
         </>
       }

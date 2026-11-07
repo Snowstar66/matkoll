@@ -1,7 +1,6 @@
 "use client";
 
 import { offerTagsLine, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
-import { dishEmoji } from "../domain/dish-emoji";
 import { RecipeCard } from "./recipe-card";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
@@ -43,7 +42,7 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           title={recipe.title}
           tile
           imageUrl={recipe.imageUrl}
-          emoji={dishEmoji(recipe.title)}
+          dish={recipe.dish}
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
           href={`/recept/${recipe.id}`}
           offerTags={offerTags && offerTags[recipe.id]?.length ? <OfferTags tags={offerTags[recipe.id]} /> : undefined}

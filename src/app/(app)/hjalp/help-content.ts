@@ -28,7 +28,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "recept",
     title: "Recept",
     steps: [
-      { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia.` },
+      { icon: "link", title: "Spara ett recept", text: `Tryck + i rubriken och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer med det du har hemma." },
       { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas (blå ring) och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
@@ -62,7 +62,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Matsedel",
     steps: [
       { icon: "calendar", title: "Välj vecka", text: "Denna vecka eller någon av de två nästa." },
-      { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
+      { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Tryck + i rubriken eller fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
       { icon: "house", title: "Se vad som ska köpas", text: "Raden under Veckans rätter räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
     faq: [
@@ -86,7 +86,7 @@ export const helpAreas: readonly HelpArea[] = [
       { icon: "bag", title: "Lägg till i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
-      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + (nere till höger på mobilen, uppe till höger på dator), eller säg det till Siri." },
+      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + i rubriken, eller säg det till Siri." },
       {
         // Basvaror (Pontus 2026-11-02).
         question: "Varför står inte salt på listan?",
@@ -116,7 +116,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",
-        answer: "Tryck Kopiera till ICA-varukorgen, öppna butikens webbplats och logga in, och klistra in listan i Claude in Chrome. Du granskar varukorgen och beställer själv. Dela listan skickar den som text i stället.",
+        answer: "Tryck Kopiera till ICA-varukorgen sist i listan, öppna butikens webbplats och logga in, och klistra in listan i Claude in Chrome. Du granskar varukorgen och beställer själv. Dela listan skickar den som text i stället.",
       },
     ],
   },
@@ -124,7 +124,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "matvaror",
     title: "Matvaror",
     steps: [
-      { icon: "fridge", title: "Välj plats", text: "Kyl, Frys eller Skafferi högst upp. Tryck + för en vara." },
+      { icon: "fridge", title: "Välj plats", text: "Kyl, Frys eller Skafferi högst upp. Tryck + i rubriken för en vara." },
       { icon: "camera", title: "Fota kylen", text: `${appName} föreslår varor från fotot. Inget sparas förrän du bekräftar.` },
       { icon: "undo", title: "Ta bort och ångra", text: "Tryck på soptunnan. Ångra finns kvar en stund." },
     ],
@@ -154,9 +154,9 @@ export const helpAreas: readonly HelpArea[] = [
     id: "forrad",
     title: "Förråd",
     steps: [
-      { icon: "door", title: "Börja med ett rum", text: "Tryck Lägg till rum, till exempel Förrådet eller Garaget." },
-      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Fota. ${appName} listar ${things}en på bilden.` },
-      { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
+      { icon: "door", title: "Börja med ett rum", text: "Tryck + i rubriken, till exempel för Förrådet eller Garaget." },
+      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet, välj Var i rummet? (Hela rummet, Hylla, Låda eller en egen plats) och tryck Fota. ${appName} listar ${things}en på bilden.` },
+      { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck Fråga och fråga: var är passen?" },
     ],
     faq: [
       {

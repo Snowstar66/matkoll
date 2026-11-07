@@ -388,7 +388,7 @@ async function seedCustomItems(
 
 const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till vara" });
 // The floating round "+" on a phone (the header's "+" on a desktop has the same name).
-const addCustomButton = (page: Page) => page.getByTestId("add-item-fab").filter({ visible: true });
+const addCustomButton = (page: Page) => page.getByTestId("add-item-header").filter({ visible: true });
 const region = (page: Page, name: string) =>
   // I korgen is named with its count, "I korgen (1)" (Story 3.9).
   page.getByRole("list", name === "I korgen" ? { name: /^I korgen \(\d+\)$/ } : { name, exact: true }).filter({ visible: true });
@@ -566,36 +566,23 @@ test("Lägg till vara is a floating + on a phone and in the header on a desktop,
   await page.goto("/lista");
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
 
-  // A phone: the round + at the bottom right, above the pinned buttons and the tab bar; none in the header.
-  const fab = addCustomButton(page);
-  await expect(fab).toHaveAccessibleName("Lägg till vara");
-  const fabBox = (await fab.boundingBox())!;
-  expect(Math.round(fabBox.width)).toBe(56);
-  expect(fabBox.x + fabBox.width).toBeGreaterThan(mobile.width - 40);
-  const bars = page.getByTestId("fixed-action").filter({ visible: true });
-  // The bar is pinned once the page has measured it.
-  await expect
-    .poll(async () => (await fab.boundingBox())!.y + (await fab.boundingBox())!.height <= (await bars.boundingBox())!.y)
-    .toBe(true);
-  await expect(page.getByTestId("add-item-header").filter({ visible: true })).toHaveCount(0);
-  // Scrolled to the end, the last row clears the +.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  const last = page.getByTestId("shopping-line").filter({ visible: true }).last();
-  const lastBox = (await last.boundingBox())!;
-  const fabNow = (await fab.boundingBox())!;
-  expect(lastBox.y + lastBox.height).toBeLessThanOrEqual(fabNow.y);
-  // It opens the sheet with focus in the field, and hides while the sheet is open.
-  await fab.click();
+  // A phone (UX-07): the green + in the header, a 44 px button; no round floating + and nothing pinned while nothing is checked.
+  const plus = addCustomButton(page);
+  await expect(plus).toHaveAccessibleName("Lägg till vara");
+  const plusBox = (await plus.boundingBox())!;
+  expect(Math.round(plusBox.width)).toBe(44);
+  expect(plusBox.y).toBeLessThan(120);
+  await expect(page.getByTestId("add-item-fab")).toHaveCount(0);
+  await expect(page.getByTestId("fixed-action").filter({ visible: true })).toHaveCount(0);
+  // It opens the sheet with focus in the field.
+  await plus.click();
   await expect(customSheet(page).getByRole("textbox", { name: "Vara" })).toBeFocused();
-  await expect(page.getByTestId("add-item-fab")).toBeHidden();
   await customSheet(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(customSheet(page)).toHaveCount(0);
-  await expect(fab).toBeVisible();
 
-  // A desktop: no floating +, the header's + opens the same sheet.
+  // A desktop: the same header +.
   await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(page.getByTestId("add-item-fab").filter({ visible: true })).toHaveCount(0);
-  await page.getByTestId("add-item-header").filter({ visible: true }).click();
+  await plus.click();
   await expect(customSheet(page).getByRole("textbox", { name: "Vara" })).toBeFocused();
   await customSheet(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(customSheet(page)).toHaveCount(0);

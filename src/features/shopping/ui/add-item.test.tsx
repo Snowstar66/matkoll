@@ -9,7 +9,7 @@ import { ShoppingList } from "./shopping-list";
 vi.mock("../actions/set-checked", () => ({ setChecked: async (change: unknown) => ok(change) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-// The "+" in Inköpslista's header (desktop) and the floating "+" (phone) open the same sheet.
+// The "+" in Inköpslista's header opens the sheet.
 
 function Page({ openOnStart = false }: { openOnStart?: boolean }) {
   return (
@@ -34,10 +34,11 @@ describe("Lägg till vara from the header", () => {
     await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Vara" })).toHaveFocus());
   });
 
-  it("shows the header's + only from the desktop breakpoint, and the floating + only below it", () => {
+  it("shows the header's + at every width, and there is no floating +", () => {
     render(<Page />);
-    expect(within(screen.getByRole("banner")).getByRole("button", { name: "Lägg till vara" })).toHaveClass("hidden", "desktop:flex");
-    expect(screen.getByTestId("add-item-fab")).toHaveClass("desktop:hidden");
+    const plus = within(screen.getByRole("banner")).getByRole("button", { name: "Lägg till vara" });
+    expect(plus).not.toHaveClass("hidden");
+    expect(screen.queryByTestId("add-item-fab")).not.toBeInTheDocument();
   });
 
   it("is open from the start on the quick-add address", () => {
