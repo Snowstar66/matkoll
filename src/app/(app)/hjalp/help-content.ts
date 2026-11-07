@@ -55,6 +55,10 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Hur markerar jag en rätt som lagad?",
         answer: "Står rätten på matsedeln finns Markera som lagad under stegen i receptet. Det du bockar dras från Matvaror.",
       },
+      {
+        question: "Kan jag ta tid på ett steg?",
+        answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med tiden som är kvar. När den är slut ringer och vibrerar telefonen och raden säger Klar. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
+      },
     ],
   },
   {

@@ -82,6 +82,8 @@ export const recipeViewEmail = "e2e-receptvy@matkoll.test";
  * service role, so what the recipe shows depends on nothing else.
  */
 export const recipeMissingEmail = "e2e-recept-saknas@matkoll.test";
+/** The E2E user of recipe-timer.spec.ts alone (a time in a step starts a timer): it makes its recipe with the service role. */
+export const recipeTimerEmail = "e2e-recept-timer@matkoll.test";
 /**
  * The E2E user of cookable.spec.ts alone (the filter Kan lagas nu, Story
  * 5.1): each test makes its recipes, catalog ingredients and pantry with the
@@ -345,6 +347,7 @@ export const e2eEmails = [
   putInPantryEmail,
   recipeViewEmail,
   recipeMissingEmail,
+  recipeTimerEmail,
   cookableEmail,
   aiSuggestionsEmail,
   cameraEmail,
@@ -404,6 +407,7 @@ export const shoppingStorageState = "tests/e2e/.auth/shopping.json";
 export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
 export const recipeViewStorageState = "tests/e2e/.auth/recipe-view.json";
 export const recipeMissingStorageState = "tests/e2e/.auth/recipe-missing.json";
+export const recipeTimerStorageState = "tests/e2e/.auth/recipe-timer.json";
 export const cookableStorageState = "tests/e2e/.auth/cookable.json";
 export const aiSuggestionsStorageState = "tests/e2e/.auth/ai-suggestions.json";
 export const cameraStorageState = "tests/e2e/.auth/camera.json";
