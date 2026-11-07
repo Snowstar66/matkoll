@@ -141,6 +141,8 @@ test("a check, an own item and its removal on one phone show on the other, and a
   const row = lineOf(a, "diskmedel");
   await swipeLeft(a, row);
   await a.getByRole("button", { name: "Svep bort diskmedel" }).click();
+  // The list asks before the first removal (Story 13.1).
+  await a.getByRole("dialog", { name: "Ta bort diskmedel från inköpslistan?" }).getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(lineOf(a, "diskmedel")).toHaveCount(0);
   await expect(lineOf(b, "diskmedel")).toHaveCount(0, within);
 

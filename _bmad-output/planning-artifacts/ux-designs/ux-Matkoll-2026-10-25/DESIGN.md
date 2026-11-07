@@ -536,7 +536,7 @@ Från Epic 9 (veckans erbjudanden):
 | Använd linjeikoner i ramen (flikar, meny, knappar) | Använd emoji i ramen |
 | Använd en accentfärg, för handling och "klart" | Låt en färg betyda en kategori; plattorna är dekor och namnet står alltid bredvid |
 | Ge varje kategori en ljus platta med ikon (Epic 11) | Använd emoji någon annanstans än i kategoriplattorna, eller lägg en egen ikon på varje vara |
-| Gör Ta bort i `{colors.danger}` som text och soptunna, sist under en hårfin linje | Gör borttagning till en fylld röd knapp, eller lägg en kontrollfråga på en borttagning som går att ångra |
+| Gör Ta bort i `{colors.danger}` som text och soptunna, sist under en hårfin linje | Gör borttagning till en fylld röd knapp, eller lägg en kontrollfråga på en borttagning som går att ångra, utom på Inköpslistan där den första borttagningen frågar och sedan inga på 60 s (se EXPERIENCE.md, Interaction Primitives) |
 | Gör tryckytor minst 44 × 44 px | Använd små ikonknappar utan luft runt |
 | Märk AI-innehåll med sand-etiketten | Blanda AI-förslag med sparade recept utan märkning |
 | Visa alla recept i samma format oavsett källa | Behåll källsajtens typsnitt, färger eller layout |

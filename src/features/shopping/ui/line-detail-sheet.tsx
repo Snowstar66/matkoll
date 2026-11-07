@@ -243,7 +243,7 @@ function RecipeLineDetail({
     startTransition(() => save({ kind: "clear" }));
   }
 
-  /** "Ta bort": no question first, even with unsaved changes; the confirmation offers "Ångra". */
+  /** "Ta bort": the list asks first (Inköpslistan's smart question, in the list), even with unsaved changes; the confirmation offers "Ångra". */
   function remove() {
     if (saving || removing.current) return;
     removing.current = true;

@@ -18,6 +18,7 @@ import { OfferTag } from "@/components/offer-tag";
 import { Meter } from "@/components/meter";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { TrashButton, type TrashPress } from "@/components/trash-button";
 import type { Category } from "@/features/catalog";
 import { initialOf } from "@/features/household";
@@ -688,6 +689,15 @@ export function ShoppingList({
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
   const removal = useLineRemoval(planId, savedLines);
+  // Inköpslistan asks before the first removal (the bin, the swipe and "Ta bort" in the detail),
+  // then removes at once for 60 s after every removal. "Ångra" stays. The window is the list's own
+  // ("shopping-list"): a removal on Matvaror or the meal plan never opens it.
+  const { requestDelete, dialog: deleteDialog } = useConfirmDelete({ graceKey: "shopping-list" });
+  const removeAfterAsking = (line: ShoppingLine, moveFocus: boolean) =>
+    requestDelete({
+      question: `Ta bort ${line.label} från inköpslistan?`,
+      onConfirm: () => removal.remove(line, moveFocus),
+    });
   const lines = useMemo(
     () =>
       removal.shown.map((line) => {
@@ -935,7 +945,7 @@ export function ShoppingList({
   });
   const canSend = exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
-  // The bin on a row removes at once and offers "Ångra": it can be undone, so it never asks (Story 19.4).
+  // The bin on a row asks once, then removes at once for 60 s and offers "Ångra" (see `useConfirmDelete` above).
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
   /** A line's row, the same among the lines left and in I korgen. */
@@ -946,8 +956,8 @@ export function ShoppingList({
       meta={lineMetaText(line, plan?.dishTitles ?? {}, siteName, !pantryUnavailable)}
       chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
       onCheckedChange={(checked) => moveLine(line, checked)}
-      onRemove={(moveFocus) => removal.remove(line, moveFocus)}
-      onTrash={(press) => removal.remove(line, !press.pointer)}
+      onRemove={(moveFocus) => removeAfterAsking(line, moveFocus)}
+      onTrash={(press) => removeAfterAsking(line, !press.pointer)}
       onOpen={() => openDetail(line)}
       checkingOff={checksUnavailable}
       ignoredTap={ignored?.key === line.key ? ignored.id : null}
@@ -1132,6 +1142,7 @@ export function ShoppingList({
           {basket.sheet ? (
             <ExportSheet state={basket.sheet} onCopy={basket.copyAgain} onClose={basket.closeSheet} />
           ) : null}
+          {deleteDialog}
           {/* Mounted from the first tap on a name, and kept, so it can close with its animation. */}
           {detail ? (
             <LineDetailSheet
@@ -1145,7 +1156,7 @@ export function ShoppingList({
               })()}
               dishTitles={plan?.dishTitles ?? {}}
               searchIngredients={searchIngredients}
-              onRemove={removal.remove}
+              onRemove={removeAfterAsking}
               onChange={own.track}
               productChoices={choiceContext}
               onProductChoice={openProductChoice}

@@ -1,9 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { resetDeleteGrace } from "../../src/components/confirm-delete";
 
 afterEach(() => {
   cleanup();
+  // A removal window (useConfirmDelete) never leaks into the next test.
+  resetDeleteGrace();
 });
 
 // jsdom has <dialog> but not its modal methods; a minimal stand-in for the Sheet tests.
