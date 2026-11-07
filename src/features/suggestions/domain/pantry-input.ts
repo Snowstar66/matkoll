@@ -92,7 +92,7 @@ export function toSuggestInput(
  * `maxOldItems` of the oldest kept, so the payload stays small. Names and
  * days only, never ids, locations or dates.
  */
-export function toOldItemsInput(old: readonly OldPantryItem[]): SuggestOldItem[] {
+export function toOldItemsInput(old: readonly Pick<OldPantryItem, "ingredientId" | "name" | "days">[]): SuggestOldItem[] {
   const seen = new Set<string>();
   const kept: SuggestOldItem[] = [];
   for (const { name, days } of old) {
@@ -110,6 +110,6 @@ export function toOldItemsInput(old: readonly OldPantryItem[]): SuggestOldItem[]
  * The old items a dish uses (Story 16.13), for its reason line: those whose
  * ingredient the dish is linked to, in the order given (oldest first).
  */
-export function oldItemsUsed(old: readonly OldPantryItem[], linkedIds: ReadonlySet<string>): { name: string; days: number }[] {
+export function oldItemsUsed(old: readonly Pick<OldPantryItem, "ingredientId" | "name" | "days">[], linkedIds: ReadonlySet<string>): { name: string; days: number }[] {
   return old.filter((item) => linkedIds.has(item.ingredientId)).map(({ name, days }) => ({ name, days }));
 }

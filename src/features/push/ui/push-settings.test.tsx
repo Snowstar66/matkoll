@@ -90,7 +90,7 @@ describe("Notiser", () => {
     const { subscription } = stubPush({ subscribed: true });
     render(<PushSettings publicKey="BEl6" preferences={defaultPushPreferences} />);
     await user.click(await screen.findByRole("checkbox", { name: "Ändrad matsedel" }));
-    expect(savePushPreferences).toHaveBeenCalledWith({ lista: true, forrad: false, matsedel: true, lappar: true });
+    expect(savePushPreferences).toHaveBeenCalledWith({ lista: true, forrad: false, matsedel: true, lappar: true, atsnart: true });
     await user.click(screen.getByRole("button", { name: "Stäng av på den här enheten" }));
     expect(subscription.unsubscribe).toHaveBeenCalled();
     expect(unsubscribePush).toHaveBeenCalledWith("https://fcm.googleapis.com/fcm/send/device");

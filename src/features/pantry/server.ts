@@ -14,6 +14,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { placePhotosNeedSweepIn } from "./actions/photo-sweep";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
+import { listOldCandidatesIn } from "./data/old";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
 import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFileExists } from "./data/photos";
@@ -25,7 +26,7 @@ import { compareStaples, noStaples, stapleRules, type Staple, type StapleRules }
 import { planMove, type MovedItem } from "./domain/move-amount";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
-import { oldPantryItems, type OldPantryItem } from "./domain/old-items";
+import { byOvershoot, oldPantryItems, type OldPantryItem } from "./domain/old-items";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
 import type { PlacePhoto, PlacePhotoMediaType } from "./domain/place-photo";
@@ -134,6 +135,18 @@ export async function listPantry(location: Location, siteId?: string): Promise<P
 export async function listOldPantryItems(siteId?: string, now: Date = new Date()): Promise<OldPantryItem[]> {
   const [fridge, freezer] = await Promise.all([listPantry("Kyl", siteId), listPantry("Frys", siteId)]);
   return oldPantryItems([...fridge, ...freezer], now);
+}
+
+/**
+ * "Ät snart" for the whole household (the daily push, POST /api/eat-soon/notify):
+ * the items in Kyl over all places that are due today or overdue, one per
+ * ingredient, those furthest past their limit first (then by name), so what is
+ * due today is not hidden behind old items. The freezer is left out: Matvaror
+ * shows it, but the push would repeat itself every day. Runs as the signed-in
+ * member. Throws PantryDataError.
+ */
+export async function listHouseholdOldItems(now: Date = new Date()): Promise<OldPantryItem[]> {
+  return byOvershoot(oldPantryItems(await listOldCandidatesIn(await createClient(), getIngredientSummaries), now));
 }
 
 /**

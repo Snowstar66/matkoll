@@ -78,12 +78,12 @@ export async function loadIngredientSummaries(
   const summaries: Record<string, IngredientSummary> = {};
   await Promise.all(
     chunks([...new Set(ids)]).map(async (chunk) => {
-      const { data, error } = await db.from("ingredient").select("id, name, section").in("id", chunk);
+      const { data, error } = await db.from("ingredient").select("id, name, section, keeps_days").in("id", chunk);
       if (error) throw new CatalogDataError("query_failed", error.code);
       for (const row of data) {
         const section = sectionSchema.safeParse(row.section);
         if (!section.success) throw new CatalogDataError("query_failed", "invalid_row");
-        summaries[row.id] = { name: row.name, section: section.data };
+        summaries[row.id] = { name: row.name, section: section.data, keepsDays: row.keeps_days };
       }
     }),
   );
