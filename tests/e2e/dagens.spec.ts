@@ -33,13 +33,12 @@ test("the card shows on Recept, X hides it, and Visa Dagens turns it off", async
   await expect(page.getByRole("heading", { name: "Recept" })).toBeVisible();
   await expect(card).toHaveCount(0);
 
-  // Back on: the card returns, and Namnsdag adds a second line.
+  // Back on: the card returns (some days have no name day, so Namnsdag is only switched, not read).
   await page.goto("/installningar/tillval");
   await page.getByRole("switch", { name: "Visa Dagens" }).click();
   await page.getByRole("switch", { name: "Namnsdag" }).click();
   await page.goto("/recept");
   await expect(card).toBeVisible();
-  await expect(card).toContainText("har namnsdag");
   await page.goto("/installningar/tillval");
   await page.getByRole("switch", { name: "Namnsdag" }).click();
 });

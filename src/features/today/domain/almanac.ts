@@ -1,8 +1,8 @@
-import { Solar } from "lunar-javascript";
 import type { Day } from "./dates";
 
 // Kinesiska almanackan (lunar-javascript, MIT): computed here from the date, nothing is
-// fetched. The day's animal and element come from its day pillar; of the almanac's
+// fetched. The library is loaded only when the almanac is switched on (dynamic import), so
+// it is not in the Recept bundle otherwise. The day's animal and element come from its day pillar; of the almanac's
 // 宜 (yi, "suitable") list only the calm, everyday activities are kept, in Swedish.
 
 const animals: Record<string, string> = {
@@ -60,8 +60,9 @@ export function almanacActivities(yi: readonly string[], max = 2): string[] {
 }
 
 /** "Hundens dag · gynnsamt: träffa vänner", or "Hundens dag · eld" when the list holds nothing fitting. */
-export function almanacLine({ year, month, day }: Day): string | null {
+export async function almanacLine({ year, month, day }: Day): Promise<string | null> {
   try {
+    const { Solar } = await import("lunar-javascript");
     const lunar = Solar.fromYmd(year, month, day).getLunar();
     const animal = animals[lunar.getDayShengXiao()];
     if (!animal) return null;

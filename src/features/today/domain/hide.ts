@@ -4,6 +4,9 @@
 export const hiddenStorageKey = "livskoll-dagens-hidden";
 export const hiddenChangedEvent = "livskoll-dagens-hidden-changed";
 
+/** Used only when storage is blocked, so the X still works for this visit. */
+let hiddenInMemory: string | null = null;
+
 function storage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
@@ -14,6 +17,7 @@ function storage(): Storage | null {
 
 /** Whether the card was hidden on `dayKey` (never throws; storage may be blocked). */
 export function isHiddenToday(dayKey: string): boolean {
+  if (hiddenInMemory === dayKey) return true;
   try {
     return storage()?.getItem(hiddenStorageKey) === dayKey;
   } catch {
@@ -23,9 +27,12 @@ export function isHiddenToday(dayKey: string): boolean {
 
 export function hideToday(dayKey: string): void {
   try {
-    storage()?.setItem(hiddenStorageKey, dayKey);
+    const store = storage();
+    if (!store) throw new Error("no storage");
+    store.setItem(hiddenStorageKey, dayKey);
   } catch {
     // Storage blocked: the card stays hidden until the page is closed.
+    hiddenInMemory = dayKey;
   }
   try {
     window.dispatchEvent(new Event(hiddenChangedEvent));

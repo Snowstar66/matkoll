@@ -1,4 +1,3 @@
-import { almanacLine } from "./almanac";
 import type { Day } from "./dates";
 import { foodDayOn } from "./food-days";
 import { nameDayLine } from "./name-days";
@@ -26,9 +25,10 @@ export function foodLine(day: Day, recipes: readonly SeasonRecipe[]): TodayLine 
   ];
 }
 
-export function todayLines(day: Day, settings: TodaySettings, recipes: readonly SeasonRecipe[]): TodayLine[] {
+/** `almanac` is the almanac's line, computed (and loaded) by the caller only when it is switched on. */
+export function todayLines(day: Day, settings: TodaySettings, recipes: readonly SeasonRecipe[], almanac: string | null = null): TodayLine[] {
   const main = settings.food ? foodLine(day, recipes) : null;
-  const extras = [settings.nameDay ? nameDayLine(day.month, day.day) : null, settings.almanac ? almanacLine(day) : null].filter(
+  const extras = [settings.nameDay ? nameDayLine(day.month, day.day) : null, settings.almanac ? almanac : null].filter(
     (line): line is string => line !== null,
   );
   const lines: TodayLine[] = main ? [main] : [];

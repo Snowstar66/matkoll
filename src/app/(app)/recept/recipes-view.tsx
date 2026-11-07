@@ -69,7 +69,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
     );
   }
   return (
-    <div className="flex flex-col gap-3">
+    <>
     {dagens}
     <Library
       recipes={recipes}
@@ -79,7 +79,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
       initialFilter={offers ? initialFilter : undefined}
     />
-    </div>
+    </>
   );
 }
 

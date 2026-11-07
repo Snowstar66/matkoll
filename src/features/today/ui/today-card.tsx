@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { CloseIcon, LeafIcon } from "@/components/icons";
 import { useOption } from "@/lib/use-option";
+import { almanacLine } from "../domain/almanac";
 import { dayKey, shortDateText, stockholmDay } from "../domain/dates";
 import { hiddenChangedEvent, hideToday, isHiddenToday } from "../domain/hide";
 import type { SeasonRecipe } from "../domain/season";
@@ -15,11 +16,16 @@ import { todayLines } from "../domain/today-lines";
 // nothing time-dependent is prerendered. The X hides it until tomorrow, on this device.
 
 function subscribe(listener: () => void) {
+  // A tab left open overnight: look at the date again when it comes back and once a minute.
+  const timer = window.setInterval(listener, 60_000);
   window.addEventListener("storage", listener);
   window.addEventListener(hiddenChangedEvent, listener);
+  document.addEventListener("visibilitychange", listener);
   return () => {
+    window.clearInterval(timer);
     window.removeEventListener("storage", listener);
     window.removeEventListener(hiddenChangedEvent, listener);
+    document.removeEventListener("visibilitychange", listener);
   };
 }
 
@@ -48,11 +54,27 @@ export function TodayCard({ recipes }: { recipes: readonly SeasonRecipe[] }) {
   const key = useTodayKey();
   const hidden = useHidden(key);
   const day = useMemo(() => (key === null ? null : stockholmDay(new Date())), [key]);
-  const lines = useMemo(() => (day ? todayLines(day, { food, nameDay, almanac }, recipes) : []), [day, food, nameDay, almanac, recipes]);
+  // The almanac library is loaded only when its switch is on; the line is for one day.
+  const [almanacText, setAlmanacText] = useState<{ key: string; line: string | null } | null>(null);
+  useEffect(() => {
+    if (!almanac || day === null || key === null) return;
+    let live = true;
+    void almanacLine(day).then((line) => {
+      if (live) setAlmanacText({ key, line });
+    });
+    return () => {
+      live = false;
+    };
+  }, [almanac, day, key]);
+  const almanacToday = almanac && almanacText?.key === key ? almanacText.line : null;
+  const lines = useMemo(
+    () => (day ? todayLines(day, { food, nameDay, almanac }, recipes, almanacToday) : []),
+    [day, food, nameDay, almanac, recipes, almanacToday],
+  );
 
   if (!show || hidden || key === null || day === null || lines.length === 0) return null;
   return (
-    <section aria-label="Dagens" className="flex items-start gap-3 rounded-lg bg-surface p-4" data-testid="dagens-card">
+    <section aria-label="Dagens" className="mb-3 flex items-start gap-3 rounded-lg bg-surface p-4" data-testid="dagens-card">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-mint text-mint-ink">
         <LeafIcon size={20} />
       </span>

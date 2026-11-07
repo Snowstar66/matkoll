@@ -126,13 +126,13 @@ describe("almanac", () => {
     expect(almanacActivities(["安床", "祭祀"])).toEqual([]);
   });
 
-  it("falls back to the animal and element on 8 Nov 2026 (丙戌, fire dog)", () => {
-    expect(almanacLine(d(2026, 11, 8))).toBe("Hundens dag · eld");
+  it("falls back to the animal and element on 8 Nov 2026 (丙戌, fire dog)", async () => {
+    expect(await almanacLine(d(2026, 11, 8))).toBe("Hundens dag · eld");
   });
 
-  it("adds what is suitable when the day lists something fitting", () => {
+  it("adds what is suitable when the day lists something fitting", async () => {
     // 2026-11-04 (壬午) lists 会亲友.
-    expect(almanacLine(d(2026, 11, 4))).toMatch(/^Hästens dag · gynnsamt: .*träffa vänner/);
+    expect(await almanacLine(d(2026, 11, 4))).toMatch(/^Hästens dag · gynnsamt: .*träffa vänner/);
   });
 });
 
@@ -146,13 +146,13 @@ describe("today lines", () => {
   });
 
   it("puts name day and almanac on one second line beside the food line", () => {
-    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes);
+    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Hundens dag · eld");
     expect(lines).toHaveLength(2);
     expect(lines[1][0].text).toBe("Vendela har namnsdag · Hundens dag · eld");
   });
 
   it("shows the extras alone when food is off, and nothing when all are off", () => {
-    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes)).toHaveLength(2);
+    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Hundens dag · eld")).toHaveLength(2);
     expect(todayLines(day, { food: false, nameDay: false, almanac: false }, recipes)).toEqual([]);
   });
 });
