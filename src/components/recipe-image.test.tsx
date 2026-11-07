@@ -31,20 +31,20 @@ describe("RecipeImage", () => {
     expect(drawing()).toHaveAttribute("data-dish", "fisk");
     expect(drawing()).toHaveAttribute("aria-hidden", "true");
     expect(drawing()).toHaveAttribute("width", "44");
-    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-sky");
+    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-mint");
     expect(container.textContent).toBe("");
   });
 
   it("draws the given kind over the title's", () => {
     render(<RecipeImage src={null} title="Fredagsmys" dish="kott" />);
     expect(drawing()).toHaveAttribute("data-dish", "kott");
-    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-tile-clay");
+    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-mint");
   });
 
   it("draws a plate when nothing names a kind", () => {
     render(<RecipeImage src={null} />);
     expect(drawing()).toHaveAttribute("data-dish", "tallrik");
-    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-illus-bg");
+    expect(screen.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("bg-mint");
   });
 });
 
