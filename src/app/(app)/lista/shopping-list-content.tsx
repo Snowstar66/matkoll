@@ -3,19 +3,9 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
-import {
-  addWeeks,
-  currentWeekStart,
-  overviewWeeks,
-  viewedWeek,
-  weekDishesText,
-  weekOffsetLabel,
-  weekParam,
-  weekQuery,
-  weeksBetween,
-} from "@/features/mealplan";
-import { getWeekCounts } from "@/features/mealplan/server";
-import { WeekMenu } from "@/features/mealplan/ui/week-menu";
+import { addWeeks, currentWeekStart, overviewWeeks, weekQueryAlways, weeksBetween } from "@/features/mealplan";
+import { resolveViewedWeek } from "@/features/mealplan/server";
+import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import { searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
@@ -56,12 +46,18 @@ export async function ShoppingListContent({
   const params = await searchParams;
   const vecka = params?.vecka;
   const now = new Date();
-  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
+  const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const thisWeek = currentWeekStart(now);
   const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
   if (!weeks.includes(weekStart)) weeks.push(weekStart);
-  // Dishes per week are one query; when it cannot be read the menu says "Inga rätter".
-  const countsRead = getWeekCounts(weeks).catch((): Record<string, number> => ({}));
+  // UX-04: the segment says how many items each week has to buy; the viewed week's list is read below,
+  // the others here (a week that cannot be read says "Tom").
+  const otherCounts = Promise.all(
+    weeks.filter((week) => week !== weekStart).map(async (week) => {
+      const other = await getShoppingList(week).catch(() => null);
+      return [week, other?.ok ? other.data.lines.filter((line) => !line.isCustom).length : 0] as const;
+    }),
+  );
   const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
@@ -89,18 +85,16 @@ export async function ShoppingListContent({
     marks,
     addedAt,
   } = result.data;
-  const counts = await countsRead;
-  const options = weeks.map((week) => ({
-    weekStart: week,
-    label: weekOffsetLabel(weeksBetween(thisWeek, week)),
-    detail: weekDishesText(counts[week] ?? 0),
-    param: week === thisWeek ? null : weekParam(week),
-  }));
+  const counts: Record<string, number> = {
+    ...Object.fromEntries(await otherCounts),
+    [weekStart]: lines.filter((line) => !line.isCustom).length,
+  };
+  const filterParam = Array.isArray(params?.visa) ? params.visa[0] : params?.visa;
   // A week without dishes: say so, and offer to plan that week in Matsedel.
   const empty = {
     text: noDishesText(weeksBetween(thisWeek, weekStart)),
     action: (
-      <Link href={`/matsedel${weekQuery(weekStart, now)}`} className={buttonClasses("secondary")}>
+      <Link href={`/matsedel${weekQueryAlways(weekStart)}`} className={buttonClasses("secondary")}>
         {planWeekText}
       </Link>
     ),
@@ -113,7 +107,17 @@ export async function ShoppingListContent({
         key={weekStart}
         sites={sites}
         loadCounts={loadBoendeCounts}
-        weekMenu={<WeekMenu weekStart={weekStart} options={options} />}
+        weekNav={
+          <WeekNav
+            weekStart={weekStart}
+            counts={counts}
+            now={now}
+            basePath="/lista"
+            showHistory={false}
+            unit="items"
+            keepParams={filterParam ? { visa: filterParam } : undefined}
+          />
+        }
         userId={user.id}
         plan={plan}
         lines={lines}

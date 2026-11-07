@@ -540,44 +540,36 @@ describe("RecipeView: the portion selector", () => {
     expect(setFavorite).not.toHaveBeenCalled();
   });
 
-  it("puts the recipe on the first free day with the servings shown, with one tap", async () => {
-    const user = userEvent.setup();
-    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 4 }));
-    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} />);
-
-    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Krämig kycklinggryta ligger på torsdag. Kycklinglårfilé och rödlök står på inköpslistan.");
-    // Only the pinned button says Byt dag (UX-12); the toast does not repeat it.
-    expect(screen.getAllByRole("button", { name: "Byt dag" })).toHaveLength(1);
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String) });
-    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på torsdag");
-  });
-
-  it("says the week is full when the dish got no day, and offers Välj dag", async () => {
+  it("puts the recipe on the week with one tap, without a day, and says so in the toast with Ångra and Byt vecka", async () => {
     const user = userEvent.setup();
     const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
-    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} />);
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} removeFromPlan={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-    expect(await screen.findByTestId("toast")).toHaveTextContent("ligger på veckan. Alla dagar har en rätt. Kycklinglårfilé och rödlök står på inköpslistan.");
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String) });
-    // The rows flip to På listan and the button asks for the day, which is optional.
+    const toast = await screen.findByTestId("toast");
+    expect(toast).toHaveTextContent("Lagd på matsedeln denna vecka. Kycklinglårfilé och rödlök står på inköpslistan.");
+    expect(within(toast).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+    expect(within(toast).getByRole("button", { name: "Byt vecka" })).toBeInTheDocument();
+    // "Byt dag" is gone from the page and the toast (UX-05).
+    expect(screen.queryByRole("button", { name: /Byt dag|Välj dag/ })).not.toBeInTheDocument();
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekday: null });
+    // The rows flip to På listan, the pill takes the place of the button, and nothing is pinned at the bottom.
     expect(screen.getAllByText("På listan")).toHaveLength(2);
     expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
-    expect(screen.getAllByRole("button", { name: "Välj dag" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Lägg på matsedeln" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Köp det som saknas/ })).not.toBeInTheDocument();
   });
 
   it("sends the servings shown when the recipe is put on the week", async () => {
     const user = userEvent.setup();
-    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 2 }));
+    const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
     render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={addToPlan} />);
     await user.click(stepper.more());
     await user.click(stepper.more());
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
     await vi.waitFor(() => expect(addToPlan).toHaveBeenCalledTimes(1));
-    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String) });
-    expect(await screen.findByTestId("toast")).toHaveTextContent("ligger på tisdag. Kycklinglårfilé står på inköpslistan.");
+    expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 6, id: expect.any(String), weekday: null });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagd på matsedeln denna vecka. Kycklinglårfilé står på inköpslistan.");
   });
 
   it("shows a failed add as an alert and keeps the button", async () => {
@@ -589,77 +581,82 @@ describe("RecipeView: the portion selector", () => {
     expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
   });
 
-  it("asks for a day only when asked: Byt dag with a day, and Ingen dag takes it back", async () => {
-    const user = userEvent.setup();
-    const setWeekday = vi.fn().mockResolvedValue(ok({ id: "dish", weekday: 3 }));
-    render(
-      <RecipeView recipe={recipe} snapshot={allHome} addToPlan={vi.fn<AddToPlan>()} setWeekday={setWeekday} dish={{ id: "dish", weekday: null }} />,
-    );
-    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
-    await user.click(screen.getByRole("button", { name: "Välj dag" }));
-    await user.click(screen.getByRole("button", { name: "Onsdag" }));
-    expect(setWeekday).toHaveBeenCalledWith({ id: "dish", weekday: 3 });
-    expect(await screen.findByRole("button", { name: "Byt dag" })).toBeInTheDocument();
-    expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på onsdag");
-    await user.click(screen.getByRole("button", { name: "Byt dag" }));
-    await user.click(screen.getByRole("button", { name: "Ingen dag" }));
-    expect(setWeekday).toHaveBeenLastCalledWith({ id: "dish", weekday: null });
-  });
-
-  describe("the week picker", () => {
+  describe("the remembered week", () => {
     const weeks: RecipeWeek[] = [
-      { weekStart: "2026-11-02", offset: 0, number: 45, dish: null },
-      { weekStart: "2026-11-09", offset: 1, number: 46, dish: null },
-      { weekStart: "2026-11-16", offset: 2, number: 47, dish: null },
+      { weekStart: "2026-11-02", offset: 0, number: 45, count: 5, dish: null },
+      { weekStart: "2026-11-09", offset: 1, number: 46, count: 0, dish: null },
+      { weekStart: "2026-11-16", offset: 2, number: 47, count: 0, dish: null },
     ];
-    const options = () => screen.getAllByTestId("recipe-week-option");
 
-    it("starts on next week and plans that week with one tap", async () => {
+    it("has no week buttons and adds to the remembered week in one tap", async () => {
       const user = userEvent.setup();
-      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 1 }));
-      render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={vi.fn()} weeks={weeks} />);
-      expect(options().map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
-      expect(options()[1]).toHaveAttribute("aria-pressed", "true");
-      expect(screen.getByTestId("recipe-week-line")).toHaveTextContent("Matsedel för vecka 46");
-
-      await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-      expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekStart: "2026-11-09" });
-      expect(await screen.findByTestId("toast")).toHaveTextContent(
-        "Krämig kycklinggryta ligger på måndag nästa vecka. Kycklinglårfilé och rödlök står på inköpslistan.",
+      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
+      render(
+        <RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} removeFromPlan={vi.fn()} weeks={weeks} defaultWeekStart="2026-11-09" />,
       );
-      expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på måndag nästa vecka");
-    });
+      expect(screen.queryByTestId("recipe-week-option")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Matsedel för vecka/)).not.toBeInTheDocument();
 
-    it("plans the picked week, with the sheet naming it, and keeps a week's state apart from the others", async () => {
-      const user = userEvent.setup();
-      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: 2 }));
-      const setWeekday = vi.fn().mockResolvedValue(ok({ id: "dish", weekday: 5 }));
-      render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} setWeekday={setWeekday} weeks={weeks} />);
-      await user.click(options()[2]);
-      expect(screen.getByTestId("recipe-week-line")).toHaveTextContent("Matsedel för vecka 47");
       await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-      expect(addToPlan).toHaveBeenLastCalledWith(expect.objectContaining({ weekStart: "2026-11-16" }));
-      expect(await screen.findByTestId("toast")).toHaveTextContent("ligger på tisdag om 2 veckor.");
-
-      await user.click(screen.getByRole("button", { name: "Byt dag" }));
-      expect(screen.getByRole("dialog", { name: "Vilken dag?" })).toHaveTextContent("Vecka 47, om 2 veckor");
-      await user.click(screen.getByRole("button", { name: "Fredag" }));
-      expect(setWeekday).toHaveBeenCalledWith({ id: expect.any(String), weekday: 5 });
-
-      // Next week is still empty.
-      await user.click(options()[1]);
-      expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
-      expect(screen.queryByTestId("recipe-planned")).not.toBeInTheDocument();
+      expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekday: null, weekStart: "2026-11-09" });
+      expect(await screen.findByTestId("toast")).toHaveTextContent("Lagd på matsedeln v. 46. Kycklinglårfilé och rödlök står på inköpslistan.");
+      const pill = screen.getByTestId("recipe-planned");
+      expect(pill).toHaveTextContent("På matsedeln v. 46");
+      expect(pill).toHaveAttribute("href", "/matsedel?vecka=2026-W46");
     });
 
-    it("shows the day the recipe has on the selected week", async () => {
+    it("takes the dish off again with Ångra", async () => {
       const user = userEvent.setup();
+      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
+      const removeFromPlan = vi.fn().mockResolvedValue(ok({}));
+      render(
+        <RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} removeFromPlan={removeFromPlan} weeks={weeks} defaultWeekStart="2026-11-09" />,
+      );
+      await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+      await user.click(within(await screen.findByTestId("toast")).getByRole("button", { name: "Ångra" }));
+      const id = addToPlan.mock.calls[0][0].id;
+      expect(removeFromPlan).toHaveBeenCalledWith(id);
+      expect(await screen.findByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
+      expect(screen.queryByTestId("recipe-planned")).not.toBeInTheDocument();
+      expect(screen.queryAllByText("På listan")).toHaveLength(0);
+    });
+
+    it("moves the dish with Byt vecka: the sheet names the weeks, and the pill follows", async () => {
+      const user = userEvent.setup();
+      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
+      const removeFromPlan = vi.fn().mockResolvedValue(ok({}));
+      render(
+        <RecipeView recipe={recipe} snapshot={toSnapshot([])} addToPlan={addToPlan} removeFromPlan={removeFromPlan} weeks={weeks} defaultWeekStart="2026-11-09" />,
+      );
+      await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+      await user.click(within(await screen.findByTestId("toast")).getByRole("button", { name: "Byt vecka" }));
+      const sheet = await screen.findByRole("dialog", { name: "Vilken vecka?" });
+      expect(sheet).toHaveTextContent(recipe.title);
+      expect(within(sheet).getAllByTestId("week-choice").map((row) => row.textContent)).toEqual([
+        "Denna vecka" + "v. 45 · 5 rätter",
+        "Nästa vecka" + "v. 46 · Tom",
+        "Om 2 veckor" + "v. 47 · Tom",
+      ]);
+      await user.click(within(sheet).getAllByTestId("week-choice")[2]);
+      await vi.waitFor(() => expect(addToPlan).toHaveBeenCalledTimes(2));
+      expect(addToPlan).toHaveBeenLastCalledWith(expect.objectContaining({ weekStart: "2026-11-16", weekday: null }));
+      await vi.waitFor(() => expect(removeFromPlan).toHaveBeenCalledWith(addToPlan.mock.calls[0][0].id));
+      expect(await screen.findByTestId("recipe-planned")).toHaveTextContent("På matsedeln v. 47");
+    });
+
+    it("shows the pill for a dish that is already on the remembered week, without a button at the bottom", () => {
       const planned = weeks.map((week) => (week.offset === 1 ? { ...week, dish: { id: "d1", weekday: 4 } } : week));
-      render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={vi.fn<AddToPlan>()} setWeekday={vi.fn()} weeks={planned} />);
-      expect(screen.getByRole("button", { name: "Byt dag" })).toBeInTheDocument();
-      expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln på torsdag nästa vecka");
-      await user.click(options()[0]);
-      expect(screen.getByRole("button", { name: "Lägg på matsedeln" })).toBeInTheDocument();
+      render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={vi.fn<AddToPlan>()} removeFromPlan={vi.fn()} weeks={planned} defaultWeekStart="2026-11-09" />);
+      expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln v. 46");
+      expect(screen.queryByRole("button", { name: "Lägg på matsedeln" })).not.toBeInTheDocument();
+    });
+
+    it("starts on this week when nothing is remembered", async () => {
+      const user = userEvent.setup();
+      const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(ok({ id: "dish", weekday: null }));
+      render(<RecipeView recipe={recipe} snapshot={allHome} addToPlan={addToPlan} weeks={weeks} />);
+      await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+      expect(addToPlan).toHaveBeenLastCalledWith(expect.objectContaining({ weekStart: "2026-11-02" }));
     });
   });
 });

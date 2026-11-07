@@ -24,7 +24,7 @@ import {
   weekdayNames,
   type PlanDetail,
 } from "../domain/meal-plan";
-import { copiedText, copyTargets, weekFillText, weekQuery, type WeekChoice } from "../domain/week";
+import { copiedText, copyTargets, weekFillText, weekQueryAlways, type WeekChoice } from "../domain/week";
 
 // An earlier meal plan (FR-14): its dishes and servings, read only. A dish
 // whose recipe is deleted shows "Borttaget recept: [titel]" and does not come
@@ -84,7 +84,7 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
           return;
         }
         // In the same transition as the action's revalidated routes, to the week that got the dishes.
-        router.push(`/matsedel${weekQuery(target.weekStart)}`);
+        router.push(`/matsedel${weekQueryAlways(target.weekStart)}`);
         setCopying(false);
         showToast(copiedText(result.data.copied, target.weekStart));
       } finally {

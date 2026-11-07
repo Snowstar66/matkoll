@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { weekRangeText } from "../domain/meal-plan";
-import { addWeeks, currentWeekStart, overviewWeeks, weekFillText, weekNumber, weeksBetween, weekQuery, weekTileLabel, weekTileName } from "../domain/week";
+import { addWeeks, currentWeekStart, overviewWeeks, weekFillText, weekItemsText, weekNumber, weekParam, weeksBetween, weekTileLabel, weekTileName } from "../domain/week";
+import { RememberWeek } from "./remember-week";
 
 /**
  * The week control on Matsedel (Story 14.5, Stories 13.7,
@@ -21,6 +22,8 @@ export function WeekNav({
   now = new Date(),
   basePath = "/matsedel",
   showHistory = true,
+  unit = "dishes",
+  keepParams,
 }: {
   weekStart: string;
   counts?: Record<string, number>;
@@ -29,12 +32,22 @@ export function WeekNav({
   basePath?: string;
   /** "Tidigare" beside the dates, which only Matsedel has. */
   showHistory?: boolean;
+  /** What `counts` count: the week's dishes (Matsedel) or the items to buy (Inköpslista, UX-04). */
+  unit?: "dishes" | "items";
+  /** Other address values the links keep, e.g. Inköpslista's filter `visa`. */
+  keepParams?: Record<string, string>;
 }) {
   const thisWeek = currentWeekStart(now);
   const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
   if (!weeks.includes(weekStart)) weeks.push(weekStart);
+  // Always `?vecka=`, also for this week: the plain address means the week last viewed (UX-04).
+  const hrefFor = (week: string) => {
+    const params = new URLSearchParams({ vecka: weekParam(week), ...keepParams });
+    return `${basePath}?${params.toString()}`;
+  };
   return (
     <nav aria-label="Vecka" data-testid="week-nav" className="flex flex-col gap-2.5">
+      <RememberWeek weekStart={weekStart} />
       <ul
         className="grid gap-[3px] rounded-md bg-seg-track p-[3px] desktop:max-w-[480px]"
         style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
@@ -46,11 +59,11 @@ export function WeekNav({
           return (
             <li key={week} className="flex">
               <Link
-                href={`${basePath}${weekQuery(week, now)}`}
+                href={hrefFor(week)}
                 scroll={false}
                 data-testid="week-tile"
                 aria-current={selected ? "page" : undefined}
-                aria-label={weekTileName(week, offset, count)}
+                aria-label={weekTileName(week, offset, count, unit)}
                 className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[9px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
                   selected ? "border border-border bg-seg-on" : "border border-transparent"
                 }`}
@@ -63,7 +76,7 @@ export function WeekNav({
                   data-testid="week-count"
                   className={`text-badge ${selected ? "text-accent dark:text-ink" : "text-ink-2"}`}
                 >
-                  {weekFillText(count)}
+                  {unit === "items" ? weekItemsText(count) : weekFillText(count)}
                 </span>
               </Link>
             </li>

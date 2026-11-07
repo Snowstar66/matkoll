@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { PantrySite, SelectedSite } from "@/features/pantry";
+import type { ShoppingLine } from "@/features/shopping";
 import { getShoppingList } from "@/features/shopping/server";
 import { fail, ok } from "@/lib/errors";
 import { ShoppingListContent } from "./shopping-list-content";
@@ -16,8 +17,10 @@ vi.mock("next/navigation", () => ({
   redirect: (url: string) => redirect(url),
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
-const getWeekCounts = vi.hoisted(() => vi.fn<(weeks: string[]) => Promise<Record<string, number>>>());
-vi.mock("@/features/mealplan/server", () => ({ getWeekCounts: (weeks: string[]) => getWeekCounts(weeks) }));
+vi.mock("@/features/mealplan/server", async () => {
+  const { viewedWeek } = await import("@/features/mealplan");
+  return { resolveViewedWeek: async (vecka: string | null | undefined, now?: Date) => viewedWeek(vecka, now) };
+});
 vi.mock("@/features/shopping/actions/set-checked", () => ({ setChecked: vi.fn() }));
 vi.mock("@/features/shopping/actions/add-custom-item", () => ({ addCustomItem: vi.fn() }));
 vi.mock("@/features/shopping/actions/remove-custom-item", () => ({ removeCustomItem: vi.fn() }));
@@ -49,7 +52,6 @@ const stuganSite: PantrySite = { id: "55555555-5555-4555-8555-555555555555", nam
 
 beforeEach(() => {
   listPantrySites.mockReset().mockResolvedValue([hemmaSite, stuganSite]);
-  getWeekCounts.mockReset().mockResolvedValue({});
 });
 
 /** A list with one dish whose needs are all in the pantry, counted against `site`. */
@@ -110,36 +112,57 @@ describe("ShoppingListContent", () => {
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
   });
 
-  it("shows one list with the week as a quiet menu, and a week without dishes offers to plan it", async () => {
+  it("shows one list with the week as the segment, and a week without dishes offers to plan it", async () => {
     const now = new Date();
     const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
     const thisWeek = currentWeekStart(now);
     const nextWeek = addWeeks(thisWeek, 1);
-    getWeekCounts.mockResolvedValue({ [thisWeek]: 2 });
-    vi.mocked(getShoppingList).mockResolvedValue(
-      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0, ...noChoices }),
+    const dishLine = (label: string): ShoppingLine => ({
+      key: `r:${label}:st`,
+      label,
+      amount: null,
+      unit: null,
+      isVague: false,
+      coverage: { kind: "unlinked" },
+      section: "Övrigt",
+      origins: [],
+      checked: false,
+      isCustom: false,
+    });
+    vi.mocked(getShoppingList).mockImplementation(async (week) =>
+      ok({
+        plan: null,
+        lines: week === thisWeek ? [dishLine("a"), dishLine("b")] : [],
+        hiddenLines: [],
+        pantryUnavailable: false,
+        checksUnavailable: false,
+        pendingClear: 0,
+        ...noChoices,
+      }),
     );
     const { unmount } = render(
       <ToastProvider>{await ShoppingListContent({ searchParams: Promise.resolve({ vecka: weekParam(nextWeek) }) })}</ToastProvider>,
     );
-    // UX-36: no second heading above the list.
+    // UX-04: Matsedel's segment, with the items to buy per week, and no week menu or second heading.
     expect(screen.queryByRole("heading", { level: 2, name: "Att handla" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("week-nav")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Vecka: Nästa vecka, inga rätter" })).toBeInTheDocument();
-    expect(getShoppingList).toHaveBeenLastCalledWith(nextWeek);
+    expect(screen.queryByTestId("week-menu")).not.toBeInTheDocument();
+    const tiles = screen.getAllByTestId("week-tile");
+    expect(tiles.map((tile) => tile.querySelector("[data-testid=week-count]")?.textContent)).toEqual(["2 varor", "Tom", "Tom"]);
+    expect(tiles[1]).toHaveAttribute("aria-current", "page");
+    expect(tiles[0]).toHaveAttribute("href", `/lista?vecka=${weekParam(thisWeek)}`);
+    expect(screen.getByTestId("week-range")).toHaveTextContent(/^v\. \d+ · /);
+    expect(screen.queryByRole("link", { name: "Tidigare veckor" })).not.toBeInTheDocument();
+    expect(getShoppingList).toHaveBeenCalledWith(nextWeek);
     expect(screen.getByText("Inga rätter på matsedeln nästa vecka.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", `/matsedel?vecka=${weekParam(nextWeek)}`);
-    await userEvent.click(screen.getByRole("button", { name: /^Vecka:/ }));
-    expect((await screen.findAllByTestId("week-menu-option")).map((row) => row.textContent)).toEqual([
-      "Denna vecka2 rätter",
-      "Nästa veckaInga rätter",
-      "Om 2 veckorInga rätter",
-    ]);
     unmount();
 
+    vi.mocked(getShoppingList).mockResolvedValue(
+      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0, ...noChoices }),
+    );
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByText("Inga rätter på matsedeln den här veckan.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", "/matsedel");
+    expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", `/matsedel?vecka=${weekParam(thisWeek)}`);
   });
 
   it("passes the selected store and its product choices on to the line's detail", async () => {

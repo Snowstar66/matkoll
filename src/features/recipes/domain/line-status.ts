@@ -1,6 +1,5 @@
 import { savingKronor, textUnitPrice } from "@/features/offers";
 import type { LineCoverage, RecipeStatus } from "@/features/pantry";
-import { weekOffsetLabel } from "@/features/mealplan";
 import type { SavedRecipeLine } from "./saved-recipe";
 
 // What the recipe shows per ingredient (Story 25.1): hemma, "Saknas" or "På
@@ -185,10 +184,9 @@ export function listedChipText(listed: number): string {
   return `${listed} på inköpslistan`;
 }
 
-/** The chip for the recipe on the meal plan: "På matsedeln denna vecka" or "På matsedeln på onsdag". */
-export function plannedChipText(weekdayWord: string | null, when: string | null = null): string {
-  if (weekdayWord) return when ? `På matsedeln på ${weekdayWord} ${when}` : `På matsedeln på ${weekdayWord}`;
-  return `På matsedeln ${when ?? "denna vecka"}`;
+/** The pill for the recipe on the meal plan (UX-05): "På matsedeln v. 46". */
+export function plannedChipText(week: string): string {
+  return `På matsedeln ${week}`;
 }
 
 /**
@@ -232,28 +230,15 @@ export function boughtText(count: number): string {
 }
 
 /**
- * The toast after "Lägg på matsedeln": "Korv stroganoff på torsdag. Falukorv, grädde och ris står på inköpslistan."
- * `weekdayWord` is the day it got; `null` when the week is full: "… på veckan. Alla dagar har en rätt."
- * `when` names a week that is not this one: "Pasta på måndag nästa vecka." / "… nästa vecka. Alla dagar …"
+ * The toast after "Lägg på matsedeln" (UX-05): "Lagd på matsedeln v. 46. Gul lök, vitlök och morot står på inköpslistan."
+ * `week` is the week it went on ("v. 46"); with nothing missing, only the first sentence.
  */
-export function plannedToastText(
-  title: string,
-  weekdayWord: string | null,
-  names: readonly string[],
-  when: string | null = null,
-): string {
-  const where = weekdayWord
-    ? `${title} ligger på ${weekdayWord}${when ? ` ${when}` : ""}.`
-    : `${title} ligger ${when ?? "på veckan"}. Alla dagar har en rätt.`;
+export function plannedToastText(week: string, names: readonly string[]): string {
+  const where = `Lagd på matsedeln ${week}.`;
   return names.length > 0 ? `${where} ${namesText(names)} står på inköpslistan.` : where;
 }
 
 /** The key addKeyedItems and removeKeyedItems share for one missing ingredient of one recipe. */
 export function buyKey(recipeId: string, ingredientId: string): string {
   return `recipe:${recipeId}:${ingredientId}`;
-}
-
-/** A week after this one in a sentence: "nästa vecka", "om 2 veckor"; `null` for this week. */
-export function whenText(offset: number): string | null {
-  return offset <= 0 ? null : weekOffsetLabel(offset).toLocaleLowerCase("sv-SE");
 }

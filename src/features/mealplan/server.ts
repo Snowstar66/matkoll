@@ -9,7 +9,8 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
 import { detachRecipeIn } from "./data/write";
-import { currentWeekStart } from "./domain/week";
+import { cookies } from "next/headers";
+import { currentWeekStart, rememberedWeekCookie, viewedWeek } from "./domain/week";
 import {
   toPlanDishes,
   type DishRecipe,
@@ -36,8 +37,24 @@ export { MealPlanDataError } from "./data/client";
  */
 export { addToCurrentPlan } from "./actions/add-to-current-plan";
 
-/** Server Action for "Välj dag" / "Byt dag" in the recipe view (Story 25.1), passed down by the page (AD-1). */
-export { setWeekday } from "./actions/set-weekday";
+/** Server Action for "Ångra" after "Lägg på matsedeln" in the recipe view (UX-05), passed down by the page (AD-1). */
+export { removePlanRecipe } from "./actions/remove-plan-recipe";
+
+/**
+ * The week a page opens on when its address has no `?vecka=`: the one last
+ * viewed on Matsedel or Inköpslista on this device (the cookie RememberWeek
+ * writes), else this week (UX-04). Reading the cookie makes the caller dynamic,
+ * which the pages are already (they sit in <Suspense>, AD-18).
+ */
+export async function getRememberedWeek(now: Date = new Date()): Promise<string> {
+  const value = (await cookies()).get(rememberedWeekCookie)?.value;
+  return viewedWeek(value, now);
+}
+
+/** The week a page shows: the address's `?vecka=` when it has one, else the remembered week. */
+export async function resolveViewedWeek(vecka: string | null | undefined, now: Date = new Date()): Promise<string> {
+  return vecka ? viewedWeek(vecka, now) : getRememberedWeek(now);
+}
 
 /**
  * The signed-in user's current meal plan with its dishes in order (`id`,

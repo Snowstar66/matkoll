@@ -172,25 +172,19 @@ test("the offers sheet shows Rätter med erbjudanden, + adds the dish to the wee
   await expect(card).toContainText("Förslag för att varorna är på erbjudande den här veckan.");
   const row = card.getByTestId("offer-dish").filter({ hasText: "Falukorv med potatismos" });
   await expect(row.getByTestId("plan-option-deal")).toContainText("Falukorv på erbjudande");
-  // The week is picked in the card: next week is preselected, and the toast names it.
-  const options = card.getByTestId("offer-week-option");
-  await expect(options).toHaveText(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
-  await expect(options.nth(1)).toHaveAttribute("aria-pressed", "true");
-  await expect(card.getByTestId("offer-week-line")).toHaveText(/^Matsedel för vecka \d+$/);
+  // UX-04: no week buttons in the card; + adds to the week last viewed (this week here, since none was viewed).
+  await expect(card.getByTestId("offer-week-option")).toHaveCount(0);
+  await expect(card).not.toContainText("Matsedel för vecka");
   await row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" }).click();
   await expect(row.getByTestId("on-week")).toBeVisible();
   await expect(toast(page)).toContainText("Falukorv med potatismos på");
-  await expect(toast(page)).toContainText("nästa vecka.");
   const plan = await adminClient()
     .from("meal_plan_recipe")
     .select("recipe_title, meal_plan!inner(week_start)")
     .eq("user_id", userId)
-    .gt("meal_plan.week_start", weekStartOf(new Date()));
+    .eq("meal_plan.week_start", weekStartOf(new Date()));
   expect(plan.data).toHaveLength(1);
   expect(plan.data?.[0]?.recipe_title).toBe("Falukorv med potatismos");
-  // This week the dish is not on yet: + is back.
-  await options.nth(0).click();
-  await expect(row.getByRole("button", { name: "Lägg Falukorv med potatismos på veckan" })).toBeVisible();
 
   await card.getByRole("link", { name: "Visa alla" }).click();
   await expect(page).toHaveURL(/\/recept/);

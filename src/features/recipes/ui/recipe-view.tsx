@@ -9,7 +9,7 @@ import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type RecipeWeek, type SetDishWeekday, type UndoBuy } from "./recipe-body";
+import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type RecipeWeek, type RemoveFromPlan, type UndoBuy } from "./recipe-body";
 
 // Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
 // and the menu (⋯, Story 1.11) beside the title, the time and the source
@@ -44,15 +44,17 @@ export type RecipeViewProps = {
   offers?: Record<string, LineOffer>;
   /** The catalog ingredients on the shopping list now ("På listan"). */
   listedIds?: readonly string[];
-  /** This week and the next two with the recipe's dish on each (the week picker; next week first). */
+  /** This week and the next two (and the remembered week) with the recipe's dish on each. */
   weeks?: readonly RecipeWeek[];
+  /** The Monday "Lägg på matsedeln" puts the dish on (the remembered week, UX-04). */
+  defaultWeekStart?: string;
   /** The recipe's dish on this week's plan, or `null`; used without `weeks`. */
   dish?: PlanDishInfo | null;
   /** shopping.addKeyedItems and removeKeyedItems: "Köp det som saknas" and its "Ångra". */
   buyMissing?: BuyMissing;
   undoBuy?: UndoBuy;
-  /** mealplan.setWeekday: "Välj dag" / "Byt dag". */
-  setWeekday?: SetDishWeekday;
+  /** mealplan.removePlanRecipe: "Ångra" after "Lägg på matsedeln", and "Byt vecka". */
+  removeFromPlan?: RemoveFromPlan;
   /** "Markera som lagad" for the recipe's dish, shown under the steps (Story 13.4). */
   finish?: ReactNode;
 };
@@ -68,9 +70,10 @@ export function RecipeView({
   listedIds,
   dish,
   weeks,
+  defaultWeekStart,
   buyMissing,
   undoBuy,
-  setWeekday,
+  removeFromPlan,
   finish,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
@@ -137,7 +140,8 @@ export function RecipeView({
         weeks={weeks}
         buyMissing={buyMissing}
         undoBuy={undoBuy}
-        setWeekday={setWeekday}
+        removeFromPlan={removeFromPlan}
+        defaultWeekStart={defaultWeekStart}
         finish={finish}
       />
     </article>

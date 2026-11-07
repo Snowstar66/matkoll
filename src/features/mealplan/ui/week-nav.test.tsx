@@ -20,7 +20,7 @@ describe("WeekNav", () => {
     expect(screen.getByTestId("week-range")).toHaveTextContent("v. 44 · 26 okt – 1 nov");
     expect(tiles[0]).toHaveAttribute("aria-current", "page");
     expect(tiles[1]).not.toHaveAttribute("aria-current");
-    expect(tiles[0]).toHaveAttribute("href", "/matsedel");
+    expect(tiles[0]).toHaveAttribute("href", "/matsedel?vecka=2026-W44");
     expect(tiles[1]).toHaveAttribute("href", "/matsedel?vecka=2026-W45");
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveTextContent("Tidigare");
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
@@ -30,6 +30,21 @@ describe("WeekNav", () => {
     render(<WeekNav weekStart="2026-10-26" now={now} basePath="/lista" showHistory={false} />);
     expect(screen.getAllByTestId("week-tile")[1]).toHaveAttribute("href", "/lista?vecka=2026-W45");
     expect(screen.queryByRole("link", { name: "Tidigare veckor" })).toBeNull();
+  });
+
+  it("counts items to buy on Inköpslista, keeps the filter in the links and remembers the week (UX-04)", () => {
+    render(
+      <WeekNav weekStart="2026-10-26" counts={{ "2026-10-26": 38, "2026-11-02": 1 }} now={now} basePath="/lista" showHistory={false} unit="items" keepParams={{ visa: "egna" }} />,
+    );
+    const tiles = screen.getAllByTestId("week-tile");
+    expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
+      "Vecka 44, denna vecka, 38 varor",
+      "Vecka 45, nästa vecka, 1 vara",
+      "Vecka 46, om 2 veckor, inga varor",
+    ]);
+    expect(tiles.map((tile) => within(tile).getByTestId("week-count").textContent)).toEqual(["38 varor", "1 vara", "Tom"]);
+    expect(tiles[1]).toHaveAttribute("href", "/lista?vecka=2026-W45&visa=egna");
+    expect(document.cookie).toContain("livskoll-vecka=2026-W44");
   });
 
   it("highlights the viewed week", () => {
