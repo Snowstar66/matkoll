@@ -328,10 +328,11 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
   const oneMissingIdeas = shownIdeas.filter((idea) => idea.missing.length === 1);
   const oneMissingCount = (data?.oneMissing.length ?? 0) + oneMissingIdeas.length;
   const own = data?.own ?? [];
-  const nothing = data !== null && !loading && own.length === 0 && perfect.length === 0 && oneMissingCount === 0;
+  // UX-09: said before the ideas when none of the library's recipes can be cooked as they are.
+  const noOwn = data !== null && own.length === 0;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Kan lagas nu" subtitle="Allt finns hemma. Basvaror räknas som hemma." closeLabel="Klar">
+    <Sheet open={open} onClose={onClose} title="Vad kan jag laga nu?" subtitle="Idéer med det du har hemma. Basvaror räknas som hemma." closeLabel="Klar">
       <div data-testid="cook-now-sheet" className="flex flex-col gap-4">
         {readError ? (
           <p role="alert" className="text-body text-ink">
@@ -342,6 +343,12 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
           <p data-testid="cook-now-tip" className="flex items-center gap-2 rounded-md bg-sand p-3 text-body text-sand-ink">
             <InfoIcon size={18} className="shrink-0" />
             <span>{eatFirstTipText(data.tip.name, data.tip.days)}</span>
+          </p>
+        ) : null}
+
+        {noOwn ? (
+          <p data-testid="cook-now-no-own" className="text-body text-ink-2">
+            Inget av dina recept kan lagas helt just nu.
           </p>
         ) : null}
 
@@ -444,8 +451,6 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
             </ul>
           </details>
         ) : null}
-
-        {nothing ? <p className="text-body text-ink-2">Inget går att laga med bara det du har just nu.</p> : null}
 
         <div className="flex flex-col items-center gap-1.5 pb-2">
           <Button variant="text" disabled={loading || data === null} onClick={again}>

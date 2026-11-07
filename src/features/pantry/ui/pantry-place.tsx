@@ -4,7 +4,6 @@ import { type ReactNode, useEffect } from "react";
 import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import type { SelectedSite } from "../domain/site";
-import { AddSiteButton } from "./add-site-button";
 import { EmptyPlaceButton } from "./empty-place";
 import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
 import { LocationCards } from "./location-cards";
@@ -38,9 +37,8 @@ export type PantryPlaceProps = {
  * place (with "Sök i kylen", Story 11.3), with removals and "Ångra" that the server's
  * items do not show yet already applied (usePantryRemoval), and "Töm kylen"
  * under them while there are any and no search is on. The chosen card counts the items shown, so
- * card, list and the question in "Töm kylen" never disagree. While Pontus has
- * only one place, "Lägg till boende" comes last (needs a SiteSwitch above);
- * with more, the site switch above has "Boenden".
+ * card, list and the question in "Töm kylen" never disagree. "Lägg till
+ * boende" is only under Inställningar → Boenden (UX-17).
  */
 export function PantryPlace({ site, location, counts, items, photo = null, photos, findDishes }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
@@ -65,7 +63,6 @@ export function PantryPlace({ site, location, counts, items, photo = null, photo
         // "Töm kylen" acts on the whole location, so it hides while a search shows only matches.
         after={<EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />}
       />
-      {site.siteCount === 1 ? <AddSiteButton /> : null}
     </div>
   );
 }

@@ -34,7 +34,7 @@ export type AmountInputProps = {
 const stepButton =
   "flex w-14 flex-none items-center justify-center text-accent outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 const numberClasses =
-  "min-w-0 bg-surface text-center text-step font-medium tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky";
+  "min-w-0 text-center text-step font-medium tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky";
 
 /**
  * The amount of a quantity (Story 19.5), shared by Lagervara, a list line's own item and Markera
@@ -78,8 +78,8 @@ export function AmountInput({
         : {})}
       className={
         stepper
-          ? cx(numberClasses, "w-[72px] border-x border-border")
-          : cx(numberClasses, "w-24 px-3")
+          ? cx(numberClasses, "w-[72px]")
+          : cx(numberClasses, "w-24 bg-surface px-3")
       }
     />
   );
@@ -103,13 +103,9 @@ export function AmountInput({
       </div>
     );
   }
+  // UX-32: the same pill as Stepper (round, filled, no border), here with a number that can be typed.
   return (
-    <div
-      className={cx(
-        "flex h-12 w-fit flex-none items-stretch overflow-hidden rounded-md border border-border bg-surface",
-        className,
-      )}
-    >
+    <div className={cx("flex h-12 w-fit flex-none items-stretch overflow-hidden rounded-full bg-bg", className)}>
       <button
         type="button"
         aria-label="Minska"

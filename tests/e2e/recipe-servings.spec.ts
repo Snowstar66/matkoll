@@ -233,6 +233,6 @@ test("the heart keeps the chosen servings, and Lägg på matsedeln adds the dish
   await expect(dish).toHaveCount(1);
   // The dish keeps the recipe view's servings, which the portions stepper in its day sheet shows.
   await dish.getByTestId("dish-day").click();
-  await expect(page.getByRole("dialog", { name: "Flytta till dag" }).getByText("6 portioner")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: title }).getByText("6 portioner")).toBeVisible();
   expect(errors).toEqual([]);
 });

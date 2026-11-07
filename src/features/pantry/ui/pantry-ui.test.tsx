@@ -126,10 +126,11 @@ describe("PantryList", () => {
     expect(screen.queryByTestId("pantry-old")).toBeNull();
   });
 
-  it("names each row by its two lines and gives every row a swipe action instead of a bin", () => {
+  it("names each row by its two lines and gives every row a bin, with the swipe action as a shortcut (UX-03)", () => {
     render(<PantryList location="Kyl" items={kyl} />);
     expect(screen.getByRole("button", { name: "Mellanmjölk Arla laktosfri" })).toHaveAttribute("aria-haspopup", "dialog");
-    expect(document.querySelector("[data-trash-button]")).toBeNull();
+    expect(document.querySelectorAll("[data-trash-button]")).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: /^Svep bort / })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: /^Ta bort / }).map((bin) => bin.getAttribute("aria-label"))).toEqual([
       "Ta bort Gräddfil",
       "Ta bort Mellanmjölk",
@@ -240,7 +241,7 @@ describe("PantryList", () => {
     expect(screen.queryByRole("list")).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
-    expect(screen.getByRole("searchbox", { name: "Sök ingrediens" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Sök vara" })).toBeInTheDocument();
   });
 
   it("names the search field after the location", () => {

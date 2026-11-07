@@ -152,7 +152,7 @@ describe("PantrySuggestionsProvider", () => {
     await answer(ok(fridge));
     expect(cardNames()).toEqual(["grädde", "mjölk"]);
     await waitFor(() => expect(heading()).toHaveFocus());
-    expect(heading()).toHaveTextContent("Lagerförslag från kylen");
+    expect(heading()).toHaveTextContent("Förslag från fotot av kylen");
   });
 
   it("never sends a photo that cannot be read, and offers no Försök igen for it", async () => {
@@ -198,7 +198,7 @@ describe("PantrySuggestionsProvider", () => {
     expect(cardNames()).toEqual(["grädde", "mjölk"]);
     await answer(ok(freezer));
     expect(cardNames()).toEqual(["ärtor"]);
-    expect(heading()).toHaveTextContent("Lagerförslag från frysen");
+    expect(heading()).toHaveTextContent("Förslag från fotot av frysen");
   });
 
   it("keeps the earlier suggestions after Avbryt and after an error", async () => {

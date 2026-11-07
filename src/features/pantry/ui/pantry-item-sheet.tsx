@@ -538,6 +538,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         />
       ) : picking || !ingredient ? (
         <IngredientPicker
+          label="Sök vara"
           searchIngredients={searchPantryIngredients}
           newName={pantryNewIngredientName}
           onChoose={choose}

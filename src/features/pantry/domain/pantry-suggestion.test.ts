@@ -529,8 +529,8 @@ describe("texts", () => {
     expect(cameraButtonText("Kyl")).toBe("Fota");
     expect(cameraButtonText("Frys")).toBe("Fota");
     expect(cameraButtonText("Skafferi")).toBe("Fota");
-    expect(suggestionsHeading("Kyl")).toBe("Lagerförslag från kylen");
-    expect(suggestionsHeading("Skafferi")).toBe("Lagerförslag från skafferiet");
+    expect(suggestionsHeading("Kyl")).toBe("Förslag från fotot av kylen");
+    expect(suggestionsHeading("Skafferi")).toBe("Förslag från fotot av skafferiet");
   });
 
   it("says what the place has now", () => {

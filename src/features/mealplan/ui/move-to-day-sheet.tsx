@@ -5,10 +5,13 @@ import { CheckIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
 import { maxServings, weekdayNames, weekdays } from "../domain/meal-plan";
+import { weekdayDateText } from "../domain/week";
 
-// Flytta till dag (Story 13.5, FR-13): a small sheet with the seven days and
-// "Ingen dag", opened from a dish's day chip on Matsedel (Story 25.3). A tap
-// moves the dish and closes the sheet; the dish's own day is ticked.
+// Flytta till dag (Story 13.5, FR-13): a small sheet with the days still open
+// and "Ingen dag", opened from a dish's day chip on Matsedel (Story 25.3). It
+// is named by the dish (UX-33), and each day says its date and what already
+// lies there ("Lördag 7/11 · Röd linssoppa"). A tap moves the dish and closes
+// the sheet; the dish's own day is ticked.
 
 export type MoveToDaySheetProps = {
   open: boolean;
@@ -16,6 +19,12 @@ export type MoveToDaySheetProps = {
   title: string;
   /** The dish's day now, or `null`. */
   weekday: number | null;
+  /** UX-33: the Monday of the week shown, for the dates of the days. */
+  weekStart: string;
+  /** The first weekday (1–7) still open; earlier days of this week are left out (the dish's own day always shows). */
+  firstOpenDay?: number;
+  /** The other dishes' titles by weekday, shown after the date of a day that already has one. */
+  taken?: Readonly<Record<number, readonly string[]>>;
   /** Called with the chosen day (1–7) or `null`; the sheet closes at once. */
   onMove: (weekday: number | null) => void;
   /**
@@ -25,15 +34,22 @@ export type MoveToDaySheetProps = {
   servings?: { value: number; onChange: (value: number) => void };
 };
 
-export function MoveToDaySheet({ open, onClose, title, weekday, onMove, servings }: MoveToDaySheetProps) {
+export function MoveToDaySheet({ open, onClose, title, weekday, weekStart, firstOpenDay = 1, taken = {}, onMove, servings }: MoveToDaySheetProps) {
   const choices: { value: number | null; label: string }[] = [
-    ...weekdays.map((day) => ({ value: day as number | null, label: weekdayNames[day - 1] as string })),
+    ...weekdays
+      .filter((day) => day >= firstOpenDay || day === weekday)
+      .map((day) => {
+        const date = weekdayDateText(weekStart, day);
+        const others = taken[day] ?? [];
+        const name = `${weekdayNames[day - 1] as string}${date ? ` ${date}` : ""}`;
+        return { value: day as number | null, label: others.length > 0 ? `${name} · ${others.join(", ")}` : name };
+      }),
     { value: null, label: "Ingen dag" },
   ];
   return (
-    <Sheet open={open} onClose={onClose} title="Flytta till dag" subtitle={title} closeLabel={servings ? "Klar" : "Avbryt"}>
+    <Sheet open={open} onClose={onClose} title={title} closeLabel={servings ? "Klar" : "Avbryt"}>
       {servings ? (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-bg py-1 pl-3.5">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-bg py-1 pr-1 pl-3.5">
           <span className="text-body text-ink">Portioner</span>
           <Stepper
             value={servings.value}
@@ -42,7 +58,6 @@ export function MoveToDaySheet({ open, onClose, title, weekday, onMove, servings
             max={maxServings}
             decreaseLabel={`Färre portioner, ${title}`}
             increaseLabel={`Fler portioner, ${title}`}
-            className="bg-bg"
           />
         </div>
       ) : null}
@@ -64,7 +79,7 @@ export function MoveToDaySheet({ open, onClose, title, weekday, onMove, servings
                   current ? "text-accent" : "text-ink",
                 )}
               >
-                {label}
+                <span className="min-w-0 wrap-break-word">{label}</span>
                 {current ? <CheckIcon size={20} /> : null}
               </button>
             </li>

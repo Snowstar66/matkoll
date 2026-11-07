@@ -254,7 +254,7 @@ export function RecipePreview({
             Portioner
           </span>
           <div role="group" aria-labelledby={`${ids}-servings`}>
-            <Stepper value={draft.servings} onChange={(servings) => update({ servings })} className="-ml-3" />
+            <Stepper value={draft.servings} onChange={(servings) => update({ servings })} onBg />
           </div>
         </div>
         <div className="flex w-40 flex-col gap-1.5">

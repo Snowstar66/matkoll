@@ -241,9 +241,9 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(page.getByRole("button", { name: /^Boende: / }).filter({ visible: true })).toHaveAccessibleName("Boende: Stugan");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
   // One list, Att handla, above the categories; the week is a quiet menu beside it (no week tiles).
-  await expect(headings(page)).toHaveText(["Att handla", "Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
+  await expect(headings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
   // The amount after the name, and the dishes with " · " under it, without "från".
-  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("MatlagningsgräddeNy ny Till 2 rätter3 dl");
+  await expect(lineOf(page, "Matlagningsgrädde")).toContainText(/Matlagningsgrädde\s*Till 2 rätter\s*3 dl/);
   await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Till 2 rätter");
   await expect(lineOf(page, "Gul lök")).toContainText(stroganoff);
   // The vague line counted against Stugan, and the own item.
@@ -319,7 +319,7 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   await actionsAnswered(page, 1, () => check(page, "Diskmedel").click());
   await expect(progress(page)).toHaveText("Allt ligger i korgen");
   // No category; the basket row is a heading, so heading navigation finds it.
-  await expect(headings(page)).toHaveText(["Att handla", "I korgen (5)"]);
+  await expect(headings(page)).toHaveText(["I korgen (5)"]);
   // The last line left: focus on the basket row's "Dölj".
   await expect(button(page, "Dölj I korgen")).toBeFocused();
   await expect(basketRow(page)).toContainText("I korgen (5)");
@@ -362,9 +362,14 @@ test("at 200 % text the buttons stack with Lägg till i Matvaror on top, the chi
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
-  const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
-  const put = await button(page, "Lägg till i Matvaror").boundingBox();
-  expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
+  // Once the page has measured the pinned bar, "Lägg till i Matvaror" stands above "Kopiera till ICA-varukorgen".
+  await expect
+    .poll(async () => {
+      const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
+      const put = await button(page, "Lägg till i Matvaror").boundingBox();
+      return put!.y + put!.height <= send!.y;
+    })
+    .toBe(true);
   const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
   expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   expect(await noSideScroll(page)).toBe(true);

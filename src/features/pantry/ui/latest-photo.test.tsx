@@ -117,7 +117,7 @@ describe("LatestPhoto", () => {
   it("has no line without a photo", () => {
     render(<Hemma shown={null} />);
     expect(line()).toBeNull();
-    expect(screen.getByTestId("pantry-no-photo")).toHaveTextContent("Inget foto än");
+    expect(screen.queryByText("Inget foto än")).toBeNull();
   });
 
   it("opens the sheet with the photo from the route, the time, the markers and the reading as a numbered list", async () => {

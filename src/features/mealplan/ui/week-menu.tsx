@@ -44,7 +44,7 @@ export function WeekMenu({ weekStart, options }: { weekStart: string; options: r
         aria-label={`Vecka: ${shown?.label ?? ""}, ${shown?.detail.toLocaleLowerCase("sv-SE") ?? ""}`}
         aria-busy={pending || undefined}
         onClick={() => setOpen(true)}
-        className="-mr-1.5 flex min-h-tap shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-accent"
+        className="-ml-1.5 flex min-h-tap shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-accent"
       >
         <span>{shown?.label}</span>
         <ChevronDownIcon size={16} />

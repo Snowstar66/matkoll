@@ -147,7 +147,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await page.goto("/hemma");
   await photograph(page, "Fota", kyl);
 
-  const heading = section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" });
+  const heading = section(page).getByRole("heading", { level: 2, name: "Förslag från fotot av kylen" });
   await expect(heading).toBeFocused();
   await expect(cards(page)).toHaveCount(6);
   // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk "finns redan" and comes last (Kylfoto D: one list).
@@ -209,7 +209,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   // Another card: the button follows it, the suggestions stay with the fridge.
   await card(page, "Frys").click();
   await expect(cameraButton(page, "Fota")).toBeVisible();
-  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från kylen");
+  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Förslag från fotot av kylen");
   await expect(cards(page)).toHaveCount(6);
   await expect(cards(page).first().getByText("Grädde · Kyl", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

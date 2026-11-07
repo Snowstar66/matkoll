@@ -75,7 +75,7 @@ const location = (name: Location) => placeRadio(sheet(), name);
 
 /** Types in the search field and searches at once (Enter skips the 200 ms wait). */
 async function search(text: string) {
-  const field = within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" });
+  const field = within(sheet()).getByRole("searchbox", { name: "Sök vara" });
   fireEvent.change(field, { target: { value: text } });
   await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
 }
@@ -93,7 +93,7 @@ describe("PantryItemSheet, a new item", () => {
   it("opens on the search with the field in focus and the chosen location preselected", async () => {
     setup("Frys");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" })));
-    expect(within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" })).toHaveFocus();
+    expect(within(sheet()).getByRole("searchbox", { name: "Sök vara" })).toHaveFocus();
     await search("lök");
     expect(searchPantryIngredients).toHaveBeenCalledWith("lök");
     // Before an ingredient is chosen, there is nothing to save.
@@ -811,7 +811,7 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     fireEvent.change(amount(), { target: { value: "3" } });
     fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
     expect(within(sheet()).getByRole("heading", { name: "Byt vara" })).toBeInTheDocument();
-    await waitFor(() => expect(within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" })).toHaveFocus());
+    await waitFor(() => expect(within(sheet()).getByRole("searchbox", { name: "Sök vara" })).toHaveFocus());
     // No second Avbryt.
     expect(within(sheet()).queryByRole("button", { name: "Avbryt" })).toBeNull();
     expect(within(sheet()).queryByLabelText("Mängd")).toBeNull();

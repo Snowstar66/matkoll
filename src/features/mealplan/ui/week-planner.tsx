@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip } from "@/components/chip";
-import { ChevronDownIcon, CloseIcon } from "@/components/icons";
+import { ChevronDownIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
+import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { optionsForTab, type PlanOption, type PlanTab } from "@/features/suggestions";
 import { weekdayShortName, weekdayWord } from "../domain/meal-plan";
@@ -341,15 +342,14 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                         {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
                       </p>
                     </div>
-                    <button
-                      type="button"
+                    <TrashButton
                       data-testid="dish-remove"
-                      onClick={() => void remove(dish)}
-                      aria-label={`Ta bort ${dish.recipeTitle}`}
-                      className="flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
-                    >
-                      <CloseIcon size={18} />
-                    </button>
+                      label={`Ta bort ${dish.recipeTitle}`}
+                      onPress={(bin, press) => {
+                        if (!press.pointer) focusAfterRemoval(bin);
+                        void remove(dish);
+                      }}
+                    />
                   </div>
                 </li>
               );
@@ -430,10 +430,23 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
         onClose={() => setDayFor(null)}
         title={dayDish?.recipeTitle ?? ""}
         weekday={dayDish?.weekday ?? null}
+        weekStart={weekStart}
+        firstOpenDay={firstOpenDay}
+        taken={takenByDay(shown, dayDish?.id ?? null)}
         onMove={(weekday) => dayDish && void moveTo(dayDish, weekday)}
         servings={dayDish ? { value: portions[dayDish.id] ?? dayDish.servings, onChange: (value) => void changeServings(dayDish, value) } : undefined}
       />
 
     </div>
   );
+}
+
+/** The titles of the dishes on each weekday, without `exceptId` (the dish being moved), for the sheet Flytta till dag. */
+function takenByDay(dishes: readonly PlanDish[], exceptId: string | null): Record<number, string[]> {
+  const taken: Record<number, string[]> = {};
+  for (const dish of dishes) {
+    if (dish.id === exceptId || !dish.weekday) continue;
+    (taken[dish.weekday] ??= []).push(dish.recipeTitle);
+  }
+  return taken;
 }

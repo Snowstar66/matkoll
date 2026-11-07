@@ -107,7 +107,7 @@ const allAtHome: SeedItem[] = [
 /** Adds an item in Matvaror through the sheet Lagervara and waits for the confirmation. */
 async function addInLagersaldo(page: Page, name: string, amount: string, unit: string) {
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
-  await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
+  await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill(name);
   await sheet(page).getByRole("button", { name: new RegExp(`^${name}$`, "i") }).click();
   await sheet(page).getByLabel("Mängd").fill(amount);
   await chooseUnit(sheet(page), unit);

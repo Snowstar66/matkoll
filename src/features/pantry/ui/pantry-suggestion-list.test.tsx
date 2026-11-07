@@ -144,7 +144,7 @@ async function analyze(result: AnalyzeResult = fridge) {
   await (await startPhoto())(result);
 }
 
-const section = () => screen.getByRole("region", { name: "Lagerförslag från kylen" });
+const section = () => screen.getByRole("region", { name: "Förslag från fotot av kylen" });
 const cards = () => within(section()).getAllByTestId("pantry-suggestion");
 
 beforeEach(() => {
@@ -170,7 +170,7 @@ describe("PantrySuggestionList", () => {
   it("shows a compact row per suggestion with name, line under it, amount and a tick box", async () => {
     render(<Hemma />);
     await analyze();
-    expect(within(section()).getByRole("heading", { level: 2 })).toHaveTextContent("Lagerförslag från kylen");
+    expect(within(section()).getByRole("heading", { level: 2 })).toHaveTextContent("Förslag från fotot av kylen");
     const shown = cards().map((card) => ({
       name: within(card).getByRole("heading", { level: 3 }).textContent,
       text: card.textContent,
@@ -290,7 +290,7 @@ describe("PantrySuggestionList", () => {
     expect(discard).toHaveClass("text-danger");
     const jobId = fakeAi.jobs[0].id;
     fireEvent.click(discard);
-    expect(screen.queryByRole("region", { name: "Lagerförslag från kylen" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Förslag från fotot av kylen" })).toBeNull();
     expect(confirms).toEqual([]);
     // The job is closed, so no badge or "Förslag klara" stays.
     await waitFor(() => expect(fakeAi.dismissed).toContain(jobId));
@@ -600,7 +600,7 @@ describe("Rätta", () => {
     fireEvent.click(button("Rätta gurka"));
     expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
     fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
-    const field = within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" });
+    const field = within(sheet()).getByRole("searchbox", { name: "Sök vara" });
     fireEvent.change(field, { target: { value: "slanggurka" } });
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Slanggurka som ny" }));

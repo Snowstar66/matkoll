@@ -131,12 +131,12 @@ const announcement = (page: Page) => page.getByTestId("site-announcement").filte
 const toast = (page: Page) => page.getByTestId("toast");
 const itemSheet = (page: Page) => page.getByRole("dialog");
 
-/** Hemma, once React runs: the boende button (or "Lägg till boende" with one place) is enabled. */
+/** Hemma, once React runs: the boende button (or, with one place, the place cards) is there. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
   await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
-  const ready = (await storedPlaces()).length > 1 ? boendeButton(page) : addSiteButton(page);
-  await expect(ready).toBeEnabled();
+  const ready = (await storedPlaces()).length > 1 ? boendeButton(page) : places(page);
+  await expect(ready).toBeVisible();
 }
 
 /** The sheet Boenden with several places: from Inställningar → Boenden, where "Lägg till boende" opens it (Story 16.14). */
@@ -178,27 +178,21 @@ test.beforeAll(async () => {
   userId = await e2eUserId(sitesEmail);
 });
 
-test("with one place there is no switch, and Lägg till boende is at the bottom, under Töm kylen", async ({ page }) => {
+test("with one place there is no switch, and no Lägg till boende on Matvaror: it lives under Inställningar → Boenden (UX-17)", async ({ page }) => {
   const errors = watchErrors(page);
   await resetPlaces(["Hemma"], "Hemma", [{ site: "Hemma", name: "Mjölk", location: "Kyl", amount: 1, unit: "l" }]);
   await openHemma(page);
 
   await expect(boendeButton(page)).toHaveCount(0);
-  const empty = page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true });
-  const emptyBox = await empty.boundingBox();
-  const addBox = await addSiteButton(page).boundingBox();
-  expect(addBox!.y).toBeGreaterThan(emptyBox!.y);
-  await expectTapSize(addSiteButton(page));
+  await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toBeVisible();
+  await expect(addSiteButton(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
 test("Lägg till boende adds Stugan, not selected, and Hemma shows the boende button", async ({ page }) => {
   const errors = watchErrors(page);
   await resetPlaces(["Hemma"]);
-  await openHemma(page);
-
-  await addSiteButton(page).click();
-  await expect(sheet(page)).toBeVisible();
+  await openSitesSheet(page);
   await expect(newField(page)).toHaveAttribute("placeholder", "Till exempel Stugan");
   await newField(page).fill("Stugan");
   await addButton(page).click();
@@ -213,6 +207,7 @@ test("Lägg till boende adds Stugan, not selected, and Hemma shows the boende bu
 
   await sheet(page).getByRole("button", { name: "Klar" }).click();
   await expect(sheet(page)).toHaveCount(0);
+  await openHemma(page);
   await expectBoende(page, "Hemma");
   await boendeButton(page).click();
   await expect(page.getByTestId("boende-option").filter({ visible: true })).toHaveCount(2);
@@ -302,7 +297,7 @@ test("milk added with Stugan selected is on Stugan, and Hemma's fridge is as it 
   await expect(rows(page)).toHaveCount(0);
 
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
-  await itemSheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("mjö");
+  await itemSheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("mjö");
   await itemSheet(page).getByRole("button", { name: "Mjölk" }).click();
   await itemSheet(page).getByLabel("Mängd").fill("1");
   await chooseUnit(itemSheet(page), "l");
@@ -392,8 +387,7 @@ test("the sheet renames a place and removes an empty one, and offers Ta bort onl
 
   // The last place has no Ta bort either.
   await resetPlaces(["Hemma"]);
-  await openHemma(page);
-  await addSiteButton(page).click();
+  await openSitesSheet(page);
   await expect(sheet(page).getByTestId("site-row")).toHaveText([/^Hemma\s*0 varor\s*Valt$/]);
   await expect(sheet(page).getByRole("button", { name: /^Ta bort/ })).toHaveCount(0);
   expect(errors).toEqual([]);

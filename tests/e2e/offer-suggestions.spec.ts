@@ -282,8 +282,8 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
 
   // "Byt dag" picks a day; the chip says it, and the list is one tab away.
   await toast(page).getByRole("button", { name: "Byt dag" }).click();
-  await page.getByRole("dialog", { name: /Flytta till dag/ }).getByRole("button", { name: "Onsdag" }).click();
-  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(/^Ons\d/);
+  await page.getByRole("dialog", { name: "Falukorv med potatismos" }).getByRole("button", { name: /^Söndag/ }).click();
+  await expect(weekDishes(page).first().getByTestId("dish-day")).toHaveText(/^Sön\d/);
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: /^Inköpslista/ }).click();
   await expect(page).toHaveURL(/\/lista$/);
   await expect(page.getByTestId("shopping-line").filter({ visible: true }).first()).toContainText(/falukorv/i);

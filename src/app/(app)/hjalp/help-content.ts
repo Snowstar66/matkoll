@@ -29,7 +29,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Recept",
     steps: [
       { icon: "link", title: "Spara ett recept", text: `Tryck + och klistra in en länk, fota eller skriv. ${appName} läser in resten.` },
-      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer där allt finns hemma." },
+      { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer med det du har hemma." },
       { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
     faq: [
@@ -83,10 +83,10 @@ export const helpAreas: readonly HelpArea[] = [
     steps: [
       { icon: "list", title: "Listan räknas fram", text: "Från veckans matsedel, minus det du redan har, plus dina egna varor." },
       { icon: "check", title: "Bocka av", text: "Tryck på cirkeln. Det fungerar även utan nät." },
-      { icon: "bag", title: "Lägg i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
+      { icon: "bag", title: "Lägg till i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
-      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till vara högst upp i listan, eller säg det till Siri." },
+      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck + (nere till höger på mobilen, uppe till höger på dator), eller säg det till Siri." },
       {
         // Basvaror (Pontus 2026-11-02).
         question: "Varför står inte salt på listan?",
@@ -94,7 +94,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag handla till nästa vecka?",
-        answer: "Ja. Tryck Denna vecka bredvid Att handla och välj vecka. Dina egna varor syns vilken vecka du än väljer.",
+        answer: "Ja. Tryck Denna vecka överst i kortet med antal varor kvar och välj vecka. Dina egna varor syns vilken vecka du än väljer.",
       },
       {
         question: "Hur lägger jag det jag handlat i Matvaror?",
@@ -116,7 +116,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",
-        answer: "Tryck Kopiera till varukorgen, öppna butikens webbplats och logga in, och klistra in listan i Claude in Chrome. Du granskar varukorgen och beställer själv. Dela listan skickar den som text i stället.",
+        answer: "Tryck Kopiera till ICA-varukorgen, öppna butikens webbplats och logga in, och klistra in listan i Claude in Chrome. Du granskar varukorgen och beställer själv. Dela listan skickar den som text i stället.",
       },
     ],
   },
@@ -125,20 +125,20 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Matvaror",
     steps: [
       { icon: "fridge", title: "Välj plats", text: "Kyl, Frys eller Skafferi högst upp. Tryck + för en vara." },
-      { icon: "camera", title: "Fota kylen", text: `${appName} föreslår varorna. Inget sparas förrän du bekräftar.` },
-      { icon: "undo", title: "Ta bort och ångra", text: "Svep en rad åt vänster. Ångra finns kvar en stund." },
+      { icon: "camera", title: "Fota kylen", text: `${appName} föreslår varor från fotot. Inget sparas förrän du bekräftar.` },
+      { icon: "undo", title: "Ta bort och ångra", text: "Tryck på soptunnan. Ångra finns kvar en stund." },
     ],
     faq: [
       {
         question: "Varför spelar Matvaror roll?",
         answer: "Det avgör vad som står som Kan lagas nu och vad som dras av på inköpslistan.",
       },
-      { question: "Hur ändrar jag en vara?", answer: "Tryck på varan. Där kan du också ta bort den." },
+      { question: "Hur ändrar jag en vara?", answer: "Tryck på varan. Där kan du också ta bort den, eller tryck på soptunnan på raden." },
       {
         question: "Kan jag fota frysen och skafferiet också?",
-        answer: "Ja, Fotografera finns för varje plats: kylen, frysen och skafferiet.",
+        answer: "Ja, Fota finns för varje plats: kylen, frysen och skafferiet.",
       },
-      { question: "Kan jag ändra ett förslag från bilden?", answer: "Ja. Ändra eller avvisa varje förslag innan du sparar." },
+      { question: "Kan jag ändra ett förslag från fotot?", answer: "Ja. Ändra eller avvisa varje förslag innan du sparar." },
       { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
     ],
   },

@@ -220,7 +220,7 @@ test.describe("the sheet Lagervara", () => {
     await expect(rows(page)).toHaveCount(3);
 
     await addButton(page).click();
-    const search = sheet(page).getByRole("searchbox", { name: "Sök ingrediens" });
+    const search = sheet(page).getByRole("searchbox", { name: "Sök vara" });
     await expect(search).toBeFocused();
     await search.fill("mjö");
     await sheet(page).getByRole("button", { name: "Mjölk" }).click();
@@ -246,7 +246,7 @@ test.describe("the sheet Lagervara", () => {
     await expect(rows(page)).toHaveCount(1);
 
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
+    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill(name);
     await sheet(page).getByRole("button", { name: `Lägg till ${name} som ny` }).click();
     await expect(sheet(page).getByText("Ny", { exact: true })).toBeVisible();
     await sheet(page).getByRole("button", { name: /^Avdelning:/ }).click();
@@ -263,7 +263,7 @@ test.describe("the sheet Lagervara", () => {
 
     // The new ingredient is in the catalog now: the search finds it.
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
+    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill(name);
     await expect(sheet(page).getByRole("button", { name, exact: true })).toBeVisible();
     await expect(sheet(page).getByRole("button", { name: /som ny$/ })).toHaveCount(0);
     expect(errors).toEqual([]);
@@ -347,7 +347,7 @@ test.describe("the sheet Lagervara", () => {
     // An empty location offers "Lägg till vara" too, with the location preselected.
     await card(page, "Skafferi").click();
     await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).last().click();
-    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("salt");
+    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("salt");
     await sheet(page).getByRole("button", { name: "Salt" }).click();
     await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
@@ -362,14 +362,14 @@ test.describe("the sheet Lagervara", () => {
 
     // Salt is kept in Skafferi in the catalog, although Kyl is chosen.
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("salt");
+    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("salt");
     await sheet(page).getByRole("button", { name: "Salt" }).click();
     await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
     await expectUnit(sheet(page), "");
 
     // Smör has the default unit g.
     await sheet(page).getByRole("button", { name: "Byt vara" }).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("smör");
+    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("smör");
     await sheet(page).getByRole("button", { name: "Smör" }).click();
     await expectUnit(sheet(page), "g");
     expect(errors).toEqual([]);
@@ -508,10 +508,10 @@ test.describe("removing an item", () => {
     expect(errors).toEqual([]);
   });
 
-  test("has a swipe row and no bin in Matvaror (Story 14.6)", async ({ page }) => {
+  test("has a bin on every row, and the swipe row as a shortcut (UX-03)", async ({ page }) => {
     await page.goto("/hemma");
     await expect(page.getByTestId("swipe-row-front")).toHaveCount(3);
-    await expect(page.locator("[data-trash-button]")).toHaveCount(0);
+    await expect(page.locator("[data-trash-button]")).toHaveCount(3);
   });
 });
 

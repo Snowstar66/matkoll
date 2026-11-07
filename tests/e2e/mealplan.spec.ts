@@ -383,6 +383,8 @@ test("Ta bort never asks, every removal goes at once and the list follows", asyn
   await trash(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(1);
+  // A second press on a bin within 400 ms is ignored (trashPressGuardMs).
+  await page.waitForTimeout(500);
   await trash(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(0);
@@ -572,7 +574,8 @@ test("dishes lie on days: the chip opens Flytta till dag, and the list does not 
   };
   const before = await listLines();
   const dayNames = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"];
-  const target = 5;
+  // Sunday is always open, however far into the week it is (days that have passed are left out of the sheet, UX-33).
+  const target = 7;
 
   // Existing dishes have no day.
   await page.goto("/matsedel");
@@ -581,14 +584,16 @@ test("dishes lie on days: the chip opens Flytta till dag, and the list does not 
   expect((await chip(dish(page, soppa)).boundingBox())!.height).toBeGreaterThanOrEqual(36);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  // The chip opens the day picker: the seven days and Ingen dag.
+  // The chip opens the day picker: the days still open, each with its date, and Ingen dag last.
   await chip(dish(page, soppa)).click();
-  const sheet = page.getByRole("dialog", { name: "Flytta till dag" });
-  await expect(sheet.getByTestId("day-choice")).toHaveCount(8);
+  const sheet = page.getByRole("dialog", { name: soppa });
+  expect(await sheet.getByTestId("day-choice").count()).toBeGreaterThanOrEqual(2);
+  await expect(sheet.getByTestId("day-choice").last()).toHaveText("Ingen dag");
+  await expect(sheet.getByTestId("day-choice").nth(await sheet.getByTestId("day-choice").count() - 2)).toHaveText(/^Söndag \d+\/\d+/);
   expect((await sheet.getByTestId("day-choice").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await sheet.getByRole("button", { name: dayNames[target - 1]!.replace(/^./, (c) => c.toUpperCase()) }).click();
+  await sheet.getByRole("button", { name: /^Söndag/ }).click();
   await expect(toast(page)).toContainText(`${soppa} ligger på ${dayNames[target - 1]}.`);
-  await expect(chip(dish(page, soppa))).toHaveText(/^Fre\d/);
+  await expect(chip(dish(page, soppa))).toHaveText(/^Sön\d/);
   await expect(chip(dish(page, gryta))).toHaveText("–");
   await expect
     .poll(async () => {

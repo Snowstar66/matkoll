@@ -13,7 +13,6 @@ import {
 } from "@/features/pantry/server";
 import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
-import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
 import { ok, type Result } from "@/lib/errors";
 import { HomeContent } from "./home-content";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
@@ -150,7 +149,7 @@ describe("HomeContent", () => {
     };
     await act(async () => fakeAi.calls[0].answer(ok({ site: { id: site.id, name: site.name }, location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
 
-    const section = screen.getByRole("region", { name: "Lagerförslag från kylen" });
+    const section = screen.getByRole("region", { name: "Förslag från fotot av kylen" });
     expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaKyl2 st");
     const notice = screen.getByRole("alert");
     expect(notice.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -182,37 +181,19 @@ describe("HomeContent", () => {
     expect(logged).toHaveBeenCalledWith("pantry_site_gone", { reason: "site_gone" });
   });
 
-  it("puts Lägg till boende last, under Töm kylen, while there is only one place", async () => {
+  it("has no Lägg till boende with one place, also when the pantry cannot be read: it lives under Inställningar → Boenden (UX-17)", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     const only = { ...site, siteCount: 1 };
-    render(
-      <SiteSwitchProvider>
-        <SiteSwitch sites={[{ id: only.id, name: only.name, isSelected: true, itemCount: 1 }]} selected={only}>
-          {await HomeContent({ site: only, location: "Kyl", next: "/hemma" })}
-        </SiteSwitch>
-      </SiteSwitchProvider>,
-    );
-    expect(screen.queryByRole("radiogroup", { name: "Boende" })).toBeNull();
-    const add = await screen.findByRole("button", { name: "Lägg till boende" });
-    const empty = screen.getByRole("button", { name: "Töm kylen" });
-    expect(empty.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("keeps Lägg till boende with one place when the pantry cannot be read, so the sheet Boenden can be reached", async () => {
+    const { unmount } = render(await HomeContent({ site: only, location: "Kyl", next: "/hemma" }));
+    expect(screen.getByRole("button", { name: "Töm kylen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lägg till boende" })).toBeNull();
+    unmount();
     vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed 500"));
     vi.mocked(listPantry).mockResolvedValue([]);
-    const only = { ...site, siteCount: 1 };
-    render(
-      <SiteSwitchProvider>
-        <SiteSwitch sites={[{ id: only.id, name: only.name, isSelected: true, itemCount: null }]} selected={only}>
-          {await HomeContent({ site: only, location: "Kyl", next: "/hemma" })}
-        </SiteSwitch>
-      </SiteSwitchProvider>,
-    );
+    render(await HomeContent({ site: only, location: "Kyl", next: "/hemma" }));
     expect(screen.getByRole("alert")).toHaveTextContent(unavailable);
-    fireEvent.click(await screen.findByRole("button", { name: "Lägg till boende" }));
-    expect(await screen.findByRole("dialog", { name: "Boenden" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lägg till boende" })).toBeNull();
   });
 
   it("has no Lägg till boende with two places", async () => {
@@ -287,7 +268,7 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))] });
     render(await HomeContent({ site, location: "Frys", next: "/hemma" }));
     expect(screen.queryByTestId("pantry-latest-photo")).toBeNull();
-    expect(screen.getByTestId("pantry-no-photo")).toHaveTextContent("Inget foto än");
+    expect(screen.queryByText("Inget foto än")).toBeNull();
   });
 
   it("keeps the line under the camera button when the pantry cannot be read", async () => {
