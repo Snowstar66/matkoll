@@ -19,6 +19,7 @@ import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, week
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
+import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
 import { OfferIdeas } from "../offer-ideas";
 
@@ -143,9 +144,12 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
         title="Matsedel"
         tab="/matsedel"
         action={
-          <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
-            <ListOffers next="/matsedel" />
-          </Suspense>
+          <>
+            <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
+              <ListOffers next="/matsedel" />
+            </Suspense>
+            <AddDishesButton />
+          </>
         }
       />
       {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}

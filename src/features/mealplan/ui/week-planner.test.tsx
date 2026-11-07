@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
 import type { PlanOption } from "@/features/suggestions";
 import type { PlanDish, PlanRecipeRow } from "../domain/meal-plan";
+import { AddDishesButton } from "./add-dishes-button";
 import { WeekPlanner } from "./week-planner";
 
 const addToCurrentPlan = vi.fn();
@@ -153,6 +154,17 @@ describe("WeekPlanner, the folded library", () => {
     await user.click(screen.getAllByTestId("free-day")[0]);
     expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
     // The stored choice is left as it was.
+    expect(window.localStorage.getItem("matkoll.mealplan.library-open")).toBe("0");
+  });
+
+  it("opens for this visit only when the header's + says so (UX-07)", async () => {
+    window.localStorage.setItem("matkoll.mealplan.library-open", "0");
+    const user = userEvent.setup();
+    renderPlanner();
+    expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "false");
+    render(<AddDishesButton />);
+    await user.click(screen.getByRole("button", { name: "Lägg till rätt" }));
+    expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
     expect(window.localStorage.getItem("matkoll.mealplan.library-open")).toBe("0");
   });
 });

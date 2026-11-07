@@ -1,11 +1,12 @@
 import { act, fireEvent, render as renderBare, type RenderOptions, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { ShoppingLine } from "../domain/compute-list";
 import type { CustomItemFormInput, CustomItemRow } from "../domain/custom-item";
+import { AddItemHeaderButton, AddItemProvider } from "./add-item";
 import { ShoppingList, type ShoppingListProps } from "./shopping-list";
 
 // Own items on Inköpslista (Story 3.5): "Lägg till vara" with the
@@ -22,7 +23,18 @@ vi.mock("../actions/set-checked", () => ({ setChecked: (change: unknown) => setC
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-const render = (ui: ReactElement, options?: RenderOptions) => renderBare(ui, { wrapper: ToastProvider, ...options });
+// The page's header holds the "+" (UX-07), with the list under the same provider.
+function Wrapper({ children }: { children: ReactNode }) {
+  return (
+    <ToastProvider>
+      <AddItemProvider>
+        <AddItemHeaderButton />
+        {children}
+      </AddItemProvider>
+    </ToastProvider>
+  );
+}
+const render = (ui: ReactElement, options?: RenderOptions) => renderBare(ui, { wrapper: Wrapper, ...options });
 
 const planId = "33333333-3333-4333-8333-333333333333";
 const diskId = "11111111-1111-4111-8111-111111111111";
@@ -87,20 +99,18 @@ async function openSheet(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("Lägg till vara", () => {
-  it("is the floating + after the list, also without a plan and with nothing on it", () => {
+  it("is the + in the header, also without a plan and with nothing on it, and no floating + or row at the end of the list", () => {
     const { rerender } = render(<ShoppingList plan={null} lines={[]} pantryUnavailable={false} />);
     // Own items belong to the household: an empty week without a plan can have them too (Story 17.10).
     expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} />);
     expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     rerender(<ShoppingList plan={plan} lines={[gradde, disk]} pantryUnavailable={false} />);
-    const fab = screen.getByTestId("add-item-fab");
-    expect(fab).toHaveAccessibleName("Lägg till vara");
-    expect(fab).toHaveClass("fixed", "size-[56px]", "bg-accent", "shadow-float", "desktop:hidden");
-    // No row at the end of the last category any more, and room below the list for the +.
+    expect(screen.getByTestId("add-item-header")).toHaveAccessibleName("Lägg till vara");
+    expect(screen.queryByTestId("add-item-fab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("add-item-fab-spacer")).not.toBeInTheDocument();
     const categories = screen.getAllByTestId("list-category");
     expect(within(categories.at(-1)!).queryByRole("button", { name: /Lägg till/ })).not.toBeInTheDocument();
-    expect(screen.getByTestId("add-item-fab-spacer")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Lägg till vara" })).toHaveLength(1);
   });
 
