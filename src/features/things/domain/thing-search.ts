@@ -164,7 +164,7 @@ export function hitThumbnail(hit: Pick<ThingHit, "photoId" | "written"> & { note
 }
 
 /** Story 18.19: under "Inga föremål matchar …", what ↑ does with the text. */
-export const noHitsAskText = "Tryck ↑ för att fråga, eller för att spara var det ligger.";
+export const noHitsAskText = "Tryck Fråga för att fråga, eller för att spara var det ligger.";
 
 /** The fewest characters that start the instant search (Story 18.17). */
 export const minSearchChars = 2;

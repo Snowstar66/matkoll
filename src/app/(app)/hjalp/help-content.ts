@@ -147,8 +147,8 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Förråd",
     steps: [
       { icon: "door", title: "Börja med ett rum", text: "Tryck Lägg till rum, till exempel Förrådet eller Garaget." },
-      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Fota. ${appName} listar ${things}en på bilden.` },
-      { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
+      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet, välj Var i rummet? (Hela rummet, Hylla, Låda eller en egen plats) och tryck Fota. ${appName} listar ${things}en på bilden.` },
+      { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck Fråga och fråga: var är passen?" },
     ],
     faq: [
       {

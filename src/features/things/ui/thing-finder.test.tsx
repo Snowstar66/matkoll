@@ -54,7 +54,7 @@ describe("the one field to search and ask", () => {
     searchThingsAction.mockResolvedValue(ok({ hits: [] }));
     renderIt();
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
-    expect(screen.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeInTheDocument();
+    expect(screen.queryByText(/Skriv ett ord för att söka/)).toBeNull();
     expect(searchThingsAction).not.toHaveBeenCalled();
     await userEvent.type(field(), "h");
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -129,7 +129,7 @@ describe("the one field to search and ask", () => {
     await userEvent.type(field(), "xyz");
     expect(await screen.findByText("Inget matchar ”xyz”.")).toBeInTheDocument();
     // Story 18.19: what ↑ does with a text that finds nothing.
-    expect(screen.getByText("Tryck ↑ för att fråga, eller för att spara var det ligger.")).toBeInTheDocument();
+    expect(screen.getByText("Tryck Fråga för att fråga, eller för att spara var det ligger.")).toBeInTheDocument();
     searchThingsAction.mockResolvedValue(fail("things_unavailable"));
     await userEvent.type(field(), "q");
     expect(await screen.findByRole("alert")).toHaveTextContent("Sökningen gick inte");

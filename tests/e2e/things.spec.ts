@@ -63,10 +63,9 @@ const content = (page: Page) => page.locator("main").filter({ visible: true });
 
 /**
  * Takes cards in a room: from the start page it opens the room (or makes it with "Lägg till rum"), then on the room's
- * page (Story 18.16) "Välj från album" is clicked there; with a part or box "Var i rummet? (valfritt)" opens the sheet.
+ * page (Story 18.16) "Välj från album" is clicked there; with a part or box the "Var i rummet?" chips above Fota are used.
  */
 async function takeCards(page: Page, files: string | string[], { room, part, box = false }: { room?: string; part?: string; box?: boolean } = {}) {
-  const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
   // Photos are taken in a room (Story 18.21): from the start page first go to the room, or make it.
   if (!page.url().includes("/prylar/rum/")) {
     if (!room) throw new Error("takeCards needs a room on the start page");
@@ -80,13 +79,12 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
     }
     await page.waitForURL(/\/prylar\/rum\//);
   }
-  let scope: Locator = page.locator("main").filter({ visible: true });
+  const scope: Locator = page.locator("main").filter({ visible: true });
   if (part) {
-    await page.getByTestId("room-exact").click();
-    scope = dialog;
-    await dialog.getByRole("button", { name: /Var i rummet\? \(valfritt\)/ }).click();
-    if (box) await dialog.getByRole("radio", { name: "Låda" }).click();
-    await dialog.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
+    // UX-28: "Var i rummet?" is chips above Fota; "+ Annan plats" opens the field for an own name.
+    const where = page.getByRole("radiogroup", { name: "Var i rummet?" });
+    await where.getByRole("radio", { name: box ? "Låda" : "+ Annan plats" }).click();
+    await page.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
   }
   const chooser = page.waitForEvent("filechooser");
   await scope.getByRole("button", { name: /Välj från album/ }).click();
@@ -513,8 +511,9 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 föremål");
   // The database searches: the hit says place, boende and the card's day, from every boende, and a typo is fine.
   const search = page.getByRole("textbox", { name: "Sök eller fråga" });
-  // One field: the hint while it is empty, and one character is not searched for.
-  await expect(page.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeVisible();
+  // One field with its "Fråga" button and no explaining line, and one character is not searched for.
+  await expect(page.getByRole("button", { name: "Fråga", exact: true })).toBeVisible();
+  await expect(page.getByText(/Skriv ett ord för att söka/)).toHaveCount(0);
   await search.fill("h");
   await expect(page.getByTestId("thing-hits")).toHaveCount(0);
   await expect(rooms(page)).toBeVisible();
@@ -550,7 +549,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   ]);
   // A follow-up in the same conversation, and nothing found: the closed containers are named.
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("och cykelpumpen då?");
-  await chat.getByRole("button", { name: "Skicka" }).click();
+  await chat.getByRole("button", { name: "Fråga", exact: true }).click();
   await expect(page.getByTestId("chat-answer").nth(1)).toContainText("Jag hittar inget som passar i dina listor. Innehållet i 2 lådor syns inte");
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("hammare");
   await page.waitForTimeout(500);
@@ -559,7 +558,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await chat.getByRole("button", { name: "Ny fråga" }).click();
   await expect(page.getByTestId("chat-turn")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Har vi något att måla med?");
-  await chat.getByRole("button", { name: "Skicka" }).click();
+  await chat.getByRole("button", { name: "Fråga", exact: true }).click();
   // Story 18.7: the card opens big with the thing the answer is built on marked, also in another boende.
   await page.getByTestId("chat-ref").click();
   await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}\?foremal=[0-9a-f-]{36}$/);
@@ -908,7 +907,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("");
   const chat = page.getByTestId("chat");
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Vet du var skarvsladdar ligger?");
-  await chat.getByRole("button", { name: "Skicka" }).click();
+  await chat.getByRole("button", { name: "Fråga", exact: true }).click();
   await expect(page.getByTestId("chat-answer")).toContainText("Skarvsladdar finns i Skräpförrådet, i Black box (Hemma).");
   const ref = page.getByTestId("chat-ref");
   await expect(ref).toContainText("Skräpförrådet · Black box");
@@ -1287,7 +1286,7 @@ test("the one field fits 375 px in dark mode with 200 % text, and its targets ar
   const field = page.getByRole("textbox", { name: "Sök eller fråga" });
   await field.fill("hamm");
   await expect(page.getByTestId("thing-hit")).toHaveCount(1);
-  for (const target of [field, page.getByRole("button", { name: "Skicka" }), page.getByTestId("thing-hit")]) {
+  for (const target of [field, page.getByRole("button", { name: "Fråga", exact: true }), page.getByTestId("thing-hit")]) {
     const box = await target.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
@@ -1480,11 +1479,11 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await page.goto("/prylar");
   const field = page.getByRole("textbox", { name: "Sök eller fråga" });
   const chat = page.getByTestId("chat");
-  await expect(page.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fråga", exact: true })).toBeVisible();
 
-  // While typing only the database is asked: nothing matches, and the line says what ↑ does.
+  // While typing only the database is asked: nothing matches, and the line says what Fråga does.
   await field.fill("Passen ligger i översta byrålådan i sovrummet");
-  await expect(page.getByText("Tryck ↑ för att fråga, eller för att spara var det ligger.")).toBeVisible();
+  await expect(page.getByText("Tryck Fråga för att fråga, eller för att spara var det ligger.")).toBeVisible();
   expect(await usage()).toBe(0);
   await field.press("Enter");
   // One AI call (the terms call says it is something to remember); nothing is saved before the tap.
