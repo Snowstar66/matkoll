@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog";
-import { addOnly, addTicked, adminClient, e2eUserId, sitePhotoEmail, sitePhotoStorageState, boendeButton, pickBoende, } from "./support";
+import { confirmInSheet, addTicked, adminClient, e2eUserId, sitePhotoEmail, sitePhotoStorageState, boendeButton, pickBoende, } from "./support";
 
 // Story 8.4: a photo, its inventory and "Töm kylen" stay with the place they
 // were for, with AI_PROVIDER=mock: kyl.png gives grädde, gurka, ketchup,
@@ -133,8 +133,6 @@ const placeCard = (page: Page, name: "Kyl" | "Frys") =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-/** Kylfoto D: the names under the folded "Syns inte längre", shown or not. */
-const missingNames = (page: Page) => section(page).getByTestId("pantry-missing").locator("h4");
 
 /** Hemma, once React runs. */
 async function openHemma(page: Page, path = "/hemma") {
@@ -189,8 +187,8 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   await expect(section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" })).toContainText(
     "finns redan 2 förp",
   );
-  await expect(section(page).getByRole("button", { name: "Syns inte längre (1)" })).toBeVisible();
-  await expect(missingNames(page)).toHaveText(["Senap"]);
+  // UX-08: nothing about what was not seen in the review (its card comes after Lägg till).
+  await expect(section(page).getByText(/Syns inte längre/)).toHaveCount(0);
   await expect(section(page).getByText("Yoghurt")).toHaveCount(0);
   // Hemma shows the photo's place: no line about another.
   await expect(placeLine(page)).toHaveCount(0);
@@ -230,7 +228,7 @@ test("selecting Hemma while Stugan's suggestions show says so, and Lägg till st
   await expect(placeLine(page)).toHaveText("Förslagen gäller Stugan.");
   const milk = section(page).getByTestId("pantry-suggestion").filter({ hasText: "Mellanmjölk 1,5 %" });
   await expect(milk).toHaveCount(1);
-  await addOnly(section(page), ["Mjölk"]);
+  await confirmInSheet(page, section(page), "Mjölk");
   await expect(toast(page)).toContainText("Mjölk är sparad i kylen.");
   await expect(milk).toHaveCount(0);
 

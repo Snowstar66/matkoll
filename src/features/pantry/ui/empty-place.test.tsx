@@ -332,7 +332,8 @@ describe("lagerförslag when the location is emptied", () => {
     await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("finns redan 2 förp · Kyl")).toBeInTheDocument();
-    expect(screen.getAllByTestId("pantry-missing")).toHaveLength(1);
+    // UX-08: what the photo did not show is a card of its own afterwards, not a row in the review.
+    expect(screen.queryByTestId("pantry-missing")).toBeNull();
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(1);
 
     fireEvent.click(emptyButton()!);

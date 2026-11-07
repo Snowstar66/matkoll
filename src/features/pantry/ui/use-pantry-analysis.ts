@@ -141,7 +141,20 @@ type ShownJob = {
   photos?: readonly { kept: KeptPhoto | null; range?: PhotoRange }[];
 };
 
+/** UX-08: what the last photo of a place did not show; asked about on a card once its review is done. */
+export type NotSeen = { siteId: string; location: Location; items: readonly MissingItem[]; incomplete: boolean };
+
 export type PantryAnalysis = {
+  /** UX-08: the items the last photo did not show ("N varor syntes inte på fotot"), or `null`; the card shows once the review has no rows left. */
+  notSeen: NotSeen | null;
+  /** UX-08: "Behåll" or a removal made: the card goes. */
+  clearNotSeen: () => void;
+  /**
+   * UX-08: after "Lägg till N varor" the review is closed as a whole: the cards,
+   * the photo and its job go; what the photo did not show stays for its card.
+   * No "Ångra" here (the save has its own). Returns whether it was still there.
+   */
+  closeResult: (generation: number) => boolean;
   /** The latest suggestions and the place they are from, or `null` before any. */
   result: AnalyzeResult | null;
   /** Kylfoto, flera foton: every photo `result` was read from, in order; `reviewPhoto` is the first. Empty without one. */
@@ -262,10 +275,18 @@ function jobPlace(job: AiJob): { siteId: string | null; location: string | null 
   };
 }
 
-/** The result still has cards to review: "Nytt", "Ändrat" or "Syns inte längre". */
+/** The result still has rows to review: "Nytt" or "Ändrat" (UX-08: what the photo did not show is asked about afterwards, not here). */
 function hasOpenCards(result: AnalyzeResult): boolean {
   const groups = groupSuggestions(result);
-  return groups.added.length + groups.changed.length + groups.missing.length > 0;
+  return groups.added.length + groups.changed.length > 0;
+}
+
+/** UX-08: the items a compared result says the photo did not show, for its place; `null` for none. */
+function notSeenOf(result: AnalyzeResult): NotSeen | null {
+  const groups = groupSuggestions(result);
+  // A photo that gave nothing to compare with would call everything "not seen": no card then.
+  if (!groups.compared || groups.missing.length === 0 || !result.site || result.suggestions.length === 0) return null;
+  return { siteId: result.site.id, location: result.location, items: groups.missing, incomplete: groups.incomplete };
 }
 
 /** The numbers of a result's `points`: the points by item number, or none. */
@@ -295,6 +316,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   /** The photo of a job that failed in a way "Försök igen" can help with. */
   const [photo, setPhoto] = useState<KeptPhoto | null>(null);
   const [reviewPhotos, setReviewPhotosState] = useState<readonly ReviewPhoto[]>([]);
+  const [notSeen, setNotSeen] = useState<NotSeen | null>(null);
   const reviewPhoto = reviewPhotos[0] ?? null;
   /** Kylfoto, flera foton: the reading of each place that is still going, by placeKey. */
   const batches = useRef(new Map<string, Batch>());
@@ -361,6 +383,11 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     setReviewPhotosState((current) => current.map((photo) => (photo.url === url ? { ...photo, numbers } : photo)));
   }
 
+  /** UX-08: the saved photo is on the server: Matvaror reads the page again, so the line about the latest photo shows it. */
+  function refreshPage() {
+    if (mounted.current) router.refresh();
+  }
+
   /** The job whose photo "Försök igen" sends again, so retry can let its photo go. */
   const photoJobId = useRef<string | null>(null);
   /** Places whose photo was cancelled while it was being sent: the job it gets is cancelled too, and is not shown as waiting meanwhile. */
@@ -406,6 +433,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (generation.current !== expected || !latest.current) return false;
     closeShown();
     setResult(null);
+    setNotSeen(null);
     setReviewPhotosState([]);
     setEmpty(null);
     setPhoto(null);
@@ -421,8 +449,10 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     const numbers = reviewPhoto?.numbers ?? noNumbers;
     const save = currentSave.current?.save ?? null;
     const gone = photoGone;
+    const unseen = notSeen;
     closeShown();
     setResult(null);
+    setNotSeen(null);
     setReviewPhotosState([]);
     setPhotoGone(false);
     setEmpty(null);
@@ -432,6 +462,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       // Something newer is shown, or Hemma was left: the old result stays gone.
       if (!mounted.current || generation.current !== discarded || latest.current !== null) return false;
       setResult(before);
+      setNotSeen(unseen);
       // The job is closed and its photo let go from the store, but the photo itself is still here.
       // Kylfoto, flera foton: every photo of the reading comes back, with its item numbers.
       const url = setReviewPhotos(job?.photos ?? (job?.kept ? [{ kept: job.kept }] : []), numbers)[0] ?? null;
@@ -465,6 +496,19 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     latest.current = next;
     setResultState(next);
     setResultGeneration(generation.current);
+  }
+  /** UX-08: closes the review as a whole after "Lägg till N varor"; see PantryAnalysis.closeResult. */
+  function closeResult(expected: number): boolean {
+    if (generation.current !== expected || !latest.current) return false;
+    // Points still being looked up go with the saved photo first; the numbers' effect closes the job then.
+    if (!shown.current?.numbersPending) closeShown();
+    setResult(null);
+    setReviewPhotosState([]);
+    setPhotoGone(false);
+    setEmpty(null);
+    setError(null);
+    setTick((count) => count + 1);
+    return true;
   }
   function editResult(expected: number, edit: (result: AnalyzeResult) => AnalyzeResult): boolean {
     const current = latest.current;
@@ -509,6 +553,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       setPhoto(null);
       setPhotoGone(false);
       setReviewPhotosState([]);
+      setNotSeen(null);
       setAnnouncement("");
     };
   }, []);
@@ -572,6 +617,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     const list = files instanceof Blob ? [files] : [...files];
     if (list.length === 0) return;
     const key = placeKey(site.id, location);
+    // UX-08: the card about what the last photo did not show goes with the next photo of the place.
+    setNotSeen((current) => (current && current.siteId === site.id && current.location === location ? null : current));
     const going = batches.current.get(key);
     if (going) {
       going.queue.push(...list);
@@ -724,7 +771,9 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     setPhoto(null);
     setError(null);
     const groups = groupSuggestions(data);
-    const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
+    const hasCards = groups.added.length + groups.changed.length > 0;
+    const unseen = notSeenOf(data);
+    setNotSeen(unseen);
     const reading = data.reading ?? [];
     const [first] = batch.parts;
     const numbered = hasNumberableCards(groups, reading) && batch.parts.some((part) => part.kept?.size != null);
@@ -735,7 +784,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     const firstReading = first.result.reading ?? [];
     const save =
       hasCards && first.kept !== null && data.site !== null
-        ? photoSave({ image: first.kept.image, siteId: data.site.id, location: data.location, takenAt: first.kept.takenAt, reading: firstReading })
+        ? photoSave({ image: first.kept.image, siteId: data.site.id, location: data.location, takenAt: first.kept.takenAt, reading: firstReading, onSaved: refreshPage })
         : null;
     if (save) {
       currentSave.current = { generation: generation.current, save };
@@ -748,8 +797,11 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     if (hasCards) {
       setArrivals((count) => count + 1);
     } else {
-      if (data.suggestions.length === 0) setEmpty(data.dropped > 0 ? "unreadable" : "none");
-      else setEmpty(groups.incomplete || data.dropped > 0 ? "partlyUnchanged" : "unchanged");
+      // Only what the photo did not show: its card says so, and the camera area says nothing more.
+      if (!unseen) {
+        if (data.suggestions.length === 0) setEmpty(data.dropped > 0 ? "unreadable" : "none");
+        else setEmpty(groups.incomplete || data.dropped > 0 ? "partlyUnchanged" : "unchanged");
+      }
       setSettles((count) => count + 1);
       closeShown();
     }
@@ -826,7 +878,9 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     setPhoto(null);
     setError(null);
     const groups = groupSuggestions(data);
-    const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
+    const hasCards = groups.added.length + groups.changed.length > 0;
+    const unseen = notSeenOf(data);
+    setNotSeen(unseen);
     // Story 6.6: numbers only for the cards shown that come from the reading, and only for a photo whose size is
     // known, since the markers are placed on it.
     const reading = data.reading ?? [];
@@ -838,7 +892,7 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     // Story 10.1: only a photo with cards can change the pantry, only one for a place is saved, and only one still here.
     const save =
       hasCards && kept !== null && data.site !== null
-        ? photoSave({ image: kept.image, siteId: data.site.id, location: data.location, takenAt: kept.takenAt, reading })
+        ? photoSave({ image: kept.image, siteId: data.site.id, location: data.location, takenAt: kept.takenAt, reading, onSaved: refreshPage })
         : null;
     if (save) {
       currentSave.current = { generation: generation.current, save };
@@ -848,12 +902,13 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
     shownAt.current = Date.now();
     void markSeen(job.id);
     if (hasCards) {
-      // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
       setArrivals((count) => count + 1);
     } else {
-      if (data.suggestions.length === 0) setEmpty(data.dropped > 0 ? "unreadable" : "none");
-      // Everything matches the place (Story 6.4): no card, the camera area says so.
-      else setEmpty(groups.incomplete || data.dropped > 0 ? "partlyUnchanged" : "unchanged");
+      if (!unseen) {
+        if (data.suggestions.length === 0) setEmpty(data.dropped > 0 ? "unreadable" : "none");
+        // Everything matches the place (Story 6.4): no card, the camera area says so.
+        else setEmpty(groups.incomplete || data.dropped > 0 ? "partlyUnchanged" : "unchanged");
+      }
       setSettles((count) => count + 1);
       // Nothing to review: the job and the photo have done their part.
       closeShown();
@@ -957,6 +1012,8 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
       if (current.url) setNumbers(current.url, numbers);
       // Story 10.1: the points go with the saved photo too.
       if (numbers.kind === "ready") current.save?.located([...numbers.points.values()]);
+      // The review was closed meanwhile ("Lägg till N varor"): the job has done its part.
+      if (!latest.current || !hasOpenCards(latest.current)) closeShown();
       if (!current.url && points !== null) setTick((count) => count + 1);
     })();
     // setNumbers only sets state; the job's id and its status in the list are what decide.
@@ -1002,6 +1059,9 @@ export function usePantryAnalysis({ photoSize = placePhotoForQwen }: { photoSize
   };
 
   return {
+    notSeen,
+    clearNotSeen: () => setNotSeen(null),
+    closeResult,
     result,
     reviewPhoto,
     reviewPhotos,

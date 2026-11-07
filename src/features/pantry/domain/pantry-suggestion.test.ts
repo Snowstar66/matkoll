@@ -54,7 +54,10 @@ import {
   checkedSummaryText,
   markerLabel,
   markerSelectedText,
-  missingToggleText,
+  notSeenKeepText,
+  notSeenNamesText,
+  notSeenPickText,
+  notSeenQuestionText,
   type AiPantryItemLike,
   type ConfirmItem,
   type ConfirmItemInput,
@@ -514,13 +517,17 @@ describe("texts", () => {
     expect(addCheckedText(3)).toBe("Lägg till 3 varor");
     expect(checkedSummaryText(2, 1)).toBe("2 nya · 1 uppdateras");
     expect(checkedSummaryText(1, 0)).toBe("1 ny");
-    expect(checkedSummaryText(0, 0)).toBe("Inget valt");
+    expect(checkedSummaryText(0, 0)).toBe("");
     expect(addCheckedText(3, 1)).toBe("Lägg till 3 · ta bort 1");
     expect(addCheckedText(0, 2)).toBe("Ta bort 2 varor");
     expect(addCheckedText(0, 1)).toBe("Ta bort 1 vara");
     expect(checkedSummaryText(2, 1, 1)).toBe("2 nya · 1 uppdateras · 1 tas bort");
     expect(checkedSummaryText(0, 0, 2)).toBe("2 tas bort");
-    expect(missingToggleText(2)).toBe("Syns inte längre (2)");
+    expect(notSeenQuestionText(5)).toBe("5 varor syntes inte på fotot. Ta bort dem?");
+    expect(notSeenQuestionText(1)).toBe("1 vara syntes inte på fotot. Ta bort den?");
+    expect(notSeenNamesText(["Gräddfil", "Kvarg", "Ost", "Saft", "Senap"])).toBe("Gräddfil, Kvarg, Ost, Saft och Senap");
+    expect(notSeenNamesText(["Ost"])).toBe("Ost");
+    expect([notSeenKeepText, notSeenPickText]).toEqual(["Behåll", "Välj vilka"]);
     expect(markerLabel(3, "grädde")).toBe("Vara 3: Grädde");
     expect(markerSelectedText(3, "grädde")).toBe("Vara 3: Grädde är markerad i listan.");
   });

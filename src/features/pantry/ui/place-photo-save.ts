@@ -29,6 +29,8 @@ export type PhotoToSave = {
   location: Location;
   takenAt: Date;
   reading: readonly string[];
+  /** UX-08: the photo is saved: the page is read again, so "Senaste foto av kylen: idag 08:26 · Visa" shows at once. */
+  onSaved?: () => void;
 };
 
 export type PhotoSave = {
@@ -86,6 +88,11 @@ export function photoSave(photo: PhotoToSave, calls: PhotoSaveCalls = defaultCal
       id = answer.id;
       state = "saved";
       if (withPoints) pointsSent = true;
+      try {
+        photo.onSaved?.();
+      } catch {
+        // Only a refresh of the page; nothing depends on it.
+      }
       // Points that came while it was on its way.
       sendPoints();
     } else {

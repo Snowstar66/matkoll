@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
-import { ChevronRightIcon, MinusIcon, PlusIcon } from "@/components/icons";
+import { MinusIcon, PlusIcon } from "@/components/icons";
 import { catalogName } from "@/features/catalog";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
@@ -12,16 +12,11 @@ import {
   alreadyHereText,
   changedPlaceText,
   checkedSummaryText,
-  currentAmountText,
   discardedReadingText,
   discardReadingText,
-  incompleteComparisonText,
   isBulkConfirmable,
   analyzedPhotoGoneText,
   markerSelectedText,
-  missingHintText,
-  missingToggleText,
-  removeCheckedText,
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionInvalidText,
@@ -33,7 +28,7 @@ import {
   unreadPlaceText,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
-import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
+import { groupSuggestions } from "../domain/place-inventory";
 import { maxPantryAmount } from "../domain/pantry-item-form";
 import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, rowNumber, type PhotoPoint } from "../domain/photo-numbers";
 import {
@@ -173,7 +168,8 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   // card) does not take focus for suggestions that came earlier.
   const handledArrivals = useRef(arrivals);
   const groups = result ? groupSuggestions(result) : null;
-  const cardCount = groups ? groups.added.length + groups.changed.length + groups.missing.length : 0;
+  // UX-08: what the photo did not show is asked about on its own card afterwards (NotSeenCard), not in the review.
+  const cardCount = groups ? groups.added.length + groups.changed.length : 0;
 
   // Which photo's sheet is open: a new photo's starts closed.
   const [openPhotoUrl, setOpenPhotoUrl] = useState<string | null>(null);
@@ -181,11 +177,6 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const photoWasOpen = useRef(false);
   // Kylfoto D: the tick boxes Pontus has changed; the others keep their start (ticked unless unsure).
   const [ticks, setTicks] = useState<ReadonlyMap<string, boolean>>(new Map());
-  // Kylfoto D: the "Syns inte längre" items ticked to go, for one generation of suggestions; none from the start.
-  const [removals, setRemovals] = useState<{ generation: number; ids: ReadonlySet<string> }>({
-    generation: resultGeneration,
-    ids: new Set(),
-  });
   // Kylfoto D: amounts set with a row's − / +, for one generation of suggestions, and the row whose amount is open.
   const [amountEdits, setAmountEdits] = useState<{ generation: number; amounts: ReadonlyMap<string, number> }>({
     generation: resultGeneration,
@@ -194,8 +185,6 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Kylfoto D, desktop: the number of the row the mouse is over, lit on the photo.
   const [hoveredNumber, setHoveredNumber] = useState<number | null>(null);
-  const [missingOpen, setMissingOpen] = useState(false);
-  const missingListId = useId();
   // Kylfoto D: the number lit up on the photo and in the list, for one photo.
   const [selection, setSelection] = useState<{ url: string; number: number } | null>(null);
   // Kylfoto, flera foton: the photo shown large, by its URL; the first unless another is chosen.
@@ -292,7 +281,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
       </>
     );
   }
-  const { added, changed, unchanged, missing, compared, incomplete } = groups;
+  const { added, changed, unchanged, compared } = groups;
   const rows = [...added, ...changed];
   const isTicked = (suggestion: PantrySuggestion) =>
     !invalidIds.has(suggestion.id) && (ticks.get(suggestion.id) ?? isBulkConfirmable(suggestion));
@@ -310,16 +299,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
       return { generation: resultGeneration, amounts };
     });
   const updated = ticked.filter((suggestion) => suggestion.current).length;
-  const removalIds = removals.generation === resultGeneration ? removals.ids : noIds;
-  const removing = compared ? missing.filter((item) => removalIds.has(item.id)) : [];
-  const tickRemoval = (id: string, tick: boolean) =>
-    setRemovals((before) => {
-      const ids = new Set(before.generation === resultGeneration ? before.ids : []);
-      if (tick) ids.add(id);
-      else ids.delete(id);
-      return { generation: resultGeneration, ids };
-    });
-  const showsButton = rows.length > 0 || (compared && missing.length > 0);
+  const showsButton = rows.length > 0;
 
   // Kylfoto D: the rows by their number, and the markers with their row's name and tick.
   const rowByNumber = new Map<number, PantrySuggestion>();
@@ -475,63 +455,23 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
             ))}
           </ul>
         ) : null}
-        {compared && missing.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <h3>
-              <button
-                type="button"
-                aria-expanded={missingOpen}
-                aria-controls={missingListId}
-                data-testid="pantry-missing-toggle"
-                onClick={() => setMissingOpen((open) => !open)}
-                className="flex min-h-tap w-full items-center justify-between gap-2 rounded-lg bg-surface py-2 pr-3 pl-4 text-left text-body text-ink-2"
-              >
-                {missingToggleText(missing.length)}
-                <ChevronRightIcon
-                  size={18}
-                  className={cx("shrink-0 text-ink-3 transition-transform motion-reduce:transition-none", missingOpen && "rotate-90")}
-                />
-              </button>
-            </h3>
-            <div id={missingListId} hidden={!missingOpen} className="flex flex-col gap-2">
-              {incomplete ? <p className="text-body text-ink-2">{incompleteComparisonText}</p> : null}
-              <ul className="flex flex-col overflow-hidden rounded-lg bg-surface">
-                {missing.map((item) => (
-                  <MissingRow
-                    key={item.id}
-                    item={item}
-                    disabled={saving}
-                    saving={savingIds.has(item.id)}
-                    ticked={removalIds.has(item.id)}
-                    onTick={(tick) => tickRemoval(item.id, tick)}
-                  />
-                ))}
-              </ul>
-              <p className="px-1 text-meta text-ink-2">{missingHintText}</p>
-            </div>
-          </div>
-        ) : null}
         {showsButton ? (
           <div className="flex flex-col gap-2 border-t border-hairline pt-3">
-            <p data-testid="pantry-suggestions-summary" className="text-center text-meta text-ink-2">
-              {checkedSummaryText(ticked.length - updated, updated, removing.length)}
+            <p data-testid="pantry-suggestions-summary" className="text-center text-meta text-ink-2 empty:hidden">
+              {checkedSummaryText(ticked.length - updated, updated)}
             </p>
             <Button
               ref={confirmAllRef}
               fullWidth
-              disabled={saving || ticked.length + removing.length === 0}
+              disabled={saving || ticked.length === 0}
               onClick={() =>
                 confirm(
                   ticked.map((suggestion) => suggestion.id),
-                  { all: true, remove: removing.map((item) => item.id), amounts: amountOverrides },
+                  { all: true, amounts: amountOverrides },
                 )
               }
             >
-              {savingAll
-                ? "Sparar …"
-                : rows.length === 0
-                  ? removeCheckedText(removing.length)
-                  : addCheckedText(ticked.length, removing.length)}
+              {savingAll ? "Sparar …" : addCheckedText(ticked.length)}
             </Button>
             <Button variant="text" fullWidth disabled={saving} onClick={retake}>
               Fota igen
@@ -767,38 +707,9 @@ function AmountControl({ name, suggestion, amount, ticked, editing, onEditing, o
   );
 }
 
-type MissingRowProps = {
-  item: MissingItem;
-  /** A confirmation is being saved: the box does not work. */
-  disabled: boolean;
-  /** This item is being removed. */
-  saving: boolean;
-  /** Ticked to go with the button. */
-  ticked: boolean;
-  onTick: (ticked: boolean) => void;
-};
-
-/** Kylfoto D: one "Syns inte längre" item: its name, what the place has of it, and a tick box to remove it. */
-function MissingRow({ item, disabled, saving, ticked, onTick }: MissingRowProps) {
-  const { name, location, stock } = item;
-  return (
-    <li
-      data-testid="pantry-missing"
-      className="flex min-h-12 items-center gap-3 border-t border-hairline py-1.5 pr-1 pl-4 first:border-t-0"
-    >
-      <div className="min-w-0 flex-1">
-        <h4 className={cx("text-body break-words", ticked ? "text-ink" : "text-ink-2")}>{name}</h4>
-        <p className="text-meta text-ink-2">{saving ? "Sparar …" : currentAmountText(location, stock)}</p>
-      </div>
-      <Checkbox checked={ticked} onCheckedChange={onTick} label={`Ta bort ${name}`} disabled={disabled} />
-    </li>
-  );
-}
-
 /** Whether Pontus has asked for less motion: a marker's row then jumps into view. */
 function prefersReducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-const noIds: ReadonlySet<string> = new Set();
 const noAmounts: ReadonlyMap<string, number> = new Map();

@@ -19,6 +19,7 @@ import type { PlacePhotoSize } from "@/lib/images";
 import { newId } from "@/lib/new-id";
 import { confirmPantryInventory, type ConfirmedInventory } from "../actions/confirm-pantry-inventory";
 import { confirmPantrySuggestions } from "../actions/confirm-pantry-suggestions";
+import { removePantryItem } from "../actions/remove-pantry-item";
 import { restorePantryRemoval } from "../actions/restore-pantry-removal";
 import type { PantryItemForm } from "../domain/pantry-item-form";
 import {
@@ -143,6 +144,12 @@ export type PantryReview = {
     form: PantryItemForm,
     onSaved: () => void,
   ) => Promise<CorrectOutcome>;
+  /**
+   * UX-08: removes the items the photo did not show (the card's "Välj vilka"), in one call under an operation id;
+   * "Tog bort N varor." comes with "Ångra", which puts them back. Resolves to `null` when saved (the card goes), else
+   * to the error to show in the sheet.
+   */
+  removeNotSeen: (items: readonly MissingItem[]) => Promise<AppError | null>;
   /** Avvisa: takes the suggestion out, with "Ångra"; `generation` defaults to the current one. */
   reject: (id: string, generation?: number) => RejectOutcome;
   /** A ref callback for a row's button, so focus can be moved to it. */
@@ -379,6 +386,21 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     return answer;
   }
 
+  /**
+   * UX-08: "Ångra" after "Lägg till N varor": takes the rows that were added new out again (rows that only got a new
+   * amount stay as they are now). A row that cannot be removed says so.
+   */
+  async function undoAdditions(rowIds: readonly string[]) {
+    const answers = await Promise.all(
+      rowIds.map((id) => removePantryItem(id).catch(() => fail("pantry_remove_failed") as Result<unknown>)),
+    );
+    const failure = answers.find((answer) => !answer.ok);
+    if (failure && !failure.ok) {
+      showToast(failure.error.message, { role: "alert" });
+      if (failure.error.code === "unauthorized") router.refresh();
+    }
+  }
+
   /** The "Ångra" that waited for a confirmation. */
   function runDeferred() {
     const waiting = deferred.current;
@@ -612,7 +634,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       return amount !== undefined && suggestion.amount !== null ? { ...suggestion, amount } : suggestion;
     });
     if (!groups.compared) {
-      await confirmPlain(generation, photoSiteId(result), chosen, all);
+      await confirmPlain(generation, photoSiteId(result), chosen, all, result.location);
       return;
     }
     const removeIds = new Set(all ? (options?.remove ?? []) : []);
@@ -634,13 +656,14 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     }
     const { data } = answer.result;
     if (current) {
-      takeOut(
-        generation,
-        [...savedIds, ...missingIds],
-        all && request.left.length === 0 ? null : (savedIds[0] ?? null),
-        request.items,
-        data.setIngredientIds,
-      );
+      if (all && request.left.length === 0) {
+        // UX-08: "Lägg till N varor" closes the review, also for rows left unticked.
+        analysis.closeResult(generation);
+        requestFocus({ kind: "camera" });
+      } else {
+        // More replacements than one call takes: the rest stay to confirm.
+        takeOut(generation, [...savedIds, ...missingIds], savedIds[0] ?? null, request.items, data.setIngredientIds);
+      }
     }
     const removals =
       answer.operationId && missing.length > 0
@@ -654,8 +677,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
         // Another tab removed them already: nothing to undo. A confirmation with "Ångra" that shows stays.
         showToast(alreadyRemovedText(missing[0].name));
       }
-    } else if (!all || (saved.length === 1 && request.left.length === 0 && missing.length === 0)) {
-      // One saved, by itself or as the only ticked row: its name, as for a plain photo.
+    } else if (!all) {
+      // One saved by itself: its name, as for a plain photo.
       showToast(current ? savedItemText(saved[0].name, saved[0].location) : confirmedItemsText(1));
     } else {
       const counts = inventoryAppliedText(result.location, {
@@ -665,8 +688,19 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
         removed: removals?.items.length ?? 0,
       });
       const text = request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts;
-      if (removals && removals.batch.undoable > 0) showRemovals(removals.batch, text, undoRemovalLabel);
-      else showToast(text);
+      const changedIngredients = new Set(
+        saved.flatMap((suggestion) =>
+          suggestion.change === "changed" && suggestion.ingredient.kind === "existing" ? [suggestion.ingredient.ingredientId] : [],
+        ),
+      );
+      const addedRows = (data.setRows ?? []).filter((row) => !changedIngredients.has(row.ingredientId)).map((row) => row.id);
+      if (removals && removals.batch.undoable > 0) {
+        showRemovals(removals.batch, text, undoRemovalLabel);
+      } else if (addedRows.length > 0) {
+        showToast(text, { onUndo: () => void undoAdditions(addedRows) });
+      } else {
+        showToast(text);
+      }
     }
     runDeferred();
   }
@@ -680,6 +714,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     siteId: string | null,
     chosen: readonly PantrySuggestion[],
     all: boolean,
+    photoLocation: Location,
   ) {
     if (chosen.length === 0) return;
     const chosenIds = chosen.map((suggestion) => suggestion.id);
@@ -694,6 +729,14 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (analysis.generation() !== generation) {
       // Newer suggestions came meanwhile: nothing to take out, and no notice about cards that are gone.
       if (result.ok) showToast(confirmedItemsText(chosen.length));
+    } else if (result.ok && all) {
+      // UX-08: "Lägg till N varor" closes the review; "Kylen är uppdaterad: 6 nya." with "Ångra" for the new rows.
+      analysis.closeResult(generation);
+      requestFocus({ kind: "camera" });
+      const added = (result.data.setRows ?? []).map((row) => row.id);
+      showToast(inventoryAppliedText(photoLocation, { added: chosen.length, changed: 0, removed: 0 }), {
+        onUndo: added.length > 0 ? () => void undoAdditions(added) : undefined,
+      });
     } else if (!result.ok) {
       failed(generation, result.error, chosenIds, all ? { kind: "confirmAll" } : { kind: "confirm", id: chosen[0].id });
     } else {
@@ -760,6 +803,45 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     return outcome;
   }
 
+  async function removeNotSeen(items: readonly MissingItem[]): Promise<AppError | null> {
+    const current = analysis.notSeen;
+    if (!current || items.length === 0) return null;
+    if (busy.current) return fail("pantry_inventory_failed").error;
+    const request = inventoryRequest({ location: current.location, suggestions: [], missing: items });
+    const operationId = newId();
+    const input: InventoryConfirmInput = {
+      siteId: current.siteId,
+      location: request.location,
+      items: request.items,
+      replaceRowIds: request.replaceRowIds,
+      removeRowIds: request.removeRowIds,
+      operationId,
+      joinsOperation: false,
+    };
+    busy.current = true;
+    const { result, lost } = await within(() => confirmPantryInventory(input), "pantry_inventory_failed");
+    busy.current = false;
+    if (!result.ok) {
+      if (result.error.code === "unauthorized" || lost) router.refresh();
+      if (result.error.code === "pantry_site_gone") analysis.clearNotSeen();
+      return result.error;
+    }
+    analysis.clearNotSeen();
+    const { data } = result;
+    if (data.removedCount === 0) {
+      showToast(alreadyRemovedText(items[0].name));
+    } else {
+      const names = items.filter((item) => data.removed.some((row) => row.ingredientId === item.ingredientId)).map(({ name }) => name);
+      const shown = names.length > 0 ? names : items.map(({ name }) => name);
+      showRemovals(
+        { id: operationId, siteId: current.siteId, location: current.location, generation: -1, items, undoable: data.undoable },
+        removedItemsText(shown),
+      );
+    }
+    runDeferred();
+    return null;
+  }
+
   function reject(id: string, generation = analysis.generation()): RejectOutcome {
     if (busy.current) return "busy";
     const suggestions = analysis.latestSuggestions(generation);
@@ -802,6 +884,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     invalidIds,
     confirm: (ids, options) => void confirm(ids, options),
     confirmCorrected,
+    removeNotSeen,
     reject,
     confirmButtonRef,
     confirmAllRef,
