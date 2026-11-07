@@ -73,10 +73,10 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
     const existing = page.getByTestId("room-row").filter({ hasText: room });
     if (await existing.count()) await existing.first().click();
     else {
-      await page.getByRole("button", { name: "Lägg till rum" }).click();
+      await page.getByRole("button", { name: "Lägg till rum", exact: true }).first().click();
       const sheet = page.getByRole("dialog", { name: "Lägg till rum" });
       await sheet.getByLabel("Namn på rummet").fill(room);
-      await sheet.getByRole("button", { name: "Lägg till rum" }).click();
+      await sheet.getByRole("button", { name: "Lägg till", exact: true }).click();
     }
     await page.waitForURL(/\/prylar\/rum\//);
   }
@@ -107,7 +107,9 @@ test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page
 test("without rooms it explains and offers Lägg till rum; there is no Ta kort card and no search field", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByText("Börja med ett rum, som Förrådet eller Garaget.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lägg till rum" })).toBeVisible();
+  // The + in the header and a primary button under the text, both named Lägg till rum (UX-07).
+  await expect(page.locator("header").getByRole("button", { name: "Lägg till rum", exact: true })).toBeVisible();
+  await expect(page.getByTestId("new-room")).toHaveText("Lägg till rum");
   await expect(page.getByRole("button", { name: /Ta kort/ })).toHaveCount(0);
   await expect(page.getByText("Fota ett rum, en hylla eller en låda")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Rum" })).toHaveCount(0);
@@ -117,25 +119,28 @@ test("without rooms it explains and offers Lägg till rum; there is no Ta kort c
   await expect(boendeButton(page)).toHaveCount(0);
 });
 
-test("Lägg till rum is the last row, asks for a name, says an empty one, makes the room and opens it; a known name opens that room", async ({ page }) => {
+test("Lägg till rum is the + in the header, asks for a name, says an empty one, makes the room and opens it; a known name opens that room", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
   await page.goto("/prylar");
   await expect(page.getByRole("button", { name: /Ta kort/ })).toHaveCount(0);
-  const newRoom = page.getByRole("button", { name: "Lägg till rum" });
+  const newRoom = page.getByRole("button", { name: "Lägg till rum", exact: true });
   const list = page.getByTestId("rooms");
   await expect(list).toBeVisible();
   await expect(newRoom).toBeVisible();
-  const [listBox, rowBox] = [await list.boundingBox(), await newRoom.boundingBox()];
-  expect(rowBox!.y).toBeGreaterThan(listBox!.y + listBox!.height - 1);
-  expect(rowBox!.height).toBeGreaterThanOrEqual(44);
+  // One button, in the header, and no dashed row under the rooms any more.
+  await expect(newRoom).toHaveCount(1);
+  await expect(page.locator("header").getByRole("button", { name: "Lägg till rum", exact: true })).toBeVisible();
+  const [listBox, plusBox] = [await list.boundingBox(), await newRoom.boundingBox()];
+  expect(plusBox!.y).toBeLessThan(listBox!.y);
+  expect(plusBox!.height).toBeGreaterThanOrEqual(44);
   await newRoom.click();
   const dialog = page.getByRole("dialog", { name: "Lägg till rum" });
   await expect(dialog.getByLabel("Namn på rummet")).toBeFocused();
   await expect(dialog.getByText("Sedan fotar du rummet, en hylla eller en låda där.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Lägg till rum" }).click();
+  await dialog.getByRole("button", { name: "Lägg till", exact: true }).click();
   await expect(dialog.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeVisible();
   await dialog.getByLabel("Namn på rummet").fill("Vinden");
-  await dialog.getByRole("button", { name: "Lägg till rum" }).click();
+  await dialog.getByRole("button", { name: "Lägg till", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/vinden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vinden");
   await expect(page.getByRole("button", { name: /Välj från album/ })).toBeVisible();
@@ -143,9 +148,9 @@ test("Lägg till rum is the last row, asks for a name, says an empty one, makes 
   await expect(rooms(page)).toHaveCount(2);
   await expect(rooms(page).filter({ hasText: "Vinden" })).toContainText("Inget kort än");
   // The same name (any spelling) opens the room that is there, no second one.
-  await page.getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("button", { name: "Lägg till rum", exact: true }).first().click();
   await page.getByRole("dialog", { name: "Lägg till rum" }).getByLabel("Namn på rummet").fill("garaget");
-  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/garaget$`));
   const places = (await adminClient().from("thing_place").select("room").eq("user_id", userId).eq("room_key", "garaget")).data;
   expect(places).toHaveLength(1);
@@ -1659,9 +1664,9 @@ test("Story 18.24: jag har köpt … says where it is with Fyll på open, or pro
 test("the field is there in a boende with rooms but no föremål, and Kom ihåg makes the first föremål (Story 18.19)", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByRole("textbox", { name: "Sök eller fråga" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("button", { name: "Lägg till rum", exact: true }).first().click();
   await page.getByRole("dialog", { name: "Lägg till rum" }).getByLabel("Namn på rummet").fill("Sovrummet");
-  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till", exact: true }).click();
   await page.waitForURL(/\/prylar\/rum\//);
   await page.goto("/prylar");
   await expect(rooms(page)).toHaveText([/Sovrummet\s*Inget kort än/]);

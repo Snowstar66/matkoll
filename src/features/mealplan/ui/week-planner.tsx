@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useId, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip } from "@/components/chip";
 import { ChevronDownIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
+import { openAddDishesEvent } from "./add-dishes-button";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { optionsForTab, type PlanOption, type PlanTab } from "@/features/suggestions";
@@ -257,6 +258,16 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
     // After the panel is open, so the scroll lands on its content.
     requestAnimationFrame(() => addRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   }
+
+  // The "+" in the header (UX-07): opens the panel for this visit only, like a free day, and scrolls to it.
+  useEffect(() => {
+    const openPanel = () => {
+      setChoice(true);
+      requestAnimationFrame(() => addRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
+    };
+    window.addEventListener(openAddDishesEvent, openPanel);
+    return () => window.removeEventListener(openAddDishesEvent, openPanel);
+  }, []);
 
   const rowsOfWeek = calendarRows(shown, firstOpenDay);
   const dayDish = shown.find((dish) => dish.id === dayFor) ?? null;

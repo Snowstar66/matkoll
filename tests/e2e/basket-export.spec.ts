@@ -245,7 +245,7 @@ test("Kopiera till ICA-varukorgen copies the export without asking the server, a
   expect(errors).toEqual([]);
 });
 
-test("a gul lök checked off is not in the next export, and Lägg till i Matvaror stands beside Kopiera till ICA-varukorgen", async ({ page }) => {
+test("a gul lök checked off is not in the next export, and Lägg till i Matvaror is pinned while Kopiera till ICA-varukorgen is in the list", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
@@ -257,10 +257,8 @@ test("a gul lök checked off is not in the next export, and Lägg till i Matvaro
   // Off while the check was saved; on again now.
   await expect(sendButton(page)).toBeEnabled();
 
-  // At 375 px the long label stacks under "Lägg till i Matvaror" (Story 11.4, 14.2).
-  const put = await putButton(page).boundingBox();
-  const send = await sendButton(page).boundingBox();
-  expect(put && send && put.y + put.height <= send.y).toBe(true);
+  // UX-02: "Lägg till i Matvaror" is pinned alone; "Kopiera till ICA-varukorgen" is a text button in the list.
+  await expect(page.getByTestId("fixed-action").filter({ visible: true }).getByRole("button", { name: "Kopiera till ICA-varukorgen" })).toHaveCount(0);
 
   await sendButton(page).click();
   await expect(toast(page)).toHaveText(copied(4));

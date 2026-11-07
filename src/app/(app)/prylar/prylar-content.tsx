@@ -59,7 +59,7 @@ export async function PrylarContent() {
   );
   return (
     <>
-      <PageHeader title="Förråd" tab="/prylar" />
+      <PageHeader title="Förråd" tab="/prylar" action={<NewRoom siteId={site.id} variant="icon" />} />
       {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
       <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
         <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
@@ -73,7 +73,7 @@ export async function PrylarContent() {
  * (When there are things) the chat and the search over
  * every boende (Stories 18.4 and 18.14, both by the database, nothing loads
  * every thing) and the rooms of this boende with their counts, read by the
- * database (Story 18.11), then "Lägg till rum" (Story 18.21). Photos are taken in a room.
+ * database (Story 18.11). "Lägg till rum" is the "+" in the header (UX-07). Photos are taken in a room.
  */
 async function Rooms({ site }: { site: SelectedSite }) {
   let rooms: RoomSummary[];
@@ -86,7 +86,7 @@ async function Rooms({ site }: { site: SelectedSite }) {
   }
   if (rooms.length === 0) {
     return (
-      <EmptyState action={<NewRoom siteId={site.id} fullWidth={false} />}>
+      <EmptyState action={<NewRoom siteId={site.id} variant="primary" />}>
         {thingsEmptyText}
       </EmptyState>
     );
@@ -95,7 +95,6 @@ async function Rooms({ site }: { site: SelectedSite }) {
     <div className="flex flex-col gap-2.5">
       <RoomsRefresh />
       <RoomsList siteId={site.id} rooms={rooms} />
-      <NewRoom siteId={site.id} />
     </div>
   );
   // Story 18.19: the field is there as soon as the boende has a room, so a thing can be written in before any photo.
