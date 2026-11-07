@@ -123,7 +123,7 @@ export function stackExcerpt(stack: string | null): string {
 const staticSegments = new Set(
   (
     "hemma hjalp installningar ai appikon basvaror boenden butiker inkorg installera konto medlemmar notiser nyheter om " +
-    "receptsajter siri spara-i-matkoll lista lagg-till matsedel tidigare prylar kort lada rum recept importera valkomst " +
+    "receptsajter siri spara-i-matkoll telefon lista lagg-till matsedel tidigare prylar kort lada rum recept importera valkomst " +
     "api jobs photo warm news notes snabb things locate retry auth confirm ga-med logga-in"
   ).split(" "),
 );
