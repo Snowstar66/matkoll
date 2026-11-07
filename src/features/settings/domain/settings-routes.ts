@@ -11,14 +11,14 @@ export const settingsPages = [
   // Basvaror (Pontus 2026-11-02): what the household always has at home.
   "basvaror",
   "receptsajter",
-  "spara-i-matkoll",
   "ai",
   "installera",
   // Story 23.2: the number on the app's icon, opt-in per device.
   "appikon",
   // Story 23.3: push notifications and what to be told about.
   "notiser",
-  "siri",
+  // Spara recept från Safari and Siri on one page (replaces spara-i-matkoll and siri).
+  "telefon",
   // What is new in the app, newest first.
   "nyheter",
   "om",
@@ -42,7 +42,7 @@ export function settingsPageHref(page: SettingsPage): string {
 // The old one-page Inställningar had these anchors (Stories 1.13, 11.6, 17.5);
 // a link or a bookmark with one of them goes to the page that now holds it.
 const anchorPages: Record<string, SettingsPage> = {
-  "spara-i-matkoll": "spara-i-matkoll",
+  "spara-i-matkoll": "telefon",
   "godkanda-receptsajter": "receptsajter",
   ai: "ai",
   butik: "butiker",

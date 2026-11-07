@@ -132,7 +132,6 @@ export async function SettingsMenuContent() {
           title: "Receptsajter",
           value: recipeSites ? sitesCountText(recipeSites.length) : undefined,
         },
-        { href: settingsPageHref("spara-i-matkoll"), icon: "bookmark", tile: "lilac", title: `Spara i ${appName}` },
       ],
     },
     ...(ai
@@ -163,7 +162,7 @@ export async function SettingsMenuContent() {
         { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
         { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen" },
         { href: settingsPageHref("notiser"), icon: "bell", tile: "sky", title: "Notiser" },
-        { href: settingsPageHref("siri"), icon: "mic", tile: "lilac", title: "Siri och genvägar" },
+        { href: settingsPageHref("telefon"), icon: "mic", tile: "lilac", title: "Använd med telefonen" },
         { href: settingsPageHref("nyheter"), icon: "sparkle", tile: "mint", title: "Nyheter", newsSince: latestReleaseDate },
         { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}`, value: versionLine(readBuildInfo()) },
       ],
