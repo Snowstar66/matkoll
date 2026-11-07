@@ -73,7 +73,7 @@ export async function PrylarContent() {
  * (When there are things) the chat and the search over
  * every boende (Stories 18.4 and 18.14, both by the database, nothing loads
  * every thing) and the rooms of this boende with their counts, read by the
- * database (Story 18.11), then "+ Nytt rum" (Story 18.21). Photos are taken in a room.
+ * database (Story 18.11), then "Lägg till rum" (Story 18.21). Photos are taken in a room.
  */
 async function Rooms({ site }: { site: SelectedSite }) {
   let rooms: RoomSummary[];
@@ -86,7 +86,7 @@ async function Rooms({ site }: { site: SelectedSite }) {
   }
   if (rooms.length === 0) {
     return (
-      <EmptyState action={<NewRoom siteId={site.id} />}>
+      <EmptyState action={<NewRoom siteId={site.id} fullWidth={false} />}>
         {thingsEmptyText}
       </EmptyState>
     );

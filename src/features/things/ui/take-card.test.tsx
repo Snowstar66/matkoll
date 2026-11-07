@@ -38,7 +38,7 @@ describe("Ta kort", () => {
     await userEvent.click(screen.getByRole("button", { name: /Ta kort/ }));
     const dialog = screen.getByRole("dialog", { name: "Var tar du kortet?" });
     expect(screen.getByRole("radio", { name: "Skräpförrådet" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "+ Nytt rum" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "+ Lägg till rum" })).not.toBeChecked();
     expect(screen.getByRole("button", { name: /Var i rummet\? \(valfritt\)/ })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: /Välj från album/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fota/ })).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("Ta kort", () => {
     view();
     await userEvent.click(screen.getByRole("button", { name: /Ta kort/ }));
     expect(screen.getByRole("radio", { name: "Garaget" })).toBeChecked();
-    await userEvent.click(screen.getByRole("radio", { name: "+ Nytt rum" }));
+    await userEvent.click(screen.getByRole("radio", { name: "+ Lägg till rum" }));
     await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
     expect(screen.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeInTheDocument();
   });

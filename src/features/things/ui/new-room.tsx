@@ -14,13 +14,13 @@ import { roomKey } from "../domain/thing-room";
 import { maxPlaceNameChars } from "../domain/thing-place";
 import { roomHref } from "./rooms-list";
 
-// "+ Nytt rum" (Story 18.21): the last row of Förråd's start page, dashed so it
+// "Lägg till rum" (Story 18.21, UX-15): the last row of Förråd's start page, a button so it
 // does not look like a room. It opens a small sheet asking for the room's name;
-// "Skapa rum" makes the room (the whole-room place, as a card taken there would)
+// "Lägg till rum" makes the room (the whole-room place, as a card taken there would)
 // and opens its page, where the photos are taken. A name that is already a room
 // just opens that room, since the place is found, not made twice.
 
-export function NewRoom({ siteId }: { siteId: string }) {
+export function NewRoom({ siteId, fullWidth = true }: { siteId: string; fullWidth?: boolean }) {
   const router = useRouter();
   const ids = useId();
   const [open, setOpen] = useState(false);
@@ -67,15 +67,10 @@ export function NewRoom({ siteId }: { siteId: string }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openSheet}
-        className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-dashed border-border text-row-title text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        data-testid="new-room"
-      >
+      <Button variant="secondary" fullWidth={fullWidth} onClick={openSheet} data-testid="new-room">
         <PlusIcon size={20} />
-        {newRoomText.replace("+ ", "")}
-      </button>
+        {newRoomText}
+      </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={newRoomTitle} closeLabel="Avbryt" preventClose={busy}>
         <form onSubmit={create} className="flex flex-col gap-4" noValidate>
           {notice ? <Notice role="alert">{notice}</Notice> : null}

@@ -62,7 +62,7 @@ const nav = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" }).
 const content = (page: Page) => page.locator("main").filter({ visible: true });
 
 /**
- * Takes cards in a room: from the start page it opens the room (or makes it with "+ Nytt rum"), then on the room's
+ * Takes cards in a room: from the start page it opens the room (or makes it with "Lägg till rum"), then on the room's
  * page (Story 18.16) "Välj från album" is clicked there; with a part or box "Var i rummet? (valfritt)" opens the sheet.
  */
 async function takeCards(page: Page, files: string | string[], { room, part, box = false }: { room?: string; part?: string; box?: boolean } = {}) {
@@ -73,9 +73,10 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
     const existing = page.getByTestId("room-row").filter({ hasText: room });
     if (await existing.count()) await existing.first().click();
     else {
-      await page.getByRole("button", { name: "Nytt rum" }).click();
-      await page.getByRole("dialog", { name: "Nytt rum" }).getByLabel("Namn på rummet").fill(room);
-      await page.getByRole("button", { name: "Skapa rum" }).click();
+      await page.getByRole("button", { name: "Lägg till rum" }).click();
+      const sheet = page.getByRole("dialog", { name: "Lägg till rum" });
+      await sheet.getByLabel("Namn på rummet").fill(room);
+      await sheet.getByRole("button", { name: "Lägg till rum" }).click();
     }
     await page.waitForURL(/\/prylar\/rum\//);
   }
@@ -103,10 +104,10 @@ test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page
   await expect(page).toHaveTitle(/Förråd/);
 });
 
-test("without rooms it explains and offers + Nytt rum; there is no Ta kort card and no search field", async ({ page }) => {
+test("without rooms it explains and offers Lägg till rum; there is no Ta kort card and no search field", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByText("Börja med ett rum, som Förrådet eller Garaget.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Nytt rum" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lägg till rum" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Ta kort/ })).toHaveCount(0);
   await expect(page.getByText("Fota ett rum, en hylla eller en låda")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Rum" })).toHaveCount(0);
@@ -116,11 +117,11 @@ test("without rooms it explains and offers + Nytt rum; there is no Ta kort card 
   await expect(boendeButton(page)).toHaveCount(0);
 });
 
-test("+ Nytt rum is the last row, asks for a name, says an empty one, makes the room and opens it; a known name opens that room", async ({ page }) => {
+test("Lägg till rum is the last row, asks for a name, says an empty one, makes the room and opens it; a known name opens that room", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
   await page.goto("/prylar");
   await expect(page.getByRole("button", { name: /Ta kort/ })).toHaveCount(0);
-  const newRoom = page.getByRole("button", { name: "Nytt rum" });
+  const newRoom = page.getByRole("button", { name: "Lägg till rum" });
   const list = page.getByTestId("rooms");
   await expect(list).toBeVisible();
   await expect(newRoom).toBeVisible();
@@ -128,13 +129,13 @@ test("+ Nytt rum is the last row, asks for a name, says an empty one, makes the 
   expect(rowBox!.y).toBeGreaterThan(listBox!.y + listBox!.height - 1);
   expect(rowBox!.height).toBeGreaterThanOrEqual(44);
   await newRoom.click();
-  const dialog = page.getByRole("dialog", { name: "Nytt rum" });
+  const dialog = page.getByRole("dialog", { name: "Lägg till rum" });
   await expect(dialog.getByLabel("Namn på rummet")).toBeFocused();
   await expect(dialog.getByText("Sedan fotar du rummet, en hylla eller en låda där.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Skapa rum" }).click();
+  await dialog.getByRole("button", { name: "Lägg till rum" }).click();
   await expect(dialog.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeVisible();
   await dialog.getByLabel("Namn på rummet").fill("Vinden");
-  await dialog.getByRole("button", { name: "Skapa rum" }).click();
+  await dialog.getByRole("button", { name: "Lägg till rum" }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/vinden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vinden");
   await expect(page.getByRole("button", { name: /Välj från album/ })).toBeVisible();
@@ -142,9 +143,9 @@ test("+ Nytt rum is the last row, asks for a name, says an empty one, makes the 
   await expect(rooms(page)).toHaveCount(2);
   await expect(rooms(page).filter({ hasText: "Vinden" })).toContainText("Inget kort än");
   // The same name (any spelling) opens the room that is there, no second one.
-  await page.getByRole("button", { name: "Nytt rum" }).click();
-  await page.getByRole("dialog", { name: "Nytt rum" }).getByLabel("Namn på rummet").fill("garaget");
-  await page.getByRole("button", { name: "Skapa rum" }).click();
+  await page.getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByLabel("Namn på rummet").fill("garaget");
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till rum" }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/garaget$`));
   const places = (await adminClient().from("thing_place").select("room").eq("user_id", userId).eq("room_key", "garaget")).data;
   expect(places).toHaveLength(1);
@@ -174,23 +175,17 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await expect(page.getByTestId("room-summary")).toHaveCount(0);
   await expect(page.getByText(/Senaste kort/)).toHaveCount(0);
 
-  // The categories are folded in with their counts; a category's rows come only when it is opened.
+  // A small room (12 föremål) has its categories open from the start, under headings like Matvaror's (UX-27).
   await expect(page.getByTestId("room-category")).toHaveCount(7);
-  await expect(page.getByRole("button", { name: "Verktyg · 4" })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByTestId("thing")).toHaveCount(0);
-  await page.getByRole("button", { name: "Verktyg · 4" }).click();
-  await expect(page.getByTestId("thing")).toHaveCount(4);
+  await expect(page.getByRole("heading", { name: "Verktyg" })).toBeVisible();
+  await expect(page.getByTestId("thing")).toHaveCount(12);
   await expect(page.getByTestId("thing").filter({ hasText: "Hammare" })).toContainText("på väggen, mitten");
   // A guess says kanske, and only a guess.
-  await page.getByRole("button", { name: "Hushåll · 1" }).click();
   await expect(page.getByText("kanske · överst, höger")).toBeVisible();
   await expect(page.getByText(/kanske/)).toHaveCount(1);
   await expect(page.getByTestId("unseen-note")).toContainText(/där innehållet inte syns/);
 
-  // What is open is remembered on the device.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Verktyg · 4" })).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Trädgård · 2" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByTestId("thing").filter({ hasText: "Hammare" })).toBeVisible();
 
   // The Kort view: the card as a thumbnail with what it shows, its things and date.
@@ -234,7 +229,7 @@ test("several images at once are each a card, and a part or a box makes a place 
   await takeCards(page, photo, { room: "Garaget", part: "Black box", box: true });
   await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(3);
   const places = (await adminClient().from("thing_place").select("part, kind").eq("user_id", userId).order("created_at")).data;
-  // "+ Nytt rum" made the whole-room place first (Story 18.21).
+  // "Lägg till rum" made the whole-room place first (Story 18.21).
   expect(places).toEqual([{ part: null, kind: "part" }, { part: "Väggen", kind: "part" }, { part: "Black box", kind: "box" }]);
   await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 30_000 }).toBe(3);
 });
@@ -471,8 +466,6 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   const admin = adminClient();
   const cardBefore = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
   await page.goto(roomUrl("Skräpförrådet"));
-  await page.getByRole("button", { name: "Verktyg · 1" }).click();
-  await page.getByRole("button", { name: "Trädgård · 1" }).click();
   const things = page.getByTestId("thing");
 
   await page.getByRole("button", { name: /Hammare/ }).click();
@@ -486,9 +479,9 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
   await expect(things).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /^Trädgård/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Trädgård" })).toHaveCount(0);
   await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
-  await expect(page.getByRole("button", { name: "Trädgård · 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
   await expect(things).toHaveCount(2);
 
   // The card, with its date, is untouched.
@@ -632,8 +625,6 @@ test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two wi
   await rooms(page).filter({ hasText: "Förrådet" }).click();
   await page.waitForURL(/\/prylar\/rum\//);
   const main = content(page);
-  const household = main.getByRole("button", { name: /^Hushåll/ });
-  if ((await household.getAttribute("aria-expanded")) !== "true") await household.click();
   await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("3 st");
   await expect(main.getByRole("button", { name: /^Glödlampor E27/ })).toContainText("Slut");
   await main.getByRole("button", { name: /^Gravljus/ }).click();
@@ -649,8 +640,6 @@ test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two wi
   await sheet.getByRole("button", { name: "Avbryt" }).first().click();
   await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("4 st");
   // A föremål without a count: Räkna.
-  const verktyg = main.getByRole("button", { name: /^Verktyg/ });
-  if ((await verktyg.getAttribute("aria-expanded")) !== "true") await verktyg.click();
   await main.getByRole("button", { name: /^Hammare/ }).click();
   const hammer = page.getByRole("dialog", { name: "Hammare" });
   await expect(hammer.getByText("· räknas inte")).toBeVisible();
@@ -777,7 +766,6 @@ test("a box is added from the line about closed boxes, and its things are 'i Kar
   // A box with a card: its things say where they are, in the room's list, on the card and in search.
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Julgransprydnad", category: "Hushåll" }], { part: "Kartong jul", box: true });
   await page.goto(roomUrl("Skräpförrådet"));
-  await page.getByRole("button", { name: "Hushåll · 1" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Julgransprydnad" })).toContainText("i Kartong jul");
   await page.getByRole("radio", { name: "Kort" }).click();
   await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 föremål");
@@ -799,9 +787,8 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await expect(rooms(page)).toContainText(`12 föremål · 2 kort · ${shortDateText(new Date())}`);
   await rooms(page).click();
   await expect(page).toHaveURL(/\/prylar\/rum\//);
-  await page.getByRole("button", { name: "Verktyg · 4" }).click();
   const things = page.getByTestId("thing");
-  await expect(things).toHaveCount(4);
+  await expect(things).toHaveCount(12);
   await expect(things.filter({ hasText: "Cirkelsåg" })).toContainText("syns på 2 kort");
   await page.screenshot({ path: process.env.MERGE_SHOT ?? "test-results/merge-shot.png" });
 
@@ -820,7 +807,6 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
   await page.getByRole("radio", { name: "Lista" }).click();
-  await page.getByRole("button", { name: "Verktyg · 4" }).click();
   await expect(page.getByText("syns på 2 kort")).toHaveCount(0);
 });
 
@@ -906,7 +892,6 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   // Written and photographed things show together: counts, lists ("i Black box") and the Kort view.
   await page.goto(roomUrl("Skräpförrådet"));
   await expect(page.getByTestId("room-box")).toContainText("skrivet 4 föremål");
-  await page.getByRole("button", { name: "Elektronik · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skarvsladdar" })).toContainText("i Black box");
   await page.getByRole("radio", { name: "Kort" }).click();
   const written = page.getByTestId("room-card-written");
@@ -969,7 +954,6 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   const admin = adminClient();
   const cardBefore = (await admin.from("thing_photo").select("id").eq("place_id", place).single()).data!;
   await page.goto(roomUrl("Skräpförrådet"));
-  await page.getByRole("button", { name: "Verktyg · 1" }).click();
   await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog");
   // The category is one row (Pontus 2 Nov); a tap goes one level deeper in the same sheet, and a pick comes back.
@@ -984,9 +968,8 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await expect(sheet.getByRole("button", { name: "Kategori, Trädgård" })).toBeFocused();
   await sheet.getByLabel("Var på bilden").fill("översta hyllan");
   await sheet.getByRole("button", { name: "Spara" }).click();
-  await expect(page.getByRole("button", { name: "Trädgård · 1" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Verktyg/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Trädgård · 1" }).click();
+  await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verktyg" })).toHaveCount(0);
   await expect(page.getByTestId("thing")).toContainText("översta hyllan");
   expect((await admin.from("thing_item").select("name, category, where_hint, photo_id").eq("user_id", userId)).data).toEqual([
     { name: "Hammare", category: "Trädgård", where_hint: "översta hyllan", photo_id: cardBefore.id },
@@ -1018,7 +1001,6 @@ test("Lägg till föremål on a card writes things tied to that card, sorted by 
   // They show like the others: counted in the room, in the list of the category, and on the card.
   await expect(page.getByTestId("room-card")).toContainText("3 föremål");
   await page.getByRole("radio", { name: "Lista" }).click();
-  await page.getByRole("button", { name: "Verktyg · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skiftnyckel" })).toBeVisible();
 
   // Removed with its card.
@@ -1545,7 +1527,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await chat.getByTestId("chat-ref").last().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sovrummet");
   await expect(page.getByTestId("room-part")).toHaveText([/Garderoben/, /Översta byrålådan\s*1 föremål/]);
-  await page.getByRole("button", { name: /Övrigt/ }).click();
+  // A small room's categories are open from the start (UX-27): no toggle to tap.
   const row = page.getByTestId("thing").filter({ hasText: "Passen" });
   await expect(row).toContainText(`Översta byrålådan · skrivet ${today}`);
   await row.getByTestId("thing-press").click();
@@ -1677,9 +1659,9 @@ test("Story 18.24: jag har köpt … says where it is with Fyll på open, or pro
 test("the field is there in a boende with rooms but no föremål, and Kom ihåg makes the first föremål (Story 18.19)", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByRole("textbox", { name: "Sök eller fråga" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Nytt rum" }).click();
-  await page.getByRole("dialog", { name: "Nytt rum" }).getByLabel("Namn på rummet").fill("Sovrummet");
-  await page.getByRole("button", { name: "Skapa rum" }).click();
+  await page.getByRole("button", { name: "Lägg till rum" }).click();
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByLabel("Namn på rummet").fill("Sovrummet");
+  await page.getByRole("dialog", { name: "Lägg till rum" }).getByRole("button", { name: "Lägg till rum" }).click();
   await page.waitForURL(/\/prylar\/rum\//);
   await page.goto("/prylar");
   await expect(rooms(page)).toHaveText([/Sovrummet\s*Inget kort än/]);

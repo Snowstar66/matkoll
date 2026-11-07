@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok } from "@/lib/errors";
@@ -16,20 +16,20 @@ beforeEach(() => {
   push.mockReset();
 });
 
-describe("+ Nytt rum", () => {
+describe("Lägg till rum", () => {
   it("asks for the room's name in a sheet, with the field focused", async () => {
     render(<NewRoom siteId={site} />);
-    await userEvent.click(screen.getByRole("button", { name: "Nytt rum" }));
-    expect(screen.getByRole("dialog", { name: "Nytt rum" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
+    expect(screen.getByRole("dialog", { name: "Lägg till rum" })).toBeInTheDocument();
     expect(screen.getByLabelText("Namn på rummet")).toHaveFocus();
     expect(screen.getByText("Sedan fotar du rummet, en hylla eller en låda där.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Skapa rum" })).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till rum" })).toBeInTheDocument();
   });
 
   it("makes the room as a whole-room place and opens its page", async () => {
     ensureCapturePlace.mockResolvedValue(ok({ placeId: "p1" }));
     render(<NewRoom siteId={site} />);
-    await userEvent.click(screen.getByRole("button", { name: "Nytt rum" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
     await userEvent.type(screen.getByLabelText("Namn på rummet"), "Vinden{Enter}");
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/prylar/rum/${site}/vinden`));
     expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Vinden", part: "", box: false });
@@ -38,8 +38,8 @@ describe("+ Nytt rum", () => {
   it("says an empty name under the field and goes nowhere", async () => {
     ensureCapturePlace.mockResolvedValue(fail("validation", { room: "Ange ett rum, till exempel Skräpförrådet." }));
     render(<NewRoom siteId={site} />);
-    await userEvent.click(screen.getByRole("button", { name: "Nytt rum" }));
-    await userEvent.click(screen.getByRole("button", { name: "Skapa rum" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lägg till rum" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Lägg till rum" })).getByRole("button", { name: "Lägg till rum" }));
     expect(await screen.findByText("Ange ett rum, till exempel Skräpförrådet.")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });

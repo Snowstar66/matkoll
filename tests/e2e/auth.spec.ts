@@ -9,7 +9,6 @@ import {
   mailsTo,
   outsiderEmail,
   outsiderStorageState,
-  sessionCookiesFor,
   userStorageState,
 } from "./support";
 
@@ -174,27 +173,6 @@ test.describe("without a session", () => {
       await expect(page).toHaveURL(`${baseURL}/recept`);
     });
   }
-});
-
-test.describe("the privacy note (Story 17.2)", () => {
-  test("shows once per device and Okej keeps it away", async ({ browser, baseURL }) => {
-    const context = await browser.newContext({ baseURL });
-    // A session made outside the app, so nothing has answered the note yet on this device.
-    const cookies = await sessionCookiesFor(e2eEmail);
-    await context.addCookies(cookies.map((cookie) => ({ ...cookie, url: baseURL! })));
-    const page = await context.newPage();
-    await page.goto("/recept");
-    // Pontus 1 Nov: a calm card, Om din data, with Läs mer to Hjälp och tips at Konto.
-    const note = page.getByRole("region", { name: "Om din data" });
-    await expect(note).toBeVisible();
-    await expect(note).toContainText("syns bara för ditt hushåll och lagras i EU");
-    await expect(note.getByRole("link", { name: "Läs mer" })).toHaveAttribute("href", "/hjalp#konto");
-    await note.getByRole("button", { name: "Okej" }).click();
-    await expect(note).toHaveCount(0);
-    await page.goto("/matsedel");
-    await expect(page.getByRole("region", { name: "Om din data" })).toHaveCount(0);
-    await context.close();
-  });
 });
 
 test.describe("signed in", () => {

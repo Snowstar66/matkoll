@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cx } from "@/components/cx";
+import { CategoryHeader } from "@/components/category-header";
 import { Notice } from "@/components/notice";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { loadRoomCategoryThings } from "../actions/room-things";
@@ -10,12 +10,16 @@ import { categoryToggleLabel } from "../domain/thing-room";
 import { CardThings } from "./card-things";
 import { useOpenCategories } from "./device-store";
 
-// The room's things per category (Story 18.12): every category is folded in,
-// with its emoji tile, name and count ("Skruv & beslag · 214"). A category
-// reads and shows its rows only when it is opened, so a room with thousands of
+// The room's things per category (Story 18.12, UX-27): the same category rows as Matvaror
+// (CategoryHeader, emoji, name and count, then the list), open from the start. Only a room
+// with more than `foldFrom` things folds its categories in ("Skruv & beslag · 214"); a folded
+// category reads and shows its rows only when it is opened, so a room with thousands of
 // things never renders them all. Which categories are open is kept on the
 // device. The rows of an open category are read again when the page is (a
 // thing renamed or removed, a card added).
+
+/** A room with more things than this folds its categories in; a smaller one shows them all. */
+export const foldFrom = 30;
 
 type Loaded = { things: Thing[] } | { error: string };
 
@@ -27,7 +31,9 @@ export type RoomCategoriesProps = {
 
 export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesProps) {
   const [stored, setStored] = useOpenCategories(siteId, roomKey);
-  const open = stored ?? [];
+  const total = categories.reduce((sum, entry) => sum + entry.things, 0);
+  const folded = total > foldFrom;
+  const open = folded ? (stored ?? []) : categories.map((entry) => entry.category);
   const [loaded, setLoaded] = useState<Partial<Record<ThingCategory, Loaded>>>({});
   const latest = useRef(0);
 
@@ -62,36 +68,37 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
     <div className="flex flex-col gap-3" data-testid="room-categories">
       {categories.map(({ category, things }) => {
         const isOpen = open.includes(category);
-        const { icon, tile } = thingTiles[category];
+        const { icon } = thingTiles[category];
         const rows = loaded[category];
         return (
           <section key={category} className="flex flex-col gap-2" data-testid="room-category">
-            <h3 className="m-0">
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                aria-controls={`room-cat-${category}`}
-                aria-label={categoryToggleLabel(category, things)}
-                onClick={() => toggle(category)}
-                className="flex min-h-tap w-full items-center gap-3 rounded-md px-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx("flex size-tile shrink-0 items-center justify-center rounded-sm text-tile-icon leading-none select-none", tile)}
+            {folded ? (
+              <h3 className="m-0">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`room-cat-${category}`}
+                  aria-label={categoryToggleLabel(category, things)}
+                  onClick={() => toggle(category)}
+                  className="flex min-h-tap w-full items-center gap-2 rounded-md px-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  {icon}
-                </span>
-                <span aria-hidden="true" className="min-w-0 flex-1 text-section-label wrap-break-word text-ink-2">
-                  {category}
-                </span>
-                <span aria-hidden="true" className="shrink-0 text-meta text-ink-2 tabular-nums">
-                  {things}
-                </span>
-                <span aria-hidden="true" className="shrink-0 text-meta text-ink-3">
-                  {isOpen ? "▴" : "▾"}
-                </span>
-              </button>
-            </h3>
+                  <span aria-hidden="true" className="w-6 shrink-0 text-center text-category-icon leading-none select-none">
+                    {icon}
+                  </span>
+                  <span aria-hidden="true" className="min-w-0 flex-1 text-section-label wrap-break-word text-ink-2">
+                    {category}
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-meta text-ink-2 tabular-nums">
+                    {things}
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-meta text-ink-3">
+                    {isOpen ? "▴" : "▾"}
+                  </span>
+                </button>
+              </h3>
+            ) : (
+              <CategoryHeader category={category} icon={icon} count={things} level={3} />
+            )}
             <div id={`room-cat-${category}`} hidden={!isOpen}>
               {isOpen && rows && "things" in rows ? <CardThings things={rows.things} headings={false} aside /> : null}
               {isOpen && rows && "error" in rows ? <Notice role="alert">{rows.error}</Notice> : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cx } from "@/components/cx";
+import { CategoryHeader } from "@/components/category-header";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { groupByCategory, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
@@ -16,21 +16,7 @@ import { ThingSheet } from "./thing-sheet";
 // category's name stands beside it.
 
 export function CategoryHeading({ category, count, id }: { category: ThingCategory; count: number; id: string }) {
-  const { icon, tile } = thingTiles[category];
-  return (
-    <div className="flex items-center gap-3 px-1">
-      <span
-        aria-hidden="true"
-        className={cx("flex size-tile shrink-0 items-center justify-center rounded-sm text-tile-icon leading-none select-none", tile)}
-      >
-        {icon}
-      </span>
-      <h3 id={id} className="min-w-0 flex-1 text-section-label wrap-break-word text-ink-2">
-        {category}
-      </h3>
-      <span className="shrink-0 text-meta text-ink-2 tabular-nums">{count}</span>
-    </div>
-  );
+  return <CategoryHeader category={category} icon={thingTiles[category].icon} count={count} id={id} level={3} />;
 }
 
 /**
