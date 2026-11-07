@@ -39,9 +39,9 @@ const korv = option(2, "Korvstroganoff", {
   isFavorite: true,
   meta: "Favorit · 30 min",
   buy: 3,
-  deal: { text: "Falukorv och grädde på extrapris · spara 21 kr", savingKr: 21, savingPercent: 20 },
+  deal: { text: "Falukorv och grädde på erbjudande · −21 kr", savingKr: 21, savingPercent: 20 },
 });
-const lax = option(3, "Laxpasta", { deal: { text: "Laxfilé på extrapris · spara 25 %", savingKr: null, savingPercent: 25 } });
+const lax = option(3, "Laxpasta", { deal: { text: "Laxfilé på erbjudande · −25 %", savingKr: null, savingPercent: 25 } });
 const soppa = option(4, "Linssoppa", { meta: "40 min" });
 const options = [tacos, korv, lax, soppa];
 
@@ -94,7 +94,7 @@ describe("WeekPlanner, the tabs", () => {
     expect(rowTitles()).toEqual(["Tacos", "Korvstroganoff"]);
     const korvRow = screen.getAllByTestId("plan-option")[1];
     expect(korvRow).toHaveTextContent("Favorit · 30 min");
-    expect(within(korvRow).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på extrapris · spara 21 kr");
+    expect(within(korvRow).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
     expect(screen.getAllByTestId("plan-option")[0]).toHaveTextContent("Favorit · lagad 9 gånger");
   });
 
@@ -103,7 +103,7 @@ describe("WeekPlanner, the tabs", () => {
     renderPlanner();
     await user.click(screen.getByRole("radio", { name: "På erbjudande" }));
     expect(rowTitles()).toEqual(["Korvstroganoff", "Laxpasta"]);
-    expect(screen.getByTestId("offers-hint")).toHaveTextContent("Förslag för att varorna har extrapris den här veckan.");
+    expect(screen.getByTestId("offers-hint")).toHaveTextContent("Förslag för att varorna är på erbjudande den här veckan.");
     expect(screen.getByText("Idéer")).toBeVisible();
     await user.click(screen.getByRole("radio", { name: "Alla recept" }));
     expect(rowTitles()).toEqual(["Korvstroganoff", "Laxpasta", "Linssoppa", "Tacos"]);
@@ -234,7 +234,7 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     const dishes = screen.getAllByTestId("plan-dish");
     expect(within(dishes[0]).getByRole("link", { name: "Tacos" })).toHaveAttribute("href", `/recept/${tacos.id}`);
     expect(within(dishes[0]).getByTestId("dish-note")).toHaveTextContent("4 varor att köpa");
-    expect(within(dishes[1]).getByTestId("dish-note")).toHaveTextContent("Falukorv och grädde på extrapris · spara 21 kr");
+    expect(within(dishes[1]).getByTestId("dish-note")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
   });
 
   it("removes with ✕ at once and offers Ångra, which puts it back", async () => {

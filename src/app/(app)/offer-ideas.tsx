@@ -15,7 +15,7 @@ import type { ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions
 import { maxOfferIdeas, pollSetMs, type OfferIdea, type OfferIdeasView } from "@/features/suggestions";
 import { errorMessages, type Result } from "@/lib/errors";
 
-// "Nya idéer med extrapris": the AI ideas around the offers, in the card Rätter med extrapris (Veckans
+// "Nya idéer med erbjudanden": the AI ideas around the offers, in the card Rätter med extrapris (Veckans
 // erbjudanden) and under På erbjudande on Matsedel. Pontus 2026-11-06: nobody starts them. The server
 // prepares them in the background when the offers are fetched (or on the first view when there is no set
 // yet) and keeps the set per household and offer week, so this only shows it: ready (an intro and up to
@@ -75,12 +75,12 @@ function ideaMeta({ draft }: ShownSuggestion): string {
   return ["AI-förslag", draft.totalMinutes ? `${draft.totalMinutes} min` : null].filter(Boolean).join(" · ");
 }
 
-/** The offer line of an idea: "Falukorv på extrapris". */
+/** The offer line of an idea: "Falukorv på erbjudande". */
 function ideaDeal({ onOffer = [] }: ShownSuggestion): string | null {
   if (onOffer.length === 0) return null;
   const names = onOffer.slice(0, 3).map((label) => offerDisplay(label).title.toLowerCase());
   const text = names.length > 1 ? `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}` : names[0];
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)} på extrapris`;
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)} på erbjudande`;
 }
 
 /** An idea of the saved set as the preview takes it: a key for the list and the id it is saved under. */

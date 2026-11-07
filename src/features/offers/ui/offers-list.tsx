@@ -3,7 +3,7 @@
 import { Fragment, useId } from "react";
 import { CategoryHeader } from "@/components/category-header";
 import { Badge } from "@/components/badges";
-import { Checkbox } from "@/components/checkbox";
+import { CheckIcon, PlusIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import type { Category } from "@/features/catalog";
@@ -29,11 +29,13 @@ export type OffersListProps = {
   fits?: ReadonlySet<string>;
 };
 
-/** The offers Pontus has ticked, and those already on the shopping list (shown "På listan", never ticked). */
+/** UX-31: a round + per row adds that offer to the shopping list at once; those already on it show "På listan" and a check. */
 export type OfferSelection = {
-  picked: ReadonlySet<string>;
   onList: ReadonlySet<string>;
-  onToggle: (offerId: string, picked: boolean) => void;
+  onAdd: (offer: StoreOffer) => void;
+  /** The offers added in this opening: their row has "Ångra", which takes the offer off the list again. */
+  undoable?: ReadonlySet<string>;
+  onUndo?: (offer: StoreOffer) => void;
   disabled?: boolean;
 };
 
@@ -45,7 +47,7 @@ export type OfferSelection = {
  * in bold ink and, under it, the regular price struck through and the saving
  * ("29,90 kr −50 %", the percent in text only). Two lines at most, so the row
  * is as tall as any list row. The checkbox is named like "Aubergine, 12 kr per
- * st, spara 20 %".
+ * st, 20 % rabatt".
  */
 const dotTones = { ica: "bg-store-ica", other: "bg-store-other" } as const;
 
@@ -77,6 +79,7 @@ function OfferRow({
   const top = offer.savingPercent !== null && offer.savingPercent >= topDealPercent;
   const listed = selection?.onList.has(offer.id) ?? false;
   const spoken = [offerSpokenName(offer), badge?.text, fit ? "passar dig" : null].filter(Boolean).join(", ");
+  const title = offerDisplay(offer.label).title;
   const trailing =
     offer.price || offer.regularPrice !== null || offer.savingPercent !== null ? (
       <span className="flex max-w-36 flex-col items-end gap-0.5 text-right">
@@ -109,7 +112,7 @@ function OfferRow({
   ].filter(Boolean);
   return (
     <ListRow
-      title={offerDisplay(offer.label).title}
+      title={title}
       meta={
         hasMeta ? (
           <>
@@ -123,6 +126,18 @@ function OfferRow({
               </span>
             ) : null}
             {listed ? <Badge tone="neutral" className="mr-1.5 align-middle">På listan</Badge> : null}
+            {listed && selection?.onUndo && selection.undoable?.has(offer.id) ? (
+              <button
+                type="button"
+                data-testid="offer-undo"
+                aria-label={`Ångra, ta ${title} från inköpslistan`}
+                disabled={selection.disabled}
+                onClick={() => selection.onUndo?.(offer)}
+                className="-my-2 mr-1.5 inline-flex min-h-tap items-center px-1 align-middle font-medium text-accent underline underline-offset-2"
+              >
+                Ångra
+              </button>
+            ) : null}
             {parts.map((part, index) => (
               <Fragment key={index}>
                 {index > 0 ? " \u00B7 " : null}
@@ -134,12 +149,25 @@ function OfferRow({
       }
       leading={
         selection ? (
-          <Checkbox
-            label={spoken}
-            checked={!listed && selection.picked.has(offer.id)}
-            disabled={listed || selection.disabled}
-            onCheckedChange={(checked) => selection.onToggle(offer.id, checked)}
-          />
+          listed ? (
+            <span aria-hidden="true" className="flex size-tap shrink-0 items-center justify-center">
+              <span className="flex size-6 items-center justify-center rounded-full bg-mint text-mint-ink">
+                <CheckIcon size={16} />
+              </span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              aria-label={`Lägg ${title}${label ? ` (${label.text})` : ""} på inköpslistan`}
+              title={spoken}
+              disabled={selection.disabled}
+              onClick={() => selection.onAdd(offer)}
+              data-testid="offer-add"
+              className="flex size-tap shrink-0 items-center justify-center rounded-full bg-mint text-mint-ink disabled:opacity-60"
+            >
+              <PlusIcon size={20} />
+            </button>
+          )
         ) : undefined
       }
       trailing={trailing}
@@ -190,9 +218,9 @@ function OffersGroup({
  * offer with the item as the store wrote it and, under it, the price and
  * conditions ("89 kr/kg · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov").
  * Story 9.11: with a regular price or a saving the line also says "Ord. 111,90
- * kr · spara 20 %" (nothing when unknown), and 30 % or more has a "Toppklipp"
- * badge. `sort="saving"` lists them best saving first. Story 9.12: with `selection` each row has a checkbox named by the offer, and
- * "På listan" replaces the tick for an offer already on the shopping list.
+ * kr · −20 %" (nothing when unknown), and 30 % or more has a "Toppklipp"
+ * badge. `sort="saving"` lists them best saving first. Story 9.12: with `selection` each row has a round + named by the offer, and
+ * "På listan" replaces the + for an offer already on the shopping list.
  */
 export function OffersList({ offers, weekStart, sort = "category", selection, badges, showStore = true, fits }: OffersListProps) {
   if (sort === "saving") {

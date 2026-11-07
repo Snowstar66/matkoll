@@ -202,15 +202,15 @@ export function offerTagsShown(tags: readonly string[]): { shown: string[]; more
   return { shown: tags.slice(0, maxOfferTags), more: Math.max(tags.length - maxOfferTags, 0) };
 }
 
-/** The one line of a recipe's offers: "Extrapris: falukorv, grädde +1" (the first two and how many more). */
+/** The one line of a recipe's offers: "Erbjudande: falukorv, grädde +1" (the first two and how many more). */
 export function offerTagsLine(tags: readonly string[]): string {
   const { shown, more } = offerTagsShown(tags);
   const names = shown.map((tag) => `${tag.charAt(0).toLowerCase()}${tag.slice(1)}`);
-  return `Extrapris: ${names.join(", ")}${more > 0 ? ` +${more}` : ""}`;
+  return `Erbjudande: ${names.join(", ")}${more > 0 ? ` +${more}` : ""}`;
 }
 
 /** Why the filter Erbjudanden suggests what it does. */
-export const extraPriceReason = "Förslag för att varorna har extrapris den här veckan.";
+export const extraPriceReason = "Förslag för att varorna är på erbjudande den här veckan.";
 
 /** N to rank by, or `null` for a row without a usable status. */
 function rankOf(missingCount: unknown): number | null {
