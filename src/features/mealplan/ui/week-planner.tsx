@@ -421,6 +421,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       key={option.id}
                       title={option.title}
                       imageUrl={option.imageUrl}
+                      dish={option.dish}
                       meta={option.meta}
                       deal={option.deal?.text ?? null}
                       onAdd={() => void add(option)}

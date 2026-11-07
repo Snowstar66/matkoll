@@ -6,6 +6,7 @@ import { getCookedCounts, MealPlanDataError } from "@/features/mealplan/server";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { listRecipeRows } from "@/features/recipes/server";
 import { listStores } from "@/features/settings/server";
+import { dishKind } from "@/lib/dish-kind";
 import { planOptions, type PlanOption } from "../domain/plan-options";
 
 /**
@@ -39,6 +40,7 @@ export async function weekPlanOptions(): Promise<PlanOption[]> {
       title: row.title,
       isFavorite: row.isFavorite,
       imageUrl: row.imageUrl,
+      dish: dishKind(row.title, row.lines.map((line) => line.originalText)),
       totalMinutes: row.totalMinutes,
       servings: row.originalServings,
       lines: row.lines.map((line) => {

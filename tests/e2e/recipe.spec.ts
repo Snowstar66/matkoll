@@ -67,7 +67,7 @@ test("an import saves the recipe by itself and Öppna opens the recipe view", as
   // The recipe has no time and its source is pasted text, which is not shown (UX-12): no meta line; the portion selector shows the servings.
   await expect(page.getByTestId("recipe-meta").filter({ visible: true })).toHaveCount(0);
   await expect(page.getByRole("article").filter({ visible: true }).getByText("4 portioner", { exact: true })).toBeVisible();
-  // No image address from pasted text: the placeholder takes its place. The
+  // No image address from pasted text: a drawing of the dish takes its place (UX-13b). The
   // library stays mounted but hidden after navigation, so only visible ones count.
   await expect(page.getByTestId("recipe-image-placeholder").filter({ visible: true })).toHaveCount(1);
 

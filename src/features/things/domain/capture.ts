@@ -30,7 +30,12 @@ export const openCameraText = "Fota";
 export const pickImagesText = "Välj från album";
 /** The file types the picker takes: a HEIC from an iPhone has no `image/*` type in every browser. */
 export const pickerAccept = "image/*,.heic,.heif";
-export const roomExactText = "Var i rummet? (valfritt)";
+/** UX-28: the row of chips above "Fota" on a room's page. */
+export const wherePlaceText = "Var i rummet?";
+export const wholeRoomText = "Hela rummet";
+export const shelfText = "Hylla";
+export const boxChipText = "Låda";
+export const otherPlaceText = "+ Annan plats";
 export const captureHintText = `Efter varje kort: "Ta ett till". ${appName} läser korten i bakgrunden.`;
 export const exactPlaceText = "Var i rummet? (valfritt)"
 export const partExampleText = "t.ex. översta hyllan i garderoben";

@@ -13,6 +13,7 @@ import { offerDisplay } from "@/features/offers";
 import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import type { ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { maxOfferIdeas, pollSetMs, type OfferIdea, type OfferIdeasView } from "@/features/suggestions";
+import { dishKind } from "@/lib/dish-kind";
 import { errorMessages, type Result } from "@/lib/errors";
 
 // "Nya idéer med erbjudanden": the AI ideas around the offers, in the card Rätter med extrapris (Veckans
@@ -187,7 +188,16 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
       {view.state === "ready" && ideas.length > 0 ? (
         <ul aria-label="Nya idéer" className="flex flex-col gap-2">
           {ideas.map((idea) => (
-            <PlanRow key={idea.recipeId} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} deal={ideaDeal(idea)}>
+            <PlanRow
+              key={idea.recipeId}
+              testId="ai-option"
+              title={idea.draft.title}
+              imageUrl={null}
+              dish={dishKind(idea.draft.title, idea.draft.lines.map((line) => line.originalText))}
+              meta={ideaMeta(idea)}
+              note={idea.why || null}
+              deal={ideaDeal(idea)}
+            >
               <button
                 type="button"
                 onClick={() =>

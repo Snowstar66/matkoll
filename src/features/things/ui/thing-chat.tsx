@@ -12,7 +12,6 @@ import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { askChat, type ChatAnswer } from "../actions/ask-chat";
 import {
   askButtonText,
-  askHintText,
   askLabel,
   askPlaceholder,
   maxHistoryAnswerChars,
@@ -238,14 +237,12 @@ export function ThingChat({
           />
           <button
             type="submit"
-            aria-label={askButtonText}
             aria-disabled={pending || undefined}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-row-title text-on-accent select-none aria-disabled:opacity-60"
+            className="flex h-9 shrink-0 items-center justify-center rounded-md bg-accent px-3.5 text-control font-semibold text-on-accent select-none aria-disabled:opacity-60"
           >
-            <span aria-hidden="true">↑</span>
+            {askButtonText}
           </button>
         </div>
-        {turns.length === 0 && text === "" ? <p className="px-1 text-meta text-ink-2">{askHintText}</p> : null}
       </form>
     </section>
   );
