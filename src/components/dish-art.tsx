@@ -4,24 +4,24 @@ import { dishDrawings } from "./dish-drawings";
 
 // UX-13b: a recipe without its own photo is drawn as its kind of dish, in the
 // two-tone line style of Hjälp och tips and the welcome tour: the app's green
-// line with one warm detail (--warm), on a light plate in the dish's tone.
+// line with one warm detail (--warm), on the app's mint plate (Pontus 2026-11-07: keep the app green).
 // Only tokens, so dark mode follows by itself. Decoration, so aria-hidden.
 
-/** The plate behind each kind of dish: warm clay, sky, sand or the drawings' own green. */
+/** The plate behind each kind of dish: the app's mint for all (Pontus 2026-11-07), kept per kind so a tone can differ again. */
 export const dishTone: Record<DishKind, string> = {
-  gryta: "bg-tile-clay",
-  kott: "bg-tile-clay",
-  kyckling: "bg-tile-clay",
-  pasta: "bg-tile-clay",
-  fisk: "bg-sky",
-  soppa: "bg-sky",
-  ugnsratt: "bg-sand",
-  gratang: "bg-sand",
-  paj: "bg-sand",
-  bakat: "bg-sand",
-  sallad: "bg-illus-bg",
-  wok: "bg-illus-bg",
-  tallrik: "bg-illus-bg",
+  gryta: "bg-mint",
+  kott: "bg-mint",
+  kyckling: "bg-mint",
+  pasta: "bg-mint",
+  fisk: "bg-mint",
+  soppa: "bg-mint",
+  ugnsratt: "bg-mint",
+  gratang: "bg-mint",
+  paj: "bg-mint",
+  bakat: "bg-mint",
+  sallad: "bg-mint",
+  wok: "bg-mint",
+  tallrik: "bg-mint",
 };
 
 /** The line's width on screen: a little heavier on a card than in a thumbnail, as the app's line icons. */
