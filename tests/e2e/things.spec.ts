@@ -1527,7 +1527,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await chat.getByTestId("chat-ref").last().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sovrummet");
   await expect(page.getByTestId("room-part")).toHaveText([/Garderoben/, /Översta byrålådan\s*1 föremål/]);
-  await page.getByRole("button", { name: /Övrigt/ }).click();
+  // A small room's categories are open from the start (UX-27): no toggle to tap.
   const row = page.getByTestId("thing").filter({ hasText: "Passen" });
   await expect(row).toContainText(`Översta byrålådan · skrivet ${today}`);
   await row.getByTestId("thing-press").click();
