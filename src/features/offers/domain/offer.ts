@@ -3,7 +3,7 @@ import { oneLine } from "@/lib/one-line";
 import type { IcaOffer } from "./ica-offer-page";
 import { clip } from "./offer-name";
 import { savingText } from "./offer-saving";
-import { dayText, swedishToday, weekEnd, weekLabel, weekShortLabel } from "./week";
+import { dayText, swedishToday, weekEnd, weekShortLabel } from "./week";
 
 // An offer as Matkoll keeps it (Story 9.1, AD-25): one store, one week. The
 // limits and the source match store_offer's checks
@@ -113,19 +113,19 @@ export function fetchingOffersText(siteName: string, progress?: { store: string;
 }
 
 /**
- * Story 9.3: the line under the filter Erbjudanden in Recept. One store is
- * named ("… från Maxi ICA Stormarknad Östersund, vecka 45."), several are counted
- * ("… från 3 butiker, vecka 45."), and without any it only says the week.
+ * Story 9.3, UX-20: the line under the filter Erbjudanden in Recept ("Visa" follows it). One
+ * store is named ("Veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45"), several
+ * are counted ("… från 3 butiker, vecka 45"), and without any it only says the week.
  */
 export function recipeOffersLineText(input: { weekStart: string; storeNames: readonly string[] }): string {
   const { weekStart, storeNames } = input;
   const from = storeNames.length === 1 ? ` från ${storeNames[0]}` : storeNames.length > 1 ? ` från ${storeNames.length} butiker` : "";
-  return `Recept med veckans erbjudanden${from}, ${weekShortLabel(weekStart)}.`;
+  return `Veckans erbjudanden${from}, ${weekShortLabel(weekStart)}`;
 }
 
-/** "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov", under the sheet's title. */
+/** UX-18: "Maxi ICA Stormarknad Östersund · vecka 44", the first line under the sheet's title. */
 export function offersSheetSubtitle(storeName: string, weekStart: string): string {
-  return `${storeName} · ${weekLabel(weekStart)}`;
+  return `${storeName} · ${weekShortLabel(weekStart)}`;
 }
 
 /** Story 16.11: "2 butiker · v. 44 · 157 erbjudanden", the one meta line under the sheet's title (the Toppklipp count is added by the sheet). */

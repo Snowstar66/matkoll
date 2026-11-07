@@ -4,8 +4,8 @@ import type { StapleRules } from "@/features/pantry";
 import { isMainLine, offerTagsByRecipe } from "./recipe-offers";
 
 const offers = [
-  { label: "Falukorv", name: "Falukorv", ingredientId: "falu" },
-  { label: "Gul lök", name: "Gul lök", ingredientId: "onion" },
+  { label: "Falukorv", name: "Falukorv", ingredientId: "falu", price: "2 för 50 kr" },
+  { label: "Bondens Gul lök", name: "gul lök", ingredientId: "onion", price: "10 kr/kg" },
   { label: "Kummin", name: "Kummin", ingredientId: "cumin" },
   { label: "Herrgård, Präst", name: "Herrgård präst", ingredientId: null },
 ];
@@ -29,7 +29,13 @@ describe("isMainLine", () => {
 describe("offerTagsByRecipe", () => {
   it("gives the offers a recipe uses on a main ingredient, in the sheet's order", () => {
     const tags = offerTagsByRecipe(offers, [{ id: "a", lines: [line("onion", 2, "st"), line("falu", 400, "g")] }]);
-    expect(tags).toEqual({ a: ["Falukorv", "Gul lök"] });
+    // The short name without brand, and the price as the store wrote it (UX-20).
+    expect(tags).toEqual({
+      a: [
+        { name: "Falukorv", price: "2 för 50 kr" },
+        { name: "Gul lök", price: "10 kr/kg" },
+      ],
+    });
   });
 
   it("leaves out a recipe where only a spice or a vague line is on offer", () => {

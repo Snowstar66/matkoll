@@ -65,10 +65,9 @@ export function weekBarText(dishCount: number, toBuy: number | null): string {
   return toBuy === null ? dishes : `${dishes} · ${toBuy} ${toBuy === 1 ? "vara" : "varor"} att köpa`;
 }
 
-/** The second line of a dish in Veckans rätter: the offer line, else what is left to buy for it. */
-export function dishNoteText(option: { buy: number; deal: { text: string } | null } | undefined): string {
+/** The second line of a dish in Veckans rätter: what is left to buy for it (UX-20: always first, the offers follow as tags on their own line). */
+export function dishNoteText(option: { buy: number } | undefined): string {
   if (!option) return "";
-  if (option.deal) return option.deal.text;
   return option.buy > 0 ? `${itemsText(option.buy)} att köpa` : "Allt finns hemma";
 }
 

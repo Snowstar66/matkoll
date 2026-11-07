@@ -1,6 +1,8 @@
 "use client";
 
-import { offerTagsLine, recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
+import { OfferTags } from "@/components/offer-tag";
+import type { OfferTagData } from "@/lib/offer-tag";
+import { recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
 import { dishEmoji } from "../domain/dish-emoji";
 import { RecipeCard } from "./recipe-card";
 import { RecipeStatusBadge } from "./recipe-status-badge";
@@ -15,18 +17,9 @@ export type RecipeListProps = {
    * nu), which the list's name says, since there are no headings or groups.
    */
   ranked?: boolean;
-  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, as their own line "Extrapris: …"; the list's name then says most offers first. */
-  offerTags?: Readonly<Record<string, readonly string[]>>;
+  /** Story 9.3 (the filter Erbjudanden): the offers each recipe uses, by id, as OfferTags under the time line (one on a narrow card, the shortest, then "+N"); the list's name then says most offers first. */
+  offerTags?: Readonly<Record<string, readonly OfferTagData[]>>;
 };
-
-/** The offers a recipe uses, as their own line in the deal colour: "Extrapris: falukorv, grädde +1". */
-function OfferTags({ tags }: { tags: readonly string[] }) {
-  return (
-    <p data-testid="offer-tags" className="text-[13px]/[18px] font-semibold text-deal-ink">
-      {offerTagsLine(tags)}
-    </p>
-  );
-}
 
 /**
  * The library's recipe cards, in the order given (newest first, or ranked):
@@ -46,7 +39,7 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           emoji={dishEmoji(recipe.title)}
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
           href={`/recept/${recipe.id}`}
-          offerTags={offerTags && offerTags[recipe.id]?.length ? <OfferTags tags={offerTags[recipe.id]} /> : undefined}
+          offerTags={offerTags && offerTags[recipe.id]?.length ? <OfferTags tags={offerTags[recipe.id]} max={1} shortest /> : undefined}
           badge={
             recipe.missingCount !== null ? (
               <RecipeStatusBadge missingCount={recipe.missingCount} missingNames={recipe.missingNames} onImage />

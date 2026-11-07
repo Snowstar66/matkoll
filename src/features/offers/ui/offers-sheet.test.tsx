@@ -90,7 +90,7 @@ describe("OffersSheet", () => {
     render();
     expect(screen.getByRole("button", { name: "Erbjudanden" })).toHaveAttribute("aria-haspopup", "dialog");
     const { dialog } = await open();
-    expect(dialog).toHaveAccessibleDescription("Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov");
+    expect(dialog).toHaveAccessibleDescription("Maxi ICA Stormarknad Östersund · vecka 44");
     expect(within(dialog).getByText("Inga erbjudanden hämtade för vecka 44.")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Hämta veckans erbjudanden" })).toBeEnabled();
     // Nothing is fetched by opening the sheet.
@@ -154,9 +154,9 @@ describe("OffersSheet", () => {
   it("shows the offers under their categories, with the price and conditions, and the store's page last", async () => {
     render({ offers, stores: [{ ...store, fetchedAt: "2026-10-28T06:12:00Z" }] });
     const { dialog } = await open();
-    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden");
-    expect(within(dialog).getByTestId("offers-meta")).toHaveTextContent(/^Maxi ICA Stormarknad Östersund · v\. 44 · 3 erbjudanden/);
-    expect(within(dialog).getByTestId("offers-fetched")).toHaveTextContent("Hämtade idag 07:12 · Hämta igen");
+    // UX-18: store and week under the title, then the count, when it was fetched and "Hämta igen".
+    expect(dialog).toHaveAccessibleDescription("Maxi ICA Stormarknad Östersund · vecka 44");
+    expect(within(dialog).getByTestId("offers-fetched")).toHaveTextContent("3 erbjudanden · Hämtade idag 07:12 · Hämta igen");
     expect(within(dialog).getByRole("button", { name: "Hämta igen" })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
@@ -311,10 +311,22 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     expect(within(dialog).getByRole("button", { name: "Lägg Gul lök på inköpslistan" })).toBeEnabled();
   });
 
-  it("folds the Toppklipp count into the summary meta (Story 14.1)", async () => {
+  it("marks a Toppklipp on its row with the flame and has no count line (UX-18)", async () => {
     render({ offers: [offer({ label: "Havets Laxfilé", savingPercent: 40 })] });
     const { dialog } = await open();
-    expect(within(dialog).getByTestId("offers-finds")).toHaveTextContent("1 Toppklipp");
+    expect(within(dialog).getByTestId("offer-top-tag")).toHaveTextContent("Toppklipp");
+    expect(within(dialog).queryByTestId("offers-finds")).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("offer-saving")).toHaveTextContent("\u221240 %");
+  });
+
+  it("puts the not-food line last, above the link to the store's page (UX-18)", async () => {
+    render({ offers });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
+    const skipped = await within(dialog).findByTestId("offers-skipped");
+    const page = within(dialog).getByRole("link", { name: /^Öppna sidan på ica\.se/ });
+    expect(skipped.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(dialog).getByTestId("offers-list").compareDocumentPosition(skipped) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("has no add buttons without a listing", async () => {
@@ -391,13 +403,12 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).getAllByTestId("store-badge").map((badge) => badge.textContent)).toEqual(["Krokom", "Maxi", "Krokom"]);
     // The same product in two stores shows twice.
     expect(within(dialog).getAllByText("Havets Laxfilé")).toHaveLength(2);
-    await user.click(within(dialog).getByRole("button", { name: /^Sortera: Avdelning/ }));
+    await user.click(within(within(dialog).getByRole("radiogroup", { name: "Sortera" })).getByRole("radio", { name: "Bäst rabatt" }));
     const best = within(dialog).getByRole("list", { name: "Bäst rabatt först" }).querySelectorAll("[data-testid=offer-row]");
     expect(best[0]).toHaveTextContent("Krokom");
     expect(best[1]).toHaveTextContent("Maxi");
     await user.click(within(within(dialog).getByRole("radiogroup", { name: "Visa butik" })).getByRole("radio", { name: "Krokom" }));
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(2);
-    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("2 erbjudanden");
     await user.click(within(dialog).getByRole("radio", { name: "Alla" }));
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(3);
   });
@@ -408,10 +419,10 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
     const filters = within(dialog).getByTestId("list-filters");
     expect(filters).toHaveTextContent("Visa butik");
-    // Sorting is a quiet text button in the summary row, not a control of its own.
+    // UX-18: sorting is its own segment "Sortera: Avdelning | Bäst rabatt", not part of the store filter.
     expect(filters).not.toHaveTextContent("Sortera");
-    const sort = within(within(dialog).getByTestId("offers-summary").parentElement as HTMLElement).getByRole("button", { name: /^Sortera: Avdelning/ });
-    expect(sort).toHaveTextContent("Sortera: Avdelning");
+    const sort = within(dialog).getByRole("radiogroup", { name: "Sortera" });
+    expect(within(sort).getByRole("radio", { name: "Avdelning" })).toBeChecked();
     expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
   });
@@ -447,32 +458,23 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(clearOtherStoreOffers).not.toHaveBeenCalled();
   });
 
-  const krokomBest = { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" as const }, { id: both[2].id, name: "Gul lök", source: "pantry" as const }] };
-
-  it("says the week's best store in one tip sentence, with no suggestion button (Stories 9.14, 25.3)", async () => {
-    render({ stores, offers: both, best: krokomBest, fitIds: [both[1].id, both[2].id] });
+  it("has no best-store tip any more (UX-18), but the offers that fit still say Passar dig", async () => {
+    render({ stores, offers: both, fitIds: [both[1].id, both[2].id] });
     const { dialog } = await open();
-    const tip = within(dialog).getByTestId("best-store");
-    expect(tip).toHaveTextContent("Krokom passar dig bäst den här veckan: Laxfilé och gul lök passar det du brukar laga");
+    expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/passar dig bäst/)).not.toBeInTheDocument();
     expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
     expect(within(dialog).queryByRole("button", { name: "Föreslå rätter från veckans erbjudanden" })).not.toBeInTheDocument();
     expect(startJob).not.toHaveBeenCalled();
   });
 
   it("has no Visa dessa toggle; the matching offers are only marked, and every offer has a + (Story 16.12)", async () => {
-    render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] }, listing: { planId: "33333333-3333-4333-8333-333333333333", onList: [], add: vi.fn(), remove: vi.fn() } });
+    render({ stores, offers: both, listing: { planId: "33333333-3333-4333-8333-333333333333", onList: [], add: vi.fn(), remove: vi.fn() } });
     const { dialog } = await open();
     expect(within(dialog).queryByRole("button", { name: /Visa bara de erbjudandena|Visa alla erbjudanden/ })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /^Välj$/ })).not.toBeInTheDocument();
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(both.length);
     expect(within(dialog).getAllByRole("button", { name: /^Lägg .* på inköpslistan$/ })).toHaveLength(both.length);
-  });
-
-  it("names the matches without a store with offers from one store only, and has no tip without matches (Stories 9.14, 16.10)", async () => {
-    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1, matches: [] } });
-    const { dialog } = await open();
-    expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
   });
 
   it("puts the store in the item's note when an offer is added", async () => {

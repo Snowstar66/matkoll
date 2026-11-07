@@ -1,4 +1,4 @@
-import { bestStore, fittingOffers, type BestStore, type StoreOffer, weekStartOf } from "@/features/offers";
+import { fittingOffers, type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
 import type { OffersListing, OffersSheetProps } from "@/features/offers/ui/offers-sheet";
 import { addKeyedItems, getKeyedItemsOnList, removeKeyedItems, ShoppingDataError } from "@/features/shopping/server";
@@ -46,24 +46,21 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
     console.error("offers_unavailable", { reason: error.detail });
     unavailable = true;
   }
-  // Story 9.14: "Veckans bästa butik", counted without AI from the pantry and the recipes; left out when either cannot be read.
-  let best: BestStore | null = null;
+  // Story 16.7: the rows that fit what Pontus cooks or has at home say "Passar dig", counted without AI from the pantry and the recipes; left out when either cannot be read.
   let fitIds: string[] | undefined;
-  const withOffers = new Set(offers.map((offer) => offer.storeId));
   if (!unavailable && offers.length > 0) {
     try {
       const [snapshot, counts] = await Promise.all([getPantrySnapshot(), getIngredientRecipeCounts()]);
       const pantry = new Set(snapshot.keys());
       // Story 16.7: the rows that fit say "Passar dig", by the same rule as the best store.
       fitIds = [...fittingOffers(offers, pantry, counts).keys()];
-      if (withOffers.size > 0) best = bestStore(offers, stores.map((store) => store.id), pantry, counts);
     } catch (error) {
       if (!(error instanceof PantryDataError || error instanceof RecipeDataError)) throw error;
       console.error("best_store_unavailable", { reason: error.detail });
     }
   }
   // "Rätter med extrapris" at the top of the sheet: the user's dishes that use an offer, or nothing (never throws).
-  const dishes = !unavailable && offers.length > 0 ? await loadOfferDishes() : null;
+  const dishes = !unavailable && offers.length > 0 ? await loadOfferDishes(offers) : null;
   const now = new Date();
   return {
     offers,
@@ -82,7 +79,6 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
       now: now.toISOString(),
       unavailable,
       listing,
-      best,
       fitIds,
       dishes,
       // After a fetch the AI dish ideas for the new offers are prepared in the background (composed here: AD-1).

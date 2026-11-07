@@ -90,7 +90,7 @@ describe("texts", () => {
 
   it("writes the sheet's texts", () => {
     expect(offersSheetSubtitle("Maxi ICA Stormarknad Östersund", "2026-10-26")).toBe(
-      "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov",
+      "Maxi ICA Stormarknad Östersund · vecka 44",
     );
     expect(noOffersText("2026-11-02")).toBe("Inga erbjudanden hämtade för vecka 45.");
     expect(fetchingOffersText("ica.se")).toBe("Hämtar erbjudandena från ica.se …");
@@ -135,9 +135,9 @@ describe("the sheet top (Story 16.11)", () => {
 describe("recipeOffersLineText (Story 9.3)", () => {
   it("names one store, counts several and names none without any", () => {
     expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: ["Maxi ICA Stormarknad Östersund"] })).toBe(
-      "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45.",
+      "Veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45",
     );
-    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: ["A", "B"] })).toBe("Recept med veckans erbjudanden från 2 butiker, vecka 45.");
-    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: [] })).toBe("Recept med veckans erbjudanden, vecka 45.");
+    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: ["A", "B"] })).toBe("Veckans erbjudanden från 2 butiker, vecka 45");
+    expect(recipeOffersLineText({ weekStart: "2026-11-02", storeNames: [] })).toBe("Veckans erbjudanden, vecka 45");
   });
 });

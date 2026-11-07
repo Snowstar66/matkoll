@@ -113,15 +113,14 @@ test("fetches the week's offers with one tap and shows them under their categori
   const errors = watchErrors(page);
   await openSheet(page);
   const dialog = sheet(page);
-  await expect(dialog.getByText(new RegExp(`^${storeName} · vecka ${week()}, `))).toBeVisible();
+  await expect(dialog.getByText(new RegExp(`^${storeName} · vecka ${week()}$`))).toBeVisible();
   await expect(dialog.getByText(`Inga erbjudanden hämtade för vecka ${week()}.`)).toBeVisible();
 
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
   await expect(page.getByTestId("toast")).toHaveText(new RegExp(`Hämtade 7 erbjudanden för vecka ${week()}\\.`));
   await expect(dialog.getByText("2 varor som inte är mat togs inte med.")).toBeVisible();
-  await expect(dialog.getByTestId("offers-summary")).toHaveText("7 erbjudanden");
-  await expect(dialog.getByTestId("offers-meta")).toContainText(/ · v\. \d+ · 7 erbjudanden/);
-  await expect(dialog.getByTestId("offers-fetched")).toHaveText(/^Hämtade idag \d\d:\d\d · Hämta igen$/);
+  // UX-18: store and week under the title, then the count, when it was fetched and "Hämta igen".
+  await expect(dialog.getByTestId("offers-fetched")).toHaveText(/^7 erbjudanden · Hämtade idag \d\d:\d\d · Hämta igen$/);
 
   const meat = dialog.getByRole("list", { name: /Kött, fisk & chark/ });
   await expect(meat.getByText("Gårdens Herrgård, Präst")).toBeVisible();
@@ -132,12 +131,12 @@ test("fetches the week's offers with one tap and shows them under their categori
   await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
   await expect(dialog.getByTestId("offer-top-tag")).toHaveCount(1);
   await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
-  await dialog.getByRole("button", { name: /^Sortera: Avdelning/ }).click();
+  await dialog.getByRole("radiogroup", { name: "Sortera" }).getByRole("radio", { name: "Bäst rabatt" }).click();
   const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
   await expect(best.first()).toContainText("Köp 3 betala för 2");
   await expect(best.first()).toContainText("\u221233 %");
   await expect(best.last()).not.toContainText("%");
-  await dialog.getByRole("button", { name: /^Sortera: Bäst rabatt/ }).click();
+  await dialog.getByRole("radiogroup", { name: "Sortera" }).getByRole("radio", { name: "Avdelning" }).click();
   await expect(dialog.getByRole("heading", { level: 3, name: "Bröd" })).toBeVisible();
   await expect(dialog.getByText("Ljusfabriken Kronljus")).toHaveCount(0);
   const page$ = dialog.getByRole("link", { name: /^Öppna sidan på ica\.se/ });
@@ -156,10 +155,11 @@ test("refuses to fetch again within 15 minutes, without fetching", async ({ page
   await openSheet(page);
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
-  await expect(dialog.getByTestId("offers-summary")).toBeVisible();
+  await expect(dialog.getByTestId("offers-fetched")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Hämta igen" }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Du försökte nyss. Vänta en stund och försök igen.");
+  // The ideas card in the sheet may have an alert of its own (no AI in this spec), so pick the fetch notice.
+  await expect(dialog.getByRole("alert").filter({ hasText: "Du försökte nyss" })).toHaveText("Du försökte nyss. Vänta en stund och försök igen.");
   expect(await storedOffers()).toHaveLength(7);
 });
 
@@ -215,7 +215,7 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   await openSheet(page);
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
-  await expect(dialog.getByTestId("offers-summary")).toBeVisible();
+  await expect(dialog.getByTestId("offers-fetched")).toBeVisible();
 
   // UX-31: each row has a round + (no checkboxes, no button with a count).
   await expect(dialog.getByTestId("add-offers-to-list")).toHaveCount(0);
@@ -301,7 +301,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   // The same product on offer in both stores shows twice.
   await expect(dialog.getByText("Havets Laxfilé")).toHaveCount(2);
 
-  await dialog.getByRole("button", { name: /^Sortera: Avdelning/ }).click();
+  await dialog.getByRole("radiogroup", { name: "Sortera" }).getByRole("radio", { name: "Bäst rabatt" }).click();
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(7);
@@ -331,7 +331,7 @@ test("Story 16.8: fetching only one store removes the other store's offers", asy
   await dialog.getByRole("checkbox", { name: storeName }).click();
   await dialog.getByRole("button", { name: "Hämta valda (1)" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");
-  await expect(dialog.getByTestId("offers-summary")).toContainText("7 erbjudanden");
+  await expect(dialog.getByTestId("offers-fetched")).toContainText("7 erbjudanden");
   await expect(dialog.getByText("Visa butik")).toHaveCount(0);
   const rows = await storedOffers();
   expect(rows).toHaveLength(7);

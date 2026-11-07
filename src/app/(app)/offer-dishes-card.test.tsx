@@ -12,7 +12,7 @@ vi.mock("./offer-ideas", () => ({ OfferIdeas: () => <div data-testid="offer-idea
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-const option = (id: string, title: string, deal: string): PlanOption => ({
+const option = (id: string, title: string, deal: string, tags: { name: string; price: string | null }[]): PlanOption => ({
   id,
   title,
   isFavorite: false,
@@ -23,11 +23,15 @@ const option = (id: string, title: string, deal: string): PlanOption => ({
   buy: 2,
   buyNames: ["falukorv", "grädde"],
   meta: "",
-  deal: { text: deal, savingKr: 21, savingPercent: 20 },
+  deal: { text: deal, savingKr: 21, savingPercent: 20, tags },
 });
 
-const korv = option("r1", "Korvstroganoff", "Falukorv och grädde på erbjudande · −21 kr");
-const lax = option("r2", "Laxpasta", "Laxfilé på erbjudande · −12 kr");
+const korv = option("r1", "Korvstroganoff", "Falukorv och grädde på erbjudande · −21 kr", [
+  { name: "Falukorv", price: "2 för 50 kr" },
+  { name: "Grädde", price: "19 kr/st" },
+  { name: "Gul lök", price: "10 kr/kg" },
+]);
+const lax = option("r2", "Laxpasta", "Laxfilé på erbjudande · −12 kr", [{ name: "Laxfilé", price: "129 kr/kg" }]);
 
 const addToWeek = vi.fn();
 
@@ -40,7 +44,7 @@ const weeksWith = (now: Record<string, number | null>, next: Record<string, numb
 function renderCard(onWeek: Record<string, number | null> = {}, dishes: PlanOption[] = [korv, lax], onNextWeek: Record<string, number | null> = {}) {
   return render(
     <ToastProvider>
-      <OfferDishesCard dishes={dishes} weeks={weeksWith(onWeek, onNextWeek)} addToWeek={addToWeek} searchIngredients={async () => ok([])} ideas={null} startIdeas={vi.fn()} readIdeas={vi.fn()} />
+      <OfferDishesCard dishes={dishes} weeks={weeksWith(onWeek, onNextWeek)} addToWeek={addToWeek} searchIngredients={async () => ok([])} ideas={null} startIdeas={vi.fn()} readIdeas={vi.fn()} tagsByLabel={{}} />
     </ToastProvider>,
   );
 }
@@ -51,12 +55,15 @@ beforeEach(() => {
 });
 
 describe("OfferDishesCard", () => {
-  it("explains why the dishes are suggested, with the deal line and a link to the filter", () => {
+  it("shows each dish with OfferTags (two at most, then +N), no hint line, and a link to the filter", () => {
     renderCard();
     expect(screen.getByRole("heading", { name: "Rätter med erbjudanden" })).toBeInTheDocument();
-    expect(screen.getByText("Förslag för att varorna är på erbjudande den här veckan.")).toBeInTheDocument();
+    expect(screen.queryByText(/Förslag för att varorna/)).not.toBeInTheDocument();
     const rows = screen.getAllByTestId("offer-dish");
-    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
+    expect(within(rows[0]).getAllByTestId("offer-tag").map((tag) => tag.textContent)).toEqual(["Falukorv 2 för 50 kr", "Grädde 19 kr/st"]);
+    expect(within(rows[0]).getByTestId("offer-tags-more")).toHaveTextContent("+1");
+    expect(within(rows[1]).getAllByTestId("offer-tag").map((tag) => tag.textContent)).toEqual(["Laxfilé 129 kr/kg"]);
+    expect(within(rows[1]).queryByTestId("offer-tags-more")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Visa alla" })).toHaveAttribute("href", "/recept?filter=erbjudanden");
   });
 

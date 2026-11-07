@@ -189,28 +189,10 @@ export function nearlyCookable<T extends { missingCount: number | null }>(recipe
  * the most offers first, then the fewest missing (rows without a status last),
  * then newest first and by id like Kan lagas nu. A copy, so the input is unchanged.
  */
-export function rankByOffers<T extends FilterableRecipe>(recipes: readonly T[], tags: Readonly<Record<string, readonly string[]>>): T[] {
+export function rankByOffers<T extends FilterableRecipe>(recipes: readonly T[], tags: Readonly<Record<string, readonly unknown[]>>): T[] {
   const count = (recipe: T) => (Object.hasOwn(tags, recipe.id) ? tags[recipe.id].length : 0);
   return recipes.filter((recipe) => count(recipe) > 0).sort((a, b) => count(b) - count(a) || fewestMissingFirst(a, b));
 }
-
-/** The most offer tags a card shows; the rest is "+N". */
-export const maxOfferTags = 2;
-
-/** The tags a card shows (the first two) and how many more there are. */
-export function offerTagsShown(tags: readonly string[]): { shown: string[]; more: number } {
-  return { shown: tags.slice(0, maxOfferTags), more: Math.max(tags.length - maxOfferTags, 0) };
-}
-
-/** The one line of a recipe's offers: "Erbjudande: falukorv, grädde +1" (the first two and how many more). */
-export function offerTagsLine(tags: readonly string[]): string {
-  const { shown, more } = offerTagsShown(tags);
-  const names = shown.map((tag) => `${tag.charAt(0).toLowerCase()}${tag.slice(1)}`);
-  return `Erbjudande: ${names.join(", ")}${more > 0 ? ` +${more}` : ""}`;
-}
-
-/** Why the filter Erbjudanden suggests what it does. */
-export const extraPriceReason = "Förslag för att varorna är på erbjudande den här veckan.";
 
 /** N to rank by, or `null` for a row without a usable status. */
 function rankOf(missingCount: unknown): number | null {

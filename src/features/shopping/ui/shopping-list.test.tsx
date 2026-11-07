@@ -118,6 +118,20 @@ describe("ShoppingList", () => {
     expect(within(row("r:smor:st")).queryByTestId("line-mark")).toBeNull();
   });
 
+  it("shows an item from an offer with its name and the price as an OfferTag (UX-20)", () => {
+    render(
+      <ShoppingList
+        plan={plan}
+        lines={[line({ key: "c:ost", label: "Ost (Erbjudande Maxi: 89 kr/kg)", section: "Mejeri", isCustom: true, origins: [] })]}
+        pantryUnavailable={false}
+      />,
+    );
+    const row = document.querySelector('[data-line-key="c:ost"]') as HTMLElement;
+    expect(within(row).getByTestId("offer-tag")).toHaveTextContent(/^89 kr\/kg$/);
+    expect(row).toHaveTextContent("Ost");
+    expect(row).not.toHaveTextContent("Erbjudande");
+  });
+
   it("labels a line added within 48 h \"Ny\" beside someone else's initial, says it, and none when ticked", async () => {
     const now = "2026-11-04T12:00:00.000Z";
     const at = "2026-11-04T10:00:00.000Z";

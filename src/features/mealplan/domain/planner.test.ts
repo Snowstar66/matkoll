@@ -45,10 +45,10 @@ describe("the words of the planning view", () => {
     expect(weekBarText(3, null)).toBe("3 rätter");
   });
 
-  it("says a dish's note: the offer line, else what is left to buy", () => {
-    expect(dishNoteText({ buy: 2, deal: { text: "Falukorv på erbjudande · −21 kr" } })).toBe("Falukorv på erbjudande · −21 kr");
-    expect(dishNoteText({ buy: 4, deal: null })).toBe("4 varor att köpa");
-    expect(dishNoteText({ buy: 0, deal: null })).toBe("Allt finns hemma");
+  it("says a dish's note: always what is left to buy (the offers are tags on their own line)", () => {
+    expect(dishNoteText({ buy: 2 })).toBe("2 varor att köpa");
+    expect(dishNoteText({ buy: 4 })).toBe("4 varor att köpa");
+    expect(dishNoteText({ buy: 0 })).toBe("Allt finns hemma");
     expect(dishNoteText(undefined)).toBe("");
   });
 });

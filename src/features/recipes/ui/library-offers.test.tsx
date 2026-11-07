@@ -38,10 +38,11 @@ const gryta = recipe(3, "Grytan med allt", 5);
 const ris = recipe(4, "Risotto", 0);
 const library = [ris, gryta, lax, korv];
 
+const tag = (name: string, price: string) => ({ name, price });
 const tags = {
-  [korv.id]: ["Falukorv", "Gul lök"],
-  [lax.id]: ["Laxfilé"],
-  [gryta.id]: ["Falukorv", "Gul lök", "Grädde", "Smör"],
+  [korv.id]: [tag("Falukorv", "2 för 50 kr"), tag("Gul lök", "10 kr/kg")],
+  [lax.id]: [tag("Laxfilé", "129 kr/kg")],
+  [gryta.id]: [tag("Falukorv", "2 för 50 kr"), tag("Gul lök", "10 kr/kg"), tag("Grädde", "19 kr/st"), tag("Smör", "39 kr/st")],
 };
 
 function Sheet() {
@@ -52,7 +53,7 @@ function Sheet() {
 function offers(overrides: Partial<LibraryOffers> = {}): LibraryOffers {
   return {
     tags,
-    line: "Recept med veckans erbjudanden, vecka 45.",
+    line: "Veckans erbjudanden, vecka 45",
     hasOffers: true,
     unlinked: 0,
     sheet: <Sheet />,
@@ -101,28 +102,29 @@ describe("Library, the filter Erbjudanden", () => {
 
   it("puts the fewest missing first among recipes with as many offers", async () => {
     const user = userEvent.setup();
-    renderLibrary({ tags: { ...tags, [korv.id]: ["Falukorv"], [ris.id]: ["Ris"] } });
+    renderLibrary({ tags: { ...tags, [korv.id]: [tag("Falukorv", "2 för 50 kr")], [ris.id]: [tag("Ris", "20 kr/kg")] } });
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     expect(titles()).toEqual(["Grytan med allt", "Risotto", "Laxpasta", "Korvstroganoff"]);
   });
 
-  it("gives a card its own line with up to two offers and +N, and says why the dishes are suggested", async () => {
+  it("gives a card one OfferTag, the shortest, and +N (UX-20), and no separate reason line", async () => {
     const user = userEvent.setup();
     renderLibrary();
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     const [card] = screen.getAllByTestId("recipe-card");
-    expect(within(card).getByTestId("offer-tags")).toHaveTextContent("Erbjudande: falukorv, gul lök +2");
-    expect(screen.getByTestId("offers-reason")).toHaveTextContent("Förslag för att varorna är på erbjudande den här veckan.");
+    expect(within(card).getAllByTestId("offer-tag").map((item) => item.textContent)).toEqual(["Smör 39 kr/st"]);
+    expect(within(card).getByTestId("offer-tags-more")).toHaveTextContent("+3");
+    expect(screen.queryByTestId("offers-reason")).not.toBeInTheDocument();
   });
 
-  it("shows the same line in the list view, apart from the grey meta line", async () => {
+  it("shows two OfferTags and +N in the list view", async () => {
     const user = userEvent.setup();
     renderLibrary();
     await user.click(screen.getByRole("radio", { name: "Lista" }));
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     const [row] = screen.getAllByTestId("recipe-row");
-    expect(within(row).getByTestId("offer-tags")).toHaveTextContent("Erbjudande: falukorv, gul lök +2");
-    expect(row).not.toHaveTextContent("Erbjudanden:");
+    expect(within(row).getAllByTestId("offer-tag").map((item) => item.textContent)).toEqual(["Falukorv 2 för 50 kr", "Gul lök 10 kr/kg"]);
+    expect(within(row).getByTestId("offer-tags-more")).toHaveTextContent("+2");
   });
 
   it("opens with the filter Erbjudanden when the address asks for it", () => {
@@ -136,9 +138,10 @@ describe("Library, the filter Erbjudanden", () => {
 
   it("says the week (and the store) and opens the offers sheet with Visa erbjudanden", async () => {
     const user = userEvent.setup();
-    renderLibrary({ line: "Recept med veckans erbjudanden från Maxi, vecka 45." });
+    renderLibrary({ line: "Veckans erbjudanden från Maxi, vecka 45" });
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
-    expect(screen.getByText("Recept med veckans erbjudanden från Maxi, vecka 45.")).toBeInTheDocument();
+    // One line: "Veckans erbjudanden från Maxi, vecka 45 · Visa".
+    expect(screen.getByTestId("offers-line")).toHaveTextContent("Veckans erbjudanden från Maxi, vecka 45 · Visa");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Visa erbjudanden" }));
     expect(screen.getByRole("dialog", { name: "Veckans erbjudanden" })).toBeInTheDocument();

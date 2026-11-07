@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { PlusIcon } from "@/components/icons";
+import { OfferTags } from "@/components/offer-tag";
 import { RecipeImage } from "@/components/recipe-image";
+import type { OfferTagData } from "@/lib/offer-tag";
 
 // A compact row of "Lägg till rätter" (Story 25.3): a 44 px picture (the
 // recipe's own photo, else the quiet tile, never an emoji), the title, a line
@@ -14,8 +16,8 @@ export type PlanRowProps = {
   meta: string;
   /** A short thought under the title, e.g. why an AI idea is a good one. */
   note?: string | null;
-  /** "Falukorv och grädde på extrapris · spara 21 kr". */
-  deal?: string | null;
+  /** UX-20: the offers the dish uses, as OfferTags on a line of their own ("Gul lök 10 kr/kg", at most two, then "+N"). */
+  tags?: readonly OfferTagData[];
   /** The dish is already on the week: its day ("Tor"), or "På veckan", in place of "+". */
   onWeekLabel?: string;
   /** "+" is tapped; left out, there is no button (the dish is on the week, or the add is on its way). */
@@ -28,7 +30,7 @@ export type PlanRowProps = {
   testId?: string;
 };
 
-export function PlanRow({ title, imageUrl, meta, note, deal, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
+export function PlanRow({ title, imageUrl, meta, note, tags, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
       <RecipeImage src={imageUrl} title={title} iconSize={26} className="size-11 shrink-0 rounded-[10px]" />
@@ -40,11 +42,7 @@ export function PlanRow({ title, imageUrl, meta, note, deal, onWeekLabel, onAdd,
             {note}
           </p>
         ) : null}
-        {deal ? (
-          <p data-testid="plan-option-deal" className="text-meta font-semibold text-deal-ink">
-            {deal}
-          </p>
-        ) : null}
+        {tags && tags.length > 0 ? <OfferTags tags={tags} className="mt-0.5" /> : null}
       </div>
       {onWeekLabel ? (
         <span data-testid="on-week" className="shrink-0 text-badge font-semibold text-mint-ink">

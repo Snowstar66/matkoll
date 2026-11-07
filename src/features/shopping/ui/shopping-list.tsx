@@ -14,6 +14,7 @@ import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
+import { OfferTag } from "@/components/offer-tag";
 import { Meter } from "@/components/meter";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
@@ -31,6 +32,7 @@ import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
 import { markDetailText, markLabel, noMarks, shownMark, type LineMarks } from "../domain/line-marks";
 import { isNewLine, noAddedAt, type LineAddedAt } from "../domain/line-news";
+import { splitOfferNote } from "../domain/offer-note";
 import {
   filterEmptyText,
   LIST_FILTERS,
@@ -1390,12 +1392,16 @@ export function ShoppingLineRow({
   const metaId = useId();
   const chipId = useId();
   const amount = lineAmountText(line);
+  const offer = line.isCustom ? splitOfferNote(line.label) : null;
+  const shownName = offer ? offer.name : line.label;
   // In a very narrow list (200 % text on a small phone) the amount would squeeze the name to a letter per line:
   // there it follows the name instead, drawn by CSS from `data-amount` (never in the text, so nothing is read twice).
   const title = (
     <span data-amount={amount || undefined} className="@max-[20rem]:after:ml-1.5 @max-[20rem]:after:font-normal @max-[20rem]:after:text-ink-2 @max-[20rem]:after:content-[attr(data-amount)]">
       {/* The name in its own element, so it is still found by its exact text beside "Ny". */}
-      {isNew ? <span>{line.label}</span> : line.label}
+      {isNew ? <span>{shownName}</span> : shownName}
+      {/* UX-20: an item from an offer shows the price as an OfferTag after the name, read together with it. */}
+      {offer ? <OfferTag tag={{ name: offer.name, price: offer.price }} priceOnly className="ml-1.5" /> : null}
       {/* "Ny" (Pontus 2026-11-04): the "Egen" label's shape in mint; said in srStatus, so hidden here. */}
       {isNew ? (
         <span aria-hidden="true" data-testid="line-new" className="ml-1.5 inline-block rounded-xs bg-mint px-1.5 py-px align-middle text-badge text-mint-ink">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
+import { Segment } from "@/components/segment";
 import { TagIcon } from "@/components/icons";
 import { Button, buttonClasses } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
@@ -29,13 +30,10 @@ import {
   offersSheetSubtitle,
   offersSkippedText,
   offerListItem,
-  offersMetaText,
   openOffersPageText,
   type StoreOffer,
 } from "../domain/offer";
 import { offerDisplay } from "../domain/offer-display";
-import { topDealPercent } from "../domain/offer-saving";
-import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
 import { FetchOffersButton, inlineLinkClasses } from "./fetch-offers-button";
 import { OffersList, StoreLabel } from "./offers-list";
@@ -85,8 +83,6 @@ export type OffersSheetProps = {
   unavailable: boolean;
   /** Picking offers for the shopping list (Story 9.12); absent or `null` shows the list only. */
   listing?: OffersListing | null;
-  /** Story 9.14: the week's best store, counted by the page; `null` when it could not be. With one store only its matches are named (Story 16.10). */
-  best?: BestStore | null;
   /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home (same rule as `best`); their rows say "Passar dig". */
   fitIds?: readonly string[];
   /**
@@ -161,7 +157,6 @@ export function OffersSheet({
   now,
   unavailable,
   listing = null,
-  best = null,
   fitIds,
   dishes,
   onFetched,
@@ -195,8 +190,6 @@ export function OffersSheet({
   const filterId = storeFilter !== "all" && storesWithOffers.some((store) => store.id === storeFilter) ? storeFilter : "all";
   const fits = useMemo(() => new Set(fitIds ?? []), [fitIds]);
   const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
-  const bestInfo = best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
-  const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
   const shown = useMemo(() => {
     return filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
   }, [offers, filterId]);
@@ -328,10 +321,6 @@ export function OffersSheet({
     );
     const hasSaving = offers.some((offer) => offer.savingPercent !== null);
     const filterStores = storesWithOffers.length > 1;
-    const tops = offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
-    const tip = bestInfo && (filterStores || matchIds.size > 0)
-      ? bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)
-      : null;
     body = (
       <div className="flex flex-col gap-4">
         {offers.length === 0 ? (
@@ -341,102 +330,79 @@ export function OffersSheet({
           </div>
         ) : (
           <>
-            {/* Story 16.11: the top in groups of 16 px: header group, divider, inspiration card, divider, controls, then the list under its own header row. */}
-            <div className="flex flex-col gap-1" data-testid="offers-header-group">
-              <p data-testid="offers-meta" className="text-meta text-ink-2">
-                {offersMetaText({ stores: many ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart, count: offers.length })}
-                {tops > 0 ? (
-                  <>
-                    {" · "}
-                    <span data-testid="offers-finds" className="font-medium">
-                      <span aria-hidden="true">{"\u{1F525} "}</span>
-                      {`${tops} Toppklipp`}
-                    </span>
-                  </>
-                ) : null}
-              </p>
-              <p data-testid="offers-fetched" className="text-meta text-ink-2">
-                {lastFetch ? `${fetchedLineText(lastFetch, new Date(now))} · ` : null}
-                {many ? (
-                  <button
-                    type="button"
-                    className={inlineLinkClasses}
-                    aria-expanded={panel === "fetch"}
-                    aria-controls={fetchPanelId}
-                    onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
-                  >
-                    Hämta igen
-                  </button>
-                ) : (
-                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="link" pending={pending} />
-                )}
-              </p>
-            </div>
+            {/* UX-18: the sheet reads top to bottom as where and when (the two lines under the title), the dishes, then the offers in white cards. */}
+            <p data-testid="offers-fetched" className="-mt-2 text-meta text-ink-2">
+              <span data-testid="offers-meta">{offersCountWords(offers.length)}</span>
+              {" \u00B7 "}
+              {lastFetch ? `${fetchedLineText(lastFetch, new Date(now))} \u00B7 ` : null}
+              {many ? (
+                <button
+                  type="button"
+                  className={inlineLinkClasses}
+                  aria-expanded={panel === "fetch"}
+                  aria-controls={fetchPanelId}
+                  onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
+                >
+                  Hämta igen
+                </button>
+              ) : (
+                <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="link" pending={pending} />
+              )}
+            </p>
             {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
-            <hr className="m-0 border-border" />
-            {tip ? (
-              <div data-testid="inspiration" className="flex flex-col gap-3 rounded-lg bg-mint/40 p-4">
-                <div data-testid="best-store" className="flex items-start gap-2 text-body text-ink">
-                  <span aria-hidden="true">{"\u{1F4A1}"}</span>
-                  <p className="min-w-0">{tip}</p>
-                </div>
-              </div>
-            ) : null}
-            <hr className="m-0 border-border" />
+            {dishes}
             {filterStores ? (
               <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
-                {filterStores ? (
-                  <>
-                    <span aria-hidden="true" className="text-meta text-ink-2">
-                      Visa butik
-                    </span>
-                    <FilterPills
-                      compact
-                      label="Visa butik"
-                      options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
-                      value={filterId}
-                      onChange={setStoreFilter}
-                      className="justify-self-start"
-                    />
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex flex-col">
-              <div className="flex min-h-tap items-center justify-between gap-3 border-b border-border">
-                <p data-testid="offers-summary" className="text-meta text-ink-2">
-                  {offersCountWords(shown.length)}
-                </p>
-                {hasSaving ? (
-                  <button
-                    type="button"
-                    data-testid="offers-sort"
-                    aria-label={`Sortera: ${sortLabels[sort]}. Tryck för att byta.`}
-                    onClick={() => setSort(sort === "category" ? "saving" : "category")}
-                    className="-mr-2 flex min-h-tap shrink-0 items-center px-2 text-meta text-ink-2 underline decoration-ink-3/60 underline-offset-2"
-                  >
-                    Sortera: {sortLabels[sort]}
-                  </button>
-                ) : null}
-              </div>
-              <div className="pt-4">
-                <OffersList
-                  offers={shown}
-                  weekStart={weekStart}
-                  sort={sort}
-                  badges={many ? badges : undefined}
-                  showStore={filterId === "all" && storesWithOffers.length > 1}
-                  fits={fits}
-                  selection={
-                    listing
-                      ? { onList, undoable: added, disabled: adding, onAdd: (offer) => void addOne(offer), onUndo: (offer) => void undoAdd(offer) }
-                      : undefined
-                  }
+                <span aria-hidden="true" className="text-meta text-ink-2">
+                  Visa butik
+                </span>
+                <FilterPills
+                  compact
+                  label="Visa butik"
+                  options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
+                  value={filterId}
+                  onChange={setStoreFilter}
+                  className="justify-self-start"
                 />
               </div>
-            </div>
+            ) : null}
+            {hasSaving ? (
+              <div className="flex items-center gap-3" data-testid="offers-sort">
+                <span aria-hidden="true" className="text-meta text-ink-2">
+                  Sortera
+                </span>
+                <Segment
+                  label="Sortera"
+                  options={[
+                    { value: "category", label: sortLabels.category },
+                    { value: "saving", label: sortLabels.saving },
+                  ]}
+                  value={sort}
+                  onChange={setSort}
+                  className="flex-1"
+                />
+              </div>
+            ) : null}
+            <OffersList
+              offers={shown}
+              weekStart={weekStart}
+              sort={sort}
+              badges={many ? badges : undefined}
+              showStore={filterId === "all" && storesWithOffers.length > 1}
+              fits={fits}
+              selection={
+                listing
+                  ? { onList, undoable: added, disabled: adding, onAdd: (offer) => void addOne(offer), onUndo: (offer) => void undoAdd(offer) }
+                  : undefined
+              }
+            />
           </>
         )}
+        {skipped > 0 && !pending ? (
+          <p data-testid="offers-skipped" className="text-meta text-ink-2">
+            {offersSkippedText(skipped)}
+          </p>
+        ) : null}
         <div className="-ml-3 flex flex-col items-start">
           {(pageFailure ? [] : withLink).map((store) => (
             <OpenPageLink
@@ -461,20 +427,14 @@ export function OffersSheet({
       title="Veckans erbjudanden"
       closeLabel="Klar"
       subtitle={
-        // With offers the meta line in the body says store, week and count (Story 16.11).
-        stores.length > 0 && offers.length === 0
-          ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart)
-          : undefined
+        // UX-18: where and when under the title: "Maxi ICA Stormarknad Östersund · vecka 45"; the count and "Hämta igen" are the line below it, in the body.
+        stores.length > 0 ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart) : undefined
       }
+      grey
       preventClose={pending || adding}
       initialFocus="title"
     >
       <div className="flex flex-col gap-4">
-        {skipped > 0 && !pending ? (
-          <p data-testid="offers-skipped" className="-mt-2 text-meta text-ink-2">
-            {offersSkippedText(skipped)}
-          </p>
-        ) : null}
         <p role="status" aria-live="polite" className="sr-only" data-testid="offers-added-status">
           {addedStatus}
         </p>
@@ -521,7 +481,6 @@ export function OffersSheet({
             {addError.message}
           </Notice>
         ) : null}
-        {offers.length > 0 ? dishes : null}
         {body}
       </div>
     </Sheet>

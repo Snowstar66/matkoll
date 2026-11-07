@@ -39,9 +39,17 @@ const korv = option(2, "Korvstroganoff", {
   isFavorite: true,
   meta: "Favorit · 30 min",
   buy: 3,
-  deal: { text: "Falukorv och grädde på erbjudande · −21 kr", savingKr: 21, savingPercent: 20 },
+  deal: {
+    text: "Falukorv och grädde på erbjudande · −21 kr",
+    savingKr: 21,
+    savingPercent: 20,
+    tags: [
+      { name: "Falukorv", price: "2 för 50 kr" },
+      { name: "Grädde", price: "19 kr/st" },
+    ],
+  },
 });
-const lax = option(3, "Laxpasta", { deal: { text: "Laxfilé på erbjudande · −25 %", savingKr: null, savingPercent: 25 } });
+const lax = option(3, "Laxpasta", { deal: { text: "Laxfilé på erbjudande · −25 %", savingKr: null, savingPercent: 25, tags: [{ name: "Laxfilé", price: "129 kr/kg" }] } });
 const soppa = option(4, "Linssoppa", { meta: "40 min" });
 const options = [tacos, korv, lax, soppa];
 
@@ -97,7 +105,7 @@ describe("WeekPlanner, the tabs", () => {
     expect(rowTitles()).toEqual(["Tacos", "Korvstroganoff"]);
     const korvRow = screen.getAllByTestId("plan-option")[1];
     expect(korvRow).toHaveTextContent("Favorit · 30 min");
-    expect(within(korvRow).getByTestId("plan-option-deal")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
+    expect(within(korvRow).getAllByTestId("offer-tag").map((tag) => tag.textContent)).toEqual(["Falukorv 2 för 50 kr", "Grädde 19 kr/st"]);
     expect(screen.getAllByTestId("plan-option")[0]).toHaveTextContent("Favorit · lagad 9 gånger");
   });
 
@@ -248,12 +256,15 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     await waitFor(() => expect(titles()).toEqual(["Laxpasta", "Tacos", "Korvstroganoff"]));
   });
 
-  it("links the title to the recipe and shows the offer line or what is left to buy", () => {
+  it("links the title to the recipe and shows what is left to buy and the offers as tags", () => {
     renderPlanner([onWeek(2, "Korvstroganoff", 2), onWeek(1, "Tacos", 1)]);
     const dishes = screen.getAllByTestId("plan-dish");
     expect(within(dishes[0]).getByRole("link", { name: "Tacos" })).toHaveAttribute("href", `/recept/${tacos.id}`);
     expect(within(dishes[0]).getByTestId("dish-note")).toHaveTextContent("4 varor att köpa");
-    expect(within(dishes[1]).getByTestId("dish-note")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
+    // UX-20: "N varor att köpa" always first, the offers as tags on a line of their own.
+    expect(within(dishes[1]).getByTestId("dish-note")).toHaveTextContent("3 varor att köpa");
+    expect(within(dishes[1]).getAllByTestId("offer-tag").map((tag) => tag.textContent)).toEqual(["Falukorv 2 för 50 kr", "Grädde 19 kr/st"]);
+    expect(within(dishes[0]).queryByTestId("offer-tag")).not.toBeInTheDocument();
   });
 
   it("removes with the bin at once and offers Ångra, which puts it back", async () => {

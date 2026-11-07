@@ -1,6 +1,7 @@
 import { nameInSentence, normalizeIngredientText, type Unit } from "@/features/catalog";
 import { offerDisplay, savingKronor, textUnitPrice } from "@/features/offers";
 import { noStaples, type StapleRules } from "@/features/pantry";
+import { offerTagOf, uniqueTags, type OfferTagData } from "@/lib/offer-tag";
 import { toBuyNames, type DishLine, type OfferInfo } from "./offer-input";
 import { isMainLine } from "./recipe-offers";
 
@@ -34,6 +35,8 @@ export type PlanDeal = {
   savingKr: number | null;
   /** The best saving in percent among them, or `null`. */
   savingPercent: number | null;
+  /** The offers the dish uses as tags (UX-20), best first as the row says them: "Gul lök 10 kr/kg". */
+  tags: OfferTagData[];
 };
 
 /** A row of "Lägg till rätter". */
@@ -102,7 +105,7 @@ export function dealOf(offers: readonly PlanOffer[], recipe: Pick<PlanRecipe, "l
     recipe.lines.filter((line) => isMainLine(line, staples)).flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])),
   );
   if (main.size === 0) return null;
-  const byLabel = new Map<string, { kr: number | null; percent: number | null }>();
+  const byLabel = new Map<string, { kr: number | null; percent: number | null; tag: OfferTagData }>();
   for (const offer of offers) {
     if (!offer.ingredientId || !main.has(offer.ingredientId)) continue;
     const kr = offerSavingKr(offer);
@@ -111,6 +114,7 @@ export function dealOf(offers: readonly PlanOffer[], recipe: Pick<PlanRecipe, "l
     byLabel.set(offer.label, {
       kr: before?.kr == null ? kr : kr === null ? before.kr : Math.max(before.kr, kr),
       percent: before?.percent == null ? percent : percent === null ? before.percent : Math.max(before.percent, percent),
+      tag: before?.tag ?? offerTagOf(offer),
     });
   }
   if (byLabel.size === 0) return null;
@@ -125,6 +129,7 @@ export function dealOf(offers: readonly PlanOffer[], recipe: Pick<PlanRecipe, "l
     text: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)} på erbjudande${saving ? ` · ${saving}` : ""}`,
     savingKr,
     savingPercent,
+    tags: uniqueTags([...byLabel.values()].map(({ tag }) => tag)),
   };
 }
 

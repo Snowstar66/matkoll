@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AiBadge } from "@/components/badges";
 import { Button } from "@/components/button";
+import { ListGroup } from "@/components/list-group";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { PlusIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
@@ -14,6 +15,7 @@ import { AiSuggestionSheet } from "@/features/recipes/ui/ai-suggestion-sheet";
 import type { ShownSuggestion } from "@/features/recipes/ui/use-dish-suggestions";
 import { maxOfferIdeas, pollSetMs, type OfferIdea, type OfferIdeasView } from "@/features/suggestions";
 import { errorMessages, type Result } from "@/lib/errors";
+import { uniqueTags, type OfferTagData } from "@/lib/offer-tag";
 
 // "Nya idéer med erbjudanden": the AI ideas around the offers, in the card Rätter med extrapris (Veckans
 // erbjudanden) and under På erbjudande on Matsedel. Pontus 2026-11-06: nobody starts them. The server
@@ -68,6 +70,8 @@ export type OfferIdeasProps = {
   read: () => Promise<Result<OfferIdeasView>>;
   /** Inside another sheet: the preview opens through OfferIdeaPreviewHost, which outlives that sheet. */
   previewOutside?: boolean;
+  /** UX-20: the tag of each offer by its label (name and price), read by the page; an idea whose offer is not in it shows the name only. */
+  tagsByLabel?: Readonly<Record<string, OfferTagData>>;
 };
 
 /** The meta line of an idea: "AI-förslag · 35 min". */
@@ -75,12 +79,14 @@ function ideaMeta({ draft }: ShownSuggestion): string {
   return ["AI-förslag", draft.totalMinutes ? `${draft.totalMinutes} min` : null].filter(Boolean).join(" · ");
 }
 
-/** The offer line of an idea: "Falukorv på erbjudande". */
-function ideaDeal({ onOffer = [] }: ShownSuggestion): string | null {
-  if (onOffer.length === 0) return null;
-  const names = onOffer.slice(0, 3).map((label) => offerDisplay(label).title.toLowerCase());
-  const text = names.length > 1 ? `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}` : names[0];
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)} på erbjudande`;
+/** The offers an idea uses as OfferTags (UX-20): by label, with the price when the page knows the offer, else the name alone. */
+function ideaTags({ onOffer = [] }: ShownSuggestion, byLabel: Readonly<Record<string, OfferTagData>>): OfferTagData[] {
+  return uniqueTags(
+    onOffer.map((label) => {
+      const known = Object.hasOwn(byLabel, label) ? byLabel[label] : null;
+      return known ?? { name: offerDisplay(label).title, price: null };
+    }),
+  );
 }
 
 /** An idea of the saved set as the preview takes it: a key for the list and the id it is saved under. */
@@ -91,9 +97,11 @@ function shown(ideas: readonly OfferIdea[]): ShownSuggestion[] {
 /** How long a set is waited for before it counts as failed (the claim goes stale after five minutes). */
 const maxWaitMs = 6 * 60 * 1000;
 
+const noTags: Readonly<Record<string, OfferTagData>> = {};
+
 const failedView = (view: OfferIdeasView): OfferIdeasView => ({ ...view, state: "failed", ideas: [], intro: "", errorCode: null });
 
-export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, start, read, previewOutside = false }: OfferIdeasProps) {
+export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, start, read, previewOutside = false, tagsByLabel = noTags }: OfferIdeasProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [opened, setOpened] = useState<ShownSuggestion | null>(null);
@@ -185,9 +193,9 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
         </p>
       ) : null}
       {view.state === "ready" && ideas.length > 0 ? (
-        <ul aria-label="Nya idéer" className="flex flex-col gap-2">
+        <ListGroup label="Nya idéer">
           {ideas.map((idea) => (
-            <PlanRow key={idea.recipeId} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} deal={ideaDeal(idea)}>
+            <PlanRow key={idea.recipeId} testId="ai-option" title={idea.draft.title} imageUrl={null} meta={ideaMeta(idea)} note={idea.why || null} tags={ideaTags(idea, tagsByLabel)}>
               <button
                 type="button"
                 onClick={() =>
@@ -208,7 +216,7 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
               </button>
             </PlanRow>
           ))}
-        </ul>
+        </ListGroup>
       ) : null}
       {view.state === "ready" && ideas.length > 0 ? (
         <p className="flex items-center gap-2 text-meta text-ink-2">

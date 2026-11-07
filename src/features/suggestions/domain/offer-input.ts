@@ -13,7 +13,7 @@ import {
 // never prices. Pure, so it is tested without a database.
 
 /** The parts of an offer these functions read; a StoreOffer fits. */
-export type OfferInfo = { label: string; name: string; ingredientId: string | null; savingPercent?: number | null };
+export type OfferInfo = { label: string; name: string; ingredientId: string | null; savingPercent?: number | null; price?: string | null };
 
 /**
  * The names sent to the model: cleaned, cut to 100 code points, each once,

@@ -43,6 +43,7 @@ function renderIdeas(initial: OfferIdeasView | null, props: Partial<OfferIdeasPr
         searchIngredients={async () => ok([])}
         start={start}
         read={read}
+        tagsByLabel={{ Fläskfilé: { name: "Fläskfilé", price: "89 kr/kg" } }}
         {...props}
       />
     </ToastProvider>,
@@ -59,16 +60,17 @@ afterEach(() => {
 });
 
 describe("OfferIdeas", () => {
-  it("shows the ready ideas at once, with no start button: the intro, each why and the erbjudande line", () => {
+  it("shows the ready ideas at once, with no start button: the intro, each why and the offer tags", () => {
     renderIdeas(ready([idea(1, "Fläskfilé med broccoli", "Fläskfilén är billig och riset finns hemma."), idea(2, "Broccolisoppa", "Soppan går fort.", [])]));
     expect(screen.getByRole("heading", { name: "Nya idéer" })).toBeInTheDocument();
     expect(screen.getByTestId("offer-ideas-intro")).toHaveTextContent("Fläskfilé och broccoli är billigt i veckan, och du har ris hemma.");
     const rows = screen.getAllByTestId("ai-option");
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByTestId("plan-option-note")).toHaveTextContent("Fläskfilén är billig och riset finns hemma.");
-    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Fläskfilé på erbjudande");
+    // The price comes from the page's offers; without it the tag is the name alone.
+    expect(within(rows[0]).getByTestId("offer-tag")).toHaveTextContent("Fläskfilé 89 kr/kg");
     expect(within(rows[0]).getByText("AI-förslag · 35 min")).toBeInTheDocument();
-    expect(within(rows[1]).queryByTestId("plan-option-deal")).not.toBeInTheDocument();
+    expect(within(rows[1]).queryByTestId("offer-tag")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Nya idéer med erbjudanden" })).not.toBeInTheDocument();
     expect(screen.queryByText("Idéerna förbereds …")).not.toBeInTheDocument();
     expect(start).not.toHaveBeenCalled();

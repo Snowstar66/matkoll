@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip } from "@/components/chip";
 import { ChevronDownIcon } from "@/components/icons";
+import { OfferTags } from "@/components/offer-tag";
 import { useToast } from "@/components/toast";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -341,6 +342,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       <p data-testid="dish-note" className="text-meta text-ink-2">
                         {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
                       </p>
+                      {dish.recipeId ? <OfferTags tags={byId.get(dish.recipeId)?.deal?.tags ?? []} className="mt-0.5" /> : null}
                     </div>
                     <TrashButton
                       data-testid="dish-remove"
@@ -411,7 +413,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       title={option.title}
                       imageUrl={option.imageUrl}
                       meta={option.meta}
-                      deal={option.deal?.text ?? null}
+                      tags={option.deal?.tags}
                       onAdd={() => void add(option)}
                       disabled={adding.has(option.id)}
                     />

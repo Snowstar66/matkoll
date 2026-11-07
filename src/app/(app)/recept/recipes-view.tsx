@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { matchOffersWithAi, recipeOfferTags } from "@/features/suggestions/server";
-import { offerDisplay, recipeOffersLineText } from "@/features/offers";
+import { recipeOffersLineText } from "@/features/offers";
 import { loadOffersSheetData } from "../offers-sheet-data";
 import { RecipeOffersSheet } from "./recipe-offers-sheet";
 import { getCurrentPlan } from "@/features/mealplan/server";
@@ -87,9 +87,7 @@ async function readLibraryOffers(): Promise<LibraryOffers | undefined> {
   try {
     const { props, offers, stores } = await loadOffersSheetData();
     if (props.unavailable) return undefined;
-    const labelled = await recipeOfferTags(offers);
-    const tags: Record<string, string[]> = {};
-    for (const [id, labels] of Object.entries(labelled)) tags[id] = [...new Set(labels.map((label) => offerDisplay(label).title))];
+    const tags = await recipeOfferTags(offers);
     const storeIds = new Set(offers.map((offer) => offer.storeId));
     return {
       tags,

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type ComponentProps } from "react";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { useToast } from "@/components/toast";
+import { ListGroup } from "@/components/list-group";
 import { WeekPicker } from "@/components/week-picker";
 import { fail, type Result } from "@/lib/errors";
+import type { OfferTagData } from "@/lib/offer-tag";
 import { addedToWeekText, clampServings, onWeekLabel, weekOffsetLabel, type PlanRecipeRow } from "@/features/mealplan";
 import { PlanRow } from "@/features/mealplan/ui/plan-row";
 import type { OfferIdeasView, PlanOption } from "@/features/suggestions";
@@ -36,6 +38,7 @@ export function OfferDishesCard({
   ideas,
   startIdeas,
   readIdeas,
+  tagsByLabel,
 }: {
   dishes: readonly PlanOption[];
   /** This week and the next two, each with the day (or `null`) of the recipes already on it. */
@@ -46,6 +49,8 @@ export function OfferDishesCard({
   ideas: OfferIdeasView | null;
   startIdeas: ComponentProps<typeof OfferIdeas>["start"];
   readIdeas: ComponentProps<typeof OfferIdeas>["read"];
+  /** UX-20: the tag (name and price) of each offer by its label, for the ideas' tags. */
+  tagsByLabel: Readonly<Record<string, OfferTagData>>;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -89,16 +94,13 @@ export function OfferDishesCard({
   }
 
   return (
-    <section aria-labelledby="offer-dishes-heading" data-testid="offer-dishes" className="flex flex-col gap-2.5 rounded-lg bg-mint/40 p-4">
-      <div className="flex flex-col gap-0.5">
-        <h3 id="offer-dishes-heading" className="text-body font-semibold text-ink">
-          Rätter med erbjudanden
-        </h3>
-        <p className="text-meta text-ink-2">Förslag för att varorna är på erbjudande den här veckan.</p>
-      </div>
+    <section aria-labelledby="offer-dishes-heading" data-testid="offer-dishes" className="flex flex-col gap-2.5">
+      <h3 id="offer-dishes-heading" className="text-body font-semibold text-ink">
+        Rätter med erbjudanden
+      </h3>
       {weeks.length > 0 ? <WeekPicker weeks={weeks} selected={week?.offset ?? offset} onSelect={setOffset} testId="offer-week" /> : null}
       {dishes.length > 0 ? (
-      <ul aria-label="Rätter med erbjudanden" className="flex flex-col gap-2">
+      <ListGroup label="Rätter med erbjudanden">
         {dishes.map((option) => (
           <PlanRow
             key={option.id}
@@ -106,20 +108,20 @@ export function OfferDishesCard({
             title={option.title}
             imageUrl={option.imageUrl}
             meta=""
-            deal={option.deal?.text ?? null}
+            tags={option.deal?.tags}
             onWeekLabel={option.id in placed ? onWeekLabel(placed[option.id]) : undefined}
             onAdd={() => void add(option)}
             disabled={adding.has(option.id)}
           />
         ))}
-      </ul>
+      </ListGroup>
       ) : null}
       {dishes.length > 0 ? (
         <Link href="/recept?filter=erbjudanden" data-testid="offer-dishes-all" className="flex min-h-11 items-center self-start text-control font-semibold text-accent underline underline-offset-2">
           Visa alla
         </Link>
       ) : null}
-      <OfferIdeas initial={ideas} start={startIdeas} read={readIdeas} weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside />
+      <OfferIdeas initial={ideas} start={startIdeas} read={readIdeas} weekStart={weekStart} addToWeek={addToWeek} searchIngredients={searchIngredients} previewOutside tagsByLabel={tagsByLabel} />
     </section>
   );
 }
