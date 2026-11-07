@@ -450,23 +450,31 @@ export function removeCheckedText(count: number): string {
   return `Ta bort ${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
-/** Kylfoto D: the line above that button: "2 nya · 1 uppdateras · 1 tas bort", or "Inget valt". */
+/** Kylfoto D: the line above that button: "2 nya · 1 uppdateras · 1 tas bort"; empty when nothing is ticked (UX-08: no "Inget valt"). */
 export function checkedSummaryText(fresh: number, updated: number, removed = 0): string {
   const parts = [
     fresh > 0 ? `${fresh} ${fresh === 1 ? "ny" : "nya"}` : null,
     updated > 0 ? `${updated} uppdateras` : null,
     removed > 0 ? `${removed} tas bort` : null,
   ];
-  return parts.filter(Boolean).join(" · ") || "Inget valt";
+  return parts.filter(Boolean).join(" · ");
 }
 
-/** Kylfoto D: the folded row for what the photo no longer shows: "Syns inte längre (2)". */
-export function missingToggleText(count: number): string {
-  return `Syns inte längre (${count})`;
+/** UX-08: the card after a photo: "5 varor syntes inte på fotot. Ta bort dem?" */
+export function notSeenQuestionText(count: number): string {
+  return count === 1 ? "1 vara syntes inte på fotot. Ta bort den?" : `${count} varor syntes inte på fotot. Ta bort dem?`;
 }
 
-/** Kylfoto D: under the unfolded "Syns inte längre". */
-export const missingHintText = "Kryssa i det som är slut. Det tas bort när du trycker på knappen.";
+/** UX-08: the names on that card: "Gräddfil, Kvarg och Ost". */
+export function notSeenNamesText(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} och ${names.at(-1)}`;
+}
+
+/** UX-08: the card's buttons, and the sheet "Välj vilka". */
+export const notSeenKeepText = "Behåll";
+export const notSeenPickText = "Välj vilka";
+export const notSeenSheetTitle = "Välj vad som ska bort";
 
 /** Kylfoto D: a marker on the photo, as a button: "Vara 3: Grädde". */
 export function markerLabel(number: number, name: string): string {
@@ -573,7 +581,7 @@ export function allUnchangedText(location: Location): string {
   return `Allt i ${definite[location]} stämmer med bilden.`;
 }
 
-/** Under "Syns inte längre" when some of the AI's items could not be read, so a missing item may just not be understood. */
+/** On the card "syntes inte på fotot" when some of the AI's items could not be read, so an item may just not be understood. */
 export const incompleteComparisonText = "Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.";
 
 /** Under the heading when the place could not be read: "Det gick inte att jämföra med matvarorna i kylen." */
@@ -1045,7 +1053,7 @@ export function withRestoredStock(
 }
 
 /** Kylfoto: the quiet button under "Fota igen" that throws the whole reading away, nothing applied. */
-export const discardReadingText = "Förkasta inläsningen";
+export const discardReadingText = "Släng förslagen";
 
 /** Kylfoto: the toast after "Förkasta inläsningen", with "Ångra". */
-export const discardedReadingText = "Förkastade inläsningen.";
+export const discardedReadingText = "Slängde förslagen.";

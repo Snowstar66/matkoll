@@ -44,6 +44,8 @@ describe("cookNowLists", () => {
     // Smör is not at home, but a Basvara: counted as at home and still listed as used.
     expect(own[0]).toMatchObject({ totalMinutes: 25, servings: 4, uses: ["ägg", "mellanmjölk", "smör"] });
     expect(own[1].uses).toEqual(["grädde", "ägg"]);
+    // UX-13b: the drawing without a photo, from the title and the lines.
+    expect(own.map((recipe) => recipe.dish)).toEqual(["tallrik", "paj"]);
   });
 
   it("without the Basvara the same recipe misses one thing", () => {

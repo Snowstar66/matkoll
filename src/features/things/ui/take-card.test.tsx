@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok } from "@/lib/errors";
@@ -97,10 +97,38 @@ describe("Rummets sida", () => {
     expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Garaget", part: "", box: false });
   });
 
-  it("opens the sheet from Var i rummet?", async () => {
+  it("shows Var i rummet? as chips above Fota, with Hela rummet chosen and the room's own places", async () => {
+    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort", places: [{ name: "Verktygslådan", box: true }, { name: "Hyllan till vänster", box: false }] });
+    const group = screen.getByRole("radiogroup", { name: "Var i rummet?" });
+    expect(within(group).getAllByRole("radio").map((chip) => chip.textContent)).toEqual(["Hela rummet", "Hylla", "Låda", "Verktygslådan", "Hyllan till vänster", "+ Annan plats"]);
+    expect(within(group).getByRole("radio", { name: "Hela rummet" })).toBeChecked();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("sends the cards to the chosen chip, which stays chosen for the next ones", async () => {
+    ensureCapturePlace.mockResolvedValue(ok({ placeId: place }));
+    send.mockResolvedValue(1);
+    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort", places: [{ name: "Verktygslådan", box: true }] });
+    await userEvent.click(screen.getByRole("radio", { name: "Verktygslådan" }));
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
+    await pick([new File(["a"], "a.jpg", { type: "image/jpeg" })]);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(ensureCapturePlace).toHaveBeenLastCalledWith({ siteId: site, room: "Garaget", part: "Verktygslådan", box: true });
+    expect(screen.getByRole("radio", { name: "Verktygslådan" })).toBeChecked();
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
+    await pick([new File(["b"], "b.jpg", { type: "image/jpeg" })]);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(ensureCapturePlace).toHaveBeenLastCalledWith({ siteId: site, room: "Garaget", part: "Verktygslådan", box: true });
+  });
+
+  it("opens a field for an own place with + Annan plats", async () => {
+    ensureCapturePlace.mockResolvedValue(ok({ placeId: place }));
+    send.mockResolvedValue(1);
     view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort" });
-    await userEvent.click(screen.getByRole("button", { name: "Var i rummet? (valfritt)" }));
-    expect(screen.getByRole("dialog", { name: "Var tar du kortet?" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Garaget" })).toBeChecked();
+    await userEvent.click(screen.getByRole("radio", { name: "+ Annan plats" }));
+    await userEvent.type(screen.getByLabelText("Del av rummet"), "översta hyllan");
+    await userEvent.click(screen.getByRole("button", { name: /Välj från album/ }));
+    await pick([new File(["a"], "a.jpg", { type: "image/jpeg" })]);
+    await waitFor(() => expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Garaget", part: "översta hyllan", box: false }));
   });
 });

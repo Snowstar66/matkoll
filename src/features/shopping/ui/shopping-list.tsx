@@ -65,7 +65,7 @@ import {
   siteRecountedText,
   skippedDishesText,
 } from "../domain/list-text";
-import { AddItemFab, AddItemFabSpacer, useAddItemSheet } from "./add-item";
+import { useAddItemSheet } from "./add-item";
 import { CustomItemSheet } from "./custom-item-sheet";
 import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { UnpackSheet } from "./unpack-sheet";
@@ -608,7 +608,7 @@ type ChoiceSheet = {
   store: Store;
 };
 
-/** The "+" that shows: the floating one on a phone, the header's on a desktop. */
+/** The "+" that shows: the header's (UX-07). */
 function visibleAddButton(): HTMLElement | undefined {
   const buttons = [...document.querySelectorAll<HTMLElement>("[data-add-custom-item]")];
   return buttons.find((button) => (typeof button.checkVisibility === "function" ? button.checkVisibility() : true));
@@ -858,7 +858,7 @@ export function ShoppingList({
       if (shown && shown.checked !== checked) lineWentBack(key, checked);
     }
   });
-  const { sheet, openSheet, closeSheet } = useAddItemSheet(openAddOnStart);
+  const { sheet, closeSheet } = useAddItemSheet(openAddOnStart);
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
   const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string | null } | null>(null);
   const openDetail = (line: ShoppingLine) => {
@@ -1073,7 +1073,11 @@ export function ShoppingList({
             />
           ) : null}
           {canSend ? (
-            <div className="flex flex-wrap justify-center gap-x-2">
+            // UX-02: both at the end of the list, as text buttons: nothing about sending is pinned any more.
+            <div className="flex flex-col items-center">
+              <Button variant="text" disabled={saving} onClick={basket.send}>
+                {sendButtonText(store)}
+              </Button>
               <Button variant="text" onClick={basket.share}>
                 {shareButtonText}
               </Button>
@@ -1092,26 +1096,19 @@ export function ShoppingList({
               </Link>
             </p>
           ) : null}
-          <ListActions
-            // Room for both buttons while the list has lines, so the page does not move when the first check adds one.
-            reserve={hasLines && !checksUnavailable ? 2 : 1}
-            putInPantry={
-              // Shown while a line is checked off (as shown, before the check is saved), and while the flow runs.
-              // Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable.
-              // Not in a week without a plan: the pantry flow is for the current plan's list.
-              plan !== null &&
-              !checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
-                <PutInPantryButton
-                  disabled={pantry.pending || saving}
-                  busy={pantry.pending}
-                  count={toPantry.length}
-                  onPut={() => void pantry.put(toPantry)}
-                />
-              ) : null
-            }
-            // Off while a check is being saved: a check that goes back must not leave an item out.
-            send={canSend ? { text: sendButtonText(store), onSend: basket.send, disabled: saving } : null}
-          />
+          {/* UX-02: the one pinned button, only while a line is checked off (as shown, before the check is saved), and while the flow runs.
+              Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable.
+              Not in a week without a plan: the pantry flow is for the current plan's list. */}
+          {plan !== null && !checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
+            <FixedAction glass>
+              <PutInPantryButton
+                disabled={pantry.pending || saving}
+                busy={pantry.pending}
+                count={toPantry.length}
+                onPut={() => void pantry.put(toPantry)}
+              />
+            </FixedAction>
+          ) : null}
           <StepsSheet open={basket.stepsOpen} store={store} onClose={basket.closeSteps} />
           {/* Mounted from the first refused copy, and kept, so it can close with its animation. */}
           {basket.sheet ? (
@@ -1152,40 +1149,7 @@ export function ShoppingList({
           ) : null}
         </>
       )}
-      {/* Also on an empty week: own items belong to the household (Story 17.10). */}
-      <AddItemFabSpacer />
-      <AddItemFab onOpen={openSheet} />
     </div>
-  );
-}
-
-/**
- * The list's Fast åtgärdsknapp (UX-DR3, Story 11.4): one FixedAction with
- * "Kopiera till ICA-varukorgen" (secondary) alone, or with "Lägg till i Matvaror" (primary)
- * beside it while a line is checked off; FixedAction puts "Lägg till i Matvaror" on
- * top when the two do not fit in a row. Nothing when neither shows.
- */
-function ListActions({
-  putInPantry,
-  send,
-  reserve,
-}: {
-  putInPantry: ReactNode;
-  /** The button's text, what a tap does and whether it is off; `null` when there is nothing to send. */
-  send: { text: string; onSend: () => void; disabled: boolean } | null;
-  /** How many buttons to keep room for (FixedAction). */
-  reserve: number;
-}) {
-  if (!putInPantry && !send) return null;
-  return (
-    <FixedAction reserve={reserve}>
-      {send ? (
-        <Button variant="secondary" disabled={send.disabled} onClick={send.onSend}>
-          {send.text}
-        </Button>
-      ) : null}
-      {putInPantry}
-    </FixedAction>
   );
 }
 

@@ -109,9 +109,6 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await expect(section(page).getByRole("heading", { level: 3 }).first()).toHaveText(cardTitles([titles[0]]));
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(6, longWait);
 
-  // The freezer's cards wait for these: its card says so.
-  await expect(locationCard(page, "Frys")).toContainText("Förslag klara", longWait);
-
   const before = await adminClient().from("pantry_item").select("id", { count: "exact", head: true }).eq("user_id", userId);
   if (before.error) throw before.error;
   expect(before.count).toBe(0);
@@ -219,7 +216,8 @@ test("a photo as a job survives a reload: the cards come back, without the photo
   await expect(section(page).getByText("Fotot finns inte kvar efter omladdningen.")).toBeVisible();
   await expect(section(page).getByRole("button", { name: /Fotot av kylen/ })).toHaveCount(0);
   await addOnly(section(page), ["Gurka"]);
-  await expect(cards(page)).toHaveCount(5);
+  // UX-08: Lägg till closes the whole review.
+  await expect(section(page)).toHaveCount(0);
   // The photo was only in the tab's memory: there is none to save as the latest.
   await page.waitForTimeout(1_000);
   const saved = await adminClient().from("pantry_photo").select("id", { count: "exact", head: true }).eq("user_id", userId);

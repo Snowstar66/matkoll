@@ -42,7 +42,7 @@ import { checkSiteForWrite } from "./site-for-write";
  * taken only from a user with one place at most, for that place; otherwise
  * it is `validation`.
  *
- * Returns the number of rows set. Fails with `unauthorized`, `validation`
+ * Returns the number of rows set, and their ids (UX-08, for "Ångra"). Fails with `unauthorized`, `validation`
  * (with the index of each item that is not valid in `fields`, so the client
  * can leave it out), `pantry_site_gone` (the place is removed or not the
  * user's, or no place was sent: nothing is set, and the page is read again)
@@ -51,7 +51,7 @@ import { checkSiteForWrite } from "./site-for-write";
  */
 export async function confirmPantrySuggestions(
   input: ConfirmSuggestionsInput | readonly ConfirmItemInput[],
-): Promise<Result<{ count: number }>> {
+): Promise<Result<{ count: number; setRows: { id: string; ingredientId: string }[] }>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const db = await createClient();
@@ -86,8 +86,10 @@ export async function confirmPantrySuggestions(
     return fail("pantry_confirm_failed");
   }
 
+  let setRows: { id: string; ingredientId: string }[] = [];
   try {
     const rows = await setPantryItemsIn(db, sets, null, siteId);
+    setRows = rows.map((row) => ({ id: row.id, ingredientId: row.ingredientId }));
     if (rows.length !== sets.length) throw new PantryDataError("missing_rows");
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
@@ -97,7 +99,7 @@ export async function confirmPantrySuggestions(
     return fail("pantry_confirm_failed");
   }
   revalidatePantryCommitted();
-  return ok({ count: sets.length });
+  return ok({ count: sets.length, setRows });
 }
 
 /** The place is gone, or none was sent: logged with the code only, and the page is read again. */

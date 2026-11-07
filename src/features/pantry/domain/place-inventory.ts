@@ -102,7 +102,13 @@ export const placeInventorySchema = z.discriminatedUnion("kind", [
 export type PlaceInventory = z.infer<typeof placeInventorySchema>;
 
 /** A row of the photographed place, as listPantry gives it. */
-export type PlaceItem = Pick<PantryItem, "id" | "ingredientId" | "name" | "location" | "amount" | "unit">;
+export type PlaceItem = Pick<PantryItem, "id" | "ingredientId" | "name" | "location" | "amount" | "unit"> & {
+  /** UX-08: when the row was added; a row added in the last `recentRowDays` days never counts as not seen. */
+  createdAt?: string | null;
+};
+
+/** UX-08: items added this recently are not "syntes inte på fotot": they may just not be put in the fridge yet. */
+export const recentRowDays = 3;
 
 export type CompareOptions = {
   /** The photographed place: only its suggestions are compared with its rows. */
@@ -111,6 +117,8 @@ export type CompareOptions = {
   seenIngredientIds: ReadonlySet<string>;
   /** Some of the AI's items could not be read or were cut: "Syns inte längre" says to check. */
   incomplete: boolean;
+  /** The time now, for the rule about recently added rows; the system clock when left out. */
+  now?: Date;
 };
 
 /**
@@ -162,7 +170,7 @@ export function sameStock(photo: PlaceStock, place: PlaceStock): boolean {
 export function compareWithPlace(
   suggestions: readonly PantrySuggestion[],
   placeItems: readonly PlaceItem[] | null,
-  { location, seenIngredientIds, incomplete }: CompareOptions,
+  { location, seenIngredientIds, incomplete, now = new Date() }: CompareOptions,
 ): { suggestions: PantrySuggestion[]; inventory: PlaceInventory } {
   if (placeItems === null || placeItems.length === 0) {
     return {
@@ -217,9 +225,14 @@ export function compareWithPlace(
     return { ...suggestion, ...own };
   });
 
+  const recentSince = now.getTime() - recentRowDays * 24 * 60 * 60 * 1000;
+  const isRecent = (row: PlaceItem) => {
+    const added = row.createdAt ? Date.parse(row.createdAt) : Number.NaN;
+    return !Number.isNaN(added) && added >= recentSince;
+  };
   const missingRows = new Map<string, PlaceItem[]>();
   for (const row of rows) {
-    if (photos.has(row.ingredientId) || seenIngredientIds.has(row.ingredientId)) continue;
+    if (photos.has(row.ingredientId) || seenIngredientIds.has(row.ingredientId) || isRecent(row)) continue;
     missingRows.set(row.ingredientId, [...(missingRows.get(row.ingredientId) ?? []), row]);
   }
   const missing = [...missingRows]

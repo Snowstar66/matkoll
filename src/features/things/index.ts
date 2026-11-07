@@ -42,7 +42,6 @@ export {
 } from "./domain/thing-place";
 export {
   askButtonText,
-  askHintText,
   askLabel,
   askPlaceholder,
   chatInputSchema,

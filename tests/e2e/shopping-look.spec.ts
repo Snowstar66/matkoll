@@ -256,10 +256,12 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(chip).toHaveText(scan);
   const [chipBox, rowBox] = [await chip.boundingBox(), await lineOf(page, "Falukorv").boundingBox()];
   expect(chipBox!.width).toBeLessThanOrEqual(rowBox!.width * 0.4 + 1);
-  // Nothing checked off: no basket row, and only "Kopiera till ICA-varukorgen", as the secondary button.
+  // Nothing checked off: no basket row, nothing pinned, and "Kopiera till ICA-varukorgen" as a text button at the end of the list (UX-02).
   await expect(basketRow(page)).toHaveCount(0);
   await expect(button(page, "Kopiera till ICA-varukorgen")).toBeVisible();
   await expect(button(page, "Lägg till i Matvaror")).toHaveCount(0);
+  await expect(fixedBar(page)).toHaveCount(0);
+  await expect(button(page, "Dela listan")).toBeVisible();
   // The check's tap target is 44 × 44 px.
   const box = await check(page, "Gul lök, 1 st").boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
@@ -283,10 +285,9 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   // Focus on the next line's check.
   await expect(check(page, "Matlagningsgrädde, 3 dl")).toBeFocused();
   expect(await storedChecks()).toEqual([lineKey("Gul lök", "st")]);
-  // The long label no longer fits beside "Lägg till i Matvaror" (Story 14.2): FixedAction stacks them, "Lägg till i Matvaror" on top.
-  const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
-  const put = await button(page, "Lägg till i Matvaror").boundingBox();
-  expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
+  // UX-02: "Lägg till i Matvaror" is the one pinned button, alone in the bar; the copy button is in the list, not pinned.
+  await expect(fixedBar(page).getByRole("button")).toHaveText([/^Lägg till i Matvaror/]);
+  await expect(fixedBar(page).getByRole("button", { name: "Kopiera till ICA-varukorgen" })).toHaveCount(0);
 
   // Saved: still in the basket after a reload, which is open from the start (Story 3.9), struck through.
   await page.reload();
@@ -355,26 +356,17 @@ test("a checked line stays visible and struck through in I korgen without a toas
   expect(errors).toEqual([]);
 });
 
-test("at 200 % text the buttons stack with Lägg till i Matvaror on top, the chip is cut, and nothing scrolls sideways @flaky", async ({ page }) => {
+test("at 200 % text the pinned button fits, the chip is cut, and nothing scrolls sideways @flaky", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   // A 375 px phone at 200 % zoom.
   await page.setViewportSize({ width: 188, height: 406 });
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
-  // Once the page has measured the pinned bar, "Lägg till i Matvaror" stands above "Kopiera till ICA-varukorgen".
-  await expect
-    .poll(async () => {
-      const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
-      const put = await button(page, "Lägg till i Matvaror").boundingBox();
-      return put!.y + put!.height <= send!.y;
-    })
-    .toBe(true);
+  await expect(button(page, "Lägg till i Matvaror")).toBeVisible();
   const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
   expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   expect(await noSideScroll(page)).toBe(true);
-  // Two stacked buttons would take more than a quarter of this window: they stand at the end of the list.
-  await expect(page.locator("[data-fixed-action-inline]").filter({ visible: true })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -401,7 +393,6 @@ test("from the keyboard, focus stays above the fixed buttons, and a held Enter c
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^5 varor kvar/);
-  await expect(fixedBar(page)).toBeVisible();
 
   // A held Enter repeats its keydown: only the first one counts.
   await check(page, "Gul lök, 1 st").focus();
@@ -411,6 +402,8 @@ test("from the keyboard, focus stays above the fixed buttons, and a held Enter c
   await page.keyboard.up("Enter");
   await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
   await expect.poll(storedChecks).toEqual([lineKey("Gul lök", "st")]);
+  // The first check brings the pinned bar (UX-02).
+  await expect(fixedBar(page)).toBeVisible();
 
   await check(page, "Senap").focus();
   for (const left of [3, 2]) {

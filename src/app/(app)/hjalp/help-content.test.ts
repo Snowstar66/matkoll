@@ -22,7 +22,7 @@ describe("helpAreas", () => {
 
   it("names no button or word the app no longer has (UX-30)", () => {
     const all = JSON.stringify(helpAreas);
-    for (const gone of ["Lägg i Matvaror", "Svep en rad", "bredvid Att handla", "Tryck Kopiera till varukorgen", "Lagerförslag", "Fotografera"]) {
+    for (const gone of ["Lägg i Matvaror", "Svep en rad", "bredvid Att handla", "Tryck Kopiera till varukorgen", "Lagerförslag", "Fotografera", "nere till höger"]) {
       expect(all).not.toContain(gone);
     }
   });

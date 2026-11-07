@@ -127,7 +127,7 @@ test("a check, an own item and its removal on one phone show on the other, and a
   await expect(check(b, /^Grädde/)).toBeChecked(within);
 
   // Adding an own item.
-  await a.getByTestId("add-item-fab").filter({ visible: true }).click();
+  await a.getByTestId("add-item-header").filter({ visible: true }).click();
   const sheet = a.getByRole("dialog", { name: "Lägg till vara" });
   await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel");
   await sheet.getByRole("button", { name: "Lägg till" }).click();

@@ -14,13 +14,13 @@ import { roomKey } from "../domain/thing-room";
 import { maxPlaceNameChars } from "../domain/thing-place";
 import { roomHref } from "./rooms-list";
 
-// "Lägg till rum" (Story 18.21, UX-15): the last row of Förråd's start page, a button so it
-// does not look like a room. It opens a small sheet asking for the room's name;
+// "Lägg till rum" (Story 18.21, UX-15, UX-07): the "+" in Förråd's header (`icon`), and a primary
+// button in the empty state (`primary`). It opens a small sheet asking for the room's name;
 // "Lägg till rum" makes the room (the whole-room place, as a card taken there would)
 // and opens its page, where the photos are taken. A name that is already a room
 // just opens that room, since the place is found, not made twice.
 
-export function NewRoom({ siteId, fullWidth = true }: { siteId: string; fullWidth?: boolean }) {
+export function NewRoom({ siteId, variant }: { siteId: string; variant: "icon" | "primary" }) {
   const router = useRouter();
   const ids = useId();
   const [open, setOpen] = useState(false);
@@ -67,10 +67,22 @@ export function NewRoom({ siteId, fullWidth = true }: { siteId: string; fullWidt
 
   return (
     <>
-      <Button variant="secondary" fullWidth={fullWidth} onClick={openSheet} data-testid="new-room">
-        <PlusIcon size={20} />
-        {newRoomText}
-      </Button>
+      {variant === "icon" ? (
+        <button
+          type="button"
+          aria-label={newRoomText}
+          aria-haspopup="dialog"
+          data-testid="new-room-header"
+          onClick={openSheet}
+          className="flex size-tap items-center justify-center rounded-full text-accent"
+        >
+          <PlusIcon size={26} />
+        </button>
+      ) : (
+        <Button onClick={openSheet} data-testid="new-room">
+          {newRoomText}
+        </Button>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} title={newRoomTitle} closeLabel="Avbryt" preventClose={busy}>
         <form onSubmit={create} className="flex flex-col gap-4" noValidate>
           {notice ? <Notice role="alert">{notice}</Notice> : null}

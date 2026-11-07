@@ -69,6 +69,11 @@ describe("planOptions and the tabs", () => {
   ];
   const options = planOptions(offers, recipes, { Tacos: 9, Laxpasta: 2 });
 
+  it("draws each dish by its kind (UX-13b): the one given, else from the title and the line names", () => {
+    expect(options.map((o) => o.dish)).toEqual(["soppa", "gryta", "pasta", "kott"]);
+    expect(planOptions(offers, [recipe("Fredagsmys", [], { dish: "fisk" })])[0].dish).toBe("fisk");
+  });
+
   it("counts what is left to buy, with what is at home taken off, and never ranks by the pantry", () => {
     expect(options.find((o) => o.id === "Korvstroganoff")?.buy).toBe(2);
   });

@@ -201,7 +201,7 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
       {photo && !removedIds.includes(photo.id) ? (
         // Under "Fotografera kylen" in the camera row (Story 14.6): "Senaste foto idag 15:42 · Visa".
         <div data-testid="pantry-latest-photo" className="flex items-center justify-between gap-3 text-meta text-ink-2">
-          <p className="min-w-0">{latestPhotoText(timeOf(photo))}</p>
+          <p className="min-w-0">{latestPhotoText(timeOf(photo), location)}</p>
           <button
             type="button"
             aria-haspopup="dialog"

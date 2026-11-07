@@ -70,6 +70,20 @@ const missingOf = (inventory: ReturnType<typeof compareWithPlace>["inventory"]) 
   inventory.kind === "compared" ? inventory.missing : [];
 
 describe("compareWithPlace", () => {
+  it("never counts a row added in the last 3 days as not seen (UX-08), also when only some rows of the item are new", () => {
+    const now = new Date("2026-11-07T12:00:00Z");
+    const added = (ingredientId: string, at: string) => ({ ...row(ingredientId, null, null), createdAt: at });
+    const place = [
+      added(senap, "2026-11-05T13:00:00Z"), // 2 days: from the shopping list, maybe not in the fridge yet
+      added(yoghurt, "2026-11-04T11:00:00Z"), // 3 days and an hour: counts
+      added(gradde, "2026-11-07T08:00:00Z"), // today
+      { ...row(agg, null, null), createdAt: null }, // unknown: counts
+      row(smor, null, null), // no time at all: counts
+    ];
+    const { inventory } = compareWithPlace([fresh("s1", "gurka", 1, "st")], place, { ...none, now });
+    expect(missingOf(inventory).map(({ name }) => name)).toEqual(["smör", "yoghurt", "ägg"]);
+  });
+
   it("never counts a suggestion the AI was unsure of as unchanged, and still keeps it out of Syns inte längre (Story 6.5)", () => {
     const place = [row(senap, null, null), row(agg, 6, "st"), row(mjolk, 2, "förp")];
     const photo = [

@@ -141,6 +141,7 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
         defaultRoom={summary.room}
         variant="default"
         layout="room"
+        places={[...boxes.flatMap((box) => (box.part ? [{ name: box.part, box: true }] : [])), ...parts.map((place) => ({ name: place.part, box: false }))]}
         title={moreCardsText}
       />
       <div className="flex justify-end">

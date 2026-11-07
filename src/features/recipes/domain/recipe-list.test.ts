@@ -186,15 +186,15 @@ describe("withStatus", () => {
       { gradde: "Grädde" },
     );
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1, missingNames: ["Grädde"] },
-      { id: "gryta", title: "gryta", categories: ["vegetarian", "stew"], imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0, missingNames: [] },
+      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], dish: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1, missingNames: ["Grädde"] },
+      { id: "gryta", title: "gryta", categories: ["vegetarian", "stew"], dish: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0, missingNames: [] },
     ]);
   });
 
   it("gives no status without a snapshot, when the pantry could not be read", () => {
     const items = withStatus([row("soppa", 2, [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false }])], null);
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: null },
+      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], dish: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: null },
     ]);
   });
 });
@@ -274,6 +274,25 @@ describe("withStatus categories", () => {
     ];
     expect(withStatus(rows, null)[0].categories).toEqual(["vegetarian", "soup", "quick"]);
     expect(toLibrary(rows, toSnapshot([]), null).recipes[0].categories).toEqual(["vegetarian", "soup", "quick"]);
+  });
+});
+
+describe("withStatus dish (UX-13b)", () => {
+  it("works the drawing out from the title and the written lines, with or without a pantry", () => {
+    const rows: RecipeListRow[] = [
+      {
+        id: "fredag",
+        title: "Fredagsmys",
+        imageUrl: null,
+        totalMinutes: 25,
+        originalServings: 4,
+        isFavorite: false,
+        createdAt: "2026-10-01T08:00:00+00:00",
+        lines: [{ id: "l1", ingredientId: null, amount: 400, unit: "g", isVague: false, originalText: "400 g köttfärs" }],
+      },
+    ];
+    expect(withStatus(rows, null)[0].dish).toBe("kott");
+    expect(toLibrary(rows, toSnapshot([]), null).recipes[0].dish).toBe("kott");
   });
 });
 

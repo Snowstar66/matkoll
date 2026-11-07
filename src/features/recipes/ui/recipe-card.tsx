@@ -6,17 +6,18 @@ import { cx } from "@/components/cx";
 import { HeartToggle } from "@/components/heart-toggle";
 import { TrashButton } from "@/components/trash-button";
 import { RecipeImage } from "@/components/recipe-image";
+import type { DishKind } from "@/lib/dish-kind";
 
 type CardBase = {
   title: string;
   /**
-   * The recipe's image address, or `null`: a mint placeholder
-   * (with the badge on it) at the same height as a photo, so the cards in a
+   * The recipe's image address, or `null`: a drawing of the dish (UX-13b,
+   * with the badge on it) at the same height as a photo, so the cards in a
    * row are equally tall. An address that does not load shows it too.
    */
   imageUrl: string | null;
-  /** Story 16.4: the dish's emoji, shown on the strip (or when the image fails) in place of the book icon. */
-  emoji?: string;
+  /** UX-13b: the kind of dish drawn when there is no photo (or it fails); from the title when left out. */
+  dish?: DishKind;
   /** "35 min · 4 portioner" (recipeMetaText). */
   meta: string;
   /** Bottom left on the image: the status ("Kan lagas nu", on the light plate) or "AI-förslag". */
@@ -82,7 +83,7 @@ export type RecipeCardProps = LinkCardProps | PlainCardProps;
 export function RecipeCard({
   title,
   imageUrl,
-  emoji,
+  dish,
   meta,
   href,
   badge,
@@ -119,9 +120,9 @@ export function RecipeCard({
       <div className="relative order-first">
         <RecipeImage
           src={imageUrl}
-          emoji={emoji}
+          dish={dish}
           title={title}
-          iconSize={56}
+          artSize={88}
           className={cx("w-full rounded-t-lg", "h-card-image desktop:h-[180px]")}
         />
         {badge ? (

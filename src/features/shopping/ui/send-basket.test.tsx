@@ -179,10 +179,13 @@ describe("Kopiera till ICA-varukorgen", () => {
     expectNoServer();
   });
 
-  it("is the secondary button alone, in the list's FixedAction (Story 11.4)", () => {
+  it("is a text button at the end of the list, above Dela listan, and not pinned (UX-02)", () => {
     stubClipboard("ok");
     render(<ShoppingList {...props()} />);
-    expect(sendButton()).toHaveClass("bg-surface");
+    expect(sendButton()).toHaveClass("text-accent");
+    expect(sendButton()!.closest("[data-testid='fixed-action']")).toBeNull();
+    expect(screen.getByRole("button", { name: "Dela listan" })).toBe(sendButton()!.nextElementSibling);
+    expect(screen.queryByTestId("fixed-action")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Lägg till i Matvaror" })).not.toBeInTheDocument();
   });
 
@@ -202,7 +205,7 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).not.toBeChecked();
   });
 
-  it("leaves out a line checked off, as shown, and sits beside Lägg till i Matvaror as the secondary button", async () => {
+  it("leaves out a line checked off, as shown, and is apart from the pinned Lägg till i Matvaror", async () => {
     const user = userEvent.setup();
     const writeText = stubClipboard("ok");
     render(<ServerList />);
@@ -214,10 +217,10 @@ describe("Kopiera till ICA-varukorgen", () => {
     const put = screen.getByRole("button", { name: "Lägg till i Matvaror" });
     const send = sendButton()!;
     expect(put).toHaveClass("bg-accent");
-    expect(send).toHaveClass("bg-surface");
-    // One FixedAction: "Kopiera till ICA-varukorgen" first in the row, "Lägg till i Matvaror" after it (on top when they wrap).
-    expect(put.parentElement).toBe(send.parentElement);
-    expect(send.compareDocumentPosition(put) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(send).toHaveClass("text-accent");
+    // The pinned bar holds Lägg till i Matvaror alone; the copy button is in the list.
+    expect(put.closest("[data-testid='fixed-action']")).not.toBeNull();
+    expect(send.closest("[data-testid='fixed-action']")).toBeNull();
 
     fireEvent.click(send);
     expect(writeText).toHaveBeenCalledTimes(1);

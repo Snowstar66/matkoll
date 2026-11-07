@@ -160,6 +160,18 @@ test("an empty week says so, with the library to choose from under it", async ({
   expect(errors).toEqual([]);
 });
 
+test("the + in the header opens Lägg till nya rätter for the week shown (UX-07)", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/matsedel");
+  const toggle = page.getByTestId("add-dishes-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const header = page.locator("header").filter({ visible: true });
+  await header.getByRole("button", { name: "Lägg till rätt" }).click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(plus(page, gryta)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("a free day tapped in the week gets the next dish added with +", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");

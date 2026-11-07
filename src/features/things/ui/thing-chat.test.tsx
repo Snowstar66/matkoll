@@ -35,12 +35,12 @@ async function ask(text: string) {
 }
 
 describe("the chat", () => {
-  it("has the field Sök eller fråga …, the hint while it is empty and a send button", () => {
+  it("has the field with its example, no explaining line and the Fråga button", () => {
     render(withToasts(<ThingChat />));
-    expect(screen.getByPlaceholderText("Sök eller fråga …")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Skicka" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Sök, eller fråga: var är passen?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fråga" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ny fråga" })).not.toBeInTheDocument();
-    expect(screen.getByText("Skriv ett ord för att söka. Tryck ↑ för att fråga eller spara var något ligger.")).toBeInTheDocument();
+    expect(screen.queryByText(/Skriv ett ord för att söka/)).toBeNull();
   });
 
   it("shows the question, then the answer with a card to tap: place, date and the card's thumbnail", async () => {
@@ -87,7 +87,7 @@ describe("the chat", () => {
     let finish: (result: Result<ChatAnswer>) => void = () => undefined;
     askChat.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(withToasts(<ThingChat />));
-    await userEvent.click(screen.getByRole("button", { name: "Skicka" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fråga" }));
     expect(askChat).not.toHaveBeenCalled();
     await ask("Hammare?");
     expect(screen.getByTestId("ai-working")).toBeInTheDocument();

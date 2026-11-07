@@ -23,6 +23,43 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-07",
+    title: "Klart efter kylfotot",
+    bullets: [
+      "När du tryckt Lägg till N varor stängs granskningen. Kylen är uppdaterad visas med Ångra, som tar bort det du just lade till.",
+      "Under fotot står nu Senaste foto av kylen med Visa, och Förslag klara på Kyl är borta.",
+      "Varor som inte syntes på fotot tas inte längre upp i granskningen. De får ett litet kort efteråt: Behåll, eller Välj vilka och ta bort med Ångra. Det du lagt in de senaste tre dagarna räknas aldrig dit.",
+      "Förkasta inläsningen heter nu Släng förslagen.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Ett plus i rubriken på varje flik",
+    bullets: [
+      "Varje flik har sitt gröna plus uppe till höger, bredvid kontot: nytt recept, ny rätt på veckan, ny vara på listan eller i Matvaror, nytt rum i Förrådet.",
+      "Den runda knappen på Inköpslistan och den streckade knappen under rummen är borta.",
+      "På Inköpslistan står nu bara en knapp fast längst ned, Lägg till i Matvaror, och bara när du bockat av något. Kopiera till ICA-varukorgen ligger sist i listan, tillsammans med Dela listan.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Tecknade rätter när receptet saknar foto",
+    bullets: [
+      "Ett recept utan eget foto visar nu en tecknad rätt i appens gröna linjestil i stället för en emoji, till exempel en gryta, en soppskål, en fisk eller en paj.",
+      "Teckningen väljs utifrån receptets namn och ingredienser, så samma recept ser likadant ut i Recept, på receptsidan, på Matsedeln och bland erbjudandena.",
+      "Receptsajtens eget foto visas alltid när det finns.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Fråga i Förrådet och Var i rummet?",
+    bullets: [
+      "Sökfältet i Förråd har en knapp som heter Fråga i stället för en pil, och fältet ger ett exempel: var är passen? Förklaringsraden under fältet är borta.",
+      "Fråga sparar fortfarande var något ligger, till exempel passen ligger i byrån.",
+      "I ett rum väljer du Var i rummet? före fotot: Hela rummet, Hylla, Låda, rummets egna lådor eller en annan plats. Valet gäller tills du byter, så flera kort i rad hamnar på samma ställe.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Lugnare listor och samma soptunna överallt",
     bullets: [
       "Ta bort ser nu likadant ut i Matvaror, Inköpslista och Matsedel: en grå soptunna på raden, med Ångra en stund. Att svepa fungerar fortfarande som genväg.",
