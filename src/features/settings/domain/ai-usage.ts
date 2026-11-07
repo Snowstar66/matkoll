@@ -2,8 +2,8 @@ import { claudeModels, sekPerUsd } from "./ai-choice";
 
 // What the AI has cost this month (Story 17.6). Client-safe: pure functions
 // over the rows the database groups per model. The price table is the one
-// of Story 17.5 (claudeModels); a model that is not in it (Qwen in LM Studio,
-// the mock) is local and costs 0 kr.
+// of Story 17.5 (claudeModels); a local model (Qwen in LM Studio, the mock)
+// costs 0 kr, and a Claude id missing from it is priced as the dearest model.
 
 /** One model's calls and tokens in a month, as ai_usage_month gives them. */
 export type ModelUsage = { model: string; calls: number; inputTokens: number; outputTokens: number };
@@ -18,11 +18,18 @@ export type AiMonthUsage = {
 
 const timeZone = "Europe/Stockholm";
 
-/** What `models` cost in kronor, from the price table; an unknown (local) model is 0. */
+/** The dearest model in the price table: what a Claude id missing from it (a dated or new id) is priced at. */
+const dearestModel = claudeModels.reduce((dearest, model) => (model.usdPerMTokOut > dearest.usdPerMTokOut ? model : dearest));
+
+/**
+ * What `models` cost in kronor, from the price table. A local model (Qwen in LM Studio, the mock)
+ * is 0; a Claude id missing from the table is priced as the dearest model, so the daily cap
+ * never silently stops counting.
+ */
 export function usageCostSek(models: readonly ModelUsage[]): number {
   let usd = 0;
   for (const { model, inputTokens, outputTokens } of models) {
-    const price = claudeModels.find((candidate) => candidate.id === model);
+    const price = claudeModels.find((candidate) => candidate.id === model) ?? (model.startsWith("claude") ? dearestModel : undefined);
     if (!price) continue;
     usd += (inputTokens * price.usdPerMTokIn + outputTokens * price.usdPerMTokOut) / 1_000_000;
   }

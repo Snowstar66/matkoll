@@ -47,6 +47,21 @@ afterAll(async () => {
   await deleteTestUsers();
 });
 
+describe("ai_usage, which the cap sums", () => {
+  it("cannot be changed or removed by a member, so a household cannot lower its spend", async () => {
+    await usage(ann, annHousehold, { input: 1000, output: 100 });
+    const before = await adminClient().from("ai_usage").select("id").eq("household_id", annHousehold);
+    const update = await ann.db.from("ai_usage").update({ input_tokens: 0 }).eq("household_id", annHousehold).select("id");
+    expect(update.error?.code).toBe("42501");
+    const remove = await ann.db.from("ai_usage").delete().eq("household_id", annHousehold).select("id");
+    expect(remove.error?.code).toBe("42501");
+    const after = await adminClient().from("ai_usage").select("id").eq("household_id", annHousehold);
+    expect(after.data).toHaveLength(before.data?.length ?? -1);
+    // The later tests count the household's usage from nothing.
+    expect((await adminClient().from("ai_usage").delete().eq("household_id", annHousehold)).error).toBeNull();
+  });
+});
+
 describe("the cap and who may change it", () => {
   it("starts at 10 kr and is closed to every client", async () => {
     const { data } = await adminClient().from("ai_cap").select("daily_cap_sek").eq("id", true).single();

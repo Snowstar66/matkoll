@@ -167,3 +167,9 @@ revoke all on function public.set_ai_cap(numeric) from public, anon, authenticat
 grant execute on function public.ai_cap_status() to authenticated;
 grant execute on function public.ai_cap_households() to authenticated;
 grant execute on function public.set_ai_cap(numeric) to authenticated;
+
+-- The cap sums ai_usage, so a member must not be able to lower the household's spend: until now
+-- the table let a signed-in member update and delete the household's rows straight through the
+-- API (only insert is used by the app, src/features/settings/data/ai-usage.ts). Removing a user
+-- still cascades, and the security definer household moves run as the table's owner.
+revoke update, delete on table public.ai_usage from authenticated;

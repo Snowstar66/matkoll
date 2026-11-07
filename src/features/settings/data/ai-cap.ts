@@ -14,7 +14,7 @@ import {
 /** The database's refusal of a caller who is not the app's owner. */
 const notOwnerCode = "42501";
 
-/** Today's standing of the signed-in user's household, or `null` without a household. Throws SettingsDataError. */
+/** Today's standing of the signed-in user's household (spend 0 without a household), or `null` when the database gives no row. Throws SettingsDataError. */
 export async function loadAiCapStatusIn(db: SettingsDb): Promise<AiCapStatus | null> {
   const { data, error } = await db.rpc("ai_cap_status");
   if (error) throw new SettingsDataError(`load_ai_cap_status_failed ${error.code}`);
