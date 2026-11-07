@@ -64,6 +64,10 @@ const coveredInAppInvitesTest = ["app_invite"];
 // around it answer the caller's own household or only the owner (ai-cap.test.ts tries each).
 const coveredInAiCapTest = ["ai_cap"];
 
+// Nutrition values per ingredient name: shared reference data, no user or household; select for
+// authenticated only, nothing writable (nutrition.test.ts tries to read, write and read as anon).
+const coveredInNutritionTest = ["ingredient_nutrition"];
+
 // Story 21.2a: the household itself, its members and its invitations. Covered
 // below in "the household and its members". Story 21.2b: the count of wrong
 // invitation codes, which no client reads or writes (household-members.test.ts).
@@ -251,6 +255,7 @@ function expectedPolicies(): Omit<LivePolicy, "roles">[] {
   add("thing_change", "thing_change_insert", "INSERT", "", `(${household} AND ${self})`);
   add("thing_change", "thing_change_delete", "DELETE", household, "");
   for (const table of personalTables) add(table, `${table}_own_rows`, "ALL", self, self);
+  add("ingredient_nutrition", "ingredient_nutrition_read", "SELECT", "true", "");
   add("feedback", "feedback_insert_own", "INSERT", "", self);
   add("feedback", "feedback_owner_reads", "SELECT", appOwner, "");
   add("feedback", "feedback_owner_marks_read", "UPDATE", appOwner, appOwner);
@@ -379,7 +384,7 @@ describe("household isolation", () => {
     const tables = liveTables();
     const live = tables.map((table) => table.name);
     const covered = Object.keys(coverage).sort();
-    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...coveredInAiCapTest, ...householdTables];
+    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...coveredInAiCapTest, ...coveredInNutritionTest, ...householdTables];
     const missing = live.filter((table) => !known.includes(table));
     const gone = known.filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);

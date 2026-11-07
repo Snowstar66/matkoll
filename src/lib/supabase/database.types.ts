@@ -269,6 +269,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"ingredient_nutrition": {
+                  Row: {
+                    "carbs_g": number | null,"fat_g": number | null,"fiber_g": number | null,"grams_per_dl": number | null,"grams_per_piece": number | null,"kcal": number | null,"kostrad_group": string,"lmv_name": string | null,"lmv_number": number | null,"normalized_name": string,"protein_g": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_piece"?: number | null,"kcal"?: number | null,"kostrad_group": string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name": string,"protein_g"?: number | null
+                  }
+                  Update: {
+                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_piece"?: number | null,"kcal"?: number | null,"kostrad_group"?: string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name"?: string,"protein_g"?: number | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ingredient_synonym": {
                   Row: {
                     "created_at": string,"household_id": string,"id": string,"ingredient_id": string,"normalized": string,"user_id": string | null
