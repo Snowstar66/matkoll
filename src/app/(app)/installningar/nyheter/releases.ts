@@ -22,6 +22,26 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-07",
+    title: "Erbjudanden, tydligare",
+    bullets: [
+      "Nu heter det erbjudande överallt, inte extrapris. Rabatten visas som −33 % och ordet spara är borta.",
+      "I Veckans erbjudanden lägger du en vara på inköpslistan med ett tryck på plus, och Ångra tar bort den igen.",
+      "Gick hämtningen inte att göra står det bara en ruta med ett sätt att öppna butikens sida.",
+      "I Ändra butik står länken till veckans erbjudanden först, och Butiks-id och länk till e-handeln ligger under Mer om butiken.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Lugnare receptsida och enklare import",
+    bullets: [
+      "På receptsidan är det som saknas nu markerat med en blå ring, utan ordet Saknas på varje rad.",
+      "Tillbakaknappen heter Recept, och ett recept utan bild får samma lilla illustration överallt.",
+      "Importera recept: knappen heter Läs in recept, och finns länken redan får du välja mellan att öppna receptet och att spara en kopia.",
+      "Sökningen i Recept säger Inget matchar och erbjuder Rensa sökning.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     title: "Använd med telefonen",
     bullets: [
       "Spara i Livskoll och Siri och genvägar är nu en enda sida: Använd med telefonen, med ett kort för recept och ett för Siri.",

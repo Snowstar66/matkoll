@@ -34,7 +34,7 @@ async function saveRecipe(page: Page, title: string): Promise<string> {
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
   await importSheet(page).getByRole("tab", { name: "Text" }).click();
   await importSheet(page).getByLabel("Recepttext").fill(fiskgratang);
-  await importSheet(page).getByRole("button", { name: "Tolka" }).click();
+  await importSheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await openSavedImport(page, fixtureTitle);
   await expect(page).toHaveURL(recipePath);
   // The import keeps the recipe's own title (Story 1.15); the spec gives it one of its own.

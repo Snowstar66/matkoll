@@ -69,7 +69,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await expect(sheet(page)).toBeVisible();
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(kycklinggryta);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+  await sheet(page).getByRole("button", { name: "Läs in recept" }).click();
   await openSavedImport(page, title);
   await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
 

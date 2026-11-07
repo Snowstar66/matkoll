@@ -264,9 +264,8 @@ export function RecipeBody({
       const names = toBuy.map((item) => item.name);
       setAdded((current) => new Set([...current, ...toBuy.map((item) => item.ingredientId)]));
       setBought(null);
-      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names, when), {
-        show: { label: day ? "Byt dag" : "Välj dag", onShow: () => setDayOpen(true) },
-      });
+      // UX-12: "Byt dag" is the pinned button; the toast no longer repeats it.
+      showToast(plannedToastText(recipe.title, day ? weekdayWord(day) : null, names, when));
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
   }
@@ -279,7 +278,7 @@ export function RecipeBody({
       showToast(
         weekday === null
           ? `Ingen dag vald. Rätten ligger på ${when ?? "veckan"}.`
-          : `${recipe.title} på ${weekdayWord(weekday)}${when ? ` ${when}` : ""}.`,
+          : `${recipe.title} ligger på ${weekdayWord(weekday)}${when ? ` ${when}` : ""}.`,
       );
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
@@ -448,7 +447,8 @@ export function RecipeBody({
 }
 
 const chipTones = {
-  accent: "bg-accent text-on-accent",
+  // UX-12: outlined, so it does not look like a filled button next to the soft chips.
+  accent: "border border-accent text-accent",
   mint: "bg-mint text-mint-ink",
   sky: "bg-sky text-sky-ink",
   deal: "bg-deal text-deal-ink",

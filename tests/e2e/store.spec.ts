@@ -170,15 +170,16 @@ test("refuses a URL that does not start with https://, and a store that is there
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("ICA Handla");
+  await sheet.getByText("Mer om butiken").click();
   for (const url of ["handla.ica.se", "http://handla.ica.se/"]) {
-    await sheet.getByLabel("URL").fill(url);
+    await sheet.getByLabel("Länk till e-handeln").fill(url);
     await sheet.getByRole("button", { name: "Spara" }).click();
     await expect(sheet.getByText("Ange en adress som börjar med https://.")).toBeVisible();
-    await expect(sheet.getByLabel("URL")).toHaveAttribute("aria-invalid", "true");
+    await expect(sheet.getByLabel("Länk till e-handeln")).toHaveAttribute("aria-invalid", "true");
   }
 
   // The same chain and store id as the default store.
-  await sheet.getByLabel("URL").fill("");
+  await sheet.getByLabel("Länk till e-handeln").fill("");
   await sheet.getByLabel("Butiks-id").fill("1003733");
   await sheet.getByRole("button", { name: "Spara" }).click();
   await expect(sheet.getByText("Butiken finns redan.")).toBeVisible();

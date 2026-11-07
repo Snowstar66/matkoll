@@ -3,7 +3,7 @@ import { claimSetIn, failSetIn, finishSetIn, loadSetIn } from "@/features/sugges
 import { staleSetMs, toOfferIdeasView } from "@/features/suggestions/domain/offer-idea-set";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, householdOf, moveToHousehold, type TestUser } from "./support";
 
-// The saved "Nya idéer med extrapris": one row per household and offer week, claimed by one run at a time,
+// The saved "Nya idéer med erbjudanden": one row per household and offer week, claimed by one run at a time,
 // replaced by "Andra idéer", and never visible or writable to another household or anon.
 // household-isolation.test.ts tries the table against B and anon with the other tables; this file tries
 // the claim and the saved set.

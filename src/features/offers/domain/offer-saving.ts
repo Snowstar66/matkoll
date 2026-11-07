@@ -108,11 +108,11 @@ export function regularPriceText(price: number): string {
   return `Ord. ${Number.isInteger(price) ? price : price.toFixed(2).replace(".", ",")} kr`;
 }
 
-/** "Ord. 111,90 kr · spara 20 %", with what is known, or "" when nothing is. */
+/** "Ord. 111,90 kr · −20 %", with what is known, or "" when nothing is. */
 export function savingText(offer: { regularPrice: number | null; savingPercent: number | null }): string {
   return [
     offer.regularPrice === null ? null : regularPriceText(offer.regularPrice),
-    offer.savingPercent === null ? null : `spara ${offer.savingPercent} %`,
+    offer.savingPercent === null ? null : `−${offer.savingPercent} %`,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -111,8 +111,8 @@ describe("Library, the filter Erbjudanden", () => {
     renderLibrary();
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     const [card] = screen.getAllByTestId("recipe-card");
-    expect(within(card).getByTestId("offer-tags")).toHaveTextContent("Extrapris: falukorv, gul lök +2");
-    expect(screen.getByTestId("offers-reason")).toHaveTextContent("Förslag för att varorna har extrapris den här veckan.");
+    expect(within(card).getByTestId("offer-tags")).toHaveTextContent("Erbjudande: falukorv, gul lök +2");
+    expect(screen.getByTestId("offers-reason")).toHaveTextContent("Förslag för att varorna är på erbjudande den här veckan.");
   });
 
   it("shows the same line in the list view, apart from the grey meta line", async () => {
@@ -121,7 +121,7 @@ describe("Library, the filter Erbjudanden", () => {
     await user.click(screen.getByRole("radio", { name: "Lista" }));
     await user.click(screen.getByRole("button", { name: "Erbjudanden" }));
     const [row] = screen.getAllByTestId("recipe-row");
-    expect(within(row).getByTestId("offer-tags")).toHaveTextContent("Extrapris: falukorv, gul lök +2");
+    expect(within(row).getByTestId("offer-tags")).toHaveTextContent("Erbjudande: falukorv, gul lök +2");
     expect(row).not.toHaveTextContent("Erbjudanden:");
   });
 

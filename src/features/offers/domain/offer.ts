@@ -215,14 +215,14 @@ export function offerListItem(
   return { key: offer.id, label: `${name}${note}`, ingredientId: offer.ingredientId };
 }
 
-/** "Lägg 3 i inköpslistan". */
-export function addToListText(count: number): string {
-  return `Lägg ${count} i inköpslistan`;
+/** The toast after adding one offer: "Lade gul lök på inköpslistan." */
+export function addedOfferText(title: string): string {
+  return `Lade ${title.charAt(0).toLocaleLowerCase("sv-SE")}${title.slice(1)} på inköpslistan.`;
 }
 
-/** The toast after adding: "Lade 3 erbjudanden i inköpslistan." */
-export function addedToListText(count: number): string {
-  return `Lade ${offersCountWords(count)} i inköpslistan.`;
+/** What the sheet says after "Ångra": "Tog bort gul lök från inköpslistan." */
+export function removedOfferText(title: string): string {
+  return `Tog bort ${title.charAt(0).toLocaleLowerCase("sv-SE")}${title.slice(1)} från inköpslistan.`;
 }
 
 /** The toast after fetching from several stores: "Hämtade 12 erbjudanden från 2 butiker för vecka 44." */

@@ -1,7 +1,7 @@
 import { bestStore, fittingOffers, type BestStore, type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
 import type { OffersListing, OffersSheetProps } from "@/features/offers/ui/offers-sheet";
-import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/features/shopping/server";
+import { addKeyedItems, getKeyedItemsOnList, removeKeyedItems, ShoppingDataError } from "@/features/shopping/server";
 import { offersSiteName, type Store } from "@/features/settings";
 import { MealPlanDataError } from "@/features/mealplan/server";
 import { loadOfferDishes } from "./offer-dishes";
@@ -36,7 +36,7 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
     // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
     try {
       const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
-      listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems };
+      listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems, remove: removeKeyedItems };
     } catch (error) {
       if (!(error instanceof ShoppingDataError || error instanceof MealPlanDataError)) throw error;
       console.error("offers_listing_unavailable", { reason: error.detail });

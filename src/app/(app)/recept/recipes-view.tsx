@@ -58,8 +58,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   if (recipes.length === 0) {
     return (
       <>
-        <EmptyState action={<ImportRecipeButton variant="primary" />}>
-          Inga recept än. Klistra in en länk till ett recept du gillar.
+        <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
+          Inga recept än.
         </EmptyState>
       </>
     );

@@ -59,17 +59,17 @@ afterEach(() => {
 });
 
 describe("OfferIdeas", () => {
-  it("shows the ready ideas at once, with no start button: the intro, each why and the extrapris line", () => {
+  it("shows the ready ideas at once, with no start button: the intro, each why and the erbjudande line", () => {
     renderIdeas(ready([idea(1, "Fläskfilé med broccoli", "Fläskfilén är billig och riset finns hemma."), idea(2, "Broccolisoppa", "Soppan går fort.", [])]));
     expect(screen.getByRole("heading", { name: "Nya idéer" })).toBeInTheDocument();
     expect(screen.getByTestId("offer-ideas-intro")).toHaveTextContent("Fläskfilé och broccoli är billigt i veckan, och du har ris hemma.");
     const rows = screen.getAllByTestId("ai-option");
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByTestId("plan-option-note")).toHaveTextContent("Fläskfilén är billig och riset finns hemma.");
-    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Fläskfilé på extrapris");
+    expect(within(rows[0]).getByTestId("plan-option-deal")).toHaveTextContent("Fläskfilé på erbjudande");
     expect(within(rows[0]).getByText("AI-förslag · 35 min")).toBeInTheDocument();
     expect(within(rows[1]).queryByTestId("plan-option-deal")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Nya idéer med extrapris" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nya idéer med erbjudanden" })).not.toBeInTheDocument();
     expect(screen.queryByText("Idéerna förbereds …")).not.toBeInTheDocument();
     expect(start).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
