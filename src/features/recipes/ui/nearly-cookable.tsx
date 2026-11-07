@@ -5,7 +5,6 @@ import { nameInSentence } from "@/features/catalog";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
-import { dishEmoji } from "../domain/dish-emoji";
 import { recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 
 /** "Saknar grädde, dill" (names in the recipe's order), or "Saknar 2 varor" if the names are not known. */
@@ -54,7 +53,7 @@ export function NearlyCookable({ recipes }: { recipes: readonly RecipeListItem[]
                       <span className="font-medium text-sky-ink">{missingLineText(recipe)}</span>
                     </>
                   }
-                  leading={<RecipeImage src={recipe.imageUrl} emoji={dishEmoji(recipe.title)} iconSize={28} className="size-14 rounded-[10px]" />}
+                  leading={<RecipeImage src={recipe.imageUrl} dish={recipe.dish} title={recipe.title} artSize={44} className="size-14 rounded-[10px]" />}
                 />
               );
             })}

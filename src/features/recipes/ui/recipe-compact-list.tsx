@@ -7,7 +7,6 @@ import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { RecipeImage } from "@/components/recipe-image";
 import { SwipeRow } from "@/components/swipe-row";
-import { dishEmoji } from "../domain/dish-emoji";
 import { offerTagsLine, recipeTimeText, type RecipeListItem } from "../domain/recipe-list";
 import { useRecipeDelete } from "./recipe-delete";
 
@@ -86,8 +85,9 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
             leading={
               <RecipeImage
                 src={recipe.imageUrl}
-                emoji={dishEmoji(recipe.title)}
-                iconSize={28}
+                dish={recipe.dish}
+                title={recipe.title}
+                artSize={44}
                 className="size-14 rounded-[10px]"
               />
             }

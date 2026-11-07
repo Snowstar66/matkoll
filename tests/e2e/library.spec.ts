@@ -97,8 +97,10 @@ test("saved recipes are listed newest first with time and servings, and a row op
   await expectTitles(page, [soppa, gryta]);
   await expect(row(page, soppa).getByText("30 min · 6 portioner")).toBeVisible();
   await expect(row(page, gryta).getByText("40 min · 4 portioner")).toBeVisible();
-  // No image address from pasted text: a mint placeholder across the top of the card, as tall as a photo (120 px, Story 19.6).
+  // No image address from pasted text: a drawing of the dish across the top of the card, as tall as a photo (120 px, Story 19.6, UX-13b).
   await expect(row(page, gryta).getByTestId("recipe-image-placeholder")).toBeVisible();
+  await expect(row(page, gryta).getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "gryta");
+  await expect(row(page, soppa).getByTestId("recipe-illustration")).toHaveAttribute("data-dish", "soppa");
   const image = await row(page, gryta).getByTestId("recipe-image-placeholder").boundingBox();
   const card = await row(page, gryta).boundingBox();
   expect(image?.height).toBe(120);

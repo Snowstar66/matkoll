@@ -74,6 +74,8 @@ const gryta = {
   missingNames: ["Lök"],
   // Poultry, from the title; a gryta, from the title.
   categories: ["poultry", "stew"],
+  // Drawn as a pot: the stew wins over the chicken (UX-13b).
+  dish: "gryta",
 };
 
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
