@@ -13,8 +13,8 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
-    title: "Kortare almanacka",
-    bullets: ["Almanackans råd i Dagens står nu utan ordet Almanackan framför, så raden blir kortare."],
+    title: "Almanackans egna tecken",
+    bullets: ["Almanackans råd i Dagens står nu under almanackans egna tecken: 宜 för det dagen passar för och 忌 för det du bör undvika, till exempel: 宜 städa hemma, fylla på förrådet · 忌 storhandla."],
   },
   {
     date: "2026-11-08",

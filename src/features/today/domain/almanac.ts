@@ -7,8 +7,8 @@ import type { Day } from "./dates";
 
 /**
  * Almanac activities (from the day's 宜 "suitable" and 忌 "avoid" lists) in order
- * of preference, each as a Swedish infinitive phrase that reads after both "Bra
- * dag att" and "Undvik att". Food first, then planning, then order at home, then
+ * of preference, each as a short Swedish infinitive phrase that reads after both
+ * 宜 ("suitable") and 忌 ("avoid"). Food first, then planning, then order at home, then
  * the rest; funerals, graves, wells, health and livestock are left out. Several
  * terms can share a phrase; the free renderings are on purpose ("出火", moving
  * the fire, is lighting the grill).
@@ -32,7 +32,7 @@ const activities: readonly (readonly [string, string])[] = [
   ["交易", "göra affärer"],
   ["立券", "göra affärer"],
   ["置产", "göra större inköp"],
-  // Often on 忌: after planning, so "Undvik att storhandla" is not every other day.
+  // Often on 忌: after planning, so "忌 storhandla" is not every other day.
   ["开市", "storhandla"],
   ["入学", "lära sig något nytt"],
   // Order at home
@@ -78,21 +78,22 @@ export function almanacActivities(list: readonly string[], max = 2, skip: readon
 
 /**
  * The almanac's advice for a day in one sentence, or null when neither list has
- * anything kept: "Bra dag att städa hemma och storhandla. Undvik att möblera om."
+ * anything kept, under the almanac's own marks 宜 (yí, "suitable") and 忌 (jì,
+ * "avoid"): "宜 städa hemma, storhandla · 忌 möblera om".
  * At most two "bra" and one "undvik", so the card stays short; a phrase on both
  * lists (two terms can share one) is kept as "bra" only.
  */
 export function almanacAdvice(yi: readonly string[], ji: readonly string[]): string | null {
-  if (yi.includes(restDay) || (ji.includes(restDay) && yi.length === 0)) return "En dag att ta det lugnt.";
+  if (yi.includes(restDay) || (ji.includes(restDay) && yi.length === 0)) return "宜 ta det lugnt";
   const good = almanacActivities(yi, 2);
   const avoid = almanacActivities(ji, 1, good);
   const parts: string[] = [];
-  if (good.length > 0) parts.push(`Bra dag att ${good.join(" och ")}.`);
-  if (avoid.length > 0) parts.push(`${good.length > 0 ? "Undvik" : "Undvik i dag"} att ${avoid[0]}.`);
-  return parts.length > 0 ? parts.join(" ") : null;
+  if (good.length > 0) parts.push(`宜 ${good.join(", ")}`);
+  if (avoid.length > 0) parts.push(`忌 ${avoid[0]}`);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-/** "Bra dag att städa hemma. Undvik att storhandla.", or null when the lists hold nothing kept. The card says no more: one learns quickly where it comes from. */
+/** "宜 städa hemma · 忌 storhandla", or null when the lists hold nothing kept. The marks say where it comes from; Hjälp and Tillval explain them. */
 export async function almanacLine({ year, month, day }: Day): Promise<string | null> {
   try {
     const { Solar } = await import("lunar-javascript");

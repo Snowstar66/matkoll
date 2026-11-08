@@ -130,16 +130,16 @@ describe("almanac", () => {
   });
 
   it("says what the day is good for and one thing to avoid", () => {
-    expect(almanacAdvice(["扫舍", "纳财", "沐浴"], ["开市", "嫁娶"])).toBe("Bra dag att fylla på förrådet och städa hemma. Undvik att storhandla.");
-    expect(almanacAdvice(["安葬"], ["开市"])).toBe("Undvik i dag att storhandla.");
+    expect(almanacAdvice(["扫舍", "纳财", "沐浴"], ["开市", "嫁娶"])).toBe("宜 fylla på förrådet, städa hemma · 忌 storhandla");
+    expect(almanacAdvice(["安葬"], ["开市"])).toBe("忌 storhandla");
     expect(almanacAdvice(["安葬"], ["行丧"])).toBeNull();
     // Two terms with one phrase: kept as good only.
-    expect(almanacAdvice(["移徙"], ["入宅"])).toBe("Bra dag att möblera om.");
-    expect(almanacAdvice(["诸事不宜"], [])).toBe("En dag att ta det lugnt.");
+    expect(almanacAdvice(["移徙"], ["入宅"])).toBe("宜 möblera om");
+    expect(almanacAdvice(["诸事不宜"], [])).toBe("宜 ta det lugnt");
   });
 
   it("gives the advice for 8 Nov 2026 without the day's animal", async () => {
-    expect(await almanacLine(d(2026, 11, 8))).toBe("Bra dag att fixa det som är trasigt och byta sängkläder. Undvik att göra om i köket.");
+    expect(await almanacLine(d(2026, 11, 8))).toBe("宜 fixa det som är trasigt, byta sängkläder · 忌 göra om i köket");
   });
 });
 
@@ -153,14 +153,14 @@ describe("today lines", () => {
   });
 
   it("puts name day and almanac on lines of their own under the food line", () => {
-    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Bra dag att städa hemma.");
+    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "宜 städa hemma");
     expect(lines).toHaveLength(3);
     expect(lines[1][0].text).toBe("Vendela har namnsdag");
-    expect(lines[2][0].text).toBe("Bra dag att städa hemma.");
+    expect(lines[2][0].text).toBe("宜 städa hemma");
   });
 
   it("shows the extras alone when food is off, and nothing when all are off", () => {
-    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Bra dag att städa hemma.")).toHaveLength(2);
+    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "宜 städa hemma")).toHaveLength(2);
     expect(todayLines(day, { food: false, nameDay: false, almanac: false }, recipes)).toEqual([]);
   });
 });
