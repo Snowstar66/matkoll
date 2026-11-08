@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDurations, formatCountdown, splitDurations } from "./step-timer";
+import { findDurations, formatCountdown, splitDurations, timerCue } from "./step-timer";
 
 const seconds = (text: string) => findDurations(text).map((found) => found.seconds);
 const phrases = (text: string) => findDurations(text).map((found) => found.text);
@@ -89,9 +89,9 @@ describe("splitDurations", () => {
   it("cuts the text around the times", () => {
     expect(splitDurations("Koka i 10 minuter och rör i 30 sek.")).toEqual([
       "Koka i ",
-      { text: "10 minuter", seconds: 600 },
+      { text: "10 minuter", seconds: 600, cue: "Koka" },
       " och rör i ",
-      { text: "30 sek", seconds: 30 },
+      { text: "30 sek", seconds: 30, cue: "Rör" },
       ".",
     ]);
   });
@@ -110,5 +110,33 @@ describe("formatCountdown", () => {
     expect(formatCountdown(3_665_000)).toBe("1:01:05");
     expect(formatCountdown(0)).toBe("0:00");
     expect(formatCountdown(-5)).toBe("0:00");
+  });
+});
+
+describe("timerCue", () => {
+  const cue = (text: string, names: string[] = []) => {
+    const [first] = findDurations(text);
+    return first ? timerCue(text, first, names) : undefined;
+  };
+
+  it("names the recipe ingredient in the sentence, nearest the time", () => {
+    expect(cue("Lägg bakpotatisarna i ugnen och baka dem i 1 timme.", ["potatis", "smör"])).toBe("Bakpotatis");
+    expect(cue("Koka potatisen i 20 minuter.", ["Potatis"])).toBe("Potatis");
+    expect(cue("Stek kycklingen och löken 5 minuter.", ["kycklingfilé", "gul lök"])).toBe("Gul lök");
+    expect(cue("Bryn rödlöken i 3 min.", ["lök"])).toBe("Rödlök");
+    // Only the sentence of the time: the potato is in the sentence before.
+    expect(cue("Skala potatisen. Låt såsen puttra i 10 minuter.", ["potatis", "sås"])).toBe("Sås");
+  });
+
+  it("falls back to the words before the time, without fillers", () => {
+    expect(cue("Grädda i ugnen ca 45 minuter.")).toBe("Grädda i ugnen");
+    expect(cue("Ugnen på 180 grader i 1 timme.")).toBe("Ugnen på 180 grader");
+    expect(cue("Låt allt stå och dra sig under locket i 10 minuter.")).toBe("Dra sig under locket");
+    expect(cue("10 minuter tills det är klart.")).toBe("Det är klart");
+  });
+
+  it("is null when the sentence has nothing but the time", () => {
+    expect(cue("10 minuter.")).toBeNull();
+    expect(cue("I ca 10 min.")).toBeNull();
   });
 });

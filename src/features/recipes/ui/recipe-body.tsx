@@ -168,6 +168,10 @@ export function RecipeBody({
   const timerOption = useOption("recipeTimer");
   useWakeLock(useOption("recipeAwake"));
   const timers = useStepTimers(recipe.id);
+  const ingredientNames = useMemo(
+    () => recipe.lines.flatMap((line) => (line.ingredientName ? [line.ingredientName] : [])),
+    [recipe.lines],
+  );
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
   const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
@@ -348,7 +352,7 @@ export function RecipeBody({
 
   return (
     <>
-      <TimerBar timers={timers.timers} onFinish={timers.finish} onDismiss={timers.dismiss} />
+      <TimerBar timers={timers.timers} onFinish={timers.finish} onDismiss={timers.dismiss} onExtend={timers.extend} />
       {/* Mobile: ingredients above the steps. Desktop: portions, buttons and ingredients in the left column, the steps beside it. */}
       <div className="flex flex-col gap-5 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start desktop:gap-6">
         <div className="flex flex-col gap-5">
@@ -457,6 +461,7 @@ export function RecipeBody({
                         text={step.text}
                         stepKey={step.id}
                         label={step.title ? step.title : `Steg ${index + 1}`}
+                        ingredientNames={ingredientNames}
                         onStart={timerOption ? timers.start : undefined}
                       />
                     </p>
