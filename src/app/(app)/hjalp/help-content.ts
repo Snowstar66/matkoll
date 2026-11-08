@@ -65,7 +65,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Vad är kortet Dagens överst i Recept?",
-        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Almanackan säger vad dagen passar för, gärna om mat, planering och ordning hemma, och en sak att undvika. Allt räknas ut i appen.",
+        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Almanackan säger vad dagen passar för, gärna om mat, planering och ordning hemma, och en sak att undvika. Den använder almanackans egna tecken: 宜 (yí) betyder lämpligt och 忌 (jì) betyder undvik. Allt räknas ut i appen.",
       },
       {
         question: "Kan jag dela ett recept med andra?",
