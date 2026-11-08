@@ -54,8 +54,8 @@ const pages: Page[] = [
         {trio.map((item) => (
           <div key={item.title} className="flex flex-col items-center gap-1">
             <span className="mb-1.5">{item.icon}</span>
-            <b className="text-[15px] leading-5 font-semibold text-ink">{item.title}</b>
-            <span className="text-[13px] leading-[18px] text-ink-2">{item.text}</span>
+            <b className="text-[0.9375rem] leading-5 font-semibold text-ink">{item.title}</b>
+            <span className="text-[0.8125rem] leading-[1.125rem] text-ink-2">{item.text}</span>
           </div>
         ))}
       </div>

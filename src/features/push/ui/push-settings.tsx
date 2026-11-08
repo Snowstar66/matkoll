@@ -138,7 +138,7 @@ export function PushSettings({ publicKey, preferences }: PushSettingsProps) {
               <Checkbox checked={choices[choice.kind]} onCheckedChange={(value) => choose(choice.kind, value)} label={choice.label} describedBy={`push-hint-${choice.kind}`} />
               <span className="flex min-w-0 flex-1 flex-col py-2">
                 <span className="text-row-title text-ink">{choice.label}</span>
-                <span id={`push-hint-${choice.kind}`} className="text-[15px] leading-5 text-ink-2">
+                <span id={`push-hint-${choice.kind}`} className="text-[0.9375rem] leading-5 text-ink-2">
                   {choice.hint}
                 </span>
               </span>

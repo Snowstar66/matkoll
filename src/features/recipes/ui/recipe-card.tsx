@@ -106,16 +106,16 @@ export function RecipeCard({
           {href ? (
             <Link
               href={href}
-              className={cx("line-clamp-2 text-[15px]/5 font-semibold wrap-break-word text-ink outline-none", "after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent")}
+              className={cx("line-clamp-2 text-[0.9375rem]/5 font-semibold wrap-break-word text-ink outline-none", "after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent")}
             >
               {title}
             </Link>
           ) : (
-            <h3 className="text-[15px]/5 font-semibold wrap-break-word text-ink">{title}</h3>
+            <h3 className="text-[0.9375rem]/5 font-semibold wrap-break-word text-ink">{title}</h3>
           )}
-          <p className="text-[13px]/[18px] text-ink-3">{meta}</p>
+          <p className="text-[0.8125rem]/[18px] text-ink-3">{meta}</p>
           {byline ? (
-            <p className="text-[13px]/[18px] text-ink-2" data-testid="recipe-card-byline">
+            <p className="text-[0.8125rem]/[18px] text-ink-2" data-testid="recipe-card-byline">
               {byline}
             </p>
           ) : null}

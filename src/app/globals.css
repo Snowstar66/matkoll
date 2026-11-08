@@ -854,3 +854,40 @@
   background: var(--surface);
   border: 3px solid var(--accent);
 }
+
+/*
+ * Textstorlek and Fetare text (Inställningar, Utseende): per device, set as data-text ("l" | "xl")
+ * and data-bold on <html> before first paint (src/lib/text-size.ts). Standard and off set nothing,
+ * so the default is untouched. The root font-size scales every rem token and rem class (the type
+ * scale, w-14 ...); the few px type tokens are scaled by the same factor here. Inputs stay 16 px+.
+ * To roll the feature back, delete from here to the end of the file.
+ */
+html[data-text="l"] {
+  font-size: 106.25%;
+  --step-size: 25.5px;
+  --tab-label-size: 11.7px;
+  --tab-label-leading: 13.8px;
+}
+
+html[data-text="xl"] {
+  font-size: 109.375%;
+  --step-size: 26.25px;
+  --tab-label-size: 12px;
+  --tab-label-leading: 14.2px;
+}
+
+/* One weight step up for regular text; headings stay as they are. */
+html[data-bold] {
+  --body-weight: 500;
+  --item-weight: 500;
+  --meta-weight: 500;
+  --tour-text-weight: 500;
+  --row-title-weight: 600;
+  --control-weight: 600;
+  --section-label-weight: 600;
+  --badge-weight: 600;
+  --step-weight: 600;
+  --tab-label-weight: 600;
+  --font-weight-normal: 500;
+  --font-weight-medium: 600;
+}

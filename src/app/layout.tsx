@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { appDescription, appName } from "./app-info";
 import { paletteBootScript } from "@/lib/palette";
+import { textBootScript } from "@/lib/text-size";
 import { themeColors } from "./theme-colors";
 
 export const metadata: Metadata = {
@@ -31,6 +32,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {/* Färgtema: the device's chosen palette, applied before first paint. Static, no request data. */}
         <script dangerouslySetInnerHTML={{ __html: paletteBootScript() }} />
+        {/* Textstorlek and Fetare text: the same, per device, before first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: textBootScript() }} />
         {children}
       </body>
     </html>

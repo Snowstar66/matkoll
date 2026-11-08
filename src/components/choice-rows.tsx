@@ -113,7 +113,7 @@ export function ChoiceRows<T extends string>({
               {option.icon ? (
                 <span
                   aria-hidden="true"
-                  className="flex w-6 shrink-0 justify-center text-[20px] leading-none"
+                  className="flex w-6 shrink-0 justify-center text-[1.25rem] leading-none"
                 >
                   {option.icon}
                 </span>

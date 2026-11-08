@@ -37,7 +37,7 @@ type Phase = "form" | "sending" | "sent";
 
 /** The field: several lines, grows with the text, 17 px; a 2 px accent line when focused (hjalp-valkomst.html). */
 const textareaClasses = cx(
-  "block w-full resize-none rounded-md border border-border bg-surface px-3.5 py-3 text-[17px] leading-6 text-ink [field-sizing:content] placeholder:text-ink-3",
+  "block w-full resize-none rounded-md border border-border bg-surface px-3.5 py-3 text-[1.0625rem] leading-6 text-ink [field-sizing:content] placeholder:text-ink-3",
   "max-h-[40dvh] outline-none focus:border-2 focus:border-accent focus:px-[13px] focus:py-[11px] dark:border-transparent dark:bg-fill dark:focus:border-accent",
 );
 
@@ -120,10 +120,10 @@ export function FeedbackSheet({ kind, onClose, ownerName, area, initialText = ""
       {phase === "sent" ? (
         <div role="status" className="flex flex-col items-center px-2 pt-5 pb-9 text-center">
           {shown === "rate" ? <StarsRow stars={stars} size={30} gap="gap-1" /> : <ThanksTile />}
-          <h3 ref={thanksRef} tabIndex={-1} className="mt-5 text-[22px] leading-7 font-semibold tracking-[-0.3px] text-ink outline-none">
+          <h3 ref={thanksRef} tabIndex={-1} className="mt-5 text-[1.375rem] leading-7 font-semibold tracking-[-0.3px] text-ink outline-none">
             {shown === "rate" ? "Tack för ditt betyg." : `Tack! ${thanksText(ownerName)}`}
           </h3>
-          <p className="mt-1.5 max-w-[290px] text-[16px] leading-6 text-ink-2">
+          <p className="mt-1.5 max-w-[290px] text-[1rem] leading-6 text-ink-2">
             {shown === "rate"
               ? thanksText(ownerName)
               : shown === "idea"
@@ -133,15 +133,15 @@ export function FeedbackSheet({ kind, onClose, ownerName, area, initialText = ""
         </div>
       ) : shown === "rate" ? (
         <div className="pb-1">
-          <p id={`${ids}-question`} className="mt-2 text-center text-[17px] leading-[22px] text-ink">
+          <p id={`${ids}-question`} className="mt-2 text-center text-[1.0625rem] leading-[1.375rem] text-ink">
             {copy.question}
           </p>
           <StarPicker value={stars} onChange={setStars} labelledBy={`${ids}-question`} />
-          <p aria-hidden="true" className="mt-0.5 min-h-5 text-center text-[15px] leading-5 text-ink-2">
+          <p aria-hidden="true" className="mt-0.5 min-h-5 text-center text-[0.9375rem] leading-5 text-ink-2">
             {starWord(stars)}
           </p>
           <div className="mt-4 flex flex-col gap-2">
-            <FieldLabel htmlFor={`${ids}-text`} optional className="text-[15px] leading-5 font-medium">
+            <FieldLabel htmlFor={`${ids}-text`} optional className="text-[0.9375rem] leading-5 font-medium">
               {ratingQuestion(stars)}
             </FieldLabel>
             <textarea
@@ -157,7 +157,7 @@ export function FeedbackSheet({ kind, onClose, ownerName, area, initialText = ""
       ) : (
         <div className="pb-1">
           <div className="mt-2 flex flex-col gap-2">
-            <FieldLabel htmlFor={`${ids}-text`} className="text-[15px] leading-5 font-medium">
+            <FieldLabel htmlFor={`${ids}-text`} className="text-[0.9375rem] leading-5 font-medium">
               {copy.question}
             </FieldLabel>
             <textarea
@@ -170,7 +170,7 @@ export function FeedbackSheet({ kind, onClose, ownerName, area, initialText = ""
             />
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <p id={`${ids}-area`} className="flex flex-wrap items-baseline gap-x-1.5 text-[15px] leading-5 font-medium text-ink">
+            <p id={`${ids}-area`} className="flex flex-wrap items-baseline gap-x-1.5 text-[0.9375rem] leading-5 font-medium text-ink">
               Gäller <span className="font-normal text-ink-2">(valfritt)</span>
             </p>
             <div role="group" aria-labelledby={`${ids}-area`} className="flex flex-wrap gap-2">
@@ -186,7 +186,7 @@ export function FeedbackSheet({ kind, onClose, ownerName, area, initialText = ""
               ))}
             </div>
           </div>
-          <p className="mt-3 text-[14px] leading-5 text-ink-2">{copy.hint}</p>
+          <p className="mt-3 text-[0.875rem] leading-5 text-ink-2">{copy.hint}</p>
         </div>
       )}
     </Sheet>

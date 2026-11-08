@@ -1433,7 +1433,7 @@ export function ShoppingLineRow({
             <Avatar initial={initialOf(mark.mark.name)} size={20} tone={mark.mark.tone} className="mr-1.5" data-testid="line-mark" title={markLabel(mark)} />
           ) : null}
           {/* Story 19.7: the amount to the right in grey, struck through with the name when checked. */}
-          {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[15px] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
+          {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[0.9375rem] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
           {chip ? <ProductChip name={chip} id={chipId} /> : null}
           {onTrash ? (
             <TrashButton label={`Ta bort ${line.label}`} onPress={(_bin, press) => onTrash(press)} />
