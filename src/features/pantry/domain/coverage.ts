@@ -1,4 +1,4 @@
-import { displayAmount, formatQuantity } from "@/features/catalog";
+import { CLOVES_PER_WHOLE, displayAmount, formatQuantity } from "@/features/catalog";
 import type { Need } from "./aggregate-needs";
 import { roundSum, type PantryAmount, type PantrySnapshot } from "./pantry-item";
 
@@ -33,7 +33,8 @@ export function isShort(coverage: Coverage): boolean {
 /**
  * How the pantry covers `need`. An unlimited item is always enough; a vague
  * need is covered by the ingredient in any form; an amount is compared only
- * with the pantry's amount in the same unit, both as they are shown
+ * with the pantry's amount in the same unit (klyftor also with whole ones,
+ * sameUnitAmount), both as they are shown
  * (catalog.displayAmount): 3,333 dl needed with 3,33 dl at home is covered,
  * so a line never reads "3,33 dl" short beside "hemma: 3,33 dl", and the
  * shopping list never asks for "<0,01 dl".
@@ -45,10 +46,24 @@ export function coverage(need: Need, snapshot: PantrySnapshot): Coverage {
   if (!atHome) return { kind: "missing" };
   if (stock.unlimited) return { kind: "covered" };
 
-  const same = stock.amounts.find((amount) => amount.unit === need.unit);
-  if (!same) return { kind: "other-unit", amounts: stock.amounts };
-  if (displayAmount(same.amount) >= displayAmount(need.amount)) return { kind: "covered" };
-  return { kind: "partial", remaining: roundSum(need.amount - same.amount), amounts: stock.amounts };
+  const same = sameUnitAmount(need.unit, stock.amounts);
+  if (same === null) return { kind: "other-unit", amounts: stock.amounts };
+  if (displayAmount(same) >= displayAmount(need.amount)) return { kind: "covered" };
+  return { kind: "partial", remaining: roundSum(need.amount - same), amounts: stock.amounts };
+}
+
+/**
+ * What is at home in `unit`, or `null` when nothing is. Klyftor also count
+ * whole ones at home, CLOVES_PER_WHOLE each (decision 2026-11-08), so "2
+ * vitlöksklyftor" is covered by 1 vitlök; every other unit counts only itself
+ * (AD-12).
+ */
+function sameUnitAmount(unit: PantryAmount["unit"], amounts: readonly PantryAmount[]): number | null {
+  const own = amounts.find((amount) => amount.unit === unit)?.amount;
+  if (unit !== "klyfta") return own ?? null;
+  const whole = amounts.find((amount) => amount.unit === "st")?.amount;
+  if (own === undefined && whole === undefined) return null;
+  return (own ?? 0) + (whole ?? 0) * CLOVES_PER_WHOLE;
 }
 
 /** What is at home, beside a short need: "hemma: 1 kg" or "hemma: 2 dl, 1 l". */

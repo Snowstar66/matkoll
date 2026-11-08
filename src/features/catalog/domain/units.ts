@@ -132,6 +132,14 @@ export function unitOfNoun(noun: string | null | undefined): Unit | null {
 }
 
 /**
+ * Cloves in a whole one (a garlic bulb), on the low side so nothing asks for
+ * too little (decision 2026-11-08). The one conversion between units: the
+ * shopping list buys klyftor as whole ones, and a recipe's klyftor count
+ * whole ones at home.
+ */
+export const CLOVES_PER_WHOLE = 10;
+
+/**
  * The unit a recipe line writes inside its noun, right after the amount:
  * "2 vitlöksklyftor" and "3 klyftor vitlök, pressade" → klyfta, "2 stora
  * vitlöksklyftor" too. Only the first word after the amount counts (after a
