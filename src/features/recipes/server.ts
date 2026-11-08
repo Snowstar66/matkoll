@@ -212,7 +212,7 @@ export async function getRecipeSavers(id: string): Promise<string[]> {
   return saversIn(await createClient(), id);
 }
 
-/** Tillval, Delade recept: whether the household shares all its recipes and how many are shared. Throws RecipeDataError. */
-export async function getRecipeSharing(): Promise<{ shareAll: boolean; sharedCount: number }> {
+/** Tillval, Delade recept: whether the household shares all its recipes, how many are shared and whether it still has its default name. Throws RecipeDataError. */
+export async function getRecipeSharing(): Promise<{ shareAll: boolean; sharedCount: number; nameIsDefault: boolean }> {
   return sharingIn(await createClient());
 }

@@ -8,7 +8,7 @@ import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
 import type { SavedRecipe } from "@/features/recipes";
-import { getRecipe, getRecipeSavers, getRecipeWithPantry } from "@/features/recipes/server";
+import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -59,6 +59,17 @@ async function readSavers(recipe: SavedRecipe): Promise<string[]> {
   }
 }
 
+/** Delade recept: whether sharing this recipe should first ask for a household name (only read for a recipe that is not shared yet). */
+async function readNameIsDefault(recipe: SavedRecipe): Promise<boolean> {
+  if (recipe.isShared) return false;
+  try {
+    return (await getRecipeSharing()).nameIsDefault;
+  } catch (error) {
+    console.error("recipe_sharing_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return false;
+  }
+}
+
 // Receptvy, with the portion selector and the status against the pantry for
 // the chosen servings, counted in the browser from the pantry snapshot. A
 // pantry that cannot be read leaves the recipe without status. The id and the
@@ -84,7 +95,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
-  const [{ weeks, remembered, plan }, savers] = await Promise.all([readPlanWeeks(recipe.id), readSavers(recipe)]);
+  const [{ weeks, remembered, plan }, savers, nameIsDefault] = await Promise.all([readPlanWeeks(recipe.id), readSavers(recipe), readNameIsDefault(recipe)]);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   // The dish that is not cooked yet: "Markera som lagad" under the steps (Story 13.4).
@@ -98,7 +109,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       snapshot={snapshot}
       site={site}
       staples={staples}
-      menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} />}
+      menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} nameIsDefault={nameIsDefault} />}
       addToPlan={addToCurrentPlan}
       offers={offers}
       listedIds={listedIds}

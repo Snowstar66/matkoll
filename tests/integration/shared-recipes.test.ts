@@ -251,12 +251,12 @@ describe("Delade recept", () => {
   });
 
   it("shares all of A's recipes and new ones with dela alla, never a saved copy, and Sluta dela alla stops them all", async () => {
-    expect(await sharingIn(a.db)).toEqual({ shareAll: false, sharedCount: 0 });
+    expect(await sharingIn(a.db)).toEqual({ shareAll: false, sharedCount: 0, nameIsDefault: false });
     // B's own unshared recipe is B's: A's dela alla never touches it.
     const bOwn = await addRecipe(b.db, "Bergs gryta", (await addIngredient(b.db, "Lök", "Frukt och grönt")), (await addIngredient(b.db, "Mjölk", "Mejeri")));
     expect((await a.db.rpc("set_recipe_share_all", { share: true })).data).toBe(2);
     expect((await rowOf(bOwn))?.is_shared).toBe(false);
-    expect(await sharingIn(a.db)).toEqual({ shareAll: true, sharedCount: 2 });
+    expect(await sharingIn(a.db)).toEqual({ shareAll: true, sharedCount: 2, nameIsDefault: false });
     const later = await addRecipe(a.db, "Pannkakor", aIngredients.get("Kycklingfilé")!, aIngredients.get("Grädde")!);
     expect((await rowOf(later))?.is_shared, "a new recipe is shared").toBe(true);
     expect((await listSharedIn(b.db)).map((row) => row.id)).toEqual(expect.arrayContaining([recipeA, otherA, later]));
@@ -274,11 +274,11 @@ describe("Delade recept", () => {
     expect((await listSharedIn(a.db)).map((row) => row.id)).toContain(bRecipe);
 
     expect((await a.db.rpc("stop_sharing_recipes")).data).toBe(2);
-    expect(await sharingIn(a.db)).toEqual({ shareAll: false, sharedCount: 0 });
+    expect(await sharingIn(a.db)).toEqual({ shareAll: false, sharedCount: 0, nameIsDefault: false });
     const left = (await listSharedIn(b.db)).map((row) => row.id);
     for (const id of [recipeA, otherA, later]) expect(left).not.toContain(id);
     // B's own dela alla is B's.
-    expect(await sharingIn(b.db)).toEqual({ shareAll: true, sharedCount: 2 });
+    expect(await sharingIn(b.db)).toEqual({ shareAll: true, sharedCount: 2, nameIsDefault: false });
     expect((await b.db.rpc("stop_sharing_recipes")).data).toBe(2);
   });
 
@@ -384,6 +384,7 @@ describe("Delade recept with a third household", () => {
       source_kind: "text",
       is_shared: true,
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+      shared_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
     }));
     expect((await adminClient().from("recipe").insert(rows)).error).toBeNull();
     const listed = (await b.db.rpc("list_shared_recipes")).data ?? [];
@@ -404,5 +405,159 @@ describe("Delade recept with a third household", () => {
     expect(await rowOf(bCopy)).toMatchObject({ shared_from_name: "Ett hushåll", title: "Cs paj" });
     // A's recipe that C had saved: A's savers no longer name C.
     expect(await saversIn(a.db, soup)).toEqual(["Bergs"]);
+  });
+});
+
+// "Nyast först" and the first-share name question (20261108210000_shared_recipes_polish.sql):
+// recipe.shared_at, the order of Delade, and recipe_sharing().name_is_default. P shares, Q looks.
+describe("Delade recept, shared_at and the default name", () => {
+  let p: TestUser;
+  let q: TestUser;
+  let householdP: string;
+  let householdQ: string;
+
+  async function addRow(title: string, createdAt: string, extra: Record<string, unknown> = {}): Promise<string> {
+    const { data, error } = await adminClient()
+      .from("recipe")
+      .insert({ user_id: p.id, household_id: householdP, title, original_servings: 2, source_kind: "text", created_at: createdAt, ...extra })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  const listedTitles = async () => ((await q.db.rpc("list_shared_recipes")).data ?? []).map((row) => row.title);
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  beforeAll(async () => {
+    p = await createTestUser("delade-p");
+    q = await createTestUser("delade-q");
+    householdP = await householdOf(p.id);
+    householdQ = await householdOf(q.id);
+  });
+
+  it("sets shared_at when a recipe is shared, clears it when it stops, and keeps updated_at", async () => {
+    const id = await addRow("Pajen", "2026-01-01T00:00:00Z");
+    const before = await rowOf(id);
+    expect(before).toMatchObject({ is_shared: false, shared_at: null });
+    const at = Date.now();
+    expect(await setSharedIn(p.db, id, true)).toBe(true);
+    const shared = await rowOf(id);
+    expect(Date.parse(shared!.shared_at!)).toBeGreaterThanOrEqual(at - 5000);
+    expect(shared!.updated_at, "sharing alone is not a change of the recipe").toBe(before!.updated_at);
+    // Staying shared while the recipe changes keeps the moment.
+    expect((await p.db.from("recipe").update({ title: "Pajen 2" }).eq("id", id)).error).toBeNull();
+    expect((await rowOf(id))!.shared_at).toBe(shared!.shared_at);
+    // A signed-in user cannot write it.
+    await p.db.from("recipe").update({ shared_at: "2020-01-01T00:00:00Z" }).eq("id", id);
+    expect((await rowOf(id))!.shared_at).toBe(shared!.shared_at);
+    expect(await setSharedIn(p.db, id, false)).toBe(true);
+    expect(await rowOf(id)).toMatchObject({ is_shared: false, shared_at: null });
+    // Shared again, it is new again.
+    await pause();
+    expect(await setSharedIn(p.db, id, true)).toBe(true);
+    expect(Date.parse((await rowOf(id))!.shared_at!)).toBeGreaterThan(Date.parse(shared!.shared_at!));
+    await adminClient().from("recipe").delete().eq("id", id);
+  });
+
+  it("lists the newest shared first, whatever the recipes' own dates, and returns shared_at", async () => {
+    const old = await addRow("Gammal men nydelad", "2025-01-01T00:00:00Z");
+    const fresh = await addRow("Ny men tidigare delad", "2026-11-01T00:00:00Z");
+    expect(await setSharedIn(p.db, fresh, true)).toBe(true);
+    await pause();
+    expect(await setSharedIn(p.db, old, true)).toBe(true);
+    const rows = (await q.db.rpc("list_shared_recipes")).data ?? [];
+    const titles = rows.map((row) => row.title);
+    expect(titles.indexOf("Gammal men nydelad")).toBeGreaterThanOrEqual(0);
+    expect(titles.indexOf("Gammal men nydelad")).toBeLessThan(titles.indexOf("Ny men tidigare delad"));
+    const shown = rows.find((row) => row.id === old)!;
+    expect(Date.parse(shown.shared_at)).toBe(Date.parse((await rowOf(old))!.shared_at!));
+    expect((await listSharedIn(q.db)).find((row) => row.id === old)!.sharedAt).toBe(shown.shared_at);
+    // Stopping and sharing again moves it to the top.
+    expect(await setSharedIn(p.db, fresh, false)).toBe(true);
+    await pause();
+    expect(await setSharedIn(p.db, fresh, true)).toBe(true);
+    const again = await listedTitles();
+    expect(again.indexOf("Ny men tidigare delad")).toBeLessThan(again.indexOf("Gammal men nydelad"));
+    await adminClient().from("recipe").delete().in("id", [old, fresh]);
+  });
+
+  it("keeps the 100 newest shared of a household, by when they were shared", async () => {
+    const many = await createTestUser("delade-manga-nyast");
+    const householdMany = await householdOf(many.id);
+    const rows = Array.from({ length: 101 }, (_, index) => ({
+      user_id: many.id,
+      household_id: householdMany,
+      title: `Delad ${index}`,
+      original_servings: 2,
+      source_kind: "text",
+      is_shared: true,
+      // Saved in the opposite order to how they were shared: the last saved was shared first.
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 200 - index)).toISOString(),
+      shared_at: new Date(Date.UTC(2026, 5, 1, 0, 0, index)).toISOString(),
+    }));
+    expect((await adminClient().from("recipe").insert(rows)).error).toBeNull();
+    const listed = ((await q.db.rpc("list_shared_recipes")).data ?? []).filter((row) => /^Delad \d+$/.test(row.title));
+    expect(listed).toHaveLength(100);
+    expect(listed.some((row) => row.title === "Delad 0"), "the one shared longest ago is left out").toBe(false);
+    expect(listed[0].title).toBe("Delad 100");
+    await adminClient().from("recipe").delete().eq("household_id", householdMany);
+  });
+
+  it("sets shared_at for the recipes dela alla marks and for new ones, and clears it when they all stop", async () => {
+    const one = await addRow("Ett", "2026-01-01T00:00:00Z");
+    const two = await addRow("Två", "2026-01-02T00:00:00Z");
+    expect((await p.db.rpc("set_recipe_share_all", { share: true })).error).toBeNull();
+    for (const id of [one, two]) expect((await rowOf(id))!.shared_at, "marked by dela alla").not.toBeNull();
+    const added = await addRow("Tre", "2026-01-03T00:00:00Z");
+    expect(await rowOf(added)).toMatchObject({ is_shared: true });
+    expect((await rowOf(added))!.shared_at, "auto-shared on insert").not.toBeNull();
+    expect((await p.db.rpc("stop_sharing_recipes")).error).toBeNull();
+    for (const id of [one, two, added]) expect(await rowOf(id)).toMatchObject({ is_shared: false, shared_at: null });
+    await adminClient().from("recipe").delete().in("id", [one, two, added]);
+  });
+
+  it("keeps is_shared and shared_at in step in every row, the backfill's shape", async () => {
+    const { data, error } = await adminClient().from("recipe").select("id, is_shared, shared_at");
+    expect(error).toBeNull();
+    expect((data ?? []).filter((row) => row.is_shared !== (row.shared_at !== null))).toEqual([]);
+    // A service-role insert of an unshared recipe cannot carry a date; a shared one may (repairs).
+    const loose = await addRow("Lös", "2026-01-01T00:00:00Z", { shared_at: "2026-02-02T00:00:00Z" });
+    expect((await rowOf(loose))!.shared_at).toBeNull();
+    const dated = await addRow("Daterad", "2026-01-01T00:00:00Z", { is_shared: true, shared_at: "2026-02-02T00:00:00Z" });
+    expect(Date.parse((await rowOf(dated))!.shared_at!)).toBe(Date.parse("2026-02-02T00:00:00Z"));
+    await adminClient().from("recipe").delete().in("id", [loose, dated]);
+  });
+
+  it("gives a saved copy no shared_at", async () => {
+    const id = await addRow("Delas och sparas", "2026-01-01T00:00:00Z");
+    expect(await setSharedIn(p.db, id, true)).toBe(true);
+    const saved = await saveAs(q, id);
+    expect(saved.copyId).not.toBeNull();
+    expect(await rowOf(saved.copyId!)).toMatchObject({ is_shared: false, shared_at: null });
+    await adminClient().from("recipe").delete().in("id", [id, saved.copyId!]);
+  });
+
+  it("tells each household only its own name_is_default, and a rename clears it", async () => {
+    expect(await sharingIn(p.db)).toMatchObject({ nameIsDefault: true });
+    expect(await sharingIn(q.db)).toMatchObject({ nameIsDefault: true });
+    expect((await q.db.rpc("rename_household", { new_name: "Quists" })).error).toBeNull();
+    expect(await sharingIn(q.db)).toMatchObject({ nameIsDefault: false });
+    expect(await sharingIn(p.db), "P's flag is P's own").toMatchObject({ nameIsDefault: true });
+    const row = (await p.db.rpc("recipe_sharing")).data ?? [];
+    expect(Object.keys(row[0]).sort()).toEqual(["name_is_default", "share_all", "shared_count"]);
+    expect(householdQ).not.toBe(householdP);
+  });
+
+  it("still refuses anon, and both functions still need a member", async () => {
+    const anon = anonClient();
+    for (const name of ["list_shared_recipes", "recipe_sharing"] as const) {
+      expect((await anon.rpc(name)).error, `${name} for anon`).not.toBeNull();
+    }
+    const lone = await createTestUser("delade-utan-hushall-2");
+    expect((await adminClient().from("household_member").delete().eq("user_id", lone.id)).error).toBeNull();
+    for (const name of ["list_shared_recipes", "recipe_sharing"] as const) {
+      expect((await lone.db.rpc(name)).error?.code, `${name} without a household`).toBe("42501");
+    }
   });
 });
