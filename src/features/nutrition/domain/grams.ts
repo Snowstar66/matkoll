@@ -51,3 +51,27 @@ export function toGrams(amount: number | null, unit: string | null, nutrition: I
   if (key === "klyfta") return nutrition.lmvNumber === GARLIC_LMV ? amount * GARLIC_CLOVE_G : null;
   return null;
 }
+
+const PROTEIN_GROUPS: ReadonlySet<string> = new Set(["rott_kott", "fagel", "fisk"]);
+
+/**
+ * A rough guess of the grams in `amount` `unit` when `toGrams` cannot tell
+ * because the ingredient lacks a piece, slice, package or density value.
+ * By food group: a slice of meat is about 33 g (12 slices for 4 people is about
+ * 100 g each), a slice of bread 30 g, of cheese 10 g; a piece, a package and a
+ * dl have a typical weight for the group. `null` for an unknown unit or no amount.
+ */
+export function estimateGrams(amount: number | null, unit: string | null, nutrition: IngredientNutrition): number | null {
+  if (amount === null || !Number.isFinite(amount) || amount <= 0) return null;
+  const key = unit === null ? "st" : unit.trim().toLowerCase();
+  const group = nutrition.group;
+  const protein = PROTEIN_GROUPS.has(group);
+  const bread = group === "fullkorn" || group === "raffinerad";
+  if (millilitres[key] !== undefined) return amount * millilitres[key] * 1 /* about 1 g per ml */ ;
+  if (key === "skiva" || key === "skivor") return amount * (protein ? 33 : bread ? 30 : group === "mejeri" ? 10 : group === "gronsak" ? 10 : 15);
+  if (key === "st" || key === "styck") return amount * (protein ? 150 : bread ? 80 : group === "gronsak" ? 100 : group === "mejeri" ? 100 : group === "agg" ? 55 : 50);
+  if (key === "förp") return amount * (protein ? 400 : group === "gronsak" ? 400 : group === "mejeri" ? 200 : bread ? 500 : 250);
+  if (key === "kruka" || key === "knippe") return amount * 30;
+  if (key === "klyfta") return amount * GARLIC_CLOVE_G;
+  return null;
+}

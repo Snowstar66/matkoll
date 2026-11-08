@@ -13,7 +13,7 @@ describe("nutritionCheck", () => {
   const good = { servings: 4, lines: [named("pasta", 400, "g", "pasta"), named("pasta", 2, "dl", "pasta"), named("tomato", 3, "dl", "krossade tomater")] };
   const blocked = (name: string) => ({
     servings: 4,
-    lines: [named("pasta", 400, "g", "pasta"), named("tomato", 1, "förp", "krossade tomater"), named(null, 500, "g", name)],
+    lines: [named("pasta", 400, "g", "pasta"), named("tomato", 1, "kvist", "krossade tomater"), named(null, 500, "g", name)],
   });
 
   it("counts the recipes that pass the gate of the cards", () => {
@@ -26,11 +26,11 @@ describe("nutritionCheck", () => {
   it("names the missing ingredients, the unit only when the unit is the reason, most recipes first", () => {
     const check = nutritionCheck([blocked("fransyska"), blocked("fransyska"), blocked("biff")], rows);
     expect(check.missing).toEqual([
-      { name: "krossade tomater", unit: "förp", recipes: 3 },
+      { name: "krossade tomater", unit: "kvist", recipes: 3 },
       { name: "fransyska", unit: null, recipes: 2 },
       { name: "biff", unit: null, recipes: 1 },
     ]);
-    expect(checkMissingText(check)).toBe("Saknas oftast: krossade tomater (förp), fransyska, biff.");
+    expect(checkMissingText(check)).toBe("Saknas oftast: krossade tomater (kvist), fransyska, biff.");
   });
 
   it("names at most five and counts a recipe once per item", () => {

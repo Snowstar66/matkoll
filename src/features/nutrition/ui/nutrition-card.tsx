@@ -164,7 +164,7 @@ function NutritionSheet({
           </p>
         ) : null}
         <p className="px-1 text-meta text-ink-2">
-          {coverageText(coverage.counted, coverage.total)} Salt och kryddor räknas inte.
+          {coverageText(coverage.counted, coverage.total, coverage.estimated)} Salt och kryddor räknas inte.
           {notCounted ? <span data-testid="nutrition-uncounted"> {notCounted}</span> : null}
         </p>
         <p className="px-1 text-meta text-ink-3">
