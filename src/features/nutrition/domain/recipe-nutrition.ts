@@ -13,7 +13,29 @@ export type NutritionLine = {
   isVague: boolean;
   /** The line's catalog ingredient, or `null`. */
   ingredientId: string | null;
+  /** The line's text as written and its ingredient's name, for saying what was not counted (SavedRecipeLine has both). */
+  originalText?: string;
+  ingredientName?: string | null;
 };
+
+/** Why a line is not in the numbers. */
+export type UncountedReason = "unknown_ingredient" | "unknown_unit";
+
+export type UncountedLine = { label: string; reason: UncountedReason };
+
+/** kcal and nutrient numbers are only shown when at least this share of the countable lines was counted. */
+export const TRUST_MIN_COVERAGE = 0.8;
+
+/** ...and when the uncounted lines whose weight is known (g, hg, kg) are at most this share of all known grams. */
+export const TRUST_MAX_UNCOUNTED_WEIGHT = 0.15;
+
+/** Whether the counted lines are a reliable basis for kcal and nutrient numbers. */
+export function isTrustworthy(coverage: Coverage): boolean {
+  if (coverage.total === 0 || coverage.counted / coverage.total < TRUST_MIN_COVERAGE) return false;
+  const known = coverage.uncountedG ?? 0;
+  const all = (coverage.countedG ?? 0) + known;
+  return all === 0 || known / all <= TRUST_MAX_UNCOUNTED_WEIGHT;
+}
 
 export type NutritionTotals = {
   kcal: number;
@@ -28,7 +50,18 @@ export type Coverage = {
   counted: number;
   /** Lines that could have been counted: all lines except the ones that never count (see below). */
   total: number;
+  /** Grams of the counted lines (whole recipe, not per portion). */
+  countedG?: number;
+  /** Grams of the uncounted lines whose amount is a weight, so the grams are known although the ingredient is not. */
+  uncountedG?: number;
 };
+
+const WEIGHT_UNIT_G: Record<string, number> = { g: 1, hg: 100, kg: 1000 };
+
+function knownWeight(line: NutritionLine): number {
+  if (line.amount === null || !Number.isFinite(line.amount) || line.amount <= 0) return 0;
+  return line.amount * (WEIGHT_UNIT_G[line.unit?.trim().toLowerCase() ?? ""] ?? 0);
+}
 
 /** The three parts of the plate model, in grams per portion. */
 export type PlateGrams = { gronsaker: number; kolhydrater: number; protein: number };
@@ -42,6 +75,8 @@ export type RecipeNutrition = {
   groupGrams: Record<KostradGroup, number>;
   plateGrams: PlateGrams;
   coverage: Coverage;
+  /** The countable lines that are not in the numbers, and why. */
+  uncounted: UncountedLine[];
 };
 
 /**
@@ -69,6 +104,16 @@ export function plateRole(nutrition: IngredientNutrition): keyof PlateGrams | nu
     default:
       return null;
   }
+}
+
+/** "fransyska" or, with the amount, "crème fraiche (1 förp)"; falls back to the text as written. */
+function lineLabel(line: NutritionLine, withAmount: boolean): string {
+  const name = (line.ingredientName ?? "").trim().toLowerCase();
+  const text = (line.originalText ?? "").trim();
+  if (!name) return text || "okänd rad";
+  if (!withAmount || line.amount === null) return name;
+  const amount = Number.isInteger(line.amount) ? String(line.amount) : String(Math.round(line.amount * 10) / 10).replace(".", ",");
+  return `${name} (${amount}${line.unit ? ` ${line.unit}` : ""})`;
 }
 
 const emptyGroups = (): Record<KostradGroup, number> =>
@@ -101,15 +146,24 @@ export function recipeNutrition(
   let grams = 0;
   let counted = 0;
   let total = 0;
+  const uncounted: UncountedLine[] = [];
+  let uncountedG = 0;
 
   for (const line of lines) {
     const nutrition = line.ingredientId !== null && Object.hasOwn(byIngredientId, line.ingredientId) ? byIngredientId[line.ingredientId] : null;
     if (nutrition?.group === "ej_raknad") continue;
     if (line.isVague && line.amount === null) continue;
     total++;
-    if (!nutrition?.per100g) continue;
+    if (!nutrition?.per100g) {
+      uncounted.push({ label: lineLabel(line, false), reason: "unknown_ingredient" });
+      uncountedG += knownWeight(line);
+      continue;
+    }
     const lineGrams = toGrams(line.amount, line.unit, nutrition);
-    if (lineGrams === null) continue;
+    if (lineGrams === null) {
+      uncounted.push({ label: lineLabel(line, true), reason: "unknown_unit" });
+      continue;
+    }
     counted++;
     const factor = lineGrams / 100;
     totals.kcal += nutrition.per100g.kcal * factor;
@@ -139,7 +193,8 @@ export function recipeNutrition(
       kolhydrater: plateGrams.kolhydrater / portions,
       protein: plateGrams.protein / portions,
     },
-    coverage: { counted, total },
+    coverage: { counted, total, countedG: grams, uncountedG },
+    uncounted,
   };
 }
 

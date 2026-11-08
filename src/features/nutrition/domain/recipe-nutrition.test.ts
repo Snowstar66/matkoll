@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { food, line, per } from "./fixtures";
-import { plateRole, recipeNutrition, roundedGrams, roundedKcal } from "./recipe-nutrition";
+import { isTrustworthy, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
 
 const rows = {
   pasta: food("pasta", "raffinerad", per(358, 12, 1.3, 71.5, 4), { gramsPerDl: 40 }),
@@ -25,17 +25,17 @@ describe("recipeNutrition", () => {
     expect(result.groupGrams.raffinerad).toBe(100);
     expect(result.groupGrams.rott_kott).toBe(100);
     expect(result.groupGrams.gronsak).toBe(100);
-    expect(result.coverage).toEqual({ counted: 3, total: 3 });
+    expect(result.coverage).toMatchObject({ counted: 3, total: 3 });
   });
 
   it("leaves out ingredients that never count from both numbers", () => {
     const result = recipeNutrition([line("pasta", 100, "g"), line("salt", 1, "tsk")], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("leaves out a vague line with no amount, with or without an ingredient", () => {
     const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true), line("beef", null, null, true)], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("does not count lines it cannot weigh, but keeps them in the total", () => {
@@ -52,13 +52,14 @@ describe("recipeNutrition", () => {
       rows,
       1,
     );
-    expect(result.coverage).toEqual({ counted: 1, total: 7 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 7 });
     expect(result.gramsPerServing).toBe(100);
+    expect(result.uncounted).toHaveLength(6);
   });
 
   it("counts a vague line that has an ingredient and an amount", () => {
     const result = recipeNutrition([line("pasta", 100, "g", true)], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("takes servings that are not positive as 1", () => {
@@ -69,7 +70,7 @@ describe("recipeNutrition", () => {
 
   it("handles no lines", () => {
     const result = recipeNutrition([], rows, 4);
-    expect(result.coverage).toEqual({ counted: 0, total: 0 });
+    expect(result.coverage).toMatchObject({ counted: 0, total: 0 });
     expect(result.perServing.kcal).toBe(0);
   });
 
@@ -79,7 +80,7 @@ describe("recipeNutrition", () => {
   });
 
   it("ignores ids that are properties of Object", () => {
-    expect(recipeNutrition([line("constructor", 100, "g")], rows, 1).coverage).toEqual({ counted: 0, total: 1 });
+    expect(recipeNutrition([line("constructor", 100, "g")], rows, 1).coverage).toMatchObject({ counted: 0, total: 1 });
   });
 
   it("puts tofu on the plate as protein and other pulses as vegetables", () => {
@@ -109,5 +110,87 @@ describe("rounding", () => {
     expect(roundedKcal(545)).toBe(550);
     expect(roundedGrams(12.4)).toBe(12);
     expect(roundedGrams(12.5)).toBe(13);
+  });
+});
+
+describe("uncounted lines and the trust gate", () => {
+  it("names the lines it could not count and why", () => {
+    const result = recipeNutrition(
+      [
+        { ...line(null, 600, "g"), ingredientName: "fransyska", originalText: "600 g fransyska" },
+        { ...line("beef", 1, "förp"), ingredientName: "Nötfärs", originalText: "1 förp nötfärs" },
+        { ...line(null, null, null), originalText: "något gott" },
+      ],
+      rows,
+      2,
+    );
+    expect(result.uncounted).toEqual([
+      { label: "fransyska", reason: "unknown_ingredient" },
+      { label: "nötfärs (1 förp)", reason: "unknown_unit" },
+      { label: "något gott", reason: "unknown_ingredient" },
+    ]);
+  });
+
+  it("trusts kcal from 80 % of the countable lines", () => {
+    expect(TRUST_MIN_COVERAGE).toBe(0.8);
+    expect(isTrustworthy({ counted: 4, total: 5 })).toBe(true);
+    expect(isTrustworthy({ counted: 3, total: 5 })).toBe(false);
+    expect(isTrustworthy({ counted: 0, total: 0 })).toBe(false);
+  });
+});
+
+describe("Biff Rydberg for 4", () => {
+  // LMV values per 100 g as in the nutrition table.
+  const biff = {
+    fransyska: food("fransyska", "rott_kott", per(116, 20.8, 3.5)),
+    potatis: food("potatis", "raffinerad", per(76, 1.8, 0.1, 16.5, 1.6), { gramsPerPiece: 90, gramsPerDl: 90 }),
+    lok: food("gul lök", "gronsak", per(39, 1.2, 0.1, 7.3, 1.9), { gramsPerPiece: 110, gramsPerDl: 60 }),
+    smor: food("smör", "fett", per(766, 0.6, 86.3), { gramsPerDl: 95 }),
+    olja: food("rapsolja", "fett", per(884, 0, 100), { gramsPerDl: 90 }),
+    aggula: food("äggula", "agg", per(325, 16, 28, 0.3), { gramsPerPiece: 18 }),
+    yoghurt: food("turkisk yoghurt", "mejeri", per(109, 3.6, 8.3, 5.2), { gramsPerDl: 103 }),
+    senap: food("dijonsenap", "ovrigt", per(100, 6, 5, 6, 3), { gramsPerDl: 100 }),
+    persilja: food("persilja", "gronsak", per(50, 3, 0.8, 5, 3), { gramsPerDl: 15 }),
+    salt: food("salt", "ej_raknad", null, { lmvNumber: null }),
+  };
+  const lines = [
+    line("fransyska", 600, "g"),
+    line("potatis", 800, "g"),
+    line("lok", 2, "st"),
+    line("smor", 50, "g"),
+    line("olja", 2, "msk"),
+    line("aggula", 4, "st"),
+    line("yoghurt", 2, "dl"),
+    line("senap", 2, "msk"),
+    line("persilja", null, null, true),
+    line("salt", null, null, true),
+  ];
+
+  it("lands in a realistic range with the kcal gate open", () => {
+    const result = recipeNutrition(lines, biff, 4);
+    expect(isTrustworthy(result.coverage)).toBe(true);
+    expect(result.uncounted).toEqual([]);
+    expect(result.perServing.kcal).toBeGreaterThan(550);
+    expect(result.perServing.kcal).toBeLessThan(800);
+  });
+
+  it("closes the gate when 600 g of unknown meat is missing, though 7 of 8 lines are counted", () => {
+    const withUnknown = lines.map((l) => (l.ingredientId === "fransyska" ? { ...line("okand", 600, "g"), ingredientName: "nötinnanlårsbit" } : l));
+    const result = recipeNutrition(withUnknown, biff, 4);
+    expect(result.coverage.counted / result.coverage.total).toBeGreaterThanOrEqual(0.8);
+    expect(isTrustworthy(result.coverage)).toBe(false);
+    expect(result.uncounted).toEqual([{ label: "nötinnanlårsbit", reason: "unknown_ingredient" }]);
+  });
+
+  it("stays open when a 1 förp line or a tsk line is missing", () => {
+    for (const extra of [line("okand", 1, "förp"), line("okand", 1, "tsk")]) {
+      const result = recipeNutrition([...lines, extra, line("senap", 1, "tsk")], biff, 4);
+      expect(result.coverage.counted / result.coverage.total).toBeGreaterThanOrEqual(0.8);
+      expect(isTrustworthy(result.coverage)).toBe(true);
+    }
+  });
+
+  it("has the weight limit at 15 %", () => {
+    expect(TRUST_MAX_UNCOUNTED_WEIGHT).toBe(0.15);
   });
 });

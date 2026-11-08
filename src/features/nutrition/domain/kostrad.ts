@@ -1,4 +1,4 @@
-import type { RecipeNutrition } from "./recipe-nutrition";
+import { isTrustworthy, type RecipeNutrition } from "./recipe-nutrition";
 
 // What a recipe says about the kostråd: the plate, the tags and the "Nyttigt"
 // filter. The limits are rules of thumb built on Livsmedelsverket's advice, are
@@ -40,9 +40,10 @@ export type PlateShares = { gronsaker: number; kolhydrater: number; protein: num
 /**
  * The shares of grönsaker, kolhydrater and protein by weight, each 0..1 and
  * adding up to 1; `null` when too little is known to draw a plate (less than
- * PLATE_MIN_G counted on the plate). Dairy, fat, sugar and other are not on the plate.
+ * PLATE_MIN_G counted on the plate) or when the counted lines are not a reliable basis (isTrustworthy). Dairy, fat, sugar and other are not on the plate.
  */
 export function plateShares(nutrition: RecipeNutrition): PlateShares | null {
+  if (!isTrustworthy(nutrition.coverage)) return null;
   const { gronsaker, kolhydrater, protein } = nutrition.plateGrams;
   const sum = gronsaker + kolhydrater + protein;
   if (sum < PLATE_MIN_G) return null;

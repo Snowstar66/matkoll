@@ -3,6 +3,7 @@ import { normalizeIngredientText } from "@/features/catalog";
 import { getIngredientNames } from "@/features/catalog/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadNutritionByNames } from "./data/queries";
+import { nameCandidates } from "./domain/names";
 import type { IngredientNutrition } from "./domain/groups";
 
 // Server-only entry (AD-1). The nutrition table is reference data, read with
@@ -22,10 +23,13 @@ export async function getIngredientNutrition(ingredientIds: readonly string[]): 
   if (ingredientIds.length === 0) return {};
   const names = await getIngredientNames(ingredientIds);
   const normalizedById = new Map(Object.entries(names).map(([id, name]) => [id, normalizeIngredientText(name)]));
-  const rows = await loadNutritionByNames(await createClient(), [...normalizedById.values()]);
+  const candidatesById = new Map([...normalizedById].map(([id, normalized]) => [id, nameCandidates(normalized)]));
+  const allNames = new Set([...candidatesById.values()].flat());
+  const rows = await loadNutritionByNames(await createClient(), [...allNames]);
   const result: Record<string, IngredientNutrition> = {};
-  for (const [id, normalized] of normalizedById) {
-    if (Object.hasOwn(rows, normalized)) result[id] = rows[normalized];
+  for (const [id, candidates] of candidatesById) {
+    const hit = candidates.find((candidate) => Object.hasOwn(rows, candidate));
+    if (hit !== undefined) result[id] = rows[hit];
   }
   return result;
 }
