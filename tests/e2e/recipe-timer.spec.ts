@@ -57,6 +57,8 @@ test("tapping a time in a step starts a timer that counts down and can be stoppe
   await page.getByRole("button", { name: "Starta timer 10 minuter" }).click();
   const row = page.getByTestId("timer-row");
   await expect(row).toHaveCount(1);
+  // What the timer is for (the step's verb, as the recipe has no ingredients) over its step.
+  await expect(row.getByTestId("timer-cue")).toHaveText("Koka");
   await expect(row).toContainText("Steg 2");
   await expect(row.getByTestId("timer-time")).toHaveText(/^(10:00|9:5\d)$/);
 
@@ -73,9 +75,9 @@ test("tapping a time in a step starts a timer that counts down and can be stoppe
   // The time is counted from the end time: it is lower a moment later.
   await expect(row.first().getByTestId("timer-time")).not.toHaveText("10:00");
 
-  await page.getByRole("button", { name: "Stoppa timer Steg 2" }).click();
+  await page.getByRole("button", { name: "Stoppa timer Koka, Steg 2" }).click();
   await expect(page.getByTestId("timer-row")).toHaveCount(1);
-  await page.getByRole("button", { name: "Stoppa timer Steg 3" }).click();
+  await page.getByRole("button", { name: "Stoppa timer Ugnen på 180 grader, Steg 3" }).click();
   await expect(page.getByTestId("timer-bar")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -98,4 +100,29 @@ test("Tillval turns the timer off: the time is plain text, and on again it is a 
   await page.getByRole("switch", { name: "Timer i receptet" }).click();
   await page.goto(`/recept/${recipeId}`);
   await expect(page.getByRole("button", { name: /^Starta timer/ })).toHaveCount(2);
+});
+
+test("a finished timer rings, takes more minutes and is answered with the check", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.clock.install();
+  await page.goto(`/recept/${recipeId}`);
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  await page.getByRole("button", { name: "Starta timer 10 minuter" }).click();
+  const row = page.getByTestId("timer-row");
+  await expect(row.getByTestId("timer-time")).toBeVisible();
+
+  await page.clock.fastForward("10:01");
+  await expect(row.getByRole("status")).toHaveText(/Klar/);
+  await expect(row.getByTestId("timer-time")).toHaveCount(0);
+  if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-klar.png") });
+
+  // One more minute: it counts again from now.
+  await page.getByRole("button", { name: "1 minut till på Koka, Steg 2" }).click();
+  await expect(row.getByTestId("timer-time")).toHaveText(/^(1:00|0:5\d)$/);
+  await page.clock.fastForward("01:01");
+  await expect(row.getByRole("status")).toHaveText(/Klar/);
+
+  await page.getByRole("button", { name: "Kvittera timer Koka, Steg 2" }).click();
+  await expect(page.getByTestId("timer-bar")).toHaveCount(0);
+  expect(errors).toEqual([]);
 });

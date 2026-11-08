@@ -25,7 +25,8 @@ export type StepDuration = {
   seconds: number;
 };
 
-export type StepPart = string | { text: string; seconds: number };
+/** A time in a step: what it says, how long it runs and what it is for ("Bakpotatis"), or null. */
+export type StepPart = string | { text: string; seconds: number; cue: string | null };
 
 const maxSeconds = 24 * 60 * 60;
 const wordNumbers: Record<string, number> = { en: 1, ett: 1 };
@@ -103,13 +104,13 @@ function mergeHoursAndMinutes(text: string, durations: StepDuration[]): StepDura
   return merged;
 }
 
-/** The text cut into plain strings and the times in it. */
-export function splitDurations(text: string): StepPart[] {
+/** The text cut into plain strings and the times in it, each with its cue (timerCue) from the recipe's ingredient names. */
+export function splitDurations(text: string, ingredientNames: readonly string[] = []): StepPart[] {
   const parts: StepPart[] = [];
   let at = 0;
   for (const found of findDurations(text)) {
     if (found.start > at) parts.push(text.slice(at, found.start));
-    parts.push({ text: found.text, seconds: found.seconds });
+    parts.push({ text: found.text, seconds: found.seconds, cue: timerCue(text, found, ingredientNames) });
     at = found.end;
   }
   if (at < text.length) parts.push(text.slice(at));
@@ -124,4 +125,83 @@ export function formatCountdown(ms: number): string {
   const seconds = total % 60;
   const two = (value: number) => String(value).padStart(2, "0");
   return hours > 0 ? `${hours}:${two(minutes)}:${two(seconds)}` : `${minutes}:${two(seconds)}`;
+}
+
+// What a timer is for, shown in the timer bar next to "Steg 7" ("Bakpotatis"):
+// - only the sentence the time is in counts (cut at . ! ? ; and new lines, and
+//   at another time in the sentence)
+// - first choice: a recipe ingredient named in that sentence, nearest the time
+//   (before it wins over after). A word matches an ingredient when it starts
+//   with the ingredient's last word less its ending ("potatisen", "bakpotatisarna"
+//   for "potatis"), or the ingredient starts with the word's stem ("kycklingen"
+//   for "kycklingfilé"); stems shorter than 3 letters never match. The
+//   ingredient's name is shown, or the word's stem when the word is a longer
+//   compound of it ("Bakpotatis" for "bakpotatisarna", "Rödlök" for "rödlöken")
+// - otherwise the words before the time, without fillers ("Grädda i ugnen ca 45
+//   minuter" → "Grädda i ugnen"), at most the four nearest the time; or the
+//   first words after it
+// - the cue starts with a capital; null when the sentence has nothing else
+
+const sentenceEnd = /[.!?;\n]/;
+const fillers = new Set(["i", "ca", "ca.", "cirka", "ungefär", "under", "på", "ytterligare", "till", "och", "eller", "minst", "max", "högst", "drygt", "knappt", "omkring", "runt", "efter", "tills", "så", "att", "en", "ett"]);
+const ending = /(?:arna|orna|erna|ar|or|er|na|en|et|n)$/;
+
+function stem(word: string): string {
+  const cut = word.replace(ending, "");
+  return cut.length >= 3 ? cut : word;
+}
+
+const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase("sv-SE") + text.slice(1);
+
+export function timerCue(text: string, duration: Pick<StepDuration, "start" | "end">, ingredientNames: readonly string[] = []): string | null {
+  let from = duration.start;
+  while (from > 0 && !sentenceEnd.test(text[from - 1]!)) from--;
+  let to = duration.end;
+  while (to < text.length && !sentenceEnd.test(text[to]!)) to++;
+  // Another time in the same sentence has its own words ("Koka 10 minuter och rör i 30 sek").
+  for (const other of findDurations(text)) {
+    if (other.end <= duration.start) from = Math.max(from, other.end);
+    if (other.start >= duration.end) to = Math.min(to, other.start);
+  }
+
+  const words = [...text.slice(from, to).matchAll(/[\p{L}\p{N}]+/gu)].map((match) => ({
+    word: match[0].toLocaleLowerCase("sv-SE"),
+    at: from + match.index,
+  }));
+  const before = words.filter((entry) => entry.at < duration.start);
+  const after = words.filter((entry) => entry.at >= duration.end);
+
+  let best: { name: string; distance: number } | null = null;
+  for (const name of ingredientNames) {
+    const last = name.trim().toLocaleLowerCase("sv-SE").split(/\s+/).pop() ?? "";
+    const nameStem = stem(last);
+    if (nameStem.length < 3) continue;
+    for (const entry of [...before, ...after]) {
+      const wordStem = stem(entry.word);
+      const matches = entry.word.includes(nameStem) || (wordStem.length >= 5 && last.startsWith(wordStem));
+      if (!matches) continue;
+      // Before the time counts as nearer than the same distance after it.
+      const distance = entry.at < duration.start ? duration.start - entry.at : entry.at - duration.end + 0.5;
+      // "bakpotatisarna" for "potatis" says more than the name: the word's stem is shown.
+      const shown = entry.word.indexOf(nameStem) > 0 ? wordStem : name.trim();
+      if (!best || distance < best.distance) best = { name: shown, distance };
+    }
+  }
+  if (best) return capitalize(best.name);
+
+  // Four words at most, those nearest the time; fillers are cut from both ends.
+  const trim = (list: typeof words, nearEnd: boolean) => {
+    let kept = list.map((entry) => entry.word);
+    const cut = () => {
+      while (kept.length > 0 && fillers.has(kept[kept.length - 1]!)) kept.pop();
+      while (kept.length > 0 && fillers.has(kept[0]!)) kept.shift();
+    };
+    cut();
+    kept = nearEnd ? kept.slice(-4) : kept.slice(0, 4);
+    cut();
+    return kept;
+  };
+  const lead = trim(before, true);
+  const chosen = lead.length > 0 ? lead : trim(after, false);
+  return chosen.length > 0 ? capitalize(chosen.join(" ")) : null;
 }

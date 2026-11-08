@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Timern säger vad den gäller",
+    bullets: [
+      "Timern i receptet visar vad den gäller, till exempel Bakpotatis, med steget under.",
+      "När tiden är slut ringer den tills du trycker på bocken, högst två minuter.",
+      "Behöver det lite till trycker du på +1 min eller +5 min.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Näring i receptet",
     bullets: [
       "Receptet kan visa en tallrik som visar hur mycket som är grönt, protein och kolhydrater, och märken som Mycket grönt och Fisk. Tryck på kortet för mer.",
