@@ -69,8 +69,8 @@ test.beforeAll(async () => {
   ownerHousehold = await householdOf(owner);
   saverHousehold = await householdOf(saver);
   const admin = adminClient();
-  await admin.from("household").update({ name: "Lindqvists", share_all: false }).eq("id", ownerHousehold);
-  await admin.from("household").update({ name: "Bergs", share_all: false }).eq("id", saverHousehold);
+  await admin.from("household").update({ name: "Lindqvists", name_is_default: false, share_all: false }).eq("id", ownerHousehold);
+  await admin.from("household").update({ name: "Bergs", name_is_default: false, share_all: false }).eq("id", saverHousehold);
   for (const household of [ownerHousehold, saverHousehold]) {
     await admin.from("meal_plan").delete().eq("household_id", household);
     await admin.from("recipe").delete().eq("household_id", household);
@@ -166,4 +166,65 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   await expect(bergs.getByTestId("recipe-card").filter({ hasText: title })).toBeVisible();
   await bergs.goto(`/recept/delade/${recipeId}`);
   await expect(bergs.getByText("Sidan finns inte.")).toBeVisible();
+});
+
+// The first share of a household that still has the name it got with its account asks for a name,
+// and the other household then sees "från <name>". The second share asks nothing.
+test("the first share asks what others should see the household as, and Bergs see that name", async ({ browser }) => {
+  const admin = adminClient();
+  await admin.from("recipe").delete().eq("household_id", ownerHousehold);
+  // A default name: the flag is set after the name, since changing the name clears it.
+  await admin.from("household").update({ name: "Phellgren85s hushåll", share_all: false }).eq("id", ownerHousehold);
+  await admin.from("household").update({ name_is_default: true }).eq("id", ownerHousehold);
+  const first = await addRecipe(owner, ownerHousehold, "Hellgrens paj");
+  const second = await addRecipe(owner, ownerHousehold, "Hellgrens soppa");
+  const hellgrens = await (await contextFor(browser, sharedOwnerStorageState)).newPage();
+  const bergs = await (await contextFor(browser, sharedSaverStorageState)).newPage();
+
+  await hellgrens.goto(`/recept/${first}`);
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await hellgrens.getByRole("menuitem", { name: "Dela med andra" }).click();
+  const sheet = hellgrens.getByRole("dialog", { name: "Vad ska andra se att ni heter?" });
+  await expect(sheet).toBeVisible();
+  const field = sheet.getByRole("textbox", { name: "Hushållets namn" });
+  await expect(field).toHaveValue("");
+  await expect(field).toHaveAttribute("placeholder", "Till exempel Hellgrens");
+  await shot(hellgrens, "namnfraga");
+  await field.fill("Hellgrens");
+  await sheet.getByRole("button", { name: "Spara och dela" }).click();
+  await expect(hellgrens.getByTestId("recipe-shared")).toHaveText("Delat");
+  await expect(sheet).toHaveCount(0);
+  expect((await admin.from("household").select("name, name_is_default").eq("id", ownerHousehold).single()).data).toEqual({ name: "Hellgrens", name_is_default: false });
+
+  await bergs.goto("/recept");
+  await bergs.getByTestId("recipe-filters").getByRole("button").first().click();
+  const card = bergs.getByTestId("shared-recipe-card").filter({ hasText: "Hellgrens paj" });
+  await expect(card.getByTestId("recipe-card-byline")).toHaveText("från Hellgrens");
+
+  // The name is chosen now: the next share asks nothing.
+  await hellgrens.goto(`/recept/${second}`);
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await hellgrens.getByRole("menuitem", { name: "Dela med andra" }).click();
+  await expect(hellgrens.getByTestId("recipe-shared")).toHaveText("Delat");
+  await expect(hellgrens.getByRole("dialog")).toHaveCount(0);
+
+  // Newest shared first: the recipe shared last is first in Delade.
+  await bergs.reload();
+  // Delade is still chosen: the filter is kept on the device.
+  await expect(bergs.getByTestId("recipe-filters").getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
+  await expect(bergs.getByTestId("shared-recipe-card").first()).toContainText("Hellgrens soppa");
+
+  // Turning Dela alla off asks while recipes are shared; Behåll dem keeps them.
+  await hellgrens.goto("/installningar/tillval");
+  const group = hellgrens.getByTestId("shared-group");
+  const all = group.getByRole("switch", { name: /^Dela alla mina recept/ });
+  await all.click();
+  await expect(all).toHaveAttribute("aria-checked", "true");
+  await all.click();
+  const question = hellgrens.getByRole("dialog", { name: "Sluta dela de recept som delas nu?" });
+  await expect(question).toContainText("2 recept delas nu.");
+  await shot(hellgrens, "dela-alla-av");
+  await question.getByRole("button", { name: "Behåll dem" }).click();
+  await expect(all).toHaveAttribute("aria-checked", "false");
+  await expect(group.getByTestId("shared-count")).toHaveText("2 recept");
 });

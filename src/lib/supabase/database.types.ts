@@ -589,14 +589,14 @@ isOneToOne: false
                   ]
                 },"recipe": {
                   Row: {
-                    "created_at": string,"household_id": string,"id": string,"image_url": string | null,"is_favorite": boolean,"is_shared": boolean,"offer_names": (string)[],"original_servings": number,"shared_from_name": string | null,"shared_from_recipe_id": string | null,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string | null
+                    "created_at": string,"household_id": string,"id": string,"image_url": string | null,"is_favorite": boolean,"is_shared": boolean,"offer_names": (string)[],"original_servings": number,"shared_at": string | null,"shared_from_name": string | null,"shared_from_recipe_id": string | null,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings": number,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings": number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings"?: number,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings"?: number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1257,7 +1257,7 @@ isOneToOne: false
                            },
 "list_shared_recipes":
 { Args: Record<PropertyKey, never>; Returns: {
-              "created_at": string,"household_name": string,"id": string,"image_url": string,"line_texts": (string)[],"original_servings": number,"saved_copy_id": string,"title": string,"total_minutes": number
+              "created_at": string,"household_name": string,"id": string,"image_url": string,"line_texts": (string)[],"original_servings": number,"saved_copy_id": string,"shared_at": string,"title": string,"total_minutes": number
             }[]
                            },
 "make_household_owner":
@@ -1330,7 +1330,7 @@ isOneToOne: false
                            },
 "recipe_sharing":
 { Args: Record<PropertyKey, never>; Returns: {
-              "share_all": boolean,"shared_count": number
+              "name_is_default": boolean,"share_all": boolean,"shared_count": number
             }[]
                            },
 "relink_thing_items":

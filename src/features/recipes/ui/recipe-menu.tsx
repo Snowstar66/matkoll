@@ -9,6 +9,7 @@ import { setRecipeShared } from "../actions/share-recipe";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
 import { useRecipeDelete } from "./recipe-delete";
+import { ShareNameSheet } from "./share-name-sheet";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 
 /**
@@ -21,16 +22,20 @@ export function RecipeMenu({
   recipe,
   searchIngredients,
   onMenu = false,
+  nameIsDefault = false,
   className,
 }: {
   recipe: SavedRecipe;
   searchIngredients: SearchIngredients;
   /** The recipe is on the current meal plan, which the question says (Story 13.2). */
   onMenu?: boolean;
+  /** The household still has the name it got with the account: the first share asks for a name. */
+  nameIsDefault?: boolean;
   className?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [askingName, setAskingName] = useState(false);
   /** A fresh form each time the sheet opens, from the recipe as last saved. */
   const [editKey, setEditKey] = useState(0);
   const router = useRouter();
@@ -81,8 +86,13 @@ export function RecipeMenu({
   // Tillval "Visa delade recept" only hides others' recipes, so it does not hide this.
   const isShared = recipe.isShared ?? false;
   const withShare = !recipe.sharedFromName || isShared;
+  // The first share of a household with its default name asks what others should see it as.
   async function toggleShare() {
     closeMenu();
+    if (!isShared && nameIsDefault) {
+      setAskingName(true);
+      return;
+    }
     let result: Result<unknown>;
     try {
       result = await setRecipeShared({ id: recipe.id, shared: !isShared });
@@ -91,6 +101,21 @@ export function RecipeMenu({
     }
     if (result.ok || result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
+  }
+
+  /** The answer to the name sheet: shares, renaming first when a name was given. The message when it fails. */
+  async function shareNamed(name: string | null): Promise<string | null> {
+    let result: Result<unknown>;
+    try {
+      result = await setRecipeShared({ id: recipe.id, shared: true }, name ?? undefined);
+    } catch {
+      result = fail("recipe_share_failed");
+    }
+    if (result.ok || result.error.code === "unauthorized") {
+      router.refresh();
+      return null;
+    }
+    return result.error.fields?.name ?? result.error.message;
   }
 
   function remove() {
@@ -102,6 +127,7 @@ export function RecipeMenu({
   return (
     <div ref={root} className={className ? `relative flex ${className}` : "relative flex"}>
       {dialog}
+      <ShareNameSheet open={askingName} onClose={() => setAskingName(false)} onSubmit={shareNamed} />
       <button
         ref={toggle}
         type="button"

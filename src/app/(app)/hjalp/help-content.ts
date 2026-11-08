@@ -65,7 +65,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag dela ett recept med andra?",
-        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn. Har ni inte bytt namn står det Ett hushåll: byt namn under Inställningar → Medlemmar så att andra ser vilka ni är. En kopia som någon sparar delas aldrig vidare. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
+        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn. Första gången ni delar frågar appen vad andra ska se att ni heter; hoppar ni över det står det Ett hushåll, och ni kan byta namn senare under Inställningar → Medlemmar. Det nyast delade receptet står först under Delade. En kopia som någon sparar delas aldrig vidare. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
       },
       {
         question: "Hur använder jag ett recept som någon annan delar?",
@@ -73,7 +73,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag dela alla recept, eller dölja Delade?",
-        answer: "Ja, under Inställningar, Tillval, Delade recept. Dela alla mina recept delar alla era recept, även nya. Sluta dela alla slutar dela allt på en gång. De två gäller hela hushållet. Visa delade recept döljer Delade på den här enheten.",
+        answer: "Ja, under Inställningar, Tillval, Delade recept. Dela alla mina recept delar alla era recept, även nya. Sluta dela alla slutar dela allt på en gång. Stänger ni av Dela alla mina recept frågar appen om recepten som delas nu ska sluta delas, eller få vara kvar (Behåll dem). De två gäller hela hushållet. Visa delade recept döljer Delade på den här enheten.",
       },
       {
         question: "Hur vet jag om en rätt är nyttig?",

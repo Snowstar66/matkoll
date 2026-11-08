@@ -227,6 +227,8 @@ export type SharedListRow = {
   imageUrl: string | null;
   householdName: string;
   createdAt: string;
+  /** When the household shared it (or last shared it again); Delade lists newest first by this. */
+  sharedAt: string;
   savedCopyId: string | null;
   lineTexts: readonly string[];
 };
@@ -249,7 +251,8 @@ export function toSharedListItems(rows: readonly SharedListRow[]): SharedListIte
     totalMinutes: row.totalMinutes,
     originalServings: row.originalServings,
     isFavorite: false,
-    createdAt: row.createdAt,
+    // "Senast tillagda" in Delade is newest shared first.
+    createdAt: row.sharedAt,
     missingCount: null,
     categories: recipeCategories({ title: row.title, ingredients: row.lineTexts, totalMinutes: row.totalMinutes }),
     dish: dishKind(row.title, row.lineTexts),
@@ -296,6 +299,15 @@ export const stopSharingQuestion = "Sluta dela alla?";
 export function stopSharingDetail(count: number): string {
   return `${count} recept slutar delas. Kopior som andra redan har sparat finns kvar hos dem.`;
 }
+
+/** The question before "Dela alla mina recept" is turned off while recipes are shared, and its text. */
+export const stopSharingNowQuestion = "Sluta dela de recept som delas nu?";
+export function stopSharingNowDetail(count: number): string {
+  return `${count} recept delas nu. Kopior som andra redan har sparat finns kvar hos dem.`;
+}
+
+/** The sheet that asks for a name the first time a household shares (while it has its default name). */
+export const askNameTitle = "Vad ska andra se att ni heter?";
 
 /** What setRecipeShared takes. */
 export const shareChangeSchema = z.object({ id: z.guid(), shared: z.boolean() });

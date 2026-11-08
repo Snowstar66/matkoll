@@ -18,6 +18,7 @@ export async function listSharedIn(db: RecipesDb): Promise<SharedListRow[]> {
     imageUrl: row.image_url ?? null,
     householdName: row.household_name,
     createdAt: row.created_at,
+    sharedAt: row.shared_at ?? row.created_at,
     savedCopyId: row.saved_copy_id ?? null,
     lineTexts: row.line_texts ?? [],
   }));
@@ -80,12 +81,12 @@ export async function setSharedIn(db: RecipesDb, id: string, shared: boolean): P
   return data.length > 0;
 }
 
-/** Tillval: dela alla, and how many of the household's recipes are shared (recipe_sharing). Throws RecipeDataError. */
-export async function sharingIn(db: RecipesDb): Promise<{ shareAll: boolean; sharedCount: number }> {
+/** Tillval: dela alla, how many of the household's recipes are shared, and whether the household still has its default name (recipe_sharing). Throws RecipeDataError. */
+export async function sharingIn(db: RecipesDb): Promise<{ shareAll: boolean; sharedCount: number; nameIsDefault: boolean }> {
   const { data, error } = await db.rpc("recipe_sharing");
   if (error) throw new RecipeDataError(`sharing_failed ${error.code}`);
   const row = data[0];
-  return { shareAll: row?.share_all ?? false, sharedCount: row?.shared_count ?? 0 };
+  return { shareAll: row?.share_all ?? false, sharedCount: row?.shared_count ?? 0, nameIsDefault: row?.name_is_default ?? false };
 }
 
 /** "Dela alla mina recept" on or off (set_recipe_share_all); how many are shared after. Throws RecipeDataError. */

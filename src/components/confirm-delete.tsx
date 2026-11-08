@@ -52,6 +52,13 @@ export type DeleteRequest = {
    * att ångra." line, and the confirm button is grey with ink text instead of red.
    */
   undoable?: boolean;
+  /**
+   * A second answer under the confirm button, in its own words ("Behåll dem"): it closes the sheet
+   * and calls `onSecondary`, like the confirm button calls `onConfirm`. The header button still
+   * changes nothing.
+   */
+  secondaryLabel?: string;
+  onSecondary?: () => void | Promise<void>;
 };
 
 export type ConfirmDeleteOptions = {
@@ -80,12 +87,12 @@ export function useConfirmDelete(options: ConfirmDeleteOptions = {}): { requestD
 
   // "Ta bort" was pressed: runs once the sheet has closed and given focus back
   // to its opener, so the caller can move focus on (the removed row's bin).
-  const confirmed = useRef<DeleteRequest | null>(null);
+  const confirmed = useRef<(() => void | Promise<void>) | null>(null);
   useEffect(() => {
     if (asking !== null || confirmed.current === null) return;
-    const request = confirmed.current;
+    const run = confirmed.current;
     confirmed.current = null;
-    void request.onConfirm();
+    void run();
   }, [asking]);
 
   const requestDelete = useCallback(
@@ -112,19 +119,34 @@ export function useConfirmDelete(options: ConfirmDeleteOptions = {}): { requestD
       closeLabel={shown?.cancelLabel ?? "Avbryt"}
       initialFocus="close"
       footer={
-        <Button
-          variant="danger-confirm"
-          fullWidth
-          className={shown?.undoable ? "text-ink!" : undefined}
-          onClick={() => {
-            if (!asking) return;
-            if (graceKey !== undefined) startDeleteGrace(graceKey);
-            confirmed.current = asking;
-            setAsking(null);
-          }}
-        >
-          {label}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="danger-confirm"
+            fullWidth
+            className={shown?.undoable ? "text-ink!" : undefined}
+            onClick={() => {
+              if (!asking) return;
+              if (graceKey !== undefined) startDeleteGrace(graceKey);
+              confirmed.current = asking.onConfirm;
+              setAsking(null);
+            }}
+          >
+            {label}
+          </Button>
+          {shown?.secondaryLabel ? (
+            <Button
+              variant="text"
+              fullWidth
+              onClick={() => {
+                if (!asking?.onSecondary) return;
+                confirmed.current = asking.onSecondary;
+                setAsking(null);
+              }}
+            >
+              {shown.secondaryLabel}
+            </Button>
+          ) : null}
+        </div>
       }
     >
       <div className="flex flex-col gap-2">

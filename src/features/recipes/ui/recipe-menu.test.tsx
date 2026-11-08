@@ -17,8 +17,10 @@ vi.mock("../actions/update-recipe", () => ({
 }));
 const deleteRecipe = vi.fn<(id: string) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/delete-recipe", () => ({ deleteRecipe: (id: string) => deleteRecipe(id) }));
-const setRecipeShared = vi.fn<(change: { id: string; shared: boolean }) => Promise<Result<{ id: string; shared: boolean }>>>();
-vi.mock("../actions/share-recipe", () => ({ setRecipeShared: (change: { id: string; shared: boolean }) => setRecipeShared(change) }));
+const setRecipeShared = vi.fn<(change: { id: string; shared: boolean }, householdName?: string) => Promise<Result<{ id: string; shared: boolean }>>>();
+vi.mock("../actions/share-recipe", () => ({
+  setRecipeShared: (change: { id: string; shared: boolean }, householdName?: string) => setRecipeShared(change, householdName),
+}));
 
 const render = (element: ReactElement) => renderElement(<ToastProvider>{element}</ToastProvider>);
 
@@ -111,7 +113,7 @@ describe("RecipeMenu", () => {
     const { unmount } = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
     await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Dela med andra" })));
-    expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: true });
+    expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: true }, undefined);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(refresh).toHaveBeenCalled();
     unmount();
@@ -119,7 +121,59 @@ describe("RecipeMenu", () => {
     render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
     await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Sluta dela" })));
-    expect(setRecipeShared).toHaveBeenLastCalledWith({ id: recipe.id, shared: false });
+    expect(setRecipeShared).toHaveBeenLastCalledWith({ id: recipe.id, shared: false }, undefined);
+  });
+
+  describe("the first share of a household with its default name", () => {
+    async function openSheet() {
+      render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} nameIsDefault />);
+      fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+      await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Dela med andra" })));
+      return screen.findByRole("dialog", { name: "Vad ska andra se att ni heter?" });
+    }
+
+    it("asks what others should see the household as, empty, before sharing", async () => {
+      const sheet = await openSheet();
+      expect(setRecipeShared).not.toHaveBeenCalled();
+      const field = within(sheet).getByRole("textbox", { name: "Hushållets namn" });
+      expect(field).toHaveValue("");
+      expect(field).toHaveAttribute("placeholder", "Till exempel Hellgrens");
+      expect(within(sheet).getByRole("button", { name: "Spara och dela" })).toBeInTheDocument();
+      expect(within(sheet).getByRole("button", { name: "Hoppa över" })).toBeInTheDocument();
+    });
+
+    it("names the household and shares on Spara och dela", async () => {
+      const sheet = await openSheet();
+      fireEvent.change(within(sheet).getByRole("textbox", { name: "Hushållets namn" }), { target: { value: "Hellgrens" } });
+      await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Spara och dela" })));
+      expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: true }, "Hellgrens");
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("shares as it is on Hoppa över, with no name", async () => {
+      const sheet = await openSheet();
+      await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Hoppa över" })));
+      expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: true }, undefined);
+    });
+
+    it("shares nothing when the sheet is cancelled, and keeps it open with the message when the name is refused", async () => {
+      setRecipeShared.mockResolvedValueOnce(fail("validation", { name: "Högst 60 tecken." }));
+      const sheet = await openSheet();
+      fireEvent.change(within(sheet).getByRole("textbox", { name: "Hushållets namn" }), { target: { value: "Namn" } });
+      await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Spara och dela" })));
+      expect(within(sheet).getByText("Högst 60 tecken.")).toBeInTheDocument();
+      expect(refresh).not.toHaveBeenCalled();
+      await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Avbryt" })));
+      expect(setRecipeShared).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not ask to stop sharing, nor when the name is chosen", async () => {
+      render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} nameIsDefault />);
+      fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+      await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Sluta dela" })));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: false }, undefined);
+    });
   });
 
   it("keeps Dela med andra with Visa delade recept off, and leaves it out on a copy saved from another household", () => {
