@@ -57,7 +57,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag ta tid på ett steg?",
-        answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med vad den gäller, till exempel Bakpotatis, och tiden som är kvar. När den är slut ringer och vibrerar telefonen var tredje sekund tills du trycker på bocken, högst två minuter. Behöver det lite till trycker du på +1 min eller +5 min. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
+        answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med vad den gäller, till exempel Bakpotatis, och tiden som är kvar. När den är slut ringer telefonen var tredje sekund tills du trycker på bocken, högst två minuter, även när ljudlöst läge är på (iOS 17 eller senare). Ljudet följer telefonens volym, och receptet måste vara öppet på skärmen. Android vibrerar också, iPhone kan inte vibrera från en webbapp. Behöver det lite till trycker du på +1 min eller +5 min. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },
       {
         question: "Vad är kortet Dagens överst i Recept?",
