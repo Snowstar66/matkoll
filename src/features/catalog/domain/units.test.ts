@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { COUNT_UNITS, displayAmount, formatQuantity, isCountUnit, normalizeUnit, parseQuantity, UNITS, unitSchema } from "./units";
+import {
+  COUNT_UNITS,
+  displayAmount,
+  formatQuantity,
+  isCountUnit,
+  normalizeUnit,
+  parseQuantity,
+  UNITS,
+  unitInNoun,
+  unitOfNoun,
+  unitSchema,
+} from "./units";
 
 describe("UNITS", () => {
   it("is the fixed list from AD-12", () => {
@@ -80,6 +91,43 @@ describe("parseQuantity", () => {
       expect(parseQuantity(text)).toBeNull();
     },
   );
+});
+
+describe("unitInNoun", () => {
+  it.each([
+    ["2 vitlöksklyftor", "klyfta"],
+    ["1 vitlöksklyfta", "klyfta"],
+    ["3 klyftor vitlök, pressade", "klyfta"],
+    ["2 stora vitlöksklyftor", "klyfta"],
+    ["2-3 vitlöksklyftor (pressade)", "klyfta"],
+    ["ca 4 Vitlöksklyftor", "klyfta"],
+    ["en vitlöksklyfta, riven", "klyfta"],
+    ["1 dillknippe", "knippe"],
+    ["1 basilikakruka", "kruka"],
+    ["4 skinkskivor", "skiva"],
+  ] as const)("%s → %s", (text, unit) => {
+    expect(unitInNoun(text)).toBe(unit);
+  });
+
+  it.each([
+    "1 vitlök",
+    "1/2 vitlök",
+    "½ vitlök, delad i klyftor",
+    "1 citron i klyftor",
+    "1 citron, i klyftor",
+    "2 tomater, skivade",
+    "vitlöksklyftor efter smak",
+    "2 dillkvistar",
+    "",
+  ])("%s has no unit in its noun", (text) => {
+    expect(unitInNoun(text)).toBeNull();
+  });
+
+  it("reads the unit from a noun's ending", () => {
+    expect(unitOfNoun("Vitlöksklyfta")).toBe("klyfta");
+    expect(unitOfNoun("vitlök")).toBeNull();
+    expect(unitOfNoun(null)).toBeNull();
+  });
 });
 
 describe("isCountUnit", () => {

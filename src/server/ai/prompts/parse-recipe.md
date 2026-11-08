@@ -21,6 +21,7 @@ En post per ingrediens, i receptets ordning. Rubriker som "Sås" eller "Till ser
 - Dela upp raden i mängd, enhet och ingrediens:
   - `amount`: mängden som tal med punkt som decimaltecken. "1 1/2" och "1½" blir 1.5, "½" blir 0.5. Vid ett intervall som "2–3" tar du det största talet (3), så att det räcker. Portioner följer sin egen regel ovan.
   - `unit`: enheten som den står i receptet, t.ex. "dl", "msk", "g", "st", "burk". Använd `null` om raden bara har ett antal, som "2 ägg".
+  - Enheten kan sitta i ordet: "2 vitlöksklyftor" och "3 klyftor vitlök" är `amount` 2 och 3 med `unit` "klyfta" och `name` "vitlök", inte hela vitlökar. På samma sätt är "1 dillknippe" `unit` "knippe" med `name` "dill", och "4 skinkskivor" `unit` "skiva" med `name` "skinka". "1 vitlök" och "1/2 vitlök" är hela vitlökar, med `unit` `null`.
   - Har raden flera mängder, som "1 burk krossade tomater (400 g)", använder du den första som den står skriven (1 burk). Det i parentesen finns kvar i `originalText`.
 - Märk vaga mängder: när mängden inte går att ange som tal ("salt", "peppar efter smak", "en skvätt olja", "smör till stekning") sätter du `isVague` till `true` och både `amount` och `unit` till `null`. Annars är `isVague` `false`.
 - `hint` är ditt förslag till en post i Matkolls ingredienskatalog:

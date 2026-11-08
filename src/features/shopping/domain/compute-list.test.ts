@@ -399,6 +399,56 @@ describe("computeList", () => {
   });
 });
 
+describe("computeList with garlic cloves (decision 2026-11-08)", () => {
+  const garlic = { names: { ...names, vitlok: "Vitlök" }, defaults: { vitlok: { section: "Frukt och grönt" } } };
+  const garlicList = (dishes: ListDish[], recipes: ListRecipe[], pantry: PantryAmountRow[] = []) =>
+    list(dishes, recipes, pantry, { catalog: garlic });
+
+  it("buys cloves and whole bulbs from several dishes as one line in st, with every dish", () => {
+    const lines = garlicList(
+      [dish("d1", "flaskfile"), dish("d2", "gryta"), dish("d3", "soppa")],
+      [
+        recipe("flaskfile", [amount("vitlok", 2, "klyfta", "2 vitlöksklyftor")]),
+        recipe("gryta", [amount("vitlok", 1, null, "1 vitlök")]),
+        recipe("soppa", [amount("vitlok", 3, "klyfta", "3 klyftor vitlök")]),
+      ],
+    );
+    // 1 st and 5 klyftor (0,5 st) is 1,5 st, which is 2 bulbs to buy.
+    expect(lines.map((line) => [line.key, line.label, line.amount, line.unit, line.origins])).toEqual([
+      ["r:vitlok:st", "Vitlök", 2, "st", ["d1", "d2", "d3"]],
+    ]);
+  });
+
+  it("buys cloves alone as one whole bulb, which a bulb at home covers", () => {
+    const recipes = [recipe("flaskfile", [amount("vitlok", 2, "klyfta", "2 vitlöksklyftor")])];
+    expect(shown(garlicList([dish("d1", "flaskfile")], recipes))).toEqual([["Vitlök", 1, "st", null, false]]);
+    expect(garlicList([dish("d1", "flaskfile")], recipes)[0].key).toBe("r:vitlok:st");
+    expect(garlicList([dish("d1", "flaskfile")], recipes, [{ ingredientId: "vitlok", amount: 1, unit: "st" }])).toEqual([]);
+  });
+
+  it("keeps the klyftor when the pantry holds the garlic in klyftor", () => {
+    const lines = garlicList(
+      [dish("d1", "flaskfile")],
+      [recipe("flaskfile", [amount("vitlok", 4, "klyfta", "4 vitlöksklyftor")])],
+      [{ ingredientId: "vitlok", amount: 1, unit: "klyfta" }],
+    );
+    expect(lines.map((line) => [line.key, line.amount, line.unit])).toEqual([["r:vitlok:klyfta", 3, "klyfta"]]);
+  });
+
+  it("folds a vague garlic line into the bulbs' line instead of a row of its own", () => {
+    const lines = garlicList(
+      [dish("d1", "flaskfile"), dish("d2", "pasta")],
+      [
+        recipe("flaskfile", [amount("vitlok", 2, "klyfta", "2 vitlöksklyftor")]),
+        recipe("pasta", [vague("vitlok", "vitlök efter smak")]),
+      ],
+    );
+    expect(lines.map((line) => [line.key, line.amount, line.unit, line.isVague, line.origins])).toEqual([
+      ["r:vitlok:st", 1, "st", false, ["d1", "d2"]],
+    ]);
+  });
+});
+
 function baseInput(): ShoppingListInput {
   return {
     plan: null,

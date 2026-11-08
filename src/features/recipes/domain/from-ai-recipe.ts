@@ -1,4 +1,4 @@
-import { normalizeUnit, type IngredientMatch } from "@/features/catalog";
+import { normalizeUnit, unitInNoun, unitOfNoun, type IngredientMatch, type Unit } from "@/features/catalog";
 import { draftLimits, type LineHint, type RecipeDraft, type RecipeLine, type RecipeStep } from "./recipe-draft";
 
 // The only mapping from the AI port's answer to a RecipeDraft (AD-10), for
@@ -51,6 +51,25 @@ export type RecipeSource =
   | { kind: "ai" }
   | { kind: "url"; url: string; imageUrl?: string | null };
 
+/**
+ * The line's unit when the AI read it as a count, but the line writes the
+ * unit inside its noun: "2 vitlöksklyftor" and "3 klyftor vitlök" are 2 and 3
+ * klyfta, not whole bulbs (catalog.unitInNoun). The prompt asks for this too;
+ * this reads it the same way whatever the model answers. A line whose
+ * ingredient is named after the unit itself ("brödskiva") keeps its count.
+ */
+function unitOfCount(
+  line: AiRecipeLike["ingredients"][number],
+  ingredient: IngredientMatch,
+  unit: Unit | null,
+): Unit | null {
+  if (unit !== null && unit !== "st") return unit;
+  const written = unitInNoun(line.originalText);
+  if (written === null) return unit;
+  const names = [line.hint?.name, ingredient.kind === "new" ? ingredient.proposal.name : undefined];
+  return names.some((name) => unitOfNoun(name) === written) ? unit : written;
+}
+
 function toLine(
   line: AiRecipeLike["ingredients"][number],
   ingredient: IngredientMatch,
@@ -87,7 +106,7 @@ function toLine(
   if (line.isVague || amount === null || !unit.known) {
     return { ...base, amount: null, unit: null, isVague: true };
   }
-  return { ...base, amount, unit: unit.unit, isVague: false };
+  return { ...base, amount, unit: unitOfCount(line, ingredient, unit.unit), isVague: false };
 }
 
 /**

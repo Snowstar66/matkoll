@@ -13,11 +13,12 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
-    title: "Större text och fetare text",
+    title: "Vitlöksklyftor läses rätt",
     bullets: [
-      "Under Inställningar, Utseende väljer du Textstorlek: Standard, Större eller Störst. Hela appen följer med.",
-      "Där finns också Fetare text, som gör vanlig text lite tjockare så den är lättare att läsa.",
-      "Valen gäller bara den här enheten, och Standard ser ut precis som förut.",
+      "Står det 2 vitlöksklyftor i ett recept blir det nu 2 klyftor, inte 2 hela vitlökar.",
+      "Recept du redan har sparat med vitlöksklyftor är rättade.",
+      "På inköpslistan står vitlöken en gång, i hela vitlökar: klyftor från flera rätter räknas ihop, ungefär 10 klyftor på en vitlök.",
+      "Har du en vitlök hemma räcker den till några klyftor, och då kommer vitlöken inte med på listan.",
     ],
   },
   {

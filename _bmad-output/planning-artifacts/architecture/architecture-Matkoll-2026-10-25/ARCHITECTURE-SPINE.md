@@ -146,6 +146,8 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
   Tillägg (1.1, AD-24): `input.snapshot` är snapshoten för valt ställe. Stället ingår aldrig i listnyckeln, överlägget, produktvalen eller exporten. Ett byte av ställe räknar om listan, och bockar och överstyrningar står kvar under sina nycklar. `getShoppingList` lämnar `site` bredvid listan, och "Lägg i lagret" lägger på det ställe som listan räknades mot (`putCheckedInPantry(siteId)`).
 
+  Tillägg (2026-11-08, vitlöksklyftor): listan köper klyftor som hela. En receptrad i `klyfta` räknas på listan som `st`, 10 klyftor på 1 st (`CLOVES_PER_WHOLE`), innan behoven summeras, så "2 vitlöksklyftor" och "1 vitlök" från två rätter blir en post `r:<id>:st` med båda rätterna, och lagrets hela vitlökar täcker klyftorna. Har lagret ingrediensen i `klyfta` står raden kvar i klyftor. Det är listans enda omräkning mellan enheter; receptet, lagret och `aggregateNeeds` räknar aldrig om (AD-12). En bock eller överstyrning på en gammal nyckel `r:<id>:klyfta` matchar inte längre och ligger kvar utan verkan.
+
 ### AD-9 – AI-tjänsten är en port
 
 - **Binds:** FR-3, FR-4, FR-5, FR-23, FR-24, FR-34, FR-36, FR-45, FR-50, FR-54, NFR-2, NFR-7
@@ -183,7 +185,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 - **Binds:** FR-5, FR-11, FR-12, FR-15, FR-16, FR-19, FR-20, FR-26
 - **Prevents:** att "dl" och "deciliter" blir olika listposter, olika formatering av mängder, och egna stavningar av avdelningar och platser.
 - **Rule:** I `catalog/domain/`:
-  - `units.ts`: enheterna `g, kg, ml, cl, dl, l, krm, tsk, msk, st, förp, klyfta, kruka, knippe, skiva`; `normalizeUnit(raw)` med alla alias (t.ex. "deciliter" → `dl`, "paket" → `förp`), `parseQuantity(text)` ("1,5", "½") och `formatQuantity(amount, unit)` (svenskt decimalkomma). De är de enda tolknings- och visningsfunktionerna. En okänd enhet gör raden vag med originaltexten kvar.
+  - `units.ts`: enheterna `g, kg, ml, cl, dl, l, krm, tsk, msk, st, förp, klyfta, kruka, knippe, skiva`; `normalizeUnit(raw)` med alla alias (t.ex. "deciliter" → `dl`, "paket" → `förp`), `parseQuantity(text)` ("1,5", "½") och `formatQuantity(amount, unit)` (svenskt decimalkomma). De är de enda tolknings- och visningsfunktionerna. Tillägg (2026-11-08): `unitInNoun(text)` läser en enhet som sitter i ordet direkt efter mängden ("2 vitlöksklyftor" → `klyfta`, även `knippe`, `kruka`, `skiva`), och `fromAiRecipe` använder den när AI:n gav ett antal utan enhet eller `st`. En okänd enhet gör raden vag med originaltexten kvar.
   - `sections.ts`: Frukt och grönt, Bröd, Mejeri, Kött och fisk, Chark, Frys, Skafferi, Dryck, Övrigt, i den ordningen. Okänd avdelning blir Övrigt.
   - `locations.ts`: Kyl, Frys, Skafferi.
 
