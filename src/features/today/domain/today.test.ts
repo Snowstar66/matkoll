@@ -130,16 +130,16 @@ describe("almanac", () => {
   });
 
   it("says what the day is good for and one thing to avoid", () => {
-    expect(almanacAdvice(["扫舍", "纳财", "沐浴"], ["开市", "嫁娶"])).toBe("宜 fylla på förrådet, städa hemma · 忌 storhandla");
-    expect(almanacAdvice(["安葬"], ["开市"])).toBe("忌 storhandla");
+    expect(almanacAdvice(["扫舍", "纳财", "沐浴"], ["开市", "嫁娶"])).toBe("宜 Bra dag att fylla på förrådet och städa hemma · 忌 Undvik att storhandla");
+    expect(almanacAdvice(["安葬"], ["开市"])).toBe("忌 Undvik att storhandla");
     expect(almanacAdvice(["安葬"], ["行丧"])).toBeNull();
     // Two terms with one phrase: kept as good only.
-    expect(almanacAdvice(["移徙"], ["入宅"])).toBe("宜 möblera om");
-    expect(almanacAdvice(["诸事不宜"], [])).toBe("宜 ta det lugnt");
+    expect(almanacAdvice(["移徙"], ["入宅"])).toBe("宜 Bra dag att möblera om");
+    expect(almanacAdvice(["诸事不宜"], [])).toBe("宜 Bra dag att ta det lugnt");
   });
 
   it("gives the advice for 8 Nov 2026 without the day's animal", async () => {
-    expect(await almanacLine(d(2026, 11, 8))).toBe("宜 fixa det som är trasigt, byta sängkläder · 忌 göra om i köket");
+    expect(await almanacLine(d(2026, 11, 8))).toBe("宜 Bra dag att fixa det som är trasigt och byta sängkläder · 忌 Undvik att göra om i köket");
   });
 });
 

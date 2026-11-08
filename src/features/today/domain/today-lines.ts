@@ -5,7 +5,7 @@ import { seasonLine, type SeasonRecipe } from "./season";
 
 // What the card says: one food line (a food day, else the season) and, when switched
 // on, the name day and the Chinese almanac's advice, each on a line of its own (the
-// advice: "宜 städa hemma · 忌 storhandla").
+// advice: "宜 Bra dag att städa hemma · 忌 Undvik att storhandla").
 
 export type LinePart = { text: string; recipeId?: string };
 export type TodayLine = readonly LinePart[];
