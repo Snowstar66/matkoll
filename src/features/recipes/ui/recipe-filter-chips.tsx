@@ -19,6 +19,8 @@ export type RecipeFilterChipsProps = {
   available?: ReadonlySet<RecipeCategory>;
   /** Story 9.3: the pill Erbjudanden is there only when the page gives the library the offers. */
   withOffers?: boolean;
+  /** Näring: the chip Nyttigt, there only when "Visa näring" is on and the page has worked the recipes out. */
+  withHealthy?: boolean;
 };
 
 /**
@@ -27,7 +29,7 @@ export type RecipeFilterChipsProps = {
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
-export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false }: RecipeFilterChipsProps) {
+export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false }: RecipeFilterChipsProps) {
   const categories = RECIPE_CATEGORIES.filter((entry) => entry === category || !available || available.has(entry));
   return (
     <ChipRow role="group" aria-label="Filter" data-testid="recipe-filters">
@@ -37,6 +39,11 @@ export function RecipeFilterChips({ filter, onFilterChange, category, onCategory
       <Chip className="snap-start" aria-pressed={filter === "cookable"} selected={filter === "cookable"} onClick={() => onFilterChange(filter === "cookable" ? "all" : "cookable")}>
         Kan lagas nu
       </Chip>
+      {withHealthy ? (
+        <Chip className="snap-start" aria-pressed={filter === "healthy"} selected={filter === "healthy"} onClick={() => onFilterChange(filter === "healthy" ? "all" : "healthy")}>
+          Nyttigt
+        </Chip>
+      ) : null}
       {withOffers ? (
         <Chip className="snap-start" aria-pressed={filter === "offers"} selected={filter === "offers"} onClick={() => onFilterChange(filter === "offers" ? "all" : "offers")}>
           Erbjudanden

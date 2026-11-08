@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { cx } from "@/components/cx";
 import { clearSearchText, EmptyState, noMatchText } from "@/components/empty-state";
@@ -23,6 +23,7 @@ import {
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
+import { useOption } from "@/lib/use-option";
 import { OffersSheetControlContext } from "./offers-sheet-control";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
@@ -104,11 +105,29 @@ export type LibraryProps = {
   onMenuIds?: readonly string[];
   /** The filter to open with, from the address ("?filter=erbjudanden", "Visa alla" in Veckans erbjudanden); chosen once when it arrives. */
   initialFilter?: "offers";
+  /**
+   * Näring: the ids of the recipes that follow the kostråd (nutrition.assessKostrad, worked out by the
+   * page with one nutrition read for the whole library), as a promise that is not waited for, so the
+   * library never waits for it; `undefined` inside it when it could not be read. The chip Nyttigt needs
+   * it and Tillval "Visa näring" on.
+   */
+  healthyIds?: Promise<readonly string[] | undefined>;
 };
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter }: LibraryProps) {
+/** Waits for the page's nutrition promise under Suspense, so only this renders late; hands the ids on. */
+function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string[] | undefined>; onLoaded: (ids: readonly string[] | undefined) => void }) {
+  const ids = use(promise);
+  useEffect(() => onLoaded(ids), [ids, onLoaded]);
+  return null;
+}
+
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  // Nyttigt is there only with "Visa näring" on (off on the server and while hydrating, so nothing jumps); a saved Nyttigt without it shows everything.
+  const [healthyIds, setHealthyIds] = useState<readonly string[] | undefined>(undefined);
+  const withHealthy = useOption("showNutrition") && healthyIds !== undefined;
+  const healthySet = useMemo(() => new Set(healthyIds ?? []), [healthyIds]);
   const [view, setView] = useRecipeView();
   const [sort, setSort] = useRecipeSort();
   const [category, setCategory] = useRecipeCategory();
@@ -202,9 +221,9 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
     // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
     if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
-    const pill = filter === "cookable" && statusUnavailable ? "all" : filter;
-    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite);
-  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags]);
+    const pill = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) ? "all" : filter;
+    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite, (recipe) => healthySet.has(recipe.id));
+  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
@@ -295,6 +314,18 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         Inget kan lagas helt just nu.
       </EmptyState>
     );
+  } else if (filter === "healthy" && withHealthy && search.kind === "none") {
+    content = (
+      <EmptyState
+        action={
+          <Button variant="text" onClick={() => (category !== null ? setCategory(null) : setFilter("all"))}>
+            Visa alla
+          </Button>
+        }
+      >
+        {category !== null ? "Inga recept här följer kostråden än." : "Inga av recepten följer kostråden än."}
+      </EmptyState>
+    );
   } else if (search.kind === "done") {
     content = (
       <EmptyState
@@ -313,6 +344,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
 
   return (
     <div className="flex flex-col gap-3">
+      {healthyPromise ? (
+        <Suspense fallback={null}>
+          <HealthyLoader promise={healthyPromise} onLoaded={setHealthyIds} />
+        </Suspense>
+      ) : null}
       {/* Story 19.6: on a desktop the search (360 px) and the filter chips share a row. */}
       <div className="flex flex-col gap-3 desktop:flex-row desktop:items-center desktop:gap-4">
         <div className="desktop:w-[360px] desktop:shrink-0">
@@ -332,6 +368,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           onCategoryChange={setCategory}
           available={availableCategories}
           withOffers={offers !== undefined}
+          withHealthy={withHealthy}
         />
         </div>
       </div>
