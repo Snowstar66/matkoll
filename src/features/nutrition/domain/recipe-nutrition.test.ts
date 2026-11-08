@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { food, line, per } from "./fixtures";
-import { isTrustworthy, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
+import { isTrustworthy, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
 
 const rows = {
   pasta: food("pasta", "raffinerad", per(358, 12, 1.3, 71.5, 4), { gramsPerDl: 40 }),
@@ -25,17 +25,17 @@ describe("recipeNutrition", () => {
     expect(result.groupGrams.raffinerad).toBe(100);
     expect(result.groupGrams.rott_kott).toBe(100);
     expect(result.groupGrams.gronsak).toBe(100);
-    expect(result.coverage).toEqual({ counted: 3, total: 3 });
+    expect(result.coverage).toMatchObject({ counted: 3, total: 3 });
   });
 
   it("leaves out ingredients that never count from both numbers", () => {
     const result = recipeNutrition([line("pasta", 100, "g"), line("salt", 1, "tsk")], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("leaves out a vague line with no amount, with or without an ingredient", () => {
     const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true), line("beef", null, null, true)], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("does not count lines it cannot weigh, but keeps them in the total", () => {
@@ -52,14 +52,14 @@ describe("recipeNutrition", () => {
       rows,
       1,
     );
-    expect(result.coverage).toEqual({ counted: 1, total: 7 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 7 });
     expect(result.gramsPerServing).toBe(100);
     expect(result.uncounted).toHaveLength(6);
   });
 
   it("counts a vague line that has an ingredient and an amount", () => {
     const result = recipeNutrition([line("pasta", 100, "g", true)], rows, 1);
-    expect(result.coverage).toEqual({ counted: 1, total: 1 });
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
   it("takes servings that are not positive as 1", () => {
@@ -70,7 +70,7 @@ describe("recipeNutrition", () => {
 
   it("handles no lines", () => {
     const result = recipeNutrition([], rows, 4);
-    expect(result.coverage).toEqual({ counted: 0, total: 0 });
+    expect(result.coverage).toMatchObject({ counted: 0, total: 0 });
     expect(result.perServing.kcal).toBe(0);
   });
 
@@ -80,7 +80,7 @@ describe("recipeNutrition", () => {
   });
 
   it("ignores ids that are properties of Object", () => {
-    expect(recipeNutrition([line("constructor", 100, "g")], rows, 1).coverage).toEqual({ counted: 0, total: 1 });
+    expect(recipeNutrition([line("constructor", 100, "g")], rows, 1).coverage).toMatchObject({ counted: 0, total: 1 });
   });
 
   it("puts tofu on the plate as protein and other pulses as vegetables", () => {
@@ -172,5 +172,25 @@ describe("Biff Rydberg for 4", () => {
     expect(result.uncounted).toEqual([]);
     expect(result.perServing.kcal).toBeGreaterThan(550);
     expect(result.perServing.kcal).toBeLessThan(800);
+  });
+
+  it("closes the gate when 600 g of unknown meat is missing, though 7 of 8 lines are counted", () => {
+    const withUnknown = lines.map((l) => (l.ingredientId === "fransyska" ? { ...line("okand", 600, "g"), ingredientName: "nötinnanlårsbit" } : l));
+    const result = recipeNutrition(withUnknown, biff, 4);
+    expect(result.coverage.counted / result.coverage.total).toBeGreaterThanOrEqual(0.8);
+    expect(isTrustworthy(result.coverage)).toBe(false);
+    expect(result.uncounted).toEqual([{ label: "nötinnanlårsbit", reason: "unknown_ingredient" }]);
+  });
+
+  it("stays open when a 1 förp line or a tsk line is missing", () => {
+    for (const extra of [line("okand", 1, "förp"), line("okand", 1, "tsk")]) {
+      const result = recipeNutrition([...lines, extra, line("senap", 1, "tsk")], biff, 4);
+      expect(result.coverage.counted / result.coverage.total).toBeGreaterThanOrEqual(0.8);
+      expect(isTrustworthy(result.coverage)).toBe(true);
+    }
+  });
+
+  it("has the weight limit at 15 %", () => {
+    expect(TRUST_MAX_UNCOUNTED_WEIGHT).toBe(0.15);
   });
 });

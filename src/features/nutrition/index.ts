@@ -18,6 +18,7 @@ export {
   roundedGrams,
   isTrustworthy,
   TRUST_MIN_COVERAGE,
+  TRUST_MAX_UNCOUNTED_WEIGHT,
   type UncountedLine,
   type UncountedReason,
   type Coverage,
