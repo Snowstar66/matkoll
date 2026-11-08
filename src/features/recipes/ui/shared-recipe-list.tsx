@@ -30,7 +30,7 @@ function SavedBadge() {
  */
 export function SharedRecipeList({ recipes }: { recipes: readonly SharedListItem[] }) {
   return (
-    <ul aria-label="Delade recept" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
+    <ul aria-label="Delade recept" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9rem),1fr))] gap-3 desktop:grid-cols-3">
       {recipes.map((recipe) => (
         <RecipeCard
           key={recipe.id}
