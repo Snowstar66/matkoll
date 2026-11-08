@@ -47,9 +47,9 @@ describe("TodayCard", () => {
 
   it("loads the almanac line only when its switch is on", async () => {
     render(<TodayCard recipes={recipes} />);
-    expect(screen.queryByText(/Hundens dag/)).toBeNull();
+    expect(screen.queryByText(/^Almanackan:/)).toBeNull();
     act(() => saveOption("dagensAlmanac", true));
-    expect(await screen.findByText(/Hundens dag/)).toBeTruthy();
+    expect(await screen.findByText(/^Almanackan: bra dag att/)).toBeTruthy();
   });
 
   it("shows no card when every line is off", () => {
