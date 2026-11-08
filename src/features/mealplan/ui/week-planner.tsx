@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip } from "@/components/chip";
-import { ChevronDownIcon } from "@/components/icons";
+import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
 import { useToast } from "@/components/toast";
 import { openAddDishesEvent } from "./add-dishes-button";
@@ -28,7 +28,7 @@ import {
 } from "../domain/meal-plan";
 import { NutritionWeekLineAsync, type RecipeNutrition } from "@/features/nutrition";
 import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
-import { weekdayDateText } from "../domain/week";
+import { chipDateText } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
 
@@ -274,6 +274,14 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
   }, []);
 
   const rowsOfWeek = calendarRows(shown, firstOpenDay);
+  // The date under each day chip: the day number, and the month on the first day shown and where it changes.
+  const chipDates = new Map<number, string>();
+  let previousDay: number | null = null;
+  for (const row of rowsOfWeek) {
+    if (row.kind === "no-day-label" || !row.weekday || (row.kind === "dish" && !row.showDay)) continue;
+    chipDates.set(row.weekday, chipDateText(weekStart, row.weekday, previousDay));
+    previousDay = row.weekday;
+  }
   const dayDish = shown.find((dish) => dish.id === dayFor) ?? null;
 
   return (
@@ -318,9 +326,11 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                     >
                       <span className="flex w-14 shrink-0 flex-col items-center justify-center bg-bg py-1.5 text-ink-3">
                         <span className="text-badge font-semibold uppercase">{weekdayShortName(row.weekday)}</span>
-                        <span className="text-meta">{weekdayDateText(weekStart, row.weekday)}</span>
+                        <span className="text-meta">{chipDates.get(row.weekday)}</span>
                       </span>
-                      <span className="flex items-center px-3.5 text-meta text-ink-2">Ledig – lägg till</span>
+                      <span className="flex flex-1 items-center justify-end px-4 text-ink-3">
+                        <PlusIcon size={20} />
+                      </span>
                     </button>
                   </li>
                 );
@@ -338,7 +348,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                     {row.weekday && row.showDay ? (
                       <>
                         <span className="text-badge font-semibold uppercase">{weekdayShortName(row.weekday)}</span>
-                        <span className="text-meta">{weekdayDateText(weekStart, row.weekday)}</span>
+                        <span className="text-meta">{chipDates.get(row.weekday)}</span>
                       </>
                     ) : row.weekday ? null : (
                       <span className="text-meta">–</span>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addWeeks,
   firstOpenWeekday,
+  chipDateText,
   weekdayDateText,
   currentWeekStart,
   maxWeeksAhead,
@@ -79,10 +80,17 @@ describe("weekdayDateText and firstOpenWeekday", () => {
   const thursday = new Date("2026-11-05T10:00:00Z");
 
   it("gives the date of a weekday of the viewed week", () => {
-    expect(weekdayDateText("2026-11-02", 1)).toBe("2/11");
-    expect(weekdayDateText("2026-11-02", 7)).toBe("8/11");
-    expect(weekdayDateText("2026-10-26", 7)).toBe("1/11");
+    expect(weekdayDateText("2026-11-02", 1)).toBe("2 nov");
+    expect(weekdayDateText("2026-11-02", 7)).toBe("8 nov");
+    expect(weekdayDateText("2026-10-26", 7)).toBe("1 nov");
     expect(weekdayDateText("2026-11-02", 8)).toBe("");
+    // Chips: the month on the first shown day and where it changes, else the day number.
+    expect(chipDateText("2026-11-02", 1, null)).toBe("2 nov");
+    expect(chipDateText("2026-11-02", 2, 1)).toBe("3");
+    expect(chipDateText("2026-11-30", 1, null)).toBe("30 nov");
+    expect(chipDateText("2026-11-30", 2, 1)).toBe("1 dec");
+    expect(chipDateText("2026-11-30", 3, 2)).toBe("2");
+    expect(chipDateText("2026-11-30", 9, null)).toBe("");
   });
 
   it("opens from today in this week, Monday in a coming one, never in a past one", () => {

@@ -61,10 +61,21 @@ export function sameDay(a: Day, b: Day): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
-const weekdays = ["sön", "mån", "tis", "ons", "tors", "fre", "lör"];
-const months = ["jan", "feb", "mars", "apr", "maj", "juni", "juli", "aug", "sep", "okt", "nov", "dec"];
+const longMonths = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"];
+const monthCapitals = ["JAN", "FEB", "MARS", "APR", "MAJ", "JUNI", "JULI", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
-/** "sön 8 nov", the card's date (the card writes it in capitals). */
-export function shortDateText(day: Day): string {
-  return `${weekdays[weekday(day)]} ${day.day} ${months[day.month - 1]}`;
+/** The weekday as Matsedel numbers it: 1 Monday to 7 Sunday. */
+export function mondayFirstWeekday(day: Day): number {
+  return weekday(day) || 7;
+}
+
+/** "Söndag 8 november", the tile's accessible name. */
+export function longDateText(day: Day): string {
+  const name = ["Söndag", "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag"][weekday(day)];
+  return `${name} ${day.day} ${longMonths[day.month - 1]}`;
+}
+
+/** "NOV", the month on the date tile (the app's own short months, in capitals). */
+export function tileMonthText(day: Day): string {
+  return monthCapitals[day.month - 1];
 }

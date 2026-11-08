@@ -625,7 +625,7 @@ test("dishes lie on days: the chip opens Flytta till dag, and the list does not 
   const sheet = page.getByRole("dialog", { name: soppa });
   expect(await sheet.getByTestId("day-choice").count()).toBeGreaterThanOrEqual(2);
   await expect(sheet.getByTestId("day-choice").last()).toHaveText("Ingen dag");
-  await expect(sheet.getByTestId("day-choice").nth(await sheet.getByTestId("day-choice").count() - 2)).toHaveText(/^Söndag \d+\/\d+/);
+  await expect(sheet.getByTestId("day-choice").nth(await sheet.getByTestId("day-choice").count() - 2)).toHaveText(/^Söndag \d+ [a-z]+/);
   expect((await sheet.getByTestId("day-choice").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await sheet.getByRole("button", { name: /^Söndag/ }).click();
   await expect(toast(page)).toContainText(`${soppa} ligger på ${dayNames[target - 1]}.`);
