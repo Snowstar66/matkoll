@@ -21,6 +21,22 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-08",
+    title: "Mjukare rosa",
+    bullets: [
+      "Temat Rosa är ljusare och klarare, med mindre skarpa kontraster.",
+      "Texten går fortfarande lätt att läsa mot de ljusa ytorna.",
+    ],
+  },
+  {
+    date: "2026-11-08",
+    title: "Lugnare Utseende",
+    bullets: [
+      "Färgrutorna är mjukare och lugnare.",
+      "Förhandsvisningen visar en pastarätt i stället för en sallad.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Vitlöksklyftor läses rätt",
     bullets: [
       "Står det 2 vitlöksklyftor i ett recept blir det nu 2 klyftor, inte 2 hela vitlökar.",
