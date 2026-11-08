@@ -149,11 +149,12 @@ describe("the Delade list", () => {
       totalMinutes: 35,
       imageUrl: null,
       householdName: "Lindqvists",
-      createdAt: "2026-11-08T10:00:00Z",
+      createdAt: "2026-11-01T10:00:00Z",
+      sharedAt: "2026-11-08T10:00:00Z",
       savedCopyId: "copy-a",
       lineTexts: ["600 g kycklingfilé", "2 dl grädde"],
     },
-    { id: "b", title: "Linssoppa", originalServings: 4, totalMinutes: 30, imageUrl: null, householdName: "Bergs", createdAt: "2026-11-07T10:00:00Z", savedCopyId: null, lineTexts: ["3 dl röda linser"] },
+    { id: "b", title: "Linssoppa", originalServings: 4, totalMinutes: 30, imageUrl: null, householdName: "Bergs", createdAt: "2026-10-01T10:00:00Z", sharedAt: "2026-11-07T10:00:00Z", savedCopyId: null, lineTexts: ["3 dl röda linser"] },
   ];
 
   it("makes library items without favourite or status, with categories and the drawing", () => {
@@ -161,6 +162,12 @@ describe("the Delade list", () => {
     expect(stew).toMatchObject({ isFavorite: false, missingCount: null, householdName: "Lindqvists", savedCopyId: "copy-a", dish: "gryta" });
     expect(stew.categories).toContain("poultry");
     expect(soup.categories).toContain("soup");
+  });
+
+  it("dates an item by when it was shared, not when the owner saved it", () => {
+    const [stew, soup] = toSharedListItems(rows);
+    expect(stew.createdAt).toBe("2026-11-08T10:00:00Z");
+    expect(soup.createdAt).toBe("2026-11-07T10:00:00Z");
   });
 
   it("searches titles and lines, in any case", () => {

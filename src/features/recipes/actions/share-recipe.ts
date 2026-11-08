@@ -1,6 +1,7 @@
 "use server";
 
 import { requireUser } from "@/features/auth/server";
+import { renameHousehold } from "@/features/household/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
@@ -17,14 +18,20 @@ function failed(error: unknown): Result<never> {
 /**
  * "Dela med andra" / "Sluta dela" in the recipe's menu (⋯): shares the household's recipe with the
  * other households, or stops at once (copies they saved stay theirs). It sets the value rather than
- * flipping it. A recipe that is not the household's changes nothing (RLS) and fails. Fails with
- * `unauthorized`, `validation` or `recipe_share_failed`.
+ * flipping it. A recipe that is not the household's changes nothing (RLS) and fails. With
+ * `householdName` (the answer to "Vad ska andra se att ni heter?") the household is renamed first,
+ * through the same rename as Medlemmar, and nothing is shared when that fails (its message and
+ * field are passed on). Fails with `unauthorized`, `validation` or `recipe_share_failed`.
  */
-export async function setRecipeShared(change: ShareChange): Promise<Result<ShareChange>> {
+export async function setRecipeShared(change: ShareChange, householdName?: string): Promise<Result<ShareChange>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = shareChangeSchema.safeParse(change);
   if (!parsed.success) return fail("validation");
+  if (householdName !== undefined) {
+    const renamed = await renameHousehold({ name: householdName });
+    if (!renamed.ok) return renamed;
+  }
   try {
     const found = await setSharedIn(await createClient(), parsed.data.id, parsed.data.shared);
     if (!found) {
@@ -41,12 +48,17 @@ export async function setRecipeShared(change: ShareChange): Promise<Result<Share
 /**
  * Tillval "Dela alla mina recept" (the household's): on shares every own recipe now and new ones as
  * they are saved; off only stops sharing new ones. Returns how many recipes are shared after.
- * Fails with `unauthorized`, `validation` or `recipe_share_failed`.
+ * `householdName` renames the household first, as for setRecipeShared. Fails with `unauthorized`,
+ * `validation` or `recipe_share_failed`.
  */
-export async function setShareAllRecipes(share: boolean): Promise<Result<{ sharedCount: number }>> {
+export async function setShareAllRecipes(share: boolean, householdName?: string): Promise<Result<{ sharedCount: number }>> {
   const user = await requireUser();
   if (!user.ok) return user;
   if (typeof share !== "boolean") return fail("validation");
+  if (householdName !== undefined) {
+    const renamed = await renameHousehold({ name: householdName });
+    if (!renamed.ok) return renamed;
+  }
   try {
     const sharedCount = await setShareAllIn(await createClient(), share);
     revalidateFor("recipe");
