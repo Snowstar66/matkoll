@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
-import { ShareIcon } from "@/components/icons";
+import { CheckIcon, ShareIcon } from "@/components/icons";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -21,6 +21,7 @@ import {
 } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
 import { useOption } from "@/lib/use-option";
+import { useStepChecks } from "@/lib/use-step-checks";
 import { groupLines } from "../domain/line-groups";
 import {
   boughtText,
@@ -182,6 +183,8 @@ export function RecipeBody({
   const { showToast } = useToast();
   // The screen stays on while the recipe is open, and a time in a step starts a timer (no separate cooking mode).
   const timerOption = useOption("recipeTimer");
+  const stepsOption = useOption("recipeSteps");
+  const stepChecks = useStepChecks(recipe.id);
   useWakeLock(useOption("recipeAwake"));
   const timers = useStepTimers(recipe.id);
   const ingredientNames = useMemo(
@@ -484,11 +487,25 @@ export function RecipeBody({
           </h2>
           {recipe.steps.length > 0 ? (
             <ol className="flex flex-col gap-4">
-              {recipe.steps.map((step, index) => (
-                <li key={step.id} className="flex gap-3">
-                  <span aria-hidden="true" className="w-6 shrink-0 text-row-title text-accent">
-                    {index + 1}
-                  </span>
+              {recipe.steps.map((step, index) => {
+                const done = stepsOption && stepChecks.checked.has(step.id);
+                return (
+                <li key={step.id} className={cx("flex gap-3 transition-opacity", done && "opacity-45")} data-testid="recipe-step" data-done={done ? "" : undefined}>
+                  {stepsOption ? (
+                    <button
+                      type="button"
+                      aria-pressed={done}
+                      aria-label={`Steg ${index + 1} klart`}
+                      onClick={() => stepChecks.toggle(step.id)}
+                      className="relative flex h-7 w-6 shrink-0 items-start text-row-title text-accent before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']"
+                    >
+                      {done ? <CheckIcon size={20} className="mt-0.5" /> : index + 1}
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" className="w-6 shrink-0 text-row-title text-accent">
+                      {index + 1}
+                    </span>
+                  )}
                   <div className="flex min-w-0 flex-col">
                     {step.title ? (
                       <h3 className="text-headline text-ink" data-testid="recipe-step-title">
@@ -506,11 +523,17 @@ export function RecipeBody({
                     </p>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           ) : (
             <p className="text-body text-ink-2">Receptet har inga steg.</p>
           )}
+          {stepsOption && stepChecks.checked.size > 0 ? (
+            <button type="button" onClick={stepChecks.reset} className="flex min-h-tap items-center self-start text-control text-accent">
+              Börja om
+            </button>
+          ) : null}
           {finish}
         </section>
       </div>

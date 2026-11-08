@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Bocka av stegen",
+    bullets: [
+      "Tryck på ett stegs nummer i receptet så blir det en bock och steget tonas ner, så du ser var du är.",
+      "Bockarna försvinner när du markerar receptet som lagat, med Börja om, eller av sig själva efter 12 timmar.",
+      "Det går att stänga av under Inställningar, Tillval.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Näringen räknas för fler recept",
     bullets: [
       "Förpackningar som burk, paket och flaska räknas nu om till gram för vanliga varor, till exempel krossade tomater, bacon och kokosmjölk. Kruka och knippe räknas för kryddor och bladgrönt.",
