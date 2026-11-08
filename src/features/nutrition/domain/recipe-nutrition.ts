@@ -1,4 +1,4 @@
-import { toGrams } from "./grams";
+import { estimateGrams, toGrams } from "./grams";
 import { KOSTRAD_GROUPS, type IngredientNutrition, type KostradGroup } from "./groups";
 
 // Nutrition of a recipe per portion, from its lines and the nutrition rows of
@@ -61,6 +61,8 @@ export type Coverage = {
   countedG?: number;
   /** Grams of the uncounted lines whose amount is a weight, so the grams are known although the ingredient is not. */
   uncountedG?: number;
+  /** How many of the counted lines have a guessed weight (a slice, piece or package without a known size). */
+  estimated?: number;
 };
 
 const WEIGHT_UNIT_G: Record<string, number> = { g: 1, hg: 100, kg: 1000 };
@@ -156,6 +158,7 @@ export function recipeNutrition(
   const plateGrams: PlateGrams = { gronsaker: 0, kolhydrater: 0, protein: 0 };
   let grams = 0;
   let counted = 0;
+  let estimated = 0;
   let total = 0;
   const uncounted: UncountedLine[] = [];
   let uncountedG = 0;
@@ -170,7 +173,11 @@ export function recipeNutrition(
       uncountedG += knownWeight(line);
       continue;
     }
-    const lineGrams = toGrams(line.amount, line.unit, nutrition);
+    let lineGrams = toGrams(line.amount, line.unit, nutrition);
+    if (lineGrams === null) {
+      lineGrams = estimateGrams(line.amount, line.unit, nutrition);
+      if (lineGrams !== null) estimated++;
+    }
     if (lineGrams === null) {
       uncounted.push({ label: lineLabel(line, true), reason: "unknown_unit", name: lineName(line), unit: line.unit });
       continue;
@@ -204,7 +211,7 @@ export function recipeNutrition(
       kolhydrater: plateGrams.kolhydrater / portions,
       protein: plateGrams.protein / portions,
     },
-    coverage: { counted, total, countedG: grams, uncountedG },
+    coverage: { counted, total, countedG: grams, uncountedG, estimated },
     uncounted,
   };
 }

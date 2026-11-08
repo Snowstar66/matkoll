@@ -61,7 +61,7 @@ describe("recipes the nutrition can be counted for", () => {
     expect(check.missing).toEqual([]);
   });
 
-  it("names an ingredient and, when the unit is the reason, the unit", () => {
+  it("guesses the weight of packages and pots that have no stored weight, so the recipe still counts", () => {
     const rows = buildTable({ packages: false });
     const byId: Record<string, IngredientNutrition> = {};
     const checked = [0, 1].map((r) => {
@@ -70,9 +70,8 @@ describe("recipes the nutrition can be counted for", () => {
       return { lines: one.lines, servings: 4 };
     });
     const check = nutritionCheck(checked, byId);
-    expect(check.counted).toBe(0);
-    expect(check.missing).toContainEqual({ name: "krossade tomater", unit: "förp", recipes: 2 });
-    expect(check.missing).toContainEqual({ name: "färsk basilika", unit: "kruka", recipes: 2 });
+    expect(check.counted).toBe(2);
+    expect(check.missing).toEqual([]);
   });
 });
 

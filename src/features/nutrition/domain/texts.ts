@@ -35,8 +35,8 @@ export function weekLineText(summary: WeekSummary): string | null {
 }
 
 /** "Räknat på 9 av 11 varor." */
-export function coverageText(counted: number, total: number): string {
-  return `Räknat på ${counted} av ${total} varor.`;
+export function coverageText(counted: number, total: number, estimated = 0): string {
+  return `Räknat på ${counted} av ${total} varor${estimated > 0 ? `, varav ${estimated} med uppskattad vikt` : ""}.`;
 }
 
 export const KCAL_UNSURE_TEXT = "Näringen går inte att räkna säkert för det här receptet, så varken kcal eller tallrik visas.";
