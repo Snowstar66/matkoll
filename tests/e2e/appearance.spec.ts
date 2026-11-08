@@ -52,9 +52,9 @@ test("Textstorlek and Fetare text set attributes on <html>, survive a reload, an
   const html = page.locator("html");
   await expect(html).not.toHaveAttribute("data-text", /.+/);
   const rootSize = () => page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
-  expect(await rootSize()).toBe("16px");
+  expect(await rootSize()).toBe("17px");
 
-  await page.getByRole("radio", { name: "Störst" }).click();
+  await page.getByRole("radio", { name: "Större" }).click();
   await page.getByRole("switch", { name: /Fetare text/ }).click();
   await expect(html).toHaveAttribute("data-text", "xl");
   await expect(html).toHaveAttribute("data-bold", "");
@@ -62,15 +62,16 @@ test("Textstorlek and Fetare text set attributes on <html>, survive a reload, an
   await page.reload();
   await expect(html).toHaveAttribute("data-text", "xl");
   await expect(html).toHaveAttribute("data-bold", "");
-  await expect(page.getByRole("radio", { name: "Störst" })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Större" })).toBeChecked();
 
-  await page.getByRole("radio", { name: "Större" }).click();
-  expect(await rootSize()).toBe("17px");
+  await page.getByRole("radio", { name: "Mindre" }).click();
+  await expect(html).toHaveAttribute("data-text", "s");
+  expect(await rootSize()).toBe("16px");
   await page.getByRole("radio", { name: "Standard" }).click();
   await page.getByRole("switch", { name: /Fetare text/ }).click();
   await expect(html).not.toHaveAttribute("data-text", /.+/);
   expect(await page.evaluate(() => document.documentElement.hasAttribute("data-bold"))).toBe(false);
-  expect(await rootSize()).toBe("16px");
+  expect(await rootSize()).toBe("17px");
   await page.reload();
   await expect(html).not.toHaveAttribute("data-text", /.+/);
   expect(await page.evaluate(() => document.documentElement.hasAttribute("data-bold"))).toBe(false);
