@@ -47,6 +47,11 @@ export type DeleteRequest = {
   confirmLabel?: string;
   /** The header button that keeps everything; "Avbryt" by default (e.g. "Fortsätt fota"). */
   cancelLabel?: string;
+  /**
+   * Something that can be done again later rather than lost (Sluta dela alla): no "Det går inte
+   * att ångra." line, and the confirm button is grey with ink text instead of red.
+   */
+  undoable?: boolean;
 };
 
 export type ConfirmDeleteOptions = {
@@ -110,6 +115,7 @@ export function useConfirmDelete(options: ConfirmDeleteOptions = {}): { requestD
         <Button
           variant="danger-confirm"
           fullWidth
+          className={shown?.undoable ? "text-ink!" : undefined}
           onClick={() => {
             if (!asking) return;
             if (graceKey !== undefined) startDeleteGrace(graceKey);
@@ -122,7 +128,7 @@ export function useConfirmDelete(options: ConfirmDeleteOptions = {}): { requestD
       }
     >
       <div className="flex flex-col gap-2">
-        {graceKey === undefined ? <p className="text-body text-ink-2">{cannotUndoText}</p> : null}
+        {graceKey === undefined && !shown?.undoable ? <p className="text-body text-ink-2">{cannotUndoText}</p> : null}
         {shown?.detail ? <p className="text-body text-ink-2">{shown.detail}</p> : null}
       </div>
     </Sheet>

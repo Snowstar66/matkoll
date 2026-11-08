@@ -8,6 +8,7 @@ import { offerSavedText } from "../domain/offer-saved";
 import type { LineOffer } from "../domain/line-status";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
+import { savedByText, sharedByText } from "../domain/shared-recipe";
 import { sourceLabel } from "../domain/source-label";
 import { FavoriteButton } from "./favorite-button";
 import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type RecipeWeek, type RemoveFromPlan, type UndoBuy } from "./recipe-body";
@@ -60,6 +61,23 @@ export type RecipeViewProps = {
   finish?: ReactNode;
   /** The nutrition card (nutrition.NutritionCard) from the page, between the chips and Ingredienser. */
   nutritionCard?: ReactNode;
+  /** The heart beside the menu; left out (false) on another household's shared recipe. */
+  withFavorite?: boolean;
+  /**
+   * Delade recept: the households that saved a copy of this own, shared recipe, for "Sparat av
+   * Lindqvists och Bergs" under the time (only while it is shared).
+   */
+  savers?: readonly string[];
+  /** Delade recept: the household that shares the recipe shown ("Delat av Lindqvists"); a saved copy says it by itself. */
+  sharedBy?: string;
+  /** "Köp det som saknas (N)" as a text button beside the portion selector instead of in the bottom bar (a shared recipe). */
+  buyInline?: boolean;
+  /** A button first in the bottom bar ("Spara i mina recept" on a shared recipe). */
+  extraAction?: ReactNode;
+  /** The bottom bar's buttons always one above the other, in order (a shared recipe). */
+  stackActions?: boolean;
+  /** A quiet line under "Delat av …" on a shared recipe: the household that shares it sees who saved it. */
+  sharedNote?: string;
 };
 
 export function RecipeView({
@@ -79,11 +97,20 @@ export function RecipeView({
   removeFromPlan,
   finish,
   nutritionCard,
+  withFavorite = true,
+  savers = [],
+  sharedBy,
+  buyInline = false,
+  extraAction,
+  stackActions = false,
+  sharedNote,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
   const offerLine = offerSavedText(recipe.offerNames);
+  const sharedFrom = sharedBy ?? recipe.sharedFromName ?? null;
+  const savedBy = recipe.isShared ? savedByText(savers) : null;
   return (
     <article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
       {/* A compact top bar instead of a big picture (Pontus 2026-11-06): back on the left, the heart and ⋯ on the right.
@@ -95,7 +122,7 @@ export function RecipeView({
           Recept
         </BackLink>
         <div className="-mr-2 flex">
-          <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} glass="large" />
+          {withFavorite ? <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} glass="large" /> : null}
           {menu}
         </div>
       </div>
@@ -128,6 +155,21 @@ export function RecipeView({
             ) : null}
           </p>
         ) : null}
+        {sharedFrom ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-shared-by">
+            {sharedByText(sharedFrom)}
+          </p>
+        ) : null}
+        {sharedNote ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-shared-note">
+            {sharedNote}
+          </p>
+        ) : null}
+        {savedBy ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-saved-by">
+            {savedBy}
+          </p>
+        ) : null}
         {offerLine ? (
           <p className="text-meta text-ink-2" data-testid="recipe-offers">
             {offerLine}
@@ -153,6 +195,10 @@ export function RecipeView({
         defaultWeekStart={defaultWeekStart}
         finish={finish}
         nutritionCard={nutritionCard}
+        shared={recipe.isShared ?? false}
+        buyInline={buyInline}
+        extraAction={extraAction}
+        stackActions={stackActions}
       />
     </article>
   );

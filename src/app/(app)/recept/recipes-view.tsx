@@ -11,11 +11,13 @@ import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { assessKostrad, recipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
-import { listLibraryWithRows } from "@/features/recipes/server";
+import { listLibraryWithRows, listSharedRecipes } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
+import { EmptyLibrary } from "@/features/recipes/ui/empty-library";
+import type { SharedListItem } from "@/features/recipes";
 import { TodayCard } from "@/features/today";
 import { WarmAi } from "../warm-ai";
 
@@ -53,6 +55,8 @@ export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoIm
 async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?: Promise<"offers" | undefined> }) {
   await requireUserOrRedirect("/recept");
   const initialFilter = await filterPromise;
+  // Not awaited: Delade streams in, so the own library never waits for it (the device's option is not known here).
+  const shared = readShared();
   const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan] = await Promise.all([
     listLibraryWithRows(),
     readLibraryOffers(),
@@ -67,9 +71,11 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
     return (
       <>
         {dagens}
-        <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
-          Inga recept än.
-        </EmptyState>
+        <EmptyLibrary shared={shared}>
+          <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
+            Inga recept än.
+          </EmptyState>
+        </EmptyLibrary>
       </>
     );
   }
@@ -84,6 +90,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
       initialFilter={offers ? initialFilter : undefined}
       healthyIds={healthyIds}
+      shared={shared}
     />
     </>
   );
@@ -101,6 +108,16 @@ async function readHealthyIds(rows: readonly RecipeListRow[]): Promise<string[] 
     return rows.filter((row) => assessKostrad(recipeNutrition(row.lines, byId, row.originalServings)).follows).map((row) => row.id);
   } catch (error) {
     console.error("recipe_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return undefined;
+  }
+}
+
+/** Delade recept: what other households share; `undefined` when it cannot be read, and the chip Delade is left out. */
+async function readShared(): Promise<SharedListItem[] | undefined> {
+  try {
+    return await listSharedRecipes();
+  } catch (error) {
+    console.error("recipe_shared_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return undefined;
   }
 }

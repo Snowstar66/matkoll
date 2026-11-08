@@ -73,3 +73,10 @@ export {
 } from "./domain/saved-recipe";
 export { scaleFactor, scaleLines, factorText, type ScalableLine } from "./domain/scale";
 export { lineOffers, type LineOffer } from "./domain/line-status";
+export {
+  savedByText,
+  sharedByText,
+  sharedFromText,
+  type SharedListItem,
+  type SharedRecipe,
+} from "./domain/shared-recipe";

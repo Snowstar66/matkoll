@@ -42,6 +42,10 @@ export type SavedRecipe = {
   isFavorite: boolean;
   /** Story 16.4: the offers the recipe was saved from; empty for any other recipe. */
   offerNames?: string[];
+  /** Delade recept: the household shares it with the other households. */
+  isShared?: boolean;
+  /** Delade recept: a copy saved from another household's recipe names that household ("Delat av Lindqvists"); null otherwise. */
+  sharedFromName?: string | null;
   /**
    * When the recipe last changed, exactly as the database gives it. Ändra
    * recept sends it back, so a form filled before a newer change cannot

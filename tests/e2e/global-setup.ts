@@ -69,6 +69,10 @@ import {
   staplesStorageState,
   listImportEmail,
   listImportStorageState,
+  sharedOwnerEmail,
+  sharedOwnerStorageState,
+  sharedSaverEmail,
+  sharedSaverStorageState,
   newsEmail,
   newsStorageState,
   outsiderEmail,
@@ -211,6 +215,8 @@ export default async function globalSetup(config: FullConfig) {
       [newsEmail, newsStorageState],
       [staplesEmail, staplesStorageState],
       [listImportEmail, listImportStorageState],
+      [sharedOwnerEmail, sharedOwnerStorageState],
+      [sharedSaverEmail, sharedSaverStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

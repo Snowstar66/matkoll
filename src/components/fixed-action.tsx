@@ -44,6 +44,8 @@ export type FixedActionProps = {
   reserve?: number;
   /** On the same glass as the tab bar, flush above it (Story 19.6: the recipe view). */
   glass?: boolean;
+  /** Always one above the other, in the order given (first on top), also before the bar is measured. */
+  stack?: boolean;
 };
 
 /**
@@ -62,7 +64,7 @@ export type FixedActionProps = {
  * take more than a quarter of the viewport, it stands at the end of the page
  * instead.
  */
-export function FixedAction({ children, reserve = 1, glass = false }: FixedActionProps) {
+export function FixedAction({ children, reserve = 1, glass = false, stack = false }: FixedActionProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout>({ height: null, stacked: false, inline: false, extra: 0 });
   const items = Children.toArray(children);
@@ -113,15 +115,15 @@ export function FixedAction({ children, reserve = 1, glass = false }: FixedActio
     <div
       ref={barRef}
       data-testid="fixed-action"
-      data-layout={layout.stacked ? "stacked" : "row"}
+      data-layout={stack || layout.stacked ? "stacked" : "row"}
       className={cx(
         "mx-auto flex max-w-content gap-2 *:max-w-full",
         // A label wraps inside its button rather than overflow.
         "[&>button]:h-auto [&>button]:min-h-button [&>button]:py-2 [&>button]:text-center [&>button]:whitespace-normal",
-        layout.stacked ? "flex-col" : "flex-row *:min-w-fit *:grow *:basis-0",
+        stack || layout.stacked ? "flex-col" : "flex-row *:min-w-fit *:grow *:basis-0",
       )}
     >
-      {layout.stacked ? [...items].reverse() : items}
+      {stack ? items : layout.stacked ? [...items].reverse() : items}
     </div>
   );
 

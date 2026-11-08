@@ -21,6 +21,8 @@ export type RecipeFilterChipsProps = {
   withOffers?: boolean;
   /** Näring: the chip Nyttigt, there only when "Visa näring" is on and the page has worked the recipes out. */
   withHealthy?: boolean;
+  /** Delade recept: the chip Delade, first in the row, there only with Tillval "Visa delade recept" on. */
+  withShared?: boolean;
 };
 
 /**
@@ -29,10 +31,15 @@ export type RecipeFilterChipsProps = {
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
-export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false }: RecipeFilterChipsProps) {
+export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false, withShared = false }: RecipeFilterChipsProps) {
   const categories = RECIPE_CATEGORIES.filter((entry) => entry === category || !available || available.has(entry));
   return (
     <ChipRow role="group" aria-label="Filter" data-testid="recipe-filters">
+      {withShared ? (
+        <Chip className="snap-start" aria-pressed={filter === "shared"} selected={filter === "shared"} onClick={() => onFilterChange(filter === "shared" ? "all" : "shared")}>
+          Delade
+        </Chip>
+      ) : null}
       <Chip className="snap-start" aria-pressed={filter === "favorites"} selected={filter === "favorites"} onClick={() => onFilterChange(filter === "favorites" ? "all" : "favorites")}>
         Favoriter
       </Chip>

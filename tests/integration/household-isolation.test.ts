@@ -942,6 +942,9 @@ describe("household isolation", () => {
       // Story 21.2b: tried with A's ids below ("the household's functions") and in household-members.test.ts.
       "revoke_household_invite", "restore_household_invite", "remove_household_member", "make_household_owner",
       "accept_household_invite", "household_invite_preview",
+      // Delade recept: lists what other households share (none of A's unshared recipes); shared-recipes.test.ts
+      // tries it with A's recipe unshared, shared, shared by dela alla and stopped.
+      "list_shared_recipes",
     ];
     const ownHouseholdOnly = [
       // Locks, defaults and sweeps of the caller's own household, and reads without arguments.
@@ -960,6 +963,8 @@ describe("household isolation", () => {
       "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
       // Ät snart: the caller's own household's devices that want the daily push (eat-soon.test.ts tries it).
       "claim_eat_soon_devices",
+      // Delade recept: the caller's own household's dela alla and count (shared-recipes.test.ts tries each).
+      "recipe_sharing", "set_recipe_share_all", "stop_sharing_recipes",
       // Pure functions of their arguments.
       "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
@@ -985,6 +990,10 @@ describe("household isolation", () => {
         ["undo_dish_cooked", { dish }],
         ["save_recipe", { recipe: { title: "Kapat", original_servings: 2, source_kind: "url", source_url: "https://www.koket.se/kapat" }, steps: [], lines: [{ position: 1, original_text: "lök", ingredient_id: aSeed.ingredientId, is_vague: true }] }],
         ["update_recipe", { id: aSeed.recipeId, expected_updated_at: new Date().toISOString(), recipe: { title: "Kapat" }, steps: [], lines: [] }],
+        // Delade recept: A's recipe is not shared.
+        ["get_shared_recipe", { shared_recipe_id: aSeed.recipeId }],
+        ["save_shared_recipe", { shared_recipe_id: aSeed.recipeId, ingredient_ids: [], expected_version: "x" }],
+        ["shared_recipe_savers", { own_recipe_id: aSeed.recipeId }],
         ["select_pantry_site", { site_id: site }],
         ["delete_pantry_site", { site_id: site }],
         ["save_pantry_site", { site_id: site, site_name: "Kapat", site_normalized_name: "kapat", mode: "rename" }],

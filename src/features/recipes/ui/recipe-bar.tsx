@@ -12,6 +12,8 @@ const views: readonly SegmentOption<RecipeView>[] = [
 export type RecipeBarProps = {
   /** How many recipes are shown. */
   count: number;
+  /** The count as said instead of "12 recept" ("8 delade recept" in Delade). */
+  countText?: string;
   sort: RecipeSort;
   onOpenSort: () => void;
   /** `null` hides the switch. */
@@ -24,11 +26,11 @@ export type RecipeBarProps = {
  * chosen sort, and the icon switch "Kort" / "Lista" (Segment, Story 19.3). The line wraps
  * rather than scrolls at 200 % text; every target keeps a 44 px area.
  */
-export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: RecipeBarProps) {
+export function RecipeBar({ count, countText, sort, onOpenSort, view, onViewChange }: RecipeBarProps) {
   return (
     <div className="-my-1 flex flex-wrap items-center gap-x-3 px-1 text-meta text-ink-2">
       <p data-testid="recipe-count" aria-live="polite" className="mr-auto">
-        {count} recept
+        {countText ?? `${count} recept`}
       </p>
       <button
         type="button"

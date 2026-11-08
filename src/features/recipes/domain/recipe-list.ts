@@ -139,7 +139,13 @@ export function recipeMetaText(totalMinutes: number | null, servings: number): s
   return time ? `${time} · ${portions}` : portions;
 }
 
-export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers", "healthy"] as const;
+/**
+ * The library's one chosen filter. "shared" (Delade recept) shows the recipes other households share
+ * instead of the household's own, so it is one of these rather than a separate switch: Favoriter,
+ * Kan lagas nu, Nyttigt and Erbjudanden apply to own recipes only, and choosing one of them leaves
+ * Delade (the categories still combine with it).
+ */
+export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers", "healthy", "shared"] as const;
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number];
 
 /** A stored filter choice; anything else, or nothing, is Alla. */

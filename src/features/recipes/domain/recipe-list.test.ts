@@ -40,8 +40,9 @@ describe("recipeTimeText", () => {
 
 describe("parseRecipeFilter", () => {
   it("knows Favoriter, Kan lagas nu and Erbjudanden and makes everything else Alla", () => {
-    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers", "healthy"]);
+    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers", "healthy", "shared"]);
     expect(parseRecipeFilter("offers")).toBe("offers");
+    expect(parseRecipeFilter("shared")).toBe("shared");
     expect(parseRecipeFilter("favorites")).toBe("favorites");
     expect(parseRecipeFilter("cookable")).toBe("cookable");
     expect(parseRecipeFilter("all")).toBe("all");

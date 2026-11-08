@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { z } from "zod";
-import { getIngredientNames } from "@/features/catalog/server";
+import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import { snapshotFor, type PantrySnapshot, type SelectedSite, type StapleRules } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +13,7 @@ import {
   type ListOptions,
 } from "./data/queries";
 import { missingNames } from "./data/missing-names";
+import { getSharedIn, listSharedIn, saversIn, sharingIn } from "./data/shared";
 import {
   toLibrary,
   withStatus,
@@ -21,6 +22,7 @@ import {
   type RecipeListRow,
 } from "./domain/recipe-list";
 import type { SavedRecipe } from "./domain/saved-recipe";
+import { sharedMatchItems, toSharedListItems, toSharedView, type SharedListItem } from "./domain/shared-recipe";
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
 export { saveRecipe } from "./actions/save-recipe";
@@ -156,4 +158,61 @@ export async function listRecipeRows(): Promise<RecipeListRow[]> {
  */
 export async function listRecipeTitles(): Promise<{ id: string; title: string }[]> {
   return listRecipeTitlesIn(await createClient());
+}
+
+/**
+ * Delade: the recipes other households share, newest first, as library items with whose they are
+ * and whether the household has saved a copy. Never the household's own. Throws RecipeDataError.
+ */
+export async function listSharedRecipes(): Promise<SharedListItem[]> {
+  return toSharedListItems(await listSharedIn(await createClient()));
+}
+
+/**
+ * A shared recipe opened (/recept/delade/[id]): the recipe as the recipe view shows it, matched by
+ * ingredient name against the signed-in household's own catalog and pantry (an ingredient the
+ * catalog lacks counts as missing), the sharing household's name and the household's own copy,
+ * if saved. `null` for an id that is not a uuid, a recipe that is not shared, or the household's
+ * own. Throws RecipeDataError.
+ */
+export async function getSharedRecipeWithPantry(id: string): Promise<{
+  recipe: SavedRecipe;
+  householdName: string;
+  savedCopyId: string | null;
+  version: string;
+  snapshot: PantrySnapshot | null;
+  site: SelectedSite | null;
+  staples: StapleRules;
+} | null> {
+  if (!recipeIdSchema.safeParse(id).success) return null;
+  const [shared, { snapshot, site, staples }] = await Promise.all([getSharedIn(await createClient(), id), getPantryForStatus()]);
+  if (!shared) return null;
+  // Without the catalog the recipe is shown as it is, without status (as when the pantry cannot be read).
+  const matches = await matchIngredients(sharedMatchItems(shared.lines)).catch((error: unknown) => {
+    if (!(error instanceof CatalogDataError)) throw error;
+    console.error("pantry_unavailable", { reason: `catalog_${error.code}` });
+    return null;
+  });
+  const recipe = toSharedView(shared, matches ?? shared.lines.map(() => ({ kind: "unmatched" as const })));
+  const shownSnapshot = matches && snapshot ? snapshotFor(snapshot, recipe.lines.map((line) => line.ingredientId)) : null;
+  return {
+    recipe,
+    householdName: shared.householdName,
+    savedCopyId: shared.savedCopyId,
+    version: shared.version,
+    snapshot: shownSnapshot,
+    site: shownSnapshot ? site : null,
+    staples,
+  };
+}
+
+/** The names of the other households that saved a copy of the household's recipe `id` ("Sparat av …"). Throws RecipeDataError. */
+export async function getRecipeSavers(id: string): Promise<string[]> {
+  if (!recipeIdSchema.safeParse(id).success) return [];
+  return saversIn(await createClient(), id);
+}
+
+/** Tillval, Delade recept: whether the household shares all its recipes and how many are shared. Throws RecipeDataError. */
+export async function getRecipeSharing(): Promise<{ shareAll: boolean; sharedCount: number }> {
+  return sharingIn(await createClient());
 }
