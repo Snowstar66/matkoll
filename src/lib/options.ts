@@ -3,11 +3,16 @@
 // colour theme. A new feature adds a row to `options` and reads it with useOption;
 // the settings page lists whatever is here.
 
-/** The groups the settings page shows, in order, each under its small label. */
+/**
+ * The groups the settings page shows, in order, each under its small label. Delade recept comes
+ * last on its own, after "Gäller bara den här enheten.", since its other rows are the household's
+ * (the page puts its option row there).
+ */
 export const optionGroups = [
   { id: "recipe", label: "I receptet" },
   { id: "nutrition", label: "Näring" },
   { id: "dagens", label: "Dagens" },
+  { id: "shared", label: "Delade recept" },
 ] as const;
 
 export type OptionGroupId = (typeof optionGroups)[number]["id"];
@@ -33,6 +38,7 @@ export const options = [
   { id: "dagensFood", group: "dagens", label: "Matdagar och säsong", hint: "", defaultOn: true },
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "Vad dagen passar för, och vad du bör undvika", defaultOn: false },
+  { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 
 export type OptionId = (typeof options)[number]["id"];

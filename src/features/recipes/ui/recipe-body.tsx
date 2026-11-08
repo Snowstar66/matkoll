@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
+import { ShareIcon } from "@/components/icons";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -128,6 +129,12 @@ export type RecipeBodyProps = {
   finish?: ReactNode;
   /** The nutrition card from the page (AD-1), between the status chips and Ingredienser; it hides itself unless Tillval "Visa näring" is on. */
   nutritionCard?: ReactNode;
+  /** Delade recept: the household shares the recipe; the chip "Delat" comes first among the chips. */
+  shared?: boolean;
+  /** "Köp det som saknas (N)" as a text button beside the portion selector instead of in the bottom bar (a shared recipe). */
+  buyInline?: boolean;
+  /** A button first in the bottom bar ("Spara i mina recept" on a shared recipe). */
+  extraAction?: ReactNode;
 };
 
 /**
@@ -164,6 +171,9 @@ export function RecipeBody({
   removeFromPlan,
   finish,
   nutritionCard,
+  shared = false,
+  buyInline = false,
+  extraAction,
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -326,10 +336,24 @@ export function RecipeBody({
   const wide = useWideScreen();
   const showBuy = Boolean(buyMissing) && !onPlan && (toBuy.length > 0 || bought !== null);
   const showUndo = bought !== null && toBuy.length === 0;
-  const hasActions = (Boolean(addToPlan) && !onPlan) || showBuy;
+  const hasActions = (Boolean(addToPlan) && !onPlan) || (showBuy && !buyInline) || Boolean(extraAction);
+  // A shared recipe: "Köp det som saknas (N)" is a quiet text button beside the portion selector.
+  const inlineBuy =
+    buyInline && showBuy ? (
+      <button
+        type="button"
+        disabled={working}
+        onClick={showUndo ? undo : () => setBuyOpen(true)}
+        data-testid="buy-missing-text"
+        className={cx("inline-flex min-h-tap items-center rounded-md text-meta font-medium", showUndo ? "text-sky-ink" : "text-accent")}
+      >
+        {showUndo ? "På listan ✓ · Ångra" : `Köp det som saknas (${toBuy.length})`}
+      </button>
+    ) : null;
   const actions = (
     <>
-      {showBuy ? (
+      {extraAction}
+      {showBuy && !buyInline ? (
         showUndo ? (
           <Button
             variant="secondary"
@@ -368,9 +392,16 @@ export function RecipeBody({
                 max={maxServings}
                 className="h-10 min-h-10 w-[11rem]! [&>button]:h-11"
               />
+              {inlineBuy}
             </div>
-            {status && summary ? (
+            {(status && summary) || shared ? (
               <ul aria-live="polite" aria-label="Status" className="flex flex-wrap gap-2" data-testid="recipe-chips">
+                {shared ? (
+                  <li className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1.5 text-meta font-semibold text-mint-ink" data-testid="recipe-shared">
+                    <ShareIcon size={16} className="shrink-0" />
+                    Delat
+                  </li>
+                ) : null}
                 {onPlan ? (
                   <li>
                     {/* UX-05: a pill, not a button; it leads to the week on Matsedel, where the day is chosen. */}
@@ -383,17 +414,17 @@ export function RecipeBody({
                     </Link>
                   </li>
                 ) : null}
-                {status.ingredientCount > 0 ? (
+                {status && status.ingredientCount > 0 ? (
                   <Chip tone="mint" testId="recipe-at-home">
                     {atHomeSummaryText(status.atHomeCount, status.ingredientCount, siteName)}
                   </Chip>
                 ) : null}
-                {summary.listed > 0 ? (
+                {summary && summary.listed > 0 ? (
                   <Chip tone="sky" testId="recipe-listed">
                     {listedChipText(summary.listed)}
                   </Chip>
                 ) : null}
-                {summary.onOffer > 0 ? (
+                {summary && summary.onOffer > 0 ? (
                   <Chip tone="deal" testId="recipe-on-offer">
                     {offerChipText(summary)}
                   </Chip>

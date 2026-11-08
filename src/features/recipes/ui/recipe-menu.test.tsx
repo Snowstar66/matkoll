@@ -17,6 +17,8 @@ vi.mock("../actions/update-recipe", () => ({
 }));
 const deleteRecipe = vi.fn<(id: string) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/delete-recipe", () => ({ deleteRecipe: (id: string) => deleteRecipe(id) }));
+const setRecipeShared = vi.fn<(change: { id: string; shared: boolean }) => Promise<Result<{ id: string; shared: boolean }>>>();
+vi.mock("../actions/share-recipe", () => ({ setRecipeShared: (change: { id: string; shared: boolean }) => setRecipeShared(change) }));
 
 const render = (element: ReactElement) => renderElement(<ToastProvider>{element}</ToastProvider>);
 
@@ -89,18 +91,55 @@ beforeEach(() => {
   refresh.mockReset();
   updateRecipe.mockReset().mockResolvedValue(ok({ id: recipe.id }));
   deleteRecipe.mockReset().mockResolvedValue(ok({ id: recipe.id }));
+  setRecipeShared.mockReset().mockImplementation(async (change) => ok(change));
+  localStorage.clear();
 });
 
 describe("RecipeMenu", () => {
-  it("has Ändra and, last, Ta bort, which asks first (Story 19.6)", async () => {
+  it("has Ändra, Dela med andra and, last, Ta bort, which asks first (Story 19.6)", async () => {
     render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(items).toEqual(["Ändra", "Ta bort"]);
+    expect(items).toEqual(["Ändra", "Dela med andra", "Ta bort"]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Ta bort" }));
     const question = await screen.findByRole("dialog", { name: "Ta bort Linssoppa?" });
     expect(question).toHaveTextContent("Det går inte att ångra.");
     expect(within(question).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
+  });
+
+  it("shares at once with Dela med andra, and stops with Sluta dela, without a question (Delade recept)", async () => {
+    const { unmount } = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Dela med andra" })));
+    expect(setRecipeShared).toHaveBeenCalledWith({ id: recipe.id, shared: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(refresh).toHaveBeenCalled();
+    unmount();
+
+    render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Sluta dela" })));
+    expect(setRecipeShared).toHaveBeenLastCalledWith({ id: recipe.id, shared: false });
+  });
+
+  it("leaves Dela med andra out with Visa delade recept off, but keeps Sluta dela for a shared recipe", () => {
+    localStorage.setItem("livskoll-option-showShared", "0");
+    const { unmount } = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Ta bort"]);
+    unmount();
+    render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Sluta dela", "Ta bort"]);
+  });
+
+  it("says so when sharing fails, and changes nothing", async () => {
+    setRecipeShared.mockResolvedValue(fail("recipe_share_failed"));
+    render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Dela med andra" })));
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Det gick inte att ändra delningen. Försök igen.");
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("opens the menu with Ändra, and closes it with Esc", () => {

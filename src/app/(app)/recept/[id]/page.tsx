@@ -3,20 +3,16 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { copyTargets, currentWeekStart, weekNumber, weeksBetween, type MealPlan } from "@/features/mealplan";
-import { addToCurrentPlan, getCurrentPlan, getPlanForWeek, getRememberedWeek, removePlanRecipe } from "@/features/mealplan/server";
+import { addToCurrentPlan, removePlanRecipe } from "@/features/mealplan/server";
 import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
-import { getActiveOffers } from "@/features/offers/server";
-import { lineOffers, type LineOffer } from "@/features/recipes";
-import { listStores } from "@/features/settings/server";
-import { addKeyedItems, getShoppingList, removeKeyedItems } from "@/features/shopping/server";
+import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
 import type { SavedRecipe } from "@/features/recipes";
-import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
+import { getRecipe, getRecipeSavers, getRecipeWithPantry } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
-import type { RecipeWeek } from "@/features/recipes/ui/recipe-body";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
+import { readLineOffers, readListedIds, readPlanWeeks } from "../recipe-page-data";
 
 /** The tab shows the recipe's title; "Recept" when there is none to show. */
 export async function generateMetadata({ params }: PageProps<"/recept/[id]">): Promise<Metadata> {
@@ -26,21 +22,6 @@ export async function generateMetadata({ params }: PageProps<"/recept/[id]">): P
     return { title: recipe?.title ?? "Recept" };
   } catch {
     return { title: "Recept" };
-  }
-}
-
-/**
- * The best offer per catalog ingredient from this week's offers in all the
- * user's stores (Story 9.13, 25.1); none when the stores or offers cannot be read.
- */
-async function readLineOffers(): Promise<Record<string, LineOffer>> {
-  try {
-    const stores = await listStores();
-    const offers = (await Promise.all(stores.map((store) => getActiveOffers(store.id)))).flat();
-    return lineOffers(offers, new Map(stores.map((store) => [store.id, store.name])));
-  } catch (error) {
-    console.error("recipe_offers_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
-    return {};
   }
 }
 
@@ -67,14 +48,13 @@ async function NutritionCardLoader({ recipe }: { recipe: SavedRecipe }) {
   return nutrition ? <NutritionCard recipeTitle={recipe.title} nutrition={nutrition} /> : null;
 }
 
-/** The catalog ingredients on the shopping list now, for "På listan"; none when the list cannot be read. */
-async function readListedIds(): Promise<string[]> {
+/** Delade recept: who saved a copy of the recipe, while it is shared ("Sparat av …"); none when it cannot be read. */
+async function readSavers(recipe: SavedRecipe): Promise<string[]> {
+  if (!recipe.isShared) return [];
   try {
-    const list = await getShoppingList();
-    if (!list.ok) return [];
-    return [...new Set(list.data.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))];
+    return await getRecipeSavers(recipe.id);
   } catch (error) {
-    console.error("recipe_list_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    console.error("recipe_savers_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return [];
   }
 }
@@ -84,7 +64,8 @@ async function readListedIds(): Promise<string[]> {
 // pantry that cannot be read leaves the recipe without status. The id and the
 // session are read inside <Suspense> (AD-18). An id that is not a uuid, or
 // not one of the user's recipes, is "Sidan finns inte." The menu (⋯) opens
-// Ändra recept, which searches the catalog. "Lägg på matsedeln" adds the
+// Ändra recept, which searches the catalog, and shares the recipe (Delade
+// recept). "Lägg på matsedeln" adds the
 // recipe to the current meal plan with the chosen servings, without a day
 // (Story 3.1, 4.1, 25.1); "Köp det som saknas" puts only the missing
 // ingredients on the shopping list (keyed items). Rows say hemma, Saknas or På
@@ -103,29 +84,8 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
+  const [{ weeks, remembered, plan }, savers] = await Promise.all([readPlanWeeks(recipe.id), readSavers(recipe)]);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
-  // The weeks the recipe can be planned for, with its dish on each: the three coming ones and the week last
-  // viewed on Matsedel or Inköpslista when that is further ahead (UX-04, UX-05).
-  const remembered = await getRememberedWeek();
-  const targets = copyTargets();
-  const rememberedTarget = targets.some((target) => target.weekStart === remembered)
-    ? []
-    : [{ weekStart: remembered, offset: weeksBetween(currentWeekStart(), remembered) }];
-  const planWeeks = [...targets.map((target) => ({ weekStart: target.weekStart, offset: target.offset })), ...rememberedTarget];
-  const [plan, ...otherPlans] = await Promise.all(
-    planWeeks.map((target) => (target.offset === 0 ? getCurrentPlan() : getPlanForWeek(target.weekStart)).catch((): MealPlan | null => null)),
-  );
-  const weeks: RecipeWeek[] = planWeeks.map((target, index) => {
-    const weekPlan = index === 0 ? plan : otherPlans[index - 1];
-    const found = weekPlan?.recipes.find((candidate) => candidate.recipeId === recipe.id && !candidate.cookedAt);
-    return {
-      weekStart: target.weekStart,
-      offset: target.offset,
-      number: weekNumber(target.weekStart),
-      count: weekPlan?.recipes.length ?? 0,
-      dish: found ? { id: found.id, weekday: found.weekday ?? null } : null,
-    };
-  });
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   // The dish that is not cooked yet: "Markera som lagad" under the steps (Story 13.4).
   const dish = plan?.recipes.find((candidate) => candidate.recipeId === recipe.id && !candidate.cookedAt);
@@ -147,6 +107,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
       removeFromPlan={removePlanRecipe}
+      savers={savers}
       nutritionCard={
         <Suspense fallback={null}>
           <NutritionCardLoader recipe={recipe} />

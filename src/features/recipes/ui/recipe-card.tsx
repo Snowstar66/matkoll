@@ -20,6 +20,8 @@ type CardBase = {
   dish?: DishKind;
   /** "35 min · 4 portioner" (recipeMetaText). */
   meta: string;
+  /** Delade recept: "från Lindqvists", on a line of its own under the time. */
+  byline?: string;
   /** Bottom left on the image: the status ("Kan lagas nu", on the light plate) or "AI-förslag". */
   badge?: ReactNode;
   "data-testid"?: string;
@@ -85,6 +87,7 @@ export function RecipeCard({
   imageUrl,
   dish,
   meta,
+  byline,
   href,
   badge,
   favorite,
@@ -111,6 +114,11 @@ export function RecipeCard({
             <h3 className="text-[15px]/5 font-semibold wrap-break-word text-ink">{title}</h3>
           )}
           <p className="text-[13px]/[18px] text-ink-3">{meta}</p>
+          {byline ? (
+            <p className="text-[13px]/[18px] text-ink-2" data-testid="recipe-card-byline">
+              {byline}
+            </p>
+          ) : null}
           {offerTags}
         </div>
         {onDelete ? (

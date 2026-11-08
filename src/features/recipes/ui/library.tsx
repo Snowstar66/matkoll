@@ -23,6 +23,7 @@ import {
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
+import { searchShared, sharedCountText, type SharedListItem } from "../domain/shared-recipe";
 import { useOption } from "@/lib/use-option";
 import { OffersSheetControlContext } from "./offers-sheet-control";
 import { useRecipeFilter } from "./recipe-filter-store";
@@ -32,6 +33,7 @@ import { RecipeFilterChips } from "./recipe-filter-chips";
 import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
 import { RecipeSortSheet } from "./recipe-sort-sheet";
+import { SharedRecipeCompactList, SharedRecipeList } from "./shared-recipe-list";
 import { useRecipeCategory, useRecipeSort, useRecipeView } from "./recipe-view-stores";
 import { useFavorites } from "./use-favorites";
 
@@ -112,6 +114,11 @@ export type LibraryProps = {
    * it and Tillval "Visa näring" on.
    */
   healthyIds?: Promise<readonly string[] | undefined>;
+  /**
+   * Delade recept: the recipes other households share (recipes.listSharedRecipes), for the chip
+   * Delade, which is there with Tillval "Visa delade recept" on; left out (not readable) it is not.
+   */
+  shared?: readonly SharedListItem[];
 };
 
 /** Waits for the page's nutrition promise under Suspense, so only this renders late; hands the ids on. */
@@ -121,9 +128,14 @@ function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string
   return null;
 }
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  // Delade (on by default; off on the server and while hydrating the option is its default, so nothing jumps).
+  const withShared = useOption("showShared") && shared !== undefined;
+  const onShared = filter === "shared" && withShared;
+  /** The text searched for last, which Delade filters by here (its recipes are all in the page). */
+  const [query, setQuery] = useState("");
   // Nyttigt is there only with "Visa näring" on (off on the server and while hydrating, so nothing jumps); a saved Nyttigt without it shows everything.
   const [healthyIds, setHealthyIds] = useState<readonly string[] | undefined>(undefined);
   const withHealthy = useOption("showNutrition") && healthyIds !== undefined;
@@ -168,6 +180,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
 
   async function runSearch(query: string) {
     const text = query.trim();
+    setQuery(text);
     const request = ++latestSearch.current;
     if (!text) {
       setBusy(false);
@@ -211,8 +224,19 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
   // answer read the pantry (Story 2.4); Kan lagas nu then shows every recipe
   // in the usual order, and a notice says why.
   const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
-  // Story 14.4: the categories any recipe has, counted over the whole library so the chips stay put while filtering.
-  const availableCategories = useMemo(() => new Set(recipes.flatMap((recipe) => recipe.categories ?? [])), [recipes]);
+  // Story 14.4: the categories any recipe has, counted over the whole library so the chips stay put while filtering
+  // (in Delade, over the shared recipes).
+  const availableCategories = useMemo(
+    () => new Set((onShared ? (shared ?? []) : recipes).flatMap((recipe) => recipe.categories ?? [])),
+    [recipes, shared, onShared],
+  );
+  // Delade: the shared recipes matching the search and the category, in the chosen order.
+  const sharedVisible = useMemo(() => {
+    if (!onShared || sort === undefined || category === undefined) return [];
+    const found = searchShared(shared ?? [], query);
+    const inSharedCategory = category === null ? found : filterByCategory(found, category);
+    return sort === "newest" ? inSharedCategory : sortRecipes(inSharedCategory, sort);
+  }, [onShared, shared, query, category, sort]);
   // The recipes in the category, before the pills, so an empty list can say which.
   const inCategory = useMemo(() => (category === undefined ? [] : filterByCategory(shown, category)), [shown, category]);
   const visible = useMemo(() => {
@@ -246,7 +270,37 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
   }
 
   let content;
-  if (search.kind === "failed") {
+  if (onShared) {
+    if (sharedVisible.length > 0) {
+      content = compact ? <SharedRecipeCompactList recipes={sharedVisible} /> : <SharedRecipeList recipes={sharedVisible} />;
+    } else if (query) {
+      content = (
+        <EmptyState
+          action={
+            <Button variant="text" onClick={() => searchField.current?.clear()}>
+              {clearSearchText}
+            </Button>
+          }
+        >
+          {noMatchText(query)}
+        </EmptyState>
+      );
+    } else if (category !== null && (shared?.length ?? 0) > 0) {
+      content = (
+        <EmptyState
+          action={
+            <Button variant="text" onClick={() => setCategory(null)}>
+              Visa alla
+            </Button>
+          }
+        >
+          Inga delade recept i {recipeCategoryLabels[category]}.
+        </EmptyState>
+      );
+    } else {
+      content = <EmptyState>Inga delade recept än.</EmptyState>;
+    }
+  } else if (search.kind === "failed") {
     // Only a failed search is worth trying again; invalid text fails every time.
     const retry = search.error.code === "recipe_search_failed";
     content = (
@@ -369,6 +423,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           available={availableCategories}
           withOffers={offers !== undefined}
           withHealthy={withHealthy}
+          withShared={withShared}
         />
         </div>
       </div>
@@ -396,7 +451,16 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           {matching ? "Kopplar fler erbjudanden till dina varor …" : null}
         </div>
       ) : null}
-      {search.kind !== "failed" ? (
+      {onShared ? (
+        <RecipeBar
+          count={sharedVisible.length}
+          countText={sharedCountText(sharedVisible.length)}
+          sort={sort}
+          onOpenSort={() => setSortOpen(true)}
+          view={view}
+          onViewChange={setView}
+        />
+      ) : search.kind !== "failed" ? (
         <RecipeBar
           count={visible.length}
           sort={sort}

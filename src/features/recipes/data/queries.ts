@@ -26,7 +26,7 @@ export async function getRecipe(
   const [recipe, steps, lines] = await Promise.all([
     db
       .from("recipe")
-      .select("id, title, original_servings, total_minutes, image_url, source_kind, source_url, offer_names, is_favorite, updated_at")
+      .select("id, title, original_servings, total_minutes, image_url, source_kind, source_url, offer_names, is_favorite, updated_at, is_shared, shared_from_name")
       .eq("id", id)
       .maybeSingle(),
     db.from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position"),
@@ -61,6 +61,8 @@ export async function getRecipe(
     sourceUrl: row.source_url,
     offerNames: row.offer_names,
     isFavorite: row.is_favorite,
+    isShared: row.is_shared,
+    sharedFromName: row.shared_from_name,
     updatedAt: row.updated_at,
     steps: steps.data,
     lines: lines.data.map((line, index) => ({

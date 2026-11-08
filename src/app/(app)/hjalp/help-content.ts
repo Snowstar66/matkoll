@@ -64,6 +64,18 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Almanackan säger vad dagen passar för, gärna om mat, planering och ordning hemma, och en sak att undvika. Allt räknas ut i appen.",
       },
       {
+        question: "Kan jag dela ett recept med andra?",
+        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn, som ni ändrar under Inställningar, Medlemmar. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
+      },
+      {
+        question: "Hur använder jag ett recept som någon annan delar?",
+        answer: "Tryck Delade i Recept. Ett delat recept går att laga direkt: stegen, timern, portionerna och vad ni har hemma fungerar som vanligt. Spara i mina recept gör en egen kopia som ni kan ändra fritt. Lägg på matsedeln och Köp det som saknas sparar också en kopia, eftersom matsedeln och inköpslistan bara rymmer egna recept.",
+      },
+      {
+        question: "Kan jag dela alla recept, eller dölja Delade?",
+        answer: "Ja, under Inställningar, Tillval, Delade recept. Dela alla mina recept delar alla era recept, även nya. Sluta dela alla slutar dela allt på en gång. De två gäller hela hushållet. Visa delade recept döljer Delade på den här enheten.",
+      },
+      {
         question: "Hur vet jag om en rätt är nyttig?",
         answer: "Slå på Visa näring under Inställningar, Tillval. Då visar receptet en tallrik med hur mycket som är grönsaker, protein och kolhydrater, och märken som Mycket grönt, Fisk, Baljväxter och Fullkorn när rätten har gott om det. Det är ingen poäng och inga råd, bara en ungefärlig bild som räknas från Livsmedelsverkets livsmedelsdatabas på det som går att väga. Slå på Visa kcal för kcal och gram per portion. Filtret Nyttigt i Recept visar rätter med mycket grönt, fisk eller baljväxter och lite rött kött.",
       },

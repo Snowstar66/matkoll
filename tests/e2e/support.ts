@@ -335,6 +335,12 @@ export const welcomeEmail = "e2e-valkomst@matkoll.test";
  * contexts sign in as this one user, as two phones on the household's shared login.
  */
 export const newsEmail = "e2e-brickor@matkoll.test";
+/**
+ * The two E2E users of shared-recipes.spec.ts alone (Delade recept): two households, one shares a
+ * recipe, the other finds it under Delade and saves it, and the first sees "Sparat av".
+ */
+export const sharedOwnerEmail = "e2e-delade@matkoll.test";
+export const sharedSaverEmail = "e2e-delade-2@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -394,6 +400,8 @@ export const e2eEmails = [
   newsEmail,
   staplesEmail,
   listImportEmail,
+  sharedOwnerEmail,
+  sharedSaverEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -452,6 +460,8 @@ export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const newsStorageState = "tests/e2e/.auth/news.json";
 export const staplesStorageState = "tests/e2e/.auth/staples.json";
 export const listImportStorageState = "tests/e2e/.auth/list-import.json";
+export const sharedOwnerStorageState = "tests/e2e/.auth/shared-owner.json";
+export const sharedSaverStorageState = "tests/e2e/.auth/shared-saver.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 

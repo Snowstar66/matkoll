@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
-import { MoreIcon } from "@/components/icons";
+import { MoreIcon, ShareIcon } from "@/components/icons";
+import { useToast } from "@/components/toast";
+import { fail, type Result } from "@/lib/errors";
+import { useOption } from "@/lib/use-option";
+import { setRecipeShared } from "../actions/share-recipe";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
 import { useRecipeDelete } from "./recipe-delete";
@@ -31,6 +35,7 @@ export function RecipeMenu({
   /** A fresh form each time the sheet opens, from the recipe as last saved. */
   const [editKey, setEditKey] = useState(0);
   const router = useRouter();
+  const { showToast } = useToast();
   const { ask, dialog } = useRecipeDelete(() => {
     // Replace, so "back" never leads to the gone recipe.
     router.replace("/recept");
@@ -70,6 +75,22 @@ export function RecipeMenu({
     closeMenu();
     setEditKey((key) => key + 1);
     setEditing(true);
+  }
+
+  // Delade recept: "Dela med andra" / "Sluta dela", at once and without a question (it is undone the same way).
+  // There with Tillval "Visa delade recept" on, and always for a shared recipe, so it can be stopped.
+  const isShared = recipe.isShared ?? false;
+  const withShare = useOption("showShared") || isShared;
+  async function toggleShare() {
+    closeMenu();
+    let result: Result<unknown>;
+    try {
+      result = await setRecipeShared({ id: recipe.id, shared: !isShared });
+    } catch {
+      result = fail("recipe_share_failed");
+    }
+    if (result.ok || result.error.code === "unauthorized") router.refresh();
+    else showToast(result.error.message, { role: "alert" });
   }
 
   function remove() {
@@ -112,6 +133,17 @@ export function RecipeMenu({
           >
             Ändra
           </button>
+          {withShare ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={toggleShare}
+              className="flex min-h-tap items-center justify-between gap-4 px-4 text-left text-body whitespace-nowrap text-ink"
+            >
+              <span>{isShared ? "Sluta dela" : "Dela med andra"}</span>
+              <ShareIcon size={20} className="shrink-0 text-ink-2" />
+            </button>
+          ) : null}
           {/* Story 19.4: Ta bort is last in the menu, in muted red, not a bin next to the heart. */}
           <button
             type="button"
