@@ -20,9 +20,12 @@ set local lock_timeout = '5s';
 
 alter table public.household add column name_is_default boolean not null default true;
 
--- Existing rows: still the default when the name is what a member's e-mail or name would give.
+-- Existing rows: still the default when the name is what a member's e-mail or name would give,
+-- or when it has the shape of a default name ("<one word> hushåll"). The shape check keeps the
+-- flag for a name made from the e-mail of a member who has since left, or whose e-mail changed;
+-- a household that chose such a name itself shows "Ett hushåll" until it renames once.
 update public.household as h
-set name_is_default = exists (
+set name_is_default = h.name ~ '^[^[:space:]]+ hushåll$' or exists (
   select 1
   from public.household_member as m
   left join auth.users as u on u.id = m.user_id
