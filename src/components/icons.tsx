@@ -517,6 +517,7 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** A leaf: Dagens (season) and the quiet nutrition lines (Matsedel's week line). */
 export function LeafIcon(props: IconProps) {
   return (
     <Icon {...props}>

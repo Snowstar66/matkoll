@@ -6,6 +6,7 @@
 /** The groups the settings page shows, in order, each under its small label. */
 export const optionGroups = [
   { id: "recipe", label: "I receptet" },
+  { id: "nutrition", label: "Näring" },
   { id: "dagens", label: "Dagens" },
 ] as const;
 
@@ -26,6 +27,8 @@ export const options = [
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
   },
+  { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
+  { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
   { id: "dagensFood", group: "dagens", label: "Matdagar och säsong", hint: "", defaultOn: true },
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },

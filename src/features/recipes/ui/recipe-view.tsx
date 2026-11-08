@@ -58,6 +58,8 @@ export type RecipeViewProps = {
   removeFromPlan?: RemoveFromPlan;
   /** "Markera som lagad" for the recipe's dish, shown under the steps (Story 13.4). */
   finish?: ReactNode;
+  /** The nutrition card (nutrition.NutritionCard) from the page, between the chips and Ingredienser. */
+  nutritionCard?: ReactNode;
 };
 
 export function RecipeView({
@@ -76,6 +78,7 @@ export function RecipeView({
   undoBuy,
   removeFromPlan,
   finish,
+  nutritionCard,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
@@ -149,6 +152,7 @@ export function RecipeView({
         removeFromPlan={removeFromPlan}
         defaultWeekStart={defaultWeekStart}
         finish={finish}
+        nutritionCard={nutritionCard}
       />
     </article>
   );

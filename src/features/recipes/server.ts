@@ -69,8 +69,16 @@ export async function listRecipes(options?: ListOptions): Promise<RecipeListItem
  * (AD-18). Throws RecipeDataError.
  */
 export async function listLibrary(): Promise<RecipeLibrary> {
+  return (await listLibraryWithRows()).library;
+}
+
+/**
+ * listLibrary and the rows with their lines it was made from, so a page that needs the lines too
+ * (the nutrition filter) does not read the library a second time. Throws RecipeDataError.
+ */
+export async function listLibraryWithRows(): Promise<{ library: RecipeLibrary; rows: RecipeListRow[] }> {
   const [rows, { snapshot, site, staples }] = await Promise.all([listRecipesIn(await createClient()), getPantryForStatus()]);
-  return toLibrary(rows, snapshot, site, await missingNames(rows, snapshot, staples), staples);
+  return { library: toLibrary(rows, snapshot, site, await missingNames(rows, snapshot, staples), staples), rows };
 }
 
 /**
