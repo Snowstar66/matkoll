@@ -740,13 +740,13 @@
 }
 
 [data-palette="rosa"] {
-  --accent: #95515F;
+  --accent: #A94C63;
   --on-accent: #FFFFFF;
-  --mint: #FDE4E7;
-  --mint-ink: #723945;
-  --illus-bg: #FBEFF1;
-  --fill: #F1EAEB;
-  --seg-track: #F0E9EA;
+  --mint: #FCE8EC;
+  --mint-ink: #8F3F57;
+  --illus-bg: #FDF3F5;
+  --fill: #F5EDEF;
+  --seg-track: #F4ECEE;
 }
 
 [data-palette="custom"] {
