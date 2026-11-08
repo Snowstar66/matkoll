@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { almanacActivities, almanacLine } from "./almanac";
+import { almanacActivities, almanacAdvice, almanacLine } from "./almanac";
 import { addDays, dayKey, easterSunday, nthWeekday, shortDateText, stockholmDay } from "./dates";
 import { foodDayOn } from "./food-days";
 import { nameDayLine, nameDayNames } from "./name-days";
@@ -121,18 +121,25 @@ describe("name days", () => {
 });
 
 describe("almanac", () => {
-  it("maps the suitable activities to short Swedish, food and company first", () => {
-    expect(almanacActivities(["嫁娶", "会亲友", "宴会"])).toEqual(["bjuda på middag", "träffa vänner"]);
-    expect(almanacActivities(["安床", "祭祀"])).toEqual([]);
+  it("keeps everyday activities in Swedish, food and planning first", () => {
+    expect(almanacActivities(["嫁娶", "扫舍", "会亲友"])).toEqual(["bjuda hem vänner på mat", "städa hemma"]);
+    // Funerals and graves are never kept.
+    expect(almanacActivities(["安葬", "修坟", "入殓"])).toEqual([]);
+    // The most common term comes last.
+    expect(almanacActivities(["祭祀", "安床"])).toEqual(["byta sängkläder", "laga ett gammalt familjerecept"]);
   });
 
-  it("falls back to the animal and element on 8 Nov 2026 (丙戌, fire dog)", async () => {
-    expect(await almanacLine(d(2026, 11, 8))).toBe("Hundens dag · eld");
+  it("says what the day is good for and one thing to avoid", () => {
+    expect(almanacAdvice(["扫舍", "纳财", "沐浴"], ["开市", "嫁娶"])).toBe("Bra dag att fylla på förrådet och städa hemma. Undvik att storhandla.");
+    expect(almanacAdvice(["安葬"], ["开市"])).toBe("Undvik i dag att storhandla.");
+    expect(almanacAdvice(["安葬"], ["行丧"])).toBeNull();
+    // Two terms with one phrase: kept as good only.
+    expect(almanacAdvice(["移徙"], ["入宅"])).toBe("Bra dag att möblera om.");
+    expect(almanacAdvice(["诸事不宜"], [])).toBe("En dag att ta det lugnt.");
   });
 
-  it("adds what is suitable when the day lists something fitting", async () => {
-    // 2026-11-04 (壬午) lists 会亲友.
-    expect(await almanacLine(d(2026, 11, 4))).toMatch(/^Hästens dag · gynnsamt: .*träffa vänner/);
+  it("gives the advice for 8 Nov 2026 without the day's animal", async () => {
+    expect(await almanacLine(d(2026, 11, 8))).toBe("Almanackan: bra dag att fixa det som är trasigt och byta sängkläder. Undvik att göra om i köket.");
   });
 });
 
@@ -145,14 +152,15 @@ describe("today lines", () => {
     expect(lines).toHaveLength(1);
   });
 
-  it("puts name day and almanac on one second line beside the food line", () => {
-    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Hundens dag · eld");
-    expect(lines).toHaveLength(2);
-    expect(lines[1][0].text).toBe("Vendela har namnsdag · Hundens dag · eld");
+  it("puts name day and almanac on lines of their own under the food line", () => {
+    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Almanackan: bra dag att städa hemma.");
+    expect(lines).toHaveLength(3);
+    expect(lines[1][0].text).toBe("Vendela har namnsdag");
+    expect(lines[2][0].text).toBe("Almanackan: bra dag att städa hemma.");
   });
 
   it("shows the extras alone when food is off, and nothing when all are off", () => {
-    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Hundens dag · eld")).toHaveLength(2);
+    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Almanackan: bra dag att städa hemma.")).toHaveLength(2);
     expect(todayLines(day, { food: false, nameDay: false, almanac: false }, recipes)).toEqual([]);
   });
 });

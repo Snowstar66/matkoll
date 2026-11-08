@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Almanackans råd",
+    bullets: [
+      "Kinesiska almanackan i Dagens säger nu vad dagen passar för och en sak att undvika, till exempel: bra dag att städa hemma och fylla på förrådet. Undvik att storhandla.",
+      "Råden handlar helst om mat, planering och ordning hemma. Dagens djur visas inte längre.",
+      "Slå på den under Inställningar, Tillval.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Timern hörs på iPhone",
     bullets: [
       "Timern ringer nu på iPhone, även med ljudlöst läge på (iOS 17 eller senare). Ljudet följer telefonens volym.",
