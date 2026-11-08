@@ -19,7 +19,10 @@ set local lock_timeout = '5s';
 
 alter table public.recipe add column shared_at timestamptz;
 
+-- The backfill must not touch updated_at (Ändra recept locks on it), so the stamp trigger is off for it.
+alter table public.recipe disable trigger recipe_set_updated_at;
 update public.recipe set shared_at = coalesce(updated_at, created_at) where is_shared;
+alter table public.recipe enable trigger recipe_set_updated_at;
 
 alter table public.recipe add constraint recipe_shared_at_check check (is_shared = (shared_at is not null));
 
