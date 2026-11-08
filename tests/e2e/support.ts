@@ -90,6 +90,8 @@ export const recipeTimerEmail = "e2e-recept-timer@matkoll.test";
  * service role, so the ranking depends on nothing else.
  */
 export const cookableEmail = "e2e-kan-lagas@matkoll.test";
+/** The E2E user of nutrition.spec.ts alone (Näring i receptet): it makes its recipes and catalog ingredients with the service role. */
+export const nutritionEmail = "e2e-naring@matkoll.test";
 /**
  * The E2E user of ai-suggestions.spec.ts alone (AI-förslag, Story 5.2): each
  * test makes its recipe, catalog ingredients and pantry with the service
@@ -349,6 +351,7 @@ export const e2eEmails = [
   recipeMissingEmail,
   recipeTimerEmail,
   cookableEmail,
+  nutritionEmail,
   aiSuggestionsEmail,
   cameraEmail,
   suggestionsEmail,
@@ -409,6 +412,7 @@ export const recipeViewStorageState = "tests/e2e/.auth/recipe-view.json";
 export const recipeMissingStorageState = "tests/e2e/.auth/recipe-missing.json";
 export const recipeTimerStorageState = "tests/e2e/.auth/recipe-timer.json";
 export const cookableStorageState = "tests/e2e/.auth/cookable.json";
+export const nutritionStorageState = "tests/e2e/.auth/nutrition.json";
 export const aiSuggestionsStorageState = "tests/e2e/.auth/ai-suggestions.json";
 export const cameraStorageState = "tests/e2e/.auth/camera.json";
 export const suggestionsStorageState = "tests/e2e/.auth/suggestions.json";

@@ -2,7 +2,8 @@
 
 import { useId } from "react";
 import { cx } from "@/components/cx";
-import { type OptionId, options, saveOption } from "@/lib/options";
+import { NUTRITION_LICENSE_URL } from "@/features/nutrition";
+import { type OptionId, optionGroups, options, saveOption } from "@/lib/options";
 import { useOption } from "@/lib/use-option";
 
 // Tillval: one switch row per entry in src/lib/options.ts, remembered on this device.
@@ -39,13 +40,29 @@ function OptionRow({ id, label, hint }: { id: OptionId; label: string; hint: str
 
 export function OptionSettings() {
   return (
-    <section aria-label="Tillval">
-      <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg bg-surface">
-        {options.map((option) => (
-          <OptionRow key={option.id} id={option.id} label={option.label} hint={option.hint} />
-        ))}
-      </ul>
-      <p className="px-1 pt-2 text-meta text-ink-3">Gäller bara den här enheten.</p>
+    <section aria-label="Tillval" className="flex flex-col gap-5">
+      {optionGroups.map((group) => (
+        <div key={group} className="flex flex-col gap-2">
+          <h2 className="px-1 text-section-label text-ink-2">{group}</h2>
+          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg bg-surface">
+            {options
+              .filter((option) => option.group === group)
+              .map((option) => (
+                <OptionRow key={option.id} id={option.id} label={option.label} hint={option.hint} />
+              ))}
+          </ul>
+          {group === "Näring" ? (
+            <p className="px-1 text-meta text-ink-3" data-testid="nutrition-source">
+              Näringen är ungefärlig och räknas från Livsmedelsverkets livsmedelsdatabas (
+              <a href={NUTRITION_LICENSE_URL} target="_blank" rel="noreferrer" className="underline">
+                CC BY 4.0
+              </a>
+              ).
+            </p>
+          ) : null}
+        </div>
+      ))}
+      <p className="px-1 text-meta text-ink-3">Gäller bara den här enheten.</p>
     </section>
   );
 }

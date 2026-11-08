@@ -126,6 +126,8 @@ export type RecipeBodyProps = {
   removeFromPlan?: RemoveFromPlan;
   /** mealplan's "Markera som lagad" for this recipe's dish, from the page: shown under the steps (Story 13.4). */
   finish?: ReactNode;
+  /** The nutrition card from the page (AD-1), between the status chips and Ingredienser; it hides itself unless Tillval "Visa näring" is on. */
+  nutritionCard?: ReactNode;
 };
 
 /**
@@ -161,6 +163,7 @@ export function RecipeBody({
   undoBuy,
   removeFromPlan,
   finish,
+  nutritionCard,
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -394,6 +397,8 @@ export function RecipeBody({
               </ul>
             ) : null}
           </div>
+
+          {nutritionCard}
 
           {wide && hasActions ? <div className="flex flex-col gap-2">{actions}</div> : null}
 

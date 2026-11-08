@@ -40,7 +40,7 @@ describe("recipeTimeText", () => {
 
 describe("parseRecipeFilter", () => {
   it("knows Favoriter, Kan lagas nu and Erbjudanden and makes everything else Alla", () => {
-    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers"]);
+    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers", "healthy"]);
     expect(parseRecipeFilter("offers")).toBe("offers");
     expect(parseRecipeFilter("favorites")).toBe("favorites");
     expect(parseRecipeFilter("cookable")).toBe("cookable");
@@ -312,5 +312,15 @@ describe("rankByOffers (Story 9.3)", () => {
 
   it("shows nothing without tags", () => {
     expect(rankByOffers([row("a", 0)], {})).toEqual([]);
+  });
+});
+
+describe("filterRecipes for Nyttigt", () => {
+  const recipes = ["a", "b", "c"].map((id) => ({ id, isFavorite: false, createdAt: "2026-10-01", missingCount: 0 }));
+
+  it("keeps the recipes isHealthy says follow the kostråd, in order, and none without isHealthy", () => {
+    const healthy = new Set(["a", "c"]);
+    expect(filterRecipes(recipes, "healthy", () => false, (recipe) => healthy.has(recipe.id)).map(({ id }) => id)).toEqual(["a", "c"]);
+    expect(filterRecipes(recipes, "healthy", () => false)).toEqual([]);
   });
 });

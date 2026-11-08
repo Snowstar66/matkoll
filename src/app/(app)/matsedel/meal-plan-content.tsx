@@ -5,6 +5,8 @@ import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, re
 import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
+import { recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
+import { getIngredientNutrition } from "@/features/nutrition/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
@@ -93,6 +95,22 @@ async function itemsToBuy(weekStart: string): Promise<number | null> {
 }
 
 /**
+ * The nutrition per portion of the week's recipes by recipe id, for the week line (Näring); none when
+ * the nutrition table cannot be read: no line then. One read for all the week's ingredients.
+ */
+async function weekNutrition(dishes: MealPlanView["dishes"]): Promise<Record<string, RecipeNutrition>> {
+  try {
+    const recipes = new Map(dishes.flatMap((dish) => (dish.recipeId && dish.recipe ? [[dish.recipeId, dish.recipe] as const] : [])));
+    const ids = [...new Set([...recipes.values()].flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
+    const byId = await getIngredientNutrition(ids);
+    return Object.fromEntries([...recipes].map(([id, recipe]) => [id, recipeNutrition(recipe.lines, byId, recipe.originalServings)]));
+  } catch (error) {
+    console.error("mealplan_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return {};
+  }
+}
+
+/**
  * Matsedel's data, for a <Suspense> in page.tsx (AD-18): the week's dishes
  * (with the pantry), the library as rows with offers, and the count of items
  * still to buy, read in parallel. When the plan cannot be read, a notice
@@ -138,6 +156,8 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     );
   }
 
+  const nutrition = await weekNutrition(view.dishes);
+
   return (
     <>
       <PageHeader
@@ -167,6 +187,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           dishes={view.dishes}
           options={options}
           toBuy={toBuy}
+          nutrition={nutrition}
           offersFooter={
             <OfferIdeas
               initial={ideas}

@@ -23,6 +23,7 @@ import {
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
+import { useOption } from "@/lib/use-option";
 import { OffersSheetControlContext } from "./offers-sheet-control";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeBar } from "./recipe-bar";
@@ -104,11 +105,19 @@ export type LibraryProps = {
   onMenuIds?: readonly string[];
   /** The filter to open with, from the address ("?filter=erbjudanden", "Visa alla" in Veckans erbjudanden); chosen once when it arrives. */
   initialFilter?: "offers";
+  /**
+   * Näring: the ids of the recipes that follow the kostråd (nutrition.assessKostrad, worked out by the
+   * page with one nutrition read for the whole library); the chip Nyttigt needs it and Tillval "Visa näring" on.
+   */
+  healthyIds?: readonly string[];
 };
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  // Nyttigt is there only with "Visa näring" on (off on the server and while hydrating, so nothing jumps); a saved Nyttigt without it shows everything.
+  const withHealthy = useOption("showNutrition") && healthyIds !== undefined;
+  const healthySet = useMemo(() => new Set(healthyIds ?? []), [healthyIds]);
   const [view, setView] = useRecipeView();
   const [sort, setSort] = useRecipeSort();
   const [category, setCategory] = useRecipeCategory();
@@ -202,9 +211,9 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
     // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
     if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
-    const pill = filter === "cookable" && statusUnavailable ? "all" : filter;
-    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite);
-  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags]);
+    const pill = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) ? "all" : filter;
+    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite, (recipe) => healthySet.has(recipe.id));
+  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
@@ -295,6 +304,8 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         Inget kan lagas helt just nu.
       </EmptyState>
     );
+  } else if (filter === "healthy" && withHealthy && search.kind === "none") {
+    content = <EmptyState>Inget av dina recept har något kostrådsmärke än.</EmptyState>;
   } else if (search.kind === "done") {
     content = (
       <EmptyState
@@ -332,6 +343,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           onCategoryChange={setCategory}
           available={availableCategories}
           withOffers={offers !== undefined}
+          withHealthy={withHealthy}
         />
         </div>
       </div>

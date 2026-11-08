@@ -139,7 +139,7 @@ export function recipeMetaText(totalMinutes: number | null, servings: number): s
   return time ? `${time} · ${portions}` : portions;
 }
 
-export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers"] as const;
+export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers", "healthy"] as const;
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number];
 
 /** A stored filter choice; anything else, or nothing, is Alla. */
@@ -158,12 +158,17 @@ type FilterableRecipe = { id: string; createdAt: string; missingCount: number | 
  * Kan lagas nu keeps only the recipes with `missingCount` 0 (N from
  * pantry.recipeStatus, AD-7; Basvaror count as home), in the given order.
  * Rows without a status are not cookable and are left out.
+ *
+ * Nyttigt keeps the recipes `isHealthy` says follow the kostråd (nutrition.assessKostrad, worked
+ * out by the page); without `isHealthy` it keeps none.
  */
 export function filterRecipes<T extends FilterableRecipe>(
   recipes: readonly T[],
   filter: RecipeFilter,
   isFavorite: (recipe: T) => boolean,
+  isHealthy: (recipe: T) => boolean = () => false,
 ): T[] {
+  if (filter === "healthy") return recipes.filter(isHealthy);
   if (filter === "favorites") return recipes.filter(isFavorite);
   if (filter === "cookable") return recipes.filter((recipe) => rankOf(recipe.missingCount) === 0);
   return [...recipes];

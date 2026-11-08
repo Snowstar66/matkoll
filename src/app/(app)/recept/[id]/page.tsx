@@ -5,10 +5,13 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { copyTargets, currentWeekStart, weekNumber, weeksBetween, type MealPlan } from "@/features/mealplan";
 import { addToCurrentPlan, getCurrentPlan, getPlanForWeek, getRememberedWeek, removePlanRecipe } from "@/features/mealplan/server";
+import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
+import { getIngredientNutrition } from "@/features/nutrition/server";
 import { getActiveOffers } from "@/features/offers/server";
 import { lineOffers, type LineOffer } from "@/features/recipes";
 import { listStores } from "@/features/settings/server";
 import { addKeyedItems, getShoppingList, removeKeyedItems } from "@/features/shopping/server";
+import type { SavedRecipe } from "@/features/recipes";
 import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
@@ -38,6 +41,20 @@ async function readLineOffers(): Promise<Record<string, LineOffer>> {
   } catch (error) {
     console.error("recipe_offers_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return {};
+  }
+}
+
+/**
+ * The recipe's nutrition per portion (Näring), counted with the recipe's own servings; `null` when
+ * the nutrition table cannot be read: no card then. Whether it shows is Tillval "Visa näring", chosen in the browser.
+ */
+async function readNutrition(recipe: SavedRecipe): Promise<RecipeNutrition | null> {
+  try {
+    const ids = [...new Set(recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))];
+    return recipeNutrition(recipe.lines, await getIngredientNutrition(ids), recipe.servings);
+  } catch (error) {
+    console.error("recipe_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return null;
   }
 }
 
@@ -77,6 +94,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
+  const nutrition = await readNutrition(recipe);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   // The weeks the recipe can be planned for, with its dish on each: the three coming ones and the week last
   // viewed on Matsedel or Inköpslista when that is further ahead (UX-04, UX-05).
@@ -121,6 +139,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
       removeFromPlan={removePlanRecipe}
+      nutritionCard={nutrition ? <NutritionCard recipeTitle={recipe.title} nutrition={nutrition} /> : undefined}
       finish={
         dish ? (
           <MarkCookedButton

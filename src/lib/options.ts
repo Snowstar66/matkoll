@@ -6,17 +6,36 @@
 export const options = [
   {
     id: "recipeTimer",
+    group: "I receptet",
     label: "Timer i receptet",
     hint: "Tryck på en tid i ett steg för att starta en timer",
     defaultOn: true,
   },
   {
     id: "recipeAwake",
+    group: "I receptet",
     label: "Skärmen släcks inte i receptet",
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
   },
+  {
+    id: "showNutrition",
+    group: "Näring",
+    label: "Visa näring",
+    hint: "Tallriken, märken och veckans rad",
+    defaultOn: false,
+  },
+  {
+    id: "showKcal",
+    group: "Näring",
+    label: "Visa kcal",
+    hint: "kcal och gram per portion",
+    defaultOn: false,
+  },
 ] as const;
+
+/** The groups of the Tillval page, in the order they are shown. */
+export const optionGroups = ["I receptet", "Näring"] as const;
 
 export type OptionId = (typeof options)[number]["id"];
 

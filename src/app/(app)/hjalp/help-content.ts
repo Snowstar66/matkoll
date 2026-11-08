@@ -59,6 +59,10 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Kan jag ta tid på ett steg?",
         answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med tiden som är kvar. När den är slut ringer och vibrerar telefonen och raden säger Klar. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },
+      {
+        question: "Hur vet jag om en rätt är nyttig?",
+        answer: "Slå på Visa näring under Inställningar, Tillval. Då visar receptet en tallrik med hur mycket som är grönsaker, protein och kolhydrater, och märken som Mycket grönt, Fisk, Baljväxter och Fullkorn när rätten har gott om det. Det är ingen poäng och inga råd, bara en ungefärlig bild som räknas från Livsmedelsverkets livsmedelsdatabas på det som går att väga. Slå på Visa kcal för kcal och gram per portion. Filtret Nyttigt i Recept visar rätter med mycket grönt, fisk eller baljväxter och lite rött kött.",
+      },
     ],
   },
   {

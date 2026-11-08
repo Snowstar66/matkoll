@@ -516,3 +516,13 @@ export function ShareIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A leaf: the quiet nutrition lines (Matsedel's week line). */
+export function LeafIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" />
+      <path d="M5 19c2-4 5-7 9-9" />
+    </Icon>
+  );
+}
