@@ -197,6 +197,32 @@ describe("fromAiRecipe", () => {
     expect(draft.steps.filter((step) => typeof step !== "string")).toHaveLength(4);
   });
 
+  it("reads cloves written inside the noun as klyfta, not whole bulbs", () => {
+    const garlic = { name: "vitlök", section: "Frukt och grönt", location: "Skafferi", defaultUnit: "st" } as const;
+    const lines = [
+      line({ originalText: "2 vitlöksklyftor", amount: 2, unit: null, hint: garlic }),
+      line({ originalText: "3 klyftor vitlök, pressade", amount: 3, unit: "st", hint: garlic }),
+      line({ originalText: "1 vitlök", amount: 1, unit: null, hint: garlic }),
+      line({ originalText: "1/2 vitlök", amount: 0.5, unit: null, hint: garlic }),
+      line({ originalText: "2 vitlöksklyftor", amount: 2, unit: "klyftor", hint: garlic }),
+      line({ originalText: "vitlöksklyftor efter smak", amount: null, unit: null, isVague: true, hint: garlic }),
+      line({ originalText: "4 brödskivor", amount: 4, unit: null, hint: { ...garlic, name: "brödskiva" } }),
+      line({ originalText: "4 brödskivor", amount: 4, unit: null }),
+    ];
+    const matches = [match, match, match, match, match, match, match, proposal("brödskiva")];
+    const draft = fromAiRecipe(recipe({ ingredients: lines }), matches, { kind: "url", url: "https://example.se/r" });
+    expect(draft.lines.map((l) => [l.amount, l.unit, l.isVague])).toEqual([
+      [2, "klyfta", false],
+      [3, "klyfta", false],
+      [1, null, false],
+      [0.5, null, false],
+      [2, "klyfta", false],
+      [null, null, true],
+      [4, null, false],
+      [4, null, false],
+    ]);
+  });
+
   it("needs one match per line", () => {
     expect(() => fromAiRecipe(recipe(), [], { kind: "text" })).toThrow();
   });

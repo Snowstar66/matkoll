@@ -5,6 +5,8 @@ export {
   isCountUnit,
   unitSchema,
   normalizeUnit,
+  unitInNoun,
+  unitOfNoun,
   parseQuantity,
   formatQuantity,
   displayAmount,

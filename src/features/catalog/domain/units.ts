@@ -88,6 +88,67 @@ export function normalizeUnit(raw: string | null | undefined): NormalizedUnit {
   return unit ? { unit, known: true } : { unit: null, known: false };
 }
 
+/**
+ * Units a Swedish recipe writes inside the noun, by the noun's ending:
+ * "vitlöksklyftor" is klyfta, "dillknippe" knippe, "basilikakruka" kruka,
+ * "skinkskivor" skiva. Only units the catalog has; "dillkvist" has none.
+ */
+const nounUnits: readonly (readonly [RegExp, Unit])[] = [
+  [/klyft(?:a|an|or|orna)$/, "klyfta"],
+  [/knipp(?:e|en|a|or)$/, "knippe"],
+  [/kruk(?:a|or)$/, "kruka"],
+  [/skiv(?:a|or)$/, "skiva"],
+];
+
+/** What may stand before the noun: a number, a fraction or a range, "ca" or a number word. */
+const leadWords = new Set([
+  "ca",
+  "ca.",
+  "cirka",
+  "ungefär",
+  "en",
+  "ett",
+  "två",
+  "tre",
+  "fyra",
+  "fem",
+  "sex",
+  "sju",
+  "åtta",
+  "nio",
+  "tio",
+  "tolv",
+  "halv",
+  "halva",
+]);
+const leadNumber = /^[\d½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞.,/⁄–-]+$/;
+/** Words of size that may stand between the amount and the noun: "2 stora vitlöksklyftor". */
+const sizeWords = new Set(["stor", "stora", "liten", "små", "medelstor", "medelstora", "hel", "hela", "färsk", "färska"]);
+
+/** The unit `noun` names by its ending ("vitlöksklyftor" → klyfta), or `null`. */
+export function unitOfNoun(noun: string | null | undefined): Unit | null {
+  const word = (noun ?? "").normalize("NFC").trim().toLocaleLowerCase("sv-SE");
+  return nounUnits.find(([ending]) => ending.test(word))?.[1] ?? null;
+}
+
+/**
+ * The unit a recipe line writes inside its noun, right after the amount:
+ * "2 vitlöksklyftor" and "3 klyftor vitlök, pressade" → klyfta, "2 stora
+ * vitlöksklyftor" too. Only the first word after the amount counts (after a
+ * word of size such as "stora"), before a comma or parenthesis, so "1 citron,
+ * i klyftor", "1 citron i klyftor" and "1 vitlök" give `null`. For the lines
+ * the AI reads as an amount without a unit.
+ */
+export function unitInNoun(text: string | null | undefined): Unit | null {
+  const head = (text ?? "").normalize("NFC").toLocaleLowerCase("sv-SE").split(/[,(;:]/)[0];
+  const words = head.split(/\s+/).filter((word) => word !== "");
+  let start = 0;
+  while (start < words.length && (leadNumber.test(words[start]) || leadWords.has(words[start]))) start++;
+  if (start === 0) return null;
+  if (sizeWords.has(words[start])) start++;
+  return unitOfNoun(words[start]?.replace(/[^\p{L}]+$/u, ""));
+}
+
 const unicodeFractions: Record<string, number> = {
   "½": 1 / 2,
   "⅓": 1 / 3,

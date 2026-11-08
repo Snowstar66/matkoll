@@ -30,8 +30,9 @@ import type { LineOverride } from "./line-override";
 // later "Lägg till i Matvaror" and the export. Each dish's lines are scaled to its
 // servings (recipes.scaleLines), summed over the dishes per ingredient and
 // unit (pantry.aggregateNeedsWithOrigins) and compared with the whole pantry
-// (pantry.coverage, AD-7). Units are never converted (AD-12). Pure, so it is
-// tested without a database.
+// (pantry.coverage, AD-7). Units are never converted (AD-12), except cloves,
+// which the list buys as whole ones (asBought). Pure, so it is tested without
+// a database.
 
 /** One line on the shopping list. */
 export type ShoppingLine = {
@@ -176,6 +177,27 @@ function toBuy(amount: number, unit: Unit): number {
   return isCountUnit(unit) ? Math.ceil(amount) : amount;
 }
 
+/**
+ * Cloves in a whole one (a garlic bulb), for a list that buys whole ones
+ * (decision 2026-11-08). On the low side, so the list never asks for too little.
+ */
+export const CLOVES_PER_WHOLE = 10;
+
+/**
+ * A recipe line as the list buys it (decision 2026-11-08): cloves are bought
+ * as whole ones, so a need in klyfta counts as st, 10 klyftor to 1 st, and
+ * "2 vitlöksklyftor" and "1 vitlök" from two dishes are one line, "Vitlök 2
+ * st" (1,2 st rounded up), keyed r:<id>:st, which the pantry's whole bulbs
+ * cover. When the pantry holds the ingredient in klyfta, the line keeps its
+ * klyftor, so what is at home still counts. The only conversion between
+ * units, and only on the list; the recipe keeps its klyftor (AD-12).
+ */
+function asBought<L extends ListRecipeLine>(line: L, snapshot: PantrySnapshot): L {
+  if (line.unit !== "klyfta" || line.isVague || line.amount === null || line.ingredientId === null) return line;
+  if (snapshot.get(line.ingredientId)?.amounts.some((stock) => stock.unit === "klyfta")) return line;
+  return { ...line, amount: line.amount / CLOVES_PER_WHOLE, unit: "st" };
+}
+
 /** A text line's multiplier, the sum of its dishes' scale factors, to one decimal and never 0. */
 function roundMultiplier(sum: number): number {
   return Math.max(0.1, Math.round(sum * 10) / 10);
@@ -219,7 +241,9 @@ export function countedDishIds(plan: ShoppingListInput["plan"], recipes: readonl
  *
  * - Each dish's lines are scaled by its servings over the recipe's own
  *   (recipes.scaleFactor), then the same catalog ingredient in the same unit
- *   is one line over all dishes. "1 purjolök" counts as 1 st.
+ *   is one line over all dishes. "1 purjolök" counts as 1 st, and cloves
+ *   count as whole ones, 10 klyftor to 1 st, unless the pantry holds the
+ *   ingredient in klyfta (asBought, decision 2026-11-08).
  * - A need the pantry covers (an unlimited item, enough in the same unit, or
  *   the ingredient in any form for a vague line) gives no line; partly
  *   covered gives what is short, with what is at home in other units beside
@@ -383,7 +407,7 @@ function recipeLines(
         const written = cleanIngredientText(line.originalText) || collapse(line.originalText);
         if (written) writtenLabels.set(line.ingredientId, written);
       }
-      linked.push({ ...line, origin: dish.id });
+      linked.push({ ...asBought(line, snapshot), origin: dish.id });
     }
   }
 
