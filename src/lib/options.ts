@@ -32,7 +32,7 @@ export const options = [
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
   { id: "dagensFood", group: "dagens", label: "Matdagar och säsong", hint: "", defaultOn: true },
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
-  { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "", defaultOn: false },
+  { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "Vad dagen passar för, och vad du bör undvika", defaultOn: false },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 
 export type OptionId = (typeof options)[number]["id"];

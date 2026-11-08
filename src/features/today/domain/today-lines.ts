@@ -4,8 +4,8 @@ import { nameDayLine } from "./name-days";
 import { seasonLine, type SeasonRecipe } from "./season";
 
 // What the card says: one food line (a food day, else the season) and, when switched
-// on, the name day and the Chinese almanac. At most two lines: when both extras are on
-// beside a food line, they share the second line.
+// on, the name day and the Chinese almanac's advice, each on a line of its own (the
+// advice is a sentence: "Almanackan: bra dag att städa hemma. Undvik att storhandla.").
 
 export type LinePart = { text: string; recipeId?: string };
 export type TodayLine = readonly LinePart[];
@@ -32,7 +32,6 @@ export function todayLines(day: Day, settings: TodaySettings, recipes: readonly 
     (line): line is string => line !== null,
   );
   const lines: TodayLine[] = main ? [main] : [];
-  if (main && extras.length > 1) lines.push([{ text: extras.join(" · ") }]);
-  else for (const extra of extras) lines.push([{ text: extra }]);
+  for (const extra of extras) lines.push([{ text: extra }]);
   return lines;
 }
