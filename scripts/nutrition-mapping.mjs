@@ -17,6 +17,10 @@
 //                 (there is no default density: volume amounts without one are not counted)
 //   gramsPerSlice grams of one "skiva" (slice), or null/omitted
 //
+// Package weights (grams in one "förp", "kruka" or "knippe") are not in these tuples but in PACKAGE_GRAMS at
+// the bottom of this file, by name, with the assumptions written there. A name without an entry has no package
+// weight, and "1 förp" of it is not counted (the size is not known).
+//
 // Assumptions: dry goods (rice, pasta, grains, flour) are the uncooked
 // variant, because recipes list them uncooked; canned things are the drained
 // variant; meat and fish are raw; "färs" uses 15% fat for beef, pork and
@@ -348,6 +352,90 @@ export const MAPPING = [
   [["gula lökar"], 344, "gronsak", 110, 60],
   [["röda lökar", "rödlökar"], 4947, "gronsak", 100, 60],
 
+  // --- Tillägg 2026-11-08 (näringen räknas för fler recept): vanliga varor som saknades ---
+  // Grönsaker
+  [["salladslök", "salladslökar", "vårlök", "vårlökar"], 344, "gronsak", 15, 40],
+  [["schalottenlök", "schalottenlökar", "schalotten"], 344, "gronsak", 30, 60],
+  [["brysselkål", "rosenkål"], 327, "gronsak", null, 65],
+  [["savojkål", "savoykål"], 357, "gronsak", 800, 35],
+  [["kinakål", "kinakålshuvud"], 358, "gronsak", 600, 35],
+  [["spetskål"], 370, "gronsak", 500, 35],
+  [["kålrabbi"], 343, "gronsak", 250, 60],
+  [["wokgrönsaker", "wokmix", "wok grönsaker"], 425, "gronsak", null, 50],
+  [["grönsaksmix", "frysta grönsaker", "blandade grönsaker", "grönsaksblandning"], 388, "gronsak", null, 60],
+  [["soltorkade tomater", "soltorkad tomat", "soltorkade tomater i olja"], 365, "gronsak", 8, 50],
+  [["jalapeño", "jalapeños", "grön jalapeño", "röd jalapeño"], 380, "gronsak", 25, null],
+  [["spagettipumpa"], 353, "gronsak", 1000, 60],
+  [["sockerärter", "sockerärter färska"], 359, "gronsak", null, 40],
+  [["brytbönor", "brytböna"], 331, "gronsak", null, 45],
+  [["kokosflingor"], 1564, "ovrigt", null, 40],
+  // Mejeri och ost
+  [["kesella", "kesam"], 70, "mejeri", null, 100],
+  [["gorgonzola", "ädelost", "blåmögelost", "roquefort"], 82, "mejeri", null, 50],
+  [["gouda", "edamer", "emmentaler", "gruyère", "gruyere", "mellanlagrad ost", "lagrad ost"], 96, "mejeri", null, 40, 10],
+  [["pecorino", "pecorino romano"], 103, "mejeri", null, 40],
+  [["burrata"], 2255, "mejeri", 125, 70],
+  [["havregrädde", "sojagrädde", "växtbaserad grädde", "vegansk grädde"], 2039, "ovrigt", null, 100],
+  [["kokosgrädde"], 1590, "ovrigt", null, 100],
+  [["fruktyoghurt", "vaniljyoghurt", "jordgubbsyoghurt"], 136, "mejeri", null, 103],
+  // Kött och chark
+  [["hamburgare", "hamburgerbiffar", "hamburgerkött"], 1101, "rott_kott", 90, null],
+  [["köttbullar", "köttbullar frysta", "frysta köttbullar"], 7062, "rott_kott", 20, null],
+  [["fiskbullar"], 1344, "fisk", null, null],
+  [["parmaskinka", "serranoskinka", "prosciutto", "lufttorkad skinka"], 1008, "rott_kott", null, null, 8],
+  [["julskinka"], 974, "rott_kott", null, null],
+  [["bratwurst", "salsiccia"], 1508, "rott_kott", 100, null],
+  [["wienerkorv", "varmkorv", "wienerkorvar"], 1508, "rott_kott", 50, null],
+  [["laxsida"], 1255, "fisk", 800, null],
+  [["laxbit", "laxbitar"], 1255, "fisk", 150, null],
+  [["äggvita", "äggvitor"], 1227, "agg", 30, null],
+  // Bröd, deg, pasta och ris
+  [["smördeg", "färdig smördeg", "smördegsplattor"], 1641, "raffinerad", null, null],
+  [["filodeg"], 1642, "raffinerad", null, null],
+  [["mördeg", "färdig mördeg"], 1639, "raffinerad", null, null],
+  [["pizzadeg", "färdig pizzadeg"], 202, "raffinerad", null, null],
+  [["brioche burger bun", "burger bun", "burger buns", "briochebröd", "briochebullar", "burgerbröd", "hamburgerbullar"], 3818, "raffinerad", 60, null],
+  [["pankoströbröd", "panko", "pankomjöl"], 188, "raffinerad", null, 30],
+  [["nachochips", "tortillachips", "nachos"], 1581, "ovrigt", null, 15],
+  [["risottoris", "arborioris", "sushiris"], 2481, "raffinerad", null, 85],
+  [["spagetti", "pennepasta", "rigatoni", "linguine", "pappardelle", "orzo", "tortiglioni"], 845, "raffinerad", null, 40],
+  [["glasnudlar"], 819, "raffinerad", null, 35],
+  [["udon", "udonnudlar"], 870, "raffinerad", null, 35],
+  [["pommes frites", "ugnspommes"], 244, "raffinerad", null, 50],
+  [["potatismos"], 274, "raffinerad", null, 100],
+  [["klyftpotatis"], 4457, "raffinerad", 90, 90],
+  [["müsli", "fullkornsmüsli"], 2024, "fullkorn", null, 40],
+  // Fett, dressingar och såser
+  [["tryffelolja", "chiliolja", "vitlöksolja", "kryddolja"], 4659, "fett", null, 90],
+  [["dressing", "caesardressing", "vitlöksdressing", "ranchdressing", "lökdressing", "salladsdressing", "grekisk dressing"], 42, "fett", null, 95],
+  [["vinägrett", "vinägrettdressing"], 26, "fett", null, 95],
+  [["kebabsås", "tzatzikidressing"], 45, "fett", null, 95],
+  [["aioli", "vitlöksmajonnäs"], 50, "fett", null, 95],
+  [["tomatsås", "pastasås", "pastasås tomat", "tomatsås på burk"], 2008, "ovrigt", null, 100],
+  [["bbq-sås", "bbqsås", "barbecuesås", "grillsås", "hp-sås", "steaksås"], 1969, "socker", null, 110],
+  [["chilisås", "sriracha", "srirachasås"], 1968, "ovrigt", null, 110],
+  [["teriyaki", "teriyakisås"], 2012, "ovrigt", null, 115],
+  [["hoisin", "hoisinsås"], 2007, "ovrigt", null, 120],
+  [["miso", "misopasta"], 908, "ovrigt", null, 100],
+  [["salsa", "tacosås", "tomatsalsa"], 462, "ovrigt", null, 100],
+  [["ajvar", "ajvar relish"], 417, "ovrigt", null, 100],
+  [["pinjenötter", "pinjekärnor"], 3071, "ovrigt", null, 55],
+  [["pistagenötter", "pistage"], 1570, "ovrigt", null, 55],
+  [["pekannötter", "pekannöt"], 1569, "ovrigt", null, 50],
+  [["paranötter"], 1568, "ovrigt", null, 55],
+  [["rödpesto", "röd pesto", "pesto rosso"], 2004, "ovrigt", null, 90],
+  // Sött, drycker
+  [["hallonsylt"], 1804, "socker", null, 130],
+  [["jordgubbssylt"], 1801, "socker", null, 130],
+  [["äppelmos"], 1809, "socker", null, 115],
+  [["glass", "vaniljglass"], 1690, "socker", null, 55],
+  [["vaniljsås"], 1771, "socker", null, 105],
+  [["vitt vin", "vitvin", "torrt vitt vin"], 1908, "ovrigt", null, 100],
+  [["rött vin", "rödvin", "matlagningsvin"], 1907, "ovrigt", null, 100],
+  [["öl", "pilsner", "folköl"], 1902, "ovrigt", null, 100],
+  [["äppelcider", "cider"], 1903, "ovrigt", null, 100],
+  [["juice", "fruktjuice", "äppeljuice"], 662, "ovrigt", null, 103],
+
   // --- Räknas inte (kryddor, salt, vatten, smakgivare, bakning) ---
   [
     [
@@ -367,4 +455,80 @@ export const MAPPING = [
     null,
     null,
   ],
+  // Tillägg 2026-11-08: pastor och smakgivare som används i små mängder, och dryck utan näring.
+  [
+    [
+      "chipotlepasta", "chipotle", "chilipasta", "chilipasta röd", "harissa", "gochujang", "citrongräs", "buljong", "kycklingbuljong",
+      "kalvfond", "kycklingfond", "hönsfond", "oxfond", "kaffe", "espresso", "starkt kaffe", "te",
+    ],
+    null,
+    "ej_raknad",
+    null,
+    null,
+  ],
 ];
+
+/**
+ * Grams in one package (one "förp", and one "kruka" or "knippe" of a herb or bunch vegetable), by
+ * normalised name; every key must be a name in MAPPING (scripts/nutrition-data.mjs checks it).
+ * Becomes ingredient_nutrition.grams_per_package. Typical Swedish sizes, drained weight for cans:
+ *   - tomatoes: krossade, hela and tomater på burk 400 g, passerade/passata 500 g; tomatpuré tub 140 g
+ *   - kokosmjölk 400 g (400 ml, 100 g per dl); matlagningsgrädde and grädde 2,5 dl = 250 g; gräddfil 3 dl = 300 g
+ *   - bacon 140 g, crème fraiche 200 g, färskost 200 g, kvarg 500 g, fetaost 150 g, mozzarella 125 g, halloumi 200 g
+ *   - beans, chickpeas and cooked lentils in a can 240 g drained, majs 150 g, tonfisk 140 g, sardiner 95 g
+ *   - tortilla 8 pcs 320 g, hamburgerbröd 4 pcs 240 g, korvbröd 8 pcs 300 g, pitabröd 6 pcs 360 g, tacoskal 12 pcs 144 g
+ *   - smördeg 275 g, filodeg 270 g, pizzadeg 400 g; pasta 500 g; köttfärs 500 g; smör 500 g
+ *   - herbs: basilika one pot 20 g usable, persilja/dill one bunch 25 g, gräslök one pot 20 g;
+ *     salladslök and rädisor one bunch 100 g, grön sparris one bunch 250 g
+ * These are assumptions: pack sizes vary a little between brands. A line whose ingredient has no entry here
+ * (rice, flour, eggs, yoghurt, chicken ...) with "förp" stays uncounted, because the size is not known.
+ * @type {Readonly<Record<string, number>>}
+ */
+export const PACKAGE_GRAMS = {
+  ...pack(400, ["krossade tomater", "krossad tomat", "hela tomater", "tomater på burk", "kokosmjölk", "kokosmjölk på burk", "tomatsås", "pastasås", "pastasås tomat", "tomatsås på burk"]),
+  ...pack(500, ["passerade tomater", "kvarg", "naturell kvarg", "köttbullar", "köttbullar frysta", "frysta köttbullar", "ströbröd", "skorpmjöl"]),
+  ...pack(140, ["tomatpuré", "bacon", "baconskivor", "tonfisk", "tonfisk på burk", "tonfisk i vatten", "tonfiskburk", "tonfisk i olja"]),
+  ...pack(200, [
+    "crème fraiche", "creme fraiche", "crème fraîche", "lätt crème fraiche", "lätt creme fraiche", "lätt crème fraîche",
+    "färskost", "philadelphia", "cream cheese", "kryddad färskost", "halloumi", "hummus", "tofu", "tempeh", "keso", "cottage cheese",
+    "kesella", "kesam", "salladsost", "färsk spenat", "spenat", "babyspenat", "bladspenat", "sockerärtor", "sockerärter", "grönkål", "champinjoner", "champinjon",
+  ]),
+  ...pack(250, ["matlagningsgrädde", "matgrädde", "vispgrädde", "grädde", "mellangrädde", "matlagningsyoghurt", "matyoghurt", "matlagningsbas", "körsbärstomat", "körsbärstomater", "cocktailtomat", "cocktailtomater", "grön sparris", "sparris"]),
+  ...pack(300, ["gräddfil", "korvbröd"]),
+  ...pack(150, ["fetaost", "feta", "majs", "majskorn", "majs på burk", "riven ost", "gratängost", "rökt lax"]),
+  ...pack(125, ["mozzarella", "buffelmozzarella", "burrata"]),
+  ...pack(240, [
+    "kikärtor", "kikärter", "kikärtor på burk", "kidneybönor", "röda bönor", "svarta bönor", "vita bönor", "cannellinibönor", "stora vita bönor", "kokta linser",
+    "hamburgerbröd", "brioche burger bun", "burger bun", "burger buns", "briochebröd", "briochebullar", "burgerbröd", "hamburgerbullar",
+  ]),
+  ...pack(320, ["tortilla", "tortillabröd", "tortillas", "wraps"]),
+  ...pack(360, ["pitabröd", "pita"]),
+  ...pack(144, ["tacoskal"]),
+  ...pack(275, ["smördeg", "färdig smördeg", "smördegsplattor", "mördeg", "färdig mördeg"]),
+  ...pack(270, ["filodeg"]),
+  ...pack(400, ["pizzadeg", "färdig pizzadeg"]),
+  ...pack(500, ["pasta", "spaghetti", "penne", "makaroner", "fusilli", "tagliatelle", "farfalle", "spagetti", "pennepasta", "rigatoni", "linguine", "pappardelle", "tortiglioni"]),
+  ...pack(500, ["nötfärs", "färs", "köttfärs", "blandfärs", "blandad färs", "köttfärs blandad", "fläskfärs", "grisfärs", "lammfärs", "smör", "smör fett 80%", "osaltat smör", "bregott"]),
+  ...pack(450, ["fryst spenat", "frysta spenat", "spenat fryst", "djupfryst spenat"]),
+  ...pack(190, ["pesto", "grön pesto", "rödpesto", "röd pesto", "pesto rosso"]),
+  ...pack(230, ["dressing", "caesardressing", "vitlöksdressing", "ranchdressing", "lökdressing", "salladsdressing", "grekisk dressing", "vinägrett", "vinägrettdressing", "salsa", "tacosås", "tomatsalsa"]),
+  ...pack(500, ["ketchup"]),
+  ...pack(65, ["ruccola", "rucola"]),
+  ...pack(250, ["haricots verts", "haricot verts"]),
+  ...pack(95, ["sardiner"]),
+  ...pack(185, ["nachochips", "tortillachips", "nachos"]),
+  ...pack(200, ["panko", "pankoströbröd", "pankomjöl"]),
+  ...pack(80, ["parmaskinka", "serranoskinka", "prosciutto", "lufttorkad skinka"]),
+  ...pack(120, ["skinka", "kokt skinka", "rökt skinka"]),
+  ...pack(150, ["skinkstrimlor"]),
+  ...pack(600, ["kycklingfilé", "kycklingfiléer", "kycklingbröst", "kycklingbröstfilé"]),
+  ...pack(300, ["prinskorv", "prinskorvar"]),
+  ...pack(20, ["basilika", "färsk basilika", "gräslök"]),
+  ...pack(25, ["persilja", "bladpersilja", "krusig persilja", "färsk persilja", "dill", "färsk dill"]),
+  ...pack(100, ["salladslök", "salladslökar", "vårlök", "vårlökar", "rädisa", "rädisor"]),
+};
+
+/** @param {number} grams @param {string[]} names */
+function pack(grams, names) {
+  return Object.fromEntries(names.map((name) => [name, grams]));
+}

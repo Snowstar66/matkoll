@@ -65,6 +65,8 @@ export type IngredientNutrition = {
   gramsPerSlice: number | null;
   /** Grams in 1 dl, or `null` when volume amounts cannot be converted. */
   gramsPerDl: number | null;
+  /** Grams in one package ("1 förp") or one pot or bunch of herbs ("1 kruka", "1 knippe"), or `null` when the size is not known. */
+  gramsPerPackage: number | null;
 };
 
 /**

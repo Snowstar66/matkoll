@@ -9,7 +9,7 @@ export {
   type KostradGroup,
   type Per100g,
 } from "./domain/groups";
-export { nameCandidates } from "./domain/names";
+export { nameCandidates, compoundHead, COMPOUND_HEADS } from "./domain/names";
 export { toGrams, GARLIC_CLOVE_G } from "./domain/grams";
 export {
   recipeNutrition,
@@ -45,7 +45,8 @@ export {
   type PlateShares,
   type WeekSummary,
 } from "./domain/kostrad";
-export { KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, coverageText, shareText, weekLineText } from "./domain/texts";
+export { KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, checkCountText, checkMissingText, coverageText, shareText, weekLineText } from "./domain/texts";
+export { nutritionCheck, MAX_MISSING_ITEMS, type CheckedRecipe, type MissingItem, type NutritionCheck } from "./domain/coverage";
 export { NutritionCard } from "./ui/nutrition-card";
 export { NutritionWeekLine, NutritionWeekLineAsync } from "./ui/week-line";
 export { useNutritionOptions } from "./ui/use-nutrition-options";

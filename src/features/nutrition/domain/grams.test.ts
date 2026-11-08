@@ -48,8 +48,19 @@ describe("toGrams", () => {
     expect(toGrams(1, "klyfta", egg)).toBeNull();
   });
 
+  it("converts a package, a pot and a bunch with the package weight", () => {
+    const tomatoes = food("krossade tomater", "gronsak", per(22), { gramsPerDl: 100, gramsPerPackage: 400 });
+    const basil = food("basilika", "gronsak", per(25), { gramsPerPackage: 20 });
+    expect(toGrams(1, "förp", tomatoes)).toBe(400);
+    expect(toGrams(2, "förp", tomatoes)).toBe(800);
+    expect(toGrams(0.5, "kruka", basil)).toBe(10);
+    expect(toGrams(2, "knippe", basil)).toBe(40);
+  });
+
   it("gives null for sizes that are not known", () => {
     for (const unit of ["förp", "kruka", "knippe", "näve", "burk"]) expect(toGrams(1, unit, flour)).toBeNull();
+    const tomatoes = food("krossade tomater", "gronsak", per(22), { gramsPerPackage: 400 });
+    for (const unit of ["näve", "burk", "påse"]) expect(toGrams(1, unit, tomatoes)).toBeNull();
   });
 
   it("gives null without a usable amount", () => {
