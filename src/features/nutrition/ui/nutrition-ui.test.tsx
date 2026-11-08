@@ -59,8 +59,8 @@ describe("NutritionCard", () => {
     saveOption("showNutrition", true);
     saveOption("showKcal", true);
     const unsure = dish({ gronsak: 280, agg: 40, raffinerad: 30 }, { counted: 5, total: 8 }, [
-      { label: "fransyska", reason: "unknown_ingredient" },
-      { label: "crème fraiche (1 förp)", reason: "unknown_unit" },
+      { label: "fransyska", reason: "unknown_ingredient", name: "fransyska", unit: null },
+      { label: "crème fraiche (1 förp)", reason: "unknown_unit", name: "crème fraiche", unit: "förp" },
     ]);
     render(<NutritionCard recipeTitle="Biff" nutrition={unsure} />);
     expect(screen.queryByTestId("nutrition-kcal")).not.toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("NutritionCard", () => {
 
   it("with the meat uncounted the card has no plate, only a line that opens the sheet", async () => {
     saveOption("showNutrition", true);
-    const potatoes = dish({ raffinerad: 300 }, { counted: 3, total: 4 }, [{ label: "lövbiff", reason: "unknown_ingredient" }]);
+    const potatoes = dish({ raffinerad: 300 }, { counted: 3, total: 4 }, [{ label: "lövbiff", reason: "unknown_ingredient", name: "lövbiff", unit: null }]);
     render(<NutritionCard recipeTitle="Lövbiffsrullader" nutrition={potatoes} />);
     expect(screen.getByTestId("nutrition-card-unsure")).toHaveTextContent("Näringen kan inte räknas säkert");
     expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();

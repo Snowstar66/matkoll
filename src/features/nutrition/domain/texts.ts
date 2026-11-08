@@ -1,3 +1,4 @@
+import type { NutritionCheck } from "./coverage";
 import type { UncountedLine } from "./recipe-nutrition";
 import type { KostradTag, PlateShares, WeekSummary } from "./kostrad";
 
@@ -41,6 +42,17 @@ export function coverageText(counted: number, total: number): string {
 export const KCAL_UNSURE_TEXT = "Näringen går inte att räkna säkert för det här receptet, så varken kcal eller tallrik visas.";
 export const UNSURE_CARD_TEXT = "Näringen kan inte räknas säkert";
 export const PLATE_NOTE = "Tallriken visar hur maten fördelas i vikt, inte näringsämnen.";
+
+/** "Näringen kan räknas för 34 av 52 recept."; `null` without recipes. */
+export function checkCountText(check: Pick<NutritionCheck, "counted" | "total">): string | null {
+  return check.total === 0 ? null : `Näringen kan räknas för ${check.counted} av ${check.total} recept.`;
+}
+
+/** "Saknas oftast: krossade tomater (förp), pankoströbröd."; `null` when nothing is missing. */
+export function checkMissingText(check: Pick<NutritionCheck, "missing">): string | null {
+  if (check.missing.length === 0) return null;
+  return `Saknas oftast: ${check.missing.map((item) => (item.unit ? `${item.name} (${item.unit})` : item.name)).join(", ")}.`;
+}
 
 /** "Räknas inte: fransyska (okänd vara), crème fraiche (1 förp, okänd storlek)"; `null` when all were counted. */
 export function uncountedText(uncounted: readonly UncountedLine[]): string | null {

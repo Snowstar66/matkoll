@@ -125,9 +125,9 @@ describe("uncounted lines and the trust gate", () => {
       2,
     );
     expect(result.uncounted).toEqual([
-      { label: "fransyska", reason: "unknown_ingredient" },
-      { label: "nötfärs (1 förp)", reason: "unknown_unit" },
-      { label: "något gott", reason: "unknown_ingredient" },
+      { label: "fransyska", reason: "unknown_ingredient", name: "fransyska", unit: "g" },
+      { label: "nötfärs (1 förp)", reason: "unknown_unit", name: "nötfärs", unit: "förp" },
+      { label: "något gott", reason: "unknown_ingredient", name: null, unit: null },
     ]);
   });
 
@@ -179,7 +179,7 @@ describe("Biff Rydberg for 4", () => {
     const result = recipeNutrition(withUnknown, biff, 4);
     expect(result.coverage.counted / result.coverage.total).toBeGreaterThanOrEqual(0.8);
     expect(isTrustworthy(result.coverage)).toBe(false);
-    expect(result.uncounted).toEqual([{ label: "nötinnanlårsbit", reason: "unknown_ingredient" }]);
+    expect(result.uncounted).toEqual([{ label: "nötinnanlårsbit", reason: "unknown_ingredient", name: "nötinnanlårsbit", unit: "g" }]);
   });
 
   it("stays open when a 1 förp line or a tsk line is missing", () => {

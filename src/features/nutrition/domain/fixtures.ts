@@ -6,9 +6,9 @@ export function food(
   name: string,
   group: KostradGroup,
   per100g: Per100g | null,
-  extra: Partial<Pick<IngredientNutrition, "gramsPerPiece" | "gramsPerSlice" | "gramsPerDl" | "lmvNumber">> = {},
+  extra: Partial<Pick<IngredientNutrition, "gramsPerPiece" | "gramsPerSlice" | "gramsPerDl" | "gramsPerPackage" | "lmvNumber">> = {},
 ): IngredientNutrition {
-  return { name, group, lmvNumber: 1, per100g, gramsPerPiece: null, gramsPerSlice: null, gramsPerDl: null, ...extra };
+  return { name, group, lmvNumber: 1, per100g, gramsPerPiece: null, gramsPerSlice: null, gramsPerDl: null, gramsPerPackage: null, ...extra };
 }
 
 export const per = (kcal: number, proteinG = 0, fatG = 0, carbsG = 0, fiberG = 0): Per100g => ({

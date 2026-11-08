@@ -4,7 +4,9 @@ import { getIngredientNames } from "@/features/catalog/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadNutritionByNames } from "./data/queries";
 import { nameCandidates } from "./domain/names";
+import { nutritionCheck, type CheckedRecipe, type NutritionCheck } from "./domain/coverage";
 import type { IngredientNutrition } from "./domain/groups";
+import type { NutritionLine } from "./domain/recipe-nutrition";
 
 // Server-only entry (AD-1). The nutrition table is reference data, read with
 // the signed-in user's session client (select for authenticated, no writes).
@@ -21,7 +23,10 @@ export { NutritionDataError } from "./data/queries";
  */
 export async function getIngredientNutrition(ingredientIds: readonly string[]): Promise<Record<string, IngredientNutrition>> {
   if (ingredientIds.length === 0) return {};
-  const names = await getIngredientNames(ingredientIds);
+  return nutritionForNames(await getIngredientNames(ingredientIds));
+}
+
+async function nutritionForNames(names: Readonly<Record<string, string>>): Promise<Record<string, IngredientNutrition>> {
   const normalizedById = new Map(Object.entries(names).map(([id, name]) => [id, normalizeIngredientText(name)]));
   const candidatesById = new Map([...normalizedById].map(([id, normalized]) => [id, nameCandidates(normalized)]));
   const allNames = new Set([...candidatesById.values()].flat());
@@ -32,4 +37,23 @@ export async function getIngredientNutrition(ingredientIds: readonly string[]): 
     if (hit !== undefined) result[id] = rows[hit];
   }
   return result;
+}
+
+/** A recipe as the check reads it from the library: lines without the ingredients' names. */
+export type RecipeForCheck = { servings: number; lines: readonly NutritionLine[] };
+
+/**
+ * Näringskoll: for how many of `recipes` the nutrition can be counted, with the gate of the recipe cards, and
+ * what is missing most often. One read of the ingredients' names and one of the nutrition rows, whatever the
+ * number of recipes. Throws CatalogDataError or NutritionDataError.
+ */
+export async function getNutritionCheck(recipes: readonly RecipeForCheck[]): Promise<NutritionCheck> {
+  const ids = [...new Set(recipes.flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
+  const names = ids.length > 0 ? await getIngredientNames(ids) : {};
+  const byId = await nutritionForNames(names);
+  const named: CheckedRecipe[] = recipes.map((recipe) => ({
+    servings: recipe.servings,
+    lines: recipe.lines.map((line) => ({ ...line, ingredientName: line.ingredientId ? (names[line.ingredientId] ?? null) : null })),
+  }));
+  return nutritionCheck(named, byId);
 }

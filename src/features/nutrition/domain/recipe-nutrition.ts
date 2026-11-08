@@ -21,7 +21,14 @@ export type NutritionLine = {
 /** Why a line is not in the numbers. */
 export type UncountedReason = "unknown_ingredient" | "unknown_unit";
 
-export type UncountedLine = { label: string; reason: UncountedReason };
+export type UncountedLine = {
+  label: string;
+  reason: UncountedReason;
+  /** The ingredient's name in lower case, or `null` for a line without a catalog ingredient. */
+  name: string | null;
+  /** The line's unit, for "krossade tomater (förp)" in the Näringskoll. */
+  unit: string | null;
+};
 
 /** kcal and nutrient numbers are only shown when at least this share of the countable lines was counted. */
 export const TRUST_MIN_COVERAGE = 0.8;
@@ -116,6 +123,10 @@ function lineLabel(line: NutritionLine, withAmount: boolean): string {
   return `${name} (${amount}${line.unit ? ` ${line.unit}` : ""})`;
 }
 
+function lineName(line: NutritionLine): string | null {
+  return (line.ingredientName ?? "").trim().toLowerCase() || null;
+}
+
 const emptyGroups = (): Record<KostradGroup, number> =>
   Object.fromEntries(KOSTRAD_GROUPS.map((group) => [group, 0])) as Record<KostradGroup, number>;
 
@@ -155,13 +166,13 @@ export function recipeNutrition(
     if (line.isVague && line.amount === null) continue;
     total++;
     if (!nutrition?.per100g) {
-      uncounted.push({ label: lineLabel(line, false), reason: "unknown_ingredient" });
+      uncounted.push({ label: lineLabel(line, false), reason: "unknown_ingredient", name: lineName(line), unit: line.unit });
       uncountedG += knownWeight(line);
       continue;
     }
     const lineGrams = toGrams(line.amount, line.unit, nutrition);
     if (lineGrams === null) {
-      uncounted.push({ label: lineLabel(line, true), reason: "unknown_unit" });
+      uncounted.push({ label: lineLabel(line, true), reason: "unknown_unit", name: lineName(line), unit: line.unit });
       continue;
     }
     counted++;

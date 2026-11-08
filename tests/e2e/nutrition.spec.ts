@@ -132,4 +132,8 @@ test("with Visa näring on the recipe has the plate card and a tag; Visa kcal ad
   // The plain pasta has neither a tag nor a plate worth showing as healthy: its card has no tag.
   await openRecipe(page, plain);
   await expect(page.getByTestId("nutrition-tags")).toHaveCount(0);
+
+  // Näringskoll in Tillval counts the household's recipes with the same gate as the cards: both can be counted.
+  await page.goto("/installningar/tillval");
+  await expect(page.getByTestId("nutrition-check")).toHaveText("Näringen kan räknas för 2 av 2 recept.");
 });

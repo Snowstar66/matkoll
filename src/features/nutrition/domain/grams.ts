@@ -31,7 +31,8 @@ const GARLIC_LMV = 371;
  *   per piece; `null` without one.
  * - klyfta: 4 g, for garlic only.
  * - skiva, skivor: amount times grams per slice; `null` without one.
- * - förp, kruka, knippe and unknown units: `null` (the size is not known).
+ * - förp, kruka, knippe: amount times grams per package (one pack, pot or bunch); `null` without one.
+ * - unknown units: `null`.
  */
 export function toGrams(amount: number | null, unit: string | null, nutrition: IngredientNutrition): number | null {
   if (amount === null || !Number.isFinite(amount) || amount <= 0) return null;
@@ -44,6 +45,9 @@ export function toGrams(amount: number | null, unit: string | null, nutrition: I
   }
   if (key === "st" || key === "styck") return nutrition.gramsPerPiece === null ? null : amount * nutrition.gramsPerPiece;
   if (key === "skiva" || key === "skivor") return nutrition.gramsPerSlice === null ? null : amount * nutrition.gramsPerSlice;
+  if (key === "förp" || key === "kruka" || key === "knippe") {
+    return nutrition.gramsPerPackage === null ? null : amount * nutrition.gramsPerPackage;
+  }
   if (key === "klyfta") return nutrition.lmvNumber === GARLIC_LMV ? amount * GARLIC_CLOVE_G : null;
   return null;
 }
