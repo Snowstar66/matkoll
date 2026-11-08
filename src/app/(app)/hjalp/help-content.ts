@@ -77,7 +77,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur vet jag om en rätt är nyttig?",
-        answer: "Slå på Visa näring under Inställningar, Tillval. Då visar receptet en tallrik med hur mycket som är grönsaker, protein och kolhydrater, och märken som Mycket grönt, Fisk, Baljväxter och Fullkorn när rätten har gott om det. Det är ingen poäng och inga råd, bara en ungefärlig bild som räknas från Livsmedelsverkets livsmedelsdatabas på det som går att väga. Slå på Visa kcal för kcal och gram per portion. Filtret Nyttigt i Recept visar rätter med mycket grönt, fisk eller baljväxter och lite rött kött.",
+        answer: "Slå på Visa näring under Inställningar, Tillval. Då visar receptet en tallrik med hur mycket som är grönsaker, protein och kolhydrater, och märken som Mycket grönt, Fisk, Baljväxter och Fullkorn när rätten har gott om det. Det är ingen poäng och inga råd, bara en ungefärlig bild som räknas från Livsmedelsverkets livsmedelsdatabas på det som går att väga. Slå på Visa kcal för kcal och gram per portion. Filtret Nyttigt i Recept visar rätter med mycket grönt, fisk eller baljväxter och lite rött kött. Under Näring i Tillval står hur många av era recept som näringen kan räknas för, och vad som oftast saknas.",
       },
     ],
   },

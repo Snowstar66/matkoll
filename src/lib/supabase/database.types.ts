@@ -285,14 +285,14 @@ isOneToOne: false
                   ]
                 },"ingredient_nutrition": {
                   Row: {
-                    "carbs_g": number | null,"fat_g": number | null,"fiber_g": number | null,"grams_per_dl": number | null,"grams_per_piece": number | null,"grams_per_slice": number | null,"kcal": number | null,"kostrad_group": string,"lmv_name": string | null,"lmv_number": number | null,"normalized_name": string,"protein_g": number | null
+                    "carbs_g": number | null,"fat_g": number | null,"fiber_g": number | null,"grams_per_dl": number | null,"grams_per_package": number | null,"grams_per_piece": number | null,"grams_per_slice": number | null,"kcal": number | null,"kostrad_group": string,"lmv_name": string | null,"lmv_number": number | null,"normalized_name": string,"protein_g": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_piece"?: number | null,"grams_per_slice"?: number | null,"kcal"?: number | null,"kostrad_group": string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name": string,"protein_g"?: number | null
+                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_package"?: number | null,"grams_per_piece"?: number | null,"grams_per_slice"?: number | null,"kcal"?: number | null,"kostrad_group": string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name": string,"protein_g"?: number | null
                   }
                   Update: {
-                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_piece"?: number | null,"grams_per_slice"?: number | null,"kcal"?: number | null,"kostrad_group"?: string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name"?: string,"protein_g"?: number | null
+                    "carbs_g"?: number | null,"fat_g"?: number | null,"fiber_g"?: number | null,"grams_per_dl"?: number | null,"grams_per_package"?: number | null,"grams_per_piece"?: number | null,"grams_per_slice"?: number | null,"kcal"?: number | null,"kostrad_group"?: string,"lmv_name"?: string | null,"lmv_number"?: number | null,"normalized_name"?: string,"protein_g"?: number | null
                   }
                   Relationships: [
                     

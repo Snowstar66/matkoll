@@ -26,8 +26,9 @@ export function OptionRow({ id, label, hint, disabled = false }: { id: OptionId;
 /**
  * The device's groups, then "Gäller bara den här enheten.", then `after`: the page puts the group
  * Delade recept there, whose other rows are the household's and come from the recipes module.
+ * `nutritionNote` is the Näringskoll, a quiet line under the Näring group, shown only with Visa näring on.
  */
-export function OptionSettings({ after }: { after?: ReactNode } = {}) {
+export function OptionSettings({ after, nutritionNote }: { after?: ReactNode; nutritionNote?: ReactNode } = {}) {
   const showNutrition = useOption("showNutrition");
   return (
     <section aria-label="Tillval">
@@ -50,6 +51,7 @@ export function OptionSettings({ after }: { after?: ReactNode } = {}) {
                   />
                 ))}
             </ul>
+            {group.id === "nutrition" && showNutrition ? nutritionNote : null}
             {group.id === "nutrition" ? (
               <p className="mx-1 mt-2 text-meta text-ink-3" data-testid="nutrition-source">
                 Näringen är ungefärlig och räknas från Livsmedelsverkets livsmedelsdatabas (

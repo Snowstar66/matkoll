@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
 import { KOSTRAD_GROUPS } from "@/features/nutrition";
-import { MAPPING } from "../../scripts/nutrition-mapping.mjs";
+import { MAPPING, PACKAGE_GRAMS } from "../../scripts/nutrition-mapping.mjs";
 
 // The nutrition data is generated (scripts/nutrition-data.mjs) from a curated
 // mapping and the values fetched from Livsmedelsverket. These checks keep the
@@ -12,10 +12,13 @@ import { MAPPING } from "../../scripts/nutrition-mapping.mjs";
 // matches on.
 
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url));
-// The first migration (applied, never edited) and the additions migration (upserts of new and changed rows).
+// The first migration and the first additions (both applied, never edited), and the package-weights migration
+// (the column grams_per_package and upserts of new and changed rows).
+const packageSql = readFileSync(path("../../supabase/migrations/20261108220000_ingredient_nutrition_package_weights.sql"), "utf8");
 const sql =
   readFileSync(path("../../supabase/migrations/20261108120000_ingredient_nutrition.sql"), "utf8") +
-  readFileSync(path("../../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql"), "utf8");
+  readFileSync(path("../../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql"), "utf8") +
+  packageSql;
 const data = JSON.parse(readFileSync(path("../../scripts/nutrition-data/livsmedelsverket.json"), "utf8")) as {
   license: string;
   foods: Record<string, { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number }>;
@@ -49,6 +52,14 @@ describe("nutrition migration", () => {
       const food = data.foods[lmv];
       expect(food, `food ${lmv} (${names_[0]}) is in the data`).toBeDefined();
       expect(sql).toContain(`${food.kcal}, ${food.protein_g}, ${food.fat_g}, ${food.carbs_g}, ${food.fiber_g}`);
+    }
+  });
+
+  it("adds the package weight column and gives every package weight of the mapping to its row", () => {
+    expect(packageSql).toContain("add column grams_per_package numeric(7, 1)");
+    for (const [name, grams] of Object.entries(PACKAGE_GRAMS as Record<string, number>)) {
+      const row = new RegExp(`^ {2}\\('${name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}', .*, ${grams}\\),?$`, "m");
+      expect(packageSql, name).toMatch(row);
     }
   });
 
@@ -104,12 +115,18 @@ describe("nutrition mapping", () => {
     }
   });
 
+  it("has package weights only for mapped names, and no volume-less density or piece weight mix-ups", () => {
+    const mapped = new Set(names);
+    for (const name of Object.keys(PACKAGE_GRAMS)) expect(mapped.has(name), name).toBe(true);
+  });
+
   it("has plausible energy: atwater from the macros is within 25% of the stated kcal", () => {
     for (const [mapped, lmv] of mapping) {
       if (lmv === null) continue;
       const food = data.foods[lmv];
       const atwater = food.protein_g * 4 + food.carbs_g * 4 + food.fat_g * 9 + food.fiber_g * 2;
       if (food.kcal < 30) continue; // watery foods: rounding dominates
+      if (food.name.includes("vol. %")) continue; // wine and beer: the energy of the alcohol is not in the macros
       expect(Math.abs(atwater - food.kcal) / food.kcal, `${mapped[0]} (${food.name})`).toBeLessThan(0.25);
     }
   });

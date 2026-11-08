@@ -33,6 +33,7 @@ export function toIngredientNutrition(row: Row): IngredientNutrition | null {
     gramsPerPiece: row.grams_per_piece,
     gramsPerSlice: row.grams_per_slice,
     gramsPerDl: row.grams_per_dl,
+    gramsPerPackage: row.grams_per_package,
   };
 }
 

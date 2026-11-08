@@ -20,6 +20,15 @@ describe("OptionSettings", () => {
     expect(screen.getByRole("switch", { name: /Timer i receptet/ })).toHaveAttribute("aria-checked", "true");
   });
 
+  it("shows the Näringskoll under Näring only with Visa näring on", async () => {
+    render(<OptionSettings nutritionNote={<p data-testid="check">Näringen kan räknas för 3 av 4 recept.</p>} />);
+    expect(screen.queryByTestId("check")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
+    expect(screen.getByTestId("check")).toHaveTextContent("Näringen kan räknas för 3 av 4 recept.");
+    await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
+    expect(screen.queryByTestId("check")).not.toBeInTheDocument();
+  });
+
   it("puts the page's group Delade recept last, after the device's note, with the option row for Visa delade recept", () => {
     render(
       <OptionSettings

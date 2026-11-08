@@ -78,6 +78,18 @@ describe("ingredient_nutrition", () => {
     expect(() => insert("teststrul", "ovrigt", "5000")).toThrow(/ingredient_nutrition_amounts_check/);
     expect(() => insert("teststrul", "ovrigt", "1", "1", "0")).toThrow(/ingredient_nutrition_amounts_check/);
     expect(() => insert("morot", "ovrigt", "1")).toThrow(/ingredient_nutrition_pkey/);
+    expect(() =>
+      localSql(
+        "insert into public.ingredient_nutrition (normalized_name, kostrad_group, kcal, protein_g, fat_g, carbs_g, fiber_g, lmv_number, grams_per_package) values ('teststrul', 'ovrigt', 1, 0, 0, 0, 0, 1, 0) returning normalized_name",
+      ),
+    ).toThrow(/ingredient_nutrition_package_check/);
+  });
+
+  it("has package weights, which loadNutritionByNames reads as gramsPerPackage", async () => {
+    const found = await loadNutritionByNames(user.db, ["krossade tomater", "färsk basilika", "morot"]);
+    expect(found["krossade tomater"].gramsPerPackage).toBe(400);
+    expect(found["färsk basilika"].gramsPerPackage).toBe(20);
+    expect(found.morot.gramsPerPackage).toBeNull();
   });
 
   it("loadNutritionByNames finds rows by normalised name and leaves the rest out", async () => {
