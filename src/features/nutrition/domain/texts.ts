@@ -1,3 +1,4 @@
+import type { UncountedLine } from "./recipe-nutrition";
 import type { KostradTag, PlateShares, WeekSummary } from "./kostrad";
 
 // The words of the nutrition UI, kept apart from the components so they can be tested.
@@ -35,4 +36,16 @@ export function weekLineText(summary: WeekSummary): string | null {
 /** "Räknat på 9 av 11 varor." */
 export function coverageText(counted: number, total: number): string {
   return `Räknat på ${counted} av ${total} varor.`;
+}
+
+export const KCAL_UNSURE_TEXT = "kcal går inte att räkna säkert för det här receptet.";
+
+/** "Räknas inte: fransyska (okänd vara), crème fraiche (1 förp, okänd storlek)"; `null` when all were counted. */
+export function uncountedText(uncounted: readonly UncountedLine[]): string | null {
+  if (uncounted.length === 0) return null;
+  const parts = uncounted.map((line) => {
+    if (line.reason === "unknown_ingredient") return `${line.label} (okänd vara)`;
+    return line.label.endsWith(")") ? `${line.label.slice(0, -1)}, okänd storlek)` : `${line.label} (okänd storlek)`;
+  });
+  return `Räknas inte: ${parts.join(", ")}.`;
 }

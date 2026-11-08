@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Näringen räknas säkrare",
+    bullets: [
+      "Kcal visas bara när minst 80 % av varorna i receptet gick att räkna.",
+      "Näringsfliken visar vilka varor som inte räknades och varför.",
+      "Fler köttdelar, mejerivaror och stavningar känns igen.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Timern säger vad den gäller",
     bullets: [
       "Timern i receptet visar vad den gäller, till exempel Bakpotatis, med steget under.",

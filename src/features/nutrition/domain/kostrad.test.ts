@@ -16,6 +16,7 @@ function dish(groups: Partial<Record<KostradGroup, number>>, coverage = { counte
       protein: g.fisk + g.rott_kott + g.fagel + g.agg,
     },
     coverage,
+    uncounted: [],
   };
 }
 

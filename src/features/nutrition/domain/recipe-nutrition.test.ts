@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { food, line, per } from "./fixtures";
-import { plateRole, recipeNutrition, roundedGrams, roundedKcal } from "./recipe-nutrition";
+import { isTrustworthy, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
 
 const rows = {
   pasta: food("pasta", "raffinerad", per(358, 12, 1.3, 71.5, 4), { gramsPerDl: 40 }),
@@ -54,6 +54,7 @@ describe("recipeNutrition", () => {
     );
     expect(result.coverage).toEqual({ counted: 1, total: 7 });
     expect(result.gramsPerServing).toBe(100);
+    expect(result.uncounted).toHaveLength(6);
   });
 
   it("counts a vague line that has an ingredient and an amount", () => {
@@ -109,5 +110,67 @@ describe("rounding", () => {
     expect(roundedKcal(545)).toBe(550);
     expect(roundedGrams(12.4)).toBe(12);
     expect(roundedGrams(12.5)).toBe(13);
+  });
+});
+
+describe("uncounted lines and the trust gate", () => {
+  it("names the lines it could not count and why", () => {
+    const result = recipeNutrition(
+      [
+        { ...line(null, 600, "g"), ingredientName: "fransyska", originalText: "600 g fransyska" },
+        { ...line("beef", 1, "förp"), ingredientName: "Nötfärs", originalText: "1 förp nötfärs" },
+        { ...line(null, null, null), originalText: "något gott" },
+      ],
+      rows,
+      2,
+    );
+    expect(result.uncounted).toEqual([
+      { label: "fransyska", reason: "unknown_ingredient" },
+      { label: "nötfärs (1 förp)", reason: "unknown_unit" },
+      { label: "något gott", reason: "unknown_ingredient" },
+    ]);
+  });
+
+  it("trusts kcal from 80 % of the countable lines", () => {
+    expect(TRUST_MIN_COVERAGE).toBe(0.8);
+    expect(isTrustworthy({ counted: 4, total: 5 })).toBe(true);
+    expect(isTrustworthy({ counted: 3, total: 5 })).toBe(false);
+    expect(isTrustworthy({ counted: 0, total: 0 })).toBe(false);
+  });
+});
+
+describe("Biff Rydberg for 4", () => {
+  // LMV values per 100 g as in the nutrition table.
+  const biff = {
+    fransyska: food("fransyska", "rott_kott", per(116, 20.8, 3.5)),
+    potatis: food("potatis", "raffinerad", per(76, 1.8, 0.1, 16.5, 1.6), { gramsPerPiece: 90, gramsPerDl: 90 }),
+    lok: food("gul lök", "gronsak", per(39, 1.2, 0.1, 7.3, 1.9), { gramsPerPiece: 110, gramsPerDl: 60 }),
+    smor: food("smör", "fett", per(766, 0.6, 86.3), { gramsPerDl: 95 }),
+    olja: food("rapsolja", "fett", per(884, 0, 100), { gramsPerDl: 90 }),
+    aggula: food("äggula", "agg", per(325, 16, 28, 0.3), { gramsPerPiece: 18 }),
+    yoghurt: food("turkisk yoghurt", "mejeri", per(109, 3.6, 8.3, 5.2), { gramsPerDl: 103 }),
+    senap: food("dijonsenap", "ovrigt", per(100, 6, 5, 6, 3), { gramsPerDl: 100 }),
+    persilja: food("persilja", "gronsak", per(50, 3, 0.8, 5, 3), { gramsPerDl: 15 }),
+    salt: food("salt", "ej_raknad", null, { lmvNumber: null }),
+  };
+  const lines = [
+    line("fransyska", 600, "g"),
+    line("potatis", 800, "g"),
+    line("lok", 2, "st"),
+    line("smor", 50, "g"),
+    line("olja", 2, "msk"),
+    line("aggula", 4, "st"),
+    line("yoghurt", 2, "dl"),
+    line("senap", 2, "msk"),
+    line("persilja", null, null, true),
+    line("salt", null, null, true),
+  ];
+
+  it("lands in a realistic range with the kcal gate open", () => {
+    const result = recipeNutrition(lines, biff, 4);
+    expect(isTrustworthy(result.coverage)).toBe(true);
+    expect(result.uncounted).toEqual([]);
+    expect(result.perServing.kcal).toBeGreaterThan(550);
+    expect(result.perServing.kcal).toBeLessThan(800);
   });
 });

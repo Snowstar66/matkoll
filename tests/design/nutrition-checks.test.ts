@@ -12,7 +12,10 @@ import { MAPPING } from "../../scripts/nutrition-mapping.mjs";
 // matches on.
 
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url));
-const sql = readFileSync(path("../../supabase/migrations/20261108120000_ingredient_nutrition.sql"), "utf8");
+// The first migration (applied, never edited) and the additions migration (upserts of new and changed rows).
+const sql =
+  readFileSync(path("../../supabase/migrations/20261108120000_ingredient_nutrition.sql"), "utf8") +
+  readFileSync(path("../../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql"), "utf8");
 const data = JSON.parse(readFileSync(path("../../scripts/nutrition-data/livsmedelsverket.json"), "utf8")) as {
   license: string;
   foods: Record<string, { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number }>;
@@ -40,7 +43,7 @@ describe("nutrition migration", () => {
   it("seeds one row per mapped name, with the values of the committed data", () => {
     const rows = [...sql.matchAll(/^ {2}\('([^']+)', (\d+|null), /gm)];
     const names = mapping.flatMap((entry) => entry[0]).map((name) => name.normalize("NFC").trim().toLocaleLowerCase("sv-SE"));
-    expect(rows.map((row) => row[1]).sort()).toEqual([...names].sort());
+    expect([...new Set(rows.map((row) => row[1]))].sort()).toEqual([...names].sort());
     for (const [names_, lmv] of mapping) {
       if (lmv === null) continue;
       const food = data.foods[lmv];

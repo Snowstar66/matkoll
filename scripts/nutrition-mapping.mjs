@@ -326,6 +326,28 @@ export const MAPPING = [
   [["näringsjäst"], 6998, "ovrigt", null, 25],
   [["kakao", "kakaopulver"], 1886, "ovrigt", null, 45],
 
+  // --- Tillägg 2026-11-08 (näringen räknas säkrare): fler styckdelar och mejerivarianter ---
+  [["fransyska", "nötfransyska"], 950, "rott_kott", null, null],
+  [["kalvfransyska"], 937, "rott_kott", null, null],
+  [["kalvinnanlår"], 938, "rott_kott", null, null],
+  [["rostbiff", "nötrostbiff"], 957, "rott_kott", null, null],
+  [["biff", "biffar", "biffstek", "nötbiff", "ryggbiffar"], 946, "rott_kott", 200, null],
+  [["nötfilé", "oxfiléer", "nötfiléer"], 949, "rott_kott", null, null],
+  [["lövbiff", "lövbiffar", "nötstek"], 954, "rott_kott", null, null],
+  [["flankstek"], 1013, "rott_kott", null, null],
+  [["ytterlår", "nötytterlår"], 959, "rott_kott", null, null],
+  [["oxbringa", "nötbringa"], 947, "rott_kott", null, null],
+  [["hackebiff"], 962, "rott_kott", null, null],
+  [["fläskytterfilé", "grisfilé"], 970, "rott_kott", 400, null],
+  [["fläskgrytbitar", "grisgrytbitar"], 977, "rott_kott", null, null],
+  [["matlagningsyoghurt", "matyoghurt"], 6113, "mejeri", null, 103],
+  [["lättyoghurt", "lätt yoghurt"], 135, "mejeri", null, 103],
+  [["kaffegrädde"], 1714, "mejeri", null, 100],
+  [["matlagningsbas"], 2036, "mejeri", null, 100],
+  [["kvarg fett 10%"], 76, "mejeri", null, 105],
+  [["gula lökar"], 344, "gronsak", 110, 60],
+  [["röda lökar", "rödlökar"], 4947, "gronsak", 100, 60],
+
   // --- Räknas inte (kryddor, salt, vatten, smakgivare, bakning) ---
   [
     [
