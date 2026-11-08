@@ -262,7 +262,7 @@ function CategoryGroup({
                     // The amount to the right of the name, and when the item has lain too long a small sand label (Story 14.6);
                     // then the bin (UX-03), the same as on Inköpslista. "dagar" is hidden from nobody: the label is the text.
                     <span className="flex items-center gap-2">
-                      {amount ? <span className="text-[15px] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
+                      {amount ? <span className="text-[0.9375rem] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
                       {old ? (
                         <span className="rounded-full bg-sand px-2 py-0.5 text-badge text-sand-ink" data-testid="pantry-old">
                           {old}

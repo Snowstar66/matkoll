@@ -85,14 +85,14 @@ export function InviteSheet({
         <div className="flex flex-col">
           <p className="text-body text-ink-2">Den du bjuder in får en egen inloggning och ser allt som ni har i {appName}.</p>
           <div className="mt-3 rounded-lg bg-bg px-4 pt-4 pb-3.5 text-center">
-            <p className="text-[13px] leading-[18px] font-medium tracking-[0.5px] text-ink-2 uppercase">Kod</p>
-            <p className="mt-0.5 font-mono text-[34px] leading-[44px] font-semibold tracking-[6px] text-ink" data-testid="invite-code">
+            <p className="text-[0.8125rem] leading-[1.125rem] font-medium tracking-[0.5px] text-ink-2 uppercase">Kod</p>
+            <p className="mt-0.5 font-mono text-[2.125rem] leading-[2.75rem] font-semibold tracking-[6px] text-ink" data-testid="invite-code">
               {formatInviteCode(invite.code)}
             </p>
             <p className="text-meta text-ink-2">Gäller till {inviteValidUntil(invite.expiresAt)} · för en person</p>
           </div>
           <div className="mt-2.5 flex min-h-12 items-center rounded-md border border-border px-3.5 py-1">
-            <span className="min-w-0 flex-1 truncate text-[15px] text-ink-2" data-testid="invite-link">
+            <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-ink-2" data-testid="invite-link">
               {link.replace(/^https?:\/\//, "")}
             </span>
           </div>

@@ -46,3 +46,32 @@ test("Egen shows the Ton slider and turns the accent with it", async ({ page }) 
   await expect(page.getByRole("slider", { name: "Ton" })).toHaveValue("260");
   await page.getByRole("button", { name: "Återställ till Grön" }).click();
 });
+
+test("Textstorlek and Fetare text set attributes on <html>, survive a reload, and Standard removes them", async ({ page }) => {
+  await page.goto("/installningar/utseende");
+  const html = page.locator("html");
+  await expect(html).not.toHaveAttribute("data-text", /.+/);
+  const rootSize = () => page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+  expect(await rootSize()).toBe("16px");
+
+  await page.getByRole("radio", { name: "Störst" }).click();
+  await page.getByRole("switch", { name: /Fetare text/ }).click();
+  await expect(html).toHaveAttribute("data-text", "xl");
+  await expect(html).toHaveAttribute("data-bold", "");
+  expect(await rootSize()).toBe("17.5px");
+  await page.reload();
+  await expect(html).toHaveAttribute("data-text", "xl");
+  await expect(html).toHaveAttribute("data-bold", "");
+  await expect(page.getByRole("radio", { name: "Störst" })).toBeChecked();
+
+  await page.getByRole("radio", { name: "Större" }).click();
+  expect(await rootSize()).toBe("17px");
+  await page.getByRole("radio", { name: "Standard" }).click();
+  await page.getByRole("switch", { name: /Fetare text/ }).click();
+  await expect(html).not.toHaveAttribute("data-text", /.+/);
+  expect(await page.evaluate(() => document.documentElement.hasAttribute("data-bold"))).toBe(false);
+  expect(await rootSize()).toBe("16px");
+  await page.reload();
+  await expect(html).not.toHaveAttribute("data-text", /.+/);
+  expect(await page.evaluate(() => document.documentElement.hasAttribute("data-bold"))).toBe(false);
+});

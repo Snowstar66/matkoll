@@ -71,10 +71,10 @@ export function Inbox({ items, now }: { items: readonly FeedbackItem[]; now: str
   return (
     <div className="pb-4">
       <div className="mt-3 flex items-center gap-3.5 rounded-lg bg-surface px-4 py-3.5" data-testid="inbox-average">
-        <span className="text-[28px] leading-8 font-semibold tracking-[-0.4px] text-ink">{rating ? averageText(rating.average) : "–"}</span>
+        <span className="text-[1.75rem] leading-8 font-semibold tracking-[-0.4px] text-ink">{rating ? averageText(rating.average) : "–"}</span>
         <span className="min-w-0">
           {rating ? <StarsRow stars={Math.round(rating.average)} /> : null}
-          <small className="block text-[14px] leading-5 text-ink-2">
+          <small className="block text-[0.875rem] leading-5 text-ink-2">
             {rating ? averageCaption(rating.count) : "Inga betyg de senaste 30 dagarna"}
           </small>
         </span>
@@ -138,7 +138,7 @@ const firstLine = (text: string) => text.split("\n")[0] ?? text;
 function KindLine({ item }: { item: FeedbackItem }) {
   const line = kindLine(item);
   return (
-    <span className="block text-[14px] leading-5 text-ink-3">
+    <span className="block text-[0.875rem] leading-5 text-ink-3">
       {line ?? (
         <>
           Betyg <StarsRow stars={item.stars ?? 0} />
@@ -165,7 +165,7 @@ function MessageRow({ item, read, now, onOpen }: { item: FeedbackItem; read: boo
       <Avatar initial={sender.initial} size={36} className="mt-0.5" />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-[17px] leading-[22px] font-medium text-ink">
+          <span className="min-w-0 flex-1 truncate text-[1.0625rem] leading-[1.375rem] font-medium text-ink">
             {read ? null : (
               <>
                 <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-accent align-[2px]" />
@@ -174,7 +174,7 @@ function MessageRow({ item, read, now, onOpen }: { item: FeedbackItem; read: boo
             )}
             {sender.name}
           </span>
-          <time dateTime={item.createdAt} className="text-[14px] whitespace-nowrap text-ink-3">
+          <time dateTime={item.createdAt} className="text-[0.875rem] whitespace-nowrap text-ink-3">
             {receivedText(item.createdAt, now)}
           </time>
         </span>
@@ -184,7 +184,7 @@ function MessageRow({ item, read, now, onOpen }: { item: FeedbackItem; read: boo
             className={cx(
               "mt-0.5 line-clamp-2 block wrap-break-word",
               // Automatic error reports are technical: smaller and monospaced, in the muted ink (never red).
-              item.kind === "error" ? "font-mono text-[13px] leading-[18px] text-ink-2" : "text-[15px] leading-[21px]",
+              item.kind === "error" ? "font-mono text-[0.8125rem] leading-[1.125rem] text-ink-2" : "text-[0.9375rem] leading-[1.3125rem]",
               item.kind !== "error" && (read ? "text-ink-2" : "text-ink"),
             )}
           >
@@ -205,16 +205,16 @@ function MessageSheet({ item, now, error, onClose }: { item: FeedbackItem | null
         <div className="flex flex-col gap-3 pb-2">
           <div>
             <KindLine item={item} />
-            <p className="text-[14px] leading-5 text-ink-3">
+            <p className="text-[0.875rem] leading-5 text-ink-3">
               {sender.email} · {receivedText(item.createdAt, now)}
             </p>
           </div>
           {item.body ? (
-            <p className={cx("whitespace-pre-wrap wrap-break-word", item.kind === "error" ? "font-mono text-[13px] leading-[18px] text-ink-2" : "text-body text-ink")}>
+            <p className={cx("whitespace-pre-wrap wrap-break-word", item.kind === "error" ? "font-mono text-[0.8125rem] leading-[1.125rem] text-ink-2" : "text-body text-ink")}>
               {item.body}
             </p>
           ) : null}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[15px] leading-[21px]">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.9375rem] leading-[1.3125rem]">
             <dt className="text-ink-2">Sidan</dt>
             <dd className="text-ink break-all">{item.page ?? "–"}</dd>
             <dt className="text-ink-2">Version</dt>

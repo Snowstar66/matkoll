@@ -33,7 +33,7 @@ export type NoteSheetProps = {
 
 /** The field as in Tyck till (Story 20.3): several lines, 17 px, a 2 px accent line when focused. */
 const textareaClasses = cx(
-  "block w-full resize-none rounded-md border border-border bg-surface px-3.5 py-3 text-[17px] leading-6 text-ink [field-sizing:content] placeholder:text-ink-3",
+  "block w-full resize-none rounded-md border border-border bg-surface px-3.5 py-3 text-[1.0625rem] leading-6 text-ink [field-sizing:content] placeholder:text-ink-3",
   "max-h-[40dvh] outline-none focus:border-2 focus:border-accent focus:px-[13px] focus:py-[11px] dark:border-transparent dark:bg-fill dark:focus:border-accent",
 );
 
@@ -137,7 +137,7 @@ export function NoteSheet({ mode, onClose, onSent }: NoteSheetProps) {
     >
       <div className="pb-1">
         {replyTo ? (
-          <p className="mt-1 rounded-[12px] bg-bg px-3 py-2.5 text-[15px] leading-[21px] text-ink-2 dark:bg-fill">
+          <p className="mt-1 rounded-[12px] bg-bg px-3 py-2.5 text-[0.9375rem] leading-[1.3125rem] text-ink-2 dark:bg-fill">
             <b className="font-semibold text-ink">{replyTo.author.name}:</b> {noteText(replyTo)}
           </p>
         ) : null}
@@ -162,7 +162,7 @@ export function NoteSheet({ mode, onClose, onSent }: NoteSheetProps) {
           </div>
         ) : null}
         <div className="mt-4 flex flex-col gap-2">
-          <p id={`${ids}-mood`} className="flex flex-wrap items-baseline gap-x-1.5 text-[15px] leading-5 font-medium text-ink">
+          <p id={`${ids}-mood`} className="flex flex-wrap items-baseline gap-x-1.5 text-[0.9375rem] leading-5 font-medium text-ink">
             Humör <span className="font-normal text-ink-2">(valfritt)</span>
           </p>
           <div role="group" aria-labelledby={`${ids}-mood`} className="flex gap-2">
@@ -176,7 +176,7 @@ export function NoteSheet({ mode, onClose, onSent }: NoteSheetProps) {
                   aria-label={candidate.label}
                   onClick={() => setMood(on ? null : candidate.id)}
                   className={cx(
-                    "flex size-11 items-center justify-center rounded-full text-[22px] leading-none select-none",
+                    "flex size-11 items-center justify-center rounded-full text-[1.375rem] leading-none select-none",
                     on ? "border-2 border-accent bg-mint" : "border border-border bg-surface dark:border-transparent dark:bg-fill",
                   )}
                 >
@@ -188,7 +188,7 @@ export function NoteSheet({ mode, onClose, onSent }: NoteSheetProps) {
         </div>
         {suggested.length > 0 ? (
           <div className="mt-4 flex flex-col gap-2">
-            <p id={`${ids}-actions`} className="text-[15px] leading-5 font-medium text-ink">
+            <p id={`${ids}-actions`} className="text-[0.9375rem] leading-5 font-medium text-ink">
               Knappar på lappen
             </p>
             <div role="group" aria-labelledby={`${ids}-actions`} className="flex flex-wrap gap-2" data-testid="note-actions">
