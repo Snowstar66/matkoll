@@ -89,11 +89,11 @@ export function PaletteSettings() {
                   data-palette={palette.id}
                   style={palette.id === "custom" ? ({ "--hue": choice.hue } as CSSProperties) : undefined}
                   className={cx(
-                    "flex size-11 items-center justify-center rounded-full border-2 bg-mint",
-                    on ? "border-accent" : "border-transparent",
+                    "flex size-12 items-center justify-center rounded-full bg-mint ring-2 ring-offset-2 ring-offset-surface",
+                    on ? "ring-accent" : "ring-transparent",
                   )}
                 >
-                  <span className="size-6 rounded-full bg-accent" />
+                  <span className="size-3.5 rounded-full bg-accent opacity-70" />
                 </span>
                 <span className={cx("text-meta", on ? "font-semibold text-ink" : "text-ink-2")}>{palette.label}</span>
               </button>
@@ -125,11 +125,11 @@ export function PaletteSettings() {
         <div aria-hidden="true" inert className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <span className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-illus-bg">
-              <DishArt dish="sallad" size={44} />
+              <DishArt dish="pasta" size={44} />
             </span>
             <div className="flex min-w-0 flex-col items-start gap-1.5">
               <Badge tone="mint">Kan lagas nu</Badge>
-              <span className="text-accent">Grönsakssallad</span>
+              <span className="text-accent">Pasta med tomatsås</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
