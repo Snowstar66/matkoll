@@ -6,8 +6,8 @@ import { ChevronRightIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { NUTRITION_LICENSE_URL } from "../domain/groups";
 import { assessKostrad, plateShares } from "../domain/kostrad";
-import { type RecipeNutrition, roundedGrams, roundedKcal } from "../domain/recipe-nutrition";
-import { coverageText, KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, shareText } from "../domain/texts";
+import { isTrustworthy, type RecipeNutrition, roundedGrams, roundedKcal } from "../domain/recipe-nutrition";
+import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
 import { Plate, plateColors } from "./plate";
 import { useNutritionOptions } from "./use-nutrition-options";
 
@@ -23,9 +23,10 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
   if (!show) return null;
   const shares = plateShares(nutrition);
   const { tags } = assessKostrad(nutrition);
-  if (!shares && tags.length === 0) return null;
   const { perServing, coverage } = nutrition;
-  const showKcal = kcal && coverage.counted > 0;
+  const unsure = coverage.total > 0 && !isTrustworthy(coverage);
+  if (!shares && tags.length === 0 && !unsure) return null;
+  const showKcal = kcal && isTrustworthy(coverage);
   return (
     <>
       <button
@@ -41,6 +42,11 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
           {showKcal ? (
             <span className="text-body text-ink" data-testid="nutrition-kcal">
               ca {roundedKcal(perServing.kcal)} kcal <span className="text-ink-2">per portion</span>
+            </span>
+          ) : null}
+          {unsure ? (
+            <span className="text-body text-ink-2" data-testid="nutrition-card-unsure">
+              {UNSURE_CARD_TEXT}
             </span>
           ) : null}
           {tags.length > 0 ? (
@@ -90,6 +96,8 @@ function NutritionSheet({
   const shares = plateShares(nutrition);
   const { tags } = assessKostrad(nutrition);
   const { perServing, coverage } = nutrition;
+  const trusted = isTrustworthy(coverage);
+  const notCounted = uncountedText(nutrition.uncounted);
   const rows = [
     ["Energi", `ca ${roundedKcal(perServing.kcal)} kcal`],
     ["Protein", `${roundedGrams(perServing.proteinG)} g`],
@@ -117,6 +125,7 @@ function NutritionSheet({
                 ))}
               </ul>
             </div>
+            <p className="text-meta text-ink-2">{PLATE_NOTE}</p>
           </section>
         ) : null}
         {tags.length > 0 ? (
@@ -134,7 +143,7 @@ function NutritionSheet({
             </ul>
           </section>
         ) : null}
-        {showKcal ? (
+        {showKcal && trusted ? (
           <section aria-labelledby="nutrition-values-heading" className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-3">
             <h3 id="nutrition-values-heading" className="text-section-label text-ink-2">
               Per portion
@@ -149,8 +158,14 @@ function NutritionSheet({
             </dl>
           </section>
         ) : null}
+        {!trusted ? (
+          <p className="px-1 text-body text-ink-2" data-testid="nutrition-unsure">
+            {KCAL_UNSURE_TEXT}
+          </p>
+        ) : null}
         <p className="px-1 text-meta text-ink-2">
           {coverageText(coverage.counted, coverage.total)} Salt och kryddor räknas inte.
+          {notCounted ? <span data-testid="nutrition-uncounted"> {notCounted}</span> : null}
         </p>
         <p className="px-1 text-meta text-ink-3">
           Källa: Livsmedelsverkets livsmedelsdatabas (

@@ -3,7 +3,7 @@
   "sourceUrl": "https://dataportal.livsmedelsverket.se/livsmedel",
   "license": "CC BY 4.0",
   "licenseUrl": "https://creativecommons.org/licenses/by/4.0/deed.sv",
-  "fetchedAt": "2026-11-07",
+  "fetchedAt": "2026-11-08",
   "note": "Per 100 g edible part. kcal is the ENERC value in kcal.",
   "foods": {
     "29": {
@@ -40,6 +40,15 @@
       "protein_g": 13.4,
       "fat_g": 4.3,
       "carbs_g": 1.9,
+      "fiber_g": 0
+    },
+    "76": {
+      "name": "Kvarg färskost fett 10%",
+      "version": "2026-06-29T00:20:26.557",
+      "kcal": 152,
+      "protein_g": 12.7,
+      "fat_g": 10,
+      "carbs_g": 2.9,
       "fiber_g": 0
     },
     "85": {
@@ -130,6 +139,15 @@
       "protein_g": 3.4,
       "fat_g": 2.7,
       "carbs_g": 4.5,
+      "fiber_g": 0
+    },
+    "135": {
+      "name": "Yoghurt naturell lätt fett 0,5% berikad",
+      "version": "2026-06-29T00:22:35.577",
+      "kcal": 39,
+      "protein_g": 3.6,
+      "fat_g": 0.5,
+      "carbs_g": 5,
       "fiber_g": 0
     },
     "150": {
@@ -1014,6 +1032,24 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "937": {
+      "name": "Kalv fransyska rå",
+      "version": "2026-06-29T00:41:12.003",
+      "kcal": 108,
+      "protein_g": 19.9,
+      "fat_g": 3.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "938": {
+      "name": "Kalv innanlår rå",
+      "version": "2026-06-29T00:41:13.327",
+      "kcal": 107,
+      "protein_g": 21,
+      "fat_g": 2.5,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
     "946": {
       "name": "Nöt ryggbiff rå",
       "version": "2026-06-29T00:41:28.27",
@@ -1023,12 +1059,30 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "947": {
+      "name": "Nöt oxbringa rå",
+      "version": "2026-06-29T00:41:30.27",
+      "kcal": 205,
+      "protein_g": 17.6,
+      "fat_g": 15.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
     "949": {
       "name": "Nöt oxfilé rå",
       "version": "2026-06-29T00:41:34",
       "kcal": 124,
       "protein_g": 21.7,
       "fat_g": 4.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "950": {
+      "name": "Nöt fransyska rå",
+      "version": "2026-06-29T00:41:35.857",
+      "kcal": 116,
+      "protein_g": 20.8,
+      "fat_g": 3.5,
       "carbs_g": 0,
       "fiber_g": 0
     },
@@ -1050,6 +1104,24 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "957": {
+      "name": "Nöt rostbiff rå",
+      "version": "2026-06-29T00:41:49.16",
+      "kcal": 121,
+      "protein_g": 22.7,
+      "fat_g": 3.2,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "959": {
+      "name": "Nöt ytterlår rå",
+      "version": "2026-06-29T00:41:52.387",
+      "kcal": 111,
+      "protein_g": 21.3,
+      "fat_g": 2.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
     "960": {
       "name": "Nöt entrecôte rå",
       "version": "2026-06-29T00:41:53.823",
@@ -1065,6 +1137,15 @@
       "kcal": 145,
       "protein_g": 20.6,
       "fat_g": 6.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "962": {
+      "name": "Nöt kött hackebiff rå frysvara",
+      "version": "2026-06-29T00:41:57.27",
+      "kcal": 159,
+      "protein_g": 20,
+      "fat_g": 8.8,
       "carbs_g": 0,
       "fiber_g": 0
     },
@@ -1113,6 +1194,15 @@
       "carbs_g": 0,
       "fiber_g": 0
     },
+    "977": {
+      "name": "Gris grytbitar rå",
+      "version": "2026-06-29T00:42:29.217",
+      "kcal": 164,
+      "protein_g": 19.3,
+      "fat_g": 9.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
     "978": {
       "name": "Gris fläskkarré rå",
       "version": "2026-06-29T00:42:31.107",
@@ -1155,6 +1245,15 @@
       "kcal": 138,
       "protein_g": 21,
       "fat_g": 6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1013": {
+      "name": "Nöt flankstek rå",
+      "version": "2026-06-29T00:44:00.143",
+      "kcal": 134,
+      "protein_g": 22,
+      "fat_g": 5.1,
       "carbs_g": 0,
       "fiber_g": 0
     },
@@ -1644,6 +1743,15 @@
       "carbs_g": 4,
       "fiber_g": 0
     },
+    "1714": {
+      "name": "Kaffegrädde fett 12%",
+      "version": "2026-06-29T01:02:26.237",
+      "kcal": 137,
+      "protein_g": 3.1,
+      "fat_g": 12,
+      "carbs_g": 4.4,
+      "fiber_g": 0
+    },
     "1715": {
       "name": "Vispgrädde fett 40%",
       "version": "2026-06-29T01:02:30.003",
@@ -1805,6 +1913,15 @@
       "fat_g": 0.7,
       "carbs_g": 23.5,
       "fiber_g": 0
+    },
+    "2036": {
+      "name": "Matlagningsbas fett 15%",
+      "version": "2026-06-29T01:14:50.02",
+      "kcal": 144,
+      "protein_g": 0.7,
+      "fat_g": 14.8,
+      "carbs_g": 1.8,
+      "fiber_g": 1.7
     },
     "2048": {
       "name": "Filmjölk naturell fett 4,2%",

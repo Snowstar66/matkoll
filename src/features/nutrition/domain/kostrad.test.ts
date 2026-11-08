@@ -4,7 +4,7 @@ import { KOSTRAD_GROUPS, type KostradGroup } from "./groups";
 import type { RecipeNutrition } from "./recipe-nutrition";
 
 /** A RecipeNutrition with the given grams per portion by group, fully counted unless `coverage` says otherwise. */
-function dish(groups: Partial<Record<KostradGroup, number>>, coverage = { counted: 5, total: 5 }): RecipeNutrition {
+function dish(groups: Partial<Record<KostradGroup, number>>, coverage: RecipeNutrition["coverage"] = { counted: 5, total: 5 }): RecipeNutrition {
   const g = Object.fromEntries(KOSTRAD_GROUPS.map((group) => [group, groups[group] ?? 0])) as Record<KostradGroup, number>;
   return {
     perServing: { kcal: 500, proteinG: 30, fatG: 20, carbsG: 50, fiberG: 6 },
@@ -16,10 +16,16 @@ function dish(groups: Partial<Record<KostradGroup, number>>, coverage = { counte
       protein: g.fisk + g.rott_kott + g.fagel + g.agg,
     },
     coverage,
+    uncounted: [],
   };
 }
 
 describe("plateShares", () => {
+  it("draws no plate when the counted lines are not a reliable basis", () => {
+    expect(plateShares(dish({ raffinerad: 300 }, { counted: 3, total: 5 }))).toBeNull();
+    expect(plateShares(dish({ raffinerad: 300 }, { counted: 7, total: 8, countedG: 400, uncountedG: 600 }))).toBeNull();
+  });
+
   it("shares the plate by weight", () => {
     expect(plateShares(dish({ gronsak: 200, raffinerad: 100, fisk: 100 }))).toEqual({
       gronsaker: 0.5,

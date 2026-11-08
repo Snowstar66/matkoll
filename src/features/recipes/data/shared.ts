@@ -2,7 +2,7 @@ import "server-only";
 import { parseSharedRecipe, type SharedListRow, type SharedRecipe } from "../domain/shared-recipe";
 import { RecipeDataError, type RecipesDb } from "./client";
 
-// Delade recept (supabase/migrations/20261108150000_shared_recipes.sql). Every
+// Delade recept (supabase/migrations/20261108190000_shared_recipes.sql). Every
 // read and write across households goes through those security definer
 // functions; sharing one's own recipe is an update of one's own row under RLS.
 

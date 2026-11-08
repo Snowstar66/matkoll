@@ -9,12 +9,18 @@ export {
   type KostradGroup,
   type Per100g,
 } from "./domain/groups";
+export { nameCandidates } from "./domain/names";
 export { toGrams, GARLIC_CLOVE_G } from "./domain/grams";
 export {
   recipeNutrition,
   plateRole,
   roundedKcal,
   roundedGrams,
+  isTrustworthy,
+  TRUST_MIN_COVERAGE,
+  TRUST_MAX_UNCOUNTED_WEIGHT,
+  type UncountedLine,
+  type UncountedReason,
   type Coverage,
   type NutritionLine,
   type NutritionTotals,

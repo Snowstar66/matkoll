@@ -7,7 +7,7 @@ import { sharedChoices, sharedMatchItems } from "@/features/recipes/domain/share
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, householdOf, type Db, type TestUser } from "./support";
 
-// Delade recept (supabase/migrations/20261108150000_shared_recipes.sql) with two households:
+// Delade recept (supabase/migrations/20261108190000_shared_recipes.sql) with two households:
 // A (Lindqvists) shares, B (Bergs) finds, uses and saves. Nothing of A's is readable by B but
 // through the security definer functions, only while it is shared, and only the recipe itself.
 
