@@ -856,17 +856,24 @@
 }
 
 /*
- * Textstorlek and Fetare text (Inställningar, Utseende): per device, set as data-text ("l" | "xl")
+ * Textstorlek and Fetare text (Inställningar, Utseende): per device, set as data-text ("s" | "xl")
  * and data-bold on <html> before first paint (src/lib/text-size.ts). Standard and off set nothing,
  * so the default is untouched. The root font-size scales every rem token and rem class (the type
  * scale, w-14 ...); the few px type tokens are scaled by the same factor here. Inputs stay 16 px+.
  * To roll the feature back, delete from here to the end of the file.
  */
-html[data-text="l"] {
+html {
   font-size: 106.25%;
   --step-size: 25.5px;
   --tab-label-size: 11.7px;
   --tab-label-leading: 13.8px;
+}
+
+html[data-text="s"] {
+  font-size: 100%;
+  --step-size: 24px;
+  --tab-label-size: 11px;
+  --tab-label-leading: 13px;
 }
 
 html[data-text="xl"] {

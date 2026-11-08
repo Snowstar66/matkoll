@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Lagom textstorlek från start",
+    bullets: [
+      "Standard är nu samma storlek som övriga appar på iPhone, lite större än förut.",
+      "Vill du ha den gamla storleken väljer du Mindre under Inställningar, Utseende. Störst heter nu Större.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Kcal räknas på fler rader",
     bullets: [
       "Saknas vikten för en rad, till exempel 12 skivor lövbiff, gissar appen en rimlig vikt i stället för att hoppa över raden.",

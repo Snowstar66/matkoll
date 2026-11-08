@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { applyTextChoice, defaultTextChoice, textBootScript } from "@/lib/text-size";
 
-// Textstorlek / Fetare text: the default must render exactly as before, so nothing is set on
+// Textstorlek / Fetare text: the default (the former Större, 106.25 %) sets nothing is set on
 // <html> and every size/weight change lives behind html[data-text] / html[data-bold].
 
 const css = readFileSync("src/app/globals.css", "utf8");
@@ -29,10 +29,10 @@ describe("Textstorlek and Fetare text", () => {
     new Function(textBootScript())();
     expect(document.documentElement.hasAttribute("data-text")).toBe(false);
     expect(document.documentElement.hasAttribute("data-bold")).toBe(false);
-    localStorage.setItem("livskoll-text", "l");
+    localStorage.setItem("livskoll-text", "s");
     localStorage.setItem("livskoll-bold", "1");
     new Function(textBootScript())();
-    expect(document.documentElement.getAttribute("data-text")).toBe("l");
+    expect(document.documentElement.getAttribute("data-text")).toBe("s");
     expect(document.documentElement.hasAttribute("data-bold")).toBe(true);
     document.documentElement.removeAttribute("data-text");
     document.documentElement.removeAttribute("data-bold");
@@ -46,6 +46,6 @@ describe("Textstorlek and Fetare text", () => {
     expect(base).toContain("--tab-label-size: 11px;");
     expect(base).not.toMatch(/html\s*\{[^}]*font-size/);
     const selectors = [...feature.matchAll(/^(html\[[^{]*)\{/gm)].map((m) => m[1].trim());
-    expect(selectors).toEqual(['html[data-text="l"]', 'html[data-text="xl"]', "html[data-bold]"]);
+    expect(selectors).toEqual(['html[data-text="s"]', 'html[data-text="xl"]', "html[data-bold]"]);
   });
 });

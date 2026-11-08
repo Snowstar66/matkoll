@@ -28,7 +28,7 @@ export type RecipeListProps = {
  */
 export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags }: RecipeListProps) {
   return (
-    <ul aria-label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 desktop:grid-cols-3">
+    <ul aria-label={offerTags ? "Recept, flest erbjudanden först" : ranked ? "Recept, minst saknat först" : "Recept"} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9rem),1fr))] gap-3 desktop:grid-cols-3">
       {recipes.map((recipe) => (
         <RecipeCard
           key={recipe.id}
