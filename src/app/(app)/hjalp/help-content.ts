@@ -60,6 +60,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med tiden som är kvar. När den är slut ringer och vibrerar telefonen och raden säger Klar. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },
       {
+        question: "Vad är kortet Dagens överst i Recept?",
+        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Allt räknas ut i appen.",
+      },
+      {
         question: "Hur vet jag om en rätt är nyttig?",
         answer: "Slå på Visa näring under Inställningar, Tillval. Då visar receptet en tallrik med hur mycket som är grönsaker, protein och kolhydrater, och märken som Mycket grönt, Fisk, Baljväxter och Fullkorn när rätten har gott om det. Det är ingen poäng och inga råd, bara en ungefärlig bild som räknas från Livsmedelsverkets livsmedelsdatabas på det som går att väga. Slå på Visa kcal för kcal och gram per portion. Filtret Nyttigt i Recept visar rätter med mycket grönt, fisk eller baljväxter och lite rött kött.",
       },

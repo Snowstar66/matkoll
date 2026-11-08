@@ -7,10 +7,10 @@ import { OptionSettings } from "./option-settings";
 beforeEach(() => localStorage.clear());
 
 describe("OptionSettings", () => {
-  it("has the groups I receptet and Näring, with the Näring switches off by default", () => {
+  it("has the groups I receptet, Näring and Dagens, with the Näring switches off by default", () => {
     render(<OptionSettings />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
-    expect(headings).toEqual(["I receptet", "Näring"]);
+    expect(headings).toEqual(["I receptet", "Näring", "Dagens"]);
     const show = screen.getByRole("switch", { name: /^Visa näring/ });
     expect(show).toHaveAttribute("aria-checked", "false");
     expect(show).toHaveAccessibleDescription("Tallriken, märken och veckans rad");

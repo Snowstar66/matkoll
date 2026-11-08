@@ -3,39 +3,37 @@
 // colour theme. A new feature adds a row to `options` and reads it with useOption;
 // the settings page lists whatever is here.
 
+/** The groups the settings page shows, in order, each under its small label. */
+export const optionGroups = [
+  { id: "recipe", label: "I receptet" },
+  { id: "nutrition", label: "Näring" },
+  { id: "dagens", label: "Dagens" },
+] as const;
+
+export type OptionGroupId = (typeof optionGroups)[number]["id"];
+
 export const options = [
   {
     id: "recipeTimer",
-    group: "I receptet",
+    group: "recipe",
     label: "Timer i receptet",
     hint: "Tryck på en tid i ett steg för att starta en timer",
     defaultOn: true,
   },
   {
     id: "recipeAwake",
-    group: "I receptet",
+    group: "recipe",
     label: "Skärmen släcks inte i receptet",
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
   },
-  {
-    id: "showNutrition",
-    group: "Näring",
-    label: "Visa näring",
-    hint: "Tallriken, märken och veckans rad",
-    defaultOn: false,
-  },
-  {
-    id: "showKcal",
-    group: "Näring",
-    label: "Visa kcal",
-    hint: "kcal och gram per portion",
-    defaultOn: false,
-  },
-] as const;
-
-/** The groups of the Tillval page, in the order they are shown. */
-export const optionGroups = ["I receptet", "Näring"] as const;
+  { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
+  { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
+  { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
+  { id: "dagensFood", group: "dagens", label: "Matdagar och säsong", hint: "", defaultOn: true },
+  { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
+  { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "", defaultOn: false },
+] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 
 export type OptionId = (typeof options)[number]["id"];
 

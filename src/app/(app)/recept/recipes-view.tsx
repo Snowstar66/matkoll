@@ -16,6 +16,7 @@ import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
+import { TodayCard } from "@/features/today";
 import { WarmAi } from "../warm-ai";
 
 
@@ -60,9 +61,12 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   ]);
   // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
   const healthyIds = readHealthyIds(rows);
+  // Dagens names a recipe by its title; the card reads today's date in the browser.
+  const dagens = <TodayCard recipes={recipes.map(({ id, title }) => ({ id, title }))} />;
   if (recipes.length === 0) {
     return (
       <>
+        {dagens}
         <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
           Inga recept än.
         </EmptyState>
@@ -71,6 +75,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   }
   return (
     <>
+    {dagens}
     <Library
       recipes={recipes}
       pantryUnavailable={pantryUnavailable}

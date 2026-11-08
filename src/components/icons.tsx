@@ -517,12 +517,12 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
-/** A leaf: the quiet nutrition lines (Matsedel's week line). */
+/** A leaf: Dagens (season) and the quiet nutrition lines (Matsedel's week line). */
 export function LeafIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" />
-      <path d="M5 19c2-4 5-7 9-9" />
+      <path d="M5 19c3-4 6-7 9-9" />
     </Icon>
   );
 }
