@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { CloseIcon, LeafIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 import { useOption } from "@/lib/use-option";
 import { almanacLine } from "../domain/almanac";
-import { dayKey, shortDateText, stockholmDay } from "../domain/dates";
+import { weekdayShortName } from "@/features/mealplan";
+import { dayKey, longDateText, mondayFirstWeekday, stockholmDay, tileMonthText, type Day } from "../domain/dates";
 import { hiddenChangedEvent, hideToday, isHiddenToday } from "../domain/hide";
-import type { SeasonRecipe } from "../domain/season";
 import { todayLines } from "../domain/today-lines";
 
 // Dagens: a calm card on top of Recept (UX mockup efter-dagens-a/b/c). One food line,
@@ -46,9 +45,10 @@ function useHidden(key: string | null): boolean {
   );
 }
 
-export function TodayCard({ recipes }: { recipes: readonly SeasonRecipe[] }) {
+export function TodayCard() {
   const show = useOption("dagensShow");
-  const food = useOption("dagensFood");
+  const foodDays = useOption("dagensFood");
+  const season = useOption("dagensSeason");
   const nameDay = useOption("dagensNameDay");
   const almanac = useOption("dagensAlmanac");
   const key = useTodayKey();
@@ -68,29 +68,18 @@ export function TodayCard({ recipes }: { recipes: readonly SeasonRecipe[] }) {
   }, [almanac, day, key]);
   const almanacToday = almanac && almanacText?.key === key ? almanacText.line : null;
   const lines = useMemo(
-    () => (day ? todayLines(day, { food, nameDay, almanac }, recipes, almanacToday) : []),
-    [day, food, nameDay, almanac, recipes, almanacToday],
+    () => (day ? todayLines(day, { foodDays, season, nameDay, almanac }, almanacToday) : []),
+    [day, foodDays, season, nameDay, almanac, almanacToday],
   );
 
   if (!show || hidden || key === null || day === null || lines.length === 0) return null;
   return (
     <section aria-label="Dagens" className="mb-3 flex items-start gap-3 rounded-lg bg-surface p-4" data-testid="dagens-card">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-mint text-mint-ink">
-        <LeafIcon size={20} />
-      </span>
+      <DateTile day={day} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-section-label text-ink-3 uppercase">Dagens · {shortDateText(day)}</p>
         {lines.map((line, index) => (
           <p key={index} className={index === 0 ? "text-body break-words text-ink" : "text-meta break-words text-ink-2"}>
-            {line.map((part, partIndex) =>
-              part.recipeId ? (
-                <Link key={partIndex} href={`/recept/${part.recipeId}`} className="underline decoration-ink-3 underline-offset-2">
-                  {part.text}
-                </Link>
-              ) : (
-                <span key={partIndex}>{part.text}</span>
-              ),
-            )}
+            {line}
           </p>
         ))}
       </div>
@@ -103,5 +92,23 @@ export function TodayCard({ recipes }: { recipes: readonly SeasonRecipe[] }) {
         <CloseIcon size={18} />
       </button>
     </section>
+  );
+}
+
+/** A tear-off calendar leaf: the weekday on a green strip, the day number, the month. */
+function DateTile({ day }: { day: Day }) {
+  return (
+    <span
+      role="img"
+      aria-label={longDateText(day)}
+      data-testid="dagens-date"
+      className="flex w-12 shrink-0 flex-col items-center overflow-hidden rounded-[10px] border border-hairline bg-surface"
+    >
+      <span className="w-full bg-accent text-center text-[11px] leading-4 font-semibold tracking-[0.3px] text-on-accent uppercase">
+        {weekdayShortName(mondayFirstWeekday(day))}
+      </span>
+      <span className="mt-0.5 text-[22px] leading-6 font-semibold tracking-[-0.3px] text-ink tabular-nums">{day.day}</span>
+      <span className="pb-1 text-[11px] leading-[13px] font-semibold tracking-[0.3px] text-ink-2 uppercase">{tileMonthText(day)}</span>
+    </span>
   );
 }

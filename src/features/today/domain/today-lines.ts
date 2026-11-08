@@ -1,37 +1,37 @@
 import type { Day } from "./dates";
 import { foodDayOn } from "./food-days";
 import { nameDayLine } from "./name-days";
-import { seasonLine, type SeasonRecipe } from "./season";
+import { seasonLine } from "./season";
 
-// What the card says: one food line (a food day, else the season) and, when switched
-// on, the name day and the Chinese almanac's advice, each on a line of its own (the
-// advice: "宜 Bra dag att städa hemma · 忌 Undvik att storhandla").
+// What the card says, one text per line: a food day (when switched on), the season's
+// produce (when switched on; after the food day on a food day), and, when switched on,
+// the name day and the Chinese almanac's advice. The advice has its 宜 part and its 忌
+// part on lines of their own, so "· 忌" never wraps mid-line.
 
-export type LinePart = { text: string; recipeId?: string };
-export type TodayLine = readonly LinePart[];
+export type TodayLine = string;
 
-export type TodaySettings = { food: boolean; nameDay: boolean; almanac: boolean };
+export type TodaySettings = { foodDays: boolean; season: boolean; nameDay: boolean; almanac: boolean };
 
-export function foodLine(day: Day, recipes: readonly SeasonRecipe[]): TodayLine | null {
-  const foodDay = foodDayOn(day);
-  if (foodDay) return [{ text: foodDay.text }];
-  const season = seasonLine(day.month, recipes);
-  if (!season) return null;
-  if (!season.recipe) return [{ text: `${season.item.definite} är som bäst nu.` }];
-  return [
-    { text: `${season.item.definite} är som bäst nu – du har ` },
-    { text: season.recipe.title, recipeId: season.recipe.id },
-    { text: "." },
-  ];
+/** The food day's line, else null. */
+export function foodDayLine(day: Day): string | null {
+  return foodDayOn(day)?.text ?? null;
 }
 
 /** `almanac` is the almanac's line, computed (and loaded) by the caller only when it is switched on. */
-export function todayLines(day: Day, settings: TodaySettings, recipes: readonly SeasonRecipe[], almanac: string | null = null): TodayLine[] {
-  const main = settings.food ? foodLine(day, recipes) : null;
-  const extras = [settings.nameDay ? nameDayLine(day.month, day.day) : null, settings.almanac ? almanac : null].filter(
-    (line): line is string => line !== null,
-  );
-  const lines: TodayLine[] = main ? [main] : [];
-  for (const extra of extras) lines.push([{ text: extra }]);
+export function todayLines(day: Day, settings: TodaySettings, almanac: string | null = null): TodayLine[] {
+  const lines: TodayLine[] = [];
+  if (settings.foodDays) {
+    const foodDay = foodDayLine(day);
+    if (foodDay) lines.push(foodDay);
+  }
+  if (settings.season) {
+    const season = seasonLine(day.month, day.day);
+    if (season) lines.push(season);
+  }
+  if (settings.nameDay) {
+    const nameDay = nameDayLine(day.month, day.day);
+    if (nameDay) lines.push(nameDay);
+  }
+  if (settings.almanac && almanac) lines.push(...almanac.split(" · "));
   return lines;
 }

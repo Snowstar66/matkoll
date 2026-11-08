@@ -65,8 +65,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   ]);
   // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
   const healthyIds = readHealthyIds(rows);
-  // Dagens names a recipe by its title; the card reads today's date in the browser.
-  const dagens = <TodayCard recipes={recipes.map(({ id, title }) => ({ id, title }))} />;
+  // The card reads today's date in the browser.
+  const dagens = <TodayCard />;
   if (recipes.length === 0) {
     return (
       <>

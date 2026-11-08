@@ -42,7 +42,9 @@ export const options = [
   { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
   { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
-  { id: "dagensFood", group: "dagens", label: "Matdagar och säsong", hint: "", defaultOn: true },
+  // "dagensFood" keeps its id from when it also covered the season, so a saved choice still means Matdagar.
+  { id: "dagensFood", group: "dagens", label: "Matdagar", hint: "Kanelbullens dag, semmeldagen och andra", defaultOn: true },
+  { id: "dagensSeason", group: "dagens", label: "Säsongens råvara", hint: "Vad som är som bäst just nu", defaultOn: true },
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "宜 vad dagen passar för, 忌 vad du bör undvika", defaultOn: false },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { almanacActivities, almanacAdvice, almanacLine } from "./almanac";
-import { addDays, dayKey, easterSunday, nthWeekday, shortDateText, stockholmDay } from "./dates";
+import { addDays, dayKey, easterSunday, longDateText, mondayFirstWeekday, nthWeekday, stockholmDay, tileMonthText } from "./dates";
 import { foodDayOn } from "./food-days";
 import { nameDayLine, nameDayNames } from "./name-days";
-import { seasonLine } from "./season";
-import { foodLine, todayLines } from "./today-lines";
+import { seasonByMonth, seasonLine } from "./season";
+import { foodDayLine, todayLines } from "./today-lines";
 
 const d = (year: number, month: number, day: number) => ({ year, month, day });
 
@@ -27,8 +27,11 @@ describe("dates", () => {
   });
 
   it("writes the short date", () => {
-    expect(shortDateText(d(2026, 11, 8))).toBe("sön 8 nov");
-    expect(shortDateText(d(2026, 3, 25))).toBe("ons 25 mars");
+    expect(longDateText(d(2026, 11, 8))).toBe("Söndag 8 november");
+    expect(longDateText(d(2026, 3, 25))).toBe("Onsdag 25 mars");
+    expect(tileMonthText(d(2026, 11, 8))).toBe("NOV");
+    expect(mondayFirstWeekday(d(2026, 11, 8))).toBe(7);
+    expect(mondayFirstWeekday(d(2026, 11, 9))).toBe(1);
   });
 });
 
@@ -63,35 +66,24 @@ describe("food days", () => {
 });
 
 describe("season", () => {
-  const recipes = [
-    { id: "a", title: "Caesarkyckling med rostade rotfrukter" },
-    { id: "b", title: "Spagettipumpa" },
-  ];
-
-  it("names the first seasonal item a recipe uses", () => {
-    const line = seasonLine(11, recipes);
-    expect(line?.item.definite).toBe("Pumpan");
-    expect(line?.recipe?.id).toBe("b");
+  it("names only the produce, rotating by the day", () => {
+    expect(seasonLine(11, 8)).toBe("Grönkålen är som bäst nu.");
+    expect(seasonLine(11, 10)).toBe("Pumpan är som bäst nu.");
+    expect(seasonLine(10, 1)).toBe("Pumpan är som bäst nu.");
+    expect(seasonLine(5, 1)).toBe("Sparrisen är som bäst nu.");
+    expect(seasonLine(1, 1)).toBe("Blodapelsinerna är som bäst nu.");
   });
 
-  it("skips an item no recipe uses", () => {
-    expect(seasonLine(11, [recipes[0]])?.item.definite).toBe("Rotfrukterna");
+  it("has a few items every month, and stone fruit in July and August", () => {
+    for (const items of seasonByMonth) expect(items.length).toBeGreaterThanOrEqual(3);
+    expect(seasonByMonth).toHaveLength(12);
+    expect(seasonByMonth[6]).toContain("Nektarinerna");
+    expect(seasonByMonth[7]).toContain("Persikorna");
   });
 
-  it("falls back to the month's first item without a matching recipe", () => {
-    const line = seasonLine(11, [{ id: "x", title: "Pannkakor" }]);
-    expect(line).toMatchObject({ recipe: null });
-    expect(line?.item.definite).toBe("Pumpan");
-  });
-
-  it("writes the lines", () => {
-    expect(foodLine(d(2026, 11, 8), recipes)).toEqual([
-      { text: "Pumpan är som bäst nu – du har " },
-      { text: "Spagettipumpa", recipeId: "b" },
-      { text: "." },
-    ]);
-    expect(foodLine(d(2026, 11, 8), [])).toEqual([{ text: "Pumpan är som bäst nu." }]);
-    expect(foodLine(d(2026, 10, 4), recipes)).toEqual([{ text: "Idag är det Kanelbullens dag. Fika efter maten?" }]);
+  it("gives a food day its own line", () => {
+    expect(foodDayLine(d(2026, 10, 4))).toBe("Idag är det Kanelbullens dag. Fika efter maten?");
+    expect(foodDayLine(d(2026, 11, 8))).toBeNull();
   });
 });
 
@@ -145,22 +137,26 @@ describe("almanac", () => {
 
 describe("today lines", () => {
   const day = d(2026, 11, 8);
-  const recipes = [{ id: "b", title: "Spagettipumpa" }];
+  const on = { foodDays: true, season: true, nameDay: false, almanac: false };
 
-  it("gives only the food line by default", () => {
-    const lines = todayLines(day, { food: true, nameDay: false, almanac: false }, recipes);
-    expect(lines).toHaveLength(1);
+  it("gives only the season line by default on an ordinary day", () => {
+    expect(todayLines(day, on)).toEqual(["Grönkålen är som bäst nu."]);
   });
 
-  it("puts name day and almanac on lines of their own under the food line", () => {
-    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "宜 städa hemma");
-    expect(lines).toHaveLength(3);
-    expect(lines[1][0].text).toBe("Vendela har namnsdag");
-    expect(lines[2][0].text).toBe("宜 städa hemma");
+  it("puts the food day first and the season after it, each switch on its own", () => {
+    const cinnamon = d(2026, 10, 4);
+    expect(todayLines(cinnamon, on)).toEqual(["Idag är det Kanelbullens dag. Fika efter maten?", "Pumpan är som bäst nu."]);
+    expect(todayLines(cinnamon, { ...on, season: false })).toEqual(["Idag är det Kanelbullens dag. Fika efter maten?"]);
+    expect(todayLines(cinnamon, { ...on, foodDays: false })).toEqual(["Pumpan är som bäst nu."]);
+  });
+
+  it("puts name day and almanac under, the almanac's 忌 part on its own line", () => {
+    const lines = todayLines(day, { ...on, nameDay: true, almanac: true }, "宜 Bra dag att städa · 忌 Undvik att storhandla");
+    expect(lines).toEqual(["Grönkålen är som bäst nu.", "Vendela har namnsdag", "宜 Bra dag att städa", "忌 Undvik att storhandla"]);
   });
 
   it("shows the extras alone when food is off, and nothing when all are off", () => {
-    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "宜 städa hemma")).toHaveLength(2);
-    expect(todayLines(day, { food: false, nameDay: false, almanac: false }, recipes)).toEqual([]);
+    expect(todayLines(day, { foodDays: false, season: false, nameDay: true, almanac: true }, "宜 städa hemma")).toHaveLength(2);
+    expect(todayLines(day, { foodDays: false, season: false, nameDay: false, almanac: false })).toEqual([]);
   });
 });

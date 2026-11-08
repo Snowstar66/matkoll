@@ -219,7 +219,7 @@ describe("WeekPlanner, adding without a day", () => {
     await user.click(screen.getByRole("button", { name: "Lägg Tacos på veckan" }));
     await user.click(await screen.findByRole("button", { name: "Byt dag" }));
     const dialog = await screen.findByRole("dialog", { name: "Tacos" });
-    await user.click(within(dialog).getByRole("button", { name: /^Onsdag 4\/11/ }));
+    await user.click(within(dialog).getByRole("button", { name: /^Onsdag 4 nov/ }));
     await waitFor(() => expect(setWeekday).toHaveBeenCalledWith({ id: expect.any(String), weekday: 3 }));
     await waitFor(() => expect(screen.getByTestId("dish-day")).toHaveTextContent("Ons"));
   });
@@ -247,10 +247,10 @@ describe("WeekPlanner, the day sheet (UX-33)", () => {
     await user.click(screen.getAllByTestId("dish-day")[0]);
     const dialog = await screen.findByRole("dialog", { name: "Tacos" });
     expect(within(dialog).getAllByTestId("day-choice").map((choice) => choice.textContent)).toEqual([
-      "Torsdag 5/11",
-      "Fredag 6/11 · Korvstroganoff",
-      "Lördag 7/11",
-      "Söndag 8/11",
+      "Torsdag 5 nov",
+      "Fredag 6 nov · Korvstroganoff",
+      "Lördag 7 nov",
+      "Söndag 8 nov",
       "Ingen dag",
     ]);
   });
@@ -264,7 +264,7 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     expect(titles()).toEqual(["Tacos", "Korvstroganoff", "Laxpasta"]);
     await user.click(screen.getAllByTestId("dish-day")[2]);
     const dialog = await screen.findByRole("dialog", { name: "Laxpasta" });
-    await user.click(within(dialog).getByRole("button", { name: /^Måndag 2\/11/ }));
+    await user.click(within(dialog).getByRole("button", { name: /^Måndag 2 nov/ }));
     await waitFor(() => expect(titles()).toEqual(["Laxpasta", "Tacos", "Korvstroganoff"]));
   });
 
@@ -316,8 +316,8 @@ describe("WeekPlanner as a calendar of the week", () => {
   it("shows each dish's day and date in a column and the free days as rows", () => {
     renderPlanner([onWeek(1, "Tacos", 1), onWeek(2, "Korvstroganoff", 3)]);
     const [mon, wed] = screen.getAllByTestId("dish-day");
-    expect(mon).toHaveTextContent("Mån2/11");
-    expect(wed).toHaveTextContent("Ons4/11");
+    expect(mon).toHaveTextContent("Mån2 nov");
+    expect(wed).toHaveTextContent("Ons4");
     expect(screen.getAllByTestId("free-day").map((button) => button.getAttribute("aria-label"))).toEqual([
       "Lägg till en rätt på tisdag",
       "Lägg till en rätt på torsdag",
@@ -325,6 +325,14 @@ describe("WeekPlanner as a calendar of the week", () => {
       "Lägg till en rätt på lördag",
       "Lägg till en rätt på söndag",
     ]);
+  });
+
+  it("shows a free day as a plus without words, still a button", () => {
+    renderPlanner([onWeek(1, "Tacos", 1)]);
+    const [tuesday] = screen.getAllByTestId("free-day");
+    expect(tuesday).toHaveTextContent("Tis3");
+    expect(tuesday).not.toHaveTextContent(/Ledig|lägg till/i);
+    expect(tuesday.querySelector("svg")).not.toBeNull();
   });
 
   it("leaves out free days before today", () => {
@@ -344,7 +352,7 @@ describe("WeekPlanner as a calendar of the week", () => {
   it("shows the day on the first of several dishes on one day", () => {
     renderPlanner([onWeek(1, "Tacos", 2), onWeek(2, "Korvstroganoff", 2)]);
     const [first, second] = screen.getAllByTestId("dish-day");
-    expect(first).toHaveTextContent("Tis3/11");
+    expect(first).toHaveTextContent("Tis3");
     expect(second).not.toHaveTextContent("Tis");
   });
 
