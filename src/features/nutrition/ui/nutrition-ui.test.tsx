@@ -44,7 +44,7 @@ describe("NutritionCard", () => {
     const card = screen.getByTestId("nutrition-card");
     expect(within(card).getByTestId("nutrition-plate")).toBeInTheDocument();
     expect(within(card).getByText("Mycket grönt")).toBeInTheDocument();
-    for (const word of ["Grönt", "Protein", "Kolhydrater"]) expect(within(card).getByText(word)).toBeInTheDocument();
+    for (const word of ["Grönt", "Kött & fisk", "Potatis & pasta"]) expect(within(card).getByText(word)).toBeInTheDocument();
     expect(card).not.toHaveTextContent("kcal");
   });
 
@@ -64,12 +64,32 @@ describe("NutritionCard", () => {
     ]);
     render(<NutritionCard recipeTitle="Biff" nutrition={unsure} />);
     expect(screen.queryByTestId("nutrition-kcal")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();
     await userEvent.click(screen.getByTestId("nutrition-card"));
-    expect(screen.getByTestId("nutrition-unsure")).toHaveTextContent("kcal går inte att räkna säkert");
+    expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nutrition-unsure")).toHaveTextContent("går inte att räkna säkert");
     expect(screen.getByTestId("nutrition-uncounted")).toHaveTextContent(
       "Räknas inte: fransyska (okänd vara), crème fraiche (1 förp, okänd storlek).",
     );
     expect(screen.queryByText("Energi")).not.toBeInTheDocument();
+  });
+
+  it("with the meat uncounted the card has no plate, only a line that opens the sheet", async () => {
+    saveOption("showNutrition", true);
+    const potatoes = dish({ raffinerad: 300 }, { counted: 3, total: 4 }, [{ label: "lövbiff", reason: "unknown_ingredient" }]);
+    render(<NutritionCard recipeTitle="Lövbiffsrullader" nutrition={potatoes} />);
+    expect(screen.getByTestId("nutrition-card-unsure")).toHaveTextContent("Näringen kan inte räknas säkert");
+    expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.getByTestId("nutrition-uncounted")).toHaveTextContent("lövbiff (okänd vara)");
+  });
+
+  it("explains that the plate is by weight, not nutrients", async () => {
+    saveOption("showNutrition", true);
+    render(<NutritionCard recipeTitle="Spagettipumpa" nutrition={green} />);
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.getByText("Tallriken visar hur maten fördelas i vikt, inte näringsämnen.")).toBeInTheDocument();
+    expect(screen.getByText("Potatis, pasta, ris och bröd")).toBeInTheDocument();
   });
 
   it("ignores Visa kcal when Visa näring is off", () => {
@@ -90,7 +110,7 @@ describe("NutritionCard", () => {
     await userEvent.click(screen.getByTestId("nutrition-card"));
     const sheet = await screen.findByRole("dialog", { name: "Näring" });
     expect(within(sheet).getByText("Spagettipumpa, per portion")).toBeInTheDocument();
-    expect(within(sheet).getByText("Grönsaker")).toBeInTheDocument();
+    expect(within(sheet).getByText("Grönsaker och rotfrukter")).toBeInTheDocument();
     expect(within(sheet).getByText("ca 80 %")).toBeInTheDocument();
     expect(within(sheet).getByText("Mer än halva tallriken är grönsaker.")).toBeInTheDocument();
     expect(within(sheet).getByText(/Räknat på 9 av 11 varor\./)).toBeInTheDocument();

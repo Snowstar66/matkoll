@@ -17,9 +17,9 @@ export function shareText(share: number): string {
 }
 
 export const PLATE_PARTS = [
-  { key: "gronsaker", label: "Grönsaker", legend: "Grönt" },
-  { key: "protein", label: "Protein", legend: "Protein" },
-  { key: "kolhydrater", label: "Kolhydrater", legend: "Kolhydrater" },
+  { key: "gronsaker", label: "Grönsaker och rotfrukter", legend: "Grönt" },
+  { key: "protein", label: "Kött, fisk, ägg och bönor", legend: "Kött & fisk" },
+  { key: "kolhydrater", label: "Potatis, pasta, ris och bröd", legend: "Potatis & pasta" },
 ] as const satisfies readonly { key: keyof PlateShares; label: string; legend: string }[];
 
 /**
@@ -38,7 +38,9 @@ export function coverageText(counted: number, total: number): string {
   return `Räknat på ${counted} av ${total} varor.`;
 }
 
-export const KCAL_UNSURE_TEXT = "kcal går inte att räkna säkert för det här receptet.";
+export const KCAL_UNSURE_TEXT = "Näringen går inte att räkna säkert för det här receptet, så varken kcal eller tallrik visas.";
+export const UNSURE_CARD_TEXT = "Näringen kan inte räknas säkert";
+export const PLATE_NOTE = "Tallriken visar hur maten fördelas i vikt, inte näringsämnen.";
 
 /** "Räknas inte: fransyska (okänd vara), crème fraiche (1 förp, okänd storlek)"; `null` when all were counted. */
 export function uncountedText(uncounted: readonly UncountedLine[]): string | null {

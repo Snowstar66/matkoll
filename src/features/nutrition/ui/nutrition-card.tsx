@@ -7,7 +7,7 @@ import { Sheet } from "@/components/sheet";
 import { NUTRITION_LICENSE_URL } from "../domain/groups";
 import { assessKostrad, plateShares } from "../domain/kostrad";
 import { isTrustworthy, type RecipeNutrition, roundedGrams, roundedKcal } from "../domain/recipe-nutrition";
-import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, shareText, uncountedText } from "../domain/texts";
+import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
 import { Plate, plateColors } from "./plate";
 import { useNutritionOptions } from "./use-nutrition-options";
 
@@ -23,8 +23,9 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
   if (!show) return null;
   const shares = plateShares(nutrition);
   const { tags } = assessKostrad(nutrition);
-  if (!shares && tags.length === 0) return null;
   const { perServing, coverage } = nutrition;
+  const unsure = coverage.total > 0 && !isTrustworthy(coverage);
+  if (!shares && tags.length === 0 && !unsure) return null;
   const showKcal = kcal && isTrustworthy(coverage);
   return (
     <>
@@ -41,6 +42,11 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
           {showKcal ? (
             <span className="text-body text-ink" data-testid="nutrition-kcal">
               ca {roundedKcal(perServing.kcal)} kcal <span className="text-ink-2">per portion</span>
+            </span>
+          ) : null}
+          {unsure ? (
+            <span className="text-body text-ink-2" data-testid="nutrition-card-unsure">
+              {UNSURE_CARD_TEXT}
             </span>
           ) : null}
           {tags.length > 0 ? (
@@ -119,6 +125,7 @@ function NutritionSheet({
                 ))}
               </ul>
             </div>
+            <p className="text-meta text-ink-2">{PLATE_NOTE}</p>
           </section>
         ) : null}
         {tags.length > 0 ? (
