@@ -41,5 +41,5 @@ export {
 } from "./domain/kostrad";
 export { KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, coverageText, shareText, weekLineText } from "./domain/texts";
 export { NutritionCard } from "./ui/nutrition-card";
-export { NutritionWeekLine } from "./ui/week-line";
+export { NutritionWeekLine, NutritionWeekLineAsync } from "./ui/week-line";
 export { useNutritionOptions } from "./ui/use-nutrition-options";

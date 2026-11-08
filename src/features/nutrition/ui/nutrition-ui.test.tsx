@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { saveOption } from "@/lib/options";
@@ -6,7 +6,7 @@ import { KOSTRAD_GROUPS, type KostradGroup } from "../domain/groups";
 import type { RecipeNutrition } from "../domain/recipe-nutrition";
 import { weekLineText } from "../domain/texts";
 import { NutritionCard } from "./nutrition-card";
-import { NutritionWeekLine } from "./week-line";
+import { NutritionWeekLine, NutritionWeekLineAsync } from "./week-line";
 
 // The nutrition card, its sheet and the week line: nothing without Tillval "Visa näring",
 // kcal and grams only with "Visa kcal".
@@ -131,5 +131,15 @@ describe("NutritionWeekLine", () => {
     saveOption("showNutrition", true);
     render(<NutritionWeekLine dinners={[null, null]} />);
     expect(screen.queryByTestId("nutrition-week-line")).not.toBeInTheDocument();
+  });
+});
+
+describe("NutritionWeekLineAsync", () => {
+  it("shows the line when the nutrition promise has resolved", async () => {
+    saveOption("showNutrition", true);
+    await act(async () => {
+      render(<NutritionWeekLineAsync recipeIds={["a", "b", null]} nutrition={Promise.resolve({ a: green, b: fish })} />);
+    });
+    expect(await screen.findByTestId("nutrition-week-line")).toHaveTextContent("Veckans middagar: 1 fiskrätt · 1 grön");
   });
 });

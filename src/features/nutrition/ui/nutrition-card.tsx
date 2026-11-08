@@ -32,6 +32,7 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
+        aria-label="Näring, visa detaljer"
         data-testid="nutrition-card"
         className="flex w-full items-center gap-3 rounded-lg bg-surface px-4 py-3 text-left"
       >

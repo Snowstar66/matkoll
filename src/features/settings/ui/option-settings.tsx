@@ -8,7 +8,7 @@ import { useOption } from "@/lib/use-option";
 
 // Tillval: one switch row per entry in src/lib/options.ts, remembered on this device.
 
-function OptionRow({ id, label, hint }: { id: OptionId; label: string; hint: string }) {
+function OptionRow({ id, label, hint, disabled = false }: { id: OptionId; label: string; hint: string; disabled?: boolean }) {
   const on = useOption(id);
   const hintId = useId();
   return (
@@ -18,8 +18,9 @@ function OptionRow({ id, label, hint }: { id: OptionId; label: string; hint: str
         role="switch"
         aria-checked={on}
         aria-describedby={hintId}
+        disabled={disabled}
         onClick={() => saveOption(id, !on)}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left"
+        className={cx("flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left", disabled && "opacity-50")}
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-body text-ink">{label}</span>
@@ -39,6 +40,7 @@ function OptionRow({ id, label, hint }: { id: OptionId; label: string; hint: str
 }
 
 export function OptionSettings() {
+  const showNutrition = useOption("showNutrition");
   return (
     <section aria-label="Tillval" className="flex flex-col gap-5">
       {optionGroups.map((group) => (
@@ -48,7 +50,14 @@ export function OptionSettings() {
             {options
               .filter((option) => option.group === group)
               .map((option) => (
-                <OptionRow key={option.id} id={option.id} label={option.label} hint={option.hint} />
+                <OptionRow
+                  key={option.id}
+                  id={option.id}
+                  label={option.label}
+                  // Visa kcal adds to the nutrition card, so it waits for Visa näring.
+                  hint={option.id === "showKcal" && !showNutrition ? "Kräver Visa näring" : option.hint}
+                  disabled={option.id === "showKcal" && !showNutrition}
+                />
               ))}
           </ul>
           {group === "Näring" ? (

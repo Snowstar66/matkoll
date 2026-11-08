@@ -156,7 +156,8 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     );
   }
 
-  const nutrition = await weekNutrition(view.dishes);
+  // Not awaited: the plan renders at once and the week line arrives when the nutrition has been read.
+  const nutrition = weekNutrition(view.dishes);
 
   return (
     <>

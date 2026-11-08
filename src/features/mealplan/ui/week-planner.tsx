@@ -26,7 +26,7 @@ import {
   type ServingsChange,
   type WeekdayChange,
 } from "../domain/meal-plan";
-import { NutritionWeekLine, type RecipeNutrition } from "@/features/nutrition";
+import { NutritionWeekLineAsync, type RecipeNutrition } from "@/features/nutrition";
 import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
 import { weekdayDateText } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
@@ -87,7 +87,7 @@ export type WeekPlannerProps = {
   /** Under the rows of På erbjudande: "Nya idéer med extrapris" and the ideas. */
   offersFooter?: ReactNode;
   /** The nutrition per portion of the week's recipes by recipe id, for the quiet week line (shown only with Tillval "Visa näring"). */
-  nutrition?: Readonly<Record<string, RecipeNutrition>>;
+  nutrition?: Promise<Readonly<Record<string, RecipeNutrition>>>;
 };
 
 export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter, nutrition }: WeekPlannerProps) {
@@ -372,7 +372,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
             })}
           </ul>
         ) : null}
-        {nutrition ? <NutritionWeekLine dinners={shown.map((dish) => (dish.recipeId ? (nutrition[dish.recipeId] ?? null) : null))} /> : null}
+        {nutrition ? <NutritionWeekLineAsync recipeIds={shown.map((dish) => dish.recipeId)} nutrition={nutrition} /> : null}
       </section>
 
       <section ref={addRef} aria-labelledby="add-dishes-heading" className="flex scroll-mt-4 flex-col gap-2.5 rounded-xl bg-fill p-3">

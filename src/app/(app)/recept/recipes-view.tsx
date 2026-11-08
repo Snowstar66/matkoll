@@ -11,7 +11,8 @@ import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { assessKostrad, recipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
-import { listLibrary, listRecipeRows } from "@/features/recipes/server";
+import { listLibraryWithRows } from "@/features/recipes/server";
+import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
@@ -51,13 +52,14 @@ export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoIm
 async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?: Promise<"offers" | undefined> }) {
   await requireUserOrRedirect("/recept");
   const initialFilter = await filterPromise;
-  const [{ recipes, pantryUnavailable, site }, offers, plan, healthyIds] = await Promise.all([
-    listLibrary(),
+  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan] = await Promise.all([
+    listLibraryWithRows(),
     readLibraryOffers(),
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
-    readHealthyIds(),
   ]);
+  // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
+  const healthyIds = readHealthyIds(rows);
   if (recipes.length === 0) {
     return (
       <>
@@ -87,9 +89,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
  * browser decides). One read of the library's lines and one of the nutrition for all their ingredients, no read per
  * recipe. `undefined` when it cannot be read: the chip is then left out.
  */
-async function readHealthyIds(): Promise<string[] | undefined> {
+async function readHealthyIds(rows: readonly RecipeListRow[]): Promise<string[] | undefined> {
   try {
-    const rows = await listRecipeRows();
     const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
     const byId = await getIngredientNutrition(ids);
     return rows.filter((row) => assessKostrad(recipeNutrition(row.lines, byId, row.originalServings)).follows).map((row) => row.id);

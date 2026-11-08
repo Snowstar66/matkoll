@@ -11,17 +11,21 @@ describe("OptionSettings", () => {
     render(<OptionSettings />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
     expect(headings).toEqual(["I receptet", "Näring"]);
-    const show = screen.getByRole("switch", { name: /Visa näring/ });
+    const show = screen.getByRole("switch", { name: /^Visa näring/ });
     expect(show).toHaveAttribute("aria-checked", "false");
     expect(show).toHaveAccessibleDescription("Tallriken, märken och veckans rad");
-    expect(screen.getByRole("switch", { name: /Visa kcal/ })).toHaveAccessibleDescription("kcal och gram per portion");
+    // Visa kcal waits for Visa näring.
+    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("Kräver Visa näring");
     expect(screen.getByRole("switch", { name: /Timer i receptet/ })).toHaveAttribute("aria-checked", "true");
   });
 
   it("turns Visa näring on for this device and names the source under the group", async () => {
     render(<OptionSettings />);
-    await userEvent.click(screen.getByRole("switch", { name: /Visa näring/ }));
+    await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
     expect(readOption("showNutrition")).toBe(true);
+    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeEnabled();
+    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("kcal och gram per portion");
     expect(within(screen.getByTestId("nutrition-source")).getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", expect.stringContaining("creativecommons.org"));
     expect(screen.getByText("Gäller bara den här enheten.")).toBeInTheDocument();
   });

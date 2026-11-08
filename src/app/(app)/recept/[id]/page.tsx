@@ -58,6 +58,15 @@ async function readNutrition(recipe: SavedRecipe): Promise<RecipeNutrition | nul
   }
 }
 
+/**
+ * The nutrition card, read under its own <Suspense>, so the recipe does not wait for the nutrition
+ * (the option is chosen in the browser, so everyone's server reads it).
+ */
+async function NutritionCardLoader({ recipe }: { recipe: SavedRecipe }) {
+  const nutrition = await readNutrition(recipe);
+  return nutrition ? <NutritionCard recipeTitle={recipe.title} nutrition={nutrition} /> : null;
+}
+
 /** The catalog ingredients on the shopping list now, for "På listan"; none when the list cannot be read. */
 async function readListedIds(): Promise<string[]> {
   try {
@@ -94,7 +103,6 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
-  const nutrition = await readNutrition(recipe);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   // The weeks the recipe can be planned for, with its dish on each: the three coming ones and the week last
   // viewed on Matsedel or Inköpslista when that is further ahead (UX-04, UX-05).
@@ -139,7 +147,11 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       buyMissing={addKeyedItems}
       undoBuy={removeKeyedItems}
       removeFromPlan={removePlanRecipe}
-      nutritionCard={nutrition ? <NutritionCard recipeTitle={recipe.title} nutrition={nutrition} /> : undefined}
+      nutritionCard={
+        <Suspense fallback={null}>
+          <NutritionCardLoader recipe={recipe} />
+        </Suspense>
+      }
       finish={
         dish ? (
           <MarkCookedButton

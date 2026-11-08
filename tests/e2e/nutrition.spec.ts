@@ -74,7 +74,7 @@ test.beforeEach(async () => {
 
 async function turn(page: Page, name: "Visa näring" | "Visa kcal", on: boolean) {
   await page.goto("/installningar/tillval");
-  const toggle = page.getByRole("switch", { name: new RegExp(name) });
+  const toggle = page.getByRole("switch", { name: new RegExp(`^${name}`) });
   await expect(toggle).toBeVisible();
   if ((await toggle.getAttribute("aria-checked")) !== String(on)) await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", String(on));
@@ -88,9 +88,13 @@ async function openRecipe(page: Page, title: string) {
 
 test("Näring is off by default: no card on the recipe and no Nyttigt chip", async ({ page }) => {
   await page.goto("/installningar/tillval");
-  await expect(page.getByRole("switch", { name: /Visa näring/ })).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByRole("switch", { name: /^Visa näring/ })).toHaveAttribute("aria-checked", "false");
   await openRecipe(page, broccoli);
   await expect(page.getByTestId("recipe-chips")).toBeVisible();
+  // Hydrated (the stepper answers) and the streamed card has had its time before the card is said to be absent.
+  await page.getByRole("button", { name: "Fler portioner" }).click();
+  await expect(page.getByText("5 portioner")).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await expect(page.getByTestId("nutrition-card")).toHaveCount(0);
   await page.goto("/recept");
   await expect(page.getByTestId("recipe-filters")).toBeVisible();
