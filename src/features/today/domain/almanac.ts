@@ -92,13 +92,13 @@ export function almanacAdvice(yi: readonly string[], ji: readonly string[]): str
   return parts.length > 0 ? parts.join(" ") : null;
 }
 
-/** "Almanackan: bra dag att städa hemma. Undvik att storhandla.", or null when the lists hold nothing kept. */
+/** "Bra dag att städa hemma. Undvik att storhandla.", or null when the lists hold nothing kept. The card says no more: one learns quickly where it comes from. */
 export async function almanacLine({ year, month, day }: Day): Promise<string | null> {
   try {
     const { Solar } = await import("lunar-javascript");
     const lunar = Solar.fromYmd(year, month, day).getLunar();
     const advice = almanacAdvice(lunar.getDayYi(), lunar.getDayJi());
-    return advice ? `Almanackan: ${advice.charAt(0).toLocaleLowerCase("sv-SE")}${advice.slice(1)}` : null;
+    return advice;
   } catch {
     return null;
   }

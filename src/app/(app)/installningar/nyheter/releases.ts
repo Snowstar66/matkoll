@@ -13,6 +13,11 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Kortare almanacka",
+    bullets: ["Almanackans råd i Dagens står nu utan ordet Almanackan framför, så raden blir kortare."],
+  },
+  {
+    date: "2026-11-08",
     title: "Delade recept",
     bullets: [
       "Dela ett recept med andra hushåll i appen: tryck ⋯ och Dela med andra. Sluta dela gör du på samma ställe.",

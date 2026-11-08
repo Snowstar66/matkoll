@@ -139,7 +139,7 @@ describe("almanac", () => {
   });
 
   it("gives the advice for 8 Nov 2026 without the day's animal", async () => {
-    expect(await almanacLine(d(2026, 11, 8))).toBe("Almanackan: bra dag att fixa det som är trasigt och byta sängkläder. Undvik att göra om i köket.");
+    expect(await almanacLine(d(2026, 11, 8))).toBe("Bra dag att fixa det som är trasigt och byta sängkläder. Undvik att göra om i köket.");
   });
 });
 
@@ -153,14 +153,14 @@ describe("today lines", () => {
   });
 
   it("puts name day and almanac on lines of their own under the food line", () => {
-    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Almanackan: bra dag att städa hemma.");
+    const lines = todayLines(day, { food: true, nameDay: true, almanac: true }, recipes, "Bra dag att städa hemma.");
     expect(lines).toHaveLength(3);
     expect(lines[1][0].text).toBe("Vendela har namnsdag");
-    expect(lines[2][0].text).toBe("Almanackan: bra dag att städa hemma.");
+    expect(lines[2][0].text).toBe("Bra dag att städa hemma.");
   });
 
   it("shows the extras alone when food is off, and nothing when all are off", () => {
-    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Almanackan: bra dag att städa hemma.")).toHaveLength(2);
+    expect(todayLines(day, { food: false, nameDay: true, almanac: true }, recipes, "Bra dag att städa hemma.")).toHaveLength(2);
     expect(todayLines(day, { food: false, nameDay: false, almanac: false }, recipes)).toEqual([]);
   });
 });
