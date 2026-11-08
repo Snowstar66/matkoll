@@ -15,7 +15,7 @@ describe("Textstorlek and Fetare text", () => {
     render(<TextSettings />);
     expect(screen.getByRole("radio", { name: "Standard" })).toBeChecked();
     expect(document.documentElement.hasAttribute("data-text")).toBe(false);
-    await user.click(screen.getByRole("radio", { name: "Störst" }));
+    await user.click(screen.getByRole("radio", { name: "Större" }));
     expect(document.documentElement.getAttribute("data-text")).toBe("xl");
     expect(localStorage.getItem("livskoll-text")).toBe("xl");
     await user.click(screen.getByRole("switch", { name: /Fetare text/ }));
