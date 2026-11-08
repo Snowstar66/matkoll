@@ -26,6 +26,13 @@ export const options = [
     defaultOn: true,
   },
   {
+    id: "recipeSteps",
+    group: "recipe",
+    label: "Bocka av steg",
+    hint: "Tryck på stegets nummer. Bockarna försvinner när receptet är lagat eller efter 12 timmar",
+    defaultOn: true,
+  },
+  {
     id: "recipeAwake",
     group: "recipe",
     label: "Skärmen släcks inte i receptet",

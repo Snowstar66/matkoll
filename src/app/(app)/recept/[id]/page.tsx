@@ -128,6 +128,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
         dish ? (
           <MarkCookedButton
             dish={{ id: dish.id, title: dish.recipeTitle, servings: dish.servings }}
+            recipeId={recipe.id}
             originalServings={recipe.servings}
             lines={recipe.lines}
             snapshot={snapshot}

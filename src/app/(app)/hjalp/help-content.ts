@@ -56,6 +56,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Står rätten på matsedeln finns Markera som lagad under stegen i receptet. Det du bockar dras från Matvaror.",
       },
       {
+        question: "Kan jag bocka av stegen medan jag lagar?",
+        answer: "Ja. Tryck på stegets nummer så blir det en bock och steget tonas ner. Tryck igen för att ångra. Bockarna försvinner när du markerar receptet som lagat, när du trycker på Börja om under stegen, eller av sig själva efter 12 timmar, så nästa gång är alla steg öppna igen. De sparas bara på den här telefonen. Det går att stänga av under Inställningar, Tillval.",
+      },
+      {
         question: "Kan jag ta tid på ett steg?",
         answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med vad den gäller, till exempel Bakpotatis, och tiden som är kvar. När den är slut ringer telefonen var tredje sekund tills du trycker på bocken, högst två minuter, även när ljudlöst läge är på (iOS 17 eller senare). Ljudet följer telefonens volym, och receptet måste vara öppet på skärmen. Android vibrerar också, iPhone kan inte vibrera från en webbapp. Behöver det lite till trycker du på +1 min eller +5 min. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },

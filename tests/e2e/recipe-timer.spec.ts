@@ -126,3 +126,23 @@ test("a finished timer rings, takes more minutes and is answered with the check"
   await expect(page.getByTestId("timer-bar")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("steps can be ticked off, stay after a reload, and Börja om opens them again", async ({ page }) => {
+  await page.goto(`/recept/${recipeId}`);
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  const steps = page.getByTestId("recipe-step");
+  await expect(page.getByRole("button", { name: "Börja om" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Steg 1 klart" }).click();
+  await expect(page.getByRole("button", { name: "Steg 1 klart" })).toHaveAttribute("aria-pressed", "true");
+  await expect(steps.first()).toHaveAttribute("data-done", "");
+  await expect(steps.nth(1)).not.toHaveAttribute("data-done", "");
+  if (screenshot) await page.screenshot({ path: screenshot.replace(/\.png$/, "-steg.png") });
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Steg 1 klart" })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "Börja om" }).click();
+  await expect(page.getByRole("button", { name: "Steg 1 klart" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Börja om" })).toHaveCount(0);
+});

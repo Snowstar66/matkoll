@@ -11,6 +11,7 @@ import { formatQuantity, isCountUnit } from "@/features/catalog";
 import { amountStep, roundSum, type PantrySnapshot } from "@/features/pantry";
 import { scaleFactor } from "@/features/recipes";
 import { errorMessages, type Result } from "@/lib/errors";
+import { clearStepChecks } from "@/lib/step-checks";
 import { markDishCooked } from "../actions/mark-dish-cooked";
 import { undoDishCooked } from "../actions/undo-dish-cooked";
 import {
@@ -37,6 +38,8 @@ import {
 
 export type MarkCookedButtonProps = {
   dish: { id: string; title: string; servings: number };
+  /** The recipe shown: its ticked steps are cleared once the dish is cooked. */
+  recipeId?: string;
   /** The servings the recipe's amounts are written for. */
   originalServings: number;
   lines: readonly CookedLine[];
@@ -78,6 +81,7 @@ export function MarkCookedButton({
   snapshot,
   siteId,
   names,
+  recipeId,
   variant = "secondary",
   className,
   fullWidth,
@@ -149,6 +153,7 @@ export function MarkCookedButton({
       return;
     }
     const { rows } = result.data;
+    if (recipeId) clearStepChecks(recipeId);
     setOpen(false);
     setMarked(true);
     showToast(cookedText(dish.title, rows.length), {
