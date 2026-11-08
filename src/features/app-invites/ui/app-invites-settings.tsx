@@ -194,14 +194,14 @@ export function AppInvitesSettings({
           <div className="flex flex-col">
             <p className="text-body text-ink-2">{sheetInvite.email} gör ett eget konto med den adressen. Koden hör bara till den.</p>
             <div className="mt-3 rounded-lg bg-bg px-4 pt-4 pb-3.5 text-center">
-              <p className="text-[13px] leading-[18px] font-medium tracking-[0.5px] text-ink-2 uppercase">Kod</p>
-              <p className="mt-0.5 font-mono text-[30px] leading-[44px] font-semibold tracking-[4px] text-ink" data-testid="app-invite-code">
+              <p className="text-[0.8125rem] leading-[1.125rem] font-medium tracking-[0.5px] text-ink-2 uppercase">Kod</p>
+              <p className="mt-0.5 font-mono text-[1.875rem] leading-[2.75rem] font-semibold tracking-[4px] text-ink" data-testid="app-invite-code">
                 {formatAppInviteCode(sheetInvite.code)}
               </p>
               <p className="text-meta text-ink-2">Gäller till {inviteValidUntil(sheetInvite.expiresAt)} · för en adress</p>
             </div>
             <div className="mt-2.5 flex min-h-12 items-center gap-2 rounded-md border border-border py-1 pr-1 pl-3.5">
-              <span className="min-w-0 flex-1 truncate text-[15px] text-ink-2" data-testid="app-invite-link">
+              <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-ink-2" data-testid="app-invite-link">
                 {link.replace(/^https?:\/\//, "")}
               </span>
               <Chip selected={false} action onClick={async () => showToast((await copy(link)) ? "Kopierade länken." : "Det gick inte att kopiera.")}>

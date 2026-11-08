@@ -13,6 +13,24 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Större text och fetare text",
+    bullets: [
+      "Under Inställningar, Utseende väljer du Textstorlek: Standard, Större eller Störst. Hela appen följer med.",
+      "Där finns också Fetare text, som gör vanlig text lite tjockare så den är lättare att läsa.",
+      "Valen gäller bara den här enheten, och Standard ser ut precis som förut.",
+    ],
+  },
+  {
+    date: "2026-11-08",
+    title: "Större text och fetare text",
+    bullets: [
+      "Under Inställningar, Utseende väljer du Textstorlek: Standard, Större eller Störst. Hela appen följer med.",
+      "Där finns också Fetare text, som gör vanlig text lite tjockare så den är lättare att läsa.",
+      "Valen gäller bara den här enheten, och Standard ser ut precis som förut.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Almanackan säger det i ord också",
     bullets: [
       "Efter tecknen 宜 och 忌 står nu Bra dag att och Undvik att, så raden går att läsa direkt.",

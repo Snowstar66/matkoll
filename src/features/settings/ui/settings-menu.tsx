@@ -81,12 +81,12 @@ function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
       <Tile icon={row.icon} tile={row.tile} />
       <span className="min-w-0 flex-1 text-row-title font-normal wrap-break-word text-ink">{row.title}</span>
       {row.value ? (
-        <span className="max-w-[45%] truncate text-[15px] leading-5 text-ink-2" data-testid="settings-value">
+        <span className="max-w-[45%] truncate text-[0.9375rem] leading-5 text-ink-2" data-testid="settings-value">
           {row.value}
         </span>
       ) : null}
       {row.badge ? (
-        <span className="inline-flex h-[22px] shrink-0 items-center rounded-pill bg-accent px-2 text-[13px] font-semibold text-on-accent" data-testid="settings-badge">
+        <span className="inline-flex h-[22px] shrink-0 items-center rounded-pill bg-accent px-2 text-[0.8125rem] font-semibold text-on-accent" data-testid="settings-badge">
           {row.badge}
         </span>
       ) : null}

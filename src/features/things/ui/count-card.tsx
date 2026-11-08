@@ -293,7 +293,7 @@ export function CountCard({
       <div className="overflow-hidden rounded-lg bg-bg">
         <div className="flex items-center gap-2 pt-3 pr-3 pl-4">
           <p
-            className={cx("m-0 flex-1 text-[28px] leading-[34px] font-semibold tracking-[-0.3px] tabular-nums", quantity === 0 ? "text-ink-2" : "text-ink")}
+            className={cx("m-0 flex-1 text-[1.75rem] leading-[2.125rem] font-semibold tracking-[-0.3px] tabular-nums", quantity === 0 ? "text-ink-2" : "text-ink")}
             data-testid="count-number"
           >
             {quantity === 0 ? (
@@ -301,7 +301,7 @@ export function CountCard({
             ) : (
               <>
                 {quantity}
-                <small className="ml-1 text-[17px] font-medium tracking-normal text-ink-2">st</small>
+                <small className="ml-1 text-[1.0625rem] font-medium tracking-normal text-ink-2">st</small>
               </>
             )}
           </p>

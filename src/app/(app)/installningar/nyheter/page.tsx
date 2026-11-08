@@ -23,7 +23,7 @@ export default function NewsPage() {
               {group.entries.map((release) => (
                 <li key={release.title} className="flex flex-col gap-1.5 px-4 py-3.5">
                   <h3 className="text-row-title text-ink">{release.title}</h3>
-                  <ul className="flex list-disc flex-col gap-1 pl-5 text-[15px] leading-[21px] text-ink-2 marker:text-ink-3">
+                  <ul className="flex list-disc flex-col gap-1 pl-5 text-[0.9375rem] leading-[1.3125rem] text-ink-2 marker:text-ink-3">
                     {release.bullets.map((bullet) => (
                       <li key={bullet}>{bullet}</li>
                     ))}

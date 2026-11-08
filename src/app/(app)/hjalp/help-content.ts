@@ -244,7 +244,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag byta färg på appen?",
-        answer: `Ja. Under Inställningar, Utseende, väljer du Grön, Blå, Lavendel, Persika, Sand, Rosa eller Egen, där du ställer in tonen själv med reglaget. Färgen ändras direkt, men bara på den här enheten, och Återställ till Grön tar dig tillbaka till hur ${appName} såg ut från början.`,
+        answer: `Ja. Under Inställningar, Utseende, väljer du Grön, Blå, Lavendel, Persika, Sand, Rosa eller Egen, där du ställer in tonen själv med reglaget. Färgen ändras direkt, men bara på den här enheten, och Återställ till Grön tar dig tillbaka till hur ${appName} såg ut från början. Där väljer du också Textstorlek (Standard, Större eller Störst) och slår på Fetare text, också bara för den här enheten.`,
       },
       {
         question: "Hur sätter jag upp Siri?",

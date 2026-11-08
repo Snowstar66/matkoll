@@ -159,7 +159,7 @@ export function MembersSettings({ household, siteUrl, appName }: { household: Ho
         <li>
           <button type="button" onClick={() => setRenaming(true)} className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left focus-visible:-outline-offset-2">
             <span className="flex-1 text-row-title font-normal text-ink">Namn</span>
-            <span className="max-w-[60%] truncate text-[15px] leading-5 text-ink-2" data-testid="household-name">
+            <span className="max-w-[60%] truncate text-[0.9375rem] leading-5 text-ink-2" data-testid="household-name">
               {household.name}
             </span>
             <ChevronRightIcon size={16} className="-mr-1 shrink-0 text-ink-3" />

@@ -62,7 +62,7 @@ function openFeedback(event: MouseEvent<HTMLAnchorElement>) {
 
 const sectionLabel = "mx-1 mt-6 mb-2 text-section-label text-ink-2";
 /** The line under a step and an answer: 15 px in ink-2 (hjalp-valkomst.html). */
-const smallText = "text-[15px] leading-[21px] text-ink-2";
+const smallText = "text-[0.9375rem] leading-[1.3125rem] text-ink-2";
 const rowFocus = "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
 
 /**
@@ -170,11 +170,11 @@ export function HelpView({ version, updated, ownerName }: { version: string; upd
               </li>
             ))}
           </ListGroup>
-          <p className="mt-6 text-center text-[13px] leading-[18px] text-ink-3">
+          <p className="mt-6 text-center text-[0.8125rem] leading-[1.125rem] text-ink-3">
             {appName} {version}
             {updated ? ` · uppdaterad ${updated}` : ""}
           </p>
-          <p className="mt-1 text-center text-[13px] leading-[18px]">
+          <p className="mt-1 text-center text-[0.8125rem] leading-[1.125rem]">
             <Link href={newsHref} className={cx("rounded-sm font-medium text-accent", rowFocus)} data-testid="help-news">
               Nyheter i {appName}
             </Link>
@@ -271,7 +271,7 @@ function AreaBody({ area }: { area: HelpArea }) {
                 <span className="min-w-0 flex-1 text-row-title text-ink">{item.question}</span>
                 <PlusMinusIcon />
               </summary>
-              <p className="-mt-1 pr-14 pb-3.5 pl-4 text-[15px] leading-[22px] text-ink-2">{item.answer}</p>
+              <p className="-mt-1 pr-14 pb-3.5 pl-4 text-[0.9375rem] leading-[1.375rem] text-ink-2">{item.answer}</p>
             </details>
           </li>
         ))}
@@ -309,7 +309,7 @@ function SearchResults({ query }: { query: string }) {
         <ListGroup label="Träffar" inset={16}>
           {hits.map((hit) => (
             <li key={`${hit.area.id}-${hit.title}`} className="px-4 py-3">
-              <p className="text-[13px] leading-[18px] font-medium text-ink-3">
+              <p className="text-[0.8125rem] leading-[1.125rem] font-medium text-ink-3">
                 {hit.area.title} · {hit.kind === "step" ? "Så gör du" : "Fråga"}
               </p>
               <p className="mt-0.5 text-row-title text-ink">
@@ -322,7 +322,7 @@ function SearchResults({ query }: { query: string }) {
           ))}
         </ListGroup>
       ) : null}
-      <p className="px-4 pt-5 pb-2 text-center text-[15px] leading-[22px] text-ink-2">
+      <p className="px-4 pt-5 pb-2 text-center text-[0.9375rem] leading-[1.375rem] text-ink-2">
         Hittar du inte svaret?
         <br />
         <Link
