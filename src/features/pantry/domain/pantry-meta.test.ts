@@ -183,10 +183,22 @@ describe("the day in Stockholm", () => {
 });
 
 describe("oldLimitDays", () => {
-  it("is 7 days for Kyl, 60 for Frys and none for Skafferi", () => {
+  it("is 7 days for Kyl, 60 for Frys and none for Skafferi without a shelf life", () => {
     expect(oldLimitDays("Kyl")).toBe(7);
     expect(oldLimitDays("Frys")).toBe(60);
     expect(oldLimitDays("Skafferi")).toBeNull();
+  });
+
+  it("uses the ingredient's own days in Kyl, and the default for none", () => {
+    expect(oldLimitDays("Kyl", 2)).toBe(2);
+    expect(oldLimitDays("Kyl", 30)).toBe(30);
+    expect(oldLimitDays("Kyl", null)).toBe(7);
+    expect(oldLimitDays("Kyl", 0)).toBe(7);
+  });
+
+  it("leaves Frys and Skafferi alone", () => {
+    expect(oldLimitDays("Frys", 2)).toBe(60);
+    expect(oldLimitDays("Skafferi", 2)).toBeNull();
   });
 });
 
@@ -203,21 +215,30 @@ describe("daysSinceAdded", () => {
 });
 
 describe("oldItemText", () => {
-  const added = (days: number) => ({ createdAt: new Date(now.getTime() - days * 86_400_000).toISOString() });
+  const added = (days: number, keepsDays?: number | null) => ({ createdAt: new Date(now.getTime() - days * 86_400_000).toISOString(), keepsDays });
 
-  it("labels a Kyl item only after more than 7 days", () => {
-    expect(oldItemText(added(7), "Kyl", now)).toBeNull();
+  it("labels a Kyl item without a shelf life from day 7: Ät idag, then the days", () => {
+    expect(oldItemText(added(6), "Kyl", now)).toBeNull();
+    expect(oldItemText(added(7), "Kyl", now)).toBe("Ät idag");
     expect(oldItemText(added(8), "Kyl", now)).toBe("8 dagar");
-    expect(oldItemText(added(9), "Kyl", now)).toBe("9 dagar");
   });
 
-  it("labels a Frys item only after more than 60 days", () => {
-    expect(oldItemText(added(60), "Frys", now)).toBeNull();
+  it("labels a Kyl item by its own shelf life", () => {
+    expect(oldItemText(added(1, 2), "Kyl", now)).toBeNull();
+    expect(oldItemText(added(2, 2), "Kyl", now)).toBe("Ät idag");
+    expect(oldItemText(added(3, 2), "Kyl", now)).toBe("3 dagar");
+    // Hard cheese is not flagged at 7 days.
+    expect(oldItemText(added(8, 30), "Kyl", now)).toBeNull();
+  });
+
+  it("labels a Frys item from day 60, whatever the ingredient's shelf life", () => {
+    expect(oldItemText(added(59, 2), "Frys", now)).toBeNull();
+    expect(oldItemText(added(60), "Frys", now)).toBe("Ät idag");
     expect(oldItemText(added(61), "Frys", now)).toBe("61 dagar");
   });
 
   it("never labels a Skafferi item", () => {
-    expect(oldItemText(added(900), "Skafferi", now)).toBeNull();
+    expect(oldItemText(added(900, 2), "Skafferi", now)).toBeNull();
   });
 
   it("gives nothing for a placeholder without a time or an unreadable one", () => {

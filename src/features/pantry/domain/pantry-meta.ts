@@ -75,12 +75,18 @@ export function addedText(createdAt: string, now: Date): string | null {
   return then.year === today.year ? `Tillagd ${date}` : `Tillagd ${date} ${then.year}`;
 }
 
-/** Days after which an item counts as old ("ligger länge"), per location (Story 14.6); none for Skafferi. */
-const oldAfterDays: Record<Location, number | null> = { Kyl: 7, Frys: 60, Skafferi: null };
+/** How long an item keeps by default, per location (Story 14.6); none for Skafferi. */
+const keepsByDefault: Record<Location, number | null> = { Kyl: 7, Frys: 60, Skafferi: null };
 
-/** The number of days an item in `location` may lie before it gets the "N dagar" label, or `null` for no limit. */
-export function oldLimitDays(location: Location): number | null {
-  return oldAfterDays[location];
+/**
+ * The number of days an item in `location` keeps after it was added: on that
+ * day it is "Ät idag", after it overdue ("Ät snart"). Kyl uses the
+ * ingredient's own `keepsDays` (catalog) when it has one and the location's
+ * default (7) otherwise; Frys always 60; `null` for no limit.
+ */
+export function oldLimitDays(location: Location, keepsDays?: number | null): number | null {
+  if (location === "Kyl" && typeof keepsDays === "number" && keepsDays > 0) return keepsDays;
+  return keepsByDefault[location];
 }
 
 /**
@@ -99,20 +105,21 @@ export function daysSinceAdded(createdAt: string, now: Date): number | null {
 }
 
 /**
- * The small label of an item that has lain longer than its location's limit
- * (Story 14.6): "9 dagar", counted from when it was added; `null` for an item
- * within the limit, in a location without one, or without a readable time.
+ * The small label of an item that has reached its limit (oldLimitDays):
+ * "Ät idag" on the last day, "9 dagar" after it (counted from when it was
+ * added); `null` for an item within the limit, in a location without one, or
+ * without a readable time.
  */
 export function oldItemText(
-  item: Pick<PantryItem, "createdAt">,
+  item: Pick<PantryItem, "createdAt" | "keepsDays">,
   location: Location,
   now: Date,
 ): string | null {
-  const limit = oldLimitDays(location);
+  const limit = oldLimitDays(location, item.keepsDays);
   if (limit === null || !item.createdAt) return null;
   const days = daysSinceAdded(item.createdAt, now);
-  if (days === null || days <= limit) return null;
-  return `${days} dagar`;
+  if (days === null || days < limit) return null;
+  return days === limit ? "Ät idag" : `${days} dagar`;
 }
 
 /**

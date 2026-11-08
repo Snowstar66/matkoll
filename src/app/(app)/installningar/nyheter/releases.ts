@@ -12,6 +12,25 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    date: "2026-11-08",
+    title: "Dagens i Recept",
+    bullets: [
+      "Överst i Recept finns ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, eller något som är i säsong och som du har ett recept på.",
+      "Under Inställningar, Tillval, kan du lägga till namnsdagen och Kinesiska almanackan, eller stänga av hela kortet.",
+      "Med krysset döljer du kortet för resten av dagen. Det kommer tillbaka i morgon.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    title: "Ät snart",
+    bullets: [
+      "Varje vara i kylen har nu en egen hållbarhet: köttfärs och fisk märks dagen efter inköpet, grädde efter 5 och hårdost först efter 30. Märket säger Ät idag den sista dagen och sedan hur många dagar varan legat.",
+      "Vad kan jag laga nu? lyfter det som snart måste ätas, med rätter som använder det först.",
+      "På eftermiddagen får du en notis om något i kylen bör användas, om du har notiser påslagna: tryck på den för att öppna Matvaror. Finns inget att äta snart kommer ingen notis.",
+      "Påminnelsen kan stängas av under Inställningar, Notiser, med Ät snart.",
+    ],
+  },
+  {
     date: "2026-11-07",
     title: "Timer i receptet",
     bullets: [

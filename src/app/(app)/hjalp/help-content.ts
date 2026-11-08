@@ -59,6 +59,10 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Kan jag ta tid på ett steg?",
         answer: "Ja. Står det en tid i ett steg, till exempel 10 minuter, är den understruken. Tryck på den så startar en timer, som syns högst upp i receptet med tiden som är kvar. När den är slut ringer och vibrerar telefonen och raden säger Klar. Skärmen släcks inte medan receptet är öppet. Båda går att stänga av under Inställningar, Tillval.",
       },
+      {
+        question: "Vad är kortet Dagens överst i Recept?",
+        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Allt räknas ut i appen.",
+      },
     ],
   },
   {
@@ -158,6 +162,14 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Vad betyder att varor syntes inte på fotot?",
         answer: "Efter ett foto kan ett litet kort fråga om varor du har i appen men som inte syntes. Tryck Behåll om de finns kvar, eller Välj vilka och bocka för det som är slut. Det du lagt in de senaste tre dagarna räknas aldrig dit.",
+      },
+      {
+        question: "Vad betyder Ät idag och ett antal dagar på en vara?",
+        answer: "Varje vara i kylen har en egen hållbarhet, räknad från dagen du lade in den: köttfärs och fisk 1 dag, grädde 5, mjölk 7, hårdost 30. Sista dagen står Ät idag, därefter hur många dagar varan legat. Är hållbarheten okänd räknas 7 dagar i kylen, och i frysen 60. Skafferiet märks aldrig. Tiderna är försiktiga: titta och lukta alltid själv.",
+      },
+      {
+        question: "Får jag en påminnelse när något bör ätas?",
+        answer: "Ja, om du har notiser påslagna. På eftermiddagen kommer en notis om något i kylen bör användas, och när du trycker på den öppnas Matvaror. Finns inget att äta snart kommer ingen notis, och frysen ingår inte. Under Inställningar, Notiser, stänger du av Ät snart.",
       },
       { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
     ],

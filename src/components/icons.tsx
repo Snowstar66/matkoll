@@ -516,3 +516,12 @@ export function ShareIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function LeafIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" />
+      <path d="M5 19c3-4 6-7 9-9" />
+    </Icon>
+  );
+}
