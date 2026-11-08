@@ -20,7 +20,7 @@ export class PushDataError extends Error {
 
 /** The caller's choices, or the defaults when they have made none. */
 export async function loadPreferencesIn(db: PushDb): Promise<PushPreferences> {
-  const { data, error } = await db.from("push_preference").select("lista, forrad, matsedel, lappar").maybeSingle();
+  const { data, error } = await db.from("push_preference").select("lista, forrad, matsedel, lappar, atsnart").maybeSingle();
   if (error) throw new PushDataError(`load_preferences_failed ${error.code}`);
   return data ?? defaultPushPreferences;
 }

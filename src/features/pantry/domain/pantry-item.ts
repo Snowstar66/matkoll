@@ -28,6 +28,8 @@ export type PantryItem = {
   createdAt: string | null;
   /** The catalog ingredient's section, so the view can work out its category (AD-12). */
   section: Section;
+  /** Days the ingredient keeps in the fridge (catalog `keeps_days`); absent or null: the location's default. */
+  keepsDays?: number | null;
   /** Story 21.3: who else in the household last added or changed it, and when; absent or null when that was me. */
   lastChange?: LastChange | null;
 };

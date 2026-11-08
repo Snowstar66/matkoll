@@ -3,7 +3,7 @@ import { defaultPushPreferences, isPushEndpoint, pushChoices, pushPreferencesSch
 
 describe("the choices", () => {
   it("start with the list and the notes on, the rest off", () => {
-    expect(defaultPushPreferences).toEqual({ lista: true, forrad: false, matsedel: false, lappar: true });
+    expect(defaultPushPreferences).toEqual({ lista: true, forrad: false, matsedel: false, lappar: true, atsnart: true });
   });
 
   it("offer exactly the four kinds the database queues", () => {

@@ -163,6 +163,14 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Vad betyder att varor syntes inte på fotot?",
         answer: "Efter ett foto kan ett litet kort fråga om varor du har i appen men som inte syntes. Tryck Behåll om de finns kvar, eller Välj vilka och bocka för det som är slut. Det du lagt in de senaste tre dagarna räknas aldrig dit.",
       },
+      {
+        question: "Vad betyder Ät idag och ett antal dagar på en vara?",
+        answer: "Varje vara i kylen har en egen hållbarhet, räknad från dagen du lade in den: köttfärs och fisk 1 dag, grädde 5, mjölk 7, hårdost 30. Sista dagen står Ät idag, därefter hur många dagar varan legat. Är hållbarheten okänd räknas 7 dagar i kylen, och i frysen 60. Skafferiet märks aldrig. Tiderna är försiktiga: titta och lukta alltid själv.",
+      },
+      {
+        question: "Får jag en påminnelse när något bör ätas?",
+        answer: "Ja, om du har notiser påslagna. På eftermiddagen kommer en notis om något i kylen bör användas, och när du trycker på den öppnas Matvaror. Finns inget att äta snart kommer ingen notis, och frysen ingår inte. Under Inställningar, Notiser, stänger du av Ät snart.",
+      },
       { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
     ],
   },

@@ -35,7 +35,10 @@ export type IngredientProposal = z.infer<typeof ingredientProposalSchema>;
 export type IngredientDefaults = Pick<IngredientProposal, "section" | "location" | "defaultUnit">;
 
 /** An ingredient's name and section, as the pantry's list shows them (Story 11.2): the view works out its category (AD-12). */
-export type IngredientSummary = Pick<IngredientProposal, "name" | "section">;
+export type IngredientSummary = Pick<IngredientProposal, "name" | "section"> & {
+  /** Days it keeps in the fridge (`keeps_days`); absent or null: the location's default. */
+  keepsDays?: number | null;
+};
 
 export const ingredientMatchSchema = z.discriminatedUnion("kind", [
   z.object({

@@ -24,7 +24,7 @@ const { savePushPreferences, subscribePush, unsubscribePush } = await import("./
 const { PushDataError } = await import("../data/push");
 
 const device = { endpoint: "https://fcm.googleapis.com/fcm/send/abc", p256dh: "key", auth: "secret" };
-const choices = { lista: true, forrad: false, matsedel: true, lappar: true };
+const choices = { lista: true, forrad: false, matsedel: true, lappar: true, atsnart: true };
 
 beforeEach(() => {
   for (const mock of [requireUser, pushConfig, savePreferencesIn, saveSubscriptionIn, removeSubscriptionIn]) mock.mockReset();
