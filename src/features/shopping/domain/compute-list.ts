@@ -1,4 +1,5 @@
 import {
+  CLOVES_PER_WHOLE,
   cleanIngredientText,
   isCountUnit,
   SECTIONS,
@@ -176,12 +177,6 @@ const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
 function toBuy(amount: number, unit: Unit): number {
   return isCountUnit(unit) ? Math.ceil(amount) : amount;
 }
-
-/**
- * Cloves in a whole one (a garlic bulb), for a list that buys whole ones
- * (decision 2026-11-08). On the low side, so the list never asks for too little.
- */
-export const CLOVES_PER_WHOLE = 10;
 
 /**
  * A recipe line as the list buys it (decision 2026-11-08): cloves are bought

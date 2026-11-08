@@ -19,6 +19,7 @@ export const releases: readonly Release[] = [
       "Recept du redan har sparat med vitlöksklyftor är rättade.",
       "På inköpslistan står vitlöken en gång, i hela vitlökar: klyftor från flera rätter räknas ihop, ungefär 10 klyftor på en vitlök.",
       "Har du en vitlök hemma räcker den till några klyftor, och då kommer vitlöken inte med på listan.",
+      "I receptet räknas en hel vitlök hemma också som klyftor, så vitlöken står inte längre som saknad.",
     ],
   },
   {

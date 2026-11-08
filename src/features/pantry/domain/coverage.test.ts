@@ -82,6 +82,30 @@ describe("coverage", () => {
     });
   });
 
+  it("counts a whole garlic at home as 10 klyftor, and only for klyftor", () => {
+    const bulbs = toSnapshot([{ ingredientId: "vitlok", amount: 1, unit: "st" }]);
+    expect(coverage({ ingredientId: "vitlok", amount: 2, unit: "klyfta" }, bulbs)).toEqual({ kind: "covered" });
+    expect(coverage({ ingredientId: "vitlok", amount: 12, unit: "klyfta" }, bulbs)).toEqual({
+      kind: "partial",
+      remaining: 2,
+      amounts: [{ unit: "st", amount: 1 }],
+    });
+    const both = toSnapshot([
+      { ingredientId: "vitlok", amount: 3, unit: "klyfta" },
+      { ingredientId: "vitlok", amount: 1, unit: "st" },
+    ]);
+    expect(coverage({ ingredientId: "vitlok", amount: 13, unit: "klyfta" }, both)).toEqual({ kind: "covered" });
+    const grams = toSnapshot([{ ingredientId: "vitlok", amount: 50, unit: "g" }]);
+    expect(coverage({ ingredientId: "vitlok", amount: 2, unit: "klyfta" }, grams)).toEqual({
+      kind: "other-unit",
+      amounts: [{ unit: "g", amount: 50 }],
+    });
+    expect(coverage({ ingredientId: "vitlok", amount: 2, unit: "st" }, toSnapshot([{ ingredientId: "vitlok", amount: 20, unit: "klyfta" }]))).toEqual({
+      kind: "other-unit",
+      amounts: [{ unit: "klyfta", amount: 20 }],
+    });
+  });
+
   it("treats an empty pantry as missing", () => {
     expect(coverage({ ingredientId: "gradde", amount: 1, unit: "dl" }, new Map())).toEqual({ kind: "missing" });
   });

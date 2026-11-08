@@ -6,6 +6,7 @@ export {
   unitSchema,
   normalizeUnit,
   unitInNoun,
+  CLOVES_PER_WHOLE,
   unitOfNoun,
   parseQuantity,
   formatQuantity,
