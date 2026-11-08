@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { quietSound, resumeSound, ring, unlockSound } from "./alarm-sound";
 
 /** A timer started from a time in a step. It runs to `endsAt` (a clock time), so a backgrounded page still shows the right time. */
 export type StepTimer = {
@@ -58,30 +59,6 @@ function writeTimers(recipeId: string, timers: StepTimer[]) {
   }
 }
 
-/** A short kitchen-timer ring with Web Audio, no sound file: three high-low pairs. The context is made on a tap, which lets it play later. */
-function beep(context: AudioContext) {
-  try {
-    void context.resume?.();
-    const start = context.currentTime;
-    for (let index = 0; index < 6; index++) {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = "triangle";
-      oscillator.frequency.value = index % 2 === 0 ? 1320 : 990;
-      const at = start + index * 0.18 + Math.floor(index / 2) * 0.12;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(0.7, at + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.15);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start(at);
-      oscillator.stop(at + 0.17);
-    }
-  } catch {
-    // No sound where Web Audio is missing or blocked.
-  }
-}
-
 function buzz() {
   try {
     navigator.vibrate?.([300, 150, 300, 150, 300]);
@@ -99,7 +76,6 @@ function buzz() {
 export function useStepTimers(recipeId: string) {
   const [timers, setTimers] = useState<StepTimer[]>([]);
   const loaded = useRef(false);
-  const audio = useRef<AudioContext | null>(null);
   const alerted = useRef(new Set<string>());
 
   // Read after mount, so the server's and the browser's first render are the same.
@@ -127,22 +103,36 @@ export function useStepTimers(recipeId: string) {
     const interval = setInterval(() => {
       if (ringingSince.current !== null && Date.now() - ringingSince.current > alarmMs) {
         clearInterval(interval);
+        quietSound();
         return;
       }
       buzz();
-      if (audio.current) beep(audio.current);
+      ring();
     }, alarmEveryMs);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      quietSound();
+    };
   }, [ringing]);
 
+  // While timers run, any tap on the page unlocks the sound (timers read back after a
+  // reload were started in another page view), and showing the page again resumes it.
+  const hasTimers = timers.length > 0;
+  useEffect(() => {
+    if (!hasTimers) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") resumeSound();
+    };
+    document.addEventListener("pointerdown", unlockSound, { passive: true });
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("pointerdown", unlockSound);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [hasTimers]);
+
   const start = useCallback<StartTimer>(({ key, label, cue = null, seconds }) => {
-    if (!audio.current && typeof AudioContext !== "undefined") {
-      try {
-        audio.current = new AudioContext();
-      } catch {
-        audio.current = null;
-      }
-    }
+    unlockSound();
     alerted.current.delete(key);
     const endsAt = Date.now() + seconds * 1000;
     // The same time in the same step starts again instead of a second row.
@@ -155,7 +145,7 @@ export function useStepTimers(recipeId: string) {
     alerted.current.add(id);
     setTimers((current) => current.map((timer) => (timer.id === id ? { ...timer, done: true } : timer)));
     buzz();
-    if (audio.current) beep(audio.current);
+    ring();
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -164,6 +154,7 @@ export function useStepTimers(recipeId: string) {
 
   /** More time: a running timer ends later, a finished one starts again from now and stops ringing. */
   const extend = useCallback((id: string, minutes: number) => {
+    unlockSound();
     const ms = minutes * 60 * 1000;
     alerted.current.delete(id);
     setTimers((current) =>

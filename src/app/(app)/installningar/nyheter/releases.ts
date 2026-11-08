@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Timern hörs på iPhone",
+    bullets: [
+      "Timern ringer nu på iPhone, även med ljudlöst läge på (iOS 17 eller senare). Ljudet följer telefonens volym.",
+      "Receptet måste vara öppet på skärmen när tiden går ut. iPhone kan inte vibrera från en webbapp.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Näringen räknas säkrare",
     bullets: [
       "Kcal och tallrik visas bara när receptet går att räkna säkert, med minst 80 % av varorna och inga stora saknade köttbitar.",
