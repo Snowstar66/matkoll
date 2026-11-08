@@ -135,6 +135,8 @@ export type RecipeBodyProps = {
   buyInline?: boolean;
   /** A button first in the bottom bar ("Spara i mina recept" on a shared recipe). */
   extraAction?: ReactNode;
+  /** The bottom bar's buttons always one above the other, in order (a shared recipe). */
+  stackActions?: boolean;
 };
 
 /**
@@ -174,6 +176,7 @@ export function RecipeBody({
   shared = false,
   buyInline = false,
   extraAction,
+  stackActions = false,
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -512,7 +515,7 @@ export function RecipeBody({
         </section>
       </div>
 
-      {!wide && hasActions ? <FixedAction glass>{actions}</FixedAction> : null}
+      {!wide && hasActions ? <FixedAction glass stack={stackActions}>{actions}</FixedAction> : null}
 
       {buyMissing ? (
         <BuyMissingSheet open={buyOpen} onClose={() => setBuyOpen(false)} rows={rows} onConfirm={confirmBuy} pending={working} />

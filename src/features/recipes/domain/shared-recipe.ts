@@ -31,6 +31,8 @@ export type SharedLine = {
   ingredientName: string | null;
   /** That ingredient's section (a fixed list), a hint for a new ingredient in the saver's catalog. */
   ingredientSection: string | null;
+  /** The source marks the line as a staple (•). */
+  isStapleMarked: boolean;
 };
 
 /** A shared recipe opened (get_shared_recipe). */
@@ -46,6 +48,8 @@ export type SharedRecipe = {
   householdName: string;
   /** The viewer's own copy, when the household has saved it already. */
   savedCopyId: string | null;
+  /** The version of the lines; saving with another one (they changed in between) is refused. */
+  version: string;
   steps: { title: string | null; text: string }[];
   lines: SharedLine[];
 };
@@ -60,6 +64,7 @@ const sharedRecipeSchema = z.object({
   source_url: z.string().nullable(),
   household_name: z.string().min(1),
   saved_copy_id: z.guid().nullable(),
+  version: z.string(),
   steps: z.array(z.object({ title: z.string().nullable(), text: z.string() })),
   lines: z.array(
     z.object({
@@ -68,6 +73,7 @@ const sharedRecipeSchema = z.object({
       unit: unitSchema.nullable(),
       is_vague: z.boolean(),
       section: z.string().nullable(),
+      is_staple_marked: z.boolean().optional(),
       step_index: z.number().int().min(0).nullable(),
       ingredient_name: z.string().nullable(),
       ingredient_section: z.string().nullable(),
@@ -91,6 +97,7 @@ export function parseSharedRecipe(value: unknown): SharedRecipe | null {
     sourceUrl: row.source_url,
     householdName: row.household_name,
     savedCopyId: row.saved_copy_id,
+    version: row.version,
     steps: row.steps,
     lines: row.lines.map((line) => ({
       originalText: line.original_text,
@@ -101,6 +108,7 @@ export function parseSharedRecipe(value: unknown): SharedRecipe | null {
       stepIndex: line.step_index !== null && line.step_index < row.steps.length ? line.step_index : null,
       ingredientName: line.ingredient_name,
       ingredientSection: line.ingredient_section,
+      isStapleMarked: line.is_staple_marked ?? false,
     })),
   };
 }
@@ -166,27 +174,49 @@ export function toSharedView(shared: SharedRecipe, matches: readonly IngredientM
         ingredientName: line.ingredientName,
         stepId: line.stepIndex !== null ? `step-${line.stepIndex}` : null,
         group: line.group,
+        isStapleMarked: line.isStapleMarked,
       };
     }),
   };
 }
 
 /**
- * The copy's ingredient for each ingredient the view shows (toSharedView): the view's line i has
- * the copy's `copyIngredientIds[i]` (saveSharedRecipe gives them in line order). Ids the view
- * does not have are left out.
+ * The copy's catalog ingredient for an ingredient the view shows (toSharedView), by the line it
+ * is on: the view's line i has the copy's `copyIngredientIds[i]` (saveSharedRecipe gives them in
+ * line order). `viewLines` are the lines shown now, which may have been read again since the copy
+ * was saved (then a new ingredient has the household's catalog id), so an id of the household's
+ * own catalog that no line has is the copy's as it is. `null` for an ingredient the copy lacks.
  */
-export function copyIngredientMap(
+export function copyIngredientFor(
   viewLines: readonly Pick<SavedRecipeLine, "ingredientId">[],
   copyIngredientIds: readonly (string | null)[],
-): Map<string, string> {
-  const map = new Map<string, string>();
-  viewLines.forEach((line, index) => {
-    const copyId = copyIngredientIds[index];
-    if (line.ingredientId && copyId && !map.has(line.ingredientId)) map.set(line.ingredientId, copyId);
-  });
-  return map;
+  viewIngredientId: string,
+): string | null {
+  const index = viewLines.findIndex((line) => line.ingredientId === viewIngredientId);
+  const copyId = index >= 0 ? (copyIngredientIds[index] ?? null) : null;
+  if (copyId) return copyId;
+  return viewIngredientId.startsWith("new:") ? null : viewIngredientId;
 }
+
+/**
+ * The copy's catalog ingredient for each line of the shared recipe, from the copy's own lines (a
+ * copy saved before): the copy's line with the same text, each used once, or `null`.
+ */
+export function copyLineIngredients(
+  sharedLines: readonly Pick<SharedLine, "originalText">[],
+  copyLines: readonly { originalText: string; ingredientId: string | null }[],
+): (string | null)[] {
+  const used = new Set<number>();
+  return sharedLines.map((line) => {
+    const index = copyLines.findIndex((copy, at) => !used.has(at) && copy.originalText === line.originalText);
+    if (index < 0) return null;
+    used.add(index);
+    return copyLines[index].ingredientId;
+  });
+}
+
+/** What the page says under "Delat av …" once the household has saved the recipe. */
+export const sharedSavedNote = "Den som delar ser att ni har sparat det.";
 
 /** A row of list_shared_recipes. */
 export type SharedListRow = {

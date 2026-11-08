@@ -20,14 +20,16 @@ export type RecipeSortSheetProps = {
   value: RecipeSort;
   /** The sort chosen; the sheet closes after it. */
   onChange: (sort: RecipeSort) => void;
+  /** Delade: without "Mest hemma", since others' recipes have no status. */
+  withoutStatus?: boolean;
 };
 
 /** Arket "Sortera" (Story 1.16): the four sorts with a check at the chosen one; a choice applies at once and closes the sheet. */
-export function RecipeSortSheet({ open, onClose, value, onChange }: RecipeSortSheetProps) {
+export function RecipeSortSheet({ open, onClose, value, onChange, withoutStatus = false }: RecipeSortSheetProps) {
   return (
     <Sheet open={open} onClose={onClose} title="Sortera" closeLabel="Klar" initialFocus="title">
       <ListGroup label="Sortering">
-        {RECIPE_SORTS.map((sort) => (
+        {RECIPE_SORTS.filter((sort) => !withoutStatus || sort !== "mostHome").map((sort) => (
           <ListRow
             key={sort}
             title={recipeSortLabels[sort]}

@@ -74,6 +74,10 @@ export type RecipeViewProps = {
   buyInline?: boolean;
   /** A button first in the bottom bar ("Spara i mina recept" on a shared recipe). */
   extraAction?: ReactNode;
+  /** The bottom bar's buttons always one above the other, in order (a shared recipe). */
+  stackActions?: boolean;
+  /** A quiet line under "Delat av …" on a shared recipe: the household that shares it sees who saved it. */
+  sharedNote?: string;
 };
 
 export function RecipeView({
@@ -98,6 +102,8 @@ export function RecipeView({
   sharedBy,
   buyInline = false,
   extraAction,
+  stackActions = false,
+  sharedNote,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
@@ -154,6 +160,11 @@ export function RecipeView({
             {sharedByText(sharedFrom)}
           </p>
         ) : null}
+        {sharedNote ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-shared-note">
+            {sharedNote}
+          </p>
+        ) : null}
         {savedBy ? (
           <p className="text-meta text-ink-2" data-testid="recipe-saved-by">
             {savedBy}
@@ -187,6 +198,7 @@ export function RecipeView({
         shared={recipe.isShared ?? false}
         buyInline={buyInline}
         extraAction={extraAction}
+        stackActions={stackActions}
       />
     </article>
   );

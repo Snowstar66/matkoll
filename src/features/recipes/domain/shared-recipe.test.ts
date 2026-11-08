@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { IngredientMatch } from "@/features/catalog";
 import {
-  copyIngredientMap,
+  copyIngredientFor,
+  copyLineIngredients,
   newIngredientViewId,
   parseSharedRecipe,
   savedByText,
@@ -26,6 +27,7 @@ const raw = {
   source_url: "https://www.tasteline.com/recept/caesar",
   household_name: "Lindqvists",
   saved_copy_id: null,
+  version: "v1",
   steps: [
     { title: "Kyckling", text: "Stek kycklingen i 10 minuter." },
     { title: null, text: "Servera." },
@@ -52,6 +54,7 @@ describe("parseSharedRecipe", () => {
       stepIndex: 0,
       ingredientName: "Kycklingfilé",
       ingredientSection: "Kött och fisk",
+      isStapleMarked: false,
     });
     expect(parseSharedRecipe(null)).toBeNull();
     expect(parseSharedRecipe({ ...raw, servings: 0 })).toBeNull();
@@ -108,15 +111,32 @@ describe("matching a shared recipe to the household's catalog", () => {
     expect(newIngredientViewId("Romansallad")).toBe("new:romansallad");
   });
 
-  it("maps the view's ingredients to the copy's, line by line", () => {
-    const map = copyIngredientMap(
-      [{ ingredientId: chicken }, { ingredientId: "new:romansallad" }, { ingredientId: null }, { ingredientId: chicken }],
-      ["c-1", "c-2", null, "c-1"],
-    );
-    expect([...map]).toEqual([
-      [chicken, "c-1"],
-      ["new:romansallad", "c-2"],
-    ]);
+  it("maps a shown ingredient to the copy's by its line, also after the lines were read again", () => {
+    const copyIds = [chicken, "c-2", null];
+    const before = [{ ingredientId: chicken }, { ingredientId: "new:romansallad" }, { ingredientId: null }];
+    expect(copyIngredientFor(before, copyIds, chicken)).toBe(chicken);
+    expect(copyIngredientFor(before, copyIds, "new:romansallad")).toBe("c-2");
+    // Read again after the copy: the lettuce is now in the household's catalog.
+    const after = [{ ingredientId: chicken }, { ingredientId: "c-2" }, { ingredientId: null }];
+    expect(copyIngredientFor(after, copyIds, "c-2")).toBe("c-2");
+    // A household id no line has any more is the copy's as it is; a new one the copy lacks is none.
+    expect(copyIngredientFor(after, copyIds, "c-9")).toBe("c-9");
+    expect(copyIngredientFor(after, copyIds, "new:gurka")).toBeNull();
+  });
+
+  it("takes a saved copy's ingredients from its own lines, by text", () => {
+    expect(
+      copyLineIngredients(shared.lines, [
+        { originalText: "salt", ingredientId: null },
+        { originalText: "600 g kycklingfilé", ingredientId: "c-1" },
+      ]),
+    ).toEqual(["c-1", null, null]);
+  });
+
+  it("reads the version and the staple mark", () => {
+    expect(shared.version).toBe("v1");
+    expect(parseSharedRecipe({ ...raw, lines: [{ ...raw.lines[0], is_staple_marked: true }] })!.lines[0].isStapleMarked).toBe(true);
+    expect(toSharedView(parseSharedRecipe({ ...raw, lines: [{ ...raw.lines[0], is_staple_marked: true }] })!, [{ kind: "unmatched" }]).lines[0].isStapleMarked).toBe(true);
   });
 });
 

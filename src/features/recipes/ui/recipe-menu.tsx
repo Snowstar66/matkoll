@@ -5,7 +5,6 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { MoreIcon, ShareIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
-import { useOption } from "@/lib/use-option";
 import { setRecipeShared } from "../actions/share-recipe";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
@@ -78,9 +77,10 @@ export function RecipeMenu({
   }
 
   // Delade recept: "Dela med andra" / "Sluta dela", at once and without a question (it is undone the same way).
-  // There with Tillval "Visa delade recept" on, and always for a shared recipe, so it can be stopped.
+  // Not on a copy saved from another household (it is theirs to share; the database refuses it too).
+  // Tillval "Visa delade recept" only hides others' recipes, so it does not hide this.
   const isShared = recipe.isShared ?? false;
-  const withShare = useOption("showShared") || isShared;
+  const withShare = !recipe.sharedFromName || isShared;
   async function toggleShare() {
     closeMenu();
     let result: Result<unknown>;

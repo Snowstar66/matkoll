@@ -14,8 +14,8 @@ import { SharedRecipeView } from "./shared-recipe-view";
 const push = vi.fn();
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
-const saveSharedRecipe = vi.fn<(id: string) => Promise<Result<{ id: string; ingredientIds: (string | null)[] }>>>();
-vi.mock("../actions/save-shared-recipe", () => ({ saveSharedRecipe: (id: string) => saveSharedRecipe(id) }));
+const saveSharedRecipe = vi.fn<(id: string, version?: string) => Promise<Result<{ id: string; ingredientIds: (string | null)[] }>>>();
+vi.mock("../actions/save-shared-recipe", () => ({ saveSharedRecipe: (id: string, version?: string) => saveSharedRecipe(id, version) }));
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -41,6 +41,7 @@ const shared = parseSharedRecipe({
   source_url: "https://www.tasteline.com/recept/caesar",
   household_name: "Lindqvists",
   saved_copy_id: null,
+  version: "v1",
   steps: [{ title: null, text: "Stek kycklingen i 10 minuter." }],
   lines: [
     { original_text: "600 g kycklingfilé", amount: 600, unit: "g", is_vague: false, section: null, step_index: 0, ingredient_name: "Kycklingfilé", ingredient_section: "Kött och fisk" },
@@ -59,21 +60,26 @@ const buyMissing = vi.fn<BuyMissing>();
 const undoBuy = vi.fn<UndoBuy>();
 const removeFromPlan = vi.fn(async () => ok({}));
 
-function renderView(savedCopyId: string | null = null) {
-  return render(
+function view(savedCopyId: string | null, shown = recipe) {
+  return (
     <ToastProvider>
       <SharedRecipeView
-        recipe={recipe}
+        recipe={shown}
         householdName="Lindqvists"
         savedCopyId={savedCopyId}
+        version="v1"
         snapshot={snapshot}
         addToPlan={addToPlan}
         buyMissing={buyMissing}
         undoBuy={undoBuy}
         removeFromPlan={removeFromPlan}
       />
-    </ToastProvider>,
+    </ToastProvider>
   );
+}
+
+function renderView(savedCopyId: string | null = null) {
+  return render(view(savedCopyId));
 }
 
 beforeEach(() => {
@@ -105,7 +111,7 @@ describe("SharedRecipeView", () => {
     const user = userEvent.setup();
     renderView();
     await user.click(screen.getByRole("button", { name: "Spara i mina recept" }));
-    expect(saveSharedRecipe).toHaveBeenCalledWith(sharedId);
+    expect(saveSharedRecipe).toHaveBeenCalledWith(sharedId, "v1");
     const toast = await screen.findByTestId("toast");
     expect(toast).toHaveTextContent("Sparat i dina recept");
     await user.click(within(toast).getByRole("button", { name: "Öppna" }));
@@ -142,6 +148,70 @@ describe("SharedRecipeView", () => {
     });
     await user.click(await screen.findByTestId("buy-missing-text"));
     expect(undoBuy).toHaveBeenCalledWith({ keys: [`recipe:${copyId}:${copyLettuce}`] });
+  });
+
+  it("buys again after the page was read again with the copy's ingredients", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderView();
+    await user.click(screen.getByTestId("buy-missing-text"));
+    await act(async () => {
+      await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /^Lägg .*på listan$/ }));
+    });
+    // The quiet copy made the lettuce the household's: the page reads the recipe again.
+    const refreshed = toSharedView(shared, [
+      { kind: "match", ingredientId: chicken, confidence: "exact" },
+      { kind: "match", ingredientId: copyLettuce, confidence: "exact" },
+    ]);
+    buyMissing.mockClear();
+    rerender(view(copyId, refreshed));
+    await user.click(await screen.findByTestId("buy-missing-text"));
+    await act(async () => {
+      await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /^Lägg .*på listan$/ }));
+    });
+    expect(saveSharedRecipe).toHaveBeenCalledTimes(1);
+    expect(buyMissing).toHaveBeenCalledWith({
+      items: [{ key: `recipe:${copyId}:${copyLettuce}`, label: "Romansallad", ingredientId: copyLettuce }],
+    });
+  });
+
+  it("saves once for a double tap, and for Spara while Lägg på matsedeln is saving", async () => {
+    let finish: (value: Result<{ id: string; ingredientIds: (string | null)[] }>) => void = () => {};
+    saveSharedRecipe.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    renderView();
+    const save = screen.getByRole("button", { name: "Spara i mina recept" });
+    await act(async () => {
+      save.click();
+      save.click();
+      screen.getByRole("button", { name: "Lägg på matsedeln" }).click();
+    });
+    await act(async () => finish(ok({ id: copyId, ingredientIds: [copyChicken, copyLettuce] })));
+    expect(saveSharedRecipe).toHaveBeenCalledTimes(1);
+    expect(saveSharedRecipe).toHaveBeenCalledWith(sharedId, "v1");
+    expect(addToPlan).toHaveBeenCalledWith(expect.objectContaining({ recipeId: copyId }));
+    expect(screen.getByTestId("recipe-shared-note")).toHaveTextContent("Den som delar ser att ni har sparat det.");
+  });
+
+  it("reads the page again when the recipe changed in between, and says so", async () => {
+    const user = userEvent.setup();
+    saveSharedRecipe.mockResolvedValue(fail("recipe_shared_changed"));
+    renderView();
+    await user.click(screen.getByRole("button", { name: "Spara i mina recept" }));
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Receptet har ändrats. Försök igen.");
+    expect(refresh).toHaveBeenCalled();
+    expect(screen.getByTestId("save-shared")).toBeEnabled();
+  });
+
+  it("stands Spara above Lägg på matsedeln, also when saved, and says nothing of who sees it before", () => {
+    const { unmount } = renderView();
+    expect(screen.queryByTestId("recipe-shared-note")).toBeNull();
+    const bar = screen.getByTestId("fixed-action");
+    expect(bar).toHaveAttribute("data-layout", "stacked");
+    expect([...bar.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Spara i mina recept", "Lägg på matsedeln"]);
+    unmount();
+    renderView(copyId);
+    expect(screen.getByTestId("fixed-action")).toHaveAttribute("data-layout", "stacked");
+    expect([...screen.getByTestId("fixed-action").querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Sparat", "Lägg på matsedeln"]);
+    expect(screen.getByTestId("recipe-shared-note")).toBeInTheDocument();
   });
 
   it("says so when the recipe is no longer shared, and changes nothing", async () => {

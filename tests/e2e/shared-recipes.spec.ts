@@ -120,11 +120,13 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   await expect(bergs.getByTestId("recipe-at-home")).toHaveText("0 av 1 hemma");
   await shot(bergs, "delat");
   await expect(bergs.getByRole("button", { name: "Lägg på matsedeln" })).toBeVisible();
+  await expect(bergs.getByTestId("fixed-action")).toHaveAttribute("data-layout", "stacked");
   await bergs.getByRole("button", { name: "Spara i mina recept" }).click();
   const toast = bergs.getByTestId("toast");
   await expect(toast).toContainText("Sparat i dina recept");
   await expect(bergs.getByTestId("save-shared")).toBeDisabled();
   await expect(bergs.getByTestId("save-shared")).toHaveText("Sparat");
+  await expect(bergs.getByTestId("recipe-shared-note")).toHaveText("Den som delar ser att ni har sparat det.");
   await shot(bergs, "delat-sparat");
   await toast.getByRole("button", { name: "Öppna" }).click();
   await expect(bergs).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);

@@ -55,12 +55,13 @@ export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoIm
 async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?: Promise<"offers" | undefined> }) {
   await requireUserOrRedirect("/recept");
   const initialFilter = await filterPromise;
-  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan, shared] = await Promise.all([
+  // Not awaited: Delade streams in, so the own library never waits for it (the device's option is not known here).
+  const shared = readShared();
+  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan] = await Promise.all([
     listLibraryWithRows(),
     readLibraryOffers(),
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
-    readShared(),
   ]);
   // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
   const healthyIds = readHealthyIds(rows);

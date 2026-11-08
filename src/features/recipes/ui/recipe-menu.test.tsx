@@ -122,15 +122,15 @@ describe("RecipeMenu", () => {
     expect(setRecipeShared).toHaveBeenLastCalledWith({ id: recipe.id, shared: false });
   });
 
-  it("leaves Dela med andra out with Visa delade recept off, but keeps Sluta dela for a shared recipe", () => {
+  it("keeps Dela med andra with Visa delade recept off, and leaves it out on a copy saved from another household", () => {
     localStorage.setItem("livskoll-option-showShared", "0");
     const { unmount } = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Ta bort"]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Dela med andra", "Ta bort"]);
     unmount();
-    render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} />);
+    render(<RecipeMenu recipe={{ ...recipe, sharedFromName: "Lindqvists" }} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Sluta dela", "Ta bort"]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Ta bort"]);
   });
 
   it("says so when sharing fails, and changes nothing", async () => {

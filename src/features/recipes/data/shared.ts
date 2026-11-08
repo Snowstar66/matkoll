@@ -35,20 +35,35 @@ export async function getSharedIn(db: RecipesDb, id: string): Promise<SharedReci
 /**
  * The household's copy of the shared recipe `id`, made now or the one saved before
  * (save_shared_recipe), with `ingredientIds[i]` the household's own catalog ingredient of the
- * original's line i. `null` when the recipe is no longer shared. Throws RecipeDataError.
+ * original's line i, as of `version` (get_shared_recipe's). "gone" when the recipe is no longer
+ * shared, "changed" when its lines changed since `version`. Throws RecipeDataError.
  */
-export async function saveSharedIn(db: RecipesDb, id: string, ingredientIds: readonly (string | null)[]): Promise<string | null> {
+export async function saveSharedIn(
+  db: RecipesDb,
+  id: string,
+  ingredientIds: readonly (string | null)[],
+  version: string,
+): Promise<{ id: string } | "gone" | "changed"> {
   const { data, error } = await db.rpc("save_shared_recipe", {
     shared_recipe_id: id,
     // The generated type says string[]; a line without an ingredient is null in the array.
     ingredient_ids: ingredientIds as string[],
+    expected_version: version,
   });
   if (error) {
-    if (error.code === "P0002") return null;
+    if (error.code === "P0002") return "gone";
+    if (error.code === "40001") return "changed";
     throw new RecipeDataError(`shared_save_failed ${error.code}`);
   }
   if (!data) throw new RecipeDataError("missing_id");
-  return data;
+  return { id: data };
+}
+
+/** The lines of the household's own recipe `id` (a saved copy), in order: text and catalog ingredient. Throws RecipeDataError. */
+export async function copyLinesIn(db: RecipesDb, id: string): Promise<{ originalText: string; ingredientId: string | null }[]> {
+  const { data, error } = await db.from("recipe_ingredient").select("original_text, ingredient_id").eq("recipe_id", id).order("position");
+  if (error) throw new RecipeDataError(`query_failed ${error.code}`);
+  return data.map((line) => ({ originalText: line.original_text, ingredientId: line.ingredient_id }));
 }
 
 /** The names of the other households that saved a copy of the household's recipe `id` (shared_recipe_savers). Throws RecipeDataError. */

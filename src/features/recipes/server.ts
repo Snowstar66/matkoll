@@ -179,6 +179,7 @@ export async function getSharedRecipeWithPantry(id: string): Promise<{
   recipe: SavedRecipe;
   householdName: string;
   savedCopyId: string | null;
+  version: string;
   snapshot: PantrySnapshot | null;
   site: SelectedSite | null;
   staples: StapleRules;
@@ -198,6 +199,7 @@ export async function getSharedRecipeWithPantry(id: string): Promise<{
     recipe,
     householdName: shared.householdName,
     savedCopyId: shared.savedCopyId,
+    version: shared.version,
     snapshot: shownSnapshot,
     site: shownSnapshot ? site : null,
     staples,

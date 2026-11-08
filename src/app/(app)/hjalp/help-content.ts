@@ -65,11 +65,11 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag dela ett recept med andra?",
-        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn, som ni ändrar under Inställningar, Medlemmar. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
+        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn. Har ni inte bytt namn står det Ett hushåll: byt namn under Inställningar → Medlemmar så att andra ser vilka ni är. En kopia som någon sparar delas aldrig vidare. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
       },
       {
         question: "Hur använder jag ett recept som någon annan delar?",
-        answer: "Tryck Delade i Recept. Ett delat recept går att laga direkt: stegen, timern, portionerna och vad ni har hemma fungerar som vanligt. Spara i mina recept gör en egen kopia som ni kan ändra fritt. Lägg på matsedeln och Köp det som saknas sparar också en kopia, eftersom matsedeln och inköpslistan bara rymmer egna recept.",
+        answer: "Tryck Delade i Recept. Ett delat recept går att laga direkt: stegen, timern, portionerna och vad ni har hemma fungerar som vanligt. Spara i mina recept gör en egen kopia som ni kan ändra fritt. Lägg på matsedeln och Köp det som saknas sparar också en kopia, eftersom matsedeln och inköpslistan bara rymmer egna recept. När ni sparar ett delat recept, eller lägger det på matsedeln eller köper det som saknas, ser den som delar ert hushålls namn under Sparat av.",
       },
       {
         question: "Kan jag dela alla recept, eller dölja Delade?",

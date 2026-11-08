@@ -992,7 +992,7 @@ describe("household isolation", () => {
         ["update_recipe", { id: aSeed.recipeId, expected_updated_at: new Date().toISOString(), recipe: { title: "Kapat" }, steps: [], lines: [] }],
         // Delade recept: A's recipe is not shared.
         ["get_shared_recipe", { shared_recipe_id: aSeed.recipeId }],
-        ["save_shared_recipe", { shared_recipe_id: aSeed.recipeId, ingredient_ids: [] }],
+        ["save_shared_recipe", { shared_recipe_id: aSeed.recipeId, ingredient_ids: [], expected_version: "x" }],
         ["shared_recipe_savers", { own_recipe_id: aSeed.recipeId }],
         ["select_pantry_site", { site_id: site }],
         ["delete_pantry_site", { site_id: site }],

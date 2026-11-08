@@ -57,6 +57,7 @@ export const errorMessages = {
   // Delade recept: sharing one's own recipe, saving another household's, and the household's switches in Tillval.
   recipe_share_failed: "Det gick inte att ändra delningen. Försök igen.",
   recipe_shared_gone: "Receptet delas inte längre.",
+  recipe_shared_changed: "Receptet har ändrats. Försök igen.",
   recipe_shared_save_failed: "Det gick inte att spara receptet. Försök igen.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
   // Välkomstturen (Story 20.1): closing it could not be saved, so it may show again at the next start. Logged, never shown.

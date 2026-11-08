@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
@@ -11,7 +11,8 @@ import { resetRecipeFilterStore } from "./recipe-filter-store";
 import { resetRecipeViewStores } from "./recipe-view-stores";
 
 // Delade recept in the library (variant B): the chip Delade first in the row, the shared recipes
-// as cards with "från …", no heart and no "Saknar", "✓ Sparat" on one saved, and the count.
+// as cards with "från …", no heart and no "Saknar", "✓ Sparat" on one saved, and the count. The
+// shared recipes come as a promise the own library never waits for.
 
 const searchRecipes = vi.fn<(query: string) => Promise<Result<RecipeListItem[]>>>();
 vi.mock("../actions/search-recipes", () => ({
@@ -60,12 +61,19 @@ const shared: SharedListItem[] = toSharedListItems([
   },
 ]);
 
-function renderLibrary(sharedItems: SharedListItem[] | null = shared) {
-  return render(
-    <ToastProvider>
-      <Library recipes={[own]} pantryUnavailable={false} site={null} shared={sharedItems ?? undefined} />
-    </ToastProvider>,
-  );
+/** The page's promise of the shared recipes: with them, with undefined (not readable), or never in. */
+async function renderLibrary(sharedItems: SharedListItem[] | null | "pending" = shared) {
+  const promise =
+    sharedItems === "pending" ? new Promise<readonly SharedListItem[] | undefined>(() => {}) : Promise.resolve(sharedItems ?? undefined);
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <ToastProvider>
+        <Library recipes={[own]} pantryUnavailable={false} site={null} shared={promise} />
+      </ToastProvider>,
+    );
+  });
+  return result;
 }
 
 const chipNames = () => within(screen.getByTestId("recipe-filters")).getAllByRole("button").map((chip) => chip.textContent);
@@ -80,14 +88,14 @@ beforeEach(() => {
 describe("Library, Delade", () => {
   it("puts Delade first in the chip row and shows the shared recipes as cards with whose they are", async () => {
     const user = userEvent.setup();
-    renderLibrary();
+    await renderLibrary();
     expect(chipNames()[0]).toBe("Delade");
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("1 recept");
 
     await user.click(screen.getByRole("button", { name: "Delade" }));
-    expect(screen.getByRole("button", { name: "Delade", pressed: true })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Delade", pressed: true })).toBeInTheDocument();
+    const cards = await screen.findAllByTestId("shared-recipe-card");
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("2 delade recept");
-    const cards = screen.getAllByTestId("shared-recipe-card");
     expect(cards.map((card) => within(card).getByRole("link").textContent)).toEqual(["Kycklinggryta med tomat och grädde", "Linssoppa"]);
     expect(within(cards[0]).getByRole("link")).toHaveAttribute("href", "/recept/delade/10000000-0000-4000-8000-000000000001");
     expect(within(cards[0]).getByTestId("recipe-card-byline")).toHaveTextContent("från Lindqvists");
@@ -101,8 +109,9 @@ describe("Library, Delade", () => {
 
   it("leaves Delade for an own filter, and combines it with a category", async () => {
     const user = userEvent.setup();
-    renderLibrary();
+    await renderLibrary();
     await user.click(screen.getByRole("button", { name: "Delade" }));
+    await screen.findAllByTestId("shared-recipe-card");
     await user.click(screen.getByRole("button", { name: /Soppa/ }));
     expect(screen.getAllByTestId("shared-recipe-card").map((card) => within(card).getByRole("link").textContent)).toEqual(["Linssoppa"]);
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("1 delat recept");
@@ -112,21 +121,40 @@ describe("Library, Delade", () => {
     expect(screen.queryAllByTestId("shared-recipe-card")).toHaveLength(0);
   });
 
-  it("is not there with Visa delade recept off, nor when Delade could not be read", () => {
+  it("is not there with Visa delade recept off, nor when Delade could not be read", async () => {
     window.localStorage.setItem("livskoll-option-showShared", "0");
-    const { unmount } = renderLibrary();
+    const { unmount } = await renderLibrary();
     expect(chipNames()).not.toContain("Delade");
     unmount();
     window.localStorage.clear();
-    renderLibrary(null);
-    expect(chipNames()).not.toContain("Delade");
+    await renderLibrary(null);
+    await waitFor(() => expect(chipNames()).not.toContain("Delade"));
+  });
+
+  it("shows the own library at once, and skeleton rows in Delade until the shared recipes are in", async () => {
+    const user = userEvent.setup();
+    await renderLibrary("pending");
+    expect(screen.getAllByTestId("recipe-card")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Delade" }));
+    expect(screen.queryAllByTestId("shared-recipe-card")).toHaveLength(0);
+    expect(screen.queryByText("Inga delade recept än.")).toBeNull();
+  });
+
+  it("leaves Mest hemma out of the sort in Delade", async () => {
+    const user = userEvent.setup();
+    await renderLibrary();
+    await user.click(screen.getByRole("button", { name: "Delade" }));
+    await screen.findAllByTestId("shared-recipe-card");
+    await user.click(screen.getByTestId("sort-button"));
+    expect(await screen.findByTestId("sort-fastest")).toBeInTheDocument();
+    expect(screen.queryByTestId("sort-mostHome")).toBeNull();
   });
 
   it("says when nobody shares anything yet", async () => {
     const user = userEvent.setup();
-    renderLibrary([]);
+    await renderLibrary([]);
     await user.click(screen.getByRole("button", { name: "Delade" }));
-    expect(screen.getByText("Inga delade recept än.")).toBeInTheDocument();
+    expect(await screen.findByText("Inga delade recept än.")).toBeInTheDocument();
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("0 delade recept");
   });
 });
@@ -134,28 +162,29 @@ describe("Library, Delade", () => {
 describe("EmptyLibrary", () => {
   it("offers Delade under the empty state when others share, and opens it", async () => {
     const user = userEvent.setup();
-    render(
+    await act(async () => render(
       <ToastProvider>
-        <EmptyLibrary shared={shared}>
+        <EmptyLibrary shared={Promise.resolve(shared)}>
           <p>Inga recept än.</p>
         </EmptyLibrary>
       </ToastProvider>,
-    );
+    ));
     expect(screen.getByText("Inga recept än.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Visa delade recept" }));
-    expect(screen.getAllByTestId("shared-recipe-card")).toHaveLength(2);
+    await user.click(await screen.findByRole("button", { name: "Visa delade recept" }));
+    expect(await screen.findAllByTestId("shared-recipe-card")).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Delade" }));
     expect(screen.getByText("Inga recept än.")).toBeInTheDocument();
   });
 
-  it("is only the empty state when nobody shares", () => {
-    render(
+  it("is only the empty state when nobody shares", async () => {
+    await act(async () => render(
       <ToastProvider>
-        <EmptyLibrary shared={[]}>
+        <EmptyLibrary shared={Promise.resolve([])}>
           <p>Inga recept än.</p>
         </EmptyLibrary>
       </ToastProvider>,
-    );
+    ));
+    expect(await screen.findByText("Inga recept än.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Visa delade recept" })).toBeNull();
   });
 });

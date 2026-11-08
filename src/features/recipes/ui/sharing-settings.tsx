@@ -92,7 +92,7 @@ export function SharingSettings({ showRow, sharing }: { showRow: ReactNode; shar
           </li>
         ) : null}
       </ul>
-      <p className="mx-1 mt-2 text-meta text-ink-3">Gäller hela hushållet.</p>
+      <p className="mx-1 mt-2 text-meta text-ink-3">Dela alla och Sluta dela alla gäller hela hushållet.</p>
     </div>
   );
 }

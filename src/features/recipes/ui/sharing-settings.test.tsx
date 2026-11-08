@@ -53,7 +53,7 @@ describe("SharingSettings", () => {
     expect(all).toHaveAttribute("aria-checked", "false");
     expect(all).toHaveAccessibleDescription("Även nya recept. Annars väljer du per recept.");
     expect(within(group).getByRole("button", { name: /Sluta dela alla/ })).toHaveTextContent("3 recept");
-    expect(within(group).getByText("Gäller hela hushållet.")).toBeInTheDocument();
+    expect(within(group).getByText("Dela alla och Sluta dela alla gäller hela hushållet.")).toBeInTheDocument();
   });
 
   it("turns Visa delade recept off on this device only", async () => {

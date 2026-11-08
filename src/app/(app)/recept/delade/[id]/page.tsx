@@ -28,7 +28,7 @@ async function SharedRecipeContent({ params }: Pick<PageProps<"/recept/delade/[i
   await requireUserOrRedirect(`/recept/delade/${encodeURIComponent(id)}`);
   const [found, offers, listedIds] = await Promise.all([getSharedRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
-  const { recipe, householdName, savedCopyId, snapshot, site, staples } = found;
+  const { recipe, householdName, savedCopyId, version, snapshot, site, staples } = found;
   // The meal plan holds the household's copy, if saved: its dish is the one on the plan.
   const { weeks, remembered } = await readPlanWeeks(savedCopyId);
   return (
@@ -36,6 +36,7 @@ async function SharedRecipeContent({ params }: Pick<PageProps<"/recept/delade/[i
       recipe={recipe}
       householdName={householdName}
       savedCopyId={savedCopyId}
+      version={version}
       snapshot={snapshot}
       site={site}
       staples={staples}

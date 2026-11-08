@@ -115,11 +115,26 @@ export type LibraryProps = {
    */
   healthyIds?: Promise<readonly string[] | undefined>;
   /**
-   * Delade recept: the recipes other households share (recipes.listSharedRecipes), for the chip
-   * Delade, which is there with Tillval "Visa delade recept" on; left out (not readable) it is not.
+   * Delade recept: the recipes other households share (recipes.listSharedRecipes), as a promise
+   * that is not waited for, so the own library never waits for it; `undefined` inside it when it
+   * could not be read, and then the chip Delade goes. The chip is there with Tillval "Visa delade
+   * recept" on; Delade chosen shows skeleton rows until the promise is in.
    */
-  shared?: readonly SharedListItem[];
+  shared?: Promise<readonly SharedListItem[] | undefined>;
 };
+
+/** Waits for the page's promise of the shared recipes under Suspense; hands them on. */
+function SharedLoader({
+  promise,
+  onLoaded,
+}: {
+  promise: Promise<readonly SharedListItem[] | undefined>;
+  onLoaded: (loaded: { items: readonly SharedListItem[] | undefined }) => void;
+}) {
+  const items = use(promise);
+  useEffect(() => onLoaded({ items }), [items, onLoaded]);
+  return null;
+}
 
 /** Waits for the page's nutrition promise under Suspense, so only this renders late; hands the ids on. */
 function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string[] | undefined>; onLoaded: (ids: readonly string[] | undefined) => void }) {
@@ -128,11 +143,15 @@ function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string
   return null;
 }
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared: sharedPromise }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
-  // Delade (on by default; off on the server and while hydrating the option is its default, so nothing jumps).
-  const withShared = useOption("showShared") && shared !== undefined;
+  // Delade (on by default; on the server and while hydrating the option is its default, so nothing jumps). The chip
+  // stands while the shared recipes are on their way, and goes only when they could not be read.
+  const [sharedLoaded, setSharedLoaded] = useState<{ items: readonly SharedListItem[] | undefined } | null>(null);
+  const shared = sharedLoaded?.items;
+  const sharedLoading = sharedPromise !== undefined && sharedLoaded === null;
+  const withShared = useOption("showShared") && sharedPromise !== undefined && (sharedLoading || shared !== undefined);
   const onShared = filter === "shared" && withShared;
   /** The text searched for last, which Delade filters by here (its recipes are all in the page). */
   const [query, setQuery] = useState("");
@@ -271,7 +290,9 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
 
   let content;
   if (onShared) {
-    if (sharedVisible.length > 0) {
+    if (sharedLoading) {
+      content = <Skeleton rows={4} />;
+    } else if (sharedVisible.length > 0) {
       content = compact ? <SharedRecipeCompactList recipes={sharedVisible} /> : <SharedRecipeList recipes={sharedVisible} />;
     } else if (query) {
       content = (
@@ -403,6 +424,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           <HealthyLoader promise={healthyPromise} onLoaded={setHealthyIds} />
         </Suspense>
       ) : null}
+      {sharedPromise ? (
+        <Suspense fallback={null}>
+          <SharedLoader promise={sharedPromise} onLoaded={setSharedLoaded} />
+        </Suspense>
+      ) : null}
       {/* Story 19.6: on a desktop the search (360 px) and the filter chips share a row. */}
       <div className="flex flex-col gap-3 desktop:flex-row desktop:items-center desktop:gap-4">
         <div className="desktop:w-[360px] desktop:shrink-0">
@@ -485,7 +511,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
       {offers ? (
         <OffersSheetControlContext.Provider value={{ open: offersOpen, onClose: () => setOffersOpen(false) }}>{offers.sheet}</OffersSheetControlContext.Provider>
       ) : null}
-      <RecipeSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onChange={setSort} />
+      <RecipeSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onChange={setSort} withoutStatus={onShared} />
     </div>
   );
 }

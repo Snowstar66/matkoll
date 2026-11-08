@@ -151,14 +151,14 @@ isOneToOne: false
                   ]
                 },"household": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"share_all": boolean
+                    "created_at": string,"id": string,"name": string,"name_is_default": boolean,"share_all": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"share_all"?: boolean
+                    "created_at"?: string,"id"?: string,"name": string,"name_is_default"?: boolean,"share_all"?: boolean
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"share_all"?: boolean
+                    "created_at"?: string,"id"?: string,"name"?: string,"name_is_default"?: boolean,"share_all"?: boolean
                   }
                   Relationships: [
                     
@@ -1229,6 +1229,9 @@ isOneToOne: false
 "household_open_invite":
 { Args: { "code": string }; Returns: string
                            },
+"household_shared_name":
+{ Args: { "household_name": string,"is_default": boolean }; Returns: string
+                           },
 "household_signup_hook":
 { Args: { "event": Json }; Returns: Json
                            },
@@ -1480,6 +1483,8 @@ isOneToOne: false
                            },
 "save_shared_recipe":
 { Args: { "ingredient_ids": (string)[],"shared_recipe_id": string }; Returns: string
+                           } |
+{ Args: { "expected_version": string,"ingredient_ids": (string)[],"shared_recipe_id": string }; Returns: string
                            },
 "save_store":
 { Args: { "make_selected": boolean,"mode": string,"store": Json }; Returns: {
@@ -1598,8 +1603,14 @@ isOneToOne: false
               "change_id": string,"quantity_now": number
             }[]
                            },
+"shared_image_url":
+{ Args: { "url": string }; Returns: string
+                           },
 "shared_recipe_savers":
 { Args: { "own_recipe_id": string }; Returns: string[]
+                           },
+"shared_recipe_version":
+{ Args: { "recipe": string }; Returns: string
                            },
 "show_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: undefined
