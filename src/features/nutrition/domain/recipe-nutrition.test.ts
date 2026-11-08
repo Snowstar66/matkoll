@@ -43,18 +43,24 @@ describe("recipeNutrition", () => {
       [
         line("pasta", 100, "g"),
         line(null, 2, "dl"), // no catalog ingredient
-        line("beef", 1, "förp"), // size unknown
+        line("beef", 1, "kvist"), // unit unknown
         line("beef", null, null), // no amount, not vague
         line("unknown-id", 100, "g"), // no nutrition row
-        line("pasta", 1, "st"), // no piece weight
-        line("pasta", 2, "skiva"), // no slice weight
+        line("pasta", 1, "st"), // no piece weight: guessed
+        line("pasta", 2, "skiva"), // no slice weight: guessed
       ],
       rows,
       1,
     );
-    expect(result.coverage).toMatchObject({ counted: 1, total: 7 });
-    expect(result.gramsPerServing).toBe(100);
-    expect(result.uncounted).toHaveLength(6);
+    expect(result.coverage).toMatchObject({ counted: 3, total: 7, estimated: 2 });
+    expect(result.gramsPerServing).toBe(100 + 80 + 60);
+    expect(result.uncounted).toHaveLength(4);
+  });
+
+  it("guesses the weight of slices of meat: 12 slices for 4 people is about 100 g each", () => {
+    const result = recipeNutrition([line("beef", 12, "skivor")], rows, 4);
+    expect(result.gramsPerServing).toBeCloseTo(99);
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1, estimated: 1 });
   });
 
   it("counts a vague line that has an ingredient and an amount", () => {
@@ -118,7 +124,7 @@ describe("uncounted lines and the trust gate", () => {
     const result = recipeNutrition(
       [
         { ...line(null, 600, "g"), ingredientName: "fransyska", originalText: "600 g fransyska" },
-        { ...line("beef", 1, "förp"), ingredientName: "Nötfärs", originalText: "1 förp nötfärs" },
+        { ...line("beef", 1, "kvist"), ingredientName: "Nötfärs", originalText: "1 kvist nötfärs" },
         { ...line(null, null, null), originalText: "något gott" },
       ],
       rows,
@@ -126,7 +132,7 @@ describe("uncounted lines and the trust gate", () => {
     );
     expect(result.uncounted).toEqual([
       { label: "fransyska", reason: "unknown_ingredient", name: "fransyska", unit: "g" },
-      { label: "nötfärs (1 förp)", reason: "unknown_unit", name: "nötfärs", unit: "förp" },
+      { label: "nötfärs (1 kvist)", reason: "unknown_unit", name: "nötfärs", unit: "kvist" },
       { label: "något gott", reason: "unknown_ingredient", name: null, unit: null },
     ]);
   });

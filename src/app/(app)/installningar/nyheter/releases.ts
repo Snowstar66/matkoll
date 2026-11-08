@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Kcal räknas på fler rader",
+    bullets: [
+      "Saknas vikten för en rad, till exempel 12 skivor lövbiff, gissar appen en rimlig vikt i stället för att hoppa över raden.",
+      "Kortet säger hur många varor som har uppskattad vikt.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Vitlöksklyftor läses rätt",
     bullets: [
       "Står det 2 vitlöksklyftor i ett recept blir det nu 2 klyftor, inte 2 hela vitlökar.",
