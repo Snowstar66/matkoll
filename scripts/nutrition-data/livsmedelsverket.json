@@ -1,0 +1,2368 @@
+{
+  "source": "Livsmedelsverket, Livsmedelsdatabasen",
+  "sourceUrl": "https://dataportal.livsmedelsverket.se/livsmedel",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/deed.sv",
+  "fetchedAt": "2026-11-07",
+  "note": "Per 100 g edible part. kcal is the ENERC value in kcal.",
+  "foods": {
+    "29": {
+      "name": "Smör fett 80%",
+      "version": "2026-06-29T00:19:10.03",
+      "kcal": 766,
+      "protein_g": 0.6,
+      "fat_g": 86.3,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "38": {
+      "name": "Sesamolja",
+      "version": "2026-06-29T00:19:28.03",
+      "kcal": 884,
+      "protein_g": 0,
+      "fat_g": 100,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "50": {
+      "name": "Majonnäs fett 80%",
+      "version": "2026-06-29T00:19:53.327",
+      "kcal": 666,
+      "protein_g": 1.3,
+      "fat_g": 72.4,
+      "carbs_g": 5,
+      "fiber_g": 0
+    },
+    "70": {
+      "name": "Färskost cottage cheese naturell fett 4%",
+      "version": "2026-06-29T00:20:15.51",
+      "kcal": 100,
+      "protein_g": 13.4,
+      "fat_g": 4.3,
+      "carbs_g": 1.9,
+      "fiber_g": 0
+    },
+    "85": {
+      "name": "Mjukost smältost fett ca 20%",
+      "version": "2026-06-29T00:20:44.66",
+      "kcal": 246,
+      "protein_g": 15.4,
+      "fat_g": 20.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "94": {
+      "name": "Salladsost fett 22%",
+      "version": "2026-06-29T00:21:00.763",
+      "kcal": 272,
+      "protein_g": 16.7,
+      "fat_g": 22.1,
+      "carbs_g": 2.1,
+      "fiber_g": 0
+    },
+    "96": {
+      "name": "Ost hårdost fett 28%",
+      "version": "2026-06-29T00:21:04.21",
+      "kcal": 358,
+      "protein_g": 26.2,
+      "fat_g": 27.1,
+      "carbs_g": 3,
+      "fiber_g": 0
+    },
+    "98": {
+      "name": "Vitmögelost brie fett 30%",
+      "version": "2026-06-29T00:21:08.883",
+      "kcal": 348,
+      "protein_g": 17,
+      "fat_g": 30.2,
+      "carbs_g": 2.8,
+      "fiber_g": 0
+    },
+    "100": {
+      "name": "Ost halloumi rå fett 22%",
+      "version": "2026-06-29T00:21:13.967",
+      "kcal": 292,
+      "protein_g": 22.3,
+      "fat_g": 21.9,
+      "carbs_g": 1.9,
+      "fiber_g": 0
+    },
+    "103": {
+      "name": "Ost hårdost parmesan fett 30% typ Parmiggiano Reggiano",
+      "version": "2026-06-29T00:21:20.927",
+      "kcal": 428,
+      "protein_g": 31.1,
+      "fat_g": 32.2,
+      "carbs_g": 4.2,
+      "fiber_g": 0
+    },
+    "107": {
+      "name": "Färskost cream cheese fett 27%",
+      "version": "2026-06-29T00:21:28.983",
+      "kcal": 276,
+      "protein_g": 6.1,
+      "fat_g": 27.3,
+      "carbs_g": 2.4,
+      "fiber_g": 0
+    },
+    "111": {
+      "name": "Vitmögelost getost chèvre fett 25%",
+      "version": "2026-06-29T00:21:35.137",
+      "kcal": 345,
+      "protein_g": 20.6,
+      "fat_g": 29,
+      "carbs_g": 1.4,
+      "fiber_g": 0
+    },
+    "123": {
+      "name": "Mjölk fett 3% berikad",
+      "version": "2026-06-29T00:22:03.86",
+      "kcal": 60,
+      "protein_g": 3.6,
+      "fat_g": 3,
+      "carbs_g": 4.6,
+      "fiber_g": 0
+    },
+    "124": {
+      "name": "Yoghurt naturell fett 3% berikad",
+      "version": "2026-06-29T00:22:07.157",
+      "kcal": 56,
+      "protein_g": 3.4,
+      "fat_g": 2.7,
+      "carbs_g": 4.5,
+      "fiber_g": 0
+    },
+    "150": {
+      "name": "Mellanmjölk fett 1,5% berikad",
+      "version": "2026-06-29T00:23:07.257",
+      "kcal": 47,
+      "protein_g": 3.6,
+      "fat_g": 1.5,
+      "carbs_g": 4.7,
+      "fiber_g": 0
+    },
+    "151": {
+      "name": "Lättmjölk fett 0,5% berikad",
+      "version": "2026-06-29T00:23:09.71",
+      "kcal": 39,
+      "protein_g": 3.6,
+      "fat_g": 0.5,
+      "carbs_g": 4.8,
+      "fiber_g": 0
+    },
+    "169": {
+      "name": "Hårt bröd fullkorn råg fibrer ca 13%",
+      "version": "2026-06-29T00:23:30.33",
+      "kcal": 353,
+      "protein_g": 9.3,
+      "fat_g": 2.6,
+      "carbs_g": 65.7,
+      "fiber_g": 13.2
+    },
+    "188": {
+      "name": "Ströbröd malt hårt bröd fullkorn vete råg socker fibrer ca 5%",
+      "version": "2026-06-29T00:24:08.65",
+      "kcal": 402,
+      "protein_g": 10.3,
+      "fat_g": 8.6,
+      "carbs_g": 65.6,
+      "fiber_g": 9.1
+    },
+    "193": {
+      "name": "Bröd vitt vete vatten fibrer ca 3,5% typ pitabröd",
+      "version": "2026-06-29T00:24:23.093",
+      "kcal": 274,
+      "protein_g": 8.6,
+      "fat_g": 1.6,
+      "carbs_g": 53.6,
+      "fiber_g": 3.4
+    },
+    "202": {
+      "name": "Bröd vitt fibrer 3,5%",
+      "version": "2026-06-29T00:24:44.43",
+      "kcal": 284,
+      "protein_g": 8,
+      "fat_g": 6.4,
+      "carbs_g": 46,
+      "fiber_g": 4.3
+    },
+    "288": {
+      "name": "Kålrot",
+      "version": "2026-06-29T00:26:59.917",
+      "kcal": 37,
+      "protein_g": 1.4,
+      "fat_g": 0.1,
+      "carbs_g": 6.1,
+      "fiber_g": 3
+    },
+    "289": {
+      "name": "Morot",
+      "version": "2026-06-29T00:27:01.797",
+      "kcal": 36,
+      "protein_g": 0.7,
+      "fat_g": 0.2,
+      "carbs_g": 6.6,
+      "fiber_g": 2.4
+    },
+    "290": {
+      "name": "Palsternacka",
+      "version": "2026-06-29T00:27:03.867",
+      "kcal": 71,
+      "protein_g": 1.7,
+      "fat_g": 0.6,
+      "carbs_g": 12.6,
+      "fiber_g": 3.8
+    },
+    "292": {
+      "name": "Rotselleri",
+      "version": "2026-06-29T00:27:07.897",
+      "kcal": 32,
+      "protein_g": 1,
+      "fat_g": 0.5,
+      "carbs_g": 4.4,
+      "fiber_g": 3.1
+    },
+    "293": {
+      "name": "Rädisa",
+      "version": "2026-06-29T00:27:10.24",
+      "kcal": 11,
+      "protein_g": 0.7,
+      "fat_g": 0.4,
+      "carbs_g": 0.7,
+      "fiber_g": 1.1
+    },
+    "294": {
+      "name": "Rödbeta",
+      "version": "2026-06-29T00:27:12.187",
+      "kcal": 51,
+      "protein_g": 1.2,
+      "fat_g": 0.1,
+      "carbs_g": 9.8,
+      "fiber_g": 2.6
+    },
+    "320": {
+      "name": "Avokado",
+      "version": "2026-06-29T00:27:31.69",
+      "kcal": 197,
+      "protein_g": 1.9,
+      "fat_g": 19.6,
+      "carbs_g": 1.7,
+      "fiber_g": 4.8
+    },
+    "321": {
+      "name": "Stjälkselleri",
+      "version": "2026-06-29T00:27:33.127",
+      "kcal": 19,
+      "protein_g": 1,
+      "fat_g": 0.2,
+      "carbs_g": 2.3,
+      "fiber_g": 2.1
+    },
+    "322": {
+      "name": "Blomkål",
+      "version": "2026-06-30T11:08:21.293",
+      "kcal": 25,
+      "protein_g": 1.7,
+      "fat_g": 0,
+      "carbs_g": 3.7,
+      "fiber_g": 1.8
+    },
+    "325": {
+      "name": "Broccoli",
+      "version": "2026-06-30T15:19:44.153",
+      "kcal": 36,
+      "protein_g": 2.9,
+      "fat_g": 0.6,
+      "carbs_g": 3.5,
+      "fiber_g": 2.6
+    },
+    "331": {
+      "name": "Gröna bönor",
+      "version": "2026-06-29T00:27:41.23",
+      "kcal": 27,
+      "protein_g": 2.1,
+      "fat_g": 0.4,
+      "carbs_g": 2.1,
+      "fiber_g": 3.4
+    },
+    "333": {
+      "name": "Champinjon",
+      "version": "2026-06-29T00:27:42.857",
+      "kcal": 27,
+      "protein_g": 2.4,
+      "fat_g": 0.2,
+      "carbs_g": 2.7,
+      "fiber_g": 2.4
+    },
+    "336": {
+      "name": "Fänkål",
+      "version": "2026-06-29T00:27:48.043",
+      "kcal": 28,
+      "protein_g": 2.8,
+      "fat_g": 0.4,
+      "carbs_g": 1.8,
+      "fiber_g": 3.3
+    },
+    "337": {
+      "name": "Grönkål",
+      "version": "2026-06-29T00:27:49.69",
+      "kcal": 40,
+      "protein_g": 3.4,
+      "fat_g": 0.7,
+      "carbs_g": 3.2,
+      "fiber_g": 3.7
+    },
+    "339": {
+      "name": "Gurka",
+      "version": "2026-06-29T00:27:52.94",
+      "kcal": 13,
+      "protein_g": 0.8,
+      "fat_g": 0.1,
+      "carbs_g": 2.3,
+      "fiber_g": 0
+    },
+    "340": {
+      "name": "Isbergssallat",
+      "version": "2026-06-29T00:27:54.577",
+      "kcal": 14,
+      "protein_g": 0.8,
+      "fat_g": 0.1,
+      "carbs_g": 2.5,
+      "fiber_g": 0
+    },
+    "344": {
+      "name": "Lök gul",
+      "version": "2026-06-29T00:28:01.427",
+      "kcal": 39,
+      "protein_g": 1.2,
+      "fat_g": 0.1,
+      "carbs_g": 7.3,
+      "fiber_g": 1.9
+    },
+    "345": {
+      "name": "Majskolv",
+      "version": "2026-06-29T00:28:03.883",
+      "kcal": 125,
+      "protein_g": 3.9,
+      "fat_g": 1.6,
+      "carbs_g": 22.1,
+      "fiber_g": 2.9
+    },
+    "348": {
+      "name": "Mangold",
+      "version": "2026-06-29T00:28:06.97",
+      "kcal": 21,
+      "protein_g": 1.8,
+      "fat_g": 0.2,
+      "carbs_g": 2.6,
+      "fiber_g": 0.8
+    },
+    "350": {
+      "name": "Paprika grön",
+      "version": "2026-06-29T00:28:10.693",
+      "kcal": 18,
+      "protein_g": 0.5,
+      "fat_g": 0.1,
+      "carbs_g": 3,
+      "fiber_g": 2
+    },
+    "351": {
+      "name": "Paprika röd",
+      "version": "2026-06-29T00:28:12.463",
+      "kcal": 22,
+      "protein_g": 0.5,
+      "fat_g": 0.2,
+      "carbs_g": 4.1,
+      "fiber_g": 0.9
+    },
+    "352": {
+      "name": "Persilja blad",
+      "version": "2026-06-29T00:28:14.65",
+      "kcal": 78,
+      "protein_g": 5.6,
+      "fat_g": 1.1,
+      "carbs_g": 9.4,
+      "fiber_g": 3.9
+    },
+    "353": {
+      "name": "Pumpa",
+      "version": "2026-06-29T00:28:16.407",
+      "kcal": 26,
+      "protein_g": 1,
+      "fat_g": 0.1,
+      "carbs_g": 4.4,
+      "fiber_g": 1.7
+    },
+    "354": {
+      "name": "Purjolök",
+      "version": "2026-06-29T00:28:18.007",
+      "kcal": 30,
+      "protein_g": 1.6,
+      "fat_g": 0.2,
+      "carbs_g": 4.1,
+      "fiber_g": 2.7
+    },
+    "355": {
+      "name": "Rödkål",
+      "version": "2026-06-29T00:28:20.207",
+      "kcal": 31,
+      "protein_g": 1.1,
+      "fat_g": 0.3,
+      "carbs_g": 4.7,
+      "fiber_g": 2.6
+    },
+    "358": {
+      "name": "Salladskål",
+      "version": "2026-06-29T00:28:25.62",
+      "kcal": 21,
+      "protein_g": 1.3,
+      "fat_g": 0.1,
+      "carbs_g": 2.7,
+      "fiber_g": 1.6
+    },
+    "359": {
+      "name": "Sockerärtor",
+      "version": "2026-06-29T00:28:27.667",
+      "kcal": 37,
+      "protein_g": 3.4,
+      "fat_g": 0.2,
+      "carbs_g": 4.3,
+      "fiber_g": 2.2
+    },
+    "361": {
+      "name": "Spenat frysvara",
+      "version": "2026-06-29T00:28:31.3",
+      "kcal": 20,
+      "protein_g": 2.2,
+      "fat_g": 0.6,
+      "carbs_g": 0.5,
+      "fiber_g": 2
+    },
+    "362": {
+      "name": "Squash",
+      "version": "2026-06-29T00:28:33.737",
+      "kcal": 14,
+      "protein_g": 0,
+      "fat_g": 0.1,
+      "carbs_g": 2.5,
+      "fiber_g": 1.8
+    },
+    "364": {
+      "name": "Tomat",
+      "version": "2026-07-01T09:12:00.447",
+      "kcal": 18,
+      "protein_g": 0.8,
+      "fat_g": 0.1,
+      "carbs_g": 2.6,
+      "fiber_g": 1.3
+    },
+    "370": {
+      "name": "Vitkål",
+      "version": "2026-06-30T15:26:32.187",
+      "kcal": 32,
+      "protein_g": 1.2,
+      "fat_g": 0,
+      "carbs_g": 5.7,
+      "fiber_g": 2
+    },
+    "371": {
+      "name": "Vitlök",
+      "version": "2026-06-29T00:28:46.47",
+      "kcal": 128,
+      "protein_g": 6.8,
+      "fat_g": 0.2,
+      "carbs_g": 21.9,
+      "fiber_g": 5.3
+    },
+    "372": {
+      "name": "Aubergine",
+      "version": "2026-06-29T00:28:48.68",
+      "kcal": 19,
+      "protein_g": 1.1,
+      "fat_g": 0.1,
+      "carbs_g": 2.2,
+      "fiber_g": 2.4
+    },
+    "374": {
+      "name": "Gröna ärtor frysvara",
+      "version": "2026-06-29T00:28:52.93",
+      "kcal": 69,
+      "protein_g": 5.2,
+      "fat_g": 0.4,
+      "carbs_g": 8.9,
+      "fiber_g": 4.4
+    },
+    "377": {
+      "name": "Dill färsk",
+      "version": "2026-06-29T00:28:58.727",
+      "kcal": 58,
+      "protein_g": 3.7,
+      "fat_g": 0.8,
+      "carbs_g": 7.4,
+      "fiber_g": 2.8
+    },
+    "378": {
+      "name": "Gräslök",
+      "version": "2026-06-29T00:29:00.683",
+      "kcal": 28,
+      "protein_g": 2.8,
+      "fat_g": 0.6,
+      "carbs_g": 1.7,
+      "fiber_g": 2.1
+    },
+    "379": {
+      "name": "Basilika färsk",
+      "version": "2026-06-29T00:29:02.877",
+      "kcal": 25,
+      "protein_g": 2.5,
+      "fat_g": 0.6,
+      "carbs_g": 0.4,
+      "fiber_g": 3.9
+    },
+    "380": {
+      "name": "Chilipeppar färsk",
+      "version": "2026-06-29T00:29:05.03",
+      "kcal": 49,
+      "protein_g": 2.4,
+      "fat_g": 0.7,
+      "carbs_g": 5.9,
+      "fiber_g": 4.8
+    },
+    "381": {
+      "name": "Paprika gul",
+      "version": "2026-06-29T00:29:07.367",
+      "kcal": 24,
+      "protein_g": 0.5,
+      "fat_g": 0.2,
+      "carbs_g": 4.3,
+      "fiber_g": 1.4
+    },
+    "393": {
+      "name": "Bambuskott konserv. u. lag",
+      "version": "2026-06-29T00:29:24.463",
+      "kcal": 24,
+      "protein_g": 2.7,
+      "fat_g": 0.2,
+      "carbs_g": 1.7,
+      "fiber_g": 2.3
+    },
+    "400": {
+      "name": "Majskorn konserv. u. lag",
+      "version": "2026-06-29T00:29:38.63",
+      "kcal": 80,
+      "protein_g": 2.1,
+      "fat_g": 1.5,
+      "carbs_g": 12.9,
+      "fiber_g": 2.9
+    },
+    "402": {
+      "name": "Oliver svarta m. olja avrunna",
+      "version": "2026-06-29T00:29:43.913",
+      "kcal": 142,
+      "protein_g": 0.8,
+      "fat_g": 14.1,
+      "carbs_g": 1.8,
+      "fiber_g": 3.5
+    },
+    "410": {
+      "name": "Tomatpuré konc. konserv.",
+      "version": "2026-06-29T00:30:01.41",
+      "kcal": 84,
+      "protein_g": 4.4,
+      "fat_g": 0.2,
+      "carbs_g": 13.5,
+      "fiber_g": 4.7
+    },
+    "422": {
+      "name": "Tomat krossad konserv. m. lag",
+      "version": "2026-06-29T00:30:32.82",
+      "kcal": 22,
+      "protein_g": 0.8,
+      "fat_g": 0.2,
+      "carbs_g": 3.7,
+      "fiber_g": 1.2
+    },
+    "487": {
+      "name": "Gurka inlagd",
+      "version": "2026-06-29T00:31:08.18",
+      "kcal": 59,
+      "protein_g": 0.7,
+      "fat_g": 0.7,
+      "carbs_g": 11.4,
+      "fiber_g": 1.8
+    },
+    "521": {
+      "name": "Grapefrukt",
+      "version": "2026-06-29T00:31:48.56",
+      "kcal": 43,
+      "protein_g": 0.9,
+      "fat_g": 0.5,
+      "carbs_g": 8.3,
+      "fiber_g": 0.9
+    },
+    "523": {
+      "name": "Hallon",
+      "version": "2026-06-29T00:31:52.95",
+      "kcal": 34,
+      "protein_g": 1.2,
+      "fat_g": 0.6,
+      "carbs_g": 4.1,
+      "fiber_g": 3.7
+    },
+    "526": {
+      "name": "Jordgubbar",
+      "version": "2026-07-01T09:09:41.427",
+      "kcal": 41,
+      "protein_g": 0.5,
+      "fat_g": 0.2,
+      "carbs_g": 8.3,
+      "fiber_g": 1.9
+    },
+    "545": {
+      "name": "Grönsaksbuljong ätf.",
+      "version": "2026-06-29T00:32:20.09",
+      "kcal": 5,
+      "protein_g": 0.4,
+      "fat_g": 0.2,
+      "carbs_g": 0.4,
+      "fiber_g": 0
+    },
+    "549": {
+      "name": "Vattenmelon",
+      "version": "2026-06-29T00:32:26.107",
+      "kcal": 34,
+      "protein_g": 0.6,
+      "fat_g": 0,
+      "carbs_g": 7.5,
+      "fiber_g": 0.6
+    },
+    "550": {
+      "name": "Ananas",
+      "version": "2026-06-30T15:26:46.54",
+      "kcal": 47,
+      "protein_g": 0.6,
+      "fat_g": 0,
+      "carbs_g": 10.2,
+      "fiber_g": 1.3
+    },
+    "551": {
+      "name": "Apelsin",
+      "version": "2026-06-29T00:32:28.193",
+      "kcal": 50,
+      "protein_g": 0.8,
+      "fat_g": 0.2,
+      "carbs_g": 10.4,
+      "fiber_g": 1.2
+    },
+    "552": {
+      "name": "Aprikos",
+      "version": "2026-06-30T13:13:27.993",
+      "kcal": 38,
+      "protein_g": 0.8,
+      "fat_g": 0,
+      "carbs_g": 7.4,
+      "fiber_g": 2.1
+    },
+    "553": {
+      "name": "Banan",
+      "version": "2026-06-29T00:32:30.257",
+      "kcal": 95,
+      "protein_g": 1.1,
+      "fat_g": 0.1,
+      "carbs_g": 21.3,
+      "fiber_g": 1.4
+    },
+    "555": {
+      "name": "Blåbär",
+      "version": "2026-06-29T00:32:32.283",
+      "kcal": 53,
+      "protein_g": 0.7,
+      "fat_g": 0.8,
+      "carbs_g": 9.1,
+      "fiber_g": 3.1
+    },
+    "559": {
+      "name": "Citron",
+      "version": "2026-06-29T00:32:40.747",
+      "kcal": 50,
+      "protein_g": 0.9,
+      "fat_g": 0.7,
+      "carbs_g": 7.6,
+      "fiber_g": 4.9
+    },
+    "560": {
+      "name": "Småcitrus clementin mandarin tangerin satsumas",
+      "version": "2026-06-29T00:32:42.767",
+      "kcal": 54,
+      "protein_g": 0.8,
+      "fat_g": 0.2,
+      "carbs_g": 11.4,
+      "fiber_g": 1.5
+    },
+    "561": {
+      "name": "Fikon",
+      "version": "2026-06-29T00:32:44.683",
+      "kcal": 87,
+      "protein_g": 2,
+      "fat_g": 0.4,
+      "carbs_g": 16.3,
+      "fiber_g": 4.6
+    },
+    "565": {
+      "name": "Kiwi grön",
+      "version": "2026-06-30T15:27:01.693",
+      "kcal": 53,
+      "protein_g": 0.9,
+      "fat_g": 0.7,
+      "carbs_g": 9,
+      "fiber_g": 3.3
+    },
+    "572": {
+      "name": "Lime",
+      "version": "2026-06-29T00:33:02.04",
+      "kcal": 47,
+      "protein_g": 0.7,
+      "fat_g": 0.2,
+      "carbs_g": 10.3,
+      "fiber_g": 0.5
+    },
+    "573": {
+      "name": "Lingon",
+      "version": "2026-06-29T00:33:04.483",
+      "kcal": 56,
+      "protein_g": 0.5,
+      "fat_g": 0.7,
+      "carbs_g": 10.7,
+      "fiber_g": 2.6
+    },
+    "574": {
+      "name": "Mango",
+      "version": "2026-06-30T13:13:58.063",
+      "kcal": 52,
+      "protein_g": 0.7,
+      "fat_g": 0,
+      "carbs_g": 11.2,
+      "fiber_g": 2
+    },
+    "576": {
+      "name": "Nektarin",
+      "version": "2026-06-30T13:14:05.5",
+      "kcal": 40,
+      "protein_g": 0.8,
+      "fat_g": 0,
+      "carbs_g": 8.4,
+      "fiber_g": 1.5
+    },
+    "580": {
+      "name": "Persika",
+      "version": "2026-06-30T15:27:55.733",
+      "kcal": 42,
+      "protein_g": 0.8,
+      "fat_g": 0,
+      "carbs_g": 8.5,
+      "fiber_g": 2.2
+    },
+    "582": {
+      "name": "Plommon",
+      "version": "2026-06-30T15:28:06.073",
+      "kcal": 44,
+      "protein_g": 0.7,
+      "fat_g": 0,
+      "carbs_g": 9.1,
+      "fiber_g": 2
+    },
+    "583": {
+      "name": "Päron",
+      "version": "2026-06-29T00:33:17.773",
+      "kcal": 54,
+      "protein_g": 0.3,
+      "fat_g": 0.1,
+      "carbs_g": 11.5,
+      "fiber_g": 2.7
+    },
+    "584": {
+      "name": "Tranbär",
+      "version": "2026-06-29T00:33:19.847",
+      "kcal": 46,
+      "protein_g": 0.4,
+      "fat_g": 0.2,
+      "carbs_g": 8.9,
+      "fiber_g": 3.3
+    },
+    "587": {
+      "name": "Vindruvor",
+      "version": "2026-06-29T00:33:26.373",
+      "kcal": 70,
+      "protein_g": 0.6,
+      "fat_g": 0.2,
+      "carbs_g": 15.6,
+      "fiber_g": 1.2
+    },
+    "588": {
+      "name": "Äpple m. skal",
+      "version": "2026-06-29T00:33:28.58",
+      "kcal": 48,
+      "protein_g": 0,
+      "fat_g": 0,
+      "carbs_g": 10.6,
+      "fiber_g": 2.3
+    },
+    "610": {
+      "name": "Russin",
+      "version": "2026-06-29T00:34:03.89",
+      "kcal": 285,
+      "protein_g": 1.9,
+      "fat_g": 0.5,
+      "carbs_g": 64.4,
+      "fiber_g": 6.1
+    },
+    "641": {
+      "name": "Apelsinjuice färskpressad",
+      "version": "2026-06-29T00:35:09.817",
+      "kcal": 48,
+      "protein_g": 0.7,
+      "fat_g": 0.2,
+      "carbs_g": 10.6,
+      "fiber_g": 0.1
+    },
+    "645": {
+      "name": "Citronjuice färskpressad",
+      "version": "2026-06-29T00:35:19.533",
+      "kcal": 29,
+      "protein_g": 0.6,
+      "fat_g": 0,
+      "carbs_g": 6.5,
+      "fiber_g": 0
+    },
+    "700": {
+      "name": "Havredryck fett 1,5% berikad",
+      "version": "2026-06-29T00:36:46.39",
+      "kcal": 48,
+      "protein_g": 1,
+      "fat_g": 1.5,
+      "carbs_g": 7.1,
+      "fiber_g": 0.8
+    },
+    "702": {
+      "name": "Havregryn fullkorn",
+      "version": "2026-06-29T00:36:49.773",
+      "kcal": 375,
+      "protein_g": 9.5,
+      "fat_g": 7,
+      "carbs_g": 64.1,
+      "fiber_g": 7.5
+    },
+    "817": {
+      "name": "Ris vildris okokt",
+      "version": "2026-06-29T11:42:59.673",
+      "kcal": 360,
+      "protein_g": 14.7,
+      "fat_g": 1.1,
+      "carbs_g": 68.7,
+      "fiber_g": 6.2
+    },
+    "828": {
+      "name": "Mannagryn",
+      "version": "2026-06-29T00:39:18.397",
+      "kcal": 351,
+      "protein_g": 10.1,
+      "fat_g": 1.3,
+      "carbs_g": 72.1,
+      "fiber_g": 2.8
+    },
+    "829": {
+      "name": "Bulgur",
+      "version": "2026-06-29T00:39:20.317",
+      "kcal": 353,
+      "protein_g": 12.3,
+      "fat_g": 1.3,
+      "carbs_g": 68.2,
+      "fiber_g": 7.7
+    },
+    "831": {
+      "name": "Couscous",
+      "version": "2026-06-29T00:39:24.527",
+      "kcal": 361,
+      "protein_g": 12.8,
+      "fat_g": 0.6,
+      "carbs_g": 72.4,
+      "fiber_g": 5
+    },
+    "845": {
+      "name": "Pasta okokt",
+      "version": "2026-06-29T00:39:33.42",
+      "kcal": 358,
+      "protein_g": 11.9,
+      "fat_g": 1.3,
+      "carbs_g": 71.5,
+      "fiber_g": 4
+    },
+    "848": {
+      "name": "Pasta fullkorn okokt",
+      "version": "2026-06-29T00:39:36.997",
+      "kcal": 345,
+      "protein_g": 11,
+      "fat_g": 1.5,
+      "carbs_g": 66.6,
+      "fiber_g": 8.8
+    },
+    "870": {
+      "name": "Nudlar äggnudlar okokta",
+      "version": "2026-06-29T00:39:48.873",
+      "kcal": 377,
+      "protein_g": 14,
+      "fat_g": 4.2,
+      "carbs_g": 68.2,
+      "fiber_g": 2.9
+    },
+    "875": {
+      "name": "Bruna bönor torkade",
+      "version": "2026-06-29T00:39:54.053",
+      "kcal": 317,
+      "protein_g": 22,
+      "fat_g": 1.5,
+      "carbs_g": 45.1,
+      "fiber_g": 16.4
+    },
+    "879": {
+      "name": "Vita bönor torkade",
+      "version": "2026-06-29T00:40:00.127",
+      "kcal": 319,
+      "protein_g": 22,
+      "fat_g": 1.6,
+      "carbs_g": 45.7,
+      "fiber_g": 15.8
+    },
+    "881": {
+      "name": "Kikärtor torkade",
+      "version": "2026-06-29T00:40:04.023",
+      "kcal": 331,
+      "protein_g": 18.8,
+      "fat_g": 5.1,
+      "carbs_g": 39.6,
+      "fiber_g": 25.2
+    },
+    "884": {
+      "name": "Linser torkade",
+      "version": "2026-06-29T00:40:09.313",
+      "kcal": 339,
+      "protein_g": 24.4,
+      "fat_g": 0.8,
+      "carbs_g": 52.5,
+      "fiber_g": 10.4
+    },
+    "891": {
+      "name": "Gröna el. gula ärtor torkade",
+      "version": "2026-06-29T00:40:20.08",
+      "kcal": 317,
+      "protein_g": 21.5,
+      "fat_g": 1,
+      "carbs_g": 49.2,
+      "fiber_g": 10.7
+    },
+    "905": {
+      "name": "Tofu fast",
+      "version": "2026-06-29T00:40:27.527",
+      "kcal": 70,
+      "protein_g": 6.6,
+      "fat_g": 4.2,
+      "carbs_g": 1.2,
+      "fiber_g": 0.4
+    },
+    "909": {
+      "name": "Sojasås",
+      "version": "2026-06-29T00:40:35.303",
+      "kcal": 57,
+      "protein_g": 7.5,
+      "fat_g": 0,
+      "carbs_g": 6.6,
+      "fiber_g": 0
+    },
+    "921": {
+      "name": "Lamm kotlett rå",
+      "version": "2026-06-29T00:40:47.12",
+      "kcal": 230,
+      "protein_g": 19,
+      "fat_g": 17.3,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "924": {
+      "name": "Lamm stek rå",
+      "version": "2026-06-29T00:40:52.3",
+      "kcal": 108,
+      "protein_g": 20.9,
+      "fat_g": 2.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "925": {
+      "name": "Lamm färs rå fett 20%",
+      "version": "2026-06-29T00:40:54.36",
+      "kcal": 245,
+      "protein_g": 17.4,
+      "fat_g": 19.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "936": {
+      "name": "Kalv filé rå",
+      "version": "2026-06-29T00:41:10.51",
+      "kcal": 105,
+      "protein_g": 20,
+      "fat_g": 2.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "946": {
+      "name": "Nöt ryggbiff rå",
+      "version": "2026-06-29T00:41:28.27",
+      "kcal": 123,
+      "protein_g": 21.8,
+      "fat_g": 3.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "949": {
+      "name": "Nöt oxfilé rå",
+      "version": "2026-06-29T00:41:34",
+      "kcal": 124,
+      "protein_g": 21.7,
+      "fat_g": 4.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "953": {
+      "name": "Nöt högrev rå fett bortskuret",
+      "version": "2026-06-29T00:41:41.717",
+      "kcal": 145,
+      "protein_g": 20.6,
+      "fat_g": 6.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "954": {
+      "name": "Nöt innanlår rå",
+      "version": "2026-06-29T00:41:43.68",
+      "kcal": 111,
+      "protein_g": 23.8,
+      "fat_g": 1.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "960": {
+      "name": "Nöt entrecôte rå",
+      "version": "2026-06-29T00:41:53.823",
+      "kcal": 142,
+      "protein_g": 21.7,
+      "fat_g": 6.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "961": {
+      "name": "Nöt grytbitar rå",
+      "version": "2026-06-29T00:41:55.377",
+      "kcal": 145,
+      "protein_g": 20.6,
+      "fat_g": 6.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "963": {
+      "name": "Nöt färs rå fett 15%",
+      "version": "2026-06-29T00:41:58.73",
+      "kcal": 211,
+      "protein_g": 19.4,
+      "fat_g": 15,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "965": {
+      "name": "Ren stek rå",
+      "version": "2026-06-29T00:42:05.95",
+      "kcal": 108,
+      "protein_g": 22.6,
+      "fat_g": 1.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "970": {
+      "name": "Gris fläskfilé rå",
+      "version": "2026-06-29T00:42:14.9",
+      "kcal": 107,
+      "protein_g": 20.6,
+      "fat_g": 2.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "971": {
+      "name": "Gris fläskkotlett rå fettkant 5 mm",
+      "version": "2026-06-29T00:42:16.597",
+      "kcal": 185,
+      "protein_g": 19.4,
+      "fat_g": 12,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "972": {
+      "name": "Gris revbensspjäll rå",
+      "version": "2026-06-29T00:42:18.843",
+      "kcal": 193,
+      "protein_g": 17.7,
+      "fat_g": 13.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "978": {
+      "name": "Gris fläskkarré rå",
+      "version": "2026-06-29T00:42:31.107",
+      "kcal": 171,
+      "protein_g": 17.8,
+      "fat_g": 11.2,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "985": {
+      "name": "Gris sidfläsk bit rå m. svål",
+      "version": "2026-06-29T00:42:49.63",
+      "kcal": 268,
+      "protein_g": 17.2,
+      "fat_g": 22.4,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1003": {
+      "name": "Gris bacon rå",
+      "version": "2026-06-29T00:43:38.313",
+      "kcal": 344,
+      "protein_g": 13.4,
+      "fat_g": 32.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1006": {
+      "name": "Gris kassler kotlettrad rökt",
+      "version": "2026-06-29T00:43:44.853",
+      "kcal": 106,
+      "protein_g": 20.7,
+      "fat_g": 2.2,
+      "carbs_g": 0.5,
+      "fiber_g": 0
+    },
+    "1009": {
+      "name": "Gris skinka rökt fett 6%",
+      "version": "2026-06-29T00:43:51.39",
+      "kcal": 138,
+      "protein_g": 21,
+      "fat_g": 6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1151": {
+      "name": "Anka bröst rå",
+      "version": "2026-06-29T00:45:53.43",
+      "kcal": 119,
+      "protein_g": 19.9,
+      "fat_g": 4.3,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1162": {
+      "name": "Kalkon filé rå",
+      "version": "2026-06-29T00:46:15.8",
+      "kcal": 106,
+      "protein_g": 24.1,
+      "fat_g": 0.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1164": {
+      "name": "Kyckling kött rå u. skinn",
+      "version": "2026-06-29T00:46:19.93",
+      "kcal": 115,
+      "protein_g": 21.5,
+      "fat_g": 3.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1173": {
+      "name": "Kyckling bröstfilé rå u. skinn",
+      "version": "2026-06-29T00:46:46.17",
+      "kcal": 104,
+      "protein_g": 23.1,
+      "fat_g": 1.2,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1174": {
+      "name": "Kyckling lår rå u. skinn",
+      "version": "2026-06-29T00:46:49.37",
+      "kcal": 114,
+      "protein_g": 19.6,
+      "fat_g": 3.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1190": {
+      "name": "Kyckling kött kokt stekt grillat",
+      "version": "2026-06-29T01:13:13.527",
+      "kcal": 146,
+      "protein_g": 23.3,
+      "fat_g": 5.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1201": {
+      "name": "Regnbågslax rå",
+      "version": "2026-06-29T00:47:16.067",
+      "kcal": 160,
+      "protein_g": 18.6,
+      "fat_g": 9.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1202": {
+      "name": "Sej rå",
+      "version": "2026-06-29T00:47:19.563",
+      "kcal": 82,
+      "protein_g": 19.1,
+      "fat_g": 0.5,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1203": {
+      "name": "Hälleflundra vild rå",
+      "version": "2026-06-29T00:47:22.91",
+      "kcal": 139,
+      "protein_g": 15.5,
+      "fat_g": 8.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1223": {
+      "name": "Köttbuljong ätf.",
+      "version": "2026-06-29T00:48:06.67",
+      "kcal": 8,
+      "protein_g": 0.4,
+      "fat_g": 0.2,
+      "carbs_g": 1.2,
+      "fiber_g": 0
+    },
+    "1224": {
+      "name": "Hönsbuljong ätf.",
+      "version": "2026-06-29T00:48:09.857",
+      "kcal": 5,
+      "protein_g": 0.3,
+      "fat_g": 0.3,
+      "carbs_g": 0.2,
+      "fiber_g": 0
+    },
+    "1225": {
+      "name": "Ägg rått",
+      "version": "2026-06-29T00:48:12.89",
+      "kcal": 136,
+      "protein_g": 12.1,
+      "fat_g": 9.8,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1226": {
+      "name": "Äggula rå",
+      "version": "2026-06-29T00:48:16.643",
+      "kcal": 325,
+      "protein_g": 15.9,
+      "fat_g": 28.6,
+      "carbs_g": 1.9,
+      "fiber_g": 0
+    },
+    "1237": {
+      "name": "Kolja rå",
+      "version": "2026-06-29T00:48:27.223",
+      "kcal": 79,
+      "protein_g": 19.4,
+      "fat_g": 0,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1241": {
+      "name": "Sill rå",
+      "version": "2026-06-29T00:48:40.72",
+      "kcal": 148,
+      "protein_g": 16.7,
+      "fat_g": 9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1243": {
+      "name": "Strömming rå",
+      "version": "2026-06-29T00:48:47.203",
+      "kcal": 108,
+      "protein_g": 18,
+      "fat_g": 4,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1244": {
+      "name": "Röding rå",
+      "version": "2026-06-29T00:48:51.02",
+      "kcal": 151,
+      "protein_g": 19.9,
+      "fat_g": 7.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1246": {
+      "name": "Torsk rå",
+      "version": "2026-06-29T00:48:57.88",
+      "kcal": 78,
+      "protein_g": 18.2,
+      "fat_g": 0.5,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1251": {
+      "name": "Piggvar rå",
+      "version": "2026-06-29T00:49:13.377",
+      "kcal": 83,
+      "protein_g": 16.7,
+      "fat_g": 1.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1253": {
+      "name": "Abborre rå",
+      "version": "2026-06-29T00:49:20.25",
+      "kcal": 86,
+      "protein_g": 19.8,
+      "fat_g": 0.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1255": {
+      "name": "Lax odlad Norge fjordlax rå",
+      "version": "2026-06-29T00:49:26.76",
+      "kcal": 210,
+      "protein_g": 20.2,
+      "fat_g": 14.1,
+      "carbs_g": 0.7,
+      "fiber_g": 0
+    },
+    "1258": {
+      "name": "Rödspätta rå",
+      "version": "2026-06-29T00:49:34.2",
+      "kcal": 56,
+      "protein_g": 12.4,
+      "fat_g": 0.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1260": {
+      "name": "Makrill rå",
+      "version": "2026-06-29T00:49:38.607",
+      "kcal": 290,
+      "protein_g": 17,
+      "fat_g": 25,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1263": {
+      "name": "Gös rå",
+      "version": "2026-06-29T00:49:47.287",
+      "kcal": 84,
+      "protein_g": 20.2,
+      "fat_g": 0.2,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1265": {
+      "name": "Ansjovis skarpsill konserv. ",
+      "version": "2026-06-29T00:49:52.05",
+      "kcal": 215,
+      "protein_g": 12.5,
+      "fat_g": 13.1,
+      "carbs_g": 11.8,
+      "fiber_g": 0
+    },
+    "1269": {
+      "name": "Lax kallrökt",
+      "version": "2026-06-29T00:50:01.423",
+      "kcal": 173,
+      "protein_g": 20,
+      "fat_g": 9.8,
+      "carbs_g": 1.3,
+      "fiber_g": 0
+    },
+    "1271": {
+      "name": "Sardiner i olja konserv.",
+      "version": "2026-06-29T00:50:07.607",
+      "kcal": 284,
+      "protein_g": 24,
+      "fat_g": 21.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1275": {
+      "name": "Tonfisk i olja konserv. avrunnen",
+      "version": "2026-06-29T00:50:21.09",
+      "kcal": 189,
+      "protein_g": 24.9,
+      "fat_g": 9.9,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1278": {
+      "name": "Tonfisk i vatten konserv. avrunnen",
+      "version": "2026-06-29T00:50:31.333",
+      "kcal": 106,
+      "protein_g": 24.1,
+      "fat_g": 1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1285": {
+      "name": "Lax gravad",
+      "version": "2026-06-29T00:50:55.03",
+      "kcal": 166,
+      "protein_g": 18.8,
+      "fat_g": 8.7,
+      "carbs_g": 3.1,
+      "fiber_g": 0
+    },
+    "1294": {
+      "name": "Fiskpinnar stekta",
+      "version": "2026-06-29T00:51:28.293",
+      "kcal": 223,
+      "protein_g": 11.7,
+      "fat_g": 12.1,
+      "carbs_g": 16.8,
+      "fiber_g": 0
+    },
+    "1384": {
+      "name": "Bläckfisk rå",
+      "version": "2026-06-29T00:53:04.96",
+      "kcal": 83,
+      "protein_g": 15.4,
+      "fat_g": 1.7,
+      "carbs_g": 1.4,
+      "fiber_g": 0
+    },
+    "1385": {
+      "name": "Blåmussla kokt m. vin avrunnen",
+      "version": "2026-06-29T00:53:07.637",
+      "kcal": 113,
+      "protein_g": 18.5,
+      "fat_g": 3.3,
+      "carbs_g": 2.3,
+      "fiber_g": 0
+    },
+    "1395": {
+      "name": "Räka kokt",
+      "version": "2026-06-29T00:53:38.627",
+      "kcal": 77,
+      "protein_g": 17.6,
+      "fat_g": 0.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "1422": {
+      "name": "Fiskbuljong ätf.",
+      "version": "2026-06-29T00:54:34.92",
+      "kcal": 4,
+      "protein_g": 0.3,
+      "fat_g": 0.2,
+      "carbs_g": 0.3,
+      "fiber_g": 0
+    },
+    "1476": {
+      "name": "Leverpastej skivbar fett 14%",
+      "version": "2026-06-29T00:56:39.623",
+      "kcal": 212,
+      "protein_g": 12,
+      "fat_g": 14,
+      "carbs_g": 9.8,
+      "fiber_g": 0
+    },
+    "1488": {
+      "name": "Korv falukorv kött 58%",
+      "version": "2026-06-29T00:56:52.083",
+      "kcal": 240,
+      "protein_g": 9.1,
+      "fat_g": 20.6,
+      "carbs_g": 5.1,
+      "fiber_g": 0
+    },
+    "1491": {
+      "name": "Korv fläskkorv kokt kött 48%",
+      "version": "2026-06-29T00:56:56.563",
+      "kcal": 234,
+      "protein_g": 9.1,
+      "fat_g": 20.5,
+      "carbs_g": 3.8,
+      "fiber_g": 0
+    },
+    "1498": {
+      "name": "Påläggskorv salami rökt",
+      "version": "2026-06-29T00:57:07.2",
+      "kcal": 430,
+      "protein_g": 16.1,
+      "fat_g": 41.2,
+      "carbs_g": 0.2,
+      "fiber_g": 0
+    },
+    "1508": {
+      "name": "Korv grillkorv kött 32-35%",
+      "version": "2026-06-29T00:57:21.74",
+      "kcal": 215,
+      "protein_g": 11,
+      "fat_g": 15,
+      "carbs_g": 9.2,
+      "fiber_g": 0
+    },
+    "1513": {
+      "name": "Korv chorizo stekt kött 73%",
+      "version": "2026-06-29T00:57:29.33",
+      "kcal": 286,
+      "protein_g": 14.3,
+      "fat_g": 23.8,
+      "carbs_g": 4.1,
+      "fiber_g": 0
+    },
+    "1516": {
+      "name": "Korv prinskorv kött 61%",
+      "version": "2026-06-29T00:57:34.05",
+      "kcal": 268,
+      "protein_g": 10,
+      "fat_g": 24,
+      "carbs_g": 3.8,
+      "fiber_g": 0
+    },
+    "1557": {
+      "name": "Cashewnötter rostade u. salt",
+      "version": "2026-06-29T00:58:03.7",
+      "kcal": 597,
+      "protein_g": 18,
+      "fat_g": 48.7,
+      "carbs_g": 19.1,
+      "fiber_g": 8.3
+    },
+    "1558": {
+      "name": "Hasselnötter",
+      "version": "2026-06-29T00:58:05.34",
+      "kcal": 658,
+      "protein_g": 13.2,
+      "fat_g": 64.6,
+      "carbs_g": 0.5,
+      "fiber_g": 16.1
+    },
+    "1559": {
+      "name": "Jordnötssmör",
+      "version": "2026-06-29T00:58:07.037",
+      "kcal": 615,
+      "protein_g": 22.6,
+      "fat_g": 51,
+      "carbs_g": 14.3,
+      "fiber_g": 7.6
+    },
+    "1560": {
+      "name": "Jordnötter torkade",
+      "version": "2026-06-29T00:58:08.96",
+      "kcal": 586,
+      "protein_g": 25.7,
+      "fat_g": 49,
+      "carbs_g": 8.2,
+      "fiber_g": 8.1
+    },
+    "1567": {
+      "name": "Linfrö hela",
+      "version": "2026-06-29T00:58:22.227",
+      "kcal": 522,
+      "protein_g": 18.7,
+      "fat_g": 43.8,
+      "carbs_g": 0,
+      "fiber_g": 30.4
+    },
+    "1571": {
+      "name": "Pumpafrö",
+      "version": "2026-06-29T00:58:30.433",
+      "kcal": 573,
+      "protein_g": 29.8,
+      "fat_g": 48,
+      "carbs_g": 2.4,
+      "fiber_g": 9.2
+    },
+    "1573": {
+      "name": "Sesamfrö u. skal",
+      "version": "2026-06-29T00:58:34.33",
+      "kcal": 644,
+      "protein_g": 20.9,
+      "fat_g": 59.7,
+      "carbs_g": 2.7,
+      "fiber_g": 10.4
+    },
+    "1574": {
+      "name": "Solrosfrö",
+      "version": "2026-06-29T00:58:36.21",
+      "kcal": 618,
+      "protein_g": 20.6,
+      "fat_g": 56.1,
+      "carbs_g": 3.9,
+      "fiber_g": 11.5
+    },
+    "1575": {
+      "name": "Sötmandel",
+      "version": "2026-06-29T00:58:38.207",
+      "kcal": 592,
+      "protein_g": 20.7,
+      "fat_g": 53.2,
+      "carbs_g": 0.5,
+      "fiber_g": 18.7
+    },
+    "1576": {
+      "name": "Valnötter",
+      "version": "2026-06-29T00:58:40.55",
+      "kcal": 680,
+      "protein_g": 13.8,
+      "fat_g": 64.8,
+      "carbs_g": 8.3,
+      "fiber_g": 9
+    },
+    "1590": {
+      "name": "Kokosmjölk fett ca 24%",
+      "version": "2026-06-29T00:59:09.653",
+      "kcal": 239,
+      "protein_g": 2.3,
+      "fat_g": 24,
+      "carbs_g": 3.5,
+      "fiber_g": 1.5
+    },
+    "1713": {
+      "name": "Gräddfil fett 12%",
+      "version": "2026-06-29T01:02:22.473",
+      "kcal": 128,
+      "protein_g": 2.5,
+      "fat_g": 11.5,
+      "carbs_g": 4,
+      "fiber_g": 0
+    },
+    "1715": {
+      "name": "Vispgrädde fett 40%",
+      "version": "2026-06-29T01:02:30.003",
+      "kcal": 374,
+      "protein_g": 2.1,
+      "fat_g": 40,
+      "carbs_g": 3,
+      "fiber_g": 0
+    },
+    "1716": {
+      "name": "Mellangrädde fett 27%",
+      "version": "2026-06-29T01:02:33.49",
+      "kcal": 264,
+      "protein_g": 2.6,
+      "fat_g": 27,
+      "carbs_g": 3.6,
+      "fiber_g": 0
+    },
+    "1717": {
+      "name": "Matlagningsgrädde fett 15%",
+      "version": "2026-06-29T01:02:37.267",
+      "kcal": 162,
+      "protein_g": 3,
+      "fat_g": 15,
+      "carbs_g": 4.2,
+      "fiber_g": 0
+    },
+    "1798": {
+      "name": "Lingonsylt",
+      "version": "2026-06-29T01:04:28.693",
+      "kcal": 148,
+      "protein_g": 0.2,
+      "fat_g": 0.2,
+      "carbs_g": 35.3,
+      "fiber_g": 1
+    },
+    "1886": {
+      "name": "Kakaopulver fett 20-22%",
+      "version": "2026-06-29T01:08:49.087",
+      "kcal": 394,
+      "protein_g": 23.5,
+      "fat_g": 21.5,
+      "carbs_g": 10.6,
+      "fiber_g": 34
+    },
+    "1892": {
+      "name": "Socker",
+      "version": "2026-06-29T01:08:56.21",
+      "kcal": 405,
+      "protein_g": 0,
+      "fat_g": 0,
+      "carbs_g": 99.6,
+      "fiber_g": 0
+    },
+    "1894": {
+      "name": "Ljus sirap",
+      "version": "2026-06-29T01:09:01.3",
+      "kcal": 323,
+      "protein_g": 0,
+      "fat_g": 0,
+      "carbs_g": 79.6,
+      "fiber_g": 0
+    },
+    "1896": {
+      "name": "Honung",
+      "version": "2026-06-29T01:09:05.94",
+      "kcal": 332,
+      "protein_g": 0.3,
+      "fat_g": 0,
+      "carbs_g": 81.5,
+      "fiber_g": 0
+    },
+    "1932": {
+      "name": "Kornmjöl fullkorn",
+      "version": "2026-06-29T01:10:22.53",
+      "kcal": 341,
+      "protein_g": 9.2,
+      "fat_g": 3,
+      "carbs_g": 64.7,
+      "fiber_g": 7.6
+    },
+    "1934": {
+      "name": "Rågmjöl fullkorn",
+      "version": "2026-06-29T01:10:27.463",
+      "kcal": 325,
+      "protein_g": 8.1,
+      "fat_g": 1.7,
+      "carbs_g": 59.3,
+      "fiber_g": 18.8
+    },
+    "1935": {
+      "name": "Vetemjöl fullkorn grahamsmjöl",
+      "version": "2026-06-29T01:10:31.853",
+      "kcal": 336,
+      "protein_g": 10.7,
+      "fat_g": 2,
+      "carbs_g": 61,
+      "fiber_g": 13.8
+    },
+    "1941": {
+      "name": "Vetemjöl",
+      "version": "2026-06-29T01:10:57.847",
+      "kcal": 352,
+      "protein_g": 8.5,
+      "fat_g": 1.9,
+      "carbs_g": 72.4,
+      "fiber_g": 3.6
+    },
+    "1945": {
+      "name": "Majsstärkelse",
+      "version": "2026-06-29T01:11:13.887",
+      "kcal": 362,
+      "protein_g": 0,
+      "fat_g": 0.7,
+      "carbs_g": 87.5,
+      "fiber_g": 0
+    },
+    "1969": {
+      "name": "Ketchup",
+      "version": "2026-06-29T01:12:46.56",
+      "kcal": 91,
+      "protein_g": 1,
+      "fat_g": 0.5,
+      "carbs_g": 18.5,
+      "fiber_g": 3.9
+    },
+    "1972": {
+      "name": "Senap svensk",
+      "version": "2026-06-29T01:13:00.91",
+      "kcal": 173,
+      "protein_g": 4.5,
+      "fat_g": 6.8,
+      "carbs_g": 23.1,
+      "fiber_g": 0
+    },
+    "2003": {
+      "name": "Pesto hemlagad",
+      "version": "2026-06-29T01:13:13.527",
+      "kcal": 545,
+      "protein_g": 10.6,
+      "fat_g": 55,
+      "carbs_g": 1.9,
+      "fiber_g": 4.1
+    },
+    "2007": {
+      "name": "Sweet chilisås",
+      "version": "2026-06-29T01:13:50.88",
+      "kcal": 207,
+      "protein_g": 0.8,
+      "fat_g": 2.9,
+      "carbs_g": 43.4,
+      "fiber_g": 1.3
+    },
+    "2035": {
+      "name": "Surimi fisk",
+      "version": "2026-06-29T01:14:46.073",
+      "kcal": 105,
+      "protein_g": 0.8,
+      "fat_g": 0.7,
+      "carbs_g": 23.5,
+      "fiber_g": 0
+    },
+    "2048": {
+      "name": "Filmjölk naturell fett 4,2%",
+      "version": "2026-06-29T01:15:33.557",
+      "kcal": 68,
+      "protein_g": 3.5,
+      "fat_g": 4.1,
+      "carbs_g": 4.2,
+      "fiber_g": 0
+    },
+    "2055": {
+      "name": "Mjölkchoklad",
+      "version": "2026-06-29T01:15:56.673",
+      "kcal": 535,
+      "protein_g": 5.2,
+      "fat_g": 30.8,
+      "carbs_g": 58.1,
+      "fiber_g": 3
+    },
+    "2189": {
+      "name": "Rapsolja",
+      "version": "2026-06-29T01:17:02.11",
+      "kcal": 884,
+      "protein_g": 0,
+      "fat_g": 100,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "2255": {
+      "name": "Ost mozzarella fett 18%",
+      "version": "2026-06-29T01:19:06.597",
+      "kcal": 214,
+      "protein_g": 15.6,
+      "fat_g": 16.6,
+      "carbs_g": 0.8,
+      "fiber_g": 0
+    },
+    "2269": {
+      "name": "Ingefära färsk",
+      "version": "2026-06-29T01:19:36.063",
+      "kcal": 63,
+      "protein_g": 2.2,
+      "fat_g": 0.8,
+      "carbs_g": 9,
+      "fiber_g": 5.4
+    },
+    "2475": {
+      "name": "Ris basmati okokt",
+      "version": "2026-06-29T01:25:31.937",
+      "kcal": 359,
+      "protein_g": 9.2,
+      "fat_g": 1,
+      "carbs_g": 76.7,
+      "fiber_g": 0.5
+    },
+    "2477": {
+      "name": "Ris jasmin okokt",
+      "version": "2026-06-29T01:25:34.223",
+      "kcal": 354,
+      "protein_g": 7.5,
+      "fat_g": 0.7,
+      "carbs_g": 78.2,
+      "fiber_g": 0
+    },
+    "2478": {
+      "name": "Ris råris långkornigt okokt fullkorn",
+      "version": "2026-06-29T01:25:36.463",
+      "kcal": 365,
+      "protein_g": 9.4,
+      "fat_g": 3,
+      "carbs_g": 71.9,
+      "fiber_g": 4.2
+    },
+    "2481": {
+      "name": "Ris långkornigt okokt",
+      "version": "2026-06-29T01:25:40.777",
+      "kcal": 352,
+      "protein_g": 7.8,
+      "fat_g": 0.7,
+      "carbs_g": 76.9,
+      "fiber_g": 1
+    },
+    "2492": {
+      "name": "Blandfärs rå nöt 70% gris 30%",
+      "version": "2026-06-29T11:16:37.5",
+      "kcal": 201,
+      "protein_g": 18.8,
+      "fat_g": 14.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "2552": {
+      "name": "Älg högrev rå",
+      "version": "2026-06-29T01:26:01.577",
+      "kcal": 113,
+      "protein_g": 22.5,
+      "fat_g": 2.3,
+      "carbs_g": 0.2,
+      "fiber_g": 0
+    },
+    "2557": {
+      "name": "Tacoskal",
+      "version": "2026-06-29T01:26:10.75",
+      "kcal": 481,
+      "protein_g": 5.5,
+      "fat_g": 23.5,
+      "carbs_g": 59.9,
+      "fiber_g": 4
+    },
+    "2559": {
+      "name": "Romansallat",
+      "version": "2026-06-29T01:26:13.31",
+      "kcal": 16,
+      "protein_g": 1.9,
+      "fat_g": 0.2,
+      "carbs_g": 0.9,
+      "fiber_g": 1.8
+    },
+    "2561": {
+      "name": "Ruccolasallat",
+      "version": "2026-06-29T01:26:17.787",
+      "kcal": 21,
+      "protein_g": 3.6,
+      "fat_g": 0.4,
+      "carbs_g": 0,
+      "fiber_g": 1.7
+    },
+    "3051": {
+      "name": "Hummus kikärtsröra",
+      "version": "2026-06-29T01:42:07.277",
+      "kcal": 306,
+      "protein_g": 5.8,
+      "fat_g": 26.5,
+      "carbs_g": 8.3,
+      "fiber_g": 7.4
+    },
+    "3243": {
+      "name": "Kvarg naturell fett 0,2%",
+      "version": "2026-06-29T01:32:27.357",
+      "kcal": 64,
+      "protein_g": 10,
+      "fat_g": 0.2,
+      "carbs_g": 5.2,
+      "fiber_g": 0
+    },
+    "3323": {
+      "name": "Älg färs rå",
+      "version": "2026-06-29T01:34:17.73",
+      "kcal": 106,
+      "protein_g": 22.6,
+      "fat_g": 1.6,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "3602": {
+      "name": "Tahini",
+      "version": "2026-06-29T00:58:34.33",
+      "kcal": 625,
+      "protein_g": 20.4,
+      "fat_g": 57.2,
+      "carbs_g": 3.6,
+      "fiber_g": 11.2
+    },
+    "3668": {
+      "name": "Sojadryck berikad",
+      "version": "2026-06-29T01:41:44.9",
+      "kcal": 37,
+      "protein_g": 2.6,
+      "fat_g": 1.5,
+      "carbs_g": 3.2,
+      "fiber_g": 0
+    },
+    "3760": {
+      "name": "Vita bönor torkade kokta m. salt",
+      "version": "2026-06-29T01:42:04.623",
+      "kcal": 112,
+      "protein_g": 8.8,
+      "fat_g": 0.9,
+      "carbs_g": 11,
+      "fiber_g": 12.5
+    },
+    "3765": {
+      "name": "Sötpotatis rå",
+      "version": "2026-06-29T01:42:08.81",
+      "kcal": 71,
+      "protein_g": 1.6,
+      "fat_g": 0.4,
+      "carbs_g": 12.9,
+      "fiber_g": 4.4
+    },
+    "3797": {
+      "name": "Bröd fullkorn råg fibrer ca 7%",
+      "version": "2026-06-29T01:42:22.767",
+      "kcal": 226,
+      "protein_g": 9.3,
+      "fat_g": 2.3,
+      "carbs_g": 38.3,
+      "fiber_g": 6.5
+    },
+    "3815": {
+      "name": "Kikärtor konserv. u. lag",
+      "version": "2026-06-29T01:42:38.44",
+      "kcal": 128,
+      "protein_g": 7.5,
+      "fat_g": 2.5,
+      "carbs_g": 15.7,
+      "fiber_g": 6.2
+    },
+    "3816": {
+      "name": "Kidneybönor röda bönor konserv. u. lag",
+      "version": "2026-06-29T01:42:39.987",
+      "kcal": 110,
+      "protein_g": 8.8,
+      "fat_g": 0.7,
+      "carbs_g": 13.4,
+      "fiber_g": 7.2
+    },
+    "3817": {
+      "name": "Svarta bönor konserv. u. lag",
+      "version": "2026-06-29T01:42:41.35",
+      "kcal": 111,
+      "protein_g": 8.1,
+      "fat_g": 1,
+      "carbs_g": 13.8,
+      "fiber_g": 6.8
+    },
+    "3818": {
+      "name": "Hamburgerbröd",
+      "version": "2026-06-29T01:42:42.86",
+      "kcal": 290,
+      "protein_g": 8,
+      "fat_g": 6.7,
+      "carbs_g": 47,
+      "fiber_g": 3.5
+    },
+    "3821": {
+      "name": "Gröna linser torkade kokta m. salt",
+      "version": "2026-06-29T01:42:46.953",
+      "kcal": 127,
+      "protein_g": 9.4,
+      "fat_g": 0.7,
+      "carbs_g": 15.9,
+      "fiber_g": 9.6
+    },
+    "3938": {
+      "name": "Huvudsallat",
+      "version": "2026-06-29T01:43:16.95",
+      "kcal": 16,
+      "protein_g": 0.9,
+      "fat_g": 0.6,
+      "carbs_g": 1.2,
+      "fiber_g": 1.2
+    },
+    "4112": {
+      "name": "Hushållsmargarin fett 80% berikad",
+      "version": "2026-06-29T01:44:50.05",
+      "kcal": 722,
+      "protein_g": 0,
+      "fat_g": 81.7,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "4447": {
+      "name": "Nudlar risnudlar okokta",
+      "version": "2026-06-29T01:47:00.73",
+      "kcal": 360,
+      "protein_g": 3.4,
+      "fat_g": 0.6,
+      "carbs_g": 83.2,
+      "fiber_g": 1.6
+    },
+    "4457": {
+      "name": "Potatis rå",
+      "version": "2026-06-29T01:47:06.633",
+      "kcal": 79,
+      "protein_g": 1.7,
+      "fat_g": 0.1,
+      "carbs_g": 16.4,
+      "fiber_g": 2.1
+    },
+    "4583": {
+      "name": "Gris färs rå fett 15%",
+      "version": "2026-06-29T00:43:11.043",
+      "kcal": 202,
+      "protein_g": 16.8,
+      "fat_g": 15.1,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "4615": {
+      "name": "Alaska pollock rå",
+      "version": "2026-06-29T01:49:15.787",
+      "kcal": 76,
+      "protein_g": 17.6,
+      "fat_g": 0.5,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "4659": {
+      "name": "Olivolja extra jungfruolja",
+      "version": "2026-06-29T01:49:22.613",
+      "kcal": 884,
+      "protein_g": 0,
+      "fat_g": 100,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "4937": {
+      "name": "Tomat körsbärstomat röd",
+      "version": "2026-06-29T01:50:13.48",
+      "kcal": 25,
+      "protein_g": 0.8,
+      "fat_g": 0.1,
+      "carbs_g": 4.4,
+      "fiber_g": 1.5
+    },
+    "4941": {
+      "name": "Spenat färsk",
+      "version": "2026-06-29T01:50:23.717",
+      "kcal": 24,
+      "protein_g": 3.3,
+      "fat_g": 0.4,
+      "carbs_g": 0.8,
+      "fiber_g": 2.1
+    },
+    "4947": {
+      "name": "Lök röd",
+      "version": "2026-06-29T01:50:38.293",
+      "kcal": 46,
+      "protein_g": 1.2,
+      "fat_g": 0.1,
+      "carbs_g": 9,
+      "fiber_g": 2
+    },
+    "5007": {
+      "name": "Kantarell gul rå",
+      "version": "2026-06-29T01:50:28.377",
+      "kcal": 24,
+      "protein_g": 1.7,
+      "fat_g": 0.3,
+      "carbs_g": 2,
+      "fiber_g": 3.3
+    },
+    "5060": {
+      "name": "Vildsvin kött rå",
+      "version": "2026-06-29T01:51:28.727",
+      "kcal": 107,
+      "protein_g": 23,
+      "fat_g": 1.5,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "5150": {
+      "name": "Mandeldryck berikad",
+      "version": "2026-06-29T01:52:19.793",
+      "kcal": 26,
+      "protein_g": 0,
+      "fat_g": 1.3,
+      "carbs_g": 3.5,
+      "fiber_g": 0.2
+    },
+    "5860": {
+      "name": "Sojabönor färska förvällda u. skal",
+      "version": "2026-06-29T01:57:27.62",
+      "kcal": 130,
+      "protein_g": 10.9,
+      "fat_g": 6.4,
+      "carbs_g": 4.9,
+      "fiber_g": 5.1
+    },
+    "5861": {
+      "name": "Sparris grön kokt m. salt",
+      "version": "2026-06-29T01:57:31.82",
+      "kcal": 22,
+      "protein_g": 1.9,
+      "fat_g": 0.2,
+      "carbs_g": 1.8,
+      "fiber_g": 2.5
+    },
+    "5974": {
+      "name": "Bröd vitt vetetortilla",
+      "version": "2026-06-29T01:58:56.793",
+      "kcal": 306,
+      "protein_g": 8.4,
+      "fat_g": 4.8,
+      "carbs_g": 55.5,
+      "fiber_g": 1.8
+    },
+    "6113": {
+      "name": "Yoghurt naturell fett 10%",
+      "version": "2026-06-29T02:01:06.313",
+      "kcal": 109,
+      "protein_g": 3.6,
+      "fat_g": 8.3,
+      "carbs_g": 5.2,
+      "fiber_g": 0
+    },
+    "6157": {
+      "name": "Chiafrö",
+      "version": "2026-06-29T02:01:32.777",
+      "kcal": 448,
+      "protein_g": 19.4,
+      "fat_g": 33.9,
+      "carbs_g": 0,
+      "fiber_g": 36.3
+    },
+    "6165": {
+      "name": "Kokosolja",
+      "version": "2026-06-29T02:01:46.16",
+      "kcal": 881,
+      "protein_g": 0,
+      "fat_g": 99.3,
+      "carbs_g": 0.7,
+      "fiber_g": 0
+    },
+    "6168": {
+      "name": "Kräfta kräftstjärtar konserv. u. lag",
+      "version": "2026-06-29T02:01:53.437",
+      "kcal": 71,
+      "protein_g": 15.6,
+      "fat_g": 0.4,
+      "carbs_g": 0.8,
+      "fiber_g": 0
+    },
+    "6284": {
+      "name": "Falafel kikärtskroketter ugnsstekta",
+      "version": "2026-06-29T01:16:26.177",
+      "kcal": 285,
+      "protein_g": 10,
+      "fat_g": 13.9,
+      "carbs_g": 26.1,
+      "fiber_g": 7.5
+    },
+    "6287": {
+      "name": "Sojaprotein färs stekt",
+      "version": "2026-06-29T01:16:37.497",
+      "kcal": 252,
+      "protein_g": 22.9,
+      "fat_g": 13,
+      "carbs_g": 7.2,
+      "fiber_g": 8
+    },
+    "6542": {
+      "name": "Vetemjöl durum",
+      "version": "2026-06-29T02:04:48.133",
+      "kcal": 352,
+      "protein_g": 12.2,
+      "fat_g": 1.6,
+      "carbs_g": 67.9,
+      "fiber_g": 6.3
+    },
+    "6675": {
+      "name": "Fisksås",
+      "version": "2026-06-29T02:06:15.94",
+      "kcal": 48,
+      "protein_g": 9.1,
+      "fat_g": 0.1,
+      "carbs_g": 2.6,
+      "fiber_g": 0
+    },
+    "6872": {
+      "name": "Majsgryn polenta",
+      "version": "2026-06-29T02:10:27.51",
+      "kcal": 345,
+      "protein_g": 8.6,
+      "fat_g": 2.1,
+      "carbs_g": 68.3,
+      "fiber_g": 7.2
+    },
+    "6907": {
+      "name": "Mörk choklad kakao 70%",
+      "version": "2026-06-29T02:11:34.173",
+      "kcal": 581,
+      "protein_g": 8.4,
+      "fat_g": 43.9,
+      "carbs_g": 34,
+      "fiber_g": 10.8
+    },
+    "6998": {
+      "name": "Näringsjäst",
+      "version": "2026-06-29T02:12:05.117",
+      "kcal": 332,
+      "protein_g": 46.6,
+      "fat_g": 5.2,
+      "carbs_g": 12.6,
+      "fiber_g": 23.4
+    },
+    "7025": {
+      "name": "Mjölmålla quinoa okokt",
+      "version": "2026-06-29T13:23:06.79",
+      "kcal": 356,
+      "protein_g": 14.4,
+      "fat_g": 6.1,
+      "carbs_g": 56.8,
+      "fiber_g": 7
+    },
+    "7027": {
+      "name": "Tempeh",
+      "version": "2026-06-29T02:13:05.25",
+      "kcal": 207,
+      "protein_g": 18.6,
+      "fat_g": 10.8,
+      "carbs_g": 8.2,
+      "fiber_g": 1.3
+    },
+    "7034": {
+      "name": "Shiitakesvamp",
+      "version": "2026-06-29T02:13:26.17",
+      "kcal": 18,
+      "protein_g": 1.8,
+      "fat_g": 0.3,
+      "carbs_g": 0.5,
+      "fiber_g": 3.3
+    },
+    "7137": {
+      "name": "Crème fraiche fett 32%",
+      "version": "2026-06-29T02:16:05.23",
+      "kcal": 312,
+      "protein_g": 2,
+      "fat_g": 33.6,
+      "carbs_g": 1.6,
+      "fiber_g": 0
+    },
+    "7139": {
+      "name": "Crème fraiche lätt fett 13%",
+      "version": "2026-06-29T02:16:11.757",
+      "kcal": 138,
+      "protein_g": 2.9,
+      "fat_g": 11.9,
+      "carbs_g": 5.2,
+      "fiber_g": 0
+    },
+    "7156": {
+      "name": "Tonfisk gulfenad rå",
+      "version": "2026-06-29T02:16:59.11",
+      "kcal": 95,
+      "protein_g": 21.7,
+      "fat_g": 0.6,
+      "carbs_g": 0.5,
+      "fiber_g": 0
+    },
+    "7166": {
+      "name": "Krabba vitt kött kokt",
+      "version": "2026-06-29T02:17:04.507",
+      "kcal": 86,
+      "protein_g": 20.5,
+      "fat_g": 0.3,
+      "carbs_g": 0,
+      "fiber_g": 0
+    },
+    "7192": {
+      "name": "Sellerikål pak choi",
+      "version": "2026-06-29T02:17:19.953",
+      "kcal": 19,
+      "protein_g": 1.4,
+      "fat_g": 0.2,
+      "carbs_g": 1.8,
+      "fiber_g": 1.9
+    }
+  }
+}
