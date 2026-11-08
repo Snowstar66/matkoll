@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-08",
+    title: "Lagom textstorlek från start",
+    bullets: [
+      "Standard är nu samma storlek som övriga appar på iPhone, lite större än förut.",
+      "Vill du ha den gamla storleken väljer du Mindre under Inställningar, Utseende. Störst heter nu Större.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Vitlöksklyftor läses rätt",
     bullets: [
       "Står det 2 vitlöksklyftor i ett recept blir det nu 2 klyftor, inte 2 hela vitlökar.",

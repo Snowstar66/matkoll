@@ -1,13 +1,13 @@
 // Textstorlek and Fetare text (Inställningar → Utseende): per device, like the colour theme.
-// Kept in localStorage (wrapped, storage can be blocked) and applied as `data-text` ("l" | "xl")
+// Kept in localStorage (wrapped, storage can be blocked) and applied as `data-text` ("s" | "xl")
 // and `data-bold` on <html>; the sizes and weights themselves live in globals.css. Standard and
 // "off" set nothing on <html>, so the default renders exactly as before. textBootScript() runs
 // before the first paint so a chosen size never flashes the standard one.
 
 export const textSizes = [
+  { id: "s", label: "Mindre" },
   { id: "standard", label: "Standard" },
-  { id: "l", label: "Större" },
-  { id: "xl", label: "Störst" },
+  { id: "xl", label: "Större" },
 ] as const;
 
 export type TextSizeId = (typeof textSizes)[number]["id"];
