@@ -79,21 +79,22 @@ export function almanacActivities(list: readonly string[], max = 2, skip: readon
 /**
  * The almanac's advice for a day in one sentence, or null when neither list has
  * anything kept, under the almanac's own marks 宜 (yí, "suitable") and 忌 (jì,
- * "avoid"): "宜 städa hemma, storhandla · 忌 möblera om".
+ * "avoid"), each followed by its words: "宜 Bra dag att städa hemma och storhandla ·
+ * 忌 Undvik att möblera om".
  * At most two "bra" and one "undvik", so the card stays short; a phrase on both
  * lists (two terms can share one) is kept as "bra" only.
  */
 export function almanacAdvice(yi: readonly string[], ji: readonly string[]): string | null {
-  if (yi.includes(restDay) || (ji.includes(restDay) && yi.length === 0)) return "宜 ta det lugnt";
+  if (yi.includes(restDay) || (ji.includes(restDay) && yi.length === 0)) return "宜 Bra dag att ta det lugnt";
   const good = almanacActivities(yi, 2);
   const avoid = almanacActivities(ji, 1, good);
   const parts: string[] = [];
-  if (good.length > 0) parts.push(`宜 ${good.join(", ")}`);
-  if (avoid.length > 0) parts.push(`忌 ${avoid[0]}`);
+  if (good.length > 0) parts.push(`宜 Bra dag att ${good.join(" och ")}`);
+  if (avoid.length > 0) parts.push(`忌 Undvik att ${avoid[0]}`);
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-/** "宜 städa hemma · 忌 storhandla", or null when the lists hold nothing kept. The marks say where it comes from; Hjälp and Tillval explain them. */
+/** "宜 Bra dag att städa hemma · 忌 Undvik att storhandla", or null when the lists hold nothing kept. The marks say where it comes from; Hjälp and Tillval explain them. */
 export async function almanacLine({ year, month, day }: Day): Promise<string | null> {
   try {
     const { Solar } = await import("lunar-javascript");
