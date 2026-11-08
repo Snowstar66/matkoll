@@ -31,6 +31,16 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-08",
+    title: "Datum i Dagens och Matsedel, och lugnare lediga dagar",
+    bullets: [
+      "Dagens har ett kalenderblad med veckodag, datum och månad, och raden med datumet är borta.",
+      "Säsongsraden nämner bara råvaran, till exempel Pumpan är som bäst nu, och byter från dag till dag.",
+      "Matdagar och Säsongens råvara är nu två val under Inställningar, Tillval.",
+      "I Matsedel står bara dagens nummer under veckodagen, med månaden där den byter. Lediga dagar är en lugn rad med ett plus.",
+    ],
+  },
+  {
+    date: "2026-11-08",
     title: "Almanackan säger det i ord också",
     bullets: [
       "Efter tecknen 宜 och 忌 står nu Bra dag att och Undvik att, så raden går att läsa direkt.",

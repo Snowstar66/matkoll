@@ -65,7 +65,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Vad är kortet Dagens överst i Recept?",
-        answer: "Ett litet kort med dagens datum och en rad om mat: en matdag som Kanelbullens dag, annars något som är i säsong, och då nämns ett recept du har om det passar. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, och du kan lägga till namnsdagen och Kinesiska almanackan. Almanackan säger vad dagen passar för, gärna om mat, planering och ordning hemma, och en sak att undvika. Den använder almanackans egna tecken: 宜 (yí) betyder lämpligt och 忌 (jì) betyder undvik. Allt räknas ut i appen.",
+        answer: "Ett litet kort med dagens datum på ett kalenderblad och en eller två rader om mat: en matdag som Kanelbullens dag, och vad som är som bäst just nu, till exempel pumpa, sparris eller blodapelsiner. Krysset döljer kortet till i morgon. Under Inställningar, Tillval, väljer du om kortet visas, om du vill ha Matdagar och Säsongens råvara (var för sig), och du kan lägga till namnsdagen och Kinesiska almanackan. Almanackan säger vad dagen passar för, gärna om mat, planering och ordning hemma, och en sak att undvika, på varsin rad. Den använder almanackans egna tecken: 宜 (yí) betyder lämpligt och 忌 (jì) betyder undvik. Allt räknas ut i appen.",
       },
       {
         question: "Kan jag dela ett recept med andra?",
@@ -90,7 +90,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Matsedel",
     steps: [
       { icon: "calendar", title: "Välj vecka", text: "Denna vecka, Nästa eller Om 2 v. Veckan du valt gäller också Inköpslistan och när du lägger en rätt på matsedeln från receptet." },
-      { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender, och en ledig dag väljer du med ett tryck. Tryck + i rubriken eller fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
+      { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender med dagens nummer under veckodagen (månaden står på första dagen och när den byter), och en ledig dag, en rad med ett plus, väljer du med ett tryck. Tryck + i rubriken eller fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
       { icon: "house", title: "Se vad som ska köpas", text: "Raden under Veckans rätter räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],
     faq: [

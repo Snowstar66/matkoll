@@ -10,7 +10,7 @@ test("the card shows on Recept, X hides it, and Visa Dagens turns it off", async
   await page.goto("/recept");
   const card = page.getByTestId("dagens-card");
   await expect(card).toBeVisible();
-  await expect(card).toContainText(/Dagens · /);
+  await expect(card.getByRole("img", { name: /^(Måndag|Tisdag|Onsdag|Torsdag|Fredag|Lördag|Söndag) \d{1,2} / })).toBeVisible();
 
   await page.getByRole("button", { name: "Dölj idag" }).click();
   await expect(card).toHaveCount(0);
@@ -23,7 +23,8 @@ test("the card shows on Recept, X hides it, and Visa Dagens turns it off", async
   await expect(page.getByRole("heading", { name: "Dagens" })).toBeVisible();
   const show = page.getByRole("switch", { name: "Visa Dagens" });
   await expect(show).toBeChecked();
-  await expect(page.getByRole("switch", { name: "Matdagar och säsong" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Matdagar" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Säsongens råvara" })).toBeChecked();
   await expect(page.getByRole("switch", { name: "Namnsdag" })).not.toBeChecked();
   await expect(page.getByRole("switch", { name: "Kinesiska almanackan" })).not.toBeChecked();
   await page.evaluate(() => localStorage.removeItem("livskoll-dagens-hidden"));

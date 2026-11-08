@@ -329,7 +329,7 @@ export function todayWeekday(date: Date, timeZone: string = planTimeZone): numbe
  * arithmetic on the Stockholm date, so a week with a clock change still has
  * seven consecutive dates.
  */
-export function weekdayDateText(date: Date, weekday: number, timeZone: string = planTimeZone): string {
+export function dateOfWeekdayText(date: Date, weekday: number, timeZone: string = planTimeZone): string {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric", day: "numeric" })
     .formatToParts(date)
     .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
@@ -340,12 +340,12 @@ export function weekdayDateText(date: Date, weekday: number, timeZone: string = 
 /** The dates a week covers, Monday to Sunday: "27 okt – 2 nov". */
 export function weekRangeText(weekStart: string): string {
   const anchor = weekAnchorDate(weekStart);
-  return `${weekdayDateText(anchor, 1)} \u2013 ${weekdayDateText(anchor, 7)}`;
+  return `${dateOfWeekdayText(anchor, 1)} \u2013 ${dateOfWeekdayText(anchor, 7)}`;
 }
 
 /** The day of the month of `weekday` in the week `date` falls in: "31". */
 export function weekdayDayNumber(date: Date, weekday: number, timeZone: string = planTimeZone): string {
-  return weekdayDateText(date, weekday, timeZone).split(" ")[0] ?? "";
+  return dateOfWeekdayText(date, weekday, timeZone).split(" ")[0] ?? "";
 }
 
 /**

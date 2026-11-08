@@ -1,67 +1,63 @@
 // What is in season in Sweden, by month: a fixed editorial list of the produce Swedes
-// know as that time's own (Swedish harvest, plus citrus in the winter when it peaks
-// further south). The first item that one of the household's recipes uses is named.
-// `stems` are matched inside the recipe title, so "pump" finds "Spagettipumpa".
+// know as that time's own (Swedish harvest, plus citrus and the stone fruit of the
+// summer). The line names only the produce, never a recipe: it is a nudge to look for
+// the primeur, not a menu. The item rotates with the day of the month, so it varies.
 
-export type SeasonItem = {
-  /** The definite form, which starts the sentence: "Pumpan". */
-  definite: string;
-  stems: readonly string[];
-};
+/** The definite form, which starts the sentence: "Pumpan". */
+const s = {
+  blodapelsiner: "Blodapelsinerna",
+  citrus: "Citrusfrukterna",
+  gronkal: "Grönkålen",
+  rabarber: "Rabarbern",
+  spenat: "Spenaten",
+  sparris: "Sparrisen",
+  radisor: "Rädisorna",
+  farskpotatis: "Färskpotatisen",
+  nypotatis: "Nypotatisen",
+  jordgubbar: "Jordgubbarna",
+  blabar: "Blåbären",
+  artor: "Ärterna",
+  nektariner: "Nektarinerna",
+  persikor: "Persikorna",
+  kantareller: "Kantarellerna",
+  tomater: "Tomaterna",
+  majs: "Majsen",
+  plommon: "Plommonen",
+  applen: "Äpplena",
+  svamp: "Svampen",
+  lingon: "Lingonen",
+  pumpa: "Pumpan",
+  rotfrukter: "Rotfrukterna",
+  rotselleri: "Rotsellerin",
+  clementiner: "Clementinerna",
+  rodkal: "Rödkålen",
+} as const;
 
-const item = (definite: string, ...stems: string[]): SeasonItem => ({ definite, stems });
-
-const roots = item("Rotfrukterna", "rotfrukt", "morot", "morötter", "palsternack", "rödbet", "rotselleri", "kålrot");
-const cabbage = item("Kålen", "kål");
-const citrus = item("Citrusfrukterna", "citron", "apelsin", "lime", "clementin");
-const pumpkin = item("Pumpan", "pump");
-const mushrooms = item("Svampen", "svamp", "kantarell", "champinjon", "karljohan");
-const apple = item("Äpplena", "äpple", "äppel");
-const pear = item("Päronen", "päron");
-const plum = item("Plommonen", "plommon");
-const leek = item("Purjolöken", "purjolök");
-const rhubarb = item("Rabarbern", "rabarber");
-const asparagus = item("Sparrisen", "sparris");
-const radish = item("Rädisorna", "rädis");
-const strawberry = item("Jordgubbarna", "jordgubb");
-const newPotato = item("Nypotatisen", "nypotatis");
-const zucchini = item("Zucchinin", "zucchini");
-const cucumber = item("Gurkan", "gurk");
-const tomato = item("Tomaterna", "tomat");
-const blueberry = item("Blåbären", "blåbär");
-const corn = item("Majsen", "majs");
-const peas = item("Ärterna", "ärt");
-
-/** Index 0 is January. Order matters: the first match with a recipe wins. */
-export const seasonByMonth: readonly (readonly SeasonItem[])[] = [
-  [cabbage, roots, citrus],
-  [cabbage, roots, citrus],
-  [roots, cabbage, leek],
-  [rhubarb, leek, roots],
-  [asparagus, rhubarb, radish],
-  [strawberry, newPotato, asparagus, peas],
-  [strawberry, newPotato, blueberry, zucchini, cucumber, tomato],
-  [mushrooms, blueberry, corn, zucchini, tomato, plum],
-  [mushrooms, apple, pear, plum, pumpkin, cabbage],
-  [pumpkin, apple, pear, mushrooms, cabbage, roots],
-  [pumpkin, cabbage, roots],
-  [cabbage, roots, citrus],
+/** Index 0 is January. */
+export const seasonByMonth: readonly (readonly string[])[] = [
+  [s.blodapelsiner, s.citrus, s.gronkal],
+  [s.blodapelsiner, s.citrus, s.gronkal],
+  [s.spenat, s.rotfrukter, s.gronkal],
+  [s.rabarber, s.spenat, s.radisor],
+  [s.sparris, s.rabarber, s.radisor],
+  [s.farskpotatis, s.jordgubbar, s.sparris, s.radisor],
+  [s.jordgubbar, s.blabar, s.nypotatis, s.artor, s.nektariner, s.persikor],
+  [s.kantareller, s.tomater, s.majs, s.plommon, s.nektariner, s.persikor],
+  [s.applen, s.svamp, s.lingon, s.plommon],
+  [s.pumpa, s.applen, s.rotfrukter],
+  [s.pumpa, s.gronkal, s.rotselleri],
+  [s.gronkal, s.clementiner, s.rodkal],
 ];
 
-export type SeasonRecipe = { id: string; title: string };
-
-export type SeasonLine = { item: SeasonItem; recipe: SeasonRecipe | null };
-
-/** The seasonal line for a month: the first item a recipe uses, else the month's first item alone. */
-export function seasonLine(month: number, recipes: readonly SeasonRecipe[]): SeasonLine | null {
+/** The produce the season line names for a day: the month's list, rotated by the day of the month. */
+export function seasonItem(month: number, day: number): string | null {
   const items = seasonByMonth[month - 1];
   if (!items) return null;
-  for (const candidate of items) {
-    const recipe = recipes.find((entry) => {
-      const title = entry.title.toLowerCase();
-      return candidate.stems.some((stem) => title.includes(stem));
-    });
-    if (recipe) return { item: candidate, recipe };
-  }
-  return { item: items[0], recipe: null };
+  return items[(day - 1) % items.length] ?? null;
+}
+
+/** "Pumpan är som bäst nu." */
+export function seasonLine(month: number, day: number): string | null {
+  const item = seasonItem(month, day);
+  return item ? `${item} är som bäst nu.` : null;
 }

@@ -21,6 +21,7 @@ export {
   weekdayNames,
   weekdays,
   weekdayWord,
+  weekdayShortName,
   todayWeekday,
   dishCountText,
   planSummaryText,

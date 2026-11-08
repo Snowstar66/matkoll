@@ -178,12 +178,32 @@ export function weekQuery(weekStart: string, now: Date = new Date()): string {
   return weekStart === currentWeekStart(now) ? "" : `?vecka=${weekParam(weekStart)}`;
 }
 
-/** The date of a weekday (1 Mon to 7 Sun) of the week starting `weekStart`, as "10/11"; empty for a bad input. */
-export function weekdayDateText(weekStart: string, weekday: number): string {
+const shortMonths = ["jan", "feb", "mars", "apr", "maj", "juni", "juli", "aug", "sep", "okt", "nov", "dec"];
+
+function dateOfWeekday(weekStart: string, weekday: number): Date | null {
   const date = parseDate(weekStart);
-  if (!date || weekday < 1 || weekday > 7) return "";
+  if (!date || weekday < 1 || weekday > 7) return null;
   date.setUTCDate(date.getUTCDate() + weekday - 1);
-  return `${date.getUTCDate()}/${date.getUTCMonth() + 1}`;
+  return date;
+}
+
+/** The date of a weekday (1 Mon to 7 Sun) of the week starting `weekStart`, as "10 nov"; empty for a bad input. */
+export function weekdayDateText(weekStart: string, weekday: number): string {
+  const date = dateOfWeekday(weekStart, weekday);
+  return date ? `${date.getUTCDate()} ${shortMonths[date.getUTCMonth()]}` : "";
+}
+
+/**
+ * The date under a day chip: just the day number ("3"), with the month ("30 nov") on the
+ * first day shown and wherever the month changes from the day shown before it
+ * (`previousWeekday`, null for the first). Empty for a bad input.
+ */
+export function chipDateText(weekStart: string, weekday: number, previousWeekday: number | null): string {
+  const date = dateOfWeekday(weekStart, weekday);
+  if (!date) return "";
+  const before = previousWeekday === null ? null : dateOfWeekday(weekStart, previousWeekday);
+  const newMonth = !before || before.getUTCMonth() !== date.getUTCMonth();
+  return newMonth ? `${date.getUTCDate()} ${shortMonths[date.getUTCMonth()]}` : String(date.getUTCDate());
 }
 
 /** The first weekday of the viewed week that can still get a dish: today's in this week, 1 in a coming week, 8 (none) in a past one. */
