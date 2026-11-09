@@ -1,9 +1,10 @@
-import { normalizeUnit, unitInNoun, unitOfNoun, type IngredientMatch, type Unit } from "@/features/catalog";
+import { importAmount, unitInNoun, unitOfNoun, type IngredientMatch, type Unit } from "@/features/catalog";
 import { draftLimits, type LineHint, type RecipeDraft, type RecipeLine, type RecipeStep } from "./recipe-draft";
 
 // The only mapping from the AI port's answer to a RecipeDraft (AD-10), for
 // link, text, photo and AI suggestions alike. Units are read with the
-// catalog's normalizeUnit (AD-12); amounts are never converted.
+// catalog's importAmount: a catalog unit keeps its amount (AD-12), a foreign
+// one ("cups", "näve") is converted once, at import.
 
 /**
  * What fromAiRecipe reads from `AiRecipe` (src/server/ai/schemas.ts). Declared
@@ -82,7 +83,9 @@ function toLine(
   });
   const stepIndexes = [...new Set(kept)].sort((a, b) => a - b);
   const amount = line.amount !== null && Number.isFinite(line.amount) && line.amount > 0 ? line.amount : null;
-  const unit = normalizeUnit(line.unit);
+  // A unit the catalog lacks ("näve", "cups", "oz") is converted once, here at
+  // the import (catalog.importAmount), so the amount is not lost.
+  const imported = amount === null ? null : importAmount(amount, line.unit);
   const group = shortHeading(line.group, draftLimits.groupChars);
   const base = {
     originalText: line.originalText,
@@ -101,12 +104,12 @@ function toLine(
         }
       : {}),
   };
-  // A vague line, one without an amount, or one with a unit the catalog does not
-  // know ("1 bit", "en näve") keeps only its original text.
-  if (line.isVague || amount === null || !unit.known) {
+  // A vague line, one without an amount, or one with a unit neither the catalog
+  // nor the import table knows keeps only its original text.
+  if (line.isVague || imported === null) {
     return { ...base, amount: null, unit: null, isVague: true };
   }
-  return { ...base, amount, unit: unitOfCount(line, ingredient, unit.unit), isVague: false };
+  return { ...base, amount: imported.amount, unit: unitOfCount(line, ingredient, imported.unit), isVague: false };
 }
 
 /**

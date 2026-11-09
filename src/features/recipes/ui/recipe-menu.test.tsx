@@ -315,7 +315,7 @@ describe("RecipeMenu", () => {
     expect(within(carrots).getByText("Ange ett tal.")).toBeInTheDocument();
 
     const salt = lineRow(sheet, "salt");
-    fireEvent.click(within(salt).getByRole("button", { name: /^Ändra\s*mängd för Salt$/ }));
+    fireEvent.click(within(salt).getByRole("button", { name: /^Lägg till mängd\s*för Salt$/ }));
     fireEvent.click(within(salt).getByRole("button", { name: /^Ta bort raden\s*Salt$/ }));
 
     expect(within(sheet).getAllByTestId("recipe-line")).toHaveLength(2);
@@ -340,7 +340,7 @@ describe("RecipeMenu", () => {
     const sheet = openEdit();
     const remove = (name: string) => {
       const row = lineRow(sheet, name);
-      fireEvent.click(within(row).getByRole("button", { name: /^Ändra\s*mängd/ }));
+      fireEvent.click(within(row).getByRole("button", { name: /^(Ändra|Lägg till)\s*mängd/ }));
       fireEvent.click(within(row).getByRole("button", { name: /^Ta bort raden/ }));
     };
     remove("1 gul lök");

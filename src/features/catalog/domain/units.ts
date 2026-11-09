@@ -89,6 +89,99 @@ export function normalizeUnit(raw: string | null | undefined): NormalizedUnit {
 }
 
 /**
+ * Units a recipe writes that the catalog does not have, with the catalog unit
+ * and the amount of it that one of them makes. Read only when a recipe is
+ * imported (importAmount), never in the catalog's own operations.
+ *
+ * AD-12 says units are never converted into each other, and that holds for the
+ * pantry, the list and the shopping needs. A recipe from an American blog or a
+ * caption is another matter: dropping "2 cups flour" to a line without amount
+ * is worse than "4,8 dl". So the import converts once, and `originalText`
+ * keeps the line as the source wrote it. The sizes are rough on purpose
+ * (a näve is about a dl, a glas two); the amount shown is rounded to match.
+ */
+const foreignUnits = new Map<string, { unit: Unit; per: number }>([
+  // Swedish measures the catalog has no unit for.
+  ["nypa", { unit: "krm", per: 1 }],
+  ["nypor", { unit: "krm", per: 1 }],
+  ["näve", { unit: "dl", per: 1 }], // ungefär
+  ["nävar", { unit: "dl", per: 1 }],
+  ["kvist", { unit: "st", per: 1 }],
+  ["kvistar", { unit: "st", per: 1 }],
+  ["bit", { unit: "st", per: 1 }],
+  ["bitar", { unit: "st", per: 1 }],
+  ["glas", { unit: "dl", per: 2 }], // ungefär
+  ["bunt", { unit: "knippe", per: 1 }],
+  ["buntar", { unit: "knippe", per: 1 }],
+  ["huvud", { unit: "st", per: 1 }],
+  ["huvuden", { unit: "st", per: 1 }],
+  // English and American.
+  ["tbsp", { unit: "msk", per: 1 }],
+  ["tbs", { unit: "msk", per: 1 }],
+  ["tablespoon", { unit: "msk", per: 1 }],
+  ["tablespoons", { unit: "msk", per: 1 }],
+  ["tsp", { unit: "tsk", per: 1 }],
+  ["teaspoon", { unit: "tsk", per: 1 }],
+  ["teaspoons", { unit: "tsk", per: 1 }],
+  ["cup", { unit: "dl", per: 2.4 }],
+  ["cups", { unit: "dl", per: 2.4 }],
+  ["oz", { unit: "g", per: 28 }],
+  ["ounce", { unit: "g", per: 28 }],
+  ["ounces", { unit: "g", per: 28 }],
+  ["lb", { unit: "g", per: 454 }],
+  ["lbs", { unit: "g", per: 454 }],
+  ["pound", { unit: "g", per: 454 }],
+  ["pounds", { unit: "g", per: 454 }],
+  ["fl oz", { unit: "cl", per: 3 }],
+  ["fl. oz", { unit: "cl", per: 3 }],
+  ["fluid ounce", { unit: "cl", per: 3 }],
+  ["fluid ounces", { unit: "cl", per: 3 }],
+  ["pinch", { unit: "krm", per: 1 }],
+  ["pinches", { unit: "krm", per: 1 }],
+  ["dash", { unit: "krm", per: 1 }],
+  ["handful", { unit: "dl", per: 1 }], // ungefär
+  ["handfuls", { unit: "dl", per: 1 }],
+  ["can", { unit: "förp", per: 1 }],
+  ["cans", { unit: "förp", per: 1 }],
+  ["package", { unit: "förp", per: 1 }],
+  ["packages", { unit: "förp", per: 1 }],
+  ["pkg", { unit: "förp", per: 1 }],
+  ["clove", { unit: "klyfta", per: 1 }],
+  ["cloves", { unit: "klyfta", per: 1 }],
+  ["bunch", { unit: "knippe", per: 1 }],
+  ["bunches", { unit: "knippe", per: 1 }],
+  ["stick", { unit: "g", per: 113 }], // a stick of butter
+  ["sticks", { unit: "g", per: 113 }],
+  ["slice", { unit: "skiva", per: 1 }],
+  ["slices", { unit: "skiva", per: 1 }],
+  ["piece", { unit: "st", per: 1 }],
+  ["pieces", { unit: "st", per: 1 }],
+]);
+
+/** A converted amount, rounded the way a person would write it: whole grams (fives from 50), halves of a dl or cl from 2, else a tenth. */
+function roundImported(amount: number, unit: Unit): number {
+  if (unit === "g") return amount >= 50 ? Math.round(amount / 5) * 5 : Math.round(amount);
+  if ((unit === "dl" || unit === "cl") && amount >= 2) return Math.round(amount * 2) / 2;
+  return Math.round(amount * 10) / 10;
+}
+
+/**
+ * An amount and the unit it is written in, as the catalog has them, for a line
+ * of an imported recipe: "2 dl" stays, "2 cups" becomes 4,8 dl → 5 dl,
+ * "1 näve" becomes 1 dl. A catalog unit or no unit keeps the amount as is;
+ * a unit that is neither the catalog's nor in the table above gives `null`,
+ * and the caller keeps the line's original text only.
+ */
+export function importAmount(amount: number, rawUnit: string | null | undefined): { amount: number; unit: Unit | null } | null {
+  const known = normalizeUnit(rawUnit);
+  if (known.known) return { amount, unit: known.unit };
+  const key = (rawUnit ?? "").normalize("NFC").trim().toLocaleLowerCase("sv-SE").replace(/\.$/, "").replace(/\s+/g, " ");
+  const foreign = foreignUnits.get(key);
+  if (!foreign) return null;
+  return { amount: foreign.per === 1 ? amount : roundImported(amount * foreign.per, foreign.unit), unit: foreign.unit };
+}
+
+/**
  * Units a Swedish recipe writes inside the noun, by the noun's ending:
  * "vitlöksklyftor" is klyfta, "dillknippe" knippe, "basilikakruka" kruka,
  * "skinkskivor" skiva. Only units the catalog has; "dillkvist" has none.

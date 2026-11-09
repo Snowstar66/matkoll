@@ -65,13 +65,26 @@ describe("fromAiRecipe", () => {
     ]);
   });
 
-  it("makes a line with an unknown unit vague, without amount and unit", () => {
+  it("makes a line with a unit nobody knows vague, without amount and unit", () => {
     const draft = fromAiRecipe(
-      recipe({ ingredients: [line({ originalText: "1 bit färsk ingefära", amount: 1, unit: "bit" })] }),
+      recipe({ ingredients: [line({ originalText: "1 sked färsk ingefära", amount: 1, unit: "sked" })] }),
       [match],
       { kind: "text" },
     );
-    expect(draft.lines[0]).toMatchObject({ originalText: "1 bit färsk ingefära", amount: null, unit: null, isVague: true });
+    expect(draft.lines[0]).toMatchObject({ originalText: "1 sked färsk ingefära", amount: null, unit: null, isVague: true });
+  });
+
+  it.each([
+    ["1 näve spenat", 1, "näve", 1, "dl"],
+    ["1 nypa muskot", 1, "nypa", 1, "krm"],
+    ["1 bit ingefära", 1, "bit", 1, "st"],
+    ["2 cups flour", 2, "cups", 5, "dl"],
+    ["1 lb ground beef", 1, "lb", 455, "g"],
+    ["2 tbsp sugar", 2, "tbsp", 2, "msk"],
+    ["1 can tomatoes", 1, "can", 1, "förp"],
+  ])("keeps the amount of %s, converted to a catalog unit", (originalText, amount, unit, kept, keptUnit) => {
+    const draft = fromAiRecipe(recipe({ ingredients: [line({ originalText, amount, unit })] }), [match], { kind: "text" });
+    expect(draft.lines[0]).toMatchObject({ originalText, amount: kept, unit: keptUnit, isVague: false });
   });
 
   it("keeps a vague line vague", () => {
