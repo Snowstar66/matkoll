@@ -1,22 +1,64 @@
-import { expect, type Page, test } from "@playwright/test";
-import { adminClient, clearFoodProfiles, e2eEmail, e2eUserId, userStorageState } from "./support";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+import { adminClient, clearFoodProfiles, e2eEmail, e2eUserId, seedFoodProfile, userStorageState } from "./support";
 
-// Menyrådgivare (Tillval, off by default): "Äter ute?" under Matsedel shows only when the option is on; a photo of a menu
-// is read through POST /api/menu/read (mocked here with the taverna fixture), shown in groups with prices in euro and
-// about so many kronor, marked against what is avoided, and starred dishes add up under Ikväll.
+// Menyrådgivare (Tillval, off by default), "En enkel resa": "Äter ute?" under Matsedel shows only when the option is on.
+// Fota menyn (POST /api/menu/read?stream=1, mocked here: the lines of the live reading are pushed by the test), a few
+// dishes per person, one tap to choose, "Ert val" to show the waiter, the whole menu and the dish in a sheet.
 
 const mobile = { width: 375, height: 812 };
 const photo = "tests/fixtures/ai/kyl.png";
+const shots = "test-results/shots/menu-journey";
+
+const dish = (originalnamn: string, grupp: string, forklaring: string, rest: Record<string, unknown> = {}) => ({
+  originalnamn,
+  grupp,
+  forklaring,
+  huvudingredienser: [],
+  kategori: "ej_tillampligt",
+  allergener: [],
+  kan_innehalla: [],
+  pris: null,
+  valuta: "SEK",
+  ...rest,
+});
+
 const menu = {
   restaurang: "Taverna Mock",
   sprak: "es",
   ratter: [
-    { originalnamn: "Pulpo a la gallega", grupp: "Förrätt", forklaring: "Kokt bläckfisk med potatis.", huvudingredienser: ["bläckfisk"], kategori: "skaldjur", allergener: ["skaldjur"], kan_innehalla: [], pris: 17.95, valuta: "EUR" },
-    { originalnamn: "Croquetas de jamón", grupp: "Förrätt", forklaring: "Friterade kroketter.", huvudingredienser: ["skinka", "vitlök"], kategori: "kott", allergener: ["gluten", "laktos"], kan_innehalla: ["notter"], pris: 9.5, valuta: "EUR" },
-    { originalnamn: "Paella de verduras", grupp: "Varmrätt", forklaring: "Risrätt med grönsaker.", huvudingredienser: ["ris", "paprika"], kategori: "vegetariskt", allergener: [], kan_innehalla: [], pris: 15, valuta: "EUR" },
+    dish("Pimientos de padrón", "Förrätt", "Små stekta gröna paprikor med flingsalt och olivolja.", { huvudingredienser: ["paprika"], kategori: "vegetariskt", pris: 77 }),
+    dish("Croquetas de jamón", "Förrätt", "Friterade kroketter fyllda med skinka och krämig vitsås.", { huvudingredienser: ["skinka", "mjölk"], kategori: "kott", allergener: ["gluten", "laktos"], pris: 88 }),
+    dish("Paella de marisco", "Varmrätt", "Risgryta med skaldjur, saffran och musslor, serverad i pannan.", { huvudingredienser: ["ris", "skaldjur"], kategori: "skaldjur", allergener: ["skaldjur"], pris: 198 }),
+    dish("Gambas al ajillo", "Varmrätt", "Stekta räkor i het vitlöksolja med chili och bröd till.", { huvudingredienser: ["räkor", "vitlök"], kategori: "skaldjur", allergener: ["skaldjur"], pris: 154 }),
+    dish("Albóndigas", "Varmrätt", "Köttbullar i tomatsås med lök, serverade med färskt bröd.", { huvudingredienser: ["nötkött", "tomat"], kategori: "kott", allergener: ["gluten"], pris: 99 }),
+    dish("Tortilla española", "Varmrätt", "Spansk potatisomelett med lök, stekt i olivolja och skuren i bitar.", { huvudingredienser: ["potatis", "ägg"], kategori: "vegetariskt", allergener: ["agg"], pris: 88 }),
+    dish("Pulpo a la gallega", "Varmrätt", "Kokt bläckfisk med potatis, olivolja och rökt paprikakrydda.", { huvudingredienser: ["bläckfisk", "paprika"], kategori: "skaldjur", allergener: ["skaldjur"], pris: 176 }),
+    dish("Tarta de Santiago", "Efterrätt", "Spansk mandelkaka med florsocker.", { huvudingredienser: ["mandel", "ägg", "socker"], allergener: ["notter", "agg"], pris: 66 }),
+    dish("Cerveza", "Drycker", "Öl.", { allergener: ["gluten"], pris: 55 }),
+    dish("Vino tinto", "Drycker", "Rött vin, per glas.", { pris: 75 }),
   ],
-  osakert: ["Priset på en efterrätt"],
+  osakert: [],
 };
+
+// Every main course has nuts: for someone with a nut allergy there is nothing else, so the dish is shown red with the reason.
+const nutMenu = {
+  ...menu,
+  ratter: [
+    dish("Ensalada mixta", "Varmrätt", "Blandad sallad med tomat och gurka, dressing med nötter.", { allergener: ["notter"], pris: 77 }),
+    dish("Pesto de almendras", "Varmrätt", "Pasta med pesto av mandel, basilika och parmesan.", { allergener: ["notter", "gluten"], pris: 120 }),
+  ],
+};
+
+const readerLine = { type: "reading", quality: "standard", restart: false, model: "Haiku 5.5", effort: "låg" };
+const lineOf = (value: object) => `${JSON.stringify(value)}\n`;
+const doneLine = (value: object, quality = "standard") => ({
+  type: "done",
+  menu: value,
+  quality,
+  escalated: false,
+  model: quality === "careful" ? "Sonnet 5.5" : "Haiku 5.5",
+  effort: quality === "careful" ? "medel" : "låg",
+});
 
 test.use({ storageState: userStorageState, viewport: mobile });
 
@@ -25,9 +67,90 @@ test.beforeEach(async () => {
   await clearFoodProfiles(await e2eUserId(e2eEmail));
 });
 
-async function optionOn(page: Page) {
-  await page.addInitScript(() => localStorage.setItem("livskoll-option-menuAdvisor", "1"));
+async function optionOn(page: Page, size?: "xl") {
+  await page.addInitScript((textSize) => {
+    localStorage.setItem("livskoll-option-menuAdvisor", "1");
+    if (textSize) localStorage.setItem("livskoll-text", textSize);
+  }, size ?? null);
 }
+
+/** Anna (a kept guest: gluten, avoids garlic, loves paprika, wine) and "Du" with beer, saved for the household. */
+async function seedCompany() {
+  const userId = await e2eUserId(e2eEmail);
+  await seedFoodProfile(userId, { allergies: [], dislikes: [], likes: [] });
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  await admin.from("food_profile").update({ drink: "ol" }).eq("household_id", member.data!.household_id).eq("person_key", `m-${userId}`);
+  const { error } = await admin.from("food_profile").insert({
+    household_id: member.data!.household_id,
+    person_key: "p-anna",
+    kind: "guest",
+    name: "Anna",
+    allergies: ["gluten"],
+    tastes: {},
+    dislikes: ["vitlök"],
+    likes: ["paprika"],
+    drink: "vin",
+  });
+  if (error) throw error;
+}
+
+/**
+ * A stream the test drives: /api/menu/read?stream=1 answers with a body that stays open until `push` writes lines to
+ * it, so what the screen shows while the server reads can be looked at.
+ */
+async function liveStream(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __menuControl?: ReadableStreamDefaultController<Uint8Array>; __menuQueue: string[]; __menuQualities: string[]; __menuEnded?: boolean };
+    w.__menuQueue = [];
+    w.__menuQualities = [];
+    const original = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+      if (!url.includes("/api/menu/read?stream=1")) return original(input, init);
+      w.__menuQualities.push(init?.body instanceof FormData ? String(init.body.get("quality")) : "");
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          w.__menuControl = controller;
+          for (const line of w.__menuQueue.splice(0)) controller.enqueue(encoder.encode(line));
+          if (w.__menuEnded) controller.close();
+          w.__menuEnded = false;
+          init?.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")));
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200, headers: { "content-type": "application/x-ndjson" } }));
+    };
+  });
+  return {
+    push: (...events: object[]) =>
+      page.evaluate((lines) => {
+        const w = window as unknown as { __menuControl?: ReadableStreamDefaultController<Uint8Array>; __menuQueue: string[]; __menuEnded?: boolean };
+        const encoder = new TextEncoder();
+        for (const line of lines) {
+          if (w.__menuControl) w.__menuControl.enqueue(encoder.encode(line));
+          else w.__menuQueue.push(line);
+        }
+        // Like the server, the stream ends after the last line (done or error).
+        if (lines.some((line) => /"type":"(done|error)"/.test(line))) {
+          if (w.__menuControl) w.__menuControl.close();
+          else w.__menuEnded = true;
+        }
+      }, events.map(lineOf)),
+    qualities: () => page.evaluate(() => (window as unknown as { __menuQualities: string[] }).__menuQualities),
+  };
+}
+
+async function takePhoto(page: Page, button: "menu-photo" | "menu-explain" = "menu-photo") {
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByTestId(button).click();
+  await (await chooser).setFiles(photo);
+}
+
+/** A tap on the card, as a finger does it: the radio itself is hidden inside its label. */
+const tap = (radio: Locator) => radio.locator("xpath=ancestor::label").click();
+
+const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
 test("the shortcut is not there while the option is off, and the page says it is off", async ({ page }) => {
   await page.goto("/matsedel");
@@ -37,34 +160,270 @@ test("the shortcut is not there while the option is off, and the page says it is
   await expect(page.getByText("Menyrådgivaren är avstängd")).toBeVisible();
 });
 
-test("a photographed menu is explained, marked, and the starred dishes add up under Ikväll", async ({ page }) => {
+test("the whole journey: start, a live reading, the answer, Ert val with another drink, the menu and a dish", async ({ page }) => {
   await optionOn(page);
-  let quality: string | null = null;
-  await page.route("**/api/menu/read", async (route) => {
-    quality = route.request().postData()?.includes('name="quality"') ? "sent" : null;
-    await route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } });
-  });
+  await seedCompany();
+  const stream = await liveStream(page);
 
   await page.goto("/matsedel");
   await page.getByTestId("menu-advisor-shortcut").click();
   await expect(page).toHaveURL(/\/matsedel\/menyer$/);
-  await expect(page.getByTestId("menu-disclaimer")).toContainText("Fråga alltid personalen");
 
-  await page.getByRole("button", { name: /Nötter/ }).click();
-  await page.getByTestId("menu-file").setInputFiles(photo);
-  await expect(page.getByTestId("menu-result")).toBeVisible();
-  expect(quality).toBe("sent");
-  await expect(page.getByRole("heading", { name: "Förrätt", level: 3 })).toBeVisible();
-  await expect(page.getByText("17,95 € · ca 197 kr")).toBeVisible();
-  await expect(page.getByText("Kan innehålla nötter")).toBeVisible();
-  await expect(page.getByTestId("menu-uncertain")).toContainText("Priset på en efterrätt");
-  await expect(page.getByTestId("menu-disclaimer")).toBeVisible();
+  // 1. Start: a question, who is with, one button, a quiet link. Alone first, then with company.
+  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.getByTestId("menu-company-line")).toHaveText("Bara du");
+  await expect(page.getByTestId("menu-first-time")).toHaveCount(0);
+  await page.screenshot({ path: `${shots}/01-start-alone.png` });
+  await page.getByTestId("menu-company-row").click();
+  await expect(page.getByRole("dialog", { name: "Vilka är med?" })).toBeVisible();
+  await page.getByRole("button", { name: "Anna" }).click();
+  await page.getByRole("button", { name: "Lägg till gäst" }).click();
+  await page.getByTestId("menu-guest-name").fill("Gunnar");
+  await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
+  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/02-company-sheet.png` });
+  await page.getByRole("button", { name: "Klar", exact: true }).click();
+  await expect(page.getByTestId("menu-company-line")).toHaveText("Ni är tre · Du, Anna, Gunnar");
+  await page.screenshot({ path: `${shots}/03-start-company.png` });
+  expect(await noSideScroll(page)).toBe(true);
 
-  await page.getByRole("button", { name: "Stjärnmärk Pulpo a la gallega" }).click();
-  await page.getByRole("button", { name: "Stjärnmärk Paella de verduras" }).click();
+  // 2. Reading: one line that changes, the dishes as they come, who reads, Avbryt as a link.
+  await takePhoto(page);
+  await expect(page.getByTestId("menu-reading-status")).toHaveText("Läser menyn…");
+  await stream.push(readerLine);
+  await expect(page.getByTestId("menu-reader")).toHaveText("Läst av Haiku 5.5 · låg");
+  await stream.push({ type: "language", sprak: "es" });
+  await expect(page.getByTestId("menu-reading-status")).toHaveText("Översätter från spanska…");
+  await page.screenshot({ path: `${shots}/04-reading-translate.png` });
+  await stream.push({ type: "dish", index: 0, dish: menu.ratter[0] }, { type: "dish", index: 1, dish: menu.ratter[1] }, { type: "dish", index: 2, dish: menu.ratter[2] });
+  await expect(page.getByTestId("menu-reading-status")).toHaveText("Hittade 3 rätter");
+  await expect(page.getByTestId("menu-reading-dishes").getByRole("listitem")).toHaveCount(3);
+  await page.screenshot({ path: `${shots}/05-reading-dishes.png` });
+  expect(await stream.qualities()).toEqual(["standard"]);
+  await stream.push(doneLine(menu));
+
+  // 3. The answer: a group per person, the best chosen, "Anna älskar paprika" only where it changes something.
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  const du = page.getByRole("region", { name: "Du", exact: true });
+  const anna = page.getByRole("region", { name: "Anna", exact: true });
+  const gunnar = page.getByRole("region", { name: "Gunnar", exact: true });
+  await expect(du.getByRole("radio")).toHaveCount(3);
+  await expect(du.getByText("med öl")).toBeVisible();
+  await expect(anna.getByText("med vin")).toBeVisible();
+  await expect(anna.getByText("Anna älskar paprika").first()).toBeVisible();
+  await expect(du.getByRole("radio", { checked: true })).toHaveCount(1);
+  await expect(page.getByTestId("menu-unfiltered")).toHaveCount(0);
+  await expect(page.getByTestId("menu-reader")).toHaveText("Läst av Haiku 5.5 · låg");
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
+  await page.screenshot({ path: `${shots}/06-answer-top.png` });
+  // A dish with an allergen of the person is never offered when something else exists.
+  await expect(anna.getByRole("radio", { name: /Albóndigas/ })).toHaveCount(0);
+  await expect(gunnar.getByRole("radio")).toHaveCount(3);
+  const before = await page.getByTestId("menu-total").innerText();
+  await tap(anna.getByRole("radio", { checked: false }).first());
+  await expect(page.getByTestId("menu-total")).not.toHaveText(before);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/07-answer-scrolled.png` });
+  expect(await noSideScroll(page)).toBe(true);
+
+  // 4. Ert val: the name as printed, big; the drink can be changed with a tap.
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ert val" })).toBeVisible();
+  await expect(page.getByTestId("menu-choice-person")).toHaveCount(3);
+  await expect(page.getByTestId("menu-allergy-line")).toContainText("Anna: gluten.");
+  await expect(page.getByTestId("menu-allergy-line")).toContainText("Gunnar: nötter.");
+  await expect(page.getByTestId("menu-allergy-line")).toContainText("Fråga alltid personalen");
+  await page.screenshot({ path: `${shots}/08-your-choice.png` });
+  const total = await page.getByTestId("menu-total").innerText();
+  await page.getByTestId("menu-drink-button").first().click();
+  await expect(page.getByRole("dialog", { name: "Dryck åt Du" })).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/09-drink-sheet.png` });
+  await tap(page.getByRole("radio", { name: /Vin/ }));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByTestId("menu-total")).not.toHaveText(total);
+  await expect(page.getByTestId("menu-choice-person").first()).toContainText("Vin");
+
+  // Back with "Ändra", then the whole menu: only dishes someone cannot eat are marked.
+  await page.getByRole("button", { name: "Ändra" }).click();
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await page.getByRole("button", { name: "Se hela menyn" }).click();
+  await expect(page.getByRole("heading", { name: "Hela menyn" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Efterrätt", level: 3 })).toBeVisible();
+  await expect(page.getByTestId("menu-unfit").first()).toBeVisible();
+  await page.screenshot({ path: `${shots}/10-full-menu.png` });
+  await page.getByRole("searchbox", { name: "Sök rätt" }).fill("tarta");
+  await expect(page.getByTestId("menu-dish")).toHaveCount(1);
+  await page.getByTestId("menu-dish").click();
+  const sheet = page.getByRole("dialog", { name: "Tarta de Santiago" });
+  await expect(sheet).toContainText("mandel, ägg, socker");
+  await expect(sheet.getByTestId("menu-dish-fit")).toHaveText("Passar Du och Anna. Gunnar kan inte (nötter).");
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/11-dish-sheet.png` });
+  await sheet.getByRole("button", { name: "Lägg till åt dig" }).click();
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(du.getByRole("radio", { name: /Tarta de Santiago/, checked: true })).toBeVisible();
+
+  // "Fler rätter åt Anna" opens the menu with Anna chosen.
+  await page.getByRole("button", { name: "Fler rätter åt Anna" }).click();
+  await expect(page.getByText("Välj en rätt att lägga till åt Anna")).toBeVisible();
+  await page.screenshot({ path: `${shots}/12-full-menu-for-anna.png` });
+  await page.getByRole("searchbox", { name: "Sök rätt" }).fill("pulpo");
+  await page.getByTestId("menu-dish").click();
+  await page.getByRole("button", { name: "Lägg till åt Anna" }).click();
+  await expect(anna.getByRole("radio", { name: /Pulpo a la gallega/, checked: true })).toBeVisible();
+  expect(await noSideScroll(page)).toBe(true);
+
+  // Klart twice ends the journey at the start.
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+});
+
+test("the answer without company or preferences has no marks, and says allergens are not filtered; Läs noggrannare reads again", async ({ page }) => {
+  await optionOn(page);
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await expect(page.getByTestId("menu-first-time")).toBeVisible();
+  await page.screenshot({ path: `${shots}/13-start-first-time.png` });
+  await takePhoto(page);
+  await stream.push(readerLine, doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(page.getByTestId("menu-unfiltered")).toHaveText("Allergener är inte filtrerade");
+  await expect(page.locator("[data-tone='mint'], [data-tone='sand'], [data-tone='danger']")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Du" }).getByRole("radio")).toHaveCount(3);
+  await page.screenshot({ path: `${shots}/14-answer-alone.png` });
+
+  // Läs noggrannare: the same photo again with quality careful, and then it is no longer offered.
+  await page.getByRole("button", { name: "Läs noggrannare" }).click();
+  await expect(page.getByText("Det här tar längre tid")).toBeVisible();
+  await page.screenshot({ path: `${shots}/15-reading-careful.png` });
+  await expect.poll(() => stream.qualities()).toEqual(["standard", "careful"]);
+  await stream.push(readerLine, doneLine(menu, "careful"));
+  await expect(page.getByTestId("menu-reader")).toHaveText("Läst av Sonnet 5.5 · medel");
+  await expect(page.getByRole("button", { name: "Läs noggrannare" })).toHaveCount(0);
+});
+
+test("a dish with an allergen of the person, and nothing else to give, is shown red with the reason", async ({ page }) => {
+  await optionOn(page);
+  await seedFoodProfile(await e2eUserId(e2eEmail), { allergies: ["notter"] });
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  await stream.push(readerLine, doneLine(nutMenu));
+  await expect(page.getByRole("radio", { name: /Ensalada mixta|Pesto de almendras/ })).toHaveCount(1);
+  await expect(page.getByText("Inget annat på menyn passar. Den här innehåller en allergen du har, fråga personalen.")).toBeVisible();
+  await expect(page.locator("[data-tone='danger']")).toHaveCount(1);
+  await page.screenshot({ path: `${shots}/16-answer-allergy.png` });
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await expect(page.getByTestId("menu-choice-person")).toContainText("Inget annat på menyn passar");
+  await page.screenshot({ path: `${shots}/17-choice-allergy.png` });
+});
+
+test("Bara förklara menyn: reading, then the whole menu with no advice and no marks on people", async ({ page }) => {
+  await optionOn(page);
+  await seedCompany();
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page, "menu-explain");
+  await stream.push(readerLine, doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Hela menyn" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toHaveCount(0);
+  await expect(page.getByTestId("menu-unfit")).toHaveCount(0);
+  await page.getByTestId("menu-dish").first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByTestId("menu-dish-fit")).toHaveCount(0);
+  await expect(sheet.getByRole("button", { name: /Lägg till åt/ })).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Lägg till Ikväll" }).click();
+  await sheet.getByRole("button", { name: "Klar", exact: true }).click();
   await page.getByTestId("menu-tonight-open").click();
-  await expect(page.getByTestId("menu-tonight-row")).toHaveCount(2);
-  await expect(page.getByTestId("menu-tonight-total")).toContainText("Totalt ca 362 kr");
+  await expect(page.getByTestId("menu-tonight-row")).toHaveCount(1);
+  await expect(page.getByTestId("menu-tonight-total")).toContainText("Totalt ca 77 kr");
+  await page.screenshot({ path: `${shots}/18-explain-tonight.png` });
+});
+
+test("a stream that cannot be used falls back to the plain reading", async ({ page }) => {
+  await optionOn(page);
+  let plain = 0;
+  await page.route("**/api/menu/read?stream=1", (route) => route.abort());
+  await page.route("**/api/menu/read", (route) => {
+    plain += 1;
+    return route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } });
+  });
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  expect(plain).toBe(1);
+});
+
+test("a failed reading says why right under the question, without scrolling", async ({ page }) => {
+  await optionOn(page);
+  await page.route("**/api/menu/read?stream=1", (route) => route.fulfill({ json: { ok: false, error: { code: "ai_cap_reached" } } }));
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  const alert = page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" });
+  await expect(alert).toBeVisible();
+  await expect(alert).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await page.screenshot({ path: `${shots}/19-error-cap.png` });
+});
+
+test("a reading that could not be run says so in calm words", async ({ page }) => {
+  await optionOn(page);
+  await page.route("**/api/menu/read?stream=1", (route) => route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable" } } }));
+  await page.route("**/api/menu/read", (route) => route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable" } } }));
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  const alert = page.getByRole("alert").filter({ hasText: "Det gick inte" });
+  await expect(alert).toHaveText("Det gick inte att läsa menyn just nu. Försök igen.");
+  await expect(alert).toBeInViewport({ ratio: 1 });
+});
+
+test("a reading with no dishes says so and gives tips", async ({ page }) => {
+  await optionOn(page);
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  await stream.push(readerLine, doneLine({ ...menu, ratter: [] }));
+  await expect(page.getByText("Jag kunde inte läsa menyn")).toBeVisible();
+  await expect(page.getByText("Undvik blänk från lampor och glas")).toBeVisible();
+  await page.screenshot({ path: `${shots}/20-empty.png` });
+});
+
+test("Avbryt on the reading screen goes back to the start", async ({ page }) => {
+  await optionOn(page);
+  await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  await expect(page.getByTestId("menu-reading")).toBeVisible();
+  await page.getByRole("button", { name: "Avbryt" }).click();
+  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.locator("p[role=alert]")).toHaveCount(0);
+});
+
+test("Större text: the start, the reading, the answer and Ert val fit at 375 px", async ({ page }) => {
+  await optionOn(page, "xl");
+  await seedCompany();
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await page.screenshot({ path: `${shots}/21-xl-start.png` });
+  await page.getByTestId("menu-company-row").click();
+  await page.getByRole("button", { name: "Anna" }).click();
+  await page.getByRole("button", { name: "Klar", exact: true }).click();
+  await takePhoto(page);
+  await stream.push(readerLine, { type: "dish", index: 0, dish: menu.ratter[0] }, { type: "dish", index: 1, dish: menu.ratter[1] });
+  await expect(page.getByTestId("menu-reading-dishes").getByRole("listitem")).toHaveCount(2);
+  await page.screenshot({ path: `${shots}/22-xl-reading.png` });
+  await stream.push(doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
+  await page.screenshot({ path: `${shots}/23-xl-answer.png` });
+  expect(await noSideScroll(page)).toBe(true);
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await page.screenshot({ path: `${shots}/24-xl-choice.png` });
+  expect(await noSideScroll(page)).toBe(true);
 });
 
 test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Undviker, it stays after a reload; the old address leads there", async ({ page }) => {
@@ -98,86 +457,6 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Un
   // Menyrådgivare itself is still off: no way into it from Matsedel.
   await page.goto("/matsedel");
   await expect(page.getByText("Äter ute?")).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-});
-
-test("a reading with no dishes says so and gives tips", async ({ page }) => {
-  await optionOn(page);
-  await page.route("**/api/menu/read", (route) =>
-    route.fulfill({ json: { ok: true, data: { menu: { ...menu, ratter: [], osakert: [] }, quality: "standard", escalated: false } } }),
-  );
-  await page.goto("/matsedel/menyer");
-  await page.getByTestId("menu-file").setInputFiles(photo);
-  await expect(page.getByText("Jag kunde inte läsa menyn")).toBeVisible();
-  await expect(page.getByText("Undvik blänk från lampor och glas")).toBeVisible();
-});
-
-test("a failed reading says why", async ({ page }) => {
-  await optionOn(page);
-  await page.route("**/api/menu/read", (route) => route.fulfill({ json: { ok: false, error: { code: "ai_cap_reached" } } }));
-  await page.goto("/matsedel/menyer");
-  await page.getByTestId("menu-file").setInputFiles(photo);
-  await expect(page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" })).toBeVisible();
-});
-
-test("profiles under Medlemmar and the company on the menu page: allergies are registered once and mark the dishes", async ({ page }) => {
-  await optionOn(page);
-  // Web Share is mocked: the text it is given is kept for the check below.
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "share", { value: async (data: { text?: string }) => void ((window as unknown as { shared: string }).shared = data.text ?? ""), configurable: true });
-  });
-  await page.route("**/api/menu/read", (route) => route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } }));
-
-  await page.goto("/installningar/medlemmar");
-  await expect(page.getByTestId("menu-profile-row").first()).toHaveText(/Du/);
-  await page.screenshot({ path: "test-results/shots/profiles-list.png", fullPage: true });
-  await page.getByTestId("menu-person-add").click();
-  await page.getByTestId("menu-person-name").fill("Anna");
-  await page.getByRole("button", { name: "Lägg till" }).click();
-  await page.getByTestId("menu-profile-row").filter({ hasText: "Anna" }).click();
-  const profile = page.getByTestId("menu-profile");
-  await profile.getByRole("radiogroup", { name: "Fisk" }).getByRole("radio", { name: "Ogillar" }).click();
-  await profile.getByRole("button", { name: /Vin/ }).click();
-  // Undviker (not an allergy): written in, and a suggestion chip for the loved list.
-  const avoid = profile.getByTestId("menu-dislikes");
-  await avoid.getByRole("textbox").fill("vitlök");
-  await avoid.getByRole("textbox").press("Enter");
-  await expect(avoid.getByRole("button", { name: "Ta bort vitlök" })).toBeVisible();
-  await profile.getByTestId("menu-likes").getByRole("button", { name: "Lägg till paprika" }).click();
-  await page.screenshot({ path: "test-results/shots/profile.png", fullPage: true });
-  await profile.getByTestId("menu-allergies-open").click();
-  await page.getByTestId("menu-allergies").getByRole("button", { name: /Gluten/ }).click();
-  await page.screenshot({ path: "test-results/shots/allergies.png", fullPage: true });
-
-  await page.goto("/matsedel/menyer");
-  await page.getByRole("button", { name: "Anna" }).click();
-  await page.getByRole("button", { name: "Lägg till gäst" }).click();
-  await page.getByTestId("menu-guest-name").fill("Gunnar");
-  await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
-  await page.screenshot({ path: "test-results/shots/guest.png", fullPage: true });
-  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
-  await expect(page.getByTestId("menu-company-summary")).toHaveText("Du + Anna + 1 gäst");
-  await page.screenshot({ path: "test-results/shots/company.png", fullPage: true });
-  await page.getByTestId("menu-file").setInputFiles(photo);
-  await expect(page.getByTestId("menu-result")).toBeVisible();
-  await expect(page.getByTestId("menu-unfit")).toHaveText("Passar inte Anna (gluten), Gunnar (nötter)");
-  // Anna avoids garlic (a soft mark on the dish that has it) and loves paprika; neither leaves a dish out.
-  await expect(page.getByTestId("menu-soft-avoid")).toHaveText("Anna undviker vitlök");
-  await expect(page.getByTestId("menu-soft-love")).toHaveText("Anna älskar paprika");
-  await expect(page.getByTestId("menu-dish")).toHaveCount(3);
-  await page.screenshot({ path: "test-results/shots/result.png", fullPage: true });
-  const suggestions = page.getByTestId("menu-suggestions");
-  await expect(suggestions).toBeVisible();
-  await expect(suggestions).toContainText("Anna:");
-  await suggestions.getByRole("button", { name: "Skicka till sällskapet" }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { shared?: string }).shared ?? "")).toContain("Anna");
-  await suggestions.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: "test-results/shots/suggestions.png" });
-  // Bara förklara: no suggestions and no allergy marks.
-  await page.getByRole("radio", { name: "Bara förklara" }).click();
-  await expect(suggestions).toHaveCount(0);
-  await expect(page.getByTestId("menu-unfit")).toHaveCount(0);
-  // Nothing scrolls sideways at 375 px.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
