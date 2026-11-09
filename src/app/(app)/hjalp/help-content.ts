@@ -102,6 +102,10 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Spelar det roll vad jag har hemma?", answer: "Det styr inte vilka rätter du får förslag på. Det du har hemma räknas bara bort från vad du behöver köpa." },
       { question: "Kan jag välja dag för en rätt?", answer: "Ja, men du behöver inte: rätten får första lediga dag av sig själv. Tryck på dagen (eller Ingen dag) vid rätten och välj en dag. Där ändrar du också portionerna." },
       { question: "Måste jag skriva inköpslistan själv?", answer: "Nej, Inköpslistan räknas fram från veckans matsedel." },
+      {
+        question: "Kan appen hjälpa mig att välja på en restaurang?",
+        answer: "Ja, om du slår på Menyrådgivare under Inställningar, Tillval, Äta ute. Då står Äter ute? under Matsedel. Fota menyn eller välj ett foto, så läser appen den, förklarar varje rätt på svenska och räknar om priset i kronor (ungefär, märkt ca). Under Hjälp mig välja anger du vad du undviker just nu, till exempel nötter eller svamp, och rätterna markeras. Bara förklara menyn visar menyn utan markeringar. Tryck på stjärnan vid en rätt för att samla den under Ikväll, med summan, tills du stänger fliken. Läs noggrannare kör om läsningen och tar längre tid. Allergimarkeringen är en gissning utifrån fotot och kan vara fel: fråga alltid personalen. Fotot sparas inte.",
+      },
       { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },
     ],
   },

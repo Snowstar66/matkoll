@@ -12,6 +12,7 @@ export const optionGroups = [
   { id: "recipe", label: "I receptet" },
   { id: "nutrition", label: "Näring" },
   { id: "dagens", label: "Dagens" },
+  { id: "menu", label: "Äta ute" },
   { id: "shared", label: "Delade recept" },
 ] as const;
 
@@ -47,6 +48,7 @@ export const options = [
   { id: "dagensSeason", group: "dagens", label: "Säsongens råvara", hint: "Vad som är som bäst just nu", defaultOn: true },
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "宜 vad dagen passar för, 忌 vad du bör undvika", defaultOn: false },
+  { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 

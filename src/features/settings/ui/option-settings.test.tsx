@@ -10,7 +10,7 @@ describe("OptionSettings", () => {
   it("has the groups I receptet, Näring and Dagens, with the Näring switches off by default", () => {
     render(<OptionSettings />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
-    expect(headings).toEqual(["I receptet", "Näring", "Dagens"]);
+    expect(headings).toEqual(["I receptet", "Näring", "Dagens", "Äta ute"]);
     const show = screen.getByRole("switch", { name: /^Visa näring/ });
     expect(show).toHaveAttribute("aria-checked", "false");
     expect(show).toHaveAccessibleDescription("Tallriken, märken och veckans rad");
@@ -42,7 +42,7 @@ describe("OptionSettings", () => {
         }
       />,
     );
-    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["I receptet", "Näring", "Dagens", "Delade recept"]);
+    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["I receptet", "Näring", "Dagens", "Äta ute", "Delade recept"]);
     const note = screen.getByText("Gäller bara den här enheten.");
     expect(note.compareDocumentPosition(screen.getByTestId("after")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const show = within(screen.getByTestId("after")).getByRole("switch", { name: /^Visa delade recept/ });
