@@ -8,7 +8,9 @@ import { SearchField } from "@/components/search-field";
 import { CameraIcon } from "@/components/icons";
 import { languageName } from "../domain/labels";
 import { pickId, type TonightPick } from "../domain/tonight";
+import type { Person } from "../domain/profile";
 import type { MenuAllergen } from "../domain/types";
+import { unfitFor } from "../domain/people";
 import { currencySymbols, dishSek, filterDishes, groupDishes, matchDish, noFilter, parseDislikes, type MenuMode, underSekLimit } from "../domain/view";
 import type { MenuReading } from "../actions/read-menu";
 import { MenuDishRow } from "./menu-dish-row";
@@ -21,7 +23,9 @@ export function MenuResult({
   reading,
   mode,
   avoid,
+  company,
   dislikes,
+  suggestions,
   modeSegment,
   avoidPanel,
   disclaimer,
@@ -34,7 +38,11 @@ export function MenuResult({
   reading: MenuReading;
   mode: MenuMode;
   avoid: MenuAllergen[];
+  /** Who is with tonight; each dish says who it does not suit (their registered allergies). */
+  company: Person[];
   dislikes: string;
+  /** Hook for PR 3b: the recommendations for the company, shown above the groups. Nothing is drawn until it is given. */
+  suggestions?: ReactNode;
   modeSegment: ReactNode;
   avoidPanel: ReactNode;
   disclaimer: ReactNode;
@@ -124,6 +132,7 @@ export function MenuResult({
           {`Under ${underSekLimit} kr`}
         </Chip>
       </div>
+      {mode === "help" ? suggestions : null}
       {groups.length === 0 ? <p className="text-body text-ink-2">Ingen rätt matchar. Ändra sökningen eller filtret.</p> : null}
       {groups.map(({ group, dishes }) => (
         <section key={group} aria-label={group}>
@@ -136,6 +145,7 @@ export function MenuResult({
                   key={`${dish.grupp}-${dish.originalnamn}`}
                   dish={dish}
                   match={mode === "help" ? matchDish(dish, avoid, avoided) : null}
+                  unfit={mode === "help" ? unfitFor(dish, company) : []}
                   starred={starred.has(id)}
                   onStar={() =>
                     tonight.toggle({ id, name: dish.originalnamn, explanation: dish.forklaring, restaurant: menu.restaurang, sek: dishSek(dish) })

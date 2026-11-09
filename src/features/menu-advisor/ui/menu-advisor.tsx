@@ -15,6 +15,10 @@ import { MenuResult } from "./menu-result";
 import { TonightList } from "./tonight-list";
 import { useTonight } from "./use-tonight";
 import { AvoidPanel } from "./avoid-panel";
+import { CompanyPanel } from "./company-panel";
+import { usePeople } from "./use-people";
+import { meId } from "../domain/people";
+import type { Person } from "../domain/profile";
 import type { MenuAllergen } from "../domain/types";
 import type { MenuMode } from "../domain/view";
 
@@ -37,6 +41,10 @@ export function MenuAdvisor() {
   const [error, setError] = useState<string | null>(null);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
+  const { people, save } = usePeople();
+  // Who is with tonight: ids of saved people plus guests added for tonight only (gone when the page closes).
+  const [selectedIds, setSelectedIds] = useState<string[]>([meId]);
+  const [tempGuests, setTempGuests] = useState<Person[]>([]);
   const photo = useRef<Blob | null>(null);
   const request = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -109,7 +117,21 @@ export function MenuAdvisor() {
       ]}
     />
   );
-  const avoidPanel = mode === "help" ? <AvoidPanel avoid={avoid} onAvoid={setAvoid} dislikes={dislikes} onDislikes={setDislikes} /> : null;
+  const company = [...people, ...tempGuests].filter((person) => selectedIds.includes(person.id));
+  const avoidPanel =
+    mode === "help" ? (
+      <>
+        <CompanyPanel
+          people={people}
+          selectedIds={selectedIds}
+          onSelectedIds={setSelectedIds}
+          tempGuests={tempGuests}
+          onTempGuests={setTempGuests}
+          onSave={save}
+        />
+        <AvoidPanel avoid={avoid} onAvoid={setAvoid} dislikes={dislikes} onDislikes={setDislikes} />
+      </>
+    ) : null;
   const disclaimer = (
     <p data-testid="menu-disclaimer" className="rounded-md bg-fill px-3 py-2 text-meta text-ink-2">
       {allergyDisclaimer}
@@ -168,6 +190,7 @@ export function MenuAdvisor() {
         reading={reading}
         mode={mode}
         avoid={avoid}
+        company={company}
         dislikes={dislikes}
         modeSegment={modeSegment}
         avoidPanel={avoidPanel}

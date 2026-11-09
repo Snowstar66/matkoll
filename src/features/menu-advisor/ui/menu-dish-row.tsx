@@ -2,6 +2,7 @@ import { cx } from "@/components/cx";
 import { allergenLabels, categoryTags } from "../domain/labels";
 import { priceText } from "../domain/view";
 import type { DishMatch } from "../domain/view";
+import type { Unfit } from "../domain/people";
 import type { MenuAllergen, MenuDish } from "../domain/types";
 
 const tag = "rounded-pill bg-fill px-2 text-meta text-ink-2";
@@ -16,11 +17,14 @@ const dangerTag = "rounded-pill border border-danger bg-surface px-2 text-meta f
 export function MenuDishRow({
   dish,
   match,
+  unfit = [],
   starred,
   onStar,
 }: {
   dish: MenuDish;
   match: DishMatch | null;
+  /** The people with the dish among their registered allergies (Sällskap). */
+  unfit?: Unfit[];
   starred: boolean;
   onStar: () => void;
 }) {
@@ -30,7 +34,7 @@ export function MenuDishRow({
   const hitAllergens = new Set<MenuAllergen>(match?.hits.map((hit) => hit.allergen));
   const contains = match?.hits.filter((hit) => hit.source === "allergener").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
   const mayContain = match?.hits.filter((hit) => hit.source === "kan_innehalla").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
-  const flagged = match !== null && (match.hits.length > 0 || match.disliked.length > 0);
+  const flagged = (match !== null && (match.hits.length > 0 || match.disliked.length > 0)) || unfit.length > 0;
   return (
     <li data-testid="menu-dish" data-flagged={flagged ? "true" : undefined} className="flex items-start gap-1 py-2 pr-1 pl-4">
       <div className="min-w-0 flex-1 py-1">
@@ -42,6 +46,11 @@ export function MenuDishRow({
         {dish.huvudingredienser.length > 0 ? <p className="text-meta text-ink-3">{dish.huvudingredienser.join(", ")}</p> : null}
         {contains.length > 0 ? <p className="mt-1 text-meta font-semibold text-danger">Innehåller {contains.join(", ")}</p> : null}
         {mayContain.length > 0 ? <p className="mt-1 text-meta font-semibold text-danger">Kan innehålla {mayContain.join(", ")}</p> : null}
+        {unfit.length > 0 ? (
+          <p data-testid="menu-unfit" className="mt-1 text-meta font-semibold text-danger">
+            Passar inte {unfit.map(({ person, hits }) => `${person.id === "me" ? "dig" : person.name} (${hits.map((hit) => allergenLabels[hit.allergen].toLowerCase()).join(", ")})`).join(", ")}
+          </p>
+        ) : null}
         {match && match.disliked.length > 0 ? <p className="mt-1 text-meta text-ink-2">Du undviker: {match.disliked.join(", ")}</p> : null}
         <div className="mt-1 flex flex-wrap gap-1">
           {category ? <span className={category.startsWith("veg") ? veganTag : tag}>{category}</span> : null}

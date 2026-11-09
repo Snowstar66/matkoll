@@ -167,3 +167,46 @@ describe("Ikväll", () => {
     expect(screen.getByText("Inga rätter valda än")).toBeInTheDocument();
   });
 });
+
+describe("Sällskap", () => {
+  const people = {
+    v: 1,
+    people: [
+      { id: "me", name: "Du", kind: "member", allergies: [], tastes: {}, drink: null },
+      { id: "a", name: "Anna", kind: "member", allergies: ["notter"], tastes: {}, drink: null },
+    ],
+  };
+
+  it("says who is with, adds a guest with just a name that is not saved, and marks dishes that do not suit someone", async () => {
+    localStorage.setItem("livskoll-menu-people-v1", JSON.stringify(people));
+    const user = userEvent.setup();
+    render(<MenuAdvisor />);
+    const company = screen.getByTestId("menu-company");
+    expect(within(company).getByTestId("menu-company-summary")).toHaveTextContent("Du");
+    await user.click(within(company).getByRole("button", { name: "Anna" }));
+    await user.click(within(company).getByRole("button", { name: "Lägg till gäst" }));
+    await user.type(screen.getByTestId("menu-guest-name"), "Gunnar");
+    await user.click(screen.getByRole("button", { name: "Lägg till" }));
+    expect(screen.getByTestId("menu-company-summary")).toHaveTextContent("Du + Anna + 1 gäst");
+    // A guest that is not kept is not in storage.
+    expect(localStorage.getItem("livskoll-menu-people-v1")).not.toContain("Gunnar");
+
+    await readPhoto(user);
+    const rows = screen.getAllByTestId("menu-dish");
+    expect(rows[1]).toHaveTextContent("Passar inte Anna (nötter)");
+    expect(rows[0]).not.toHaveTextContent("Passar inte");
+    await user.click(screen.getByRole("radio", { name: "Bara förklara" }));
+    expect(screen.queryByText(/Passar inte/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a guest when Spara gäst is chosen", async () => {
+    const user = userEvent.setup();
+    render(<MenuAdvisor />);
+    await user.click(screen.getByRole("button", { name: "Lägg till gäst" }));
+    await user.type(screen.getByTestId("menu-guest-name"), "Greta");
+    await user.click(screen.getByRole("button", { name: "Spara gäst" }));
+    await user.click(screen.getByRole("button", { name: "Lägg till" }));
+    expect(localStorage.getItem("livskoll-menu-people-v1")).toContain("Greta");
+    expect(screen.getByTestId("menu-company-summary")).toHaveTextContent("Du + 1 gäst");
+  });
+});
