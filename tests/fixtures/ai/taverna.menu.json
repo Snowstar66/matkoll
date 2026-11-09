@@ -6,7 +6,7 @@
     {
       "originalnamn": "Pulpo a la gallega",
       "grupp": "Förrätt",
-      "forklaring": "Kokt bläckfisk med potatis, paprika och olivolja.",
+      "forklaring": "Kokt bläckfisk med potatis, olivolja och rökt paprikakrydda.",
       "huvudingredienser": ["bläckfisk", "potatis", "paprika"],
       "kategori": "skaldjur",
       "allergener": ["skaldjur"],
@@ -17,7 +17,7 @@
     {
       "originalnamn": "Croquetas de jamón",
       "grupp": "Förrätt",
-      "forklaring": "Friterade kroketter med skinka och bechamelsås.",
+      "forklaring": "Friterade kroketter fyllda med skinka och krämig vitsås.",
       "huvudingredienser": ["skinka", "mjölk", "vetemjöl"],
       "kategori": "kott",
       "allergener": ["gluten", "laktos", "agg"],

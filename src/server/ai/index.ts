@@ -32,6 +32,7 @@ export type {
   LocateThingInput,
   LocateThingResult,
   ParseRecipeInput,
+  MenuProgress,
   MenuQuality,
   ReadMenuInput,
   ReadMenuResult,
@@ -43,9 +44,9 @@ export type {
   WarmUpKind,
   WarmUpResult,
 } from "./service";
-export { aiEfforts, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
+export { aiEfforts, menuModels, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
-export type { MenuAnswer, NowIdea, NowIdeaKind } from "./schemas";
+export type { MenuAnswer, MenuDishAnswer, NowIdea, NowIdeaKind } from "./schemas";
 export { nowIdeaKinds } from "./schemas";
 export type { AiListItem, AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
 export { maxListItems, maxThings, thingCategories, thingConfidences } from "./schemas";
