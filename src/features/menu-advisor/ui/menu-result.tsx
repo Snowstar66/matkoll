@@ -11,6 +11,7 @@ import { pickId, type TonightPick } from "../domain/tonight";
 import type { Person } from "../domain/profile";
 import type { MenuAllergen } from "../domain/types";
 import { unfitFor } from "../domain/people";
+import { softFitFor } from "../domain/preferences";
 import { currencySymbols, dishSek, filterDishes, groupDishes, matchDish, noFilter, parseDislikes, type MenuMode, underSekLimit } from "../domain/view";
 import type { MenuReading } from "../actions/read-menu";
 import { MenuDishRow } from "./menu-dish-row";
@@ -143,6 +144,7 @@ export function MenuResult({
                   dish={dish}
                   match={mode === "help" ? matchDish(dish, avoid, avoided) : null}
                   unfit={mode === "help" ? unfitFor(dish, people) : []}
+                  soft={mode === "help" ? softFitFor(dish, people) : []}
                   starred={starred.has(id)}
                   onStar={() =>
                     tonight.toggle({ id, name: dish.originalnamn, explanation: dish.forklaring, restaurant: menu.restaurang, sek: dishSek(dish) })

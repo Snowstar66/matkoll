@@ -2,6 +2,7 @@
 // Never claims a dish is allergy-safe: allergens exclude, "may contain" only warns, and what is left is
 // "nothing in the profile rules it out", always shown with the allergy disclaimer.
 import { allergenHits } from "./allergens";
+import { preferenceHits, whoName } from "./preferences";
 import type { Person, Taste, TasteKey } from "./profile";
 import type { Menu, MenuAllergen, MenuDish, MenuGroup } from "./types";
 import { dishSek } from "./view";
@@ -24,6 +25,8 @@ export type Suggestion = {
   reasons: string[];
   /** Set when an allergen the person avoids may be in the dish (kan innehålla). */
   warning: string | null;
+  /** Soft notes from "Undviker" (not an allergy): "Innehåller vitlök. Anna undviker det." The dish stays in the list. */
+  concerns: string[];
   score: number;
 };
 
@@ -88,6 +91,10 @@ export function dishTasteKeys(dish: MenuDish): TasteKey[] {
 
 const budgetWeight: Readonly<Record<Budget, number>> = { billigt: -3, normalt: 0, unna: 2 };
 const warningPenalty = 1000;
+const dislikePenalty = 6;
+const dislikeCap = 12;
+const likeBonus = 4;
+const likeCap = 8;
 const dessertPenalty = 2;
 
 /** 0 (cheapest) to 1 (dearest) for each priced dish. */
@@ -149,8 +156,17 @@ function rank(dish: MenuDish, person: Person, ctx: Context): Suggestion {
     warning = `Kan innehålla ${maybe.map((hit) => allergenNames[hit.allergen]).join(", ")}. Fråga personalen.`;
     score -= warningPenalty;
   }
+
+  // Free-text preferences: a clear deduction and a note for what is avoided, a bonus and a reason for what is loved.
+  // Never an exclusion: only allergies leave a dish out.
+  const avoided = preferenceHits(person.dislikes, dish);
+  const loved = preferenceHits(person.likes, dish).filter((tag) => !avoided.some((other) => other.toLocaleLowerCase("sv-SE") === tag.toLocaleLowerCase("sv-SE")));
+  const concerns = avoided.length > 0 ? [`Innehåller ${avoided.join(", ").toLocaleLowerCase("sv-SE")}. ${whoName(person) === "du" ? "Du undviker" : `${person.name} undviker`} ${avoided.length > 1 ? "dem" : "det"}.`] : [];
+  score -= Math.min(dislikeCap, avoided.length * dislikePenalty);
+  score += Math.min(likeCap, loved.length * likeBonus);
+  if (loved.length > 0) reasons.unshift(`${whoName(person) === "du" ? "du älskar" : `${person.name} älskar`} ${loved.join(", ").toLocaleLowerCase("sv-SE")}`);
   if (reasons.length === 0) reasons.push("inget i din profil talar emot den");
-  return { dish, sek: dishSek(dish), reasons, warning, score };
+  return { dish, sek: dishSek(dish), reasons, warning, concerns, score };
 }
 
 /**
@@ -177,11 +193,16 @@ export function recommend(menu: Menu, people: readonly Person[], opts: Recommend
 /** One chosen dish for one person. A person can have several (starter and main). */
 export type Selection = { personId: string; dish: MenuDish }[];
 
-/** Each person's best pick without a warning (or the best of all if every pick has one). */
+/** The pick to lead with: the best without a warning or an avoided ingredient, else the best without a warning, else the best of all. */
+export function topPick(picks: readonly Suggestion[]): Suggestion | undefined {
+  return picks.find((entry) => entry.warning === null && entry.concerns.length === 0) ?? picks.find((entry) => entry.warning === null) ?? picks[0];
+}
+
+/** Each person's lead pick (see topPick). */
 export function defaultSelection(suggestions: readonly PersonSuggestions[]): Selection {
   const out: Selection = [];
   for (const { person, picks } of suggestions) {
-    const pick = picks.find((entry) => entry.warning === null) ?? picks[0];
+    const pick = topPick(picks);
     if (pick) out.push({ personId: person.id, dish: pick.dish });
   }
   return out;

@@ -12,8 +12,8 @@ const menu = {
   sprak: "es",
   ratter: [
     { originalnamn: "Pulpo a la gallega", grupp: "Förrätt", forklaring: "Kokt bläckfisk med potatis.", huvudingredienser: ["bläckfisk"], kategori: "skaldjur", allergener: ["skaldjur"], kan_innehalla: [], pris: 17.95, valuta: "EUR" },
-    { originalnamn: "Croquetas de jamón", grupp: "Förrätt", forklaring: "Friterade kroketter.", huvudingredienser: ["skinka"], kategori: "kott", allergener: ["gluten", "laktos"], kan_innehalla: ["notter"], pris: 9.5, valuta: "EUR" },
-    { originalnamn: "Paella de verduras", grupp: "Varmrätt", forklaring: "Risrätt med grönsaker.", huvudingredienser: ["ris"], kategori: "vegetariskt", allergener: [], kan_innehalla: [], pris: 15, valuta: "EUR" },
+    { originalnamn: "Croquetas de jamón", grupp: "Förrätt", forklaring: "Friterade kroketter.", huvudingredienser: ["skinka", "vitlök"], kategori: "kott", allergener: ["gluten", "laktos"], kan_innehalla: ["notter"], pris: 9.5, valuta: "EUR" },
+    { originalnamn: "Paella de verduras", grupp: "Varmrätt", forklaring: "Risrätt med grönsaker.", huvudingredienser: ["ris", "paprika"], kategori: "vegetariskt", allergener: [], kan_innehalla: [], pris: 15, valuta: "EUR" },
   ],
   osakert: ["Priset på en efterrätt"],
 };
@@ -110,6 +110,12 @@ test("profiles under Hushåll (and Tillval) and the company on the menu page: al
   const profile = page.getByTestId("menu-profile");
   await profile.getByRole("radiogroup", { name: "Fisk" }).getByRole("radio", { name: "Ogillar" }).click();
   await profile.getByRole("button", { name: /Vin/ }).click();
+  // Undviker (not an allergy): written in, and a suggestion chip for the loved list.
+  const avoid = profile.getByTestId("menu-dislikes");
+  await avoid.getByRole("textbox").fill("vitlök");
+  await avoid.getByRole("textbox").press("Enter");
+  await expect(avoid.getByRole("button", { name: "Ta bort vitlök" })).toBeVisible();
+  await profile.getByTestId("menu-likes").getByRole("button", { name: "Lägg till paprika" }).click();
   await page.screenshot({ path: "test-results/shots/profile.png", fullPage: true });
   await profile.getByTestId("menu-allergies-open").click();
   await page.getByTestId("menu-allergies").getByRole("button", { name: /Gluten/ }).click();
@@ -127,6 +133,10 @@ test("profiles under Hushåll (and Tillval) and the company on the menu page: al
   await page.getByTestId("menu-file").setInputFiles(photo);
   await expect(page.getByTestId("menu-result")).toBeVisible();
   await expect(page.getByTestId("menu-unfit")).toHaveText("Passar inte Anna (gluten), Gunnar (nötter)");
+  // Anna avoids garlic (a soft mark on the dish that has it) and loves paprika; neither leaves a dish out.
+  await expect(page.getByTestId("menu-soft-avoid")).toHaveText("Anna undviker vitlök");
+  await expect(page.getByTestId("menu-soft-love")).toHaveText("Anna älskar paprika");
+  await expect(page.getByTestId("menu-dish")).toHaveCount(3);
   await page.screenshot({ path: "test-results/shots/result.png", fullPage: true });
   const suggestions = page.getByTestId("menu-suggestions");
   await expect(suggestions).toBeVisible();

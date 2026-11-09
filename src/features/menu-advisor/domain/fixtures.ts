@@ -15,6 +15,6 @@ export const dish = (patch: Partial<MenuDish> = {}): MenuDish => ({
   ...patch,
 });
 
-export const person = (patch: Partial<Person> = {}): Person => ({ id: "p1", name: "Anna", kind: "member", allergies: [], tastes: {}, drink: null, ...patch });
+export const person = (patch: Partial<Person> = {}): Person => ({ id: "p1", name: "Anna", kind: "member", allergies: [], tastes: {}, dislikes: [], likes: [], drink: null, ...patch });
 
 export const menuOf = (ratter: MenuDish[]): Menu => ({ restaurang: "Casa Pepe", sprak: "es", ratter, osakert: [] });

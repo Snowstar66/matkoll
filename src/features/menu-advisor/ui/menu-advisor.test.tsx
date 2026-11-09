@@ -172,8 +172,8 @@ describe("Sällskap", () => {
   const people = {
     v: 1,
     people: [
-      { id: "me", name: "Du", kind: "member", allergies: [], tastes: {}, drink: null },
-      { id: "a", name: "Anna", kind: "member", allergies: ["notter"], tastes: {}, drink: null },
+      { id: "me", name: "Du", kind: "member", allergies: [], tastes: {}, dislikes: [], likes: [], drink: null },
+      { id: "a", name: "Anna", kind: "member", allergies: ["notter"], tastes: {}, dislikes: [], likes: [], drink: null },
     ],
   };
 

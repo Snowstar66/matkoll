@@ -1,5 +1,6 @@
 import { allergenHits, type AllergenHit } from "./allergens";
 import { type DrinkKind, drinkKinds, type Person, type Taste, type TasteKey, tasteKeys } from "./profile";
+import { addTag, parseTags } from "./preferences";
 import { type MenuAllergen, type MenuDish, menuAllergens } from "./types";
 
 // Managing the people the advisor chooses for: the saved profiles (read from storage, never trusted), adding,
@@ -42,7 +43,7 @@ export const drinkIcons: Readonly<Record<DrinkKind, string>> = {
 };
 
 export function newPerson(id: string, name: string, kind: Person["kind"]): Person {
-  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies: [], tastes: {}, drink: null };
+  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies: [], tastes: {}, dislikes: [], likes: [], drink: null };
 }
 
 /** The built-in "Du". */
@@ -69,7 +70,7 @@ export function parsePerson(value: unknown): Person | null {
     }
   }
   const drink = (drinkKinds as readonly unknown[]).includes(value.drink) ? (value.drink as DrinkKind) : null;
-  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies, tastes, drink };
+  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies, tastes, dislikes: parseTags(value.dislikes), likes: parseTags(value.likes), drink };
 }
 
 /** The saved people from the stored text: `{ v: 1, people: [...] }`. Anything broken gives an empty list; a bad entry is skipped. */
@@ -181,4 +182,14 @@ export function unfitFor(dish: Pick<MenuDish, "allergener" | "kan_innehalla">, c
     const hits = allergenHits(dish, person.allergies);
     return hits.length > 0 ? [{ person, hits }] : [];
   });
+}
+
+/** Adds a free-text tag to a list ("dislikes" or "likes"); `error` says why it was not added. */
+export function withTag(person: Person, list: "dislikes" | "likes", text: string): { person: Person; error: string | null } {
+  const result = addTag(person[list], text);
+  return { person: result.tags === person[list] ? person : { ...person, [list]: result.tags }, error: result.error };
+}
+
+export function withoutTag(person: Person, list: "dislikes" | "likes", tag: string): Person {
+  return { ...person, [list]: person[list].filter((entry) => entry !== tag) };
 }
