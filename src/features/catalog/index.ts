@@ -5,6 +5,7 @@ export {
   isCountUnit,
   unitSchema,
   normalizeUnit,
+  importAmount,
   unitInNoun,
   CLOVES_PER_WHOLE,
   unitOfNoun,
