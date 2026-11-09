@@ -13,6 +13,7 @@ const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
 // Pontus 1 Nov: the föremål's sheet opens from its row; its actions have tests of their own (card-things, thing-sheet).
 vi.mock("../actions/thing-item", () => ({ updateThing: vi.fn(), removeThing: vi.fn(), restoreThing: vi.fn() }));
+vi.mock("../actions/thing-detail", () => ({ loadThingDetail: async () => ({ ok: false, error: { code: "things_unavailable", message: "x" } }) }));
 vi.mock("../actions/thing-count", () => ({
   loadThingCount: async (itemId: string) => ({ ok: true, data: { itemId, quantity: 4, changes: [] } }),
 }));

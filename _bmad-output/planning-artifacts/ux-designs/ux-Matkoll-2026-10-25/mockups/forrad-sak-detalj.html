@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Förråd – sak-detalj med kort och foto</title>
+<style>
+  :root { font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#E6EAE7; color:#1B2420; }
+  .wrap { max-width:1500px; margin:0 auto; padding:28px 16px 60px; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  h2.sec { font-size:20px; margin:44px 0 6px; }
+  p.lead { color:#56635D; line-height:1.5; max-width:860px; margin:0 0 12px; }
+  .pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:8px; max-width:100%; }
+  .lbl { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#56635D; }
+  .lbl.new { color:#3E7C62; }
+  .box { background:#fff; border-radius:16px; padding:18px 22px; margin-top:28px; max-width:900px; line-height:1.5; }
+  .box h2 { margin:0 0 8px; font-size:18px; } .box li { margin:4px 0; }
+  .box.warn { border-left:6px solid #C9A24A; } .box.ok { border-left:6px solid #3E7C62; }
+  .tag { font-size:12px; font-weight:700; padding:1px 8px; border-radius:99px; background:#F1ECE2; color:#6B5A33; white-space:nowrap; }
+  .tag.g { background:#DDEFE5; color:#2C5E48; }
+
+  .frame { --bg:#F5F7F4; --surface:#FFFFFF; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872; --hair:#EEF1EF; --border:#E3E8E4; --accent:#3E7C62; --on-accent:#FFFFFF; --mint:#DDEFE5; --mint-ink:#2C5E48; --sky:#DCE9F6; --sky-ink:#2E5A85; --clay:#F1E3DD; --lilac:#E6E1F2; --sand:#F1ECE2; --danger:#B5483B; --dim:rgba(20,26,23,.38);
+    position:relative; overflow:hidden; background:var(--bg); color:var(--ink); width:390px; height:844px; border-radius:28px; box-shadow:0 4px 18px rgba(27,36,32,.15); flex:none; max-width:100%; }
+  .m-main { position:absolute; left:20px; right:20px; top:56px; }
+  .ptitle h3 { font-size:34px; margin:0; letter-spacing:-.01em; font-weight:700; }
+  .crumbs { color:var(--ink2); font-size:14px; margin:6px 0 0; }
+  .crumbs a, .bc a { color:var(--accent); text-decoration:none; font-weight:500; }
+  .sechead { display:flex; justify-content:space-between; align-items:baseline; margin:22px 4px 8px; }
+  .sechead b { font-size:13px; letter-spacing:.07em; color:var(--ink2); } .sechead span { font-size:14px; color:var(--ink3); }
+  .stats { background:var(--surface); border-radius:16px; margin-top:16px; display:grid; grid-template-columns:repeat(3,1fr); text-align:center; padding:12px 0; }
+  .stats b { display:block; font-size:20px; } .stats small { color:var(--ink2); font-size:13px; }
+  .list { background:var(--surface); border-radius:16px; overflow:hidden; }
+  .row { display:flex; align-items:center; gap:12px; padding:10px 14px 10px 12px; min-height:64px; border-top:1px solid var(--hair); }
+  .row:first-child { border-top:0; }
+  .row b { display:block; font-size:16px; font-weight:600; } .row small { color:var(--ink3); font-size:13.5px; }
+  .row .chev { margin-left:auto; color:var(--ink3); font-size:20px; }
+  .tile { width:44px; height:44px; border-radius:10px; display:grid; place-items:center; font-size:22px; flex:none; background:var(--mint); }
+  .tabs { position:absolute; left:0; right:0; bottom:0; height:84px; background:var(--surface); border-top:1px solid var(--border); display:grid; grid-template-columns:repeat(5,1fr); padding-top:8px; }
+  .tabs div { text-align:center; font-size:11.5px; color:var(--ink2); } .tabs div i { display:block; font-style:normal; font-size:21px; filter:saturate(.15); opacity:.7; margin-bottom:2px; }
+  .tabs div.on { color:var(--accent); font-weight:600; } .tabs div.on i { filter:none; opacity:1; }
+  .sheet-dim { position:absolute; inset:0; background:var(--dim); }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:20px 20px 0 0; padding:10px 20px 30px; }
+  .grab { width:38px; height:5px; border-radius:3px; background:var(--border); margin:0 auto 12px; }
+  .shead { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .shead h4 { margin:0; font-size:18px; } .shead a, .backl { color:var(--accent); font-weight:600; font-size:16px; }
+  .flabel { font-size:14px; font-weight:600; color:var(--ink2); margin:0 4px 8px; }
+  .field { height:48px; border-radius:12px; border:1.5px solid var(--accent); display:flex; align-items:center; padding:0 14px; font-size:16px; background:var(--surface); }
+  .field .caret { width:1.5px; height:20px; background:var(--accent); margin-left:1px; }
+  .shint { font-size:13px; color:var(--ink3); margin:8px 4px 16px; }
+  .primary { height:52px; border-radius:14px; background:var(--accent); color:var(--on-accent); display:grid; place-items:center; font-weight:600; font-size:16px; }
+  .primary.off { background:var(--border); color:var(--ink3); }
+
+  /* illustrative photo: a shelf with boxes, drawn in gradients */
+  .photo { position:relative; border-radius:16px; overflow:hidden; background:
+      linear-gradient(#8d8f86 0 0) 0 62%/100% 5px no-repeat,
+      linear-gradient(#a18467 0 0) 8% 66%/26% 30% no-repeat,
+      linear-gradient(#6f8aa3 0 0) 38% 48%/22% 48% no-repeat,
+      linear-gradient(#b86d58 0 0) 64% 56%/28% 40% no-repeat,
+      linear-gradient(#d9a441 0 0) 12% 30%/18% 26% no-repeat,
+      linear-gradient(#7b7f78 0 0) 70% 20%/20% 32% no-repeat,
+      linear-gradient(180deg,#c9c6bb,#9f9d92); }
+  .photo.big { height:240px; }
+  .photo .spot { position:absolute; left:63%; top:50%; width:30%; height:48%; border:3px solid #fff; border-radius:10px; box-shadow:0 0 0 999px rgba(20,26,23,.45); }
+  .photo .open { position:absolute; right:10px; bottom:10px; background:rgba(20,26,23,.62); color:#fff; font-size:12.5px; font-weight:600; padding:5px 10px; border-radius:99px; }
+  .photo .pill { position:absolute; left:10px; top:10px; background:var(--accent); color:#fff; font-size:12px; font-weight:700; padding:3px 9px; border-radius:99px; }
+  .nophoto { height:150px; border-radius:16px; background:var(--mint); display:grid; place-items:center; text-align:center; color:var(--mint-ink); }
+  .nophoto i { font-style:normal; font-size:64px; display:block; line-height:1.1; } .nophoto span { font-size:13px; font-weight:600; }
+  .big-name { font-size:26px; font-weight:700; letter-spacing:-.01em; margin:14px 2px 4px; }
+  .bc { font-size:14px; color:var(--ink2); margin:0 2px; line-height:1.4; } .bc s { text-decoration:none; color:var(--ink3); padding:0 3px; }
+  .count { font-size:14px; color:var(--ink3); margin:4px 2px 14px; }
+  .ios { background:var(--bg); border-radius:14px; overflow:hidden; }
+  .ios div { display:flex; justify-content:space-between; align-items:center; min-height:48px; padding:0 16px; font-size:16px; border-top:1px solid var(--border); }
+  .ios div:first-child { border-top:0; } .ios em { font-style:normal; color:var(--ink3); } .ios .del { color:var(--danger); }
+  /* thumbnail = crop of the card */
+  .thumb { width:44px; height:44px; border-radius:10px; flex:none; background:
+      linear-gradient(#b86d58 0 0) 50% 60%/70% 70% no-repeat, linear-gradient(180deg,#c9c6bb,#9f9d92); position:relative; }
+  .thumb.b { background: linear-gradient(#6f8aa3 0 0) 50% 60%/70% 70% no-repeat, linear-gradient(180deg,#c9c6bb,#9f9d92); }
+  .thumb.c { background: linear-gradient(#d9a441 0 0) 50% 60%/70% 70% no-repeat, linear-gradient(180deg,#c9c6bb,#9f9d92); }
+  .thumb.d { background: linear-gradient(#a18467 0 0) 50% 60%/70% 70% no-repeat, linear-gradient(180deg,#c9c6bb,#9f9d92); }
+  .photos { display:flex; gap:8px; } .photos .photo { width:92px; height:92px; border-radius:12px; background-size:300% 300%; }
+  .write { background:var(--bg); border-radius:14px; min-height:84px; padding:12px 14px; color:var(--ink3); font-size:15px; line-height:1.4; }
+  .btn2 { height:50px; border-radius:14px; border:1.5px solid var(--accent); color:var(--accent); display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:16px; margin-top:10px; }
+  .arrow { align-self:center; font-size:28px; color:#56635D; }
+  .ill { background:#F1ECE2; color:#6B5A33; font-size:12px; font-weight:700; padding:1px 7px; border-radius:99px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Förråd – sak-detalj med kort och foto</h1>
+  <p class="lead">Problem: ett tryck på en sak i listan ger bara ett textformulär (byt namn, flytta). Man ser varken kortet eller fotot och förstår inte vad man tryckt på. Förslaget gör bladet till en <b>detaljvy</b> med fotot först, och formuläret blir steg man går in i. Alla foton är <span class="ill">illustrativa</span> (ritade i CSS).</p>
+
+  <!-- 1 -->
+  <h2 class="sec">1. Sak-detalj: Före → Efter</h2>
+  <p class="lead">Före: ett blad med namnfält, kategori, "var på bilden", Spara och Ta bort. Efter: fotot med sakens ruta markerad överst, namnet stort, var den ligger som brödsmula och hur många de är, sedan rader i stället för fält. Tryck på fotot öppnar hela kortet. Ingen Spara-knapp på huvudvyn, varje steg sparar för sig.</p>
+  <div class="pair">
+    <div class="col"><span class="lbl">Före (som koden ser ut idag)</span>
+      <div class="frame">
+        <div class="m-main"><div class="ptitle"><h3>Garaget</h3></div><div class="list" style="margin-top:20px"><div class="row"><span class="tile" style="font-size:20px">🎄</span><span><b>Julgranskulor</b><small>Låda "Jul" · syns på 2 kort</small></span><span class="chev">›</span></div></div></div>
+        <div class="sheet-dim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="shead"><div><h4>Julgranskulor</h4><div style="font-size:13px;color:var(--ink3)">Låda "Jul" · syns på 2 kort</div></div><a>Avbryt</a></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-weight:500">Visa på kortet <span>›</span></div>
+          <div class="flabel">Byt namn</div><div class="field">Julgranskulor<span class="caret"></span></div>
+          <div class="ios" style="margin:12px 0;background:var(--surface);border:1px solid var(--border)"><div>Kategori <em>🎄 Högtid ›</em></div></div>
+          <div class="flabel">Var på bilden (valfritt)</div><div class="field" style="border-color:var(--border);color:var(--ink3)">Till höger</div>
+          <div style="height:14px"></div>
+          <div class="primary">Spara</div>
+          <div style="height:46px;margin-top:10px;display:grid;place-items:center;color:var(--danger);font-weight:600;border:1px solid var(--border);border-radius:14px">Ta bort saken</div>
+        </div>
+      </div>
+    </div>
+    <span class="arrow">→</span>
+    <div class="col"><span class="lbl new">Efter – sak med foto</span>
+      <div class="frame">
+        <div class="m-main"><div class="ptitle"><h3>Garaget</h3></div><div class="list" style="margin-top:20px"><div class="row"><span class="thumb"></span><span><b>Julgranskulor</b><small>Hylla 2 · Låda "Jul"</small></span><span class="chev">›</span></div></div></div>
+        <div class="sheet-dim"></div>
+        <div class="sheet" style="padding-top:10px">
+          <div class="grab"></div>
+          <div class="photo big"><span class="spot"></span><span class="pill">Här är den</span><span class="open">Öppna hela kortet ⤢</span></div>
+          <div class="big-name">Julgranskulor</div>
+          <div class="bc"><a>Förråd</a><s>›</s><a>Garaget</a><s>›</s><a>Hylla 2</a><s>›</s><a>Låda "Jul"</a></div>
+          <div class="count">3 st · syns på 2 kort</div>
+          <div class="ios">
+            <div>Byt namn <em>›</em></div>
+            <div>Flytta <em>Låda "Jul" ›</em></div>
+            <div>Kategori <em>🎄 Högtid ›</em></div>
+            <div class="del">Ta bort</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col"><span class="lbl new">Efter – skriven sak (inget foto)</span>
+      <div class="frame">
+        <div class="m-main"><div class="ptitle"><h3>Garaget</h3></div><div class="list" style="margin-top:20px"><div class="row"><span class="tile">🔧</span><span><b>Skiftnyckel</b><small>Låda "Verktyg" · skriven</small></span><span class="chev">›</span></div></div></div>
+        <div class="sheet-dim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="nophoto"><div><i>🔧</i><span>Skriven sak, inget foto</span></div></div>
+          <div class="big-name">Skiftnyckel</div>
+          <div class="bc"><a>Förråd</a><s>›</s><a>Garaget</a><s>›</s><a>Låda "Verktyg"</a></div>
+          <div class="count">Skriven 4 nov</div>
+          <div class="ios">
+            <div>Byt namn <em>›</em></div>
+            <div>Flytta <em>Låda "Verktyg" ›</em></div>
+            <div>Kategori <em>🔧 Verktyg ›</em></div>
+            <div class="del">Ta bort</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <h2 class="sec">2. Stegen: Byt namn och Flytta</h2>
+  <p class="lead">Samma blad, bakåtpil uppe till vänster. Byt namn sparar med en tydlig knapp inne i steget och går tillbaka. Flytta är en lista där man väljer rum, sedan del (hylla) och sist låda, med en bock på det valda.</p>
+  <div class="pair">
+    <div class="col"><span class="lbl new">Byt namn</span>
+      <div class="frame"><div class="sheet-dim"></div>
+        <div class="sheet" style="top:330px">
+          <div class="grab"></div>
+          <div class="shead"><a class="backl">‹ Tillbaka</a><h4>Byt namn</h4><span style="width:70px"></span></div>
+          <div class="flabel">Namn</div><div class="field">Julgranskulor<span class="caret"></span></div>
+          <div class="shint">Syns i listan och i sökningen.</div>
+          <div class="primary">Spara namn</div>
+        </div>
+      </div>
+    </div>
+    <div class="col"><span class="lbl new">Flytta – välj rum</span>
+      <div class="frame"><div class="sheet-dim"></div>
+        <div class="sheet" style="top:230px">
+          <div class="grab"></div>
+          <div class="shead"><a class="backl">‹ Tillbaka</a><h4>Flytta till …</h4><span style="width:70px"></span></div>
+          <div class="ios">
+            <div>🌿 Boden <em>›</em></div>
+            <div>🚗 Garaget <em style="color:var(--accent);font-weight:700">✓ ›</em></div>
+            <div>🧰 Källaren <em>›</em></div>
+          </div>
+          <div class="shint" style="margin-top:12px">Nu: Garaget › Hylla 2 › Låda "Jul"</div>
+        </div>
+      </div>
+    </div>
+    <div class="col"><span class="lbl new">Flytta – välj del och låda</span>
+      <div class="frame"><div class="sheet-dim"></div>
+        <div class="sheet" style="top:150px">
+          <div class="grab"></div>
+          <div class="shead"><a class="backl">‹ Garaget</a><h4>Hylla 2</h4><span style="width:70px"></span></div>
+          <div class="flabel">DELAR</div>
+          <div class="ios"><div>Hylla 1 <em>›</em></div><div>Hylla 2 <em style="color:var(--accent);font-weight:700">✓ ›</em></div><div>Golvet <em>›</em></div></div>
+          <div class="flabel" style="margin-top:14px">LÅDOR PÅ HYLLA 2</div>
+          <div class="ios"><div>Direkt på hyllan <em></em></div><div>Låda "Jul" <em style="color:var(--accent);font-weight:700">✓</em></div><div>Låda "Verktyg" <em></em></div><div>Låda "Cykel" <em></em></div></div>
+          <div style="height:14px"></div>
+          <div class="primary">Flytta hit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <h2 class="sec">3. Rumslistan: Före → Efter</h2>
+  <p class="lead">Före: varje sak är en rad med en kategoriruta och text, så man ser inte vad den är. Efter: till vänster en liten miniatyr av kortets beskärning kring just den saken, sedan namn, plats och ›. Skrivna saker får kategori-emoji på mintplatta.</p>
+  <div class="pair">
+    <div class="col"><span class="lbl">Före</span>
+      <div class="frame"><div class="m-main"><div class="ptitle"><h3>Garaget</h3></div><div class="crumbs"><a>Förråd</a> › Garaget</div>
+        <div class="stats"><div><b>37</b><small>prylar</small></div><div><b>4</b><small>kort</small></div><div><b>3</b><small>lådor</small></div></div>
+        <div class="sechead"><b>PRYLAR</b><span>Hylla 2</span></div>
+        <div class="list">
+          <div class="row"><span class="tile" style="font-size:20px">🎄</span><span><b>Julgranskulor</b><small>Till höger · syns på 2 kort</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="tile" style="font-size:20px;background:var(--sky)">🧰</span><span><b>Verktygslåda</b><small>Vänster · syns på 1 kort</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="tile" style="font-size:20px;background:var(--clay)">🚲</span><span><b>Cykelpump</b><small>Nere · syns på 1 kort</small></span><span class="chev">›</span></div>
+        </div></div>
+        <div class="tabs"><div><i>📖</i>Recept</div><div><i>📅</i>Matsedel</div><div><i>🛒</i>Inköpslista</div><div><i>🥕</i>Matvaror</div><div class="on"><i>🧰</i>Förråd</div></div>
+      </div>
+    </div>
+    <span class="arrow">→</span>
+    <div class="col"><span class="lbl new">Efter</span>
+      <div class="frame"><div class="m-main"><div class="ptitle"><h3>Garaget</h3></div><div class="crumbs"><a>Förråd</a> › Garaget</div>
+        <div class="stats"><div><b>37</b><small>prylar</small></div><div><b>4</b><small>kort</small></div><div><b>3</b><small>lådor</small></div></div>
+        <div class="sechead"><b>PRYLAR</b><span>Hylla 2</span></div>
+        <div class="list">
+          <div class="row"><span class="thumb"></span><span><b>Julgranskulor</b><small>Hylla 2 · Låda "Jul"</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="thumb b"></span><span><b>Verktygslåda</b><small>Hylla 1 · Direkt på hyllan</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="thumb c"></span><span><b>Cykelpump</b><small>Golvet</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="tile">🔧</span><span><b>Skiftnyckel</b><small>Låda "Verktyg" · skriven</small></span><span class="chev">›</span></div>
+        </div></div>
+        <div class="tabs"><div><i>📖</i>Recept</div><div><i>📅</i>Matsedel</div><div><i>🛒</i>Inköpslista</div><div><i>🥕</i>Matvaror</div><div class="on"><i>🧰</i>Förråd</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <h2 class="sec">4. Låda: Efter</h2>
+  <p class="lead">Rubriken säger var lådan står ("Låda i Garaget"). Fotona av lådan visas som miniatyrer, sakerna som rader som öppnar sak-detaljen, och under dem den skrivna listan och Fota-knappen.</p>
+  <div class="pair">
+    <div class="col"><span class="lbl new">Efter</span>
+      <div class="frame"><div class="m-main"><div class="ptitle"><h3 style="font-size:30px">Låda "Jul"</h3></div><div class="crumbs">Låda i <a>Garaget</a> › Hylla 2</div>
+        <div class="sechead" style="margin-top:16px"><b>FOTON</b><span>2 kort</span></div>
+        <div class="photos"><div class="photo" style="background-position:0 0"></div><div class="photo" style="filter:hue-rotate(40deg)"></div><div class="tile" style="width:92px;height:92px;border:1.5px dashed var(--accent);background:transparent;color:var(--accent);font-size:26px">+</div></div>
+        <div class="sechead" style="margin-top:16px"><b>SAKER</b><span>3 st</span></div>
+        <div class="list">
+          <div class="row"><span class="thumb"></span><span><b>Julgranskulor</b><small>3 st</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="thumb d"></span><span><b>Ljusslinga</b><small>1 st</small></span><span class="chev">›</span></div>
+          <div class="row"><span class="tile">🎁</span><span><b>Presentsnöre</b><small>skriven</small></span><span class="chev">›</span></div>
+        </div>
+        <div class="sechead" style="margin-top:14px"><b>SKRIV TILL</b></div>
+        <div class="write">Vad mer finns i lådan? En sak per rad …</div>
+        <div class="btn2">📷 Fota</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box ok"><h2><span class="tag g">Bara omarbetad vy</span> Bygger på det som finns</h2>
+    <ul>
+      <li>Fotot överst med markerad ruta: kortet och sakens "var på bilden" finns redan, det är bara en ny presentation. Tryck på fotot går till kortet (idag "Visa på kortet").</li>
+      <li>Miniatyrer i rumslistan: en beskärning av kortet utifrån sparad plats på bilden. Rent visuellt.</li>
+      <li>Byt namn och Kategori som steg: samma åtgärder (updateThing) i nya steg, utan Spara på huvudvyn. Ta bort som idag, med Ångra.</li>
+      <li>Brödsmula och "3 st · syns på 2 kort": finns som data (plats, antal, seenOn).</li>
+      <li>Lådvyn: omarbetad layout av dagens lådsida (skrivfält, Fota insidan, kort).</li>
+    </ul>
+  </div>
+  <div class="box warn"><h2><span class="tag">Förslag som kräver ny funktion</span></h2>
+    <ul>
+      <li><b>Flytta</b> kräver ny datamodell och åtgärd: en sak kan idag inte bytas till annat rum, annan del eller låda. Behöver tydlig regel för vad som händer med kortets beskärning när saken flyttas till en plats som inte syns på kortet (troligen att fotot följer med som "syns på", men saken får ny plats).</li>
+      <li>Länkade led i brödsmulan förutsätter att hylla och låda är egna sidor/ankare (lådan har det, hyllan behöver kontrolleras).</li>
+      <li>Miniatyrer kräver att beskärningen kan tas fram snabbt (förberäknad eller CSS-beskärning av kortbilden).</li>
+    </ul>
+  </div>
+  <div class="box"><h2><span class="ill">Illustrativt</span> Foton och bilder</h2>
+    <p style="margin:0">Alla foton, miniatyrer och rutor är ritade platshållare, inte verkliga kort. "Före"-bilderna är återskapade från koden (thing-sheet.tsx, rooms/room-view), inte skärmdumpar. Texter, tokens och färger följer appen.</p>
+  </div>
+</div>
+</body>
+</html>

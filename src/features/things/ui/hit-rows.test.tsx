@@ -25,6 +25,9 @@ vi.mock("../actions/thing-count", () => ({
   undoThingChange: vi.fn(),
   loadThingCount: (id: string) => loadThingCount(id),
 }));
+// The photo and place of the föremål in its sheet are read when it opens; here the read fails, which must never block the rest.
+const loadThingDetail = vi.fn();
+vi.mock("../actions/thing-detail", () => ({ loadThingDetail: (id: string) => loadThingDetail(id) }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 
@@ -71,7 +74,7 @@ const snapshot: ThingSnapshot = {
 };
 
 beforeEach(() => {
-  for (const mock of [updateThing, removeThing, restoreThing, changeThingCount, loadThingCount, refresh]) mock.mockReset();
+  for (const mock of [loadThingDetail, updateThing, removeThing, restoreThing, changeThingCount, loadThingCount, refresh]) mock.mockReset();
   loadThingCount.mockImplementation(async (itemId: string) => ok({ itemId, quantity: null, changes: [] }));
 });
 
@@ -90,11 +93,12 @@ describe("a search hit's sheet", () => {
     const sheet = screen.getByRole("dialog", { name: "Hammare" });
     expect(sheet).toHaveTextContent("Boden · på väggen");
     expect(await within(sheet).findByText("· räknas inte")).toBeInTheDocument();
-    const link = within(sheet).getByRole("link", { name: "Visa på kortet" });
+    // The photo at the top is the way to the card (the search hit knows its card at once).
+    const link = within(sheet).getByRole("link", { name: "Öppna hela kortet" });
     expect(link).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${id}`);
     const buttons = within(sheet).getAllByRole("button");
     expect(buttons[buttons.length - 1]).toHaveTextContent("Ta bort föremålet");
-    expect(buttons[buttons.length - 1]).toHaveClass("text-danger");
+    expect(buttons[buttons.length - 1].querySelector(".text-danger")).not.toBeNull();
   });
 
   it("is reached with the keyboard, and the thumbnail is a link of its own to the card", async () => {
@@ -127,8 +131,9 @@ describe("a search hit's sheet", () => {
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
     const sheet = screen.getByRole("dialog", { name: "Hammare" });
-    await userEvent.clear(within(sheet).getByLabelText("Byt namn"));
-    await userEvent.type(within(sheet).getByLabelText("Byt namn"), "Snickarhammare");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Byt namn" }));
+    await userEvent.clear(within(sheet).getByLabelText("Namn"));
+    await userEvent.type(within(sheet).getByLabelText("Namn"), "Snickarhammare");
     await userEvent.click(within(sheet).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(screen.getByTestId("thing-hit")).toHaveTextContent("Snickarhammare"));
   });

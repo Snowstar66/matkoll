@@ -19,6 +19,9 @@ vi.mock("../actions/thing-item", () => ({
 vi.mock("../actions/thing-count", () => ({
   loadThingCount: async (itemId: string) => ({ ok: true, data: { itemId, quantity: null, changes: [] } }),
 }));
+// The photo and place of the föremål in its sheet are read when it opens; here the read fails, which must never block the rest.
+const loadThingDetail = vi.fn();
+vi.mock("../actions/thing-detail", () => ({ loadThingDetail: (id: string) => loadThingDetail(id) }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 
@@ -44,7 +47,7 @@ const snapshot: ThingSnapshot = {
 };
 
 beforeEach(() => {
-  for (const mock of [updateThing, removeThing, restoreThing, refresh]) mock.mockReset();
+  for (const mock of [loadThingDetail, updateThing, removeThing, restoreThing, refresh]) mock.mockReset();
 });
 
 async function openHammer() {
@@ -57,54 +60,111 @@ async function openHammer() {
   return screen.getByRole("dialog", { name: "Hammare" });
 }
 
+const photoId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
+const placeId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02";
+const siteId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a03";
+const detail = {
+  photoId,
+  source: "photo",
+  box: { left: 0.2, top: 0.1, width: 0.3, height: 0.4 },
+  place: { id: placeId, siteId, room: "Garaget", roomKey: "garaget", part: "Hylla 2", kind: "part" },
+};
+
 describe("the things of a card", () => {
-  it("opens a sheet with the thing's name to change, or to remove, when a thing is tapped", async () => {
+  it("opens a sheet with the first view's rows, and Ta bort föremålet last in the muted red", async () => {
     const dialog = await openHammer();
-    expect(within(dialog).getByLabelText("Byt namn")).toHaveValue("Hammare");
-    expect(within(dialog).getByRole("button", { name: "Spara" })).toBeInTheDocument();
-    // Pontus 1 Nov: last, in the muted red of Ta bort (Epic 19), never a fill.
+    // No form and no Spara on the first view: each row opens a step of its own.
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Spara" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Byt namn" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^Var på bilden/ })).toHaveTextContent("på väggen");
     const remove = within(dialog).getByRole("button", { name: "Ta bort föremålet" });
-    expect(remove).toHaveClass("text-danger");
+    expect(remove.querySelector(".text-danger")).not.toBeNull();
     expect(remove.className).not.toMatch(/bg-danger/);
+    // Without a photo read, the mint tile with the category's emoji stands in.
+    expect(within(dialog).getByTestId("thing-tile")).toHaveTextContent("\u{1F528}");
     // In the room there is no "Visa på kortet": the room is where it was opened.
     expect(within(dialog).queryByTestId("thing-sheet-link")).not.toBeInTheDocument();
   });
 
-  it("renames just that thing and reads the page again", async () => {
+  it("shows the card's photo with the box framed and links the whole card, and the place as crumbs", async () => {
+    loadThingDetail.mockResolvedValue(ok(detail));
+    const dialog = await openHammer();
+    const photo = await within(dialog).findByTestId("thing-photo");
+    expect(photo).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
+    expect(photo.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
+    expect(within(dialog).getByTestId("thing-photo-box")).toHaveStyle({ left: "20%", top: "10%", width: "30%", height: "40%" });
+    expect(within(dialog).queryByTestId("thing-tile")).not.toBeInTheDocument();
+    const crumbs = within(dialog).getByTestId("thing-crumbs");
+    expect(within(crumbs).getByRole("link", { name: "Garaget" })).toHaveAttribute("href", `/prylar/rum/${siteId}/garaget`);
+    expect(crumbs).toHaveTextContent("Garaget›Hylla 2");
+    expect(within(crumbs).queryByRole("link", { name: "Hylla 2" })).not.toBeInTheDocument();
+  });
+
+  it("links a box in the crumbs, and shows the photo without a frame when it has no box", async () => {
+    loadThingDetail.mockResolvedValue(ok({ ...detail, box: null, place: { ...detail.place, kind: "box", part: "Jul" } }));
+    const dialog = await openHammer();
+    await within(dialog).findByTestId("thing-photo");
+    expect(within(dialog).queryByTestId("thing-photo-box")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Låda Jul" })).toHaveAttribute("href", `/prylar/lada/${placeId}`);
+  });
+
+  it("hides Var på bilden for a thing without a photo, and ignores a read that fails", async () => {
+    loadThingDetail.mockResolvedValue(ok({ ...detail, photoId: null, source: "added", box: null }));
+    const dialog = await openHammer();
+    await waitFor(() => expect(within(dialog).queryByRole("button", { name: /^Var på bilden/ })).not.toBeInTheDocument());
+    expect(within(dialog).getByTestId("thing-tile")).toBeInTheDocument();
+  });
+
+  it("renames just that thing in its own step and reads the page again", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    const field = within(dialog).getByLabelText("Byt namn");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
+    expect(screen.getByRole("dialog", { name: "Byt namn" })).toBe(dialog);
+    const field = within(dialog).getByLabelText("Namn");
+    expect(field).toHaveValue("Hammare");
     await userEvent.clear(field);
     await userEvent.type(field, "Klohammare");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Klohammare", category: "Verktyg", whereHint: "på väggen" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+    // Back on the first view, which now has the new name and the row focused.
+    expect(await screen.findByRole("dialog", { name: "Klohammare" })).toBe(dialog);
+    expect(within(dialog).getByRole("button", { name: "Byt namn" })).toHaveFocus();
   });
 
-  it("changes the category one level deeper and where on the picture, and keeps the thing on its card", async () => {
+  it("saves the category as soon as it is picked one level deeper", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
     // Pontus 2 Nov: one compact row, not nine chips.
     expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
-    // The same sheet, one level deeper: "‹ Tillbaka" and the nine categories with a check on the chosen one.
     expect(screen.getByRole("dialog", { name: "Kategori" })).toBe(dialog);
     expect(within(dialog).getByRole("button", { name: "Tillbaka" })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("radio")).toHaveLength(9);
     expect(within(dialog).getByRole("radio", { name: /Verktyg/ })).toBeChecked();
     expect(within(dialog).getByRole("radio", { name: /Verktyg/ })).toHaveFocus();
-    expect(within(dialog).getByLabelText("Byt namn")).not.toBeVisible();
     await userEvent.click(within(dialog).getByRole("radio", { name: /Trädgård/ }));
-    // Back in the form, the row says the new category and has focus.
-    const row = within(dialog).getByRole("button", { name: "Kategori, Trädgård" });
-    expect(row).toHaveTextContent("Trädgård");
-    expect(row).toHaveFocus();
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Trädgård", whereHint: "på väggen" }));
+    // The föremål moves to another group of its list, so the sheet closes.
+    await waitFor(() => expect(dialog).not.toBeVisible());
+  });
+
+  it("changes where on the picture in its own step, and an empty field clears it", async () => {
+    updateThing.mockResolvedValue(ok(null));
+    const dialog = await openHammer();
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Var på bilden/ }));
     const where = within(dialog).getByLabelText("Var på bilden");
     expect(where).toHaveValue("på väggen");
     await userEvent.clear(where);
     await userEvent.type(where, "översta hyllan");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
-    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Trädgård", whereHint: "översta hyllan" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Verktyg", whereHint: "översta hyllan" }));
+    await userEvent.click(await within(dialog).findByRole("button", { name: /^Var på bilden/ }));
+    await userEvent.clear(within(dialog).getByLabelText("Var på bilden"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(updateThing).toHaveBeenLastCalledWith({ id: hammer.id, name: "Hammare", category: "Verktyg", whereHint: null }));
   });
 
   it("moves the check with the arrow keys, picks with Enter, and Tillbaka keeps the category", async () => {
@@ -113,30 +173,22 @@ describe("the things of a card", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Tillbaka" }));
     expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toHaveFocus();
+    expect(updateThing).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard("{ArrowDown}");
     // The arrow moves the check and stays in the list; Enter picks it.
     expect(within(dialog).getByRole("radio", { name: /Sport/ })).toBeChecked();
     await userEvent.keyboard("{Enter}");
-    expect(within(dialog).getByRole("button", { name: "Kategori, Sport & fritid" })).toHaveFocus();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Sport & fritid", whereHint: "på väggen" }));
   });
 
-  it("clears the where with an empty field and saves a changed category alone", async () => {
-    updateThing.mockResolvedValue(ok(null));
+  it("sends nothing when the name is unchanged, and asks for a name when it is emptied", async () => {
     const dialog = await openHammer();
-    await userEvent.clear(within(dialog).getByLabelText("Var på bilden"));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
-    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Verktyg", whereHint: "" }));
-  });
-
-  it("asks for a name when it is emptied, and sends nothing when it is unchanged", async () => {
-    const dialog = await openHammer();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(updateThing).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: /Hammare/ }));
-    await userEvent.clear(within(dialog).getByLabelText("Byt namn"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
+    await userEvent.clear(within(dialog).getByLabelText("Namn"));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(screen.getByText("Ange ett namn.")).toBeInTheDocument();
     expect(updateThing).not.toHaveBeenCalled();
@@ -145,7 +197,8 @@ describe("the things of a card", () => {
   it("shows the server's text under the field when the name is refused", async () => {
     updateThing.mockResolvedValue(fail("validation", { name: "Namnet får vara högst 80 tecken." }));
     const dialog = await openHammer();
-    await userEvent.type(within(dialog).getByLabelText("Byt namn"), "x");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
+    await userEvent.type(within(dialog).getByLabelText("Namn"), "x");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(await screen.findByText("Namnet får vara högst 80 tecken.")).toBeInTheDocument();
   });
@@ -194,7 +247,8 @@ describe("a thing written in with where it is (Story 18.19)", () => {
   it("says when it was written in and where, and has no 'Var på bilden'", async () => {
     const dialog = await openPass();
     expect(dialog).toHaveTextContent("Du skrev in det 31 okt · Översta byrålådan");
-    expect(within(dialog).queryByLabelText("Var på bilden")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /^Var på bilden/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("thing-tile")).toBeInTheDocument();
   });
 
   it("changes the name and category without writing its hint as a 'where'", async () => {
@@ -202,7 +256,6 @@ describe("a thing written in with where it is (Story 18.19)", () => {
     const dialog = await openPass();
     await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Övrigt" }));
     await userEvent.click(within(dialog).getByRole("radio", { name: /Kläder/ }));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: pass.id, name: "Pass", category: "Kläder & textil", whereHint: null }));
   });
 
