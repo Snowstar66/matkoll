@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
 import { getMemberPeople } from "@/features/household/server";
+import { getSavedFoodPeople } from "@/features/menu-advisor/server";
 import { MenuAdvisor } from "@/features/menu-advisor/ui/menu-advisor";
 
 export const metadata: Metadata = { title: "Menyrådgivare" };
@@ -22,5 +23,6 @@ export default function MenuAdvisorPage() {
 }
 
 async function Advisor() {
-  return <MenuAdvisor members={await getMemberPeople()} />;
+  const [members, profiles] = await Promise.all([getMemberPeople(), getSavedFoodPeople()]);
+  return <MenuAdvisor members={members} profiles={profiles} />;
 }

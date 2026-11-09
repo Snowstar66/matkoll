@@ -561,6 +561,15 @@ export async function clearStaples(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Takes away every saved food profile of `userId`'s household (Menyrådgivare), so a spec starts with nobody saved. */
+export async function clearFoodProfiles(userId: string): Promise<void> {
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  if (member.error) throw member.error;
+  const { error } = await admin.from("food_profile").delete().eq("household_id", member.data.household_id);
+  if (error) throw error;
+}
+
 export async function e2eUserId(email: string): Promise<string> {
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;

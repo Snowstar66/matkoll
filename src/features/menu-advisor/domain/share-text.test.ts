@@ -38,4 +38,14 @@ describe("buildShareText", () => {
     expect(lines).toContain("12 rätter saknar pris och räknas inte med.");
     expect(lines.length).toBeLessThanOrEqual(15);
   });
+
+  it("adds a short note when a chosen dish has something the person avoids or loves", () => {
+    const pasta = dish({ originalnamn: "Pasta al ajo", huvudingredienser: ["vitlök", "paprika"] });
+    const selection = [{ personId: "a", dish: pasta }];
+    const withTags = [person({ id: "a", name: "Anna", dislikes: ["vitlök"], likes: ["paprika"] })];
+    const text = buildShareText(menuOf([pasta]), selection, estimateTotalSek(selection, menuOf([pasta]), withTags), withTags);
+    expect(text).toContain("Anna – Pasta al ajo (kyckling), ca 150 kr (älskar paprika; undviker vitlök)");
+    const plain = [person({ id: "a", name: "Anna" })];
+    expect(buildShareText(menuOf([pasta]), selection, estimateTotalSek(selection, menuOf([pasta]), plain), plain)).not.toContain("undviker");
+  });
 });

@@ -124,3 +124,44 @@ describe("recommend: budget", () => {
     expect(defaultSelection(recommend(menuOf([]), [person()]))).toEqual([]);
   });
 });
+
+describe("recommend: free-text likes and dislikes", () => {
+  const menu = menuOf([
+    dish({ originalnamn: "Pollo al ajillo", kategori: "kott", huvudingredienser: ["kyckling", "vitlök"] }),
+    dish({ originalnamn: "Paprikagryta", kategori: "vegetariskt", huvudingredienser: ["paprika"] }),
+    dish({ originalnamn: "Biff", kategori: "kott" }),
+  ]);
+
+  it("ranks an avoided ingredient down with a soft note, but keeps the dish", () => {
+    const result = recommend(menu, [person({ dislikes: ["vitlök"] })])[0];
+    expect(result.picks.map((p) => p.dish.originalnamn)).toEqual(["Paprikagryta", "Biff", "Pollo al ajillo"]);
+    expect(result.excluded).toBe(0);
+    const garlic = result.picks[2];
+    expect(garlic.concerns).toEqual(["Innehåller vitlök. Anna undviker det."]);
+    expect(garlic.warning).toBeNull();
+  });
+
+  it("says du for the one holding the phone", () => {
+    const result = recommend(menu, [person({ id: "me", name: "Du", dislikes: ["vitlök"] })])[0];
+    expect(result.picks.at(-1)?.concerns[0]).toBe("Innehåller vitlök. Du undviker det.");
+  });
+
+  it("gives a bonus and a reason for a loved ingredient", () => {
+    const result = recommend(menu, [person({ likes: ["paprika"] })])[0];
+    expect(result.picks[0].dish.originalnamn).toBe("Paprikagryta");
+    expect(result.picks[0].reasons[0]).toBe("Anna älskar paprika");
+  });
+
+  it("leads with a dish without an avoided ingredient when there is one", () => {
+    const selection = defaultSelection(recommend(menu, [person({ dislikes: ["vitlök"], likes: ["kyckling"] })]));
+    expect(selection.map((s) => s.dish.originalnamn)).toEqual(["Paprikagryta"]);
+  });
+
+  it("never excludes on a dislike when every dish has it, and allergies still exclude", () => {
+    const all = menuOf([dish({ originalnamn: "A", huvudingredienser: ["vitlök"] }), dish({ originalnamn: "B", huvudingredienser: ["vitlök"], allergener: ["notter"] })]);
+    const result = recommend(all, [person({ dislikes: ["vitlök"], allergies: ["notter"] })])[0];
+    expect(result.picks.map((p) => p.dish.originalnamn)).toEqual(["A"]);
+    expect(result.excluded).toBe(1);
+    expect(result.picks[0].concerns).toHaveLength(1);
+  });
+});

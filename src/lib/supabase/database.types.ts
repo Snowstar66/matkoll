@@ -149,6 +149,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"food_profile": {
+                  Row: {
+                    "allergies": (string)[],"created_at": string,"dislikes": (string)[],"drink": string | null,"household_id": string,"id": string,"kind": string,"likes": (string)[],"name": string | null,"person_key": string,"saved": boolean,"tastes": NonNullable<Json>,"updated_at": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "allergies"?: (string)[],"created_at"?: string,"dislikes"?: (string)[],"drink"?: string | null,"household_id"?: string,"id"?: string,"kind": string,"likes"?: (string)[],"name"?: string | null,"person_key": string,"saved"?: boolean,"tastes"?: NonNullable<Json>,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "allergies"?: (string)[],"created_at"?: string,"dislikes"?: (string)[],"drink"?: string | null,"household_id"?: string,"id"?: string,"kind"?: string,"likes"?: (string)[],"name"?: string | null,"person_key"?: string,"saved"?: boolean,"tastes"?: NonNullable<Json>,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "food_profile_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"household": {
                   Row: {
                     "created_at": string,"id": string,"name": string,"name_is_default": boolean,"share_all": boolean
@@ -1176,6 +1196,12 @@ isOneToOne: false
                            },
 "finish_ai_job":
 { Args: { "job_error_code"?: string,"job_id": string,"job_result"?: Json,"job_status": string }; Returns: boolean
+                           },
+"food_tags_valid":
+{ Args: { "tags": (string)[] }; Returns: boolean
+                           },
+"food_tastes_valid":
+{ Args: { "tastes": Json }; Returns: boolean
                            },
 "get_shared_recipe":
 { Args: { "shared_recipe_id": string }; Returns: Json

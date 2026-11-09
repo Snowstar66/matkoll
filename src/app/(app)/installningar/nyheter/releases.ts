@@ -23,6 +23,26 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-09",
+    title: "Äta ute: smak och allergier gäller hela hushållet",
+    bullets: [
+      "Det du fyller i under Äta ute: smak och allergier sparas nu för hushållet och gäller på alla hushållets telefoner. Du fyller i det en gång.",
+      "Det du redan fyllt i på den här telefonen flyttas upp automatiskt första gången du öppnar sidan. Det som hushållet redan har skrivs inte över.",
+      "Går det inte att spara för hushållet står det \"Sparas bara på den här enheten just nu\", och ändringen finns kvar på telefonen.",
+      "Gäster som du inte väljer Spara gäst för finns fortfarande bara ikväll.",
+    ],
+  },
+  {
+    date: "2026-11-09",
+    title: "Äta ute: skriv in vad du undviker och älskar",
+    bullets: [
+      "I en profil finns två nya listor: Undviker (till exempel koriander eller vitlök) och Älskar (till exempel paprika eller nasi goreng). Du skriver själv, eller trycker på ett förslag.",
+      "Rätter med något du undviker får en tydlig men mjuk markering och föreslås inte i första hand. De tas aldrig bort: bara allergier gör det.",
+      "Rätter med något du älskar lyfts fram och namnges i förslagen och i texten du skickar till sällskapet.",
+      "Appen förstår synonymer på svenska, engelska och spanska, så koriander hittar också cilantro.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Hjälp när en länk inte ger något recept",
     bullets: [
       "Hittas inget recept på en länk förklarar appen var receptet brukar stå, till exempel i bildtexten på TikTok, Instagram, Facebook och YouTube.",

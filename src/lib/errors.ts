@@ -91,6 +91,8 @@ export const errorMessages = {
   note_gone: "Lappen finns inte längre.",
   // Push-notiser (Story 23.3): saving the choices or this device; the VAPID keys are not set.
   push_save_failed: "Det gick inte att spara. Försök igen.",
+  // Menyrådgivare: the household's food preferences could not be saved or read (the phone keeps them for itself meanwhile).
+  food_profile_failed: "Det gick inte att spara för hushållet. Försök igen.",
   push_not_configured: "Notiser är inte påslagna än.",
   // Brickor (Story 23.1): the badges could not be read; nothing is shown, the next poll tries again. Logged, never shown.
   news_unavailable: "Det gick inte att läsa vad som är nytt.",
