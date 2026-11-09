@@ -21,6 +21,7 @@ import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, week
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
+import { MenuShortcut } from "@/features/menu-advisor/ui/menu-shortcut";
 import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
 import { OfferIdeas } from "../offer-ideas";
@@ -200,6 +201,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
             />
           }
         />
+        <MenuShortcut />
       </div>
     </>
   );
