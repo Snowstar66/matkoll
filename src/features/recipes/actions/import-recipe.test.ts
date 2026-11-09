@@ -92,11 +92,11 @@ describe("importRecipe", () => {
       unit: null,
       ingredient: { kind: "match", ingredientId: gulLok, confidence: "hint" },
     });
-    // "1 bit färsk ingefära": "bit" is not a catalog unit, so the line is vague.
+    // "1 bit färsk ingefära": "bit" is not a catalog unit, but the import converts it to st and keeps the amount.
     expect(draft.lines.find((line) => line.originalText.startsWith("1 bit"))).toMatchObject({
-      amount: null,
-      unit: null,
-      isVague: true,
+      amount: 1,
+      unit: "st",
+      isVague: false,
     });
   });
 

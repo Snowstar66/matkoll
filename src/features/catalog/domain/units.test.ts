@@ -3,6 +3,7 @@ import {
   COUNT_UNITS,
   displayAmount,
   formatQuantity,
+  importAmount,
   isCountUnit,
   normalizeUnit,
   parseQuantity,
@@ -55,6 +56,53 @@ describe("normalizeUnit", () => {
     expect(normalizeUnit(null)).toEqual({ unit: null, known: true });
     expect(normalizeUnit(undefined)).toEqual({ unit: null, known: true });
     expect(normalizeUnit("  ")).toEqual({ unit: null, known: true });
+  });
+});
+
+describe("importAmount", () => {
+  it.each([
+    [2, "dl", 2, "dl"],
+    [2, "paket", 2, "förp"],
+    [2, null, 2, null],
+    [2, "", 2, null],
+    [1, "nypa", 1, "krm"],
+    [2, "nypor", 2, "krm"],
+    [1, "näve", 1, "dl"],
+    [1, "Kvist", 1, "st"],
+    [3, "kvistar", 3, "st"],
+    [1, "bit", 1, "st"],
+    [2, "bitar", 2, "st"],
+    [1, "glas", 2, "dl"],
+    [1, "bunt", 1, "knippe"],
+    [1, "huvud", 1, "st"],
+    [2, "tbsp", 2, "msk"],
+    [2, "Tablespoons", 2, "msk"],
+    [1, "tsp", 1, "tsk"],
+    [0.5, "teaspoon", 0.5, "tsk"],
+    [1, "cup", 2.5, "dl"],
+    [2, "cups", 5, "dl"],
+    [0.25, "cup", 0.6, "dl"],
+    [1.75, "cups", 4, "dl"],
+    [8, "oz", 225, "g"],
+    [12, "oz.", 335, "g"],
+    [3, "oz", 85, "g"],
+    [1, "oz", 28, "g"],
+    [1, "lb", 455, "g"],
+    [2, "lbs", 910, "g"],
+    [2, "fl oz", 6, "cl"],
+    [1, "pinch", 1, "krm"],
+    [1, "can", 1, "förp"],
+    [3, "cloves", 3, "klyfta"],
+    [2, "bunches", 2, "knippe"],
+    [1, "stick", 115, "g"],
+    [2, "sticks", 225, "g"],
+    [1, "handful", 1, "dl"],
+  ])("%s %s → %s %s", (amount, raw, expectedAmount, unit) => {
+    expect(importAmount(amount, raw)).toEqual({ amount: expectedAmount, unit });
+  });
+
+  it.each(["sked", "skvätt", "constructor", "__proto__"])("gives null for %s, so the line keeps only its text", (raw) => {
+    expect(importAmount(1, raw)).toBeNull();
   });
 });
 

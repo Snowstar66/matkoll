@@ -429,6 +429,8 @@ function LineRow({
   const check = needsCheck(line);
   const isNew = line.ingredient.kind === "new";
   const quantity = line.isVague ? "" : formatQuantity(line.amount, line.unit);
+  // A line without an amount invites one; once the editor is open it is the usual "Ändra".
+  const addAmount = line.isVague && !editing;
 
   return (
     <li data-testid="recipe-line" className="flex flex-col gap-2 border-b border-hairline py-2 last:border-b-0">
@@ -464,7 +466,8 @@ function LineRow({
           <p className="text-meta text-ink-2">{line.originalText}</p>
         </div>
         <Button variant="text" aria-expanded={editing} onClick={onToggleEdit} className="-mr-3">
-          Ändra<span className="sr-only"> mängd för {name}</span>
+          {addAmount ? "Lägg till mängd" : "Ändra"}
+          <span className="sr-only"> {addAmount ? "för" : "mängd för"} {name}</span>
         </Button>
       </div>
       {editing ? (
