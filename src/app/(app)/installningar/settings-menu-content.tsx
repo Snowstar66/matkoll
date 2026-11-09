@@ -120,6 +120,14 @@ export async function SettingsMenuContent() {
           title: "Basvaror",
           value: staples ? staplesCountText(staples.length) : undefined,
         },
+        {
+          // Menyrådgivare: taste, drink and allergies per member, kept on this device; shown only while the Tillval is on.
+          href: "/installningar/tillval/aata-ute",
+          icon: "sparkle",
+          tile: "lilac",
+          title: "Äta ute: smak och allergier",
+          onlyWithOption: "menuAdvisor",
+        },
       ],
     },
     {

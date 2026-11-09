@@ -227,4 +227,11 @@ describe("Sällskap", () => {
     expect(localStorage.getItem("livskoll-menu-people-v1")).toContain("Greta");
     expect(screen.getByTestId("menu-company-summary")).toHaveTextContent("Du + 1 gäst");
   });
+
+  it("offers the household's members as company straight away", async () => {
+    render(<MenuAdvisor members={[{ id: "u1", name: "Pontus", isMe: true }, { id: "u2", name: "Martina", isMe: false }]} />);
+    const group = await screen.findByRole("group", { name: "Sällskap" });
+    expect(within(group).getByRole("button", { name: "Martina" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Du" })).toBeInTheDocument();
+  });
 });

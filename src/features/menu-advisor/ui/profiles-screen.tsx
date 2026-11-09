@@ -11,7 +11,7 @@ import { Segment } from "@/components/segment";
 import { useOption } from "@/lib/use-option";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { drinkIcons, drinkLabels, maxNameLength, maxPeople, meId, newPerson, tasteLabels, toggleAllergy, withTaste } from "../domain/people";
+import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, maxPeople, meId, newPerson, tasteLabels, toggleAllergy, withTaste } from "../domain/people";
 import { drinkKinds, type Person, type Taste, tasteKeys } from "../domain/profile";
 import { menuAllergens } from "../domain/types";
 import { makePersonId, usePeople } from "./use-people";
@@ -43,18 +43,19 @@ export function MenuProfilesLink() {
       className="mb-6 flex min-h-row items-center gap-3 rounded-lg bg-surface px-4 py-2.5 text-ink"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-row-title">Äta ute: profiler</span>
-        <span className="block text-meta text-ink-2">Smak, dryck och allergier för dig och dem du äter med</span>
+        <span className="block text-row-title">Äta ute: smak och allergier</span>
+        <span className="block text-meta text-ink-2">Hushållets medlemmar och andra, sparat på den här enheten</span>
       </span>
       <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
     </Link>
   );
 }
 
-export function ProfilesScreen() {
+/** `members`: the household's members, read on the server (null = could not be read: only "Du" and those added by hand). */
+export function ProfilesScreen({ members = null }: { members?: readonly HouseholdPerson[] | null }) {
   const enabled = useOption("menuAdvisor");
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  const { people, save, remove } = usePeople();
+  const { people, save, remove } = usePeople(members);
   const [view, setView] = useState<View>({ name: "list" });
   if (!mounted) return null;
   if (!enabled) return <Notice>Menyrådgivaren är avstängd. Slå på den under Inställningar, Tillval.</Notice>;
@@ -107,7 +108,7 @@ function PeopleList({ people, onOpen, onAdd }: { people: Person[]; onOpen: (id: 
   return (
     <div className="flex flex-col gap-4" data-testid="menu-profiles">
       <p className="text-body text-ink-2">
-        Fyll i det som gäller, resten räknas som allätare. Allt sparas bara på den här enheten.
+        Hushållets medlemmar finns med här av sig själva. Fyll i det som gäller, en gång: resten räknas som allätare. Det sparas på den här enheten, så på en annan telefon fyller du i det igen.
       </p>
       <ul className="divide-y divide-border overflow-hidden rounded-lg bg-surface">
         {people.map((person) => (
@@ -157,9 +158,12 @@ function PeopleList({ people, onOpen, onAdd }: { people: Person[]; onOpen: (id: 
           </Button>
         </form>
       ) : people.length >= maxPeople ? null : (
-        <Button variant="secondary" fullWidth data-testid="menu-person-add" onClick={() => setAdding(true)}>
-          Lägg till person
-        </Button>
+        <div className="flex flex-col gap-1">
+          <Button variant="secondary" fullWidth data-testid="menu-person-add" onClick={() => setAdding(true)}>
+            Lägg till person utan konto
+          </Button>
+          <p className="text-meta text-ink-3">T.ex. barn eller en vän. Sparas på den här telefonen.</p>
+        </div>
       )}
     </div>
   );
@@ -185,8 +189,8 @@ function PersonView({
       <Button variant="compact" onClick={onBack} className="self-start">
         Alla personer
       </Button>
-      {person.id === meId ? (
-        <h2 className="text-section-title text-ink">Du</h2>
+      {isHouseholdPerson(person) ? (
+        <h2 className="text-section-title text-ink">{person.name}</h2>
       ) : (
         <div className="flex flex-col gap-1">
           <label htmlFor={`${id}-name`} className="text-control text-ink">
@@ -252,7 +256,9 @@ function PersonView({
         <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
       </button>
 
-      {person.id === meId ? null : confirming ? (
+      {isHouseholdPerson(person) ? (
+        <p className="text-meta text-ink-3">Sparas på den här enheten. Du fyller i det en gång.</p>
+      ) : confirming ? (
         <div className="flex flex-col gap-2 rounded-lg bg-surface p-4">
           <p className="text-body text-ink">Ta bort {person.name}? Det går inte att ångra.</p>
           <div className="flex gap-2">

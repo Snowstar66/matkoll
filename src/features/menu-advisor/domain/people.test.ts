@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  isHouseholdPerson,
+  memberPersonId,
+  withMembers,
   companySummary,
   maxPeople,
   me,
@@ -94,5 +97,35 @@ describe("the company", () => {
     expect(unfit[0].person.name).toBe("Anna");
     expect(unfit[0].hits).toEqual([{ allergen: "notter", source: "kan_innehalla" }]);
     expect(unfitFor(dish, [me])).toEqual([]);
+  });
+});
+
+describe("household members as people", () => {
+  const members = [
+    { id: "u1", name: "Pontus", isMe: true },
+    { id: "u2", name: "Martina", isMe: false },
+  ];
+
+  it("puts Du first, the other members after, then people added by hand", () => {
+    const hand = newPerson("p-1", "Gunnar", "guest");
+    expect(withMembers([hand], members).map((person) => person.name)).toEqual(["Du", "Martina", "Gunnar"]);
+  });
+
+  it("takes the name from the household and the rest from what is saved for the member id", () => {
+    const saved = { ...newPerson(memberPersonId("u2"), "Gammalt namn", "member"), drink: "ol" as const, allergies: ["notter" as const] };
+    expect(withMembers([saved], members)[1]).toMatchObject({ id: "m-u2", name: "Martina", drink: "ol", allergies: ["notter"] });
+  });
+
+  it("hides a saved member who has left, and keeps everything saved when the members cannot be read", () => {
+    const gone = newPerson(memberPersonId("u9"), "Borta", "member");
+    expect(withMembers([gone], members).map((person) => person.id)).toEqual(["me", "m-u2"]);
+    expect(withMembers([gone], null).map((person) => person.id)).toEqual(["me", "m-u9"]);
+    expect(withMembers([], null).map((person) => person.name)).toEqual(["Du"]);
+  });
+
+  it("knows which people come from the household", () => {
+    expect(isHouseholdPerson({ id: "me" })).toBe(true);
+    expect(isHouseholdPerson({ id: memberPersonId("u2") })).toBe(true);
+    expect(isHouseholdPerson({ id: "p-1" })).toBe(false);
   });
 });
