@@ -28,7 +28,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "recept",
     title: "Recept",
     steps: [
-      { icon: "link", title: "Spara ett recept", text: `Tryck + i rubriken och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia.` },
+      { icon: "link", title: "Spara ett recept", text: `Tryck + i rubriken och klistra in en länk, fota eller skriv, och tryck Läs in recept. ${appName} läser in resten. Finns länken redan i Recept får du frågan om du vill öppna receptet eller spara en kopia. Hittas inget recept på en länk, till exempel från TikTok eller Instagram där receptet står i bildtexten, tar du en skärmbild av texten och väljer Använd Foto (en skärmbild per gång). Går texten att kopiera väljer du Klistra in text i stället.` },
       { icon: "pot", title: "Hitta något att laga", text: "Kan lagas nu visar recepten där inget saknas, och under Nästan de där 1–2 varor saknas. Tryck Vad kan jag laga nu? på Matvaror: dina recept och några nya idéer med det du har hemma." },
       { icon: "steps", title: "Se vad som saknas", text: "Receptet visar vad som finns hemma, vad som saknas (blå ring) och vad som är på erbjudande. Köp det som saknas lägger varorna på inköpslistan." },
     ],
