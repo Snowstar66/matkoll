@@ -13,6 +13,15 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-09",
+    title: "Hjälp när en länk inte ger något recept",
+    bullets: [
+      "Hittas inget recept på en länk förklarar appen var receptet brukar stå, till exempel i bildtexten på TikTok, Instagram, Facebook och YouTube.",
+      "Med Använd Foto tar du en skärmbild av texten, till exempel i TikTok där bildtexten inte går att kopiera. Foto läser en skärmbild per gång.",
+      "Går texten att kopiera väljer du Klistra in text i stället och klistrar in den på fliken Text.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Äta ute: hushållets medlemmar finns med",
     bullets: [
       "Smak och allergier hittar du nu under Inställningar, Hushåll, Äta ute: smak och allergier (när Menyrådgivare är på).",

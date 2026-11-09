@@ -449,7 +449,7 @@ test.describe("import from a link", () => {
       await openImport(page, "Länk");
       await parseLink(page, url);
       // Longer than safeFetch's 10 s, for the site that never answers.
-      await expect(sheet(page).getByRole("alert")).toHaveText(message, { timeout: 15_000 });
+      await expect(sheet(page).getByRole("alert")).toContainText(message, { timeout: 15_000 });
       await sheet(page).getByRole("button", { name: "Klistra in text i stället" }).click();
       await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
       await expect(textField(page)).toBeFocused();
@@ -459,6 +459,15 @@ test.describe("import from a link", () => {
       await expect(page.getByTestId("toast")).toContainText("Receptet Röd linssoppa med kokosmjölk är sparat", { timeout: 20_000 });
     });
   }
+
+  test("a page without a recipe explains where the recipe is and offers Foto", async ({ page }) => {
+    await openImport(page, "Länk");
+    await parseLink(page, "https://www.koket.se/matkoll-test/inget-recept");
+    await expect(sheet(page).getByRole("alert")).toContainText("Ta en skärmbild av receptet och använd Foto.", { timeout: 15_000 });
+    await expect(sheet(page).getByRole("alert")).toContainText("Går texten att kopiera kan du i stället klistra in den här.");
+    await sheet(page).getByRole("button", { name: "Använd Foto" }).click();
+    await expect(sheet(page).getByRole("tab", { name: "Foto" })).toHaveAttribute("aria-selected", "true");
+  });
 
   test("a redirect to another site is refused", async ({ page }) => {
     await openImport(page, "Länk");

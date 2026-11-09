@@ -37,6 +37,7 @@ import {
   offersPasteTextInstead,
   type ImportKind,
 } from "../domain/import";
+import { noRecipeHelp } from "../domain/social-platform";
 import { findRecipeBySource } from "../actions/find-recipe-by-source";
 import { kindOfJob } from "./saved-imports";
 import { appName } from "@/app/app-info";
@@ -443,6 +444,12 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
     changeTab("text");
   }
 
+  /** "Använd Foto": the Foto tab, with focus on its first button. */
+  function usePhotoInstead() {
+    focusField.current = "photo";
+    changeTab("photo");
+  }
+
   /** "klistra in den här": the Länk tab, with focus in its field. */
   function focusLinkField() {
     focusField.current = "url";
@@ -473,6 +480,13 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
     if (error?.kind !== of) return null;
     const { error: shown } = error;
     const actions: ReactNode[] = [];
+    if (of === "url" && shown.code === "import_no_recipe") {
+      actions.push(
+        <Button key="photo" onClick={usePhotoInstead}>
+          Använd Foto
+        </Button>,
+      );
+    }
     if (shown.code === "fetch_domain_not_allowed") {
       actions.push(
         <Button key="settings" variant="text" onClick={requestSettings}>
@@ -502,10 +516,18 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
         </Button>,
       );
     }
+    // A link without a recipe: the recipe is often in a caption or said in a video, so Foto (a screenshot) comes first and pasting text second.
+    const help = of === "url" && shown.code === "import_no_recipe" ? noRecipeHelp(url) : null;
     const action = actions.length > 0 ? <div className="flex flex-wrap">{actions}</div> : null;
     return (
       <Notice role="alert" action={action}>
         {importErrorMessage(shown, of)}
+        {help ? (
+          <>
+            <span className="mt-2 block">{help.text}</span>
+            <span className="mt-2 block">{help.photoText}</span>
+          </>
+        ) : null}
       </Notice>
     );
   }
