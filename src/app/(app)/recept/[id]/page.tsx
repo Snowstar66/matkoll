@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan, removePlanRecipe } from "@/features/mealplan/server";
+import { foodFit } from "@/features/menu-advisor";
+import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
@@ -95,7 +97,14 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
-  const [{ weeks, remembered, plan }, savers, nameIsDefault] = await Promise.all([readPlanWeeks(recipe.id), readSavers(recipe), readNameIsDefault(recipe)]);
+  const [{ weeks, remembered, plan }, savers, nameIsDefault, people] = await Promise.all([
+    readPlanWeeks(recipe.id),
+    readSavers(recipe),
+    readNameIsDefault(recipe),
+    getFoodFitPeople(),
+  ]);
+  // Hushållets preferenser held against the recipe's ingredient lines; none without preferences.
+  const fit = foodFit({ name: recipe.title, ingredients: recipe.lines.map((line) => line.originalText) }, people);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   // The dish that is not cooked yet: "Markera som lagad" under the steps (Story 13.4).
@@ -119,6 +128,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       undoBuy={removeKeyedItems}
       removeFromPlan={removePlanRecipe}
       savers={savers}
+      fit={fit}
       nutritionCard={
         <Suspense fallback={null}>
           <NutritionCardLoader recipe={recipe} />

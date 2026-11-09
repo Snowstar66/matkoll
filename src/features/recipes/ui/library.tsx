@@ -9,7 +9,9 @@ import { clearSearchText, EmptyState, noMatchText } from "@/components/empty-sta
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
+import { rankByFit } from "@/features/menu-advisor";
 import { siteLineText, type SelectedSite } from "@/features/pantry";
+import type { PreferenceNote } from "@/components/preference-notes";
 import type { OfferTagData } from "@/lib/offer-tag";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
@@ -121,6 +123,11 @@ export type LibraryProps = {
    * recept" on; Delade chosen shows skeleton rows until the promise is in.
    */
   shared?: Promise<readonly SharedListItem[] | undefined>;
+  /**
+   * Hushållets preferenser: the notes of each recipe that has any, by id (menu-advisor.recipeFits, worked out by the page
+   * from the recipes' ingredient lines); `{}` or left out for a household with nothing filled in, which sees no extra lines.
+   */
+  fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
 };
 
 /** Waits for the page's promise of the shared recipes under Suspense; hands them on. */
@@ -143,7 +150,7 @@ function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string
   return null;
 }
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared: sharedPromise }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared: sharedPromise, fits }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   // Delade (on by default; on the server and while hydrating the option is its default, so nothing jumps). The chip
@@ -265,8 +272,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
     if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
     const pill = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) ? "all" : filter;
-    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite, (recipe) => healthySet.has(recipe.id));
-  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet]);
+    const filtered = filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite, (recipe) => healthySet.has(recipe.id));
+    // Hushållets preferenser: in the usual order (newest first) what has an "Älskar" comes first and what has an "Undviker" or
+    // may hold an allergen last, the rest as it was; a sort Pontus chose himself is left alone. No preferences, no change.
+    return fits && sort === "newest" ? rankByFit(filtered, (recipe) => fits[recipe.id] ?? []) : filtered;
+  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet, fits]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
@@ -341,7 +351,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
   } else if (visible.length > 0) {
     const ranked = false;
     content = compact ? (
-      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} onMenuIds={onMenuIds} />
+      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} offerTags={onOffers ? offers.tags : undefined} onMenuIds={onMenuIds} fits={fits} />
     ) : (
       <RecipeList
         recipes={visible}
@@ -349,6 +359,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         onFavoriteChange={setFavorite}
         ranked={ranked}
         offerTags={onOffers ? offers.tags : undefined}
+        fits={fits}
       />
     );
   } else if (onOffers && search.kind === "none" && category === null) {

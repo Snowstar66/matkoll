@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import type { OfferTagData } from "@/lib/offer-tag";
 import type { DishKind } from "@/lib/dish-kind";
@@ -21,6 +22,8 @@ export type PlanRowProps = {
   note?: string | null;
   /** UX-20: the offers the dish uses, as OfferTags on a line of their own ("Gul lök 10 kr/kg", at most two, then "+N"). */
   tags?: readonly OfferTagData[];
+  /** Hushållets preferenser: "Anna undviker koriander" and the like (PreferenceNotes), at most two lines; nothing for none. */
+  fit?: readonly PreferenceNote[];
   /** The dish is already on the week: its day ("Tor"), or "På veckan", in place of "+". */
   onWeekLabel?: string;
   /** "+" is tapped; left out, there is no button (the dish is on the week, or the add is on its way). */
@@ -33,7 +36,7 @@ export type PlanRowProps = {
   testId?: string;
 };
 
-export function PlanRow({ title, imageUrl, dish, meta, note, tags, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
+export function PlanRow({ title, imageUrl, dish, meta, note, tags, fit, onWeekLabel, onAdd, disabled = false, addLabel, children, testId = "plan-option" }: PlanRowProps) {
   return (
     <li data-testid={testId} className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2.5">
       <RecipeImage src={imageUrl} dish={dish} title={title} artSize={36} className="size-11 shrink-0 rounded-[10px]" />
@@ -45,6 +48,7 @@ export function PlanRow({ title, imageUrl, dish, meta, note, tags, onWeekLabel, 
             {note}
           </p>
         ) : null}
+        <PreferenceNotes notes={fit} max={2} />
         {tags && tags.length > 0 ? <OfferTags tags={tags} className="mt-0.5" /> : null}
       </div>
       {onWeekLabel ? (

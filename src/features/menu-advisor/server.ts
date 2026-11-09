@@ -4,6 +4,7 @@ import { getMemberPeople } from "@/features/household/server";
 import { createClient } from "@/lib/supabase/server";
 import { FoodProfileDataError, listFoodProfilesIn } from "./data/food-profile";
 import { combineFoodPreferences, type FoodProfileRow, type HouseholdFoodPreferences, personFromRow } from "./domain/food-profile";
+import { type FitPerson, hasFitPreferences } from "./domain/dish-fit";
 import type { Person } from "./domain/profile";
 
 // Server-only entry (AD-1): the household's food preferences, saved in the database for every phone.
@@ -30,6 +31,22 @@ export const listFoodProfiles = cache(async (): Promise<FoodProfileRow[] | null>
 export const getHouseholdFoodPreferences = cache(async (): Promise<HouseholdFoodPreferences> => {
   const [members, rows] = await Promise.all([getMemberPeople(), listFoodProfiles()]);
   return combineFoodPreferences(members ?? [], rows ?? []);
+});
+
+/**
+ * The people with something filled in, as plain names and lists (never e-mail or ids), for holding a recipe or an AI
+ * suggestion against ("Anna undviker koriander", allergies, "Älskar"). Empty when nobody has anything filled in or the
+ * preferences cannot be read (logged by reason only): a help, never the job, so it never throws. One read per request.
+ */
+export const getFoodFitPeople = cache(async (): Promise<FitPerson[]> => {
+  try {
+    const { people } = await getHouseholdFoodPreferences();
+    const fit = people.map(({ name, allergies, dislikes, likes }): FitPerson => ({ name, allergies, dislikes, likes }));
+    return hasFitPreferences(fit) ? fit : [];
+  } catch (error) {
+    console.error("food_preferences_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return [];
+  }
 });
 
 /** The saved people for the profile and advisor screens, as phones know them ("Du" is id "me"); null when they cannot be read. */

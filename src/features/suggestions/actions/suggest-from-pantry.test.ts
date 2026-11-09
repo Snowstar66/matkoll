@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IngredientMatch, MatchItem } from "@/features/catalog";
+import type { FitPerson } from "@/features/menu-advisor";
 import { noStaples, type PantrySnapshot, type PantryStock, type StapleRules } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
@@ -74,6 +75,11 @@ const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
 vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes, ideasNow }), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
+// Hushållets preferenser (menu-advisor.getFoodFitPeople): nobody has anything filled in unless a test says so.
+const foodPeople = vi.fn<() => Promise<FitPerson[]>>();
+vi.mock("@/features/menu-advisor/server", () => ({ getFoodFitPeople: () => foodPeople() }));
+const person = (name: string, own: Partial<Omit<FitPerson, "name">>): FitPerson => ({ name, allergies: [], dislikes: [], likes: [], ...own });
+
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
 const ideasNow = vi.fn(ai.ideasNow);
@@ -112,6 +118,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
   requireUser.mockReset().mockResolvedValue(user());
+  foodPeople.mockReset().mockResolvedValue([]);
   getPantrySnapshot.mockReset().mockResolvedValue(pantry);
   listOldPantryItems.mockReset().mockResolvedValue([]);
   getIngredientNames.mockReset().mockImplementation(async (wanted) =>
@@ -830,5 +837,78 @@ describe("suggestNowIdeas (Story 25.4)", () => {
   it("passes the model's failure on", async () => {
     ideasNow.mockResolvedValueOnce(fail("ai_rejected"));
     expect(await run()).toEqual(fail("ai_rejected"));
+  });
+
+  describe("hushållets preferenser", () => {
+    it("tells the model the lists without names, and leaves out an idea that may hold an allergen", async () => {
+      foodPeople.mockResolvedValue([person("Anna", { allergies: ["laktos"] }), person("Bo", { likes: ["paprika"] })]);
+      ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde"] }, { name: "Soppa", uses: ["gul lök"] }]));
+      const result = await run();
+      expect(ideasNow.mock.calls[0][0].prefs).toEqual({ allergies: ["laktos"], avoid: [], love: ["paprika"] });
+      expect(JSON.stringify(ideasNow.mock.calls[0][0])).not.toMatch(/Anna|Bo\b/);
+      expect(result.ok && result.data.ideas.map(({ name }) => name)).toEqual(["Soppa"]);
+    });
+
+    it("notes an Undviker on an idea and ranks it last, an Älskar first", async () => {
+      foodPeople.mockResolvedValue([person("Anna", { dislikes: ["lök"] }), person("Bo", { likes: ["grädde"] })]);
+      ideasNow.mockResolvedValueOnce(answer([{ name: "Soppa", uses: ["gul lök"] }, { name: "Sås", uses: ["grädde"] }, { name: "Dipp", uses: ["riven ost"] }]));
+      const result = await run();
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.ideas.map(({ name }) => name)).toEqual(["Sås", "Dipp", "Soppa"]);
+      expect(result.data.ideas[0].fit).toEqual([{ kind: "like", text: "Bo älskar grädde" }]);
+      expect(result.data.ideas[1].fit).toBeUndefined();
+      expect(result.data.ideas[2].fit).toEqual([{ kind: "dislike", text: "Anna undviker lök" }]);
+    });
+
+    it("is ai_invalid when every idea may hold an allergen", async () => {
+      foodPeople.mockResolvedValue([person("Anna", { allergies: ["laktos"] })]);
+      ideasNow.mockResolvedValueOnce(answer([{ name: "Gratäng", uses: ["grädde"] }]));
+      expect(await run()).toEqual(fail("ai_invalid"));
+    });
+  });
+});
+
+describe("suggestFromPantry and the household's food preferences", () => {
+  it("adds nothing to the request or the dishes when nobody has anything filled in", async () => {
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    expect(suggestDishes.mock.calls[0][0]).not.toHaveProperty("prefs");
+    expect(result.ok && result.data.suggestions.some((suggestion) => "fit" in suggestion)).toBe(false);
+  });
+
+  it("tells the model the lists without names, and leaves out a dish with an allergen in its lines", async () => {
+    foodPeople.mockResolvedValue([person("Anna", { allergies: ["agg"], dislikes: ["Koriander"] })]);
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    expect(suggestDishes.mock.calls[0][0].prefs).toEqual({ allergies: ["ägg"], avoid: ["koriander"], love: [] });
+    expect(JSON.stringify(suggestDishes.mock.calls[0][0])).not.toMatch(/Anna/);
+    if (!result.ok) throw new Error(result.error.code);
+    // "Ugnsomelett med potatis och lök" has 6 ägg.
+    expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual(["Kycklinggryta med tomat och grädde", "Krämig pasta med spenat"]);
+    expect(JSON.stringify(result.data)).not.toMatch(/Kan innehålla ägg/);
+  });
+
+  it("notes an Undviker in the dish, ranks it last, and ranks an Älskar first", async () => {
+    foodPeople.mockResolvedValue([person("Anna", { dislikes: ["vitlök"] }), person("Bo", { likes: ["ost"] })]);
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    const { suggestions } = result.data;
+    // Omelett has ost and no vitlök; gryta has vitlök; pasta has both.
+    expect(suggestions.map(({ draft }) => draft.title)).toEqual([
+      "Ugnsomelett med potatis och lök",
+      "Kycklinggryta med tomat och grädde",
+      "Krämig pasta med spenat",
+    ]);
+    expect(suggestions[0].fit).toEqual([{ kind: "like", text: "Bo älskar ost" }]);
+    expect(suggestions[1].fit).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }]);
+    expect(suggestions[2].fit).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }, { kind: "like", text: "Bo älskar ost" }]);
+  });
+
+  it("asks once more, with the titles left out to avoid, when every dish had an allergen", async () => {
+    foodPeople.mockResolvedValue([person("Anna", { allergies: ["laktos"] })]);
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    expect(suggestDishes).toHaveBeenCalledTimes(2);
+    expect(suggestDishes.mock.calls[1][0]).toMatchObject({ strict: true, avoidTitles: expect.arrayContaining(["Krämig pasta med spenat"]) });
+    expect(suggestDishes.mock.calls[1][0].prefs).toEqual({ allergies: ["laktos"], avoid: [], love: [] });
+    // The second answer is Pyttipanna (smör), Stekt ris (little at home), Morotssoppa (grädde): nothing safe is left.
+    expect(result).toEqual(fail("ai_invalid"));
   });
 });

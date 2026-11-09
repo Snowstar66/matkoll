@@ -2,6 +2,7 @@ import { z } from "zod";
 import { recipeImportSchema } from "@/features/recipes";
 import { errorMessages, type AppError } from "@/lib/errors";
 import { cleanModelText, cutCodePoints, hasControlChars, normalizeTitle, suggestInputLimits } from "@/lib/suggest-input";
+import { fitNotesSchema } from "./fit";
 
 // What POST /api/ai/jobs takes for AI-förslag, and the result of the job (FR-23,
 // AD-9, AD-13, AD-28). The pantry is read on the server from the session, so the
@@ -65,6 +66,8 @@ export const dishSuggestionsSchema = z.object({
         why: z.string().max(300).default(""),
         /** Story 16.13: the old pantry items the dish uses, with the days since they were added; empty for none. */
         oldUsed: z.array(z.object({ name: z.string().max(100), days: z.number().int().min(1) })).max(8).default([]),
+        /** Hushållets preferenser: what the dish says about someone's "Undviker" or "Älskar" (never an allergy, those are left out); left out for none. */
+        fit: fitNotesSchema,
       }),
     )
     .min(1)

@@ -570,6 +570,36 @@ export async function clearFoodProfiles(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Saves what the member `userId` has filled in for the household (table food_profile): allergies (the app's keys, such
+ * as "gluten" or "laktos") and the free-text "Undviker" and "Älskar". Replaces the member's own row; call
+ * clearFoodProfiles first when other people's rows must not be there.
+ */
+export async function seedFoodProfile(
+  userId: string,
+  own: { allergies?: string[]; dislikes?: string[]; likes?: string[] },
+): Promise<void> {
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  if (member.error) throw member.error;
+  const { error } = await admin.from("food_profile").upsert(
+    {
+      household_id: member.data.household_id,
+      user_id: userId,
+      person_key: `m-${userId}`,
+      kind: "member",
+      name: null,
+      allergies: own.allergies ?? [],
+      tastes: {},
+      dislikes: own.dislikes ?? [],
+      likes: own.likes ?? [],
+      drink: null,
+    },
+    { onConflict: "household_id,person_key" },
+  );
+  if (error) throw error;
+}
+
 export async function e2eUserId(email: string): Promise<string> {
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import { dishKind } from "@/lib/dish-kind";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
@@ -78,6 +79,8 @@ export type RecipeViewProps = {
   stackActions?: boolean;
   /** A quiet line under "Delat av …" on a shared recipe: the household that shares it sees who saved it. */
   sharedNote?: string;
+  /** Hushållets preferenser: what the recipe's ingredients say about someone's allergy, "Undviker" or "Älskar" (menu-advisor.foodFit); none for none. */
+  fit?: readonly PreferenceNote[];
 };
 
 export function RecipeView({
@@ -104,6 +107,7 @@ export function RecipeView({
   extraAction,
   stackActions = false,
   sharedNote,
+  fit,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
@@ -175,6 +179,7 @@ export function RecipeView({
             {offerLine}
           </p>
         ) : null}
+        <PreferenceNotes notes={fit} />
         </div>
       </header>
 

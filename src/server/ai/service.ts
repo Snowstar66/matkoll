@@ -4,6 +4,7 @@ import { imageMediaTypes, imageSizeOf, maxImageBytes } from "@/lib/images";
 import {
   avoidTitleLines,
   cleanModelText,
+  cutCodePoints,
   isValidOfferName,
   isValidOldItem,
   isValidPantryEntry,
@@ -93,9 +94,18 @@ export type ParseRecipeInput = {
 /** One pantry entry: a name with an amount and unit, or both `null` when the item is always enough. */
 export type SuggestPantryItem = SuggestPantryEntry;
 
+/**
+ * The household's food preferences as the model gets them: three plain lists of words, without names, e-mail or ids
+ * ("någon i hushållet" is all the model learns). Allergies are hard (never suggest), `avoid` is "not in the first
+ * place", `love` is a lean. Data for the model, never instructions.
+ */
+export type FoodPrefsInput = { allergies: string[]; avoid: string[]; love: string[] };
+
 export type SuggestDishesInput = {
   /** What is at home, by catalog name. Never ids, locations or dates. */
   pantry: SuggestPantryItem[];
+  /** The household's food preferences (FoodPrefsInput); left out when nobody has filled anything in. */
+  prefs?: FoodPrefsInput;
   /** Titles already suggested, which the model is asked not to suggest again; an answer with one of them is invalid. */
   avoidTitles: string[];
   /** A retry after dishes that missed too much: adds a stricter reminder to use only what is at home. */
@@ -135,7 +145,7 @@ export type SuggestDishesInput = {
 export type SuggestedDish = AiRecipe & { friend?: { intro: string; why: string; uses: string[] } };
 
 /** What ideasNow gets (Story 25.4): what is at home and what has lain long, like suggestDishes; no titles to avoid. */
-export type NowIdeasInput = { pantry: SuggestPantryItem[]; oldItems?: SuggestOldItem[]; /** Ideas already shown, for "Andra förslag"; the model is asked not to give them again. */ avoidTitles?: string[] };
+export type NowIdeasInput = { pantry: SuggestPantryItem[]; oldItems?: SuggestOldItem[]; prefs?: FoodPrefsInput; /** Ideas already shown, for "Andra förslag"; the model is asked not to give them again. */ avoidTitles?: string[] };
 
 /** What ideasNow answers (Story 25.4): a warm sentence or two, and one to four small ideas. */
 export type NowIdeasResult = { intro: string; ideas: NowIdea[] };
@@ -874,7 +884,7 @@ export function createModelAiService(
         {
           schema: nowIdeasAnswer,
           system: prompts.nowIdeas,
-          messages: [{ role: "user", content: suggestDishesContent({ pantry: input.pantry, oldItems: input.oldItems, avoidTitles: input.avoidTitles ?? [] }) }],
+          messages: [{ role: "user", content: suggestDishesContent({ pantry: input.pantry, oldItems: input.oldItems, prefs: input.prefs, avoidTitles: input.avoidTitles ?? [] }) }],
           maxOutputTokens: inputLimits.ideas.maxOutputTokens,
           onTruncated: () => console.info("ideas_truncated"),
         },
@@ -1350,6 +1360,31 @@ export function locateThingContent(input: LocateThingInput) {
   ];
 }
 
+/** At most this many words per list and this many characters per word reach the model. */
+const maxPrefWords = 12;
+const maxPrefWordChars = 40;
+
+/**
+ * The section "Hushållets matpreferenser:" with one line per non-empty list (Allergier, Undviker, Älskar), or `null`
+ * when there is nothing to say. Every word is cleaned to one short line, so none can start a section of its own; the
+ * prompts say the section is data.
+ */
+export function foodPrefsText(prefs: FoodPrefsInput | undefined): string | null {
+  if (!prefs) return null;
+  const words = (list: readonly string[]) =>
+    list
+      .map((word) => cutCodePoints(cleanModelText(word), maxPrefWordChars).trim())
+      .filter((word) => word !== "")
+      .slice(0, maxPrefWords)
+      .join(", ");
+  const lines = [
+    ["Allergier", words(prefs.allergies)],
+    ["Undviker", words(prefs.avoid)],
+    ["Älskar", words(prefs.love)],
+  ].flatMap(([label, text]) => (text ? [`${label}: ${text}`] : []));
+  return lines.length > 0 ? `Hushållets matpreferenser:\n${lines.join("\n")}` : null;
+}
+
 /**
  * The user message: "Lagret:" with one line per entry, then "Föreslå inte:"
  * with a line per title, when there are any. Names, units and titles are
@@ -1365,6 +1400,8 @@ export function suggestDishesContent(input: SuggestDishesInput): string {
     parts.push(`${input.eatFirst ? "Ät först" : "Har legat länge"}:\n${oldItemLines(input.oldItems)}`);
   }
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
+  const prefs = foodPrefsText(input.prefs);
+  if (prefs) parts.push(prefs);
   if (input.now) {
     parts.push("Använd bara varorna i lagret, med exakt samma namn, och salt, peppar, olja och vatten. Hellre en bra rätt än tre konstiga.");
     if (input.dish) parts.push(`Skriv ett recept på just den här idén, och bara den (en rätt):\n${input.dish}`);

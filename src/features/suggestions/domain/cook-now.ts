@@ -1,4 +1,5 @@
 import { nameInSentence } from "@/features/catalog";
+import { fitRank, type FitNote } from "@/features/menu-advisor";
 import { noStaples, recipeStatus, type PantrySnapshot, type StapleRules } from "@/features/pantry";
 import type { RecipeListRow } from "@/features/recipes";
 import { dishKind, type DishKind } from "@/lib/dish-kind";
@@ -25,10 +26,12 @@ export type CookNowRecipe = {
   servings: number;
   /** The catalog names (in lower case) of the recipe's ingredients, each once, as "Använder …" lists them. */
   uses: string[];
+  /** Hushållets preferenser: "Anna undviker koriander", "Anna älskar paprika" (left out for none). */
+  fit?: FitNote[];
 };
 
 /** A library recipe that misses exactly one thing: "Köttbullar och potatismos — Saknar lingon". */
-export type CookNowOneMissing = { id: string; title: string; missing: string };
+export type CookNowOneMissing = { id: string; title: string; missing: string; fit?: FitNote[] };
 
 export type CookNowLists = { own: CookNowRecipe[]; oneMissing: CookNowOneMissing[] };
 
@@ -54,7 +57,10 @@ export function cookNowNameIds(rows: readonly RecipeListRow[], snapshot: PantryS
  * The lists: recipes with nothing missing, and with one thing missing, each
  * at most `maxCookNowRecipes`. The recipes that use the item that has lain
  * longest come first (`oldIds`, oldest first), then the others in the given
- * order (newest first). `names` are catalog names by id.
+ * order (newest first). `names` are catalog names by id. `fits` are the notes
+ * on a recipe against the household's preferences (menu-advisor.recipeFits), by
+ * id: what may hold an allergen or has an "Undviker" goes last and what has an
+ * "Älskar" first, the rest as before; each recipe carries its notes.
  */
 export function cookNowLists(
   rows: readonly RecipeListRow[],
@@ -62,7 +68,9 @@ export function cookNowLists(
   names: Readonly<Record<string, string>>,
   staples: StapleRules = noStaples,
   oldIds: readonly string[] = [],
+  fits: Readonly<Record<string, readonly FitNote[]>> = {},
 ): CookNowLists {
+  const fitOf = (id: string): { fit?: FitNote[] } => (fits[id]?.length ? { fit: [...fits[id]] } : {});
   const inSentence = (id: string): string | null => (names[id] ? nameInSentence(names[id].trim()) : null);
   const own: { recipe: CookNowRecipe; rank: number }[] = [];
   const oneMissing: CookNowOneMissing[] = [];
@@ -81,15 +89,19 @@ export function cookNowLists(
           totalMinutes: row.totalMinutes,
           servings: row.originalServings,
           uses,
+          ...fitOf(row.id),
         },
         rank: ranks.length > 0 ? Math.min(...ranks) : Infinity,
       });
     } else if (status.missingCount === 1) {
       const missing = inSentence(status.missingIngredientIds[0]);
-      if (missing) oneMissing.push({ id: row.id, title: row.title, missing });
+      if (missing) oneMissing.push({ id: row.id, title: row.title, missing, ...fitOf(row.id) });
     }
   }
   // A stable sort keeps the given order among equals.
-  own.sort((a, b) => (a.rank === b.rank ? 0 : a.rank < b.rank ? -1 : 1));
-  return { own: own.slice(0, maxCookNowRecipes).map(({ recipe }) => recipe), oneMissing: oneMissing.slice(0, maxCookNowRecipes) };
+  // What fits the household's preferences comes first, then the oldest item.
+  const fitOrder = (id: string) => fitRank(fits[id] ?? []);
+  own.sort((a, b) => fitOrder(b.recipe.id) - fitOrder(a.recipe.id) || (a.rank === b.rank ? 0 : a.rank < b.rank ? -1 : 1));
+  const missingRanked = oneMissing.map((recipe, index) => ({ recipe, index })).sort((a, b) => fitOrder(b.recipe.id) - fitOrder(a.recipe.id) || a.index - b.index);
+  return { own: own.slice(0, maxCookNowRecipes).map(({ recipe }) => recipe), oneMissing: missingRanked.slice(0, maxCookNowRecipes).map(({ recipe }) => recipe) };
 }

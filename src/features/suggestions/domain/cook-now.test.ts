@@ -66,6 +66,31 @@ describe("cookNowLists", () => {
     expect(older.own.map((recipe) => recipe.title)).toEqual(["Pannkakor", "Purjolökspaj"]);
   });
 
+  it("holds the recipes against the household's preferences: what is avoided last, what is loved first, each with its notes", () => {
+    const fits = {
+      Pannkakor: [{ kind: "dislike" as const, text: "Anna undviker ägg" }],
+      Purjolökspaj: [{ kind: "like" as const, text: "Bo älskar grädde" }],
+    };
+    const { own } = cookNowLists([pannkakor, paj], snapshot, names, staples, [], fits);
+    expect(own.map((recipe) => recipe.title)).toEqual(["Purjolökspaj", "Pannkakor"]);
+    expect(own[0].fit).toEqual(fits.Purjolökspaj);
+    expect(own[1].fit).toEqual(fits.Pannkakor);
+  });
+
+  it("changes nothing without preferences: no notes and the usual order", () => {
+    const { own } = cookNowLists([pannkakor, paj], snapshot, names, staples, [], {});
+    expect(own.map((recipe) => recipe.title)).toEqual(["Pannkakor", "Purjolökspaj"]);
+    expect(own.some((recipe) => "fit" in recipe)).toBe(false);
+  });
+
+  it("puts the preference before the oldest item, and notes the recipes that miss one thing", () => {
+    // Paj uses the cream that has lain longest, but has an allergen note: Pannkakor goes first.
+    const fits = { Purjolökspaj: [{ kind: "allergy" as const, text: "Kan innehålla laktos (Anna)" }], Köttbullar: [{ kind: "dislike" as const, text: "Bo undviker lingon" }] };
+    const { own, oneMissing } = cookNowLists([paj, pannkakor, kottbullar], snapshot, names, staples, ["cream"], fits);
+    expect(own.map((recipe) => recipe.title)).toEqual(["Pannkakor", "Purjolökspaj"]);
+    expect(oneMissing[0]).toMatchObject({ title: "Köttbullar", fit: fits.Köttbullar });
+  });
+
   it("never counts a line without a catalog ingredient or a vague line as missing", () => {
     const loose = row("Fri", [line("egg", 2), line(null, 1), line("flour", null)]);
     expect(cookNowLists([loose], snapshot, names).own.map((recipe) => recipe.title)).toEqual(["Fri"]);

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OfferTags } from "@/components/offer-tag";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import type { OfferTagData } from "@/lib/offer-tag";
 import { HeartToggle } from "@/components/heart-toggle";
 import { ListGroup } from "@/components/list-group";
@@ -23,6 +24,8 @@ export type RecipeCompactListProps = {
   offerTags?: Readonly<Record<string, readonly OfferTagData[]>>;
   /** The ids of the recipes on the current meal plan, which "Ta bort X?" says (Story 13.2). */
   onMenuIds?: readonly string[];
+  /** Hushållets preferenser: the notes of each recipe that has any, by id; one line each under the row's meta (the first, an allergy when there is one). */
+  fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
 };
 
 /** "4 port." for the line under a title. */
@@ -37,7 +40,7 @@ function portionsText(servings: number): string {
  * 4 port. · Kan lagas nu" (or "Saknar 2") and the heart in a 44 px area. A tap
  * on the row opens the recipe.
  */
-export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags, onMenuIds }: RecipeCompactListProps) {
+export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags, onMenuIds, fits }: RecipeCompactListProps) {
   const router = useRouter();
   // A recipe that is gone leaves the list at once; the server's list follows after the refresh.
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
@@ -80,6 +83,7 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
                 {offerTags && offerTags[recipe.id]?.length ? (
                   <OfferTags tags={offerTags[recipe.id]} className="mt-1" />
                 ) : null}
+                <PreferenceNotes notes={fits?.[recipe.id]} max={1} className="mt-0.5" />
               </>
             }
             leading={
