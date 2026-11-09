@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { parsePeople, removePerson, serializePeople, upsertPerson, withMe } from "../domain/people";
+import { type HouseholdPerson, parsePeople, removePerson, serializePeople, upsertPerson, withMembers } from "../domain/people";
 import type { Person } from "../domain/profile";
 
 // The saved profiles (household members and guests kept on purpose) live in this device's localStorage.
@@ -36,10 +36,13 @@ function subscribe(listener: () => void) {
   };
 }
 
-/** The saved people ("Du" first, always), with ways to save (add or change) and remove one. */
-export function usePeople(): { people: Person[]; save: (person: Person) => void; remove: (id: string) => void } {
+/**
+ * The people ("Du" first, always, then the household's members from `members`, then those added by hand), with ways to
+ * save (add or change) and remove one. `members` null = the household could not be read: only what is saved.
+ */
+export function usePeople(members: readonly HouseholdPerson[] | null = null): { people: Person[]; save: (person: Person) => void; remove: (id: string) => void } {
   const stored = useSyncExternalStore(subscribe, read, () => null);
-  const people = useMemo(() => withMe(parsePeople(stored)), [stored]);
+  const people = useMemo(() => withMembers(parsePeople(stored), members), [stored, members]);
   const save = useCallback((person: Person) => write(upsertPerson(parsePeople(read()), person)), []);
   const remove = useCallback((id: string) => write(removePerson(parsePeople(read()), id)), []);
   return { people, save, remove };

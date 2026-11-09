@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { saveOption } from "@/lib/options";
 import { type SettingsGroupData, SettingsMenu } from "./settings-menu";
 
 const pathname = vi.hoisted(() => ({ current: "/installningar" }));
@@ -65,5 +66,19 @@ describe("SettingsMenu (Story 14.7)", () => {
     render(<SettingsMenu account={account} groups={groups} signOut={null} />);
     expect(screen.getByRole("link", { name: /Butiker/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: /Boenden/ })).not.toHaveAttribute("aria-current");
+  });
+
+  it("shows a row tied to a Tillval switch only while the switch is on", async () => {
+    localStorage.clear();
+    const tied: SettingsGroupData[] = [
+      { label: "Hushåll", rows: [{ href: "/x", icon: "sparkle", tile: "lilac", title: "Äta ute: smak och allergier", onlyWithOption: "menuAdvisor" }] },
+    ];
+    const { unmount } = render(<SettingsMenu account={account} groups={tied} signOut={null} />);
+    expect(screen.queryByRole("link", { name: /Äta ute/ })).not.toBeInTheDocument();
+    unmount();
+    saveOption("menuAdvisor", true);
+    render(<SettingsMenu account={account} groups={tied} signOut={null} />);
+    expect(await screen.findByRole("link", { name: /Äta ute/ })).toHaveAttribute("href", "/x");
+    localStorage.clear();
   });
 });

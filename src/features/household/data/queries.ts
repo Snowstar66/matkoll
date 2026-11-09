@@ -42,3 +42,18 @@ export const getOthers = cache(async (): Promise<Others> => {
 export async function previewInvite(code: string): Promise<InvitePreview> {
   return previewInviteIn(await createClient(), code);
 }
+
+/**
+ * The household's members as plain people (id, name, whether it is the caller), for modules that keep their own
+ * per-person data on the device (Menyrådgivare). Null when they cannot be read (logged by reason only). Memoised per request.
+ */
+export const getMemberPeople = cache(async (): Promise<{ id: string; name: string; isMe: boolean }[] | null> => {
+  try {
+    const household = await loadHouseholdIn(await createClient());
+    return household.members.map((member) => ({ id: member.userId, name: member.name, isMe: member.isMe }));
+  } catch (error) {
+    if (!(error instanceof HouseholdDataError) && !(error instanceof HouseholdRefusal)) throw error;
+    console.error("household_unavailable", { reason: error instanceof HouseholdDataError ? error.detail : error.code });
+    return null;
+  }
+});

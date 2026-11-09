@@ -104,6 +104,41 @@ export function withMe(people: readonly Person[]): Person[] {
   return [{ ...mine, kind: "member" }, ...people.filter((person) => person.id !== meId)];
 }
 
+/** A household member as the page hands it over (read on the server): the profile data is added from this device. */
+export type HouseholdPerson = { id: string; name: string; isMe: boolean };
+
+const memberPrefix = "m-";
+
+/** The profile id of a household member (stable per member, so it follows the member between devices' names). */
+export function memberPersonId(userId: string): string {
+  return `${memberPrefix}${userId}`;
+}
+
+/** Whether this person comes from the household (name and presence are not editable here). */
+export function isHouseholdPerson(person: Pick<Person, "id">): boolean {
+  return person.id === meId || person.id.startsWith(memberPrefix);
+}
+
+/**
+ * The saved people with the household's members merged in: "Du", then the other members by name (taste, drink and
+ * allergies from what is saved for their id, empty otherwise), then the people added by hand. With no member list
+ * (null: it could not be read) the saved people stand as they are; a saved member that is gone from the list is hidden.
+ */
+export function withMembers(saved: readonly Person[], members: readonly HouseholdPerson[] | null): Person[] {
+  const base = withMe(saved);
+  if (!members) return base;
+  const [mine, ...rest] = base;
+  const others = members
+    .filter((member) => !member.isMe)
+    .map((member) => {
+      const id = memberPersonId(member.id);
+      const stored = rest.find((person) => person.id === id);
+      return { ...(stored ?? newPerson(id, member.name, "member")), name: member.name.trim().slice(0, maxNameLength) || "Medlem", kind: "member" as const };
+    });
+  const byHand = rest.filter((person) => !person.id.startsWith(memberPrefix));
+  return [mine, ...others, ...byHand];
+}
+
 /** Adds the person, or replaces the one with the same id. Beyond maxPeople a new person is not added. */
 export function upsertPerson(people: readonly Person[], person: Person): Person[] {
   if (people.some((entry) => entry.id === person.id)) return people.map((entry) => (entry.id === person.id ? person : entry));
