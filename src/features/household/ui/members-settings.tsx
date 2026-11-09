@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Avatar } from "@/components/app-shell/avatar";
 import { Button } from "@/components/button";
 import { useConfirmDelete } from "@/components/confirm-delete";
@@ -33,7 +33,18 @@ const rowClasses = "flex min-h-16 items-center gap-3 py-2 pr-2 pl-4";
  * owner has a trash on the others' rows, and a member's sheet with "Gör till ägare". Removing,
  * leaving and handing over ask first and cannot be undone; an invitation goes at once with "Ångra".
  */
-export function MembersSettings({ household, siteUrl, appName }: { household: Household; siteUrl: string; appName: string }) {
+export function MembersSettings({
+  household,
+  siteUrl,
+  appName,
+  after,
+}: {
+  household: Household;
+  siteUrl: string;
+  appName: string;
+  /** More for the household under the member list (the route composes it: Smak och allergier). */
+  after?: ReactNode;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const { showToast } = useToast();
@@ -242,6 +253,8 @@ export function MembersSettings({ household, siteUrl, appName }: { household: Ho
         </li>
       </ListGroup>
       <p className="mx-1 text-meta text-ink-2">Alla i hushållet ser och ändrar samma recept, matsedel, lista, matvaror och förråd.</p>
+
+      {after}
 
       {others.length > 0 ? (
         <Button variant="danger" fullWidth className="mt-4" onClick={askLeave} data-testid="leave-household">
