@@ -1104,27 +1104,38 @@ const menuAllergenList = ["gluten", "laktos", "notter", "skaldjur", "agg", "fisk
  * Swedish, as the prompt asks. The currency code of a row is checked against `valutasymbol_pa_menyn` by the
  * caller (the menu-advisor domain), not here.
  */
+export const menuDishAnswer = z.object({
+  originalnamn: z.string(),
+  grupp: z.enum(["Förrätt", "Varmrätt", "Efterrätt", "Drycker", "Övrigt"]),
+  forklaring: z.string().describe('EN kort mening (ca 60-110 tecken) på klar svenska om vad man får: huvudråvara, tillagning och viktiga tillbehör, utan marknadsföring. Kryptiska menynamn förklaras: "Bläckfisk i vitlök och persilja med inlagd lök och klyftpotatis"'),
+  huvudingredienser: z.array(z.string()),
+  kategori: z.enum(["kott", "fisk", "skaldjur", "vegetariskt", "veganskt", "ej_tillampligt"]),
+  allergener: z.array(z.enum(menuAllergenList)),
+  kan_innehalla: z.array(z.enum(menuAllergenList)),
+  pris: z.number().nullable(),
+  valuta: z.string().nullable(),
+});
+
 export const menuAnswer = z.object({
   restaurang: z.string().nullable(),
   sprak: z.enum(["sv", "en", "es", "annat"]),
   valutasymbol_pa_menyn: z.string().nullable().describe('Symbolen priserna står med på menyn: "€", "kr", "£", "$"; null om ingen syns'),
-  ratter: z.array(
-    z.object({
-      originalnamn: z.string(),
-      grupp: z.enum(["Förrätt", "Varmrätt", "Efterrätt", "Drycker", "Övrigt"]),
-      forklaring: z.string(),
-      huvudingredienser: z.array(z.string()),
-      kategori: z.enum(["kott", "fisk", "skaldjur", "vegetariskt", "veganskt", "ej_tillampligt"]),
-      allergener: z.array(z.enum(menuAllergenList)),
-      kan_innehalla: z.array(z.enum(menuAllergenList)),
-      pris: z.number().nullable(),
-      valuta: z.string().nullable(),
-    }),
-  ),
+  ratter: z.array(menuDishAnswer),
   osakert: z.array(z.string()),
 });
 
 export type MenuAnswer = z.output<typeof menuAnswer>;
+export type MenuDishAnswer = z.output<typeof menuDishAnswer>;
+
+/** One dish with its texts cleaned. */
+export function cleanMenuDish(dish: MenuDishAnswer): MenuDishAnswer {
+  return {
+    ...dish,
+    originalnamn: cleanModelText(dish.originalnamn),
+    forklaring: cleanModelText(dish.forklaring),
+    huvudingredienser: dish.huvudingredienser.map(cleanModelText).filter((name) => name !== ""),
+  };
+}
 
 /** The answer with at most maxMenuDishes dishes, those without a name dropped, and every text cleaned. */
 export function parseMenu(answer: MenuAnswer): MenuAnswer {
@@ -1134,12 +1145,7 @@ export function parseMenu(answer: MenuAnswer): MenuAnswer {
     restaurang: answer.restaurang === null ? null : clean(answer.restaurang) || null,
     osakert: answer.osakert.map(clean).filter((note) => note !== ""),
     ratter: answer.ratter
-      .map((dish) => ({
-        ...dish,
-        originalnamn: clean(dish.originalnamn),
-        forklaring: clean(dish.forklaring),
-        huvudingredienser: dish.huvudingredienser.map(clean).filter((name) => name !== ""),
-      }))
+      .map(cleanMenuDish)
       .filter((dish) => dish.originalnamn !== "")
       .slice(0, maxMenuDishes),
   };

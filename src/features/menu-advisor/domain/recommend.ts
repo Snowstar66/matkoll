@@ -125,9 +125,9 @@ function extremes(dishes: readonly MenuDish[], cheapest: boolean): Set<MenuDish>
   return out;
 }
 
-type Context = { budget: Budget; ranks: Map<MenuDish, number>; cheapest: Set<MenuDish>; priciest: Set<MenuDish> };
+export type RankContext = { budget: Budget; ranks: Map<MenuDish, number>; cheapest: Set<MenuDish>; priciest: Set<MenuDish> };
 
-function rank(dish: MenuDish, person: Person, ctx: Context): Suggestion {
+export function rank(dish: MenuDish, person: Person, ctx: RankContext): Suggestion {
   const keys = dishTasteKeys(dish);
   const reasons: string[] = [];
   let score = 0;
@@ -169,6 +169,11 @@ function rank(dish: MenuDish, person: Person, ctx: Context): Suggestion {
   return { dish, sek: dishSek(dish), reasons, warning, concerns, score };
 }
 
+/** The price context ranking needs, for the dishes being compared. */
+export function rankContext(dishes: readonly MenuDish[], budget: Budget): RankContext {
+  return { budget, ranks: priceRanks(dishes), cheapest: extremes(dishes, true), priciest: extremes(dishes, false) };
+}
+
 /**
  * For each person, the top dishes from Förrätt, Varmrätt and Efterrätt. Allergens the person avoids exclude a
  * dish; "kan innehålla" keeps it but with a warning and far down the list. Tastes that are 0 or missing are
@@ -178,7 +183,7 @@ function rank(dish: MenuDish, person: Person, ctx: Context): Suggestion {
 export function recommend(menu: Menu, people: readonly Person[], opts: RecommendOptions = {}): PersonSuggestions[] {
   const limit = opts.limit ?? 3;
   const dishes = menu.ratter.filter((dish) => suggestGroups.includes(dish.grupp));
-  const ctx: Context = { budget: opts.budget ?? "normalt", ranks: priceRanks(dishes), cheapest: extremes(dishes, true), priciest: extremes(dishes, false) };
+  const ctx = rankContext(dishes, opts.budget ?? "normalt");
   return people.map((person) => {
     const allowed = dishes.filter((dish) => !allergenHits(dish, person.allergies).some((hit) => hit.source === "allergener"));
     const picks = allowed

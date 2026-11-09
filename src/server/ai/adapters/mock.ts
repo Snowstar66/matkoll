@@ -643,7 +643,7 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (code) return fail(code);
       return ok(structuredClone(current.answer));
     },
-    async readMenu(input, signal) {
+    async readMenu(input, signal, options) {
       if (signal.aborted) return fail("ai_unavailable");
       const current = logged(menuFixtures());
       if (!current) return fail("ai_unavailable");
@@ -651,7 +651,13 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const code = current.errors.get(sha256(input.images[0]?.data ?? new Uint8Array(0)));
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
-      return ok({ menu: structuredClone(current.answer), quality: input.quality ?? "standard", escalated: false });
+      const quality = input.quality ?? "standard";
+      const menu = structuredClone(current.answer);
+      // A live reading in the mock: the dishes come together once the delay has passed (a real model sends them one by one).
+      options?.onMenu?.({ stage: "reading", quality, escalated: false });
+      options?.onMenu?.({ stage: "language", sprak: menu.sprak, symbol: menu.valutasymbol_pa_menyn });
+      options?.onMenu?.({ stage: "dishes", dishes: menu.ratter, sprak: menu.sprak, symbol: menu.valutasymbol_pa_menyn });
+      return ok({ menu, quality, escalated: false });
     },
     async locateThing(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
