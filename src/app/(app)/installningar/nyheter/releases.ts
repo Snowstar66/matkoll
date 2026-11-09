@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-09",
+    title: "Foton hamnar rätt väg",
+    bullets: [
+      "Foton du tar stående eller liggande med iPhone kunde komma in ett kvarts varv fel i Förråd. Nu hamnar de rätt väg.",
+      "Det gäller nya foton. Ligger ett gammalt kort fel tar du om det med Ta om på kortet.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Saker visas med foto",
     bullets: [
       "När du trycker på en sak i Förråd ser du först kortets foto med saken inramad. Tryck på fotot för att öppna hela kortet.",

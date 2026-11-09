@@ -72,15 +72,65 @@ function isMemoryError(error: unknown): boolean {
   return /memory|allocat/i.test(`${String(name)} ${String(message)}`);
 }
 
-type Decoded = { source: CanvasImageSource; width: number; height: number; release: () => void };
+type Decoded = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  release: () => void;
+  /** The EXIF orientation (2–8) still to apply when drawing: the decoder left the pixels as stored. 1 when they are already turned. */
+  turn: number;
+};
 type Decoding = { ok: true; decoded: Decoded } | { ok: false; code: "image_unsupported" | "image_too_large" };
 
-const fromBitmap = (bitmap: ImageBitmap): Decoded => ({
+const fromBitmap = (bitmap: ImageBitmap, turn = 1): Decoded => ({
   source: bitmap,
   width: bitmap.width,
   height: bitmap.height,
   release: () => bitmap.close(),
+  turn,
 });
+
+/** The size as shown once turned: orientations 5–8 swap width and height. */
+const shownSize = (size: ImageSize, orientation: number): ImageSize =>
+  orientation >= 5 ? { width: size.height, height: size.width } : size;
+
+/**
+ * A 2 × 1 JPEG whose EXIF orientation is 6 (turned a quarter): a browser that
+ * follows the orientation decodes it as 1 × 2.
+ */
+const probeJpeg =
+  "/9j/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAbEAEAAAcAAAAAAAAAAAAAAAAAAwUHCDh2tP/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCf92OU9ZNznPdGAB//2Q==";
+
+let bitmapTurnsProbe: Promise<boolean> | null = null;
+
+/** Forgets the probe's answer (tests only). */
+export function resetBitmapTurnsProbe() {
+  bitmapTurnsProbe = null;
+}
+
+/**
+ * Whether createImageBitmap turns a photo by its EXIF orientation. Safari has
+ * been seen to take `imageOrientation: "from-image"` without error and still
+ * hand back the pixels as stored, so a portrait photo came out a quarter off
+ * and the <img> fallback never ran. The answer is asked once, with a tiny JPEG
+ * that carries orientation 6, and kept. A browser that cannot decode the probe
+ * is taken to turn (its photos then go the <img> way, which follows EXIF).
+ */
+function bitmapTurns(): Promise<boolean> {
+  bitmapTurnsProbe ??= (async () => {
+    if (typeof createImageBitmap !== "function" || typeof atob !== "function") return true;
+    try {
+      const bytes = Uint8Array.from(atob(probeJpeg), (char) => char.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }), { imageOrientation: "from-image" });
+      const turned = bitmap.width === 1 && bitmap.height === 2;
+      bitmap.close();
+      return turned;
+    } catch {
+      return true;
+    }
+  })();
+  return bitmapTurnsProbe;
+}
 
 /**
  * Decodes the file in full, turned by its EXIF orientation. createImageBitmap
@@ -89,10 +139,13 @@ const fromBitmap = (bitmap: ImageBitmap): Decoded => ({
  * follows the orientation. Running out of memory is `image_too_large`; a file
  * neither can read (e.g. HEIC in Chrome) is `image_unsupported`.
  */
-async function decodeFull(file: Blob): Promise<Decoding> {
+async function decodeFull(file: Blob, exif: number, stored: ImageSize | null): Promise<Decoding> {
   if (typeof createImageBitmap === "function") {
     try {
-      return { ok: true, decoded: fromBitmap(await createImageBitmap(file, { imageOrientation: "from-image" })) };
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      // Left as stored by the browser: this code turns it when drawing.
+      const turn = exif > 1 && !(await bitmapTurns()) ? exif : 1;
+      return { ok: true, decoded: fromBitmap(bitmap, turn) };
     } catch (error) {
       if (isMemoryError(error)) return { ok: false, code: "image_too_large" };
       // Try <img> below.
@@ -104,9 +157,18 @@ async function decodeFull(file: Blob): Promise<Decoding> {
     const image = new Image();
     image.src = url;
     await image.decode();
+    // <img> follows EXIF; for a quarter turn that shows as swapped sides. Not swapped (and not square): left as stored.
+    const unturned =
+      exif >= 5 && stored !== null && stored.width !== stored.height && image.naturalWidth === stored.width && image.naturalHeight === stored.height;
     return {
       ok: true,
-      decoded: { source: image, width: image.naturalWidth, height: image.naturalHeight, release: () => URL.revokeObjectURL(url) },
+      decoded: {
+        source: image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        release: () => URL.revokeObjectURL(url),
+        turn: unturned ? exif : 1,
+      },
     };
   } catch (error) {
     URL.revokeObjectURL(url);
@@ -120,8 +182,10 @@ async function decodeFull(file: Blob): Promise<Decoding> {
  * when the result is not `target` (options ignored, or resized before it was
  * turned): the caller then decodes in full.
  */
-async function decodeResized(file: Blob, target: ImageSize): Promise<Decoded | null | "out_of_memory"> {
+async function decodeResized(file: Blob, target: ImageSize, exif: number): Promise<Decoded | null | "out_of_memory"> {
   if (typeof createImageBitmap !== "function") return null;
+  // A browser that leaves the pixels as stored is not asked to resize: the full decode is turned by hand.
+  if (exif > 1 && !(await bitmapTurns())) return null;
   try {
     const bitmap = await createImageBitmap(file, {
       imageOrientation: "from-image",
@@ -148,11 +212,25 @@ function canvasOf({ width, height }: ImageSize): { canvas: HTMLCanvasElement; co
   return { canvas, context };
 }
 
+/** The canvas matrix [a, b, c, d, e, f] that shows an image of w × h stored pixels turned by EXIF orientation `orientation` (2–8). */
+export function orientationMatrix(orientation: number, w: number, h: number): [number, number, number, number, number, number] {
+  switch (orientation) {
+    case 2: return [-1, 0, 0, 1, w, 0]; // mirrored
+    case 3: return [-1, 0, 0, -1, w, h]; // upside down
+    case 4: return [1, 0, 0, -1, 0, h]; // mirrored vertically
+    case 5: return [0, 1, 1, 0, 0, 0]; // transposed
+    case 6: return [0, 1, -1, 0, h, 0]; // a quarter clockwise
+    case 7: return [0, -1, -1, 0, h, w]; // transversed
+    case 8: return [0, -1, 1, 0, 0, w]; // a quarter counterclockwise
+    default: return [1, 0, 0, 1, 0, 0];
+  }
+}
+
 /** The decoded image drawn at `target` on a white page, in halving steps from a larger source. `null` when a canvas cannot be had (memory). */
 function drawDown(decoded: Decoded, target: ImageSize): HTMLCanvasElement | null {
   let source: CanvasImageSource = decoded.source;
   let sourceSize: ImageSize = decoded;
-  const steps = halvingSteps(decoded, target);
+  const steps = halvingSteps(shownSize(decoded, decoded.turn), target);
   for (const [index, size] of steps.entries()) {
     const drawn = canvasOf(size);
     if (!drawn) return null;
@@ -161,7 +239,16 @@ function drawDown(decoded: Decoded, target: ImageSize): HTMLCanvasElement | null
       drawn.context.fillStyle = "white";
       drawn.context.fillRect(0, 0, size.width, size.height);
     }
-    drawn.context.drawImage(source, 0, 0, sourceSize.width, sourceSize.height, 0, 0, size.width, size.height);
+    if (index === 0 && decoded.turn > 1) {
+      // Turn by EXIF while scaling: the stored pixels are drawn through the orientation's matrix.
+      const shown = shownSize(decoded, decoded.turn);
+      drawn.context.setTransform(size.width / shown.width, 0, 0, size.height / shown.height, 0, 0);
+      drawn.context.transform(...orientationMatrix(decoded.turn, decoded.width, decoded.height));
+      drawn.context.drawImage(source, 0, 0, decoded.width, decoded.height, 0, 0, decoded.width, decoded.height);
+      drawn.context.setTransform(1, 0, 0, 1, 0, 0);
+    } else {
+      drawn.context.drawImage(source, 0, 0, sourceSize.width, sourceSize.height, 0, 0, size.width, size.height);
+    }
     // Let the previous step's pixels go.
     if (source instanceof HTMLCanvasElement) source.width = source.height = 0;
     source = drawn.canvas;
@@ -194,30 +281,31 @@ export async function downscaleImage(
   const type = imageTypeOf(head);
   const stored = imageSizeOf(head);
   // The size as shown: orientations 5–8 turn the image a quarter.
-  const shown = stored && type === "image/jpeg" && jpegOrientation(head) >= 5 ? { width: stored.height, height: stored.width } : stored;
+  const exif = type === "image/jpeg" ? jpegOrientation(head) : 1;
+  const shown = stored ? shownSize(stored, exif) : stored;
 
   let decoded: Decoded | null = null;
   if (shown) {
     const target = fitWithin(shown.width, shown.height, maxSide);
     if (target.width !== shown.width || target.height !== shown.height) {
-      const resized = await decodeResized(file, target);
+      const resized = await decodeResized(file, target, exif);
       if (resized === "out_of_memory") return fail("image_too_large");
       decoded = resized;
     }
   }
   if (!decoded) {
-    const full = await decodeFull(file);
+    const full = await decodeFull(file, exif, stored);
     if (!full.ok) return fail(full.code);
     decoded = full.decoded;
   }
 
   try {
-    const { width, height } = decoded;
+    const { width, height } = shownSize(decoded, decoded.turn);
     if (!width || !height) return fail("image_unsupported");
     const target = fitWithin(width, height, maxSide);
 
     const unturnedPng =
-      type === "image/png" && stored !== null && stored.width === width && stored.height === height;
+      type === "image/png" && stored !== null && stored.width === decoded.width && stored.height === decoded.height;
     if (unturnedPng && target.width === width && target.height === height && file.size <= maxImageBytes) {
       const stripped = stripPngMetadata(new Uint8Array(await file.arrayBuffer()));
       if (stripped) return ok(new Blob([stripped as BlobPart], { type: "image/png" }));

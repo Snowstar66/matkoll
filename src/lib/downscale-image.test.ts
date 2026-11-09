@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail } from "@/lib/errors";
 import { maxImageBytes, maxPlacePhotoSide, placePhotoForClaude } from "@/lib/images";
 import { jpegHeader, pngChunk, pngFile, pngHeader } from "../../tests/support/image-headers";
-import { downscaleImage, fitWithin, halvingSteps, jpegQualities, qualitiesFrom } from "./downscale-image";
+import { downscaleImage, fitWithin, halvingSteps, jpegQualities, orientationMatrix, qualitiesFrom, resetBitmapTurnsProbe } from "./downscale-image";
 
 // jsdom decodes no images and draws nothing, so createImageBitmap and the
 // canvas are fakes: the bitmap has the size the test gives it (or the size
@@ -61,6 +61,12 @@ let resizes: boolean;
 /** The size of a full decode. */
 let fullSize: { width: number; height: number };
 let closed: number;
+/** The byte length of the probe JPEG inside downscale-image.ts. */
+const probeSize = 811;
+/** Whether the fake browser turns photos by EXIF in createImageBitmap (Safari has been seen not to). */
+let bitmapTurns: boolean;
+/** The matrix [a, b, c, d, e, f] set on the canvas, per draw (null when drawn straight). */
+let transforms: (number[] | null)[];
 const createImageBitmap = vi.fn();
 
 beforeEach(() => {
@@ -70,7 +76,12 @@ beforeEach(() => {
   resizes = true;
   fullSize = { width: 4000, height: 3000 };
   closed = 0;
-  createImageBitmap.mockReset().mockImplementation(async (_file: Blob, options?: ImageBitmapOptions) => {
+  bitmapTurns = true;
+  transforms = [];
+  resetBitmapTurnsProbe();
+  createImageBitmap.mockReset().mockImplementation(async (file: Blob, options?: ImageBitmapOptions) => {
+    // The probe: a tiny JPEG with orientation 6 is 1 × 2 where the browser turns, 2 × 1 where it does not.
+    if (file.size === probeSize) return { width: bitmapTurns ? 1 : 2, height: bitmapTurns ? 2 : 1, close: () => closed++ };
     const size =
       resizes && options?.resizeWidth && options.resizeHeight
         ? { width: options.resizeWidth, height: options.resizeHeight }
@@ -81,7 +92,15 @@ beforeEach(() => {
 
   function fakeContext(canvas: HTMLCanvasElement) {
     let fill: string | undefined;
+    let matrix: number[] | null = null;
     const context = {
+      setTransform: (...values: number[]) => {
+        matrix = values.length && values.join() !== "1,0,0,1,0,0" ? values : null;
+      },
+      transform: (...values: number[]) => {
+        // Only a scale before it, so the product is read as scale then the orientation matrix.
+        matrix = [...(matrix ?? []), ...values];
+      },
       imageSmoothingEnabled: false,
       imageSmoothingQuality: "low",
       set fillStyle(value: string) {
@@ -89,6 +108,12 @@ beforeEach(() => {
       },
       fillRect: () => {},
       drawImage: (_source: unknown, _sx: number, _sy: number, sw: number, sh: number, _dx: number, _dy: number, dw: number, dh: number) => {
+        if (matrix) {
+          transforms.push(matrix);
+          drawn.push({ canvas: { width: canvas.width, height: canvas.height }, from: { width: sw, height: sh }, fill, quality: context.imageSmoothingQuality });
+          return;
+        }
+        transforms.push(null);
         expect([canvas.width, canvas.height]).toEqual([dw, dh]);
         expect(context.imageSmoothingEnabled).toBe(true);
         drawn.push({ canvas: { width: dw, height: dh }, from: { width: sw, height: sh }, fill, quality: context.imageSmoothingQuality });
@@ -117,6 +142,31 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
 });
 
+describe("orientationMatrix", () => {
+  // A 4 × 2 image; where do its corners go? (0,0) is the stored top left.
+  const at = (orientation: number, x: number, y: number) => {
+    const [a, b, c, d, e, f] = orientationMatrix(orientation, 4, 2);
+    return [a * x + c * y + e, b * x + d * y + f];
+  };
+
+  it.each([
+    [2, [4, 0]],
+    [3, [4, 2]],
+    [4, [0, 2]],
+    [5, [0, 0]],
+    [6, [2, 0]],
+    [7, [2, 4]],
+    [8, [0, 4]],
+  ])("orientation %i puts the stored top left at %j", (orientation, expected) => {
+    expect(at(orientation, 0, 0)).toEqual(expected);
+  });
+
+  it("makes the quarter turns portrait (6 and 8 map the stored width to the height)", () => {
+    expect(at(6, 4, 2)).toEqual([0, 4]);
+    expect(at(8, 4, 2)).toEqual([2, 0]);
+  });
+});
+
 describe("downscaleImage", () => {
   it("decodes a large photo straight to 1600 px where the browser can, and makes it a JPEG", async () => {
     const photo = cameraJpeg();
@@ -140,7 +190,7 @@ describe("downscaleImage", () => {
     const photo = cameraJpeg(6);
     const result = await downscaleImage(photo, { maxSide: maxPlacePhotoSide });
     expect(maxPlacePhotoSide).toBe(2048);
-    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
+    expect(createImageBitmap.mock.calls.at(-1)?.[1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
     expect(drawn.at(-1)?.canvas).toEqual({ width: 1536, height: 2048 });
     expect(result.ok).toBe(true);
   });
@@ -148,7 +198,7 @@ describe("downscaleImage", () => {
   it("makes a fridge photo for Claude 2048 px at quality 0.85 first, then the lower qualities (Kylfoto A)", async () => {
     jpegSizeFor = (quality) => (quality > 0.65 ? maxImageBytes + 1 : maxImageBytes);
     const result = await downscaleImage(cameraJpeg(6), placePhotoForClaude);
-    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
+    expect(createImageBitmap.mock.calls.at(-1)?.[1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
     expect(drawn.at(-1)?.canvas).toEqual({ width: 1536, height: 2048 });
     expect(qualities).toEqual([0.85, 0.75, 0.65]);
     expect(result.ok).toBe(true);
@@ -156,7 +206,7 @@ describe("downscaleImage", () => {
 
   it("asks for the turned size when EXIF turns the photo a quarter", async () => {
     await downscaleImage(cameraJpeg(6));
-    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1200, resizeHeight: 1600 });
+    expect(createImageBitmap.mock.calls.at(-1)?.[1]).toMatchObject({ resizeWidth: 1200, resizeHeight: 1600 });
     expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
   });
 
@@ -310,5 +360,56 @@ describe("qualitiesFrom (Kylfoto A)", () => {
   it("starts at the given quality and goes on with the lower ones", () => {
     expect(qualitiesFrom(0.8)).toEqual([0.8, 0.75, 0.65, 0.5]);
     expect(qualitiesFrom(0.85)).toEqual([0.85, 0.75, 0.65, 0.5]);
+  });
+});
+
+describe("downscaleImage when the browser leaves the pixels as stored (Safari)", () => {
+  beforeEach(() => {
+    bitmapTurns = false;
+  });
+
+  it("does not ask to resize, decodes in full and turns a portrait photo (orientation 6) by hand", async () => {
+    fullSize = { width: 4000, height: 3000 };
+    const result = await downscaleImage(cameraJpeg(6));
+
+    // The probe, then the full decode: no resizing bitmap.
+    expect(createImageBitmap.mock.calls.some(([, options]) => options?.resizeWidth)).toBe(false);
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
+    expect(drawn[0].from).toEqual({ width: 4000, height: 3000 });
+    // The first halving step is 1500 × 2000: scaled by half and turned a quarter clockwise.
+    expect(transforms[0]).toEqual([0.5, 0, 0, 0.5, 0, 0, ...orientationMatrix(6, 4000, 3000)]);
+    expect(result.ok).toBe(true);
+  });
+
+  it.each([3, 8])("turns orientation %i by hand too", async (orientation) => {
+    await downscaleImage(cameraJpeg(orientation));
+    expect(transforms.find(Boolean)?.slice(6)).toEqual(orientationMatrix(orientation, 4000, 3000));
+  });
+
+  it("leaves an upright photo (orientation 1) alone: no probe, no transform", async () => {
+    await downscaleImage(cameraJpeg());
+    expect(transforms.at(-1)).toBeNull();
+    expect(createImageBitmap.mock.calls.every(([file]) => (file as Blob).size !== probeSize)).toBe(true);
+  });
+
+  it("turns by hand a photo that <img> shows as stored (sides not swapped)", async () => {
+    createImageBitmap.mockRejectedValue(new TypeError("imageOrientation"));
+    stubImageDecode(() => Promise.resolve());
+    vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(4000);
+    vi.spyOn(HTMLImageElement.prototype, "naturalHeight", "get").mockReturnValue(3000);
+    vi.stubGlobal("URL", class extends URL { static createObjectURL = () => "blob:photo"; static revokeObjectURL = () => {}; });
+
+    await downscaleImage(cameraJpeg(6));
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
+    expect(transforms.find(Boolean)?.slice(6)).toEqual(orientationMatrix(6, 4000, 3000));
+  });
+
+  it("does not turn twice: a browser that turns gets no transform", async () => {
+    bitmapTurns = true;
+    fullSize = { width: 3000, height: 4000 };
+    resizes = false;
+    await downscaleImage(cameraJpeg(6));
+    expect(transforms.every((matrix) => matrix === null)).toBe(true);
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1200, height: 1600 });
   });
 });
