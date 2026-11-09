@@ -1,6 +1,8 @@
 "use server";
 
 import { requireUser } from "@/features/auth/server";
+import { recipeFits } from "@/features/menu-advisor";
+import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { CatalogDataError, getIngredientNames } from "@/features/catalog/server";
 import { getPantryForStatus, listOldPantryItems, PantryDataError } from "@/features/pantry/server";
 import { listRecipeRows, RecipeDataError } from "@/features/recipes/server";
@@ -30,12 +32,13 @@ export async function readCookNow(): Promise<Result<CookNowRead>> {
   const user = await requireUser();
   if (!user.ok) return user;
   try {
-    const [rows, { snapshot, site, staples }] = await Promise.all([listRecipeRows(), getPantryForStatus()]);
+    const [rows, { snapshot, site, staples }, people] = await Promise.all([listRecipeRows(), getPantryForStatus(), getFoodFitPeople()]);
     if (!snapshot) return fail("pantry_unavailable");
     const old = site ? await oldItemsOf(site.id) : [];
     const ids = cookNowNameIds(rows, snapshot, staples);
     const names = ids.length > 0 ? await getIngredientNames(ids) : {};
-    const lists = cookNowLists(rows, snapshot, names, staples, old.map((item) => item.ingredientId));
+    // Hushållets preferenser: the recipes' ingredient lines held against them (nothing filled in = no notes, same order).
+    const lists = cookNowLists(rows, snapshot, names, staples, old.map((item) => item.ingredientId), recipeFits(rows, people));
     return ok({ ...lists, tip: old[0] ? { name: old[0].name, days: old[0].days } : null, siteId: site?.id ?? null });
   } catch (error) {
     if (!(error instanceof RecipeDataError || error instanceof CatalogDataError)) throw error;

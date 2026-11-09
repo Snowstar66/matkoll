@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
 import { ChevronRightIcon, InfoIcon, SparkleIcon } from "@/components/icons";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -365,6 +366,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                   lead={<RecipeImage src={recipe.imageUrl} dish={recipe.dish} title={recipe.title} artSize={36} className="size-11 rounded-md" />}
                   title={recipe.title}
                   meta={recipeMetaText(recipe.totalMinutes, recipe.servings)}
+                  notes={<PreferenceNotes notes={recipe.fit} />}
                 />
                 {expanded === recipe.id ? (
                   <div className="flex flex-col items-start gap-2 px-3 pb-3 pl-[68px]">
@@ -396,6 +398,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                   <span className="text-meta text-ink-2">{idea.kind}</span>
                 </p>
                 <p className="text-body">{idea.how}</p>
+                <PreferenceNotes notes={idea.fit} />
                 {idea.why ? (
                   <p data-testid="cook-now-why" className="text-meta text-ink-3">
                     {idea.why}
@@ -443,10 +446,10 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
             <summary className="cursor-pointer text-row-title">Saknar bara en vara ({oneMissingCount})</summary>
             <ul className="flex flex-col gap-2 pt-2.5 text-body">
               {data?.oneMissing.map((recipe) => (
-                <MissingRow key={recipe.id} title={recipe.title} missing={recipe.missing} />
+                <MissingRow key={recipe.id} title={recipe.title} missing={recipe.missing} fit={recipe.fit} />
               ))}
               {oneMissingIdeas.map((idea) => (
-                <MissingRow key={idea.key} title={idea.name} missing={idea.missing[0]} />
+                <MissingRow key={idea.key} title={idea.name} missing={idea.missing[0]} fit={idea.fit} />
               ))}
             </ul>
           </details>
@@ -497,6 +500,7 @@ function RecipePreview({
       {suggestion ? (
         <>
           <p className="text-row-title">{suggestion.draft.title}</p>
+          <PreferenceNotes notes={suggestion.fit} />
           <ul className="flex flex-col gap-1.5">
             {suggestion.draft.lines.map((line, index) => (
               <li key={index} className="flex gap-2 text-body">
@@ -526,10 +530,13 @@ function listNames(names: readonly string[]): string {
   return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}`;
 }
 
-function MissingRow({ title, missing }: { title: string; missing: string }) {
+function MissingRow({ title, missing, fit }: { title: string; missing: string; fit?: readonly PreferenceNote[] }) {
   return (
     <li className="flex items-baseline justify-between gap-2">
-      <span className="min-w-0 break-words">{title}</span>
+      <span className="min-w-0 break-words">
+        {title}
+        <PreferenceNotes notes={fit} />
+      </span>
       <span className="shrink-0 font-semibold text-sand-ink">Saknar {missing}</span>
     </li>
   );
@@ -565,12 +572,15 @@ function RowButton({
   lead,
   title,
   meta,
+  notes,
 }: {
   expanded: boolean;
   onClick: () => void;
   lead?: ReactNode;
   title: string;
   meta: string;
+  /** Hushållets preferenser under the meta line (PreferenceNotes); nothing for none. */
+  notes?: ReactNode;
 }) {
   return (
     <button type="button" aria-expanded={expanded} onClick={onClick} className="flex w-full min-w-0 items-center gap-3 p-3 text-left">
@@ -578,6 +588,7 @@ function RowButton({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-row-title break-words">{title}</span>
         <span className="text-meta text-ink-2">{meta}</span>
+        {notes}
       </span>
       <span className="shrink-0 whitespace-nowrap rounded-pill bg-mint px-2 py-1 text-meta font-semibold text-mint-ink">Allt hemma</span>
     </button>

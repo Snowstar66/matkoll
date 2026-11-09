@@ -64,6 +64,7 @@ let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
 let serverPantryUnavailable = false;
 let serverSite: SelectedSite | null = null;
 let serverOnMenuIds: string[] | undefined;
+let serverFits: Record<string, { kind: "allergy" | "dislike" | "like"; text: string }[]> | undefined;
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
@@ -78,17 +79,19 @@ function Server() {
       pantryUnavailable={serverPantryUnavailable}
       site={site}
       onMenuIds={onMenuIds}
+      fits={serverFits}
     />
   );
 }
 
-type RenderOptions = { pantryUnavailable?: boolean; site?: SelectedSite | null; onMenuIds?: string[] };
+type RenderOptions = { pantryUnavailable?: boolean; site?: SelectedSite | null; onMenuIds?: string[]; fits?: typeof serverFits };
 
 function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: RenderOptions = {}) {
   serverRecipes = recipes;
   serverPantryUnavailable = options.pantryUnavailable ?? false;
   serverSite = options.site ?? null;
   serverOnMenuIds = options.onMenuIds;
+  serverFits = options.fits;
   return render(
     <ToastProvider>
       <Server />
@@ -783,5 +786,48 @@ describe("Library, view, sort and categories", () => {
     renderLibrary([gryta, soppa]);
     // Only the two filter chips are left: no category chip.
     expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button")).toHaveLength(2);
+  });
+});
+
+describe("Library, hushållets preferenser", () => {
+  const fits = {
+    [gryta.id]: [
+      { kind: "allergy" as const, text: "Kan innehålla laktos (Anna)" },
+      { kind: "dislike" as const, text: "Bo undviker vitlök" },
+      { kind: "like" as const, text: "Anna älskar kyckling" },
+    ],
+    [fisk.id]: [{ kind: "like" as const, text: "Anna älskar fisk" }],
+  };
+
+  it("shows no note and keeps the order for a household with nothing filled in", () => {
+    renderLibrary(ranking);
+    expect(screen.queryByTestId("preference-notes")).not.toBeInTheDocument();
+    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Pannkakor", "Fiskgratäng"]);
+    renderLibrary(ranking, { fits: {} });
+    expect(screen.queryByTestId("preference-notes")).not.toBeInTheDocument();
+  });
+
+  it("puts what is loved first and what holds an allergen last, with the notes on the cards (red allergy, two lines at most)", () => {
+    renderLibrary(ranking, { fits });
+    expect(titles()).toEqual(["Fiskgratäng", "Linssoppa", "Pannkakor", "Krämig kycklinggryta"]);
+    const card = screen.getAllByTestId("recipe-card")[3];
+    const notes = within(card).getAllByText(/Kan innehålla|undviker|älskar/);
+    expect(notes.map((note) => note.textContent)).toEqual(["Kan innehålla laktos (Anna)", "Bo undviker vitlök"]);
+    expect(notes[0]).toHaveClass("text-danger");
+    expect(within(screen.getAllByTestId("recipe-card")[0]).getByText("Anna älskar fisk")).toHaveClass("text-mint-ink");
+  });
+
+  it("leaves a sort Pontus chose himself alone", () => {
+    window.localStorage.setItem(recipeSortStore.key, "alphabetical");
+    renderLibrary(ranking, { fits });
+    expect(titles()).toEqual(["Fiskgratäng", "Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
+  });
+
+  it("shows one line of notes in the compact list", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { fits });
+    await user.click(screen.getByRole("radio", { name: "Lista" }));
+    const row = screen.getAllByTestId("recipe-row")[3];
+    expect(within(row).getAllByText(/Kan innehålla|undviker|älskar/).map((note) => note.textContent)).toEqual(["Kan innehålla laktos (Anna)"]);
   });
 });

@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, cookableEmail, cookableStorageState, e2eUserId, chooseUnit } from "./support";
+import { adminClient, clearFoodProfiles, cookableEmail, cookableStorageState, e2eUserId, chooseUnit, seedFoodProfile } from "./support";
 
 // Story 5.1 (changed): the filter Kan lagas nu shows only the recipes with
 // nothing missing; "Nästan (N)" holds those missing one or two, naming what. The spec has an E2E user of its own (cookableEmail). Before each test the pantry and
@@ -79,6 +79,8 @@ async function seedRecipe(title: string, createdAt: string, lines: SeedLine[]) {
 test.beforeEach(async () => {
   userId = await e2eUserId(cookableEmail);
   const admin = adminClient();
+  // Nobody has preferences unless a test says so.
+  await clearFoodProfiles(userId);
   // Children before parents, so nothing relies on the cascades.
   for (const table of ["pantry_item", "recipe_ingredient", "recipe_step", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
@@ -179,6 +181,32 @@ test("Kan lagas nu shows only what can be cooked, with Nästan below, and keeps 
   await showAll(page);
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
   await expect(page.getByRole("list", { name: "Recept", exact: true }).filter({ visible: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("hushållets preferenser: the cards and the recipe page note an allergy, an Undviker and an Älskar, and rank the library lightly", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seedFoodProfile(userId, { allergies: ["laktos"], dislikes: ["linser"], likes: ["torsk"] });
+  await page.goto("/recept");
+  // Without notes the order is newest first (fisk, gryta, soppa); an Undviker goes before an allergy, nothing is left out.
+  await expect(titles(page)).toHaveText([soppa, fisk, gryta]);
+  const noteTexts = (title: string) => rows(page).filter({ hasText: title }).getByTestId("preference-notes").locator("[data-kind]").allTextContents();
+  expect(await noteTexts(soppa)).toEqual([expect.stringMatching(/undviker linser$/)]);
+  expect(await noteTexts(fisk)).toEqual([expect.stringMatching(/^Kan innehålla laktos \(/), expect.stringMatching(/älskar torsk$/)]);
+  expect(await noteTexts(gryta)).toEqual([expect.stringMatching(/^Kan innehålla laktos \(/)]);
+  await expect(rows(page).filter({ hasText: gryta }).locator('[data-kind="allergy"]')).toHaveCSS("font-weight", "600");
+  await expectNoHorizontalScroll(page);
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/preferenser-recept.png` });
+
+  await rows(page).filter({ hasText: soppa }).getByRole("link").click();
+  await expect(page.getByRole("heading", { name: soppa, level: 1 })).toBeVisible();
+  await expect(page.getByTestId("preference-notes").filter({ visible: true })).toContainText(/undviker linser/);
+
+  // Nothing filled in again: no notes anywhere and the usual order.
+  await clearFoodProfiles(userId);
+  await page.goto("/recept");
+  await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
+  await expect(page.getByTestId("preference-notes")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

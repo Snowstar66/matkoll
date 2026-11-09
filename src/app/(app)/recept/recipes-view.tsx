@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
+import { recipeFits } from "@/features/menu-advisor";
+import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { matchOffersWithAi, recipeOfferTags } from "@/features/suggestions/server";
 import { recipeOffersLineText } from "@/features/offers";
 import { loadOffersSheetData } from "../offers-sheet-data";
@@ -57,12 +59,16 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   const initialFilter = await filterPromise;
   // Not awaited: Delade streams in, so the own library never waits for it (the device's option is not known here).
   const shared = readShared();
-  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan] = await Promise.all([
+  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan, people] = await Promise.all([
     listLibraryWithRows(),
     readLibraryOffers(),
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
+    // Hushållets preferenser, one read for the whole page (never throws; empty when nothing is filled in).
+    getFoodFitPeople(),
   ]);
+  // The recipes' ingredient lines held against them: "Anna undviker koriander", allergies, "Älskar"; `{}` without preferences.
+  const fits = recipeFits(rows, people);
   // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
   const healthyIds = readHealthyIds(rows);
   // The card reads today's date in the browser.
@@ -91,6 +97,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       initialFilter={offers ? initialFilter : undefined}
       healthyIds={healthyIds}
       shared={shared}
+      fits={fits}
     />
     </>
   );

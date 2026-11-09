@@ -204,6 +204,7 @@ export function OfferIdeas({ initial, weekStart, addToWeek, searchIngredients, s
               dish={dishKind(idea.draft.title, idea.draft.lines.map((line) => line.originalText))}
               meta={ideaMeta(idea)}
               note={idea.why || null}
+              fit={idea.fit}
               tags={ideaTags(idea, tagsByLabel)}
             >
               <button

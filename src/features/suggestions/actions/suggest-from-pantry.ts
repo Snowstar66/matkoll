@@ -11,11 +11,13 @@ import { getAiServiceForUser, listStores, SettingsDataError } from "@/features/s
 import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { suggestInputLimits } from "@/lib/suggest-input";
 import { fail, ok, type Result } from "@/lib/errors";
+import { foodFit, foodPrefsOf, hasAllergyNote, rankByFit, type FitNote } from "@/features/menu-advisor";
 import { missingCount, offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
 import type { DishLine } from "../domain/offer-input";
 import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "../domain/pantry-input";
 import { checkNowIdeas, namesToCheck, type NowIdeasResultView } from "../domain/now-ideas";
 import { checkOfferIdeas } from "../domain/offer-ideas";
+import { getFoodFitPeople as readFitPeople } from "@/features/menu-advisor/server";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
 // The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10, AD-28).
@@ -87,6 +89,21 @@ async function readOldItems(siteId: string | null): Promise<OldPantryItem[]> {
     console.error("old_items_unavailable", { reason: error instanceof PantryDataError ? error.detail : error.code });
     return [];
   }
+}
+
+/** `{ fit }` for a suggestion with notes, nothing for one without (a household without preferences sees nothing extra). */
+function fitField(notes: readonly FitNote[] | undefined): { fit?: FitNote[] } {
+  return notes && notes.length > 0 ? { fit: [...notes] } : {};
+}
+
+/**
+ * The items held against the household's preferences (menu-advisor.foodFit): one that may hold an allergen is left out,
+ * the others get their notes (left out when empty) and are ranked, "Älskar" first and "Undviker" last, the given order
+ * kept among equals.
+ */
+function withFit<T>(items: readonly T[], people: Parameters<typeof foodFit>[1], textOf: (item: T) => Parameters<typeof foodFit>[0]): (T & { fit?: FitNote[] })[] {
+  const noted = items.map((item) => ({ item, notes: foodFit(textOf(item), people) })).filter(({ notes }) => !hasAllergyNote(notes));
+  return rankByFit(noted, ({ notes }) => notes).map(({ item, notes }) => ({ ...item, ...fitField(notes) }));
 }
 
 /** The job was stopped ("Avbryt", a newer photo): nobody reads the answer, so nothing more is done. */
@@ -234,10 +251,13 @@ export async function suggestNowIdeas({ signal, deadline, avoidTitles = [] }: Su
     return fail("catalog_unavailable");
   }
   const oldInput = toOldItemsInput(await readOldItems(pantry.data.siteId)).map((item) => ({ ...item, name: nameInSentence(item.name) }));
+  // Hushållets preferenser: the lists go to the model (no names), and the answer is held against them below.
+  const people = await readFitPeople();
+  const prefs = foodPrefsOf(people);
 
   const service = await getAiServiceForUser();
   const answered = await service.ideasNow(
-    { pantry: sentencePantry, avoidTitles, ...(oldInput.length > 0 ? { oldItems: oldInput } : {}) },
+    { pantry: sentencePantry, avoidTitles, ...(oldInput.length > 0 ? { oldItems: oldInput } : {}), ...(prefs ? { prefs } : {}) },
     signal,
     { deadline: deadline === undefined ? undefined : deadline - postModelMarginMs },
   );
@@ -257,8 +277,11 @@ export async function suggestNowIdeas({ signal, deadline, avoidTitles = [] }: Su
     });
   }
   let nameDrops = 0;
-  const ideas = checkNowIdeas(answered.data.ideas, (key) => home.has(key), [...home], () => nameDrops++);
+  const checked = checkNowIdeas(answered.data.ideas, (key) => home.has(key), [...home], () => nameDrops++);
   if (nameDrops > 0) console.error("ai_invalid", { reason: "name", dropped: nameDrops, given: answered.data.ideas.length });
+  // The model may ignore the preferences: an idea that may hold an allergen never shows, "Undviker" is noted and ranked last, "Älskar" first.
+  const ideas = withFit(checked, people, (idea) => ({ name: idea.name, ingredients: [...idea.uses, ...idea.missing, idea.how] }));
+  if (ideas.length < checked.length) console.error("ai_invalid", { reason: "allergy", dropped: checked.length - ideas.length });
   if (ideas.length === 0) {
     console.error("ai_invalid", { reason: "ideas", given: answered.data.ideas.length });
     return fail("ai_invalid");
@@ -297,6 +320,10 @@ async function suggest(
   const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
   if (!pantryNames.ok) return pantryNames;
   const { input, dropped } = toSuggestInput(snapshot, pantryNames.data, request.avoidTitles);
+  // Hushållets preferenser: the lists go to the model (no names); every dish is held against them below.
+  const people = await readFitPeople();
+  const prefs = foodPrefsOf(people);
+  if (prefs) input.prefs = prefs;
   if (byOffers) {
     input.offers = toOfferNames(offers);
     if (input.offers.length === 0) return fail("offers_none");
@@ -327,6 +354,8 @@ async function suggest(
   const staples = pantry.data.staples;
   /** What the model said of each kept dish (the friend's way, offers mode); the check below reads it. */
   const told = new Map<RecipeDraft, { intro: string; why: string; uses: string[] }>();
+  /** What each kept dish says about the household's "Undviker" and "Älskar" (menu-advisor.foodFit); a dish with an allergen never gets here. */
+  const fits = new Map<RecipeDraft, FitNote[]>();
   /** One round with the model: its dishes as drafts that pass the checks, and the titles of those that did not. */
   const round = async (roundInput: typeof input): Promise<Result<{ drafts: RecipeDraft[]; rejected: string[] }>> => {
     const suggested = await service.suggestDishes(roundInput, signal, {
@@ -352,6 +381,13 @@ async function suggest(
         console.error("ai_invalid", { reason: "draft", index, issues });
         return;
       }
+      const notes = foodFit({ name: draft.data.title, ingredients: draft.data.lines.map((line) => line.originalText) }, people);
+      if (hasAllergyNote(notes)) {
+        // The model ignored an allergy: the dish is left out, and a retry is told not to give it again.
+        console.error("ai_invalid", { reason: "allergy", index });
+        rejected.push(draft.data.title);
+        return;
+      }
       const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
       if (!byOffers && count < minPantryIngredients) {
         console.error("ai_invalid", { reason: "pantry", index, count });
@@ -367,6 +403,7 @@ async function suggest(
         }
       }
       kept.push(draft.data);
+      if (notes.length > 0) fits.set(draft.data, notes);
       if (recipe.friend) told.set(draft.data, recipe.friend);
     });
     return ok({ drafts: kept, rejected });
@@ -416,6 +453,8 @@ async function suggest(
     drafts = drafts.filter((draft) => whys.has(draft));
     if (drafts.length === 0) return fail("ai_invalid");
   }
+  // "Älskar" first, "Undviker" last, otherwise the model's order.
+  drafts = rankByFit(drafts, (draft) => fits.get(draft) ?? []);
   if (byNow && request.dish) drafts = drafts.slice(0, 1);
 
   if (signal.aborted) return stopped();
@@ -441,7 +480,7 @@ async function suggest(
         const lines = dishLines(draft, ingredientNames, snapshot);
         // The mode `now` counts what is missing as the filter did (a line without an amount is never worth a trip): 0 or 1 names.
         const toBuy = toBuyNames([], byNow ? lines.filter((line) => line.amount != null) : lines, staples);
-        return { draft, ingredientNames, why: "", onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
+        return { draft, ingredientNames, why: "", onOffer: [], atHome, toBuy, oldUsed: oldItemsUsed(oldItems, new Set(linked)), ...fitField(fits.get(draft)) };
       }
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
       const onOffer = offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]);
@@ -454,6 +493,7 @@ async function suggest(
         onOffer,
         atHome,
         toBuy: toBuyNames(offers, dishLines(draft, ingredientNames, snapshot), staples),
+        ...fitField(fits.get(draft)),
       };
     }),
   });

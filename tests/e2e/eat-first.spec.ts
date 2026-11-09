@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, e2eUserId, eatFirstEmail, eatFirstStorageState } from "./support";
+import { adminClient, clearFoodProfiles, e2eUserId, eatFirstEmail, eatFirstStorageState, seedFoodProfile } from "./support";
 
 // Story 16.13 and Story 25.2: "Vad kan jag laga nu?" on Matvaror and its sheet
 // "Kan lagas nu", with AI_PROVIDER=mock. What has lain long is the tip line of
@@ -30,6 +30,8 @@ let userId = "";
 async function seed({ old }: { old: boolean }) {
   userId = await e2eUserId(eatFirstEmail);
   const admin = adminClient();
+  // Nobody has preferences unless a test says so.
+  await clearFoodProfiles(userId);
   for (const table of ["ai_job", "pantry_item", "recipe_ingredient", "recipe_step", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
@@ -170,6 +172,42 @@ test("IDÉER answers like a friend: an intro, text rows, one thing missing apart
   const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
   expect(recipes.data).toHaveLength(1);
   expect(errors).toEqual([]);
+});
+
+test("hushållets preferenser: the sheet notes an Undviker on a recipe and an idea, and an allergy leaves an idea out", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ old: false });
+  // The recipe has lime, the mock's dip "buljong med lite gul lök" has lök, and its sandwich has surdegsbröd (gluten).
+  await seedFoodProfile(userId, { allergies: ["gluten"], dislikes: ["lime", "lök"] });
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
+  });
+  await page.goto("/hemma");
+  await card(page).click();
+
+  const own = page.getByTestId("cook-now-own").filter({ hasText: "Linssoppa" });
+  await expect(own.getByTestId("preference-notes")).toContainText(/undviker lime/);
+  const dip = page.getByTestId("cook-now-idea").filter({ hasText: "Enkel dipp" });
+  await expect(dip).toBeVisible(jobTime);
+  await expect(dip.getByTestId("preference-notes")).toContainText(/undviker lök/);
+  // The sandwich may hold gluten: the code leaves it out, whatever the model said.
+  await expect(page.getByTestId("cook-now-loading")).toHaveCount(0, jobTime);
+  await expect(sheet(page)).not.toContainText("Macka med pålägg");
+  // The model was told the lists, without a name.
+  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "ideas" });
+  expect(bodies[0]).not.toMatch(/gluten|lime|lök/);
+  if (shots) await page.screenshot({ path: join(shots, "preferenser-laga-nu.png") });
+  await clearFoodProfiles(userId);
+  expect(errors).toEqual([]);
+});
+
+test("without preferences the sheet has no notes", async ({ page }) => {
+  await seed({ old: false });
+  await page.goto("/hemma");
+  await card(page).click();
+  await expect(page.getByTestId("cook-now-idea").first()).toBeVisible(jobTime);
+  await expect(page.getByTestId("preference-notes")).toHaveCount(0);
 });
 
 test("the AI's dishes are temporary: closing the sheet leaves nothing in the list of AI jobs", async ({ page }) => {

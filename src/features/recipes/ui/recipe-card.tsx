@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/cx";
 import { HeartToggle } from "@/components/heart-toggle";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import { TrashButton } from "@/components/trash-button";
 import { RecipeImage } from "@/components/recipe-image";
 import type { DishKind } from "@/lib/dish-kind";
@@ -47,6 +48,8 @@ type LinkCardProps = CardBase & {
   quickAction?: ReactNode;
   /** Story 9.3: the offers the recipe uses, as small tags under the time line (the filter Erbjudanden). */
   offerTags?: ReactNode;
+  /** Hushållets preferenser: "Anna undviker koriander" (grey), "Kan innehålla gluten (Anna)" (red), "Anna älskar paprika" (green); at most two lines on a tile. */
+  fit?: readonly PreferenceNote[];
   children?: never;
 };
 
@@ -60,6 +63,7 @@ type PlainCardProps = CardBase & {
   favorite?: never;
   quickAction?: never;
   offerTags?: never;
+  fit?: never;
   /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
   onDelete?: (bin: HTMLButtonElement) => void;
   children?: ReactNode;
@@ -95,6 +99,7 @@ export function RecipeCard({
   deleteLabel,
   quickAction,
   offerTags,
+  fit,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
@@ -120,6 +125,7 @@ export function RecipeCard({
             </p>
           ) : null}
           {offerTags}
+          <PreferenceNotes notes={fit} max={2} />
         </div>
         {onDelete ? (
           <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />

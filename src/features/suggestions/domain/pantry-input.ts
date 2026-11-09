@@ -34,6 +34,8 @@ export type SuggestInputShape = {
   dish?: string;
   /** Nya idéer med extrapris: with `offers`, the friend's answer (an intro, a why and uses per dish). */
   friendly?: boolean;
+  /** The household's food preferences as plain lists of words, no names (menu-advisor.foodPrefsOf); left out when nobody has any. */
+  prefs?: { allergies: string[]; avoid: string[]; love: string[] };
 };
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */

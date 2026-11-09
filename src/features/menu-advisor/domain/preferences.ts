@@ -48,7 +48,7 @@ export function normalizeText(text: string): string {
   return [...text.toLocaleLowerCase("sv-SE").normalize("NFC")].map((char) => ("åäö".includes(char) ? char : char.normalize("NFD").replace(/\p{M}/gu, ""))).join("");
 }
 
-function tokens(text: string): string[] {
+export function tokens(text: string): string[] {
   return normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 }
 
@@ -99,7 +99,7 @@ function termsFor(tag: string): { terms: string[]; not: string[]; categories: Me
 }
 
 /** Whether the words of the term (all whole, the last one may only begin a compound word) are found in the tokens. */
-function hasTerm(textTokens: readonly string[], term: string, not: readonly string[]): boolean {
+export function hasTerm(textTokens: readonly string[], term: string, not: readonly string[]): boolean {
   const parts = term.split(" ");
   const last = parts[parts.length - 1];
   for (let i = 0; i + parts.length <= textTokens.length; i += 1) {

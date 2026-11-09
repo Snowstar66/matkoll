@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeIngredientText } from "@/features/catalog";
+import { fitNotesSchema } from "./fit";
 
 // "Idéer" of "Vad kan jag laga nu?" (Story 25.4): the model answers like a
 // friend, and the code keeps it honest. An idea may only lean on what is at
@@ -20,6 +21,8 @@ export const nowIdeaSchema = z.object({
   uses: z.array(z.string().max(100)).max(8),
   /** What it needs that is not at home: empty (all at home) or one name; ideas that miss more are left out. */
   missing: z.array(z.string().max(100)).max(1),
+  /** Hushållets preferenser: what the idea says about someone's "Undviker" or "Älskar" (an allergy leaves the idea out); left out for none. */
+  fit: fitNotesSchema,
 });
 export type NowIdeaView = z.infer<typeof nowIdeaSchema>;
 
