@@ -80,3 +80,53 @@ test("a failed reading says why", async ({ page }) => {
   await page.getByTestId("menu-file").setInputFiles(photo);
   await expect(page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" })).toBeVisible();
 });
+
+test("profiles under Tillval and the company on the menu page: allergies are registered once and mark the dishes", async ({ page }) => {
+  await optionOn(page);
+  // Web Share is mocked: the text it is given is kept for the check below.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: async (data: { text?: string }) => void ((window as unknown as { shared: string }).shared = data.text ?? ""), configurable: true });
+  });
+  await page.route("**/api/menu/read", (route) => route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } }));
+
+  await page.goto("/installningar/tillval");
+  await page.getByTestId("menu-profiles-link").click();
+  await expect(page).toHaveURL(/\/installningar\/tillval\/aata-ute$/);
+  await page.getByTestId("menu-person-add").click();
+  await page.getByTestId("menu-person-name").fill("Anna");
+  await page.getByRole("button", { name: "Lägg till" }).click();
+  const profile = page.getByTestId("menu-profile");
+  await profile.getByRole("radiogroup", { name: "Fisk" }).getByRole("radio", { name: "Ogillar" }).click();
+  await profile.getByRole("button", { name: /Vin/ }).click();
+  await page.screenshot({ path: "test-results/shots/profile.png", fullPage: true });
+  await profile.getByTestId("menu-allergies-open").click();
+  await page.getByTestId("menu-allergies").getByRole("button", { name: /Gluten/ }).click();
+  await page.screenshot({ path: "test-results/shots/allergies.png", fullPage: true });
+
+  await page.goto("/matsedel/menyer");
+  await page.getByRole("button", { name: "Anna" }).click();
+  await page.getByRole("button", { name: "Lägg till gäst" }).click();
+  await page.getByTestId("menu-guest-name").fill("Gunnar");
+  await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
+  await page.screenshot({ path: "test-results/shots/guest.png", fullPage: true });
+  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
+  await expect(page.getByTestId("menu-company-summary")).toHaveText("Du + Anna + 1 gäst");
+  await page.screenshot({ path: "test-results/shots/company.png", fullPage: true });
+  await page.getByTestId("menu-file").setInputFiles(photo);
+  await expect(page.getByTestId("menu-result")).toBeVisible();
+  await expect(page.getByTestId("menu-unfit")).toHaveText("Passar inte Anna (gluten), Gunnar (nötter)");
+  await page.screenshot({ path: "test-results/shots/result.png", fullPage: true });
+  const suggestions = page.getByTestId("menu-suggestions");
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions).toContainText("Anna:");
+  await suggestions.getByRole("button", { name: "Skicka till sällskapet" }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared?: string }).shared ?? "")).toContain("Anna");
+  await suggestions.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/shots/suggestions.png" });
+  // Bara förklara: no suggestions and no allergy marks.
+  await page.getByRole("radio", { name: "Bara förklara" }).click();
+  await expect(suggestions).toHaveCount(0);
+  await expect(page.getByTestId("menu-unfit")).toHaveCount(0);
+  // Nothing scrolls sideways at 375 px.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

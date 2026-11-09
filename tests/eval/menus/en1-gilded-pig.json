@@ -1,0 +1,227 @@
+{
+  "id": "en1-gilded-pig",
+  "language": "en",
+  "restaurant": "The Gilded Pig",
+  "currency": "GBP",
+  "degraded": false,
+  "image": "en1-gilded-pig.png",
+  "dishes": [
+    {
+      "name": "Scotch egg",
+      "price": 8,
+      "currency": "GBP",
+      "group": "forratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "agg"
+      ],
+      "keywords": [
+        "ägg",
+        "blodpudding",
+        "fläsk"
+      ]
+    },
+    {
+      "name": "Soup of the day",
+      "price": 7,
+      "currency": "GBP",
+      "group": "forratt",
+      "category": null,
+      "allergens": [
+        "gluten",
+        "laktos"
+      ],
+      "keywords": [
+        "soppa",
+        "dagens"
+      ]
+    },
+    {
+      "name": "Potted shrimp",
+      "price": 11,
+      "currency": "GBP",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur",
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "räkor",
+        "smör"
+      ]
+    },
+    {
+      "name": "Burrata",
+      "price": 10.5,
+      "currency": "GBP",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "ost",
+        "mozzarella",
+        "tomat"
+      ]
+    },
+    {
+      "name": "Market fish",
+      "price": 26,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "laktos"
+      ],
+      "keywords": [
+        "fisk",
+        "dagens"
+      ]
+    },
+    {
+      "name": "Chef's special",
+      "price": 24,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "kock",
+        "kökschef",
+        "specialitet",
+        "dagens",
+        "dagsrätt"
+      ]
+    },
+    {
+      "name": "Bangers & mash",
+      "price": 17,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "korv",
+        "potatismos"
+      ]
+    },
+    {
+      "name": "Sunday roast",
+      "price": 23,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "rostbiff",
+        "oxkött",
+        "nötkött",
+        "stek"
+      ]
+    },
+    {
+      "name": "Wild mushroom wellington",
+      "price": 19,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos"
+      ],
+      "keywords": [
+        "svamp",
+        "smördeg"
+      ]
+    },
+    {
+      "name": "Fish & chips",
+      "price": 18.5,
+      "currency": "GBP",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "gluten",
+        "agg"
+      ],
+      "keywords": [
+        "kolja",
+        "pommes",
+        "friterad",
+        "fisk"
+      ]
+    },
+    {
+      "name": "Sticky toffee pudding",
+      "price": 8.5,
+      "currency": "GBP",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "dadel",
+        "toffee",
+        "kaka",
+        "pudding"
+      ]
+    },
+    {
+      "name": "Eton mess",
+      "price": 8,
+      "currency": "GBP",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "jordgubb",
+        "maräng"
+      ]
+    },
+    {
+      "name": "Pint of ale",
+      "price": 5.8,
+      "currency": "GBP",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Glass of house red",
+      "price": 6.5,
+      "currency": "GBP",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "rött vin",
+        "vin"
+      ]
+    }
+  ]
+}

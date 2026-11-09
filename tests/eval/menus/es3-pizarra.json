@@ -1,0 +1,126 @@
+{
+  "id": "es3-pizarra",
+  "language": "es",
+  "restaurant": "Casa Pepe",
+  "currency": "EUR",
+  "degraded": true,
+  "image": "es3-pizarra.png",
+  "dishes": [
+    {
+      "name": "Paella valenciana",
+      "price": 22,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [],
+      "keywords": [
+        "paella",
+        "ris"
+      ]
+    },
+    {
+      "name": "Gazpacho andaluz",
+      "price": 5.5,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "kall soppa",
+        "tomat"
+      ]
+    },
+    {
+      "name": "Jamón ibérico",
+      "price": 18,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "kott",
+      "allergens": [],
+      "keywords": [
+        "skinka"
+      ]
+    },
+    {
+      "name": "Chipirones fritos",
+      "price": 11,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "gluten",
+        "skaldjur"
+      ],
+      "keywords": [
+        "bläckfisk",
+        "bläckfiskar"
+      ]
+    },
+    {
+      "name": "Rabo de toro",
+      "price": 16,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [],
+      "keywords": [
+        "oxsvans"
+      ]
+    },
+    {
+      "name": "Bacalao al pil pil",
+      "price": 17,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk"
+      ],
+      "keywords": [
+        "torsk",
+        "kabeljo",
+        "salttorsk"
+      ]
+    },
+    {
+      "name": "Arroz con leche",
+      "price": 5,
+      "currency": "EUR",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "risgrynsgröt",
+        "ris",
+        "mjölk"
+      ]
+    },
+    {
+      "name": "Cerveza",
+      "price": 2.6,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Tinto de verano",
+      "price": 3.5,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vin",
+        "läsk"
+      ]
+    }
+  ]
+}
