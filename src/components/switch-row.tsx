@@ -42,9 +42,9 @@ export function SwitchRow({
         </span>
         <span
           aria-hidden="true"
-          className={cx("relative h-8 w-[51px] shrink-0 rounded-full transition-colors", on ? "bg-accent" : "border border-border bg-fill")}
+          className={cx("relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors", on ? "bg-accent" : "border border-border bg-fill")}
         >
-          <span className={cx("absolute top-0.5 size-7 rounded-full shadow transition-[left]", on ? "left-[22px] bg-on-accent" : "left-0.5 bg-surface")} />
+          <span className={cx("absolute top-0.5 size-[22px] rounded-full shadow transition-[left]", on ? "left-[20px] bg-on-accent" : "left-0.5 bg-surface")} />
         </span>
       </button>
     </li>
