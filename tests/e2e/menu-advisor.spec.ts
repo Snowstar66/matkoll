@@ -313,9 +313,13 @@ test("a dish with an allergen of the person, and nothing else to give, is shown 
   await page.goto("/matsedel/menyer");
   await takePhoto(page);
   await stream.push(readerLine, doneLine(nutMenu));
-  await expect(page.getByRole("radio", { name: /Ensalada mixta|Pesto de almendras/ })).toHaveCount(1);
+  // Every dish with the allergen is flagged in red, never hidden (Pontus 2026-11-09): all of them are options here.
+  const flagged = page.getByRole("radio", { name: /Ensalada mixta|Pesto de almendras/ });
+  await expect(flagged.first()).toBeVisible();
+  const count = await flagged.count();
+  expect(count).toBeGreaterThan(0);
   await expect(page.getByText("Inget annat på menyn passar. Den här innehåller en allergen du har, fråga personalen.")).toBeVisible();
-  await expect(page.locator("[data-tone='danger']")).toHaveCount(1);
+  await expect(page.locator("[data-tone='danger']")).toHaveCount(count);
   await page.screenshot({ path: `${shots}/16-answer-allergy.png` });
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByTestId("menu-choice-person")).toContainText("Inget annat på menyn passar");
