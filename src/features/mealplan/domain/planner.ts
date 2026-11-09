@@ -123,6 +123,27 @@ export function calendarRows(dishes: readonly PlanDish[], firstOpen: number): Ca
   return rows;
 }
 
+/**
+ * The quiet line above Veckans rätter when some dish may hold an allergen: "2 rätter på veckan kan innehålla en
+ * allergen (Anna och Bo)". `null` when no dish has an allergy note. The names are the ones in the notes' own
+ * "(Anna, Bo)" ending, so the line never says more than the rows do.
+ */
+export function allergyWeekText(notesPerDish: readonly (readonly { kind: string; text: string }[] | undefined)[]): string | null {
+  const names: string[] = [];
+  let count = 0;
+  for (const notes of notesPerDish) {
+    const allergy = (notes ?? []).filter((note) => note.kind === "allergy");
+    if (allergy.length === 0) continue;
+    count += 1;
+    for (const note of allergy) {
+      for (const name of /\(([^)]+)\)$/.exec(note.text)?.[1]?.split(", ") ?? []) if (!names.includes(name)) names.push(name);
+    }
+  }
+  if (count === 0) return null;
+  const who = names.length === 0 ? "" : ` (${names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}`})`;
+  return `${count} ${count === 1 ? "rätt" : "rätter"} på veckan kan innehålla en allergen${who}`;
+}
+
 /** The hint over the library once a free day is chosen: "Läggs på tisdag". */
 export function targetDayText(weekday: number): string {
   return `Läggs på ${weekdayWord(weekday)}`;

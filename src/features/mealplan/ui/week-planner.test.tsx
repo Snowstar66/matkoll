@@ -375,3 +375,35 @@ describe("WeekPlanner as a calendar of the week", () => {
     expect(addToCurrentPlan.mock.calls.at(-1)?.[0]).not.toHaveProperty("weekday");
   });
 });
+
+describe("WeekPlanner, Hushållets preferenser", () => {
+  const fitsFor = { [uuid(1)]: [{ kind: "allergy" as const, text: "Kan innehålla gluten (Anna)" }, { kind: "dislike" as const, text: "Anna undviker lök" }, { kind: "like" as const, text: "Anna älskar ost" }] };
+
+  it("flags a dish with at most two notes, allergy first, and keeps the dish; the week line links to it", () => {
+    render(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-11-02" dishes={[onWeek(1, "Tacos", 2), onWeek(2, "Korvstroganoff", null)]} options={options} toBuy={0} fits={fitsFor} />
+      </ToastProvider>,
+    );
+    const rows = screen.getAllByTestId("plan-dish");
+    expect(rows).toHaveLength(2);
+    const notes = within(rows[0]).getByTestId("preference-notes");
+    expect([...notes.querySelectorAll("[data-kind]")].map((n) => n.textContent)).toEqual(["Kan innehålla gluten (Anna)", "Anna undviker lök"]);
+    expect(within(rows[1]).queryByTestId("preference-notes")).toBeNull();
+    const line = screen.getByTestId("week-allergy-line");
+    expect(line).toHaveTextContent("1 rätt på veckan kan innehålla en allergen (Anna)");
+    expect(within(line).getByRole("link")).toHaveAttribute("href", `#dish-${uuid(51)}`);
+  });
+
+  it("shows nothing extra without preferences, and no week line without an allergy", () => {
+    renderPlanner([onWeek(1, "Tacos", 2)]);
+    expect(screen.queryByTestId("preference-notes")).toBeNull();
+    expect(screen.queryByTestId("week-allergy-line")).toBeNull();
+    render(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-11-02" dishes={[onWeek(1, "Tacos", 2)]} options={options} toBuy={0} fits={{ [uuid(1)]: [{ kind: "like", text: "Anna älskar ost" }] }} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByTestId("week-allergy-line")).toBeNull();
+  });
+});
