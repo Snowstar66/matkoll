@@ -1,8 +1,9 @@
 // The cost of the drinks and a total for the evening. Drink prices are ESTIMATES in kronor, used only when the
 // menu has no matching drink with a price.
-import type { DrinkKind, Person } from "./profile";
+import type { Choices } from "./options";
+import { drinkKinds, type DrinkKind, type Person } from "./profile";
 import type { Selection } from "./recommend";
-import type { Menu } from "./types";
+import type { Menu, MenuDish } from "./types";
 import { dishSek } from "./view";
 
 /** UPPSKATTNING, approximate kronor per glass or cup in a Swedish restaurant, as of 2026-11-09. Not real prices. */
@@ -52,6 +53,17 @@ export function drinkPrice(menu: Menu, kind: DrinkKind): DrinkPrice {
   return { sek: approxDrinkSek[kind], source: "uppskattning" };
 }
 
+/** One drink a person can pick instead of their usual, with its price in kronor. `estimated` = from the rough table, not the menu. */
+export type DrinkOption = { kind: DrinkKind; sek: number; estimated: boolean };
+
+/** Every drink kind with its price: the menu's cheapest matching drink per glass before the table (see drinkPrice). */
+export function drinkOptions(menu: Menu): DrinkOption[] {
+  return drinkKinds.map((kind) => {
+    const price = drinkPrice(menu, kind);
+    return { kind, sek: price.sek, estimated: price.source === "uppskattning" && price.sek > 0 };
+  });
+}
+
 export type PersonTotal = {
   personId: string;
   name: string;
@@ -73,11 +85,17 @@ export type Totals = {
   drinksEstimated: boolean;
 };
 
-/** The dishes (converted to kronor) plus each eating person's usual drink, itemised per person. */
-export function estimateTotalSek(selection: Selection, menu: Menu, people: readonly Person[]): Totals {
+/**
+ * The dishes (converted to kronor) plus each eating person's drink, itemised per person. Takes the old `Selection`, or
+ * `Choices` (the dish is menu.ratter[dishIndex]; the drink is the choice's own or else the person's usual). A person
+ * without a chosen dish is not counted and has no drink.
+ */
+export function estimateTotalSek(selection: Selection | Choices, menu: Menu, people: readonly Person[]): Totals {
   let drinksEstimated = false;
   const perPerson = people.map((person): PersonTotal => {
-    const mine = selection.filter((entry) => entry.personId === person.id);
+    const mine = chosenFor(selection, menu, person.id);
+    const choice = Array.isArray(selection) ? undefined : selection[person.id];
+    const drink = choice?.drink ?? person.drink;
     let dishesSek = 0;
     let unpriced = 0;
     for (const { dish } of mine) {
@@ -86,12 +104,12 @@ export function estimateTotalSek(selection: Selection, menu: Menu, people: reado
       else dishesSek += sek;
     }
     let drinkSek = 0;
-    if (person.drink !== null && mine.length > 0) {
-      const price = drinkPrice(menu, person.drink);
+    if (drink !== null && mine.length > 0) {
+      const price = drinkPrice(menu, drink);
       drinkSek = price.sek;
       if (price.source === "uppskattning" && price.sek > 0) drinksEstimated = true;
     }
-    return { personId: person.id, name: person.name, dishesSek, unpriced, drink: person.drink, drinkSek, totalSek: dishesSek + drinkSek };
+    return { personId: person.id, name: person.name, dishesSek, unpriced, drink, drinkSek, totalSek: dishesSek + drinkSek };
   });
   const sum = (pick: (p: PersonTotal) => number) => perPerson.reduce((total, p) => total + pick(p), 0);
   return {
@@ -102,4 +120,11 @@ export function estimateTotalSek(selection: Selection, menu: Menu, people: reado
     unpriced: sum((p) => p.unpriced),
     drinksEstimated,
   };
+}
+
+function chosenFor(selection: Selection | Choices, menu: Menu, personId: string): { dish: MenuDish }[] {
+  if (Array.isArray(selection)) return selection.filter((entry) => entry.personId === personId);
+  const index = selection[personId]?.dishIndex ?? null;
+  const dish = index === null ? undefined : menu.ratter[index];
+  return dish ? [{ dish }] : [];
 }

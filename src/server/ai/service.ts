@@ -52,6 +52,9 @@ import {
   shoppingListAnswer,
   parseShoppingList,
   menuAnswer,
+  menuDishAnswer,
+  cleanMenuDish,
+  type MenuDishAnswer,
   parseMenu,
   type MenuAnswer,
   type AiListItem,
@@ -166,7 +169,21 @@ export type RunOptions = {
    * caller that is stopped never gets one after it.
    */
   onItems?: (items: PhotoItem[]) => void;
+  /**
+   * readMenu only: progress of the reading, for a client that shows the menu while it is read. `reading` comes at the
+   * start of every reading (a second one, `escalated`, when a standard reading is redone as careful: the dishes
+   * before it are then to be dropped), `language` once the menu's language and currency symbol are written, and
+   * `dishes` with ALL the dishes read so far (each checked on its own and cleaned, in the model's order) whenever
+   * there are more of them. Dishes come one by one only when the model can stream; otherwise `dishes` comes once,
+   * when the reading is done. Never called after the call is stopped.
+   */
+  onMenu?: (progress: MenuProgress) => void;
 };
+
+export type MenuProgress =
+  | { stage: "reading"; quality: MenuQuality; escalated: boolean }
+  | { stage: "language"; sprak: MenuAnswer["sprak"]; symbol: string | null }
+  | { stage: "dishes"; dishes: MenuDishAnswer[]; sprak: MenuAnswer["sprak"] | null; symbol: string | null };
 
 export type SuggestDishesOptions = RunOptions;
 
@@ -997,12 +1014,21 @@ export function createModelAiService(
       return ok({ items: parsed.items });
     },
     async readMenu(input, signal, options = {}) {
-      const read = async (quality: MenuQuality): Promise<Result<MenuAnswer>> => {
+      const read = async (quality: MenuQuality, escalated: boolean): Promise<Result<MenuAnswer>> => {
         const within = limitsWithin(limits, options.deadline);
         if (!within) {
           console.error("ai_unavailable", { reason: "deadline" });
           return fail("ai_unavailable");
         }
+        const onMenu = options.onMenu;
+        onMenu?.({ stage: "reading", quality, escalated });
+        let reported = 0;
+        let language = false;
+        const report = (dishes: MenuDishAnswer[], sprak: MenuAnswer["sprak"] | null, symbol: string | null) => {
+          if (dishes.length <= reported) return;
+          reported = dishes.length;
+          onMenu?.({ stage: "dishes", dishes, sprak, symbol });
+        };
         const answer = await runStructured(
           menuTargets[quality],
           {
@@ -1012,12 +1038,46 @@ export function createModelAiService(
             maxOutputTokens: inputLimits.menu.maxOutputTokens,
             sampling: menuTargets[quality].imageSampling,
             onTruncated: () => console.info("menu_truncated", { quality }),
+            // With a callback and a model that streams, each dish is read as it is written and checked on its own.
+            stream: onMenu
+              ? {
+                  onPartial: (partial) => {
+                    const head = partial as { sprak?: unknown; valutasymbol_pa_menyn?: unknown; ratter?: unknown; osakert?: unknown } | undefined;
+                    const sprak = menuAnswer.shape.sprak.safeParse(head?.sprak);
+                    const symbol = typeof head?.valutasymbol_pa_menyn === "string" ? head.valutasymbol_pa_menyn : null;
+                    // The symbol is written after the language; it is complete once the dishes have started.
+                    if (!language && sprak.success && Array.isArray(head?.ratter)) {
+                      language = true;
+                      onMenu({ stage: "language", sprak: sprak.data, symbol });
+                    }
+                    if (!Array.isArray(head?.ratter)) return;
+                    // The dish being written is not done until the next one starts, its price has no currency, or the
+                    // notes after the dishes have begun.
+                    const written = head.ratter as unknown[];
+                    const last = written[written.length - 1] as { pris?: unknown; valuta?: unknown } | undefined;
+                    const lastDone = head.osakert !== undefined || (last?.valuta === null && last.pris === null);
+                    const done = lastDone ? written : written.slice(0, -1);
+                    const dishes = done.flatMap((dish) => {
+                      const checked = menuDishAnswer.safeParse(dish);
+                      return checked.success ? [cleanMenuDish(checked.data)] : [];
+                    });
+                    report(dishes, sprak.success ? sprak.data : null, symbol);
+                  },
+                  read: (finished) => {
+                    const checked = menuAnswer.safeParse(finished);
+                    return checked.success ? checked.data : undefined;
+                  },
+                }
+              : undefined,
           },
           signal,
           // The first answer and one new attempt, as the invalid or cut-off answer is asked again once.
           { ...within, maxAttempts: Math.min(within.maxAttempts, 2) },
         );
-        return answer.ok ? ok(parseMenu(answer.data)) : answer;
+        if (!answer.ok) return answer;
+        const parsed = parseMenu(answer.data);
+        report(parsed.ratter, parsed.sprak, parsed.valutasymbol_pa_menyn);
+        return ok(parsed);
       };
       return readMenuEscalating(read, input.quality ?? "standard");
     },
@@ -1249,15 +1309,15 @@ export function isValidReadMenuInput(input: ReadMenuInput): boolean {
  * standard one that did answer is still the answer.
  */
 export async function readMenuEscalating(
-  read: (quality: MenuQuality) => Promise<Result<MenuAnswer>>,
+  read: (quality: MenuQuality, escalated: boolean) => Promise<Result<MenuAnswer>>,
   quality: MenuQuality,
 ): Promise<Result<ReadMenuResult>> {
-  const first = await read(quality);
+  const first = await read(quality, false);
   if (quality === "careful") return first.ok ? ok({ menu: first.data, quality, escalated: false }) : first;
   const unusable = first.ok ? first.data.ratter.length > 0 && first.data.ratter.every((dish) => dish.pris === null) : first.error.code === "ai_invalid";
   if (!unusable) return first.ok ? ok({ menu: first.data, quality, escalated: false }) : first;
   console.info("menu_escalated", { reason: first.ok ? "no_prices" : "invalid" });
-  const second = await read("careful");
+  const second = await read("careful", true);
   if (second.ok) return ok({ menu: second.data, quality: "careful", escalated: true });
   return first.ok ? ok({ menu: first.data, quality, escalated: false }) : second;
 }
