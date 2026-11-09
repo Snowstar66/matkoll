@@ -46,16 +46,17 @@ describe("recommendOptions: which dishes", () => {
 });
 
 describe("recommendOptions: allergies", () => {
-  it("leaves a dish with an allergen out entirely while others exist", () => {
+  it("flags a dish with an allergen in red after the safe ones instead of hiding it", () => {
     const menu = menuOf([
       dish({ originalnamn: "Räkor", kategori: "skaldjur", allergener: ["skaldjur"] }),
       dish({ originalnamn: "Biff" }),
       dish({ originalnamn: "Soppa", kan_innehalla: ["skaldjur"] }),
     ]);
     const options = recommendOptions(menu, [person({ allergies: ["skaldjur"] })])[0]!.options;
-    expect(options.map((option) => option.dish.originalnamn)).toEqual(["Biff", "Soppa"]);
-    expect(options.map((option) => option.warning)).toEqual([null, "maybe"]);
+    expect(options.map((option) => option.dish.originalnamn)).toEqual(["Biff", "Soppa", "Räkor"]);
+    expect(options.map((option) => option.warning)).toEqual([null, "maybe", "allergy"]);
     expect(options[1]!.reasons.join(" ")).toContain("Kan innehålla skaldjur");
+    expect(options[2]!.reasons.join(" ")).toContain("Innehåller skaldjur");
   });
 
   it("puts may-contain last even when it is a favourite", () => {
@@ -63,19 +64,21 @@ describe("recommendOptions: allergies", () => {
     expect(names(menu, person({ allergies: ["gluten"], tastes: { vegetariskt: 2 } }))).toEqual(["Biff", "Soppa"]);
   });
 
-  it("offers one flagged option, saying nothing else fits, when every dish has the allergen", () => {
+  it("offers flagged options, the first saying nothing else fits, when every dish has the allergen", () => {
     const menu = menuOf([dish({ originalnamn: "Räkor", allergener: ["skaldjur"] }), dish({ originalnamn: "Paella", allergener: ["skaldjur", "gluten"] })]);
     const options = recommendOptions(menu, [person({ allergies: ["skaldjur"] })])[0]!.options;
-    expect(options).toHaveLength(1);
-    expect(options[0]).toMatchObject({ warning: "allergy", dish: { originalnamn: "Räkor" } });
+    expect(options).toHaveLength(2);
+    expect(options.every((option) => option.warning === "allergy")).toBe(true);
+    expect(options[0]).toMatchObject({ dish: { originalnamn: "Räkor" } });
     expect(options[0]!.reasons[0]).toContain("Inget annat");
   });
 
-  it("keeps the allergen dish away from the allergic person only", () => {
+  it("flags the allergen dish for the allergic person only", () => {
     const menu = menuOf([dish({ originalnamn: "Räkor", allergener: ["skaldjur"] }), dish({ originalnamn: "Biff" })]);
     const [anna, bo] = recommendOptions(menu, [person({ id: "a", allergies: ["skaldjur"] }), person({ id: "b" })]);
-    expect(anna!.options.map((option) => option.dish.originalnamn)).toEqual(["Biff"]);
+    expect(anna!.options.map((option) => [option.dish.originalnamn, option.warning])).toEqual([["Biff", null], ["Räkor", "allergy"]]);
     expect(bo!.options.map((option) => option.dish.originalnamn).sort()).toEqual(["Biff", "Räkor"]);
+    expect(bo!.options.every((option) => option.warning === null)).toBe(true);
   });
 });
 

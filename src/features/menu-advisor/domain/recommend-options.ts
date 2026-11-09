@@ -43,14 +43,16 @@ function candidate(entry: { dish: MenuDish; index: number }, person: Person, ctx
   const loved = preferenceHits(person.likes, entry.dish).filter((tag) => !avoided.some((other) => lower(other) === lower(tag)));
   if (loved.length > 0) reasons.push(capital(`${who} älskar ${loved.map(lower).join(", ")}`));
   if (avoided.length > 0) reasons.push(capital(`${who} undviker ${avoided.map(lower).join(", ")}`));
+  if (warning === "allergy") reasons.push(`Innehåller ${certain.map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE")).join(", ")}. Fråga personalen.`);
   if (warning === "maybe") reasons.push(`Kan innehålla ${hits.map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE")).join(", ")}. Fråga personalen.`);
   return { dish: entry.dish, index: entry.index, score: ranked.score, warning, reasons, priceSek: dishSek(entry.dish), allergenCount: certain.length };
 }
 
 /**
  * For each person, `perPerson` ranked main-course options, best first. A dish with an allergen of the person is
- * never offered while any other dish exists; when none does, exactly one option is given with warning "allergy" and
- * a reason saying so (never silent). "Kan innehålla" gets warning "maybe" and goes last. No dish twice to one person;
+ * flagged in red (warning "allergy", with a reason), never hidden: it goes after the safe dishes and fills the
+ * places they leave; when no dish is safe the first option says nothing else fits (never silent). "Kan innehålla"
+ * gets warning "maybe" and goes last among the safe ones. No dish twice to one person;
  * the best dish is spread out between people unless it is a clearly better match for them.
  */
 export function recommendOptions(menu: Menu, people: readonly Person[], opts: RecommendOptionsOptions = {}): PersonOptions[] {
@@ -62,18 +64,25 @@ export function recommendOptions(menu: Menu, people: readonly Person[], opts: Re
     const all = mains.map((entry) => candidate(entry, person, ctx));
     const safe = all.filter((entry) => entry.warning !== "allergy");
     if (all.length === 0) return { personId: person.id, options: [] };
-    if (safe.length === 0) {
-      const least = [...all].sort((a, b) => a.allergenCount - b.allergenCount || b.score - a.score || a.index - b.index)[0]!;
-      return { personId: person.id, options: [toOption({ ...least, reasons: ["Inget annat på menyn passar. Den här innehåller en allergen du har, fråga personalen."] }, null)] };
-    }
+    // A dish with an allergen of the person is flagged in red, never hidden (Pontus 2026-11-09): it goes after the
+    // safe ones, fewest allergens first, and only fills the places the safe dishes leave.
+    const flagged = all
+      .filter((entry) => entry.warning === "allergy")
+      .sort((a, b) => a.allergenCount - b.allergenCount || b.score - a.score || a.index - b.index);
     const ordered = safe
       .map((entry) => ({ entry, adjusted: entry.score - (taken.has(entry.index) ? spreadPenalty : 0) }))
       .sort((a, b) => b.adjusted - a.adjusted || a.entry.index - b.entry.index)
       .slice(0, perPerson)
       .map(({ entry }) => entry);
+    const fill = flagged.slice(0, Math.max(0, perPerson - ordered.length));
+    if (ordered.length === 0) {
+      const [first, ...rest] = fill;
+      const lone = { ...first!, reasons: ["Inget annat på menyn passar. Den här innehåller en allergen du har, fråga personalen.", ...first!.reasons] };
+      return { personId: person.id, options: [toOption(lone, null), ...rest.map((entry) => toOption(entry, null))] };
+    }
     taken.add(ordered[0]!.index);
     const lead = ordered[0]!.priceSek;
-    return { personId: person.id, options: ordered.map((entry, position) => toOption(entry, position === 0 ? null : lead)) };
+    return { personId: person.id, options: [...ordered, ...fill].map((entry, position) => toOption(entry, position === 0 ? null : lead)) };
   });
 }
 
