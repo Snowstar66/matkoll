@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as run from "./run";
 import { pantryLines } from "@/lib/suggest-input";
 import { parseEnv } from "@/server/env-schema";
+import { fail, ok } from "@/lib/errors";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { prompts } from "./prompts";
 import type { Limits } from "./run";
@@ -32,6 +33,7 @@ import {
   type MergeThingsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
+  readMenuEscalating,
 } from "./service";
 import {
   abortReason,
@@ -1058,6 +1060,104 @@ describe("readShoppingList on a model (Fota en lista)", () => {
       ok: false,
       error: { code: "validation" },
     });
+  });
+});
+
+describe("readMenu on a model (Menyrådgivare)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
+  const dish = (pris: number | null) => ({
+    originalnamn: "Pulpo", grupp: "Förrätt", forklaring: "Bläckfisk.", huvudingredienser: ["bläckfisk"], kategori: "skaldjur",
+    allergener: ["skaldjur"], kan_innehalla: [], pris, valuta: pris === null ? null : "EUR",
+  });
+  const answer = (...prices: (number | null)[]) =>
+    JSON.stringify({ restaurang: null, sprak: "es", valutasymbol_pa_menyn: "€", ratter: prices.map(dish), osakert: [] });
+  const service = (standard: ReturnType<typeof fakeModel>, careful: ReturnType<typeof fakeModel>) =>
+    createModelAiService({ model: standard }, limits, undefined, { standard: { model: standard }, careful: { model: careful } });
+  const images = [png(), png(5)];
+
+  it("sends the read-menu prompt and every photo as a file part, with room for a large menu", async () => {
+    const standard = fakeModel(answer(17.95, null));
+    const careful = fakeModel(answer(1));
+    const result = await service(standard, careful).readMenu({ images }, signal());
+    expect(result).toMatchObject({ ok: true, data: { quality: "standard", escalated: false, menu: { valutasymbol_pa_menyn: "€" } } });
+    expect(careful.doGenerateCalls).toHaveLength(0);
+    const call = standard.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.menu.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.readMenu });
+    expect((user.content as { type: string }[]).filter((part) => part.type === "file")).toHaveLength(2);
+  });
+
+  it("asks again once for an answer that is not valid, and gives ai_invalid when the new attempt fails too (no third)", async () => {
+    const both = fakeModel("{}", answer(5));
+    const onceMore = await service(both, fakeModel(answer(1))).readMenu({ images }, signal());
+    expect(onceMore).toMatchObject({ ok: true, data: { quality: "standard", escalated: false } });
+    expect(both.doGenerateCalls).toHaveLength(2);
+    const broken = fakeModel("{}");
+    const careful = fakeModel("{}");
+    expect(await service(broken, careful).readMenu({ images }, signal())).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(broken.doGenerateCalls).toHaveLength(2);
+    expect(careful.doGenerateCalls).toHaveLength(2);
+  });
+
+  it("redoes the reading as careful when standard stays invalid, or has dishes but no price", async () => {
+    const invalid = await service(fakeModel("{}"), fakeModel(answer(12))).readMenu({ images }, signal());
+    expect(invalid).toMatchObject({ ok: true, data: { quality: "careful", escalated: true } });
+    const noPrice = await service(fakeModel(answer(null, null)), fakeModel(answer(12))).readMenu({ images }, signal());
+    expect(noPrice).toMatchObject({ ok: true, data: { quality: "careful", escalated: true } });
+  });
+
+  it("goes straight to careful when asked, and does not escalate an empty menu", async () => {
+    const standard = fakeModel(answer(1));
+    const direct = await service(standard, fakeModel(answer(2))).readMenu({ images, quality: "careful" }, signal());
+    expect(direct).toMatchObject({ ok: true, data: { quality: "careful", escalated: false } });
+    expect(standard.doGenerateCalls).toHaveLength(0);
+    const careful = fakeModel(answer(2));
+    expect(await service(fakeModel(answer()), careful).readMenu({ images }, signal())).toMatchObject({ ok: true, data: { quality: "standard" } });
+    expect(careful.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for no photo, more than three and a quality that is not one", async () => {
+    const wrapped = withInputValidation(service(fakeModel(answer(1)), fakeModel(answer(1))));
+    for (const bad of [{ images: [] }, { images: [png(), png(), png(), png()] }, { images, quality: "ultra" as "standard" }]) {
+      expect(await wrapped.readMenu(bad, signal()), JSON.stringify(Object.keys(bad))).toMatchObject({ ok: false, error: { code: "validation" } });
+    }
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const late = await service(fakeModel(answer(1)), fakeModel(answer(1))).readMenu({ images }, signal(), { deadline: Date.now() + 1_000 });
+    expect(late).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
+
+describe("readMenuEscalating", () => {
+  const menu = (...prices: (number | null)[]) =>
+    ok({ restaurang: null, sprak: "en" as const, valutasymbol_pa_menyn: null, osakert: [], ratter: prices.map((pris) => ({ ...dishBase, pris })) });
+  const dishBase = {
+    originalnamn: "X", grupp: "Övrigt" as const, forklaring: "", huvudingredienser: [], kategori: "ej_tillampligt" as const,
+    allergener: [], kan_innehalla: [], valuta: null,
+  };
+
+  it("keeps a standard answer when some dish has a price", async () => {
+    const read = vi.fn(async () => menu(null, 9));
+    expect(await readMenuEscalating(read, "standard")).toMatchObject({ ok: true, data: { quality: "standard", escalated: false } });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not escalate a refusal, the cap or an unavailable model", async () => {
+    for (const code of ["ai_rejected", "ai_unavailable", "ai_cap_reached"] as const) {
+      const read = vi.fn(async () => fail(code));
+      expect(await readMenuEscalating(read, "standard")).toMatchObject({ ok: false, error: { code } });
+      expect(read).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("falls back to the standard answer when the careful run fails, and to the careful error when both failed", async () => {
+    const noPrices = vi.fn(async (quality: string) => (quality === "standard" ? menu(null) : fail("ai_unavailable")));
+    expect(await readMenuEscalating(noPrices, "standard")).toMatchObject({ ok: true, data: { quality: "standard", escalated: false } });
+    const bothBad = vi.fn(async (quality: string) => fail(quality === "standard" ? "ai_invalid" : "ai_unavailable"));
+    expect(await readMenuEscalating(bothBad, "standard")).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(bothBad.mock.calls.map(([quality]) => quality)).toEqual(["standard", "careful"]);
   });
 });
 
