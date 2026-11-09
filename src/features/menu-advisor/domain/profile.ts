@@ -18,6 +18,10 @@ export type Person = {
   /** One-time registration: allergies and intolerances that must never be suggested. */
   allergies: MenuAllergen[];
   tastes: Partial<Record<TasteKey, Taste>>;
+  /** Free-text "Undviker" (coriander, garlic): not an allergy, so a dish is ranked down and flagged, never left out. Display spelling kept. */
+  dislikes: string[];
+  /** Free-text "Älskar" (nasi goreng, paprika): ranked up and named. */
+  likes: string[];
   /** The drink the person usually orders; null = not set. */
   drink: DrinkKind | null;
 };

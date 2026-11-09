@@ -11,8 +11,9 @@ import { Segment } from "@/components/segment";
 import { useOption } from "@/lib/use-option";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, maxPeople, meId, newPerson, tasteLabels, toggleAllergy, withTaste } from "../domain/people";
+import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, maxPeople, meId, newPerson, tasteLabels, toggleAllergy, withoutTag, withTag, withTaste } from "../domain/people";
 import { drinkKinds, type Person, type Taste, tasteKeys } from "../domain/profile";
+import { PreferenceSection } from "./preference-section";
 import { menuAllergens } from "../domain/types";
 import { makePersonId, usePeople } from "./use-people";
 
@@ -22,6 +23,9 @@ import { makePersonId, usePeople } from "./use-people";
 type View = { name: "list" } | { name: "person"; id: string } | { name: "allergies"; id: string };
 
 const noopSubscribe = () => () => {};
+
+const dislikeSuggestions = ["koriander", "vitlök", "lök", "svamp", "oliver", "ost", "kryddstarkt", "fisk", "skaldjur", "ingefära"];
+const likeSuggestions = ["pasta", "pizza", "paprika", "nasi goreng", "tacos", "sushi", "ost", "chili", "grillat"];
 
 const tasteOptions = [
   { value: "-2", label: "Hatar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👎👎</span> },
@@ -93,7 +97,7 @@ export function ProfilesScreen({ members = null }: { members?: readonly Househol
 
 function summary(person: Person): string {
   const parts = [
-    Object.keys(person.tastes).length > 0 ? "Smak ifylld" : "Äter allt",
+    Object.keys(person.tastes).length > 0 || person.dislikes.length > 0 || person.likes.length > 0 ? "Smak ifylld" : "Äter allt",
     person.drink ? drinkLabels[person.drink] : null,
     person.allergies.length > 0 ? `Allergi: ${person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ")}` : null,
   ];
@@ -184,6 +188,11 @@ function PersonView({
 }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
+  function addTo(list: "dislikes" | "likes", text: string): string | null {
+    const result = withTag(person, list, text);
+    if (result.error === null && result.person !== person) onChange(result.person);
+    return result.error;
+  }
   return (
     <div className="flex flex-col gap-5" data-testid="menu-profile">
       <Button variant="compact" onClick={onBack} className="self-start">
@@ -221,6 +230,30 @@ function PersonView({
           ))}
         </ul>
       </section>
+
+      <PreferenceSection
+        testId="menu-dislikes"
+        title="Undviker"
+        hint="Det du helst slipper, som koriander eller vitlök. Rätterna får en markering och föreslås inte i första hand."
+        inputLabel="Lägg till något du undviker"
+        tags={person.dislikes}
+        suggestions={dislikeSuggestions}
+        onAdd={(text) => addTo("dislikes", text)}
+        onRemove={(tag) => onChange(withoutTag(person, "dislikes", tag))}
+      />
+
+      <PreferenceSection
+        testId="menu-likes"
+        title="Älskar"
+        hint="Det du gärna äter, som paprika eller nasi goreng. Sådana rätter föreslås oftare."
+        inputLabel="Lägg till något du älskar"
+        tags={person.likes}
+        suggestions={likeSuggestions}
+        onAdd={(text) => addTo("likes", text)}
+        onRemove={(tag) => onChange(withoutTag(person, "likes", tag))}
+      />
+
+      <p className="rounded-md bg-fill px-3 py-2 text-meta text-ink-2">Allergier = får aldrig föreslås. Undviker = föreslås inte i första hand.</p>
 
       <section aria-labelledby={`${id}-drink`} className="flex flex-col gap-2">
         <h3 id={`${id}-drink`} className="text-section-label text-ink-2 uppercase">

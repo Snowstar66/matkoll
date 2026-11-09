@@ -89,8 +89,50 @@ describe("ProfilesScreen", () => {
     await user.click(rows[1]);
     const profile = await screen.findByTestId("menu-profile");
     expect(within(profile).queryByRole("button", { name: /Ta bort/ })).not.toBeInTheDocument();
-    expect(within(profile).queryByRole("textbox")).not.toBeInTheDocument();
+    expect(within(profile).queryByLabelText("Namn")).not.toBeInTheDocument();
     await user.click(within(profile).getByRole("button", { name: /Öl/ }));
     expect(saved().find((person) => person.id === "m-u2")).toMatchObject({ name: "Martina", drink: "ol" });
+  });
+
+  it("adds what is avoided and loved as chips, from the field and from suggestions, and saves it", async () => {
+    const user = userEvent.setup();
+    render(<ProfilesScreen />);
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
+    const avoid = await screen.findByTestId("menu-dislikes");
+    const love = screen.getByTestId("menu-likes");
+    expect(screen.getByText(/Allergier = får aldrig föreslås/)).toBeInTheDocument();
+
+    await user.type(within(avoid).getByRole("textbox"), "  Koriander {Enter}");
+    expect(saved()[0].dislikes).toEqual(["Koriander"]);
+    expect(within(avoid).getByRole("button", { name: "Ta bort Koriander" })).toBeInTheDocument();
+    // Added tags leave the suggestions; the other suggestions stay.
+    expect(within(avoid).queryByRole("button", { name: "Lägg till koriander" })).not.toBeInTheDocument();
+    await user.click(within(avoid).getByRole("button", { name: "Lägg till vitlök" }));
+    expect(saved()[0].dislikes).toEqual(["Koriander", "vitlök"]);
+
+    await user.type(within(love).getByRole("textbox"), "nasi goreng");
+    await user.click(within(love).getByRole("button", { name: "Lägg till" }));
+    expect(saved()[0].likes).toEqual(["nasi goreng"]);
+    expect(within(love).queryByRole("button", { name: "Lägg till nasi goreng" })).not.toBeInTheDocument();
+
+    await user.click(within(avoid).getByRole("button", { name: "Ta bort Koriander" }));
+    expect(saved()[0].dislikes).toEqual(["vitlök"]);
+    expect(within(avoid).getByRole("button", { name: "Lägg till koriander" })).toBeInTheDocument();
+  });
+
+  it("refuses a repeat and a tag that is too long, and says why", async () => {
+    const user = userEvent.setup();
+    render(<ProfilesScreen />);
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
+    const avoid = await screen.findByTestId("menu-dislikes");
+    const field = within(avoid).getByRole("textbox");
+    await user.type(field, "lök{Enter}");
+    await user.type(field, "LÖK{Enter}");
+    expect(within(avoid).getByRole("alert")).toHaveTextContent("Det finns redan i listan.");
+    await user.clear(field);
+    await user.type(field, "a".repeat(45));
+    await user.keyboard("{Enter}");
+    expect(within(avoid).getByRole("alert")).toHaveTextContent("Max 40 tecken.");
+    expect(saved()[0].dislikes).toEqual(["lök"]);
   });
 });

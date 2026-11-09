@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/button";
 import { estimateTotalSek } from "../domain/drinks";
 import type { Person } from "../domain/profile";
-import { defaultSelection, recommend } from "../domain/recommend";
+import { defaultSelection, recommend, topPick } from "../domain/recommend";
 import { buildShareText } from "../domain/share-text";
 import type { Menu } from "../domain/types";
 
@@ -20,7 +20,7 @@ export function Suggestions({ menu, people }: { menu: Menu; people: Person[] }) 
   if (people.length === 0) return null;
 
   async function share() {
-    const text = buildShareText(menu, selection, totals);
+    const text = buildShareText(menu, selection, totals, people);
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ text });
@@ -40,7 +40,7 @@ export function Suggestions({ menu, people }: { menu: Menu; people: Person[] }) 
       <h3 className="mx-1 text-section-label text-ink-2 uppercase">Förslag till sällskapet</h3>
       <ul className="divide-y divide-border overflow-hidden rounded-lg bg-surface">
         {suggestions.map(({ person, picks }) => {
-          const top = picks.find((pick) => pick.warning === null) ?? picks[0];
+          const top = topPick(picks);
           const total = totals.perPerson.find((entry) => entry.personId === person.id);
           return (
             <li key={person.id} className="px-4 py-3">
@@ -48,6 +48,11 @@ export function Suggestions({ menu, people }: { menu: Menu; people: Person[] }) 
                 {person.name}: {top ? top.dish.originalnamn : "ingen rätt passar"}
               </p>
               {top ? <p className="text-meta text-ink-2">{top.reasons.join(", ")}</p> : null}
+              {top?.concerns.map((concern) => (
+                <p key={concern} data-testid="menu-suggestion-concern" className="text-meta text-ink-2">
+                  {concern}
+                </p>
+              ))}
               {top?.warning ? <p className="text-meta text-danger">{top.warning}</p> : null}
               {total && total.totalSek > 0 ? <p className="text-meta text-ink-2">ca {total.totalSek} kr med dryck</p> : null}
             </li>

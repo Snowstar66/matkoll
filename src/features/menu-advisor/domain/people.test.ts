@@ -15,6 +15,8 @@ import {
   unfitFor,
   upsertPerson,
   withMe,
+  withoutTag,
+  withTag,
   withTaste,
 } from "./people";
 
@@ -43,7 +45,7 @@ describe("reading stored people", () => {
         { id: "d", name: "Dubbel", kind: "guest" },
       ],
     });
-    expect(parsePeople(text)).toEqual([{ id: "d", name: "Dan", kind: "guest", allergies: ["gluten"], tastes: { fisk: -2 }, drink: null }]);
+    expect(parsePeople(text)).toEqual([{ id: "d", name: "Dan", kind: "guest", dislikes: [], likes: [], allergies: ["gluten"], tastes: { fisk: -2 }, drink: null }]);
   });
 
   it("keeps at most maxPeople", () => {
@@ -127,5 +129,27 @@ describe("household members as people", () => {
     expect(isHouseholdPerson({ id: "me" })).toBe(true);
     expect(isHouseholdPerson({ id: memberPersonId("u2") })).toBe(true);
     expect(isHouseholdPerson({ id: "p-1" })).toBe(false);
+  });
+});
+
+describe("free-text preferences in storage", () => {
+  it("reads people saved before dislikes and likes existed as empty lists", () => {
+    const old = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", allergies: ["notter"], tastes: { fisk: 2 }, drink: "vin" }] });
+    expect(parsePeople(old)[0]).toMatchObject({ dislikes: [], likes: [], allergies: ["notter"] });
+  });
+
+  it("round-trips tags and cleans bad ones", () => {
+    const text = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", dislikes: [" Koriander ", "koriander", "<img>"], likes: "nasi goreng" }] });
+    expect(parsePeople(text)[0]).toMatchObject({ dislikes: ["Koriander"], likes: [] });
+    const anna = { ...newPerson("a", "Anna", "member"), dislikes: ["Vitlök"], likes: ["Nasi goreng"] };
+    expect(parsePeople(serializePeople([anna]))).toEqual([anna]);
+  });
+
+  it("adds and removes tags on a person", () => {
+    const anna = newPerson("a", "Anna", "member");
+    const added = withTag(anna, "dislikes", " vitlök ");
+    expect(added.person.dislikes).toEqual(["vitlök"]);
+    expect(withTag(added.person, "dislikes", "Vitlök")).toMatchObject({ error: "Det finns redan i listan." });
+    expect(withoutTag(added.person, "dislikes", "vitlök").dislikes).toEqual([]);
   });
 });

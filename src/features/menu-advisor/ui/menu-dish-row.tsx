@@ -3,11 +3,16 @@ import { allergenLabels, categoryTags } from "../domain/labels";
 import { priceText } from "../domain/view";
 import type { DishMatch } from "../domain/view";
 import type { Unfit } from "../domain/people";
+import { type SoftFit, whoName } from "../domain/preferences";
 import type { MenuAllergen, MenuDish } from "../domain/types";
 
 const tag = "rounded-pill bg-fill px-2 text-meta text-ink-2";
 const veganTag = "rounded-pill bg-mint px-2 text-meta text-mint-ink";
+const avoidPill = "rounded-pill bg-sand px-2 text-meta text-sand-ink";
+const lovePill = "rounded-pill bg-mint px-2 text-meta text-mint-ink";
 const dangerTag = "rounded-pill border border-danger bg-surface px-2 text-meta font-semibold text-danger";
+
+const cap = (text: string) => text.charAt(0).toLocaleUpperCase("sv-SE") + text.slice(1);
 
 /**
  * One dish: the name as printed, the price (in the menu's currency and about so many kronor), the Swedish explanation,
@@ -18,6 +23,7 @@ export function MenuDishRow({
   dish,
   match,
   unfit = [],
+  soft = [],
   starred,
   onStar,
 }: {
@@ -25,6 +31,8 @@ export function MenuDishRow({
   match: DishMatch | null;
   /** The people with the dish among their registered allergies (Sällskap). */
   unfit?: Unfit[];
+  /** The people with the dish among their free-text "Undviker" (soft, not an allergy) or "Älskar". */
+  soft?: SoftFit[];
   starred: boolean;
   onStar: () => void;
 }) {
@@ -35,7 +43,7 @@ export function MenuDishRow({
   const hitAllergens = new Set<MenuAllergen>(match?.hits.map((hit) => hit.allergen));
   const contains = match?.hits.filter((hit) => hit.source === "allergener").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
   const mayContain = match?.hits.filter((hit) => hit.source === "kan_innehalla").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
-  const flagged = (match !== null && (match.hits.length > 0 || match.disliked.length > 0)) || unfit.length > 0;
+  const flagged = (match !== null && (match.hits.length > 0 || match.disliked.length > 0)) || unfit.length > 0 || soft.some((fit) => fit.dislikes.length > 0);
   return (
     <li data-testid="menu-dish" data-flagged={flagged ? "true" : undefined} className="flex items-start gap-1 py-2 pr-1 pl-4">
       <div className="min-w-0 flex-1 py-1">
@@ -51,6 +59,26 @@ export function MenuDishRow({
           <p data-testid="menu-unfit" className="mt-1 text-meta font-semibold text-danger">
             Passar inte {unfit.map(({ person, hits }) => `${person.id === "me" ? "dig" : person.name} (${hits.map((hit) => allergenLabels[hit.allergen].toLowerCase()).join(", ")})`).join(", ")}
           </p>
+        ) : null}
+        {soft.some((fit) => fit.dislikes.length > 0 || fit.likes.length > 0) ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {soft.flatMap((fit) => [
+              ...(fit.dislikes.length > 0
+                ? [
+                    <span key={`${fit.person.id}-d`} data-testid="menu-soft-avoid" className={avoidPill}>
+                      {`${cap(whoName(fit.person))} undviker ${fit.dislikes.join(", ").toLocaleLowerCase("sv-SE")}`}
+                    </span>,
+                  ]
+                : []),
+              ...(fit.likes.length > 0
+                ? [
+                    <span key={`${fit.person.id}-l`} data-testid="menu-soft-love" className={lovePill}>
+                      {`${cap(whoName(fit.person))} älskar ${fit.likes.join(", ").toLocaleLowerCase("sv-SE")}`}
+                    </span>,
+                  ]
+                : []),
+            ])}
+          </div>
         ) : null}
         {match && match.disliked.length > 0 ? <p className="mt-1 text-meta text-ink-2">Du undviker: {match.disliked.join(", ")}</p> : null}
         <div className="mt-1 flex flex-wrap gap-1">
