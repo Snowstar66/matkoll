@@ -57,6 +57,8 @@
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
   /* Level 2, the floating frame: the tab bar and the collapsed header, 84 % surface over a blur. */
   --bar: color-mix(in srgb, var(--surface) 84%, transparent);
+  /* Menyrådgivaren: the card of a dish someone cannot eat, a quiet red wash with --danger text (never a red fill). */
+  --danger-tint: color-mix(in srgb, var(--danger) 9%, var(--surface));
   /* The one shadow, only for what floats over the page: a sheet as a dialog on desktop, menus, the toast. */
   --shadow-float: 0 12px 32px rgb(27 36 32 / 0.14), 0 0 0 0.5px rgb(27 36 32 / 0.08);
   /* Light plate for a badge or the heart on a recipe image (image-badge, Epic 11); follows --surface in dark mode. */
@@ -365,6 +367,7 @@
   --color-seg-track: var(--seg-track);
   --color-seg-on: var(--seg-on);
   --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
   --color-bar: var(--bar);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);

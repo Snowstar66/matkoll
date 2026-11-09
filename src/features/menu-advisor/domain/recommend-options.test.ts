@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { drinkOptions, estimateTotalSek } from "./drinks";
 import { dish, menuOf, person } from "./fixtures";
-import { defaultChoices, recommendOptions } from "./recommend-options";
+import { defaultChoices, optionFor, recommendOptions } from "./recommend-options";
 
 const names = (menu: ReturnType<typeof menuOf>, who = person(), opts?: Parameters<typeof recommendOptions>[2]) =>
   recommendOptions(menu, [who], opts)[0]!.options.map((option) => option.dish.originalnamn);
@@ -178,5 +178,30 @@ describe("drinkOptions and estimateTotalSek with Choices", () => {
   it("counts a dish without a price as unpriced", () => {
     const unpriced = menuOf([dish({ pris: null, valuta: null })]);
     expect(estimateTotalSek({ a: { dishIndex: 0, drink: "ingen" } }, unpriced, people)).toMatchObject({ unpriced: 1, totalSek: 0 });
+  });
+});
+
+describe("optionFor: a dish added from the whole menu", () => {
+  const menu = menuOf([
+    dish({ originalnamn: "Biff", pris: 200 }),
+    dish({ originalnamn: "Tarta", grupp: "Efterrätt", allergener: ["notter"], pris: 66 }),
+    dish({ originalnamn: "Pasta", kan_innehalla: ["gluten"], pris: 120 }),
+    dish({ originalnamn: "Paprikagryta", huvudingredienser: ["paprika"], pris: 110 }),
+  ]);
+
+  it("gives any dish, also a dessert, with its price and no reasons when nothing changes", () => {
+    expect(optionFor(menu, 1, person())).toMatchObject({ dishIndex: 1, priceSek: 66, reasons: [], warning: null });
+    expect(optionFor(menu, 9, person())).toBeNull();
+  });
+
+  it("says in words that a dish has an allergen of the person, never silently", () => {
+    const option = optionFor(menu, 1, person({ allergies: ["notter"] }));
+    expect(option?.warning).toBe("allergy");
+    expect(option?.reasons).toEqual(["Innehåller nötter. Fråga personalen."]);
+  });
+
+  it("'may contain' is a calm warning and love is named", () => {
+    expect(optionFor(menu, 2, person({ allergies: ["gluten"] }))).toMatchObject({ warning: "maybe", reasons: ["Kan innehålla gluten. Fråga personalen."] });
+    expect(optionFor(menu, 3, person({ likes: ["paprika"] }))?.reasons).toEqual(["Anna älskar paprika"]);
   });
 });
