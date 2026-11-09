@@ -92,6 +92,23 @@ function toOption(entry: Candidate, leadSek: number | null): DishOption {
   return { dish: entry.dish, dishIndex: entry.index, priceSek: entry.priceSek, reasons, warning: entry.warning };
 }
 
+/**
+ * One chosen dish as an option for one person: used when someone adds a dish from the whole menu ("Fler rätter åt Anna").
+ * Same reasons and warnings as the ranked options; a dish with an allergen of the person says so in words (never silent).
+ * Null when the index is not a dish of the menu.
+ */
+export function optionFor(menu: Menu, dishIndex: number, person: Person): DishOption | null {
+  const dish = menu.ratter[dishIndex];
+  if (!dish) return null;
+  const ctx = rankContext(mainCandidates(menu).map((entry) => entry.dish), "normalt");
+  const entry = candidate({ dish, index: dishIndex }, person, ctx);
+  if (entry.warning !== "allergy") return toOption(entry, null);
+  const names = allergenHits(dish, person.allergies)
+    .filter((hit) => hit.source === "allergener")
+    .map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE"));
+  return toOption({ ...entry, reasons: [`Innehåller ${names.join(", ")}. Fråga personalen.`] }, null);
+}
+
 /** The best option per person: the first without a warning when there is one, else the first. A person without options has no dish. */
 export function defaultChoices(options: readonly PersonOptions[]): Choices {
   const choices: Choices = {};
