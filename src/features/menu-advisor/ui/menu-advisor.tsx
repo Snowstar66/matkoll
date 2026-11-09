@@ -197,6 +197,7 @@ export function MenuAdvisor() {
         disclaimer={disclaimer}
         error={error}
         tonight={tonight}
+        people={[] /* 3a: replace with the chosen household members and guests */}
         onTonight={() => setShowTonight(true)}
         onCareful={() => photo.current && void run(photo.current, true, reading)}
         onNext={pick}

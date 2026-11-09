@@ -1,0 +1,210 @@
+{
+  "id": "es2-menu-del-dia",
+  "language": "es",
+  "restaurant": "Mesón O Pulpeiro",
+  "currency": "EUR",
+  "degraded": false,
+  "image": "es2-menu-del-dia.png",
+  "dishes": [
+    {
+      "name": "Menú del día",
+      "price": 14.5,
+      "currency": "EUR",
+      "group": "ovrigt",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "meny",
+        "lunch",
+        "dagens"
+      ]
+    },
+    {
+      "name": "Ensalada mixta",
+      "price": null,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "sallad"
+      ]
+    },
+    {
+      "name": "Lentejas estofadas",
+      "price": null,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [],
+      "keywords": [
+        "linser"
+      ]
+    },
+    {
+      "name": "Merluza a la plancha",
+      "price": null,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk"
+      ],
+      "keywords": [
+        "kummel",
+        "fisk",
+        "gädda"
+      ]
+    },
+    {
+      "name": "Chuletas de cerdo",
+      "price": null,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [],
+      "keywords": [
+        "fläsk",
+        "kotlett"
+      ]
+    },
+    {
+      "name": "Flan casero",
+      "price": null,
+      "currency": "EUR",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "pudding",
+        "kräm",
+        "karamell",
+        "créme"
+      ]
+    },
+    {
+      "name": "Pulpo á feira",
+      "price": 17,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur"
+      ],
+      "keywords": [
+        "bläckfisk"
+      ]
+    },
+    {
+      "name": "Empanada gallega de atún",
+      "price": 9.5,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "fisk",
+      "allergens": [
+        "gluten",
+        "fisk"
+      ],
+      "keywords": [
+        "pirog",
+        "tonfisk",
+        "paj"
+      ]
+    },
+    {
+      "name": "Zamburiñas a la plancha",
+      "price": 13,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur"
+      ],
+      "keywords": [
+        "pilgrimsmussla",
+        "mussla",
+        "kammussla"
+      ]
+    },
+    {
+      "name": "Solomillo de cerdo ibérico",
+      "price": 18,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "fläskfilé",
+        "fläsk",
+        "filé"
+      ]
+    },
+    {
+      "name": "Queso con membrillo",
+      "price": 6,
+      "currency": "EUR",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "ost",
+        "kvitten"
+      ]
+    },
+    {
+      "name": "Cerveza Estrella Galicia",
+      "price": 2.5,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Vino de la casa",
+      "price": 3.2,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vin"
+      ]
+    },
+    {
+      "name": "Ribeiro blanco",
+      "price": 4,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vin",
+        "vitt"
+      ]
+    },
+    {
+      "name": "Agua con gas",
+      "price": 2,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vatten",
+        "kolsyrat"
+      ]
+    }
+  ]
+}

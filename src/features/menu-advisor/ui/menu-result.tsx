@@ -13,7 +13,9 @@ import type { MenuAllergen } from "../domain/types";
 import { unfitFor } from "../domain/people";
 import { currencySymbols, dishSek, filterDishes, groupDishes, matchDish, noFilter, parseDislikes, type MenuMode, underSekLimit } from "../domain/view";
 import type { MenuReading } from "../actions/read-menu";
+import type { Person } from "../domain/profile";
 import { MenuDishRow } from "./menu-dish-row";
+import { Suggestions } from "./suggestions";
 
 /**
  * What was read: the menu in groups with explanations and prices, search and three filters, and below it the
@@ -31,6 +33,7 @@ export function MenuResult({
   disclaimer,
   error,
   tonight,
+  people,
   onTonight,
   onCareful,
   onNext,
@@ -48,6 +51,8 @@ export function MenuResult({
   disclaimer: ReactNode;
   error: string | null;
   tonight: { picks: TonightPick[]; toggle: (pick: TonightPick) => void };
+  /** Who to suggest for; empty hides "Förslag till sällskapet". */
+  people: Person[];
   onTonight: () => void;
   onCareful: () => void;
   onNext: () => void;
@@ -161,6 +166,7 @@ export function MenuResult({
           Osäkert läst: {menu.osakert.join("; ")}
         </p>
       ) : null}
+      <Suggestions menu={menu} people={people} />
       {disclaimer}
       <div className="flex flex-col gap-2">
         {!done ? (
