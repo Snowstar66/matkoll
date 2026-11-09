@@ -19,9 +19,9 @@ describe("buildShareText", () => {
     const text = buildShareText(menu, selection, estimateTotalSek(selection, menu, people));
     expect(text).toBe(
       [
-        "Förslag till middag på Casa Pepe:",
-        "- Anna: Biff + Tiramisu, ca 320 kr inkl. vin",
-        "- Bo: Fiskgryta, ca 100 kr",
+        "Förslag på Casa Pepe:",
+        "Anna – Biff (kyckling) + Tiramisu (kyckling) + vin, ca 320 kr",
+        "Bo – Fiskgryta (kyckling), ca 100 kr",
         "Totalt ca 420 kr (drycker är uppskattade).",
         "Allergiinformationen är en gissning utifrån menyn och kan vara fel eller ofullständig. Fråga alltid personalen innan du beställer, särskilt vid allvarlig allergi.",
       ].join("\n"),
@@ -33,8 +33,8 @@ describe("buildShareText", () => {
     const selection = many.map((p) => ({ personId: p.id, dish: dish({ pris: null, valuta: null }) }));
     const text = buildShareText({ ...menu, restaurang: null }, selection, estimateTotalSek(selection, menu, many));
     const lines = text.split("\n");
-    expect(lines[0]).toBe("Förslag till middag:");
-    expect(lines).toContain("- … och 4 till");
+    expect(lines[0]).toBe("Förslag:");
+    expect(lines).toContain("… och 4 till");
     expect(lines).toContain("12 rätter saknar pris och räknas inte med.");
     expect(lines.length).toBeLessThanOrEqual(15);
   });
