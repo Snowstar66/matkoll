@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { userStorageState } from "./support";
+import { adminClient, clearFoodProfiles, e2eEmail, e2eUserId, userStorageState } from "./support";
 
 // Menyrådgivare (Tillval, off by default): "Äter ute?" under Matsedel shows only when the option is on; a photo of a menu
 // is read through POST /api/menu/read (mocked here with the taverna fixture), shown in groups with prices in euro and
@@ -19,6 +19,11 @@ const menu = {
 };
 
 test.use({ storageState: userStorageState, viewport: mobile });
+
+// The profiles are the household's (the database), so each test starts with nobody saved.
+test.beforeEach(async () => {
+  await clearFoodProfiles(await e2eUserId(e2eEmail));
+});
 
 async function optionOn(page: Page) {
   await page.addInitScript(() => localStorage.setItem("livskoll-option-menuAdvisor", "1"));
@@ -152,3 +157,101 @@ test("profiles under Hushåll (and Tillval) and the company on the menu page: al
   // Nothing scrolls sideways at 375 px.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("what is filled in is the household's: it stays after a reload and shows on another phone", async ({ page, browser }) => {
+  await optionOn(page);
+  await page.goto("/installningar/tillval/aata-ute");
+  await page.getByTestId("menu-person-add").click();
+  await page.getByTestId("menu-person-name").fill("Maja");
+  await page.getByRole("button", { name: "Lägg till" }).click();
+  const profile = page.getByTestId("menu-profile");
+  await profile.getByRole("button", { name: /Vin/ }).click();
+  await profile.getByTestId("menu-dislikes").getByRole("textbox").fill("koriander");
+  await profile.getByTestId("menu-dislikes").getByRole("textbox").press("Enter");
+  await expect(page.getByTestId("menu-profiles-notice")).toHaveCount(0);
+  await expect(profile.getByRole("button", { name: "Ta bort koriander" })).toBeVisible();
+
+  // The saves have reached the database when the reload shows them.
+  await expect
+    .poll(async () => {
+      const rows = await savedRows();
+      return rows.find((row) => row.name === "Maja")?.dislikes.join(",") ?? null;
+    })
+    .toBe("koriander");
+  await page.reload();
+  await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Vin");
+  await page.screenshot({ path: "test-results/shots/profiles-household.png", fullPage: true });
+
+  // Another phone: no localStorage of its own, the same household.
+  const other = await browser.newContext({ storageState: userStorageState, viewport: mobile });
+  const phone = await other.newPage();
+  await phone.addInitScript(() => localStorage.setItem("livskoll-option-menuAdvisor", "1"));
+  await phone.goto("/installningar/tillval/aata-ute");
+  await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Vin");
+  await expect(phone.getByTestId("menu-profiles-notice")).toHaveCount(0);
+  await phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" }).click();
+  await expect(phone.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort koriander" })).toBeVisible();
+  await other.close();
+});
+
+test("a phone's own old list moves up to the household once, and nothing the household has is overwritten", async ({ page, browser }) => {
+  const userId = await e2eUserId(e2eEmail);
+  await optionOn(page);
+  await page.addInitScript(() => {
+    if (localStorage.getItem("livskoll-menu-people-imported-v1")) return;
+    localStorage.setItem(
+      "livskoll-menu-people-v1",
+      JSON.stringify({
+        v: 1,
+        people: [
+          { id: "me", name: "Du", kind: "member", allergies: ["notter"], tastes: { pasta: 2 }, dislikes: [], likes: [], drink: "ol" },
+          { id: "p-gammal1", name: "Gammal gäst", kind: "guest", allergies: ["gluten"], tastes: {}, dislikes: ["lök"], likes: [], drink: null },
+        ],
+      }),
+    );
+  });
+  await page.goto("/installningar/tillval/aata-ute");
+  await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Gammal gäst" })).toContainText("Allergi: gluten");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("livskoll-menu-people-imported-v1"))).toBe("1");
+  const rows = await savedRows();
+  expect(rows.find((row) => row.person_key === `m-${userId}`)).toMatchObject({ drink: "ol", allergies: ["notter"], name: null });
+  expect(rows.find((row) => row.person_key === "p-gammal1")).toMatchObject({ kind: "guest", name: "Gammal gäst", dislikes: ["lök"] });
+
+  // A second phone with a different old list: only what the household lacks is added; Du is not overwritten.
+  const other = await browser.newContext({ storageState: userStorageState, viewport: mobile });
+  const phone = await other.newPage();
+  await phone.addInitScript(() => {
+    localStorage.setItem("livskoll-option-menuAdvisor", "1");
+    localStorage.setItem(
+      "livskoll-menu-people-v1",
+      JSON.stringify({
+        v: 1,
+        people: [
+          { id: "me", name: "Du", kind: "member", allergies: [], tastes: {}, dislikes: [], likes: [], drink: "kaffe" },
+          { id: "p-annan1", name: "Annan gäst", kind: "guest", allergies: [], tastes: {}, dislikes: [], likes: [], drink: "vatten" },
+        ],
+      }),
+    );
+  });
+  await phone.goto("/installningar/tillval/aata-ute");
+  await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Annan gäst" })).toBeVisible();
+  await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Gammal gäst" })).toBeVisible();
+  await expect(phone.getByTestId("menu-profile-row").first()).toContainText("Öl");
+  await other.close();
+  const after = await savedRows();
+  expect(after.find((row) => row.person_key === `m-${userId}`)?.drink).toBe("ol");
+  expect(after.some((row) => row.person_key === "p-annan1")).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem("livskoll-menu-people-v1"))).not.toBeNull();
+});
+
+/** The household's saved profiles, read with the service role (test-only). */
+async function savedRows() {
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", await e2eUserId(e2eEmail)).single();
+  const { data, error } = await admin
+    .from("food_profile")
+    .select("person_key, kind, name, allergies, dislikes, drink")
+    .eq("household_id", member.data!.household_id);
+  if (error) throw error;
+  return data as { person_key: string; kind: string; name: string | null; allergies: string[]; dislikes: string[]; drink: string | null }[];
+}

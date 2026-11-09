@@ -3,13 +3,14 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
 import { getMemberPeople } from "@/features/household/server";
+import { getSavedFoodPeople } from "@/features/menu-advisor/server";
 import { ProfilesScreen } from "@/features/menu-advisor/ui/profiles-screen";
 
 export const metadata: Metadata = { title: "Äta ute: smak och allergier" };
 
-// Profiles for Menyrådgivare: taste, usual drink and allergies per person, kept on this device. Reached from
-// Inställningar, Hushåll (and from Tillval). The household's members are read here and come with as people; what is
-// filled in for them lives in the browser.
+// Profiles for Menyrådgivare: taste, usual drink and allergies per person, kept for the household (the database,
+// so every phone shows the same). Reached from Inställningar, Hushåll (and from Tillval). The household's members and
+// what is saved for them are read here; this device's own list is only the fallback.
 export default function MenuProfilesPage() {
   return (
     <>
@@ -22,5 +23,6 @@ export default function MenuProfilesPage() {
 }
 
 async function Profiles() {
-  return <ProfilesScreen members={await getMemberPeople()} />;
+  const [members, profiles] = await Promise.all([getMemberPeople(), getSavedFoodPeople()]);
+  return <ProfilesScreen members={members} profiles={profiles} />;
 }

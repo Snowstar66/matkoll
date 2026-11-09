@@ -30,8 +30,11 @@ type Stage = { name: "start" } | { name: "reading"; careful: boolean; keep: Menu
 
 const noopSubscribe = () => () => {};
 
-/** `members`: the household's members (read on the server), pickable as company from the start; null = not readable. */
-export function MenuAdvisor({ members = null }: { members?: readonly HouseholdPerson[] | null }) {
+/**
+ * `members`: the household's members (read on the server), pickable as company from the start; null = not readable.
+ * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
+ */
+export function MenuAdvisor({ members = null, profiles = null }: { members?: readonly HouseholdPerson[] | null; profiles?: Person[] | null }) {
   const enabled = useOption("menuAdvisor");
   // Off on the server and during hydration: nothing flashes for people who have it on.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -42,7 +45,7 @@ export function MenuAdvisor({ members = null }: { members?: readonly HouseholdPe
   const [error, setError] = useState<string | null>(null);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
-  const { people, save } = usePeople(members);
+  const { people, save } = usePeople(members, profiles);
   // Who is with tonight: ids of saved people plus guests added for tonight only (gone when the page closes).
   const [selectedIds, setSelectedIds] = useState<string[]>([meId]);
   const [tempGuests, setTempGuests] = useState<Person[]>([]);
