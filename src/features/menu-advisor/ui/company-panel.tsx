@@ -6,7 +6,7 @@ import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
 import { Input } from "@/components/field";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { companySummary, maxNameLength, newPerson, toggleAllergy } from "../domain/people";
+import { companySummary, maxNameLength, newPerson, profilesHref, toggleAllergy } from "../domain/people";
 import { menuAllergens, type MenuAllergen } from "../domain/types";
 import type { Person } from "../domain/profile";
 import { makePersonId } from "./use-people";
@@ -63,8 +63,8 @@ export function CompanyPanel({
         <h2 id={`${id}-title`} className="text-section-label text-ink-2 uppercase">
           Vilka är med?
         </h2>
-        <Link href="/installningar/tillval/aata-ute" className="inline-flex min-h-tap items-center text-meta font-medium text-accent">
-          Profiler
+        <Link href={profilesHref} className="inline-flex min-h-tap items-center text-meta font-medium text-accent">
+          Smak och allergier
         </Link>
       </div>
       <p data-testid="menu-company-summary" className="-mt-2 text-row-title text-ink">
@@ -142,7 +142,7 @@ export function CompanyPanel({
           </div>
         </form>
       ) : null}
-      <p className="text-meta text-ink-3">Hushållets medlemmar finns med. Allergier som står i profilerna (sparade för hushållet) markeras på rätterna.</p>
+      <p className="text-meta text-ink-3">Hushållets medlemmar finns med. Allergier som står under Smak och allergier (sparade för hushållet) markeras på rätterna.</p>
     </section>
   );
 }

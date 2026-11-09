@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   isHouseholdPerson,
+  profileHref,
+  profileSummary,
   memberPersonId,
   withMembers,
   companySummary,
@@ -151,5 +153,27 @@ describe("free-text preferences in storage", () => {
     expect(added.person.dislikes).toEqual(["vitlök"]);
     expect(withTag(added.person, "dislikes", "Vitlök")).toMatchObject({ error: "Det finns redan i listan." });
     expect(withoutTag(added.person, "dislikes", "vitlök").dislikes).toEqual([]);
+  });
+});
+
+describe("profileSummary", () => {
+  it("says nothing is filled in when it is empty", () => {
+    expect(profileSummary(newPerson("p-1", "Anna", "member"))).toBe("Inget ifyllt: äter allt");
+  });
+
+  it("puts allergies first, then what is avoided and loved", () => {
+    const person = { ...newPerson("p-1", "Anna", "member"), allergies: ["gluten" as const], dislikes: ["vitlök", "lök"], likes: ["pasta"] };
+    expect(profileSummary(person)).toBe("Allergi: gluten · Undviker: vitlök, lök · Älskar: pasta");
+  });
+
+  it("notes taste and drink when only those are filled in", () => {
+    const person = { ...newPerson("p-1", "Anna", "member"), tastes: { fisk: -1 as const }, drink: "vin" as const };
+    expect(profileSummary(person)).toBe("Smak ifylld · Vin");
+  });
+});
+
+describe("profileHref", () => {
+  it("is the person's page under Medlemmar", () => {
+    expect(profileHref("m-abc")).toBe("/installningar/medlemmar/smak-och-allergier/m-abc");
   });
 });

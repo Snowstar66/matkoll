@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { type ReactNode, Suspense } from "react";
 import { checkCountText, checkMissingText } from "@/features/nutrition";
-import { MenuProfilesLink } from "@/features/menu-advisor/ui/profiles-screen";
 import { getNutritionCheck } from "@/features/nutrition/server";
 import { getRecipeSharing, listRecipeRows } from "@/features/recipes/server";
 import { SharingSettings, type RecipeSharing } from "@/features/recipes/ui/sharing-settings";
@@ -18,7 +17,6 @@ export default function OptionsPage() {
   return (
     <>
       <SettingsPageHeader title="Tillval" />
-      <MenuProfilesLink />
       <OptionSettings
         nutritionNote={
           <Suspense fallback={null}>

@@ -1,44 +1,60 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveOption } from "@/lib/options";
 import { parsePeople } from "../domain/people";
-import { ProfilesScreen } from "./profiles-screen";
+import { ProfilesPages } from "../../../../tests/support/profiles-pages";
 import { peopleStorageKey } from "./use-people";
 
-// Profiles under Tillval: off without the option; add a person, fill in taste, drink and allergies; all of it on this device.
+// Smak och allergier (Medlemmar and the page of one person): there without any option; add a person, fill in taste, drink and allergies; all of it on this device.
 
-vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a
+      href={href}
+      {...rest}
+      onClick={(event) => {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("test-navigate", { detail: href }));
+      }}
+    >
+      {children}
+    </a>
+  ),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: (href: string) => window.dispatchEvent(new CustomEvent("test-navigate", { detail: href })) }),
+}));
 
 const saved = () => parsePeople(localStorage.getItem(peopleStorageKey));
 
 beforeEach(() => {
   localStorage.clear();
-  saveOption("menuAdvisor", true);
 });
 
 describe("ProfilesScreen", () => {
-  it("says it is off when the option is off", async () => {
-    localStorage.clear();
-    render(<ProfilesScreen />);
-    expect(await screen.findByText(/Menyrådgivaren är avstängd/)).toBeInTheDocument();
+  it("is there without Menyrådgivare being on, and says nothing is filled in", async () => {
+    render(<ProfilesPages />);
+    expect(await screen.findByRole("heading", { name: "Smak och allergier" })).toBeInTheDocument();
+    expect(screen.getByText("Utan konto")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-profile-summary")).toHaveTextContent("Inget ifyllt: äter allt");
   });
 
   it("lists Du first, and survives broken storage", async () => {
     localStorage.setItem(peopleStorageKey, "{{{");
-    render(<ProfilesScreen />);
+    render(<ProfilesPages />);
     const rows = await screen.findAllByTestId("menu-profile-row");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent("Du");
-    expect(rows[0]).toHaveTextContent("Äter allt");
+    expect(rows[0]).toHaveTextContent("Inget ifyllt: äter allt");
   });
 
   it("adds a person, saves taste and drink as you go, and registers allergies in a box of their own", async () => {
     const user = userEvent.setup();
-    render(<ProfilesScreen />);
+    render(<ProfilesPages />);
     await user.click(await screen.findByTestId("menu-person-add"));
     await user.type(screen.getByTestId("menu-person-name"), "Anna");
     await user.click(screen.getByRole("button", { name: "Lägg till" }));
+    await user.click(await screen.findByText("Anna"));
 
     const profile = await screen.findByTestId("menu-profile");
     // Allergies are only a row in the main view.
@@ -60,11 +76,12 @@ describe("ProfilesScreen", () => {
 
   it("clears a taste with the middle choice and removes a person after asking", async () => {
     const user = userEvent.setup();
-    render(<ProfilesScreen />);
+    render(<ProfilesPages />);
     await user.click(await screen.findByTestId("menu-person-add"));
     await user.type(screen.getByTestId("menu-person-name"), "Bo");
     await user.click(screen.getByRole("radio", { name: "Gäst" }));
     await user.click(screen.getByRole("button", { name: "Lägg till" }));
+    await user.click(await screen.findByText("Bo"));
     const pasta = (await screen.findAllByRole("radiogroup", { name: "Pasta" }))[0];
     await user.click(within(pasta).getByRole("radio", { name: "Hatar" }));
     expect(saved().find((person) => person.name === "Bo")?.tastes).toEqual({ pasta: -2 });
@@ -83,7 +100,7 @@ describe("ProfilesScreen", () => {
       { id: "u1", name: "Pontus", isMe: true },
       { id: "u2", name: "Martina", isMe: false },
     ];
-    render(<ProfilesScreen members={members} />);
+    render(<ProfilesPages members={members} />);
     const rows = await screen.findAllByTestId("menu-profile-row");
     expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining("Du"), expect.stringContaining("Martina")]);
     await user.click(rows[1]);
@@ -96,7 +113,7 @@ describe("ProfilesScreen", () => {
 
   it("adds what is avoided and loved as chips, from the field and from suggestions, and saves it", async () => {
     const user = userEvent.setup();
-    render(<ProfilesScreen />);
+    render(<ProfilesPages />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
     const avoid = await screen.findByTestId("menu-dislikes");
     const love = screen.getByTestId("menu-likes");
@@ -122,7 +139,7 @@ describe("ProfilesScreen", () => {
 
   it("refuses a repeat and a tag that is too long, and says why", async () => {
     const user = userEvent.setup();
-    render(<ProfilesScreen />);
+    render(<ProfilesPages />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
     const avoid = await screen.findByTestId("menu-dislikes");
     const field = within(avoid).getByRole("textbox");

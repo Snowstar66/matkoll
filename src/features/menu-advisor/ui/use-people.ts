@@ -60,7 +60,8 @@ function subscribe(listener: () => void) {
 export type PeopleState = {
   people: Person[];
   save: (person: Person) => void;
-  remove: (id: string) => void;
+  /** Resolves true when the person is gone (for the household, or from this device), false when it did not go through (they are back, with a notice). */
+  remove: (id: string) => Promise<boolean>;
   /** A discreet line to show under the list, or null: where it is kept now, or why the last change did not go through. */
   notice: string | null;
 };
@@ -113,24 +114,31 @@ export function usePeople(members: readonly HouseholdPerson[] | null = null, pro
   );
 
   const remove = useCallback(
-    (id: string) => {
+    async (id: string): Promise<boolean> => {
       setProblem(null);
       if (!shared) {
         write(removePerson(parsePeople(read()), id));
-        return;
+        return true;
       }
       let removed: Person | undefined;
       setRemote((current) => {
         removed = current?.find((person) => person.id === id);
         return removePerson(current ?? [], id);
       });
-      later(async () => {
-        const result = await removeFoodProfile(id).catch(() => null);
-        if (result?.ok) return;
-        // Not removed for the household: it comes back, with the reason.
-        if (removed) setRemote((current) => upsertPerson(current ?? [], removed!));
-        setProblem(errorMessages.food_profile_failed);
+      let gone = false;
+      await new Promise<void>((done) => {
+        later(async () => {
+          const result = await removeFoodProfile(id).catch(() => null);
+          gone = result?.ok === true;
+          if (!gone) {
+            // Not removed for the household: it comes back, with the reason.
+            if (removed) setRemote((current) => upsertPerson(current ?? [], removed!));
+            setProblem(errorMessages.food_profile_failed);
+          }
+          done();
+        });
       });
+      return gone;
     },
     [shared, later],
   );

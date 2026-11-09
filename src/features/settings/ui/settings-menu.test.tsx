@@ -71,7 +71,7 @@ describe("SettingsMenu (Story 14.7)", () => {
   it("shows a row tied to a Tillval switch only while the switch is on", async () => {
     localStorage.clear();
     const tied: SettingsGroupData[] = [
-      { label: "Hushåll", rows: [{ href: "/x", icon: "sparkle", tile: "lilac", title: "Äta ute: smak och allergier", onlyWithOption: "menuAdvisor" }] },
+      { label: "Hushåll", rows: [{ href: "/x", icon: "sparkle", tile: "lilac", title: "Äta ute", onlyWithOption: "menuAdvisor" }] },
     ];
     const { unmount } = render(<SettingsMenu account={account} groups={tied} signOut={null} />);
     expect(screen.queryByRole("link", { name: /Äta ute/ })).not.toBeInTheDocument();
