@@ -1,0 +1,203 @@
+{
+  "id": "en2-harbour",
+  "language": "en",
+  "restaurant": "Harbour & Co.",
+  "currency": "USD",
+  "degraded": true,
+  "image": "en2-harbour.jpg",
+  "dishes": [
+    {
+      "name": "Oysters on the half shell",
+      "price": 21,
+      "currency": "USD",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur"
+      ],
+      "keywords": [
+        "ostron"
+      ]
+    },
+    {
+      "name": "Tuna crudo",
+      "price": 17,
+      "currency": "USD",
+      "group": "forratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "sesam",
+        "soja"
+      ],
+      "keywords": [
+        "tonfisk",
+        "rå"
+      ]
+    },
+    {
+      "name": "Crispy brussels",
+      "price": 13,
+      "currency": "USD",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "notter"
+      ],
+      "keywords": [
+        "brysselkål"
+      ]
+    },
+    {
+      "name": "Clam chowder",
+      "price": 14,
+      "currency": "USD",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur",
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "musslor",
+        "soppa",
+        "mussel"
+      ]
+    },
+    {
+      "name": "Market fish",
+      "price": 36,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk"
+      ],
+      "keywords": [
+        "fisk",
+        "dagens",
+        "säsong"
+      ]
+    },
+    {
+      "name": "Lobster roll",
+      "price": 34,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur",
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "hummer"
+      ]
+    },
+    {
+      "name": "Dry-aged strip",
+      "price": 52,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "entrecote",
+        "biff",
+        "nötkött",
+        "ryggbiff"
+      ]
+    },
+    {
+      "name": "Chef's special",
+      "price": 29,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "kock",
+        "kökschef",
+        "dagens",
+        "dagsrätt",
+        "specialitet"
+      ]
+    },
+    {
+      "name": "Mushroom risotto",
+      "price": 25,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "risotto",
+        "svamp"
+      ]
+    },
+    {
+      "name": "Key lime pie",
+      "price": 11,
+      "currency": "USD",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "lime",
+        "paj"
+      ]
+    },
+    {
+      "name": "Affogato",
+      "price": 9,
+      "currency": "USD",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "glass",
+        "espresso",
+        "kaffe"
+      ]
+    },
+    {
+      "name": "Draft IPA",
+      "price": 8,
+      "currency": "USD",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Old Fashioned",
+      "price": 16,
+      "currency": "USD",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "cocktail",
+        "bourbon",
+        "drink"
+      ]
+    }
+  ]
+}

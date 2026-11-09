@@ -1,0 +1,197 @@
+{
+  "id": "en3-blue-door",
+  "language": "en",
+  "restaurant": "Blue Door Diner",
+  "currency": "USD",
+  "degraded": true,
+  "image": "en3-blue-door.jpg",
+  "dishes": [
+    {
+      "name": "Two eggs any style",
+      "price": 11.5,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "agg",
+        "gluten"
+      ],
+      "keywords": [
+        "ägg",
+        "bacon",
+        "korv"
+      ]
+    },
+    {
+      "name": "Buttermilk pancakes",
+      "price": 10,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "pannkakor",
+        "lönnsirap"
+      ]
+    },
+    {
+      "name": "Veggie scramble",
+      "price": 12,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "äggröra",
+        "spenat",
+        "feta"
+      ]
+    },
+    {
+      "name": "The Reuben",
+      "price": 15,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "nötkött",
+        "surkål",
+        "rågbröd",
+        "sandwich",
+        "macka"
+      ]
+    },
+    {
+      "name": "Patty melt",
+      "price": 14.5,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "laktos"
+      ],
+      "keywords": [
+        "hamburgare",
+        "burgare",
+        "köttbulle",
+        "ost"
+      ]
+    },
+    {
+      "name": "Fried chicken plate",
+      "price": 17,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "kyckling",
+        "friterad"
+      ]
+    },
+    {
+      "name": "Catfish po' boy",
+      "price": 16,
+      "currency": "USD",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "gluten",
+        "agg"
+      ],
+      "keywords": [
+        "havskatt",
+        "fisk",
+        "sandwich",
+        "macka"
+      ]
+    },
+    {
+      "name": "Garden salad",
+      "price": 9,
+      "currency": "USD",
+      "group": "forratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "sallad"
+      ]
+    },
+    {
+      "name": "Apple pie à la mode",
+      "price": 7.5,
+      "currency": "USD",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos"
+      ],
+      "keywords": [
+        "äppelpaj",
+        "paj",
+        "glass"
+      ]
+    },
+    {
+      "name": "Chocolate malt shake",
+      "price": 8,
+      "currency": "USD",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "milkshake",
+        "shake",
+        "choklad"
+      ]
+    },
+    {
+      "name": "Bottomless coffee",
+      "price": 3.5,
+      "currency": "USD",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "kaffe"
+      ]
+    },
+    {
+      "name": "Root beer float",
+      "price": 6.5,
+      "currency": "USD",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "root beer",
+        "läsk",
+        "glass"
+      ]
+    }
+  ]
+}

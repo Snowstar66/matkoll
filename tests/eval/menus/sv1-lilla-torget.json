@@ -1,0 +1,187 @@
+{
+  "id": "sv1-lilla-torget",
+  "language": "sv",
+  "restaurant": "Bistro Lilla Torget",
+  "currency": "SEK",
+  "degraded": false,
+  "image": "sv1-lilla-torget.png",
+  "dishes": [
+    {
+      "name": "Måndag: Pannbiff med lök",
+      "price": 135,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos",
+        "gluten",
+        "agg"
+      ],
+      "keywords": [
+        "biff",
+        "köttfärs",
+        "nötkött"
+      ]
+    },
+    {
+      "name": "Tisdag: Ugnsbakad torsk",
+      "price": 135,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "laktos"
+      ],
+      "keywords": [
+        "torsk",
+        "fisk"
+      ]
+    },
+    {
+      "name": "Onsdag: Svamprisotto",
+      "price": 125,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "svamp",
+        "risotto",
+        "ris"
+      ]
+    },
+    {
+      "name": "Toast Skagen",
+      "price": 145,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur",
+        "gluten",
+        "laktos",
+        "agg",
+        "fisk"
+      ],
+      "keywords": [
+        "räk",
+        "räkor",
+        "löjrom"
+      ]
+    },
+    {
+      "name": "Västerbottenpaj",
+      "price": 125,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "ost",
+        "paj"
+      ]
+    },
+    {
+      "name": "Husets köttbullar",
+      "price": 185,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "köttbullar"
+      ]
+    },
+    {
+      "name": "Raggmunk med fläsk",
+      "price": 165,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "potatispannkaka",
+        "fläsk"
+      ]
+    },
+    {
+      "name": "Vegetarisk linsgryta",
+      "price": 155,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "linser"
+      ]
+    },
+    {
+      "name": "Kladdkaka",
+      "price": 85,
+      "currency": "SEK",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "chokladkaka",
+        "choklad",
+        "kaka"
+      ]
+    },
+    {
+      "name": "Folköl",
+      "price": 59,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Glas husets rödvin",
+      "price": 98,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vin",
+        "rött"
+      ]
+    },
+    {
+      "name": "Kaffe",
+      "price": 35,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "kaffe"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+{
+  "id": "sv2-vita-hjorten",
+  "language": "sv",
+  "restaurant": "Krogen Vita Hjorten",
+  "currency": "SEK",
+  "degraded": false,
+  "image": "sv2-vita-hjorten.png",
+  "dishes": [
+    {
+      "name": "Gravad lax",
+      "price": 135,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "lax"
+      ]
+    },
+    {
+      "name": "Rödbetscarpaccio",
+      "price": 115,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "notter"
+      ],
+      "keywords": [
+        "rödbet",
+        "getost"
+      ]
+    },
+    {
+      "name": "Svampsoppa",
+      "price": 105,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "svamp",
+        "soppa"
+      ]
+    },
+    {
+      "name": "Älggryta",
+      "price": 245,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "älg",
+        "gryta",
+        "vilt"
+      ]
+    },
+    {
+      "name": "Rimmad lax",
+      "price": 215,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "laktos"
+      ],
+      "keywords": [
+        "lax",
+        "saltad"
+      ]
+    },
+    {
+      "name": "Ugnsrostad blomkål",
+      "price": 195,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "veganskt",
+      "allergens": [
+        "notter"
+      ],
+      "keywords": [
+        "blomkål",
+        "hasselnöt"
+      ]
+    },
+    {
+      "name": "Svamppasta",
+      "price": 189,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "pasta",
+        "kantarell"
+      ]
+    },
+    {
+      "name": "Oxfilé",
+      "price": 325,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "oxfilé",
+        "nötkött"
+      ]
+    },
+    {
+      "name": "Vegetarisk burgare",
+      "price": 175,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "böna",
+        "bönor",
+        "burgare",
+        "hamburgare"
+      ]
+    },
+    {
+      "name": "Äppelkaka",
+      "price": 95,
+      "currency": "SEK",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "äpple",
+        "kaka"
+      ]
+    },
+    {
+      "name": "Glass med hjortronsylt",
+      "price": 85,
+      "currency": "SEK",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "hjortron",
+        "glass"
+      ]
+    },
+    {
+      "name": "Fatöl",
+      "price": 79,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Alkoholfritt",
+      "price": 49,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "alkoholfri",
+        "dryck"
+      ]
+    }
+  ]
+}
