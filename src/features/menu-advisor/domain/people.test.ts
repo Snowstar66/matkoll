@@ -174,6 +174,6 @@ describe("profileSummary", () => {
 
 describe("profileHref", () => {
   it("is the person's page under Medlemmar", () => {
-    expect(profileHref("m-abc")).toBe("/installningar/medlemmar/smak-och-allergier/m-abc");
+    expect(profileHref("m-abc")).toBe("/installningar/medlemmar/smak-och-allergier?person=m-abc");
   });
 });

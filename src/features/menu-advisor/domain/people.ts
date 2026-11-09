@@ -141,11 +141,15 @@ export function withMembers(saved: readonly Person[], members: readonly Househol
   return [mine, ...others, ...byHand];
 }
 
-/** Where the household's profiles are listed (Inställningar → Medlemmar), and the page of one person. */
+/**
+ * Where the household's profiles are listed (Inställningar → Medlemmar), and the page of one person. The person is a
+ * query parameter, not a path segment: a dynamic segment under Inställningar makes the settings shell (it reads the
+ * selected segment) block prerendering.
+ */
 export const profilesHref = "/installningar/medlemmar#smak-och-allergier";
 export const profilesBackHref = "/installningar/medlemmar";
 export function profileHref(personId: string): string {
-  return `/installningar/medlemmar/smak-och-allergier/${encodeURIComponent(personId)}`;
+  return `/installningar/medlemmar/smak-och-allergier?person=${encodeURIComponent(personId)}`;
 }
 
 /** One short line for a list row: "Allergi: gluten · Undviker: vitlök", or "Inget ifyllt: äter allt". */

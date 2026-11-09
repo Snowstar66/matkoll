@@ -17,8 +17,8 @@ export function ProfilesPages({ members, profiles }: { members?: readonly Househ
   useEffect(() => {
     const listener = (event: Event) => {
       const href = String((event as CustomEvent<string>).detail);
-      const match = href.match(/\/smak-och-allergier\/([^/]+)$/);
-      setPersonId(match ? decodeURIComponent(match[1]) : null);
+      const person = new URL(href, "http://localhost").searchParams.get("person");
+      setPersonId(person);
     };
     window.addEventListener(navigateEvent, listener);
     return () => window.removeEventListener(navigateEvent, listener);

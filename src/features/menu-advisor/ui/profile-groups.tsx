@@ -55,7 +55,6 @@ function PersonRows({ people, label, labelledBy }: { people: readonly Person[]; 
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-row-title font-normal text-ink">
                 {person.name}
-                {person.id === "me" ? <span className="ml-1.5 inline-block rounded-xs bg-border px-1.5 py-px align-[2px] text-badge text-ink-2">Du</span> : null}
                 {person.kind === "guest" ? <span className="ml-2 text-meta text-ink-2">Gäst</span> : null}
               </span>
               <span className="truncate text-meta text-ink-2" data-testid="menu-profile-summary">

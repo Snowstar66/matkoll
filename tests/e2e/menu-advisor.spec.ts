@@ -436,7 +436,7 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Un
   await expect(mine).toContainText("Inget ifyllt: äter allt");
   await page.screenshot({ path: "test-results/shots/medlemmar-smak.png", fullPage: true });
   await mine.click();
-  await expect(page).toHaveURL(/\/installningar\/medlemmar\/smak-och-allergier\/me$/);
+  await expect(page).toHaveURL(/\/installningar\/medlemmar\/smak-och-allergier\?person=me$/);
   const avoid = page.getByTestId("menu-dislikes");
   await avoid.getByRole("textbox").fill("rödbetor");
   await avoid.getByRole("textbox").press("Enter");
@@ -447,7 +447,7 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Un
     .toBe(true);
   await page.reload();
   await expect(page.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort rödbetor" })).toBeVisible();
-  await page.getByRole("link", { name: /Medlemmar/ }).first().click();
+  await page.getByRole("link", { name: "Medlemmar" }).first().click();
   await expect(page.getByTestId("menu-profile-row").first()).toContainText("Undviker: rödbetor");
 
   await page.goto("/installningar/tillval/aata-ute");
