@@ -76,4 +76,21 @@ describe("ProfilesScreen", () => {
     expect(saved().some((person) => person.name === "Bo")).toBe(false);
     expect(await screen.findByTestId("menu-profiles")).toBeInTheDocument();
   });
+
+  it("brings the household's members along as people, saves what is filled in per member id, and cannot rename or remove them", async () => {
+    const user = userEvent.setup();
+    const members = [
+      { id: "u1", name: "Pontus", isMe: true },
+      { id: "u2", name: "Martina", isMe: false },
+    ];
+    render(<ProfilesScreen members={members} />);
+    const rows = await screen.findAllByTestId("menu-profile-row");
+    expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining("Du"), expect.stringContaining("Martina")]);
+    await user.click(rows[1]);
+    const profile = await screen.findByTestId("menu-profile");
+    expect(within(profile).queryByRole("button", { name: /Ta bort/ })).not.toBeInTheDocument();
+    expect(within(profile).queryByRole("textbox")).not.toBeInTheDocument();
+    await user.click(within(profile).getByRole("button", { name: /Öl/ }));
+    expect(saved().find((person) => person.id === "m-u2")).toMatchObject({ name: "Martina", drink: "ol" });
+  });
 });

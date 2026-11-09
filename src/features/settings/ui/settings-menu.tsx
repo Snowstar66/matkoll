@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
 import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PaletteIcon, PantryIcon, PinIcon, SlidersIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
+import type { OptionId } from "@/lib/options";
+import { useOption } from "@/lib/use-option";
 import { NewsDot } from "./news-seen";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
@@ -53,6 +55,8 @@ export type SettingsRowData = {
   badge?: string;
   /** The newest Nyheter entry's date: a small accent dot while this device has not seen it. */
   newsSince?: string;
+  /** The row shows only while this Tillval switch is on (read on the device, so hidden until the page has loaded). */
+  onlyWithOption?: OptionId;
 };
 
 export type SettingsGroupData = {
@@ -75,7 +79,17 @@ function Tile({ icon, tile }: Pick<SettingsRowData, "icon" | "tile">) {
   );
 }
 
+/** Hides a row whose Tillval switch is off; the switch is per device, so it is read here and not on the server. */
 function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
+  const on = useOption(row.onlyWithOption ?? "menuAdvisor");
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  if (row.onlyWithOption && (!mounted || !on)) return null;
+  return <RowContent row={row} current={current} />;
+}
+
+const noopSubscribe = () => () => {};
+
+function RowContent({ row, current }: { row: SettingsRowData; current: boolean }) {
   const content = (
     <>
       <Tile icon={row.icon} tile={row.tile} />

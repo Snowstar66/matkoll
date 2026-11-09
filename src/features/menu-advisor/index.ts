@@ -2,6 +2,7 @@
 export { allergenHits, type AllergenHit } from "./domain/allergens";
 export { approxRatesDate, approxSekRates, currencyFromText, toSek, type KnownCurrency } from "./domain/currency";
 export { allergyDisclaimer } from "./domain/disclaimer";
+export { type HouseholdPerson } from "./domain/people";
 export { normalizeMenu } from "./domain/normalize";
 export {
   menuAllergens,

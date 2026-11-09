@@ -142,7 +142,7 @@ export function CompanyPanel({
           </div>
         </form>
       ) : null}
-      <p className="text-meta text-ink-3">Allergier som står i profilerna markeras på rätterna.</p>
+      <p className="text-meta text-ink-3">Hushållets medlemmar finns med. Allergier som står i profilerna (sparade på den här enheten) markeras på rätterna.</p>
     </section>
   );
 }

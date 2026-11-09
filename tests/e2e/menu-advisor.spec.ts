@@ -62,6 +62,12 @@ test("a photographed menu is explained, marked, and the starred dishes add up un
   await expect(page.getByTestId("menu-tonight-total")).toContainText("Totalt ca 362 kr");
 });
 
+test("the Hushåll row to the profiles is hidden while the option is off", async ({ page }) => {
+  await page.goto("/installningar");
+  await expect(page.getByRole("heading", { name: "Hushåll", level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Äta ute: smak och allergier/ })).toHaveCount(0);
+});
+
 test("a reading with no dishes says so and gives tips", async ({ page }) => {
   await optionOn(page);
   await page.route("**/api/menu/read", (route) =>
@@ -81,7 +87,7 @@ test("a failed reading says why", async ({ page }) => {
   await expect(page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" })).toBeVisible();
 });
 
-test("profiles under Tillval and the company on the menu page: allergies are registered once and mark the dishes", async ({ page }) => {
+test("profiles under Hushåll (and Tillval) and the company on the menu page: allergies are registered once and mark the dishes", async ({ page }) => {
   await optionOn(page);
   // Web Share is mocked: the text it is given is kept for the check below.
   await page.addInitScript(() => {
@@ -89,9 +95,15 @@ test("profiles under Tillval and the company on the menu page: allergies are reg
   });
   await page.route("**/api/menu/read", (route) => route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } }));
 
+  await page.goto("/installningar");
+  await page.screenshot({ path: "test-results/shots/hushall.png", fullPage: true });
+  const hushall = page.getByRole("list", { name: "Hushåll" });
+  await expect(hushall.getByRole("link", { name: /Äta ute: smak och allergier/ })).toBeVisible();
   await page.goto("/installningar/tillval");
   await page.getByTestId("menu-profiles-link").click();
   await expect(page).toHaveURL(/\/installningar\/tillval\/aata-ute$/);
+  await expect(page.getByTestId("menu-profile-row").first()).toHaveText(/Du/);
+  await page.screenshot({ path: "test-results/shots/profiles-list.png", fullPage: true });
   await page.getByTestId("menu-person-add").click();
   await page.getByTestId("menu-person-name").fill("Anna");
   await page.getByRole("button", { name: "Lägg till" }).click();
