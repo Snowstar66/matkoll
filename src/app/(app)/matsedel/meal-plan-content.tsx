@@ -21,6 +21,8 @@ import { isOfferIdeaError, loadOfferIdeas, readOfferIdeas, startOfferIdeas, week
 import { errorMessages } from "@/lib/errors";
 import { Suspense } from "react";
 import { ListOffers } from "../lista/list-offers";
+import { recipeFits } from "@/features/menu-advisor";
+import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { MenuShortcut } from "@/features/menu-advisor/ui/menu-shortcut";
 import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
@@ -136,14 +138,17 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   let counts: Record<string, number>;
   let toBuy: number | null;
   let ideas: OfferIdeasView | null;
+  let people: Awaited<ReturnType<typeof getFoodFitPeople>>;
   try {
-    [view, options, counts, sites, toBuy, ideas] = await Promise.all([
+    [view, options, counts, sites, toBuy, ideas, people] = await Promise.all([
       getMealPlanView(weekStart),
       optionsOrNull(),
       countsOrEmpty(overview),
       sitesOrNull(),
       itemsToBuy(weekStart),
       ideasOrNull(),
+      // One read for the whole page (never throws; empty when nothing is filled in).
+      getFoodFitPeople(),
     ]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
@@ -156,6 +161,14 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       </>
     );
   }
+
+  // Hushållets preferenser held against the week's recipes ("Anna undviker koriander", allergies in red); `{}` for none. Never hides a dish.
+  const fits = recipeFits(
+    view.dishes.flatMap((dish) =>
+      dish.recipeId && dish.recipe ? [{ id: dish.recipeId, title: dish.recipeTitle, lines: dish.recipe.lines.map((line) => ({ originalText: line.originalText ?? "" })) }] : [],
+    ),
+    people,
+  );
 
   // Not awaited: the plan renders at once and the week line arrives when the nutrition has been read.
   const nutrition = weekNutrition(view.dishes);
@@ -190,6 +203,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           options={options}
           toBuy={toBuy}
           nutrition={nutrition}
+          fits={fits}
           offersFooter={
             <OfferIdeas
               initial={ideas}

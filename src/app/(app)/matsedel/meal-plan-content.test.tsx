@@ -6,6 +6,7 @@ import { getMealPlanView, MealPlanDataError } from "@/features/mealplan/server";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
 import { RecipeDataError } from "@/features/recipes/server";
+import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { getShoppingList } from "@/features/shopping/server";
 import { weekPlanOptions } from "@/features/suggestions/server";
 import { MealPlanContent } from "./meal-plan-content";
@@ -26,6 +27,7 @@ vi.mock("@/features/suggestions/server", () => ({
   startOfferIdeas: vi.fn(),
 }));
 vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
+vi.mock("@/features/menu-advisor/server", () => ({ getFoodFitPeople: vi.fn(async () => []) }));
 vi.mock("@/features/catalog/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/catalog/server")>()),
   searchIngredients: vi.fn(),
@@ -67,6 +69,7 @@ const list = (lines: unknown[]) => ok({ plan: null, lines, hiddenLines: [], pant
 beforeEach(() => {
   vi.mocked(listPantrySites).mockResolvedValue([hemma]);
   vi.mocked(weekPlanOptions).mockResolvedValue([]);
+  vi.mocked(getFoodFitPeople).mockResolvedValue([]);
   vi.mocked(getShoppingList).mockResolvedValue(list([]) as never);
   logged = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -100,6 +103,26 @@ describe("MealPlanContent", () => {
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
+  });
+
+  it("flags a planned dish with a gluten allergy in red and keeps it; without a profile there are no notes", async () => {
+    const recipeId = "22222222-2222-4222-8222-222222222222";
+    const withRecipe = {
+      ...view,
+      dishes: [{ ...dish, recipeId, recipeTitle: "Pasta Alfredo", recipe: { imageUrl: null, totalMinutes: 20, originalServings: 4, lines: [{ originalText: "400 g spaghetti" }] } }],
+    };
+    vi.mocked(getMealPlanView).mockResolvedValue(withRecipe as never);
+    vi.mocked(getFoodFitPeople).mockResolvedValue([{ name: "Anna", allergies: ["gluten"], dislikes: [], likes: [] }]);
+    await show();
+    expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta Alfredo");
+    expect(screen.getByTestId("preference-notes")).toHaveTextContent("Kan innehålla gluten (Anna)");
+    expect(screen.getByTestId("week-allergy-line")).toHaveTextContent("1 rätt på veckan kan innehålla en allergen (Anna)");
+  });
+
+  it("shows no preference notes when nobody has filled anything in", async () => {
+    vi.mocked(getMealPlanView).mockResolvedValue(view);
+    await show();
+    expect(screen.queryByTestId("preference-notes")).toBeNull();
   });
 
   it("puts Erbjudanden and the + Lägg till rätt in the header, returning to Matsedel after sign-in", async () => {
