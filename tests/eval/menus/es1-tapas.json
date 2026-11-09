@@ -1,0 +1,218 @@
+{
+  "id": "es1-tapas",
+  "language": "es",
+  "restaurant": "Bar La Esquina",
+  "currency": "EUR",
+  "degraded": false,
+  "image": "es1-tapas.png",
+  "dishes": [
+    {
+      "name": "Patatas bravas",
+      "price": 5.5,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "agg"
+      ],
+      "keywords": [
+        "potatis"
+      ]
+    },
+    {
+      "name": "Gambas al ajillo",
+      "price": 11.9,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur"
+      ],
+      "keywords": [
+        "räk",
+        "vitlök"
+      ]
+    },
+    {
+      "name": "Croquetas de jamón",
+      "price": 8,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "kott",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "kroketter",
+        "skinka"
+      ]
+    },
+    {
+      "name": "Boquerones en vinagre",
+      "price": 7.5,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk"
+      ],
+      "keywords": [
+        "ansjovis",
+        "sardell"
+      ]
+    },
+    {
+      "name": "Tortilla española",
+      "price": 6.5,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "agg"
+      ],
+      "keywords": [
+        "omelett",
+        "potatis"
+      ]
+    },
+    {
+      "name": "Pimientos de Padrón",
+      "price": 7,
+      "currency": "EUR",
+      "group": "forratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "paprik",
+        "peppar",
+        "chili"
+      ]
+    },
+    {
+      "name": "Pulpo a la gallega",
+      "price": 16.5,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur"
+      ],
+      "keywords": [
+        "bläckfisk",
+        "bläckfisken"
+      ]
+    },
+    {
+      "name": "Calamares a la romana",
+      "price": 12,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "skaldjur",
+      "allergens": [
+        "gluten",
+        "skaldjur",
+        "agg"
+      ],
+      "keywords": [
+        "bläckfisk",
+        "calamari",
+        "bläckfiskringar"
+      ]
+    },
+    {
+      "name": "Solomillo al Cabrales",
+      "price": 19.5,
+      "currency": "EUR",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "laktos"
+      ],
+      "keywords": [
+        "oxfilé",
+        "kalvfilé",
+        "filé"
+      ]
+    },
+    {
+      "name": "Tarta de Santiago",
+      "price": 6,
+      "currency": "EUR",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "notter",
+        "agg"
+      ],
+      "keywords": [
+        "mandel"
+      ]
+    },
+    {
+      "name": "Crema catalana",
+      "price": 5.5,
+      "currency": "EUR",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "kräm",
+        "vanilj"
+      ]
+    },
+    {
+      "name": "Caña de cerveza",
+      "price": 2.8,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [
+        "gluten"
+      ],
+      "keywords": [
+        "öl"
+      ]
+    },
+    {
+      "name": "Copa de vino tinto Rioja",
+      "price": 4.5,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "rött vin",
+        "vin"
+      ]
+    },
+    {
+      "name": "Copa de vino blanco Albariño",
+      "price": 4.8,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "vitt vin",
+        "vin"
+      ]
+    },
+    {
+      "name": "Jarra de sangría",
+      "price": 14,
+      "currency": "EUR",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "sangria",
+        "vin"
+      ]
+    }
+  ]
+}

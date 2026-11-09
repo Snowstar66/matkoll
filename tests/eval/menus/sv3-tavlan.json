@@ -1,0 +1,127 @@
+{
+  "id": "sv3-tavlan",
+  "language": "sv",
+  "restaurant": "Café Tavlan",
+  "currency": "SEK",
+  "degraded": true,
+  "image": "sv3-tavlan.jpg",
+  "dishes": [
+    {
+      "name": "Dagens soppa",
+      "price": 99,
+      "currency": "SEK",
+      "group": "forratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos"
+      ],
+      "keywords": [
+        "soppa",
+        "dagens"
+      ]
+    },
+    {
+      "name": "Fiskgratäng",
+      "price": 149,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "fisk",
+      "allergens": [
+        "fisk",
+        "laktos",
+        "gluten"
+      ],
+      "keywords": [
+        "fisk",
+        "gratäng"
+      ]
+    },
+    {
+      "name": "Vegolasagne",
+      "price": 139,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "lasagne"
+      ]
+    },
+    {
+      "name": "Kycklingwok",
+      "price": 145,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "kott",
+      "allergens": [
+        "soja"
+      ],
+      "keywords": [
+        "kyckling",
+        "wok"
+      ]
+    },
+    {
+      "name": "Räksmörgås",
+      "price": 129,
+      "currency": "SEK",
+      "group": "varmratt",
+      "category": "skaldjur",
+      "allergens": [
+        "skaldjur",
+        "gluten",
+        "agg",
+        "laktos"
+      ],
+      "keywords": [
+        "räk",
+        "smörgås",
+        "macka"
+      ]
+    },
+    {
+      "name": "Kanelbulle",
+      "price": 38,
+      "currency": "SEK",
+      "group": "efterratt",
+      "category": "vegetariskt",
+      "allergens": [
+        "gluten",
+        "laktos",
+        "agg"
+      ],
+      "keywords": [
+        "kanel",
+        "bulle"
+      ]
+    },
+    {
+      "name": "Bryggkaffe",
+      "price": 32,
+      "currency": "SEK",
+      "group": "drycker",
+      "category": null,
+      "allergens": [],
+      "keywords": [
+        "kaffe"
+      ]
+    },
+    {
+      "name": "Hembakad chokladboll",
+      "price": 30,
+      "currency": "SEK",
+      "group": "efterratt",
+      "category": "veganskt",
+      "allergens": [],
+      "keywords": [
+        "choklad",
+        "boll"
+      ]
+    }
+  ]
+}

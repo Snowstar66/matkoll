@@ -59,6 +59,10 @@ tests/eval/analyze-report.md
 tests/eval/merge-report.md
 # Timing reports per EVAL_LABEL (Story 12.1)
 tests/eval/reports/
+# Raw answers of `pnpm eval:menu` and real menu photos (the repo is public)
+tests/eval/menu-read-results/
+tests/eval/menus/real/*
+!tests/eval/menus/real/README.md
 # Own photos for the image analysis in pnpm eval:ai; the repo is public, so they never go in it
 tests/eval/photos/
 
