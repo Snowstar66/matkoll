@@ -72,3 +72,22 @@ describe("readShoppingList (Fota en lista) goes through the gate and the usage s
     expect(gate).toHaveBeenCalledTimes(methods.length);
   });
 });
+
+describe("readMenu (Menyrådgivare) goes through the gate and the usage sink", () => {
+  const images = [{ data: new Uint8Array([1, 2, 3]), mediaType: "image/png" as const }];
+
+  it("answers ai_cap_reached without reaching the model when the gate says no", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(false));
+    expect(await service.readMenu({ images }, AbortSignal.timeout(5_000))).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
+    expect(sink).not.toHaveBeenCalled();
+  });
+
+  it("reads the menu and counts the call when the gate says yes", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(true));
+    const answer = await service.readMenu({ images }, AbortSignal.timeout(5_000));
+    expect(answer.ok && answer.data.menu.ratter.map((dish) => dish.originalnamn)).toEqual(["Pulpo a la gallega", "Croquetas de jamón", "Paella del chef", "Cerveza"]);
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+});

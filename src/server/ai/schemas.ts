@@ -1093,3 +1093,54 @@ export function parseNowIdeas(answer: NowIdeasAnswer): { intro: string; ideas: N
   }
   return { intro: line(answer.intro, nowIdeaLimits.maxIntroChars), ideas };
 }
+
+/** readMenu: at most this many dishes are kept; a menu of about 80 dishes is the largest the prompt expects. */
+export const maxMenuDishes = 150;
+
+const menuAllergenList = ["gluten", "laktos", "notter", "skaldjur", "agg", "fisk", "soja", "sesam"] as const;
+
+/**
+ * What the model answers to readMenu: a restaurant menu on one to three photos, dish by dish. The field names are
+ * Swedish, as the prompt asks. The currency code of a row is checked against `valutasymbol_pa_menyn` by the
+ * caller (the menu-advisor domain), not here.
+ */
+export const menuAnswer = z.object({
+  restaurang: z.string().nullable(),
+  sprak: z.enum(["sv", "en", "es", "annat"]),
+  valutasymbol_pa_menyn: z.string().nullable().describe('Symbolen priserna står med på menyn: "€", "kr", "£", "$"; null om ingen syns'),
+  ratter: z.array(
+    z.object({
+      originalnamn: z.string(),
+      grupp: z.enum(["Förrätt", "Varmrätt", "Efterrätt", "Drycker", "Övrigt"]),
+      forklaring: z.string(),
+      huvudingredienser: z.array(z.string()),
+      kategori: z.enum(["kott", "fisk", "skaldjur", "vegetariskt", "veganskt", "ej_tillampligt"]),
+      allergener: z.array(z.enum(menuAllergenList)),
+      kan_innehalla: z.array(z.enum(menuAllergenList)),
+      pris: z.number().nullable(),
+      valuta: z.string().nullable(),
+    }),
+  ),
+  osakert: z.array(z.string()),
+});
+
+export type MenuAnswer = z.output<typeof menuAnswer>;
+
+/** The answer with at most maxMenuDishes dishes, those without a name dropped, and every text cleaned. */
+export function parseMenu(answer: MenuAnswer): MenuAnswer {
+  const clean = (value: string) => cleanModelText(value);
+  return {
+    ...answer,
+    restaurang: answer.restaurang === null ? null : clean(answer.restaurang) || null,
+    osakert: answer.osakert.map(clean).filter((note) => note !== ""),
+    ratter: answer.ratter
+      .map((dish) => ({
+        ...dish,
+        originalnamn: clean(dish.originalnamn),
+        forklaring: clean(dish.forklaring),
+        huvudingredienser: dish.huvudingredienser.map(clean).filter((name) => name !== ""),
+      }))
+      .filter((dish) => dish.originalnamn !== "")
+      .slice(0, maxMenuDishes),
+  };
+}

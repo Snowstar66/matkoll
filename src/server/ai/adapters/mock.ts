@@ -10,6 +10,9 @@ import {
   listThingsAnswer,
   parseShoppingList,
   shoppingListAnswer,
+  menuAnswer,
+  parseMenu,
+  type MenuAnswer,
   parseAnalyzeItems,
   parseThings,
   suggestDishesAnswerCompact,
@@ -80,6 +83,8 @@ type Manifest = {
   things?: string;
   /** readShoppingList: the answer <list>.list.json for any photo that is not a reserved image. */
   list?: string;
+  /** readMenu: the answer <menu>.menu.json for any photo that is not a reserved image. */
+  menu?: string;
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -112,6 +117,12 @@ type ListFixtures = {
   /** SHA-256 of the image bytes → an error code, for the reserved images. */
   errors: Map<string, MockErrorCode>;
   answer: ReadShoppingListResult;
+};
+
+type MenuFixtures = {
+  /** SHA-256 of the image bytes → an error code, for the reserved images. */
+  errors: Map<string, MockErrorCode>;
+  answer: MenuAnswer;
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -244,6 +255,20 @@ function loadListFixtures(dir: string): ListFixtures {
     if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
   }
   return { errors, answer: { items: parsed.items } };
+}
+
+function loadMenuFixtures(dir: string): MenuFixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  if (!manifest.menu) throw new Error("menu missing");
+  const answer = menuAnswer.parse(JSON.parse(read(`${manifest.menu}.menu.json`)));
+  // Every dish must pass as it is: a fixture is a valid answer.
+  if (parseMenu(answer).ratter.length !== answer.ratter.length) throw new Error("invalid menu fixture");
+  const errors = new Map<string, MockErrorCode>();
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
+  }
+  return { errors, answer };
 }
 
 /**
@@ -502,6 +527,7 @@ function countingCalls(service: AiService): AiService {
     listThings: counted(service.listThings),
     locateThing: counted(service.locateThing),
     readShoppingList: counted(service.readShoppingList),
+    readMenu: counted(service.readMenu),
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
     matchOffers: counted(service.matchOffers),
@@ -521,6 +547,7 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
   const thingsFixtures = lazily(() => loadThingsFixtures(dir));
   const listFixtures = lazily(() => loadListFixtures(dir));
+  const menuFixtures = lazily(() => loadMenuFixtures(dir));
   // The suggest fixtures hold the reserved texts askThings fails on (a question that contains one).
   const askErrors = lazily(() => loadSuggestFixtures(dir).errors);
 
@@ -615,6 +642,16 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
       return ok(structuredClone(current.answer));
+    },
+    async readMenu(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = logged(menuFixtures());
+      if (!current) return fail("ai_unavailable");
+      // The first photo decides: a reserved image gives its code.
+      const code = current.errors.get(sha256(input.images[0]?.data ?? new Uint8Array(0)));
+      if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
+      if (code) return fail(code);
+      return ok({ menu: structuredClone(current.answer), quality: input.quality ?? "standard", escalated: false });
     },
     async locateThing(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
