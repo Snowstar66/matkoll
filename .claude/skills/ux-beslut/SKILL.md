@@ -14,6 +14,14 @@ Arbetssättet kom från Pontus 2026-11-07: genomgång först, skisser innan änd
 - Besluten finns i artifactens databas (`picks`, `decisions`). Läs dem med `ArtifactData`, bygg efter dem och skicka kommentarerna ordagrant vidare till byggagenterna.
 - Merga först när CI är grön (och efter Pontus OK om inget annat är sagt).
 
+## Välj ingång: revision eller resa
+Steg 1 (genomgång av det som finns) passar när konceptet är rätt och ytan behöver putsas. Det passar INTE när själva konceptet är fel.
+- **Tecken på att konceptet är fel:** användaren säger att något "känns virrigt", att många punkter "säger samma sak", att det är för mycket på skärmen, eller att appen inte "vägleder". Då ger en revision bara fler småfixar av samma röriga skärm (så gick det med Menyrådgivaren 2026-11-09: 17 överlappande fynd, därefter tre koncept A/B/C som var variationer på samma dashboard).
+- **Gör i stället:** börja med användarens resa. Skriv själv resan i 4–7 steg (en sak per skärm, en primär handling, svaret först, detaljer i ett ark först när man trycker), ge en stilförebild om användaren har en (t.ex. Klarna-appen: stor fetstil, mycket luft, en pillknapp, vänlig text), och låt en design-agent rita EXAKT den resan med exempeldata och appens tokens. Rita alla stoppfall (fel, tomt, oläsligt) som egna skärmar.
+- **Regel för markeringar och brickor:** en bricka får bara finnas om den ändrar ett beslut. Brus är data som visas för att den finns.
+- **Beslutssidan** har då ett beslut per resteg (Godkänn / Godkänn med ändring / Bygg inte), inte en lång lista. Ge aldrig tre koncept som liknar varandra; erbjud alternativ bara när grundidéerna skiljer sig, och säg i en mening vad som skiljer.
+- Fråga användaren inte om koncept A, B eller C innan du själv har prövat resan mot det användaren sade.
+
 ## Steg 1: genomgång (en agent, ändrar inget)
 Starta en Agent (general-purpose, gärna Sonnet) med en lång prompt som innehåller:
 - Mål: "en första tight version", mer enhetligt och tydligt, ta bort brus, ingen omdesign.
