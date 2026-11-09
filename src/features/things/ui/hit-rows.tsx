@@ -169,6 +169,7 @@ function sheetThing(hit: ThingHit): SheetThing {
     seenOn: hit.seenOn,
     noted: hit.noted ? { at: hit.takenAt, part: hit.part } : null,
     quantity: hit.quantity,
+    photoId: hit.noted || hit.written ? null : hit.photoId,
   };
 }
 

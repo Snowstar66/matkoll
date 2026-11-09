@@ -473,8 +473,11 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
 
   await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByLabel("Byt namn").fill("Klohammare");
+  await sheet.getByRole("button", { name: "Byt namn" }).click();
+  await sheet.getByLabel("Namn").fill("Klohammare");
   await sheet.getByRole("button", { name: "Spara" }).click();
+  await expect(sheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(things.first()).toContainText("Klohammare");
   await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
@@ -960,18 +963,28 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await page.goto(roomUrl("Skräpförrådet"));
   await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog");
-  // The category is one row (Pontus 2 Nov); a tap goes one level deeper in the same sheet, and a pick comes back.
+  // The first view has the card's photo with the box and the rows (Pontus 9 Nov); each row is a step that saves at once.
   await expect(sheet.getByRole("radio")).toHaveCount(0);
-  await expect(sheet.getByLabel("Var på bilden")).toHaveValue("på väggen");
+  // The seeded card has no real image file, so the link is there (to the whole card) but its photo has no size to see.
+  await expect(sheet.getByTestId("thing-photo")).toHaveAttribute("href", new RegExp(`^/prylar/kort/${cardBefore.id}\\?foremal=`));
+  await expect(sheet.getByTestId("thing-crumbs")).toContainText("Skräpförrådet");
+  await expect(sheet.getByRole("button", { name: /^Var på bilden/ })).toContainText("på väggen");
   await shot(page, "1-thing-sheet");
   await sheet.getByRole("button", { name: "Kategori, Verktyg" }).click();
   await expect(sheet.getByRole("button", { name: "Tillbaka" })).toBeVisible();
   await expect(sheet.getByRole("radio")).toHaveCount(9);
   await expect(sheet.getByRole("radio", { name: "Verktyg" })).toBeChecked();
   await sheet.getByRole("radio", { name: "Trädgård" }).click();
-  await expect(sheet.getByRole("button", { name: "Kategori, Trädgård" })).toBeFocused();
+  // The föremål moves to another group of the room, so the sheet closes.
+  await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
+  await expect(sheet).toHaveCount(0);
+  await page.getByRole("button", { name: /Hammare/ }).click();
+  await expect(sheet.getByRole("button", { name: "Kategori, Trädgård" })).toBeVisible();
+  await sheet.getByRole("button", { name: /^Var på bilden/ }).click();
   await sheet.getByLabel("Var på bilden").fill("översta hyllan");
   await sheet.getByRole("button", { name: "Spara" }).click();
+  await expect(sheet.getByRole("button", { name: /^Var på bilden/ })).toContainText("översta hyllan");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Verktyg" })).toHaveCount(0);
   await expect(page.getByTestId("thing")).toContainText("översta hyllan");
@@ -980,6 +993,7 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   ]);
   // An empty "where" clears it.
   await page.getByRole("button", { name: /Hammare/ }).click();
+  await sheet.getByRole("button", { name: /^Var på bilden/ }).click();
   await sheet.getByLabel("Var på bilden").fill("");
   await sheet.getByRole("button", { name: "Spara" }).click();
   await expect.poll(async () => (await admin.from("thing_item").select("where_hint").eq("user_id", userId)).data?.[0]?.where_hint).toBeNull();
