@@ -1,0 +1,52 @@
+{
+  "restaurang": "Taverna Mock",
+  "sprak": "es",
+  "valutasymbol_pa_menyn": "€",
+  "ratter": [
+    {
+      "originalnamn": "Pulpo a la gallega",
+      "grupp": "Förrätt",
+      "forklaring": "Kokt bläckfisk med potatis, paprika och olivolja.",
+      "huvudingredienser": ["bläckfisk", "potatis", "paprika"],
+      "kategori": "skaldjur",
+      "allergener": ["skaldjur"],
+      "kan_innehalla": [],
+      "pris": 17.95,
+      "valuta": "EUR"
+    },
+    {
+      "originalnamn": "Croquetas de jamón",
+      "grupp": "Förrätt",
+      "forklaring": "Friterade kroketter med skinka och bechamelsås.",
+      "huvudingredienser": ["skinka", "mjölk", "vetemjöl"],
+      "kategori": "kott",
+      "allergener": ["gluten", "laktos", "agg"],
+      "kan_innehalla": [],
+      "pris": 9.5,
+      "valuta": "EUR"
+    },
+    {
+      "originalnamn": "Paella del chef",
+      "grupp": "Varmrätt",
+      "forklaring": "Menyn säger inte vad som ingår; vanligen ris med skaldjur eller kött.",
+      "huvudingredienser": ["ris"],
+      "kategori": "ej_tillampligt",
+      "allergener": [],
+      "kan_innehalla": ["skaldjur", "fisk"],
+      "pris": 21,
+      "valuta": "EUR"
+    },
+    {
+      "originalnamn": "Cerveza",
+      "grupp": "Drycker",
+      "forklaring": "Öl.",
+      "huvudingredienser": [],
+      "kategori": "ej_tillampligt",
+      "allergener": ["gluten"],
+      "kan_innehalla": [],
+      "pris": 3.2,
+      "valuta": null
+    }
+  ],
+  "osakert": []
+}

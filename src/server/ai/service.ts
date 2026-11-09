@@ -50,6 +50,9 @@ import {
   listThingsAnswer,
   shoppingListAnswer,
   parseShoppingList,
+  menuAnswer,
+  parseMenu,
+  type MenuAnswer,
   type AiListItem,
   locateThingAnswer,
   parseLocatedBox,
@@ -215,6 +218,25 @@ export type ReadShoppingListInput = {
 
 /** What readShoppingList answers: the lines that passed parseShoppingList, at most maxListItems, a name once. */
 export type ReadShoppingListResult = { items: AiListItem[] };
+
+/** How hard readMenu tries: `standard` is Haiku at low effort, `careful` is Sonnet at medium (about ten times the price). */
+export type MenuQuality = "standard" | "careful";
+
+export type ReadMenuInput = {
+  /** One to maxMenuImages photos of the same menu, already resized in the client (AD-15). Never stored or logged by the port. */
+  images: ImageInput[];
+  /** Default `standard`; a standard reading that comes back unusable is redone as `careful` by the port itself. */
+  quality?: MenuQuality;
+};
+
+/** What readMenu answers: the menu as read (currency not yet checked against the symbol), and how it was read. */
+export type ReadMenuResult = {
+  menu: MenuAnswer;
+  /** The quality of the reading that gave `menu`. */
+  quality: MenuQuality;
+  /** True when a standard reading was redone as careful. */
+  escalated: boolean;
+};
 
 /** A place as askThings gets it (Story 18.4): text only, never an image. Data for the model, never instructions. */
 export type AskThingsPlace = {
@@ -385,6 +407,14 @@ export interface AiService {
    */
   readShoppingList(input: ReadShoppingListInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ReadShoppingListResult>>;
   /**
+   * A restaurant menu on one to three photos, read dish by dish (Menyrådgivare): name, group, a Swedish
+   * explanation, main ingredients, category, allergens (and what may be in it), price and currency. One new attempt
+   * after an answer that is not valid JSON or was cut off; when that also fails, or the standard reading has dishes
+   * but no price at all, the reading is redone once as `careful`. Fails with `validation`, `ai_unavailable` (also
+   * when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  readMenu(input: ReadMenuInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ReadMenuResult>>;
+  /**
    * A short answer in Swedish to a question about Pontus's things (Story
    * 18.4), from the lists the cards gave (text only, no image) and the
    * numbers of the places it is about, each checked to be in the list. Fails
@@ -493,6 +523,8 @@ export const inputLimits = {
   things: { maxOutputTokens: 5_000 },
   /** readShoppingList: an item is about 15 tokens of answer, so 60 are about 900; 3 000 leave room for a model that writes around them. */
   shoppingList: { maxOutputTokens: 3_000 },
+  /** readMenu: a dish is about 80 tokens of answer, so 80 dishes are about 6 400; 8 000 leave room for the notes. */
+  menu: { maxOutputTokens: 8_000, maxImages: 3 },
   /**
    * locateThing (Story 18.7): a name of at most 80 characters and a "where" of
    * at most 120 (as thing_item holds them) with the photo; the answer is a flag
@@ -727,6 +759,10 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidImage(input.image)) return fail("validation");
       return service.readShoppingList(input, signal, options);
     },
+    async readMenu(input, signal, options) {
+      if (!isValidReadMenuInput(input)) return fail("validation");
+      return service.readMenu(input, signal, options);
+    },
     async locateThing(input, signal, options) {
       if (!isValidLocateThingInput(input)) return fail("validation");
       return service.locateThing(input, signal, options);
@@ -762,7 +798,12 @@ export function withInputValidation(service: AiService): AiService {
 }
 
 /** The port on top of a real model, with the shared run rules in run.ts. */
-export function createModelAiService(target: ModelTarget, limits: Limits = defaultLimits, ideasTarget: ModelTarget = target): AiService {
+export function createModelAiService(
+  target: ModelTarget,
+  limits: Limits = defaultLimits,
+  ideasTarget: ModelTarget = target,
+  menuTargets: Record<MenuQuality, ModelTarget> = { standard: target, careful: target },
+): AiService {
   return {
     async parseRecipe(input, signal) {
       const answer = await runStructured(
@@ -944,6 +985,31 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       // Counts only, never the names.
       if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("shopping_list_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
       return ok({ items: parsed.items });
+    },
+    async readMenu(input, signal, options = {}) {
+      const read = async (quality: MenuQuality): Promise<Result<MenuAnswer>> => {
+        const within = limitsWithin(limits, options.deadline);
+        if (!within) {
+          console.error("ai_unavailable", { reason: "deadline" });
+          return fail("ai_unavailable");
+        }
+        const answer = await runStructured(
+          menuTargets[quality],
+          {
+            schema: menuAnswer,
+            system: prompts.readMenu,
+            messages: [{ role: "user", content: readMenuContent(input) }],
+            maxOutputTokens: inputLimits.menu.maxOutputTokens,
+            sampling: menuTargets[quality].imageSampling,
+            onTruncated: () => console.info("menu_truncated", { quality }),
+          },
+          signal,
+          // The first answer and one new attempt, as the invalid or cut-off answer is asked again once.
+          { ...within, maxAttempts: Math.min(within.maxAttempts, 2) },
+        );
+        return answer.ok ? ok(parseMenu(answer.data)) : answer;
+      };
+      return readMenuEscalating(read, input.quality ?? "standard");
     },
     async askThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -1144,6 +1210,46 @@ export function readShoppingListContent(input: ReadShoppingListInput) {
     { type: "text" as const, text: "Bilden visar en inköpslista. Läs av varorna." },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
   ];
+}
+
+/** The user message for readMenu: a line and the photos as `file` parts. */
+export function readMenuContent(input: ReadMenuInput) {
+  return [
+    { type: "text" as const, text: input.images.length === 1 ? "Bilden visar en restaurangmeny. Läs av den." : "Bilderna visar samma restaurangmeny. Läs av hela menyn." },
+    ...input.images.map((image) => ({ type: "file" as const, data: image.data, mediaType: image.mediaType })),
+  ];
+}
+
+export function isValidReadMenuInput(input: ReadMenuInput): boolean {
+  const { images, quality } = input;
+  return (
+    Array.isArray(images) &&
+    images.length >= 1 &&
+    images.length <= inputLimits.menu.maxImages &&
+    images.every(isValidImage) &&
+    (quality === undefined || quality === "standard" || quality === "careful")
+  );
+}
+
+/**
+ * readMenu's escalation (kept apart from the model so it is tested with a stub): `careful` is read as asked. A
+ * `standard` reading is redone once as `careful` when it failed as `ai_invalid` (not valid after its new attempt),
+ * or when it has dishes but not one with a price (the usual sign of a poor reading; a menu without prices pays
+ * the dearer reading too). Any other failure (cap, rejected, away) is final. If the careful reading fails, a
+ * standard one that did answer is still the answer.
+ */
+export async function readMenuEscalating(
+  read: (quality: MenuQuality) => Promise<Result<MenuAnswer>>,
+  quality: MenuQuality,
+): Promise<Result<ReadMenuResult>> {
+  const first = await read(quality);
+  if (quality === "careful") return first.ok ? ok({ menu: first.data, quality, escalated: false }) : first;
+  const unusable = first.ok ? first.data.ratter.length > 0 && first.data.ratter.every((dish) => dish.pris === null) : first.error.code === "ai_invalid";
+  if (!unusable) return first.ok ? ok({ menu: first.data, quality, escalated: false }) : first;
+  console.info("menu_escalated", { reason: first.ok ? "no_prices" : "invalid" });
+  const second = await read("careful");
+  if (second.ok) return ok({ menu: second.data, quality: "careful", escalated: true });
+  return first.ok ? ok({ menu: first.data, quality, escalated: false }) : second;
 }
 
 /** Story 18.23: a counted föremål's count for the model: "3 st", "slut"; nothing when it is not counted. */
@@ -1349,6 +1455,11 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
         options.limits,
         // Story 25.4: "Idéer" in "Vad kan jag laga nu?" is a short, warm answer: Haiku writes it best and cheapest, whatever model is chosen.
         createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: ideasModel, effort, fetch: options.fetch }),
+        // Menyrådgivare: fixed models per quality, whatever the household chose (measured in tests/eval/menu-read.eval.ts on menu-read-eval).
+        {
+          standard: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: menuModels.standard.model, effort: menuModels.standard.effort, fetch: options.fetch }),
+          careful: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: menuModels.careful.model, effort: menuModels.careful.effort, fetch: options.fetch }),
+        },
       );
     case "openai":
       if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -1358,6 +1469,12 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
       );
   }
 }
+
+/** readMenu: Haiku 5.5 at low effort, and Sonnet 5.5 at medium for `careful`. */
+export const menuModels = {
+  standard: { model: "claude-haiku-5-5", effort: "low" },
+  careful: { model: "claude-sonnet-5-5", effort: "medium" },
+} as const;
 
 /** Story 25.4: the Claude model that answers ideasNow, whatever the household chose. */
 export const ideasModel = "claude-haiku-5-5";

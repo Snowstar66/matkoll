@@ -624,6 +624,27 @@ describe("mock readShoppingList (Fota en lista)", () => {
   });
 });
 
+describe("mock readMenu (Menyrådgivare)", () => {
+  const service = createMockAiService();
+  const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" as const });
+
+  it("answers any photo with the menu fixture, as the quality asked for and without escalating", async () => {
+    const result = await service.readMenu({ images: [photo("kyl.png")], quality: "careful" }, signal());
+    expect(result.ok && result.data).toMatchObject({ quality: "careful", escalated: false, menu: { restaurang: "Taverna Mock", valutasymbol_pa_menyn: "€" } });
+    expect(result.ok && result.data.menu.ratter).toHaveLength(4);
+  });
+
+  it.each(mockAnalyzeErrorCodes)("gives %s for its reserved image", async (code) => {
+    expect(await service.readMenu({ images: [photo(`reserved-${code}.png`)] }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("is ai_unavailable for a call that is stopped", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.readMenu({ images: [photo("kyl.png")] }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
+
 describe("usage (Story 17.6)", () => {
   it("counts an answered call as a call of the model mock with no tokens", async () => {
     const seen: AiUsage[] = [];

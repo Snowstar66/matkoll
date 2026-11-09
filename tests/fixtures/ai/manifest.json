@@ -10,6 +10,7 @@
     "'analyze' is what analyzeImage answers: each case is a synthetic photo <name>.png (drawn by scripts/render-pantry-image.mjs, never a real photo, since the repo is public) and the model's answer <name>.analyze.json. The mock keys the photo on its bytes; any other photo gets 'default'. The reserved images for ai_unavailable, ai_invalid and ai_rejected give those codes; reserved-import_no_recipe.png gets the default answer. kyl-dorr (Story 6.5) is a fridge door: a brand label the model repeats four times (merged by parseAnalyzeItems, as for a real model), a juice and a partly hidden bottle the model is unsure of. Kylfoto B: the answers are in the short form ({ \"i\": [{ \"l\", \"n\", \"q\", \"u\", \"s\", \"p\", \"a\" }] }), with each item's point, so the numbers on the photo come with the reading.",
     "'things' is what listThings answers for any photo (Story 18.2): skrapforrad.things.json, with a box per thing in thousandths (Story 18.7) that fits the drawn photo forrad.png (a storage room, never a real photo). locateThing answers the box of the thing with the same name, and no box for a name it does not have. Story 18.23: Målarfärgsburkar is counted (2), every other thing has no count.",
     "'list' is what readShoppingList answers for any photo: inkopslista.list.json (a handwritten-style note of five items, two with an amount). The reserved images give their error codes.",
+    "'menu' is what readMenu answers for any photo: taverna.menu.json (a small Spanish menu with € prices, one row without a currency, one allergen that may be in a dish). The reserved images give their error codes; the mock answers the quality it was asked for and never escalates.",
     "linas-kyckling is a Linas Matkasse-style card: ingredient groups per part of the dish, staples marked with •, and numbered steps with a heading (the recipe format of 2026-11-02). Its PNG is drawn by scripts/render-recipe-image.mjs, never a real photo."
   ],
   "default": "kycklinggryta",
@@ -80,6 +81,7 @@
       "code": "import_no_recipe"
     }
   ],
+  "menu": "taverna",
   "suggest": "suggest-dishes",
   "suggestOffers": "suggest-dishes-erbjudanden",
   "suggestOld": "suggest-dishes-lagt-lange",
