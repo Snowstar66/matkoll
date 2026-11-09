@@ -13,7 +13,6 @@ import type { MenuAllergen } from "../domain/types";
 import { unfitFor } from "../domain/people";
 import { currencySymbols, dishSek, filterDishes, groupDishes, matchDish, noFilter, parseDislikes, type MenuMode, underSekLimit } from "../domain/view";
 import type { MenuReading } from "../actions/read-menu";
-import type { Person } from "../domain/profile";
 import { MenuDishRow } from "./menu-dish-row";
 import { Suggestions } from "./suggestions";
 
@@ -25,9 +24,7 @@ export function MenuResult({
   reading,
   mode,
   avoid,
-  company,
   dislikes,
-  suggestions,
   modeSegment,
   avoidPanel,
   disclaimer,
@@ -41,17 +38,13 @@ export function MenuResult({
   reading: MenuReading;
   mode: MenuMode;
   avoid: MenuAllergen[];
-  /** Who is with tonight; each dish says who it does not suit (their registered allergies). */
-  company: Person[];
   dislikes: string;
-  /** Hook for PR 3b: the recommendations for the company, shown above the groups. Nothing is drawn until it is given. */
-  suggestions?: ReactNode;
   modeSegment: ReactNode;
   avoidPanel: ReactNode;
   disclaimer: ReactNode;
   error: string | null;
   tonight: { picks: TonightPick[]; toggle: (pick: TonightPick) => void };
-  /** Who to suggest for; empty hides "Förslag till sällskapet". */
+  /** Who is with tonight: each dish says who it does not suit, and "Förslag till sällskapet" is for them; empty hides it. */
   people: Person[];
   onTonight: () => void;
   onCareful: () => void;
@@ -122,7 +115,7 @@ export function MenuResult({
       {avoidPanel}
       {error ? <Notice role="alert">{error}</Notice> : null}
       <SearchField label="Sök i menyn" placeholder="Sök i menyn" delayMs={0} onSearch={(query) => setFilter((current) => ({ ...current, query }))} />
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1" role="group" aria-label="Filter">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 [mask-image:linear-gradient(90deg,#000_88%,transparent)]" role="group" aria-label="Filter">
         <Chip selected={filter.vegetarian} aria-pressed={filter.vegetarian} onClick={() => setFilter((f) => ({ ...f, vegetarian: !f.vegetarian }))}>
           Vegetariskt
         </Chip>
@@ -137,7 +130,6 @@ export function MenuResult({
           {`Under ${underSekLimit} kr`}
         </Chip>
       </div>
-      {mode === "help" ? suggestions : null}
       {groups.length === 0 ? <p className="text-body text-ink-2">Ingen rätt matchar. Ändra sökningen eller filtret.</p> : null}
       {groups.map(({ group, dishes }) => (
         <section key={group} aria-label={group}>
@@ -150,7 +142,7 @@ export function MenuResult({
                   key={`${dish.grupp}-${dish.originalnamn}`}
                   dish={dish}
                   match={mode === "help" ? matchDish(dish, avoid, avoided) : null}
-                  unfit={mode === "help" ? unfitFor(dish, company) : []}
+                  unfit={mode === "help" ? unfitFor(dish, people) : []}
                   starred={starred.has(id)}
                   onStar={() =>
                     tonight.toggle({ id, name: dish.originalnamn, explanation: dish.forklaring, restaurant: menu.restaurang, sek: dishSek(dish) })
@@ -166,7 +158,7 @@ export function MenuResult({
           Osäkert läst: {menu.osakert.join("; ")}
         </p>
       ) : null}
-      <Suggestions menu={menu} people={people} />
+      {mode === "help" ? <Suggestions menu={menu} people={people} /> : null}
       {disclaimer}
       <div className="flex flex-col gap-2">
         {!done ? (

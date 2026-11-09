@@ -83,6 +83,10 @@ test("a failed reading says why", async ({ page }) => {
 
 test("profiles under Tillval and the company on the menu page: allergies are registered once and mark the dishes", async ({ page }) => {
   await optionOn(page);
+  // Web Share is mocked: the text it is given is kept for the check below.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: async (data: { text?: string }) => void ((window as unknown as { shared: string }).shared = data.text ?? ""), configurable: true });
+  });
   await page.route("**/api/menu/read", (route) => route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } }));
 
   await page.goto("/installningar/tillval");
@@ -112,6 +116,17 @@ test("profiles under Tillval and the company on the menu page: allergies are reg
   await expect(page.getByTestId("menu-result")).toBeVisible();
   await expect(page.getByTestId("menu-unfit")).toHaveText("Passar inte Anna (gluten), Gunnar (nötter)");
   await page.screenshot({ path: "test-results/shots/result.png", fullPage: true });
+  const suggestions = page.getByTestId("menu-suggestions");
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions).toContainText("Anna:");
+  await suggestions.getByRole("button", { name: "Skicka till sällskapet" }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared?: string }).shared ?? "")).toContain("Anna");
+  await suggestions.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/shots/suggestions.png" });
+  // Bara förklara: no suggestions and no allergy marks.
+  await page.getByRole("radio", { name: "Bara förklara" }).click();
+  await expect(suggestions).toHaveCount(0);
+  await expect(page.getByTestId("menu-unfit")).toHaveCount(0);
   // Nothing scrolls sideways at 375 px.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

@@ -31,6 +31,7 @@ export function MenuDishRow({
   const price = priceText(dish);
   // "skaldjur" as category and as allergen is one tag, the allergen's.
   const category = categoryTags[dish.kategori] && !dish.allergener.some((allergen) => allergenLabels[allergen].toLowerCase() === categoryTags[dish.kategori]) ? categoryTags[dish.kategori] : null;
+  const hitByPeople = new Set<MenuAllergen>(unfit.flatMap(({ hits }) => hits.map((hit) => hit.allergen)));
   const hitAllergens = new Set<MenuAllergen>(match?.hits.map((hit) => hit.allergen));
   const contains = match?.hits.filter((hit) => hit.source === "allergener").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
   const mayContain = match?.hits.filter((hit) => hit.source === "kan_innehalla").map((hit) => allergenLabels[hit.allergen].toLowerCase()) ?? [];
@@ -55,14 +56,14 @@ export function MenuDishRow({
         <div className="mt-1 flex flex-wrap gap-1">
           {category ? <span className={category.startsWith("veg") ? veganTag : tag}>{category}</span> : null}
           {dish.allergener.map((allergen) => (
-            <span key={allergen} className={match === null || hitAllergens.has(allergen) ? dangerTag : tag}>
+            <span key={allergen} className={hitAllergens.has(allergen) || hitByPeople.has(allergen) ? dangerTag : tag}>
               {allergenLabels[allergen].toLowerCase()}
             </span>
           ))}
           {dish.kan_innehalla
             .filter((allergen) => !dish.allergener.includes(allergen))
             .map((allergen) => (
-              <span key={allergen} className={match === null || hitAllergens.has(allergen) ? dangerTag : tag}>
+              <span key={allergen} className={hitAllergens.has(allergen) || hitByPeople.has(allergen) ? dangerTag : tag}>
                 kan: {allergenLabels[allergen].toLowerCase()}
               </span>
             ))}

@@ -78,7 +78,8 @@ export function MenuAdvisor() {
     if (answer.ok) return setStage({ name: "result", reading: answer.data });
     // Stopped by "Avbryt": back to where it was.
     if (answer.error === undefined) return setStage(keep ? { name: "result", reading: keep } : { name: "start" });
-    setError(answer.error.message);
+    // The dev text of ai_unavailable ("Är datorn med modellen igång?") is not for someone at a restaurant.
+    setError(answer.error.code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : answer.error.message);
     setStage(keep ? { name: "result", reading: keep } : { name: "start" });
   }
 
@@ -190,14 +191,13 @@ export function MenuAdvisor() {
         reading={reading}
         mode={mode}
         avoid={avoid}
-        company={company}
         dislikes={dislikes}
         modeSegment={modeSegment}
         avoidPanel={avoidPanel}
         disclaimer={disclaimer}
         error={error}
         tonight={tonight}
-        people={[] /* 3a: replace with the chosen household members and guests */}
+        people={company}
         onTonight={() => setShowTonight(true)}
         onCareful={() => photo.current && void run(photo.current, true, reading)}
         onNext={pick}

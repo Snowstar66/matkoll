@@ -24,11 +24,11 @@ type View = { name: "list" } | { name: "person"; id: string } | { name: "allergi
 const noopSubscribe = () => () => {};
 
 const tasteOptions = [
-  { value: "-2", label: "Hatar", icon: "👎👎" },
+  { value: "-2", label: "Hatar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👎👎</span> },
   { value: "-1", label: "Ogillar", icon: "👎" },
   { value: "0", label: "Ingen åsikt", icon: "–" },
   { value: "1", label: "Gillar", icon: "👍" },
-  { value: "2", label: "Älskar", icon: "👍👍" },
+  { value: "2", label: "Älskar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👍👍</span> },
 ].map((option) => ({ ...option, iconOnly: true }));
 
 /** The Tillval link row to the profiles, shown only while Menyrådgivare is on. */
