@@ -426,18 +426,47 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   expect(await noSideScroll(page)).toBe(true);
 });
 
-test("the Hushåll row to the profiles is hidden while the option is off", async ({ page }) => {
-  await page.goto("/installningar");
-  await expect(page.getByRole("heading", { name: "Hushåll", level: 2 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Äta ute: smak och allergier/ })).toHaveCount(0);
+test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Undviker, it stays after a reload; the old address leads there", async ({ page }) => {
+  await page.goto("/installningar/medlemmar");
+  const section = page.getByTestId("menu-profiles");
+  await expect(section.getByRole("heading", { name: "Smak och allergier" })).toBeVisible();
+  await expect(section.getByText("Utan konto")).toBeVisible();
+  const mine = section.getByTestId("menu-profile-row").first();
+  await expect(mine).toContainText("Du");
+  await expect(mine).toContainText("Inget ifyllt: äter allt");
+  await page.screenshot({ path: "test-results/shots/medlemmar-smak.png", fullPage: true });
+  await mine.click();
+  await expect(page).toHaveURL(/\/installningar\/medlemmar\/smak-och-allergier\?person=me$/);
+  const avoid = page.getByTestId("menu-dislikes");
+  await avoid.getByRole("textbox").fill("rödbetor");
+  await avoid.getByRole("textbox").press("Enter");
+  await expect(avoid.getByRole("button", { name: "Ta bort rödbetor" })).toBeVisible();
+  await page.screenshot({ path: "test-results/shots/smak-profil.png", fullPage: true });
+  await expect
+    .poll(async () => (await savedRows()).some((row) => row.dislikes.includes("rödbetor")))
+    .toBe(true);
+  await page.reload();
+  await expect(page.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort rödbetor" })).toBeVisible();
+  await page.getByRole("link", { name: "Medlemmar" }).first().click();
+  await expect(page.getByTestId("menu-profile-row").first()).toContainText("Undviker: rödbetor");
+
+  await page.goto("/installningar/tillval/aata-ute");
+  await expect(page).toHaveURL(/\/installningar\/medlemmar#smak-och-allergier$/);
+  await page.goto("/installningar/tillval");
+  await expect(page.getByTestId("menu-profiles-link")).toHaveCount(0);
+  // Menyrådgivare itself is still off: no way into it from Matsedel.
+  await page.goto("/matsedel");
+  await expect(page.getByText("Äter ute?")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("what is filled in is the household's: it stays after a reload and shows on another phone", async ({ page, browser }) => {
   await optionOn(page);
-  await page.goto("/installningar/tillval/aata-ute");
+  await page.goto("/installningar/medlemmar");
   await page.getByTestId("menu-person-add").click();
   await page.getByTestId("menu-person-name").fill("Maja");
   await page.getByRole("button", { name: "Lägg till" }).click();
+  await page.getByTestId("menu-profile-row").filter({ hasText: "Maja" }).click();
   const profile = page.getByTestId("menu-profile");
   await profile.getByRole("button", { name: /Vin/ }).click();
   await profile.getByTestId("menu-dislikes").getByRole("textbox").fill("koriander");
@@ -452,16 +481,16 @@ test("what is filled in is the household's: it stays after a reload and shows on
       return rows.find((row) => row.name === "Maja")?.dislikes.join(",") ?? null;
     })
     .toBe("koriander");
-  await page.reload();
-  await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Vin");
+  await page.goto("/installningar/medlemmar");
+  await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Undviker: koriander");
   await page.screenshot({ path: "test-results/shots/profiles-household.png", fullPage: true });
 
   // Another phone: no localStorage of its own, the same household.
   const other = await browser.newContext({ storageState: userStorageState, viewport: mobile });
   const phone = await other.newPage();
   await phone.addInitScript(() => localStorage.setItem("livskoll-option-menuAdvisor", "1"));
-  await phone.goto("/installningar/tillval/aata-ute");
-  await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Vin");
+  await phone.goto("/installningar/medlemmar");
+  await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Undviker: koriander");
   await expect(phone.getByTestId("menu-profiles-notice")).toHaveCount(0);
   await phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" }).click();
   await expect(phone.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort koriander" })).toBeVisible();
@@ -484,7 +513,7 @@ test("a phone's own old list moves up to the household once, and nothing the hou
       }),
     );
   });
-  await page.goto("/installningar/tillval/aata-ute");
+  await page.goto("/installningar/medlemmar");
   await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Gammal gäst" })).toContainText("Allergi: gluten");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("livskoll-menu-people-imported-v1"))).toBe("1");
   const rows = await savedRows();
@@ -507,7 +536,7 @@ test("a phone's own old list moves up to the household once, and nothing the hou
       }),
     );
   });
-  await phone.goto("/installningar/tillval/aata-ute");
+  await phone.goto("/installningar/medlemmar");
   await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Annan gäst" })).toBeVisible();
   await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Gammal gäst" })).toBeVisible();
   await expect(phone.getByTestId("menu-profile-row").first()).toContainText("Öl");

@@ -1,28 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useId, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
 import { Input } from "@/components/field";
 import { ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Segment } from "@/components/segment";
-import { useOption } from "@/lib/use-option";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, maxPeople, meId, newPerson, tasteLabels, toggleAllergy, withoutTag, withTag, withTaste } from "../domain/people";
+import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, meId, tasteLabels, toggleAllergy, withoutTag, withTag, withTaste } from "../domain/people";
 import { drinkKinds, type Person, type Taste, tasteKeys } from "../domain/profile";
 import { PreferenceSection } from "./preference-section";
 import { menuAllergens } from "../domain/types";
-import { makePersonId, usePeople } from "./use-people";
+import { usePeople } from "./use-people";
 
-// Profiles for Äta ute (Tillval): per person a taste list (nothing filled in = eats anything), the drink they usually
+// Smak och allergier (Inställningar → Medlemmar): per person a taste list (nothing filled in = eats anything), the drink they usually
 // order, and their allergies in a box of their own, registered once. Saved for the household as you go (this device's own list when the household's cannot be reached).
-
-type View = { name: "list" } | { name: "person"; id: string } | { name: "allergies"; id: string };
-
-const noopSubscribe = () => () => {};
 
 const dislikeSuggestions = ["koriander", "vitlök", "lök", "svamp", "oliver", "ost", "kryddstarkt", "fisk", "skaldjur", "ingefära"];
 const likeSuggestions = ["pasta", "pizza", "paprika", "nasi goreng", "tacos", "sushi", "ost", "chili", "grillat"];
@@ -35,64 +31,51 @@ const tasteOptions = [
   { value: "2", label: "Älskar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👍👍</span> },
 ].map((option) => ({ ...option, iconOnly: true }));
 
-/** The Tillval link row to the profiles, shown only while Menyrådgivare is on. */
-export function MenuProfilesLink() {
-  const on = useOption("menuAdvisor");
-  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  if (!mounted || !on) return null;
-  return (
-    <Link
-      href="/installningar/tillval/aata-ute"
-      data-testid="menu-profiles-link"
-      className="mb-6 flex min-h-row items-center gap-3 rounded-lg bg-surface px-4 py-2.5 text-ink"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block text-row-title">Äta ute: smak och allergier</span>
-        <span className="block text-meta text-ink-2">Hushållets medlemmar och andra, sparat för hela hushållet</span>
-      </span>
-      <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
-    </Link>
-  );
-}
-
 /**
- * `members`: the household's members, read on the server (null = could not be read: only "Du" and those added by hand).
- * `profiles`: what the household has saved, read on the server (null = could not be read: this device's own list).
+ * One person's profile (Inställningar → Medlemmar → Smak och allergier): taste, usual drink and allergies, and the
+ * allergies in a box of their own. Does not need the Menyrådgivare option: what is filled in steers the whole app.
+ * `personId`: the person's id ("me", "m-<userId>" or one added by hand). `members`: the household's members, read on
+ * the server (null = could not be read: only "Du" and those added by hand). `profiles`: what the household has saved,
+ * read on the server (null = could not be read: this device's own list). `backHref`: where the list is.
  */
-export function ProfilesScreen({ members = null, profiles = null }: { members?: readonly HouseholdPerson[] | null; profiles?: Person[] | null }) {
-  const enabled = useOption("menuAdvisor");
-  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+export function ProfilesScreen({
+  personId,
+  members = null,
+  profiles = null,
+  backHref,
+}: {
+  personId: string;
+  members?: readonly HouseholdPerson[] | null;
+  profiles?: Person[] | null;
+  backHref: string;
+}) {
+  const router = useRouter();
   const { people, save, remove, notice } = usePeople(members, profiles);
-  const [view, setView] = useState<View>({ name: "list" });
-  if (!mounted) return null;
-  if (!enabled) return <Notice>Menyrådgivaren är avstängd. Slå på den under Inställningar, Tillval.</Notice>;
+  const [allergies, setAllergies] = useState(false);
+  const current = people.find((person) => person.id === personId);
 
-  const current = view.name === "list" ? null : people.find((person) => person.id === view.id);
   let screen: ReactNode;
-  if (view.name === "allergies" && current) {
-    screen = <AllergiesView person={current} onChange={save} onBack={() => setView({ name: "person", id: current.id })} />;
-  } else if (view.name === "person" && current) {
+  if (!current) {
+    screen = (
+      <div className="flex flex-col gap-3" data-testid="menu-profile-missing">
+        <Notice>Personen finns inte längre.</Notice>
+        <Link href={backHref} className="inline-flex min-h-tap items-center text-control font-medium text-accent">
+          Till Medlemmar
+        </Link>
+      </div>
+    );
+  } else if (allergies) {
+    screen = <AllergiesView person={current} onChange={save} onBack={() => setAllergies(false)} />;
+  } else {
     screen = (
       <PersonView
         person={current}
         onChange={save}
-        onAllergies={() => setView({ name: "allergies", id: current.id })}
+        onAllergies={() => setAllergies(true)}
         onRemove={() => {
-          remove(current.id);
-          setView({ name: "list" });
-        }}
-        onBack={() => setView({ name: "list" })}
-      />
-    );
-  } else {
-    // The list; also where a person who was removed (or never there) ends up.
-    screen = (
-      <PeopleList
-        people={people}
-        onOpen={(id) => setView({ name: "person", id })}
-        onAdd={(person) => {
-          save(person);
-          setView({ name: "person", id: person.id });
+          void remove(current.id).then((gone) => {
+            if (gone) router.push(backHref);
+          });
         }}
       />
     );
@@ -109,96 +92,16 @@ export function ProfilesScreen({ members = null, profiles = null }: { members?: 
   );
 }
 
-function summary(person: Person): string {
-  const parts = [
-    Object.keys(person.tastes).length > 0 || person.dislikes.length > 0 || person.likes.length > 0 ? "Smak ifylld" : "Äter allt",
-    person.drink ? drinkLabels[person.drink] : null,
-    person.allergies.length > 0 ? `Allergi: ${person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ")}` : null,
-  ];
-  return parts.filter(Boolean).join(" · ");
-}
-
-function PeopleList({ people, onOpen, onAdd }: { people: Person[]; onOpen: (id: string) => void; onAdd: (person: Person) => void }) {
-  const id = useId();
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<Person["kind"]>("member");
-  return (
-    <div className="flex flex-col gap-4" data-testid="menu-profiles">
-      <p className="text-body text-ink-2">
-        Hushållets medlemmar finns med här av sig själva. Fyll i det som gäller, en gång: resten räknas som allätare. Det sparas för hushållet och syns på alla era telefoner.
-      </p>
-      <ul className="divide-y divide-border overflow-hidden rounded-lg bg-surface">
-        {people.map((person) => (
-          <li key={person.id}>
-            <button
-              type="button"
-              data-testid="menu-profile-row"
-              onClick={() => onOpen(person.id)}
-              className="flex min-h-row w-full items-center gap-3 px-4 py-2.5 text-left"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-row-title">
-                  {person.name}
-                  {person.kind === "guest" ? <span className="ml-2 text-meta font-normal text-ink-2">Gäst</span> : null}
-                </span>
-                <span className="block text-meta text-ink-2">{summary(person)}</span>
-              </span>
-              <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
-            </button>
-          </li>
-        ))}
-      </ul>
-      {adding ? (
-        <form
-          className="flex flex-col gap-2 rounded-lg bg-surface p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (name.trim() === "") return;
-            onAdd(newPerson(makePersonId(), name, kind));
-          }}
-        >
-          <label htmlFor={`${id}-name`} className="text-control text-ink">
-            Namn
-          </label>
-          <Input id={`${id}-name`} data-testid="menu-person-name" value={name} maxLength={maxNameLength} autoFocus onChange={(event) => setName(event.target.value)} />
-          <Segment<Person["kind"]>
-            label="Vem är det?"
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: "member", label: "I hushållet" },
-              { value: "guest", label: "Gäst" },
-            ]}
-          />
-          <Button type="submit" disabled={name.trim() === ""}>
-            Lägg till
-          </Button>
-        </form>
-      ) : people.length >= maxPeople ? null : (
-        <div className="flex flex-col gap-1">
-          <Button variant="secondary" fullWidth data-testid="menu-person-add" onClick={() => setAdding(true)}>
-            Lägg till person utan konto
-          </Button>
-          <p className="text-meta text-ink-3">T.ex. barn eller en vän. Sparas för hushållet.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PersonView({
   person,
   onChange,
   onAllergies,
   onRemove,
-  onBack,
 }: {
   person: Person;
   onChange: (person: Person) => void;
   onAllergies: () => void;
   onRemove: () => void;
-  onBack: () => void;
 }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
@@ -209,9 +112,6 @@ function PersonView({
   }
   return (
     <div className="flex flex-col gap-5" data-testid="menu-profile">
-      <Button variant="compact" onClick={onBack} className="self-start">
-        Alla personer
-      </Button>
       {isHouseholdPerson(person) ? (
         <h2 className="text-section-title text-ink">{person.name}</h2>
       ) : (
@@ -304,7 +204,7 @@ function PersonView({
       </button>
 
       {isHouseholdPerson(person) ? (
-        <p className="text-meta text-ink-3">Sparas för hushållet. Du fyller i det en gång.</p>
+        <p className="text-meta text-ink-3">Sparas för hushållet och syns på alla era telefoner. Alla i hushållet kan ändra.</p>
       ) : confirming ? (
         <div className="flex flex-col gap-2 rounded-lg bg-surface p-4">
           <p className="text-body text-ink">Ta bort {person.name}? Det går inte att ångra.</p>
@@ -318,9 +218,12 @@ function PersonView({
           </div>
         </div>
       ) : (
-        <Button variant="danger" className="self-start" onClick={() => setConfirming(true)}>
-          Ta bort {person.name}
-        </Button>
+        <>
+          <p className="text-meta text-ink-3">Sparas för hushållet och syns på alla era telefoner. Alla i hushållet kan ändra.</p>
+          <Button variant="danger" className="self-start" onClick={() => setConfirming(true)}>
+            Ta bort {person.name}
+          </Button>
+        </>
       )}
     </div>
   );
