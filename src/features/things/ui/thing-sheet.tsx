@@ -412,7 +412,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
             onQuantity={(quantity) => onEvent?.({ kind: "counted", id: thing.id, quantity })}
           />
         ) : null}
-        {link && !photoId ? (
+        {link ? (
           <Link
             href={link.href}
             onClick={onClose}
