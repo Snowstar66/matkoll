@@ -1,0 +1,296 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Livskoll UX-genomgång</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column of finding cards, a sticky filter bar, a decision row on every card. */
+:root {
+  --bg: #f3f6f4; --surface: #ffffff; --ink: #17211c; --ink-2: #4c5a53; --ink-3: #7a8780;
+  --line: #dde5e0; --mint: #d7f0e3; --mint-ink: #1d6b48; --accent: #22805a;
+  --sky: #dcebfa; --sky-ink: #1f5a8f; --sun: #fbecc8; --sun-ink: #7a5208; --rose: #f8dfdc; --rose-ink: #9a3328;
+  --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111714; --surface: #1a221e; --ink: #e7efea; --ink-2: #aab8b0; --ink-3: #7e8c85;
+  --line: #2b3631; --mint: #1e3a2d; --mint-ink: #8fdcb5; --accent: #4cc08b;
+  --sky: #1c2e40; --sky-ink: #9cc8f2; --sun: #3a2f15; --sun-ink: #f1cd7a; --rose: #3d2220; --rose-ink: #f2a79d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111714; --surface: #1a221e; --ink: #e7efea; --ink-2: #aab8b0; --ink-3: #7e8c85;
+  --line: #2b3631; --mint: #1e3a2d; --mint-ink: #8fdcb5; --accent: #4cc08b;
+  --sky: #1c2e40; --sky-ink: #9cc8f2; --sun: #3a2f15; --sun-ink: #f1cd7a; --rose: #3d2220; --rose-ink: #f2a79d; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+h1 { font: 700 clamp(28px, 6vw, 40px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font: 600 22px/1.2 var(--display); margin: 0; text-wrap: balance; }
+h3 { font: 600 18px/1.3 var(--display); margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.lede { color: var(--ink-2); max-width: 62ch; }
+.how { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 15px; }
+.how strong { color: var(--ink); }
+.tally { display: flex; flex-wrap: wrap; gap: 8px; }
+.tally span { font-size: 14px; padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 600; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 14px/1 var(--body); padding: 9px 12px; min-height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.chip:focus-visible, .pick button:focus-visible, .shot:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--ink-3); }
+.list { display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card[data-choice="ja"] { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.card[data-choice="nej"] { opacity: 0.62; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.id { font: 500 12px/1 var(--mono); color: var(--ink-3); margin-right: 2px; }
+.tag { padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+.p1 { background: var(--rose); color: var(--rose-ink); }
+.p2 { background: var(--sun); color: var(--sun-ink); }
+.p3 { background: var(--line); color: var(--ink-2); }
+.cat { background: var(--sky); color: var(--sky-ink); }
+.sz, .mock { background: var(--mint); color: var(--mint-ink); }
+.area { color: var(--ink-3); }
+.label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.block { display: flex; flex-direction: column; gap: 2px; }
+.prop { background: var(--mint); color: var(--ink); border-radius: 10px; padding: 10px 12px; }
+.prop .label { color: var(--mint-ink); }
+.note { background: var(--sun); color: var(--sun-ink); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+.shots { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.shot { flex: none; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: zoom-in; width: 96px; aspect-ratio: 375 / 812; }
+.shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pick button { font: 600 15px/1 var(--body); min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.pick button[aria-pressed="true"][data-v="ja"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.pick button[aria-pressed="true"][data-v="senare"] { background: var(--sun); border-color: var(--sun-ink); color: var(--sun-ink); }
+.pick button[aria-pressed="true"][data-v="nej"] { background: var(--line); border-color: var(--ink-3); color: var(--ink); }
+textarea { width: 100%; min-height: 44px; resize: vertical; font: 400 15px/1.4 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.empty { color: var(--ink-3); text-align: center; padding: 24px; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+details summary { cursor: pointer; font: 600 18px/1.3 var(--display); min-height: 28px; }
+details[open] summary { margin-bottom: 10px; }
+ol.themes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); }
+ol.themes b { color: var(--ink); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--ink-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+td:nth-child(2) { color: var(--mint-ink); font-weight: 600; }
+td:nth-child(3) { color: var(--ink-3); }
+dialog { border: none; padding: 0; background: transparent; max-width: min(94vw, 460px); max-height: 94vh; }
+dialog::backdrop { background: rgba(0,0,0,0.72); }
+dialog img { display: block; max-width: 100%; max-height: 86vh; border-radius: 12px; }
+dialog button { margin-top: 8px; width: 100%; min-height: 44px; border-radius: 10px; border: none; font: 600 15px var(--body); background: var(--surface); color: var(--ink); cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s, opacity .15s; } }
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <p class="label">Livskoll · 7 november 2026</p>
+    <h1>UX-genomgång inför första täta versionen</h1>
+    <p class="lede">40 fynd från en genomgång av alla flikar och sex användarresor i mobilbredd, mörkt läge och 200 % text. Varje fynd har problemet, ett konkret förslag och skärmbilder.</p>
+  </header>
+
+  <section class="how" aria-label="Så väljer du">
+    <p><strong>Välj Gör, Senare eller Nej på varje fynd.</strong> Skriv en kommentar om du vill ändra förslaget. Dina val sparas direkt och jag läser dem härifrån.</p>
+    <p>Gula rutor visar där förslaget går emot något du själv har bestämt tidigare. ”Skiss” betyder att layout eller flöde ändras, och då gör jag en mockup innan bygget.</p>
+  </section>
+
+  <div class="tally" id="tally"></div>
+
+  <div class="bar">
+    <div class="chips" role="group" aria-label="Visa">
+      <button class="chip" data-f="all" aria-pressed="true">Alla</button>
+      <button class="chip" data-f="p1" aria-pressed="false">Prioritet 1</button>
+      <button class="chip" data-f="p2" aria-pressed="false">Prioritet 2</button>
+      <button class="chip" data-f="p3" aria-pressed="false">Prioritet 3</button>
+      <button class="chip" data-f="open" aria-pressed="false">Ej valda</button>
+    </div>
+    <p class="status" id="status" aria-live="polite">Ansluter …</p>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <details>
+    <summary>Fem genomgående teman</summary>
+    <ol class="themes">
+      <li><b>Samma uppgift ser olika ut på olika flikar.</b> Lägg till, Ta bort, Välj vecka, tillbakaknappar, stegräknare och tomma lägen. Komponenterna finns redan; vinsten är att använda dem överallt.</li>
+      <li><b>Saker står kvar när de är klara.</b> ”Ny” på alla rader, fotogranskningen efter Spara, veckoknapparna efter att rätten planerats. Regel: det som är gjort försvinner och lämnar en bekräftelse med Ångra.</li>
+      <li><b>Ordlistan följs inte överallt.</b> Lager, ingrediens, extrapris, pristagg, fota och fotografera om samma saker. Hjälpen beskriver dessutom gammalt beteende.</li>
+      <li><b>För många val där en tydlig väg behövs.</b> Inloggningen, tre fasta knappar i butiken, tre lager första gången, viktigast längst ned i erbjudandearket.</li>
+      <li><b>Statusfärger och etiketter följer inte designen.</b> ”Saknas” i rött, erbjudanden på fyra sätt, två olika reservbilder för recept.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>Förslag till ordlista</summary>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Begrepp</th><th>Säg</th><th>Inte</th></tr></thead>
+      <tbody id="glossary"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<dialog id="zoom"><img id="zoomImg" alt=""><button type="button" id="zoomClose">Stäng</button></dialog>
+
+<script id="data" type="application/json">{
+ "findings": [
+  {
+   "id": "UX-01",
+   "title": "”Ny” på varje rad i Inköpslistan",
+   "area": "Inköpslista",
+   "category": "brus",
+   "problem": "När veckan just planerats får alla 38 rader märket ”Ny” i 48 timmar, också det du själv lagt dit. När allt är nytt säger märket ingenting och gör listan svårare att skumma i butiken.",
+   "proposal": "Visa ”Ny” bara på rader som någon annan i hushållet lagt till sedan du senast öppnade listan (samma regel som siffran på fliken). Rader från din egen planering och dina egna varor får aldrig ”Ny”.",
+   "size": "liten",
+   "needsMockup": false,
+   "priority": 1,
+   "note": null,
+   "shots": []
+  },
+  {
+   "id": "UX-02",
+   "title": "För många fasta knappar i butiken",
+   "area": "Inköpslista (i butiken)",
+   "category": "brus",
+   "problem": "Längst ned ligger på samma gång den runda +-knappen, ”Lägg till i Matvaror 6” och ”Kopiera till ICA-varukorgen”. Textknappen har ingen bakgrund när inget är bockat och ligger ovanpå raderna, och +-knappen täcker soptunnorna. Med 200 % text tar knapparna halva skärmen och täcker filtren.",
+   "proposal": "Ha en enda fast rad längst ned: ”Lägg till i Matvaror (6)” (primär), och bara när något är bockat. Flytta ”Kopiera till ICA-varukorgen” och ”Dela listan” till en ⋯-meny i rubriken. Ersätt +-knappen med raden ”+ Lägg till vara” överst i listan, så som hjälpen redan beskriver det.",
+   "size": "mellan",
+   "needsMockup": true,
+   "priority": 1,
+   "note": null,
+   "shots": []
+  }
+ ],
+ "glossary": [
+  [
+   "Appen",
+   "Livskoll",
+   "Matkoll (bara i kod)"
+  ],
+  [
+   "Sidan med maten hemma",
+   "Matvaror",
+   "lager, lagret, Lagersaldo, Hemma som sidnamn"
+  ]
+ ]
+}</script>
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("data").textContent);
+  const findings = data.findings;
+  const glossary = data.glossary;
+  let picks = {};
+  let filter = "all";
+  let db = null;
+  const store = "ux-picks";
+
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const catName = { otydligt: "Otydligt", inkonsekvent: "Inkonsekvent", brus: "Brus" };
+
+  const gl = document.getElementById("glossary");
+  glossary.forEach(([a, b, c]) => { const tr = document.createElement("tr"); [a, b, c].forEach((t) => tr.appendChild(el("td", null, t))); gl.appendChild(tr); });
+
+  function local(read, value) {
+    try { if (read) return JSON.parse(localStorage.getItem(store) || "{}"); localStorage.setItem(store, JSON.stringify(value)); } catch (e) { return {}; }
+  }
+
+  function tally() {
+    const t = document.getElementById("tally"); t.textContent = "";
+    const count = (v) => findings.filter((f) => (picks[f.id] || {}).choice === v).length;
+    const rows = [["Gör", count("ja")], ["Senare", count("senare")], ["Nej", count("nej")], ["Ej valda", findings.length - count("ja") - count("senare") - count("nej")]];
+    rows.forEach(([label, n]) => { const s = el("span"); s.appendChild(el("b", null, String(n))); s.appendChild(document.createTextNode(" " + label)); t.appendChild(s); });
+  }
+
+  function save(id, patch) {
+    picks[id] = Object.assign({}, picks[id] || {}, patch, { at: new Date().toISOString() });
+    tally(); render();
+    if (db) {
+      db.doc("picks/" + id).set(picks[id]).then(() => setStatus("Sparat.")).catch((e) => setStatus("Kunde inte spara (" + e.code + "). Försök igen."));
+    } else { local(false, picks); }
+  }
+
+  function setStatus(t) { document.getElementById("status").textContent = t; }
+
+  function card(f) {
+    const pick = picks[f.id] || {};
+    const c = el("article", "card"); c.dataset.choice = pick.choice || "";
+    const meta = el("div", "meta");
+    meta.appendChild(el("span", "id", f.id));
+    meta.appendChild(el("span", "tag p" + f.priority, "P" + f.priority));
+    meta.appendChild(el("span", "tag cat", catName[f.category] || f.category));
+    meta.appendChild(el("span", "tag sz", f.size));
+    if (f.needsMockup) meta.appendChild(el("span", "tag mock", "Skiss"));
+    meta.appendChild(el("span", "area", f.area));
+    c.appendChild(meta);
+    c.appendChild(el("h3", null, f.title));
+    const pb = el("div", "block"); pb.appendChild(el("span", "label", "Problem")); pb.appendChild(el("p", null, f.problem)); c.appendChild(pb);
+    const pr = el("div", "block prop"); pr.appendChild(el("span", "label", "Förslag")); pr.appendChild(el("p", null, f.proposal)); c.appendChild(pr);
+    if (f.note) c.appendChild(el("p", "note", f.note));
+    if (f.shots.length) {
+      const s = el("div", "shots");
+      f.shots.forEach((src, i) => {
+        const b = el("button", "shot"); b.type = "button"; b.setAttribute("aria-label", "Visa skärmbild " + (i + 1) + " för " + f.id);
+        const img = el("img"); img.src = src; img.alt = ""; img.loading = "lazy"; b.appendChild(img);
+        b.addEventListener("click", () => { const z = document.getElementById("zoom"); document.getElementById("zoomImg").src = src; document.getElementById("zoomImg").alt = "Skärmbild för " + f.id; z.showModal(); });
+        s.appendChild(b);
+      });
+      c.appendChild(s);
+    }
+    const p = el("div", "pick"); p.setAttribute("role", "group"); p.setAttribute("aria-label", "Beslut för " + f.id);
+    [["ja", "Gör"], ["senare", "Senare"], ["nej", "Nej"]].forEach(([v, label]) => {
+      const b = el("button", null, label); b.type = "button"; b.dataset.v = v; b.setAttribute("aria-pressed", String(pick.choice === v));
+      b.addEventListener("click", () => save(f.id, { choice: pick.choice === v ? null : v }));
+      p.appendChild(b);
+    });
+    c.appendChild(p);
+    const ta = el("textarea"); ta.id = "note-" + f.id; ta.placeholder = "Kommentar (valfri)"; ta.setAttribute("aria-label", "Kommentar till " + f.id); ta.value = pick.note || "";
+    ta.addEventListener("change", () => save(f.id, { note: ta.value.trim() }));
+    c.appendChild(ta);
+    return c;
+  }
+
+  function render() {
+    const list = document.getElementById("list");
+    const active = document.activeElement && document.activeElement.id;
+    const shown = findings.filter((f) => filter === "all" ? true : filter === "open" ? !(picks[f.id] || {}).choice : "p" + f.priority === filter);
+    list.textContent = "";
+    if (!shown.length) list.appendChild(el("p", "empty", "Inga fynd här. Alla är valda."));
+    shown.forEach((f) => list.appendChild(card(f)));
+    if (active && active.startsWith("note-")) { const n = document.getElementById(active); if (n) n.focus(); }
+  }
+
+  document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+    filter = b.dataset.f;
+    document.querySelectorAll(".chip").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+    render();
+  }));
+  document.getElementById("zoomClose").addEventListener("click", () => document.getElementById("zoom").close());
+  document.getElementById("zoom").addEventListener("click", (e) => { if (e.target.id === "zoom") e.currentTarget.close(); });
+
+  picks = local(true) || {};
+  tally(); render();
+
+  if (window.claude && window.claude.use) {
+    window.claude.use("db").then((d) => {
+      if (!d) { setStatus("Valen sparas bara i den här webbläsaren. Berätta för mig vilka du valt."); return; }
+      db = d;
+      setStatus("Valen sparas och jag kan läsa dem.");
+      db.collection("picks").onSnapshot((snap) => {
+        const next = {};
+        snap.docs.forEach((doc) => { if (doc.exists) next[doc.id] = doc.data(); });
+        picks = next; tally();
+        const typing = document.activeElement && document.activeElement.tagName === "TEXTAREA";
+        if (!typing) render();
+      }, () => setStatus("Tappade kontakten med lagringen. Ladda om sidan."));
+    });
+  } else {
+    setStatus("Valen sparas bara i den här webbläsaren. Berätta för mig vilka du valt.");
+  }
+})();
+</script>
+
+</body></html>
