@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menyrådgivare – skiss</title>
+<style>
+  :root {
+    --bg:#F5F7F4; --surface:#FFFFFF; --fill:#EAEDEB; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872;
+    --hair:#E8ECE9; --border:#DCE2DE; --accent:#3E7C62; --mint:#DDEFE5; --mintink:#2C5E48;
+    --sky:#DCE9F6; --skyink:#2E5A85; --sand:#F1ECE2; --sandink:#6E5B3E; --danger:#B3261E; --dangerbg:#F6E4E1; --dangerink:#8C2A23;
+    --clay:#F1E3DD; --lilac:#E6E1F2;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#E9EDEA; color:var(--ink); }
+  .page { max-width:1500px; margin:0 auto; padding:28px 16px 60px; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  p.lead { color:var(--ink2); line-height:1.5; max-width:860px; margin:0 0 8px; }
+  .ill { background:var(--sand); color:var(--sandink); font-size:12px; font-weight:700; padding:1px 7px; border-radius:99px; white-space:nowrap; }
+  .grid { display:flex; flex-wrap:wrap; gap:36px 32px; align-items:flex-start; margin-top:26px; }
+  .scr { width:390px; max-width:100%; }
+  .scr .num { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); }
+  .scr h2 { font-size:18px; margin:2px 0 4px; }
+  .scr p { font-size:13.5px; line-height:1.4; color:var(--ink2); margin:0 0 10px; }
+  .phone { width:390px; max-width:100%; height:844px; background:var(--bg); border-radius:38px; box-shadow:0 20px 60px rgba(27,36,32,.16); position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  .sb { height:40px; flex:none; display:flex; justify-content:space-between; align-items:flex-end; padding:0 26px 4px; font-size:14px; font-weight:600; }
+  .body { flex:1; min-height:0; padding:0 14px; display:flex; flex-direction:column; }
+  .nav { display:flex; align-items:center; height:36px; flex:none; }
+  .nav .bk { color:var(--accent); font-size:15px; font-weight:600; flex:1; }
+  .nav .rt { color:var(--accent); font-size:15px; font-weight:600; }
+  .ttl { font-size:22px; line-height:28px; font-weight:600; letter-spacing:-.2px; margin:0 0 2px; }
+  .sub { font-size:13px; color:var(--ink2); margin:0 0 8px; }
+  .lab { font-size:12px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); margin:12px 2px 6px; display:flex; justify-content:space-between; }
+  .lab span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--ink3); }
+
+  .av { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:var(--sky); color:var(--skyink); flex:none; }
+  .av.b { background:var(--clay); color:#7A4A38; } .av.c { background:var(--lilac); color:#4B3F7A; } .av.d { background:var(--sand); color:var(--sandink); } .av.g { background:var(--fill); color:var(--ink2); }
+  .av.s { width:24px; height:24px; font-size:10px; }
+  .btn { height:48px; border-radius:14px; background:var(--accent); color:#fff; font-weight:600; font-size:16px; display:grid; place-items:center; }
+  .btn.alt { background:var(--surface); color:var(--accent); border:1.5px solid var(--border); }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .dots { display:inline-flex; gap:3px; } .dots i { width:8px; height:8px; border-radius:50%; background:var(--border); } .dots i.f { background:var(--accent); }
+
+  /* 1 camera */
+  .cam { background:#0F1512; color:#fff; }
+  .cam .view { position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 40%,#3A332B 0%,#1B1814 55%,#0C0F0D 100%); }
+  .frame { position:absolute; left:34px; right:34px; top:196px; height:390px; border-radius:18px; }
+  .frame::before,.frame::after { content:""; position:absolute; inset:0; border-radius:18px; border:2.5px solid rgba(255,255,255,.75); -webkit-mask:linear-gradient(#000 0 0) top left/34px 34px no-repeat,linear-gradient(#000 0 0) top right/34px 34px no-repeat,linear-gradient(#000 0 0) bottom left/34px 34px no-repeat,linear-gradient(#000 0 0) bottom right/34px 34px no-repeat; mask:linear-gradient(#000 0 0) top left/34px 34px no-repeat,linear-gradient(#000 0 0) top right/34px 34px no-repeat,linear-gradient(#000 0 0) bottom left/34px 34px no-repeat,linear-gradient(#000 0 0) bottom right/34px 34px no-repeat; }
+  .menuart { position:absolute; inset:14px 16px; background:linear-gradient(170deg,#E9DFC8,#CDBE98); border-radius:8px; transform:rotate(-1.2deg); padding:16px 18px; opacity:.9; }
+  .menuart b { display:block; height:12px; width:55%; background:#7B6A44; border-radius:3px; margin:0 auto 14px; opacity:.7; }
+  .menuart i { display:block; height:6px; background:#8C7B54; border-radius:3px; margin:9px 0; opacity:.45; } .menuart i:nth-child(3n) { width:70%; } .menuart i:nth-child(4n) { width:85%; }
+  .cam .top { position:absolute; left:0; right:0; top:40px; padding:6px 12px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; z-index:2; }
+  .dimbg ~ .top .cp, .cp { display:flex; align-items:center; gap:5px; height:36px; padding:0 10px 0 3px; border-radius:99px; background:rgba(255,255,255,.16); backdrop-filter:blur(10px); font-size:13px; font-weight:600; }
+  .cp .av { width:30px; height:30px; font-size:12px; } .cp.off { opacity:.5; } .cp.off .av { filter:grayscale(.6); }
+  .cp.plain { padding:0 12px; } .cp.on2 { background:rgba(221,239,229,.92); color:var(--mintink); padding:0 12px; margin-left:auto; }
+  .tip { position:absolute; left:0; right:0; top:596px; text-align:center; font-size:13.5px; color:rgba(255,255,255,.85); z-index:2; }
+  .cam .bot { position:absolute; left:0; right:0; bottom:0; background:linear-gradient(transparent,rgba(8,10,9,.88) 28%); padding:50px 16px 24px; z-index:2; }
+  .shutrow { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .thumbs { display:flex; gap:6px; flex:1; } .th { width:42px; height:56px; border-radius:8px; background:linear-gradient(160deg,#EFE6D2,#CBB98F); border:1.5px solid rgba(255,255,255,.6); } .th.b { background:linear-gradient(160deg,#E4EADB,#A9BE96); }
+  .shut { width:72px; height:72px; border-radius:50%; border:4px solid #fff; display:grid; place-items:center; } .shut::after { content:""; width:56px; height:56px; border-radius:50%; background:#fff; }
+  .shutrow .sp { flex:1; text-align:right; font-size:12.5px; color:rgba(255,255,255,.75); }
+
+  /* 2 verdict */
+  .verdict { background:var(--surface); border-radius:18px; padding:12px 14px; }
+  .pastille { display:inline-flex; align-items:center; gap:8px; background:var(--mint); color:var(--mintink); font-weight:700; font-size:17px; padding:6px 14px 6px 12px; border-radius:99px; }
+  .pastille.warn { background:var(--sand); color:var(--sandink); }
+  .vrow { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .vtxt { font-size:14px; line-height:1.4; color:var(--ink2); margin:0; }
+  .meta { display:flex; gap:8px; margin-top:8px; }
+  .mb { flex:1; background:var(--surface); border-radius:14px; padding:9px 12px; }
+  .mb small { display:block; font-size:11.5px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--ink3); }
+  .mb b { font-size:17px; } .eur i { font-style:normal; color:var(--border); } .eur { color:var(--accent); letter-spacing:1px; }
+  .mb span { display:block; font-size:12.5px; color:var(--ink2); }
+  .pk { background:var(--surface); border-radius:14px; padding:8px 12px; margin-bottom:6px; display:flex; gap:10px; align-items:flex-start; }
+  .pk .t { flex:1; min-width:0; } .pk .d { font-size:15px; font-weight:600; line-height:1.25; display:flex; justify-content:space-between; gap:6px; } .pk .d em { font-style:normal; font-weight:500; color:var(--ink2); font-size:13.5px; white-space:nowrap; }
+  .pk .tr { font-size:12.5px; color:var(--ink3); font-style:italic; } .pk .w { font-size:13px; color:var(--ink2); line-height:1.3; margin-top:1px; }
+  .pk.warn { background:#FBF1EF; box-shadow:inset 0 0 0 1.5px #E9C7C2; } .pk .al { margin-top:4px; font-size:12.5px; font-weight:600; color:var(--dangerink); }
+  .foot { margin-top:auto; padding:10px 0 22px; }
+
+  /* 3 simple menu */
+  .search { height:40px; border-radius:12px; background:var(--fill); display:flex; align-items:center; gap:8px; padding:0 12px; color:var(--ink3); font-size:15px; }
+  .filters { display:flex; gap:6px; overflow:hidden; margin:8px -14px 0; padding:0 14px 8px; }
+  .fc { height:34px; padding:0 12px; border-radius:99px; background:var(--surface); border:1.5px solid var(--border); font-size:13.5px; display:flex; align-items:center; white-space:nowrap; color:var(--ink2); flex:none; }
+  .fc.on { background:var(--mint); border-color:var(--mint); color:var(--mintink); font-weight:600; }
+  .best { background:var(--surface); border-radius:16px; overflow:hidden; }
+  .bs { display:flex; align-items:center; gap:10px; padding:8px 12px; border-top:1px solid var(--hair); } .bs:first-child { border-top:0; }
+  .star { width:26px; height:26px; border-radius:50%; background:var(--mint); color:var(--mintink); font-weight:700; font-size:13px; display:grid; place-items:center; flex:none; }
+  .bs .t { flex:1; min-width:0; } .bs .n { font-size:15px; font-weight:600; line-height:1.2; } .bs .m { font-size:12.5px; color:var(--ink2); }
+  .pr { font-size:14px; font-weight:600; white-space:nowrap; }
+  .mi { display:flex; align-items:center; gap:8px; padding:7px 12px; border-top:1px solid var(--hair); }
+  .mi:first-child { border-top:0; } .mi .t { flex:1; min-width:0; } .mi .n { font-size:14.5px; font-weight:500; line-height:1.2; } .mi .n i { font-style:normal; color:var(--ink3); font-weight:400; font-size:12.5px; }
+  .mi .m { font-size:12.5px; color:var(--ink2); } .mi .gp { width:10px; height:10px; border-radius:50%; background:var(--accent); flex:none; } .mi .gp.no { background:var(--border); } .mi .gp.rd { background:#D9847B; }
+  .mi.dim { opacity:.5; }
+  .group { background:var(--bg); font-size:12px; font-weight:600; color:var(--ink2); letter-spacing:.4px; text-transform:uppercase; padding:6px 12px; border-top:1px solid var(--hair); }
+  .tg { font-size:11px; font-weight:600; padding:0 6px; border-radius:99px; background:var(--fill); color:var(--ink2); margin-right:3px; white-space:nowrap; } .tg.r { background:var(--dangerbg); color:var(--dangerink); } .tg.v { background:var(--mint); color:var(--mintink); }
+  .scroll { flex:1; min-height:0; overflow:hidden; }
+
+  /* 4 compare */
+  .rest { display:flex; gap:10px; align-items:center; background:var(--surface); border-radius:16px; padding:10px; margin-bottom:8px; }
+  .rest .im { width:54px; height:54px; border-radius:12px; flex:none; background:linear-gradient(135deg,#E9B872,#C8743F 60%,#8A4B2A); } .rest .im.b { background:linear-gradient(135deg,#BFD8C4,#5E8F5A); } .rest .im.c { background:linear-gradient(135deg,#C8D6E8,#5F7FA6); }
+  .rest .t { flex:1; min-width:0; } .rest .n { font-size:16px; font-weight:600; display:flex; gap:8px; align-items:baseline; } .rest .n .eur { font-size:13px; }
+  .rest .m { font-size:13px; color:var(--ink2); margin-top:1px; } .rest .p { margin-top:4px; }
+  .pill { font-size:12px; font-weight:700; padding:2px 9px; border-radius:99px; background:var(--mint); color:var(--mintink); display:inline-block; } .pill.s { background:var(--sand); color:var(--sandink); } .pill.r { background:var(--dangerbg); color:var(--dangerink); }
+  .rest.pick { outline:2px solid var(--accent); } .rest .ck { color:var(--accent); font-weight:700; font-size:12.5px; margin-top:4px; }
+  .rest .go { color:var(--ink3); font-size:20px; }
+  .info { background:var(--sky); color:var(--skyink); border-radius:12px; padding:9px 12px; font-size:13px; line-height:1.35; margin-bottom:8px; }
+
+  /* 5 guest sheet */
+  .dimbg { position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 40%,#3A332B 0%,#1B1814 55%,#0C0F0D 100%); } .scrim { position:absolute; inset:0; background:rgba(27,36,32,.45); }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:24px 24px 0 0; padding:8px 16px 26px; }
+  .grab { width:36px; height:5px; border-radius:99px; background:var(--border); margin:0 auto 12px; }
+  .input { height:46px; border-radius:12px; background:var(--bg); border:1.5px solid var(--border); padding:0 14px; display:flex; align-items:center; color:var(--ink3); font-size:16px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; } .tgc { min-height:36px; padding:0 12px; border-radius:99px; background:var(--bg); border:1.5px solid var(--border); font-size:14px; display:flex; align-items:center; gap:5px; }
+  .tgc.like { background:var(--mint); border-color:var(--mint); color:var(--mintink); font-weight:600; } .tgc.dis { background:var(--clay); border-color:var(--clay); color:#7A4A38; text-decoration:line-through; } .tgc.al { background:var(--dangerbg); border-color:#E4BDB8; color:var(--dangerink); font-weight:600; }
+  .req { font-size:10.5px; font-weight:700; background:var(--dangerbg); color:var(--dangerink); padding:1px 7px; border-radius:99px; text-transform:none; letter-spacing:0; margin-left:6px; }
+  .quiet { font-size:13px; color:var(--ink3); margin:10px 2px 12px; }
+
+  /* 6 profile */
+  .seg { display:grid; grid-template-columns:repeat(3,1fr); background:var(--fill); border-radius:12px; padding:2px; gap:2px; }
+  .seg span { text-align:center; min-height:40px; font-size:14px; border-radius:10px; color:var(--ink2); display:grid; place-items:center; } .seg span.on { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(27,36,32,.12); }
+  .note { display:flex; gap:8px; border-radius:12px; padding:9px 12px; font-size:13px; line-height:1.35; background:var(--sky); color:var(--skyink); margin-bottom:4px; }
+  .legend { display:flex; gap:12px; font-size:12px; color:var(--ink2); margin:0 2px 6px; } .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; } .dot.l { background:var(--accent); } .dot.d { background:#C98B78; }
+  .list { background:var(--surface); border-radius:16px; overflow:hidden; } .li { padding:10px 14px; border-top:1px solid var(--hair); font-size:14.5px; } .li:first-child { border-top:0; } .li small { display:block; color:var(--ink3); font-size:12px; }
+  .li.add { color:var(--accent); font-weight:600; }
+
+  /* 7 shortcut + tillval */
+  .short { display:flex; align-items:center; gap:12px; background:var(--surface); border-radius:16px; padding:10px 14px; margin-top:10px; outline:2px solid var(--mint); }
+  .short .ic { width:36px; height:36px; border-radius:10px; background:var(--clay); display:grid; place-items:center; font-size:19px; } .short .t { flex:1; font-size:15px; line-height:1.3; } .short .t b { display:block; font-weight:600; } .short .t small { color:var(--ink2); font-size:13px; }
+  .row { display:flex; border-top:1px solid var(--hair); min-height:48px; } .row:first-child { border-top:0; }
+  .dchip { width:50px; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--mint); color:var(--mintink); line-height:1.15; font-size:11.5px; font-weight:600; text-transform:uppercase; } .dchip.e { background:var(--bg); color:var(--ink3); }
+  .rtx { flex:1; padding:7px 10px; } .rtx .n { font-size:15.5px; } .rtx .m { font-size:12.5px; color:var(--ink2); }
+  .sw { width:51px; height:31px; border-radius:99px; background:#CBD2CD; position:relative; flex:none; } .sw::after { content:""; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); } .sw.on { background:var(--accent); } .sw.on::after { left:22px; }
+  .sr { display:flex; align-items:center; gap:12px; padding:9px 14px; border-top:1px solid var(--hair); min-height:52px; } .sr:first-child { border-top:0; } .sr .tx { flex:1; font-size:15.5px; line-height:1.3; } .sr .tx small { display:block; font-size:12.5px; color:var(--ink2); }
+  .tabs { height:74px; flex:none; background:rgba(255,255,255,.92); border-top:.5px solid var(--border); display:grid; grid-template-columns:repeat(5,1fr); padding:8px 2px 0; }
+  .tab { text-align:center; font-size:10.5px; color:var(--ink3); line-height:1.15; } .tab i { display:block; font-style:normal; font-size:20px; margin-bottom:2px; filter:grayscale(1); opacity:.65; } .tab.on { color:var(--accent); font-weight:600; } .tab.on i { filter:none; opacity:1; }
+  .div { margin:14px -14px 0; background:var(--fill); padding:10px 14px; font-size:13px; font-weight:600; color:var(--ink2); }
+
+  .boxes { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:34px; max-width:1000px; }
+  .box { background:var(--surface); border-radius:18px; padding:16px 18px; font-size:15px; line-height:1.5; color:var(--ink2); } .box h2 { font-size:16px; margin:0 0 4px; color:var(--ink); }
+  .box.illb { background:var(--sand); color:var(--sandink); } .box.illb h2 { color:var(--sandink); }
+  .tags.c { gap:6px; } .tgc.c { min-height:32px; padding:0 10px; font-size:13.5px; }
+  .status { background:var(--mint); color:var(--mintink); border-radius:14px; padding:9px 12px; font-size:15px; } .status small { display:block; font-size:12.5px; margin-top:2px; opacity:.9; }
+  .legend2 { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:10px 0 0; }
+  .lab.sl { margin:12px 2px 2px; } .ex { font-size:12.5px; color:var(--ink3); margin:0 2px 6px; }
+  .seg.s4 { grid-template-columns:repeat(4,1fr); } .seg.s4 span { font-size:13px; min-height:36px; }
+  .lr { display:flex; align-items:center; gap:8px; min-height:52px; padding:0 12px 0 14px; border-top:1px solid var(--hair); font-size:15.5px; } .lr:first-child { border-top:0; }
+  .lr .l { flex:1; } .lr .v { color:var(--ink2); font-size:14.5px; text-align:right; } .lr .v.red { color:var(--dangerink); font-weight:600; } .lr .v.e { color:var(--ink3); } .lr .ch { color:var(--ink3); font-size:20px; }
+  .status.calm { background:var(--fill); color:var(--ink2); }
+  .sr.tight { min-height:46px; padding:4px 14px; } .sr.tight .tx { font-size:15.5px; }
+  .sw.on.r { background:#C4574E; }
+  .tri { display:inline-flex; background:var(--fill); border-radius:10px; padding:2px; gap:2px; flex:none; } .tri i { font-style:normal; width:40px; height:32px; display:grid; place-items:center; border-radius:8px; font-size:15px; color:var(--ink3); filter:grayscale(1); opacity:.6; }
+  .tri i.on { background:var(--surface); filter:none; opacity:1; box-shadow:0 1px 2px rgba(27,36,32,.15); } .tri i.on.l { background:var(--mint); } .tri i.on.d { background:var(--clay); }
+  .fade { -webkit-mask:linear-gradient(#000 88%,transparent); mask:linear-gradient(#000 88%,transparent); }
+  .insk { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; color:var(--ink2); margin:0 2px 8px; } .insk b { color:var(--ink); font-weight:600; } .insk .bt { color:var(--accent); font-weight:600; font-size:14px; padding:6px 4px; }
+  .rdo { display:flex; gap:12px; align-items:flex-start; padding:10px 12px; border-radius:14px; background:var(--bg); margin-bottom:6px; } .rdo b { font-size:15.5px; font-weight:600; display:block; } .rdo small { font-size:13px; color:var(--ink2); }
+  .rdo.on { background:var(--mint); } .rdo .radio { width:20px; height:20px; border-radius:50%; border:2px solid var(--border); background:#fff; flex:none; margin-top:2px; } .rdo.on .radio { border:6px solid var(--accent); }
+  .prow { display:flex; gap:6px; margin:0 0 8px; } .prow .fc { height:32px; flex:1; justify-content:center; font-size:13.5px; }
+  .calmnote { font-size:12.5px; color:var(--ink2); background:var(--fill); border-radius:10px; padding:6px 10px; text-align:center; margin-bottom:8px; }
+  .saved { font-size:13px; color:var(--mintink); font-weight:600; text-align:center; margin-bottom:8px; }
+  .foot { padding:6px 0 18px; }
+  .errc { display:flex; flex-direction:column; align-items:center; gap:6px; margin:6px 0 6px; } .eic { width:60px; height:60px; border-radius:50%; background:var(--sand); display:grid; place-items:center; font-size:28px; } .etx { text-align:center; color:var(--ink2); font-size:14.5px; line-height:1.4; }
+  .ord { background:var(--surface); border-radius:16px; padding:4px 10px; } .or { display:flex; align-items:center; gap:7px; min-height:38px; border-top:1px solid var(--hair); font-size:13.5px; } .or:first-child { border-top:0; }
+  .or b { width:54px; font-weight:600; font-size:13.5px; flex:none; } .or .t { flex:1; min-width:0; line-height:1.2; font-weight:500; } .or .t i { display:block; font-style:italic; font-weight:400; color:var(--ink3); font-size:12px; } .or em { font-style:normal; font-weight:600; white-space:nowrap; }
+  .or.warn b, .or.warn em { color:var(--dangerink); } .or.tot { color:var(--mintink); font-weight:600; justify-content:space-between; font-size:13px; min-height:32px; } .or.tot span:last-child { display:none; }
+  .share2 { height:44px; border-radius:12px; background:var(--sky); color:var(--skyink); font-weight:600; font-size:15px; display:grid; place-items:center; margin-top:8px; }
+  .msg { background:var(--bg); border-radius:14px; padding:12px 14px; font-size:14.5px; line-height:1.5; color:var(--ink); }
+  .or .dr { display:block; font-size:12px; color:var(--ink2); font-weight:400; margin-top:1px; } .or .dr u { text-decoration:none; font-size:10.5px; font-weight:600; background:var(--sand); color:var(--sandink); padding:0 6px; border-radius:99px; margin-left:3px; }
+  .or { align-items:flex-start; padding:6px 0; } .or .av { margin-top:2px; } .or.tot2 { background:var(--mint); margin:4px -10px -4px; padding:8px 12px; border-radius:0 0 16px 16px; color:var(--mintink); font-size:13px; line-height:1.35; } .or.tot2 b { font-size:15px; }
+  .cr { display:flex; justify-content:space-between; align-items:center; min-height:48px; padding:0 14px; border-top:1px solid var(--hair); font-size:16px; } .cr:first-child { border-top:0; } .cr.on { background:var(--mint); color:var(--mintink); font-weight:600; } .cr b { color:var(--accent); }
+  .cseg { position:absolute; left:12px; right:12px; top:150px; z-index:2; display:grid; grid-template-columns:1fr 1fr; background:rgba(255,255,255,.16); backdrop-filter:blur(10px); border-radius:10px; padding:2px; } .cseg span { text-align:center; font-size:13px; font-weight:600; padding:6px 0; border-radius:8px; color:rgba(255,255,255,.8); } .cseg span.on { background:rgba(255,255,255,.92); color:var(--ink); }
+  .xr { padding:8px 12px; border-top:1px solid var(--hair); } .xr:first-child { border-top:0; } .xh { display:flex; justify-content:space-between; gap:8px; } .xh b { font-size:15px; } .xh .pr { font-size:13px; font-weight:600; white-space:nowrap; }
+  .xe { font-size:13.5px; color:var(--ink); margin-top:1px; line-height:1.3; } .xi { font-size:12px; color:var(--ink3); margin-top:1px; } .xt { margin-top:3px; display:flex; flex-wrap:wrap; gap:3px; } .al { font-size:11px; font-weight:600; padding:0 6px; border-radius:99px; background:var(--dangerbg); color:var(--dangerink); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Menyrådgivare – fota menyn, få ett utlåtande</h1>
+  <p class="lead">Två lägen: ute på promenad förbi restaurang efter restaurang (fota, få utlåtande, jämför), och vid bordet med en stor meny (få ett fåtal tydliga förslag). Menyer på svenska, engelska, spanska och fler: AI:n läser själv. En tillfällig lista "Ikväll" jämför dagens menyer och töms nästa dag; ingen permanent historik. <span class="ill">Illustrativt</span> Foton, restauranger och priser är exempel; Matsedel-skärmen är återskapad från koden.</p>
+
+  <div class="grid">
+
+  <div class="scr"><div class="num">1 · Kamera</div><h2>Fota menyn utanför</h2>
+    <p>Sällskapet är förvalt; bocka av eller lägg till gäst. Växla till "Bara förklara" för en ren menyförklaring.</p>
+    <div class="phone cam"><div class="view"></div>
+      <div class="frame"><div class="menuart"><b></b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="sb" style="position:absolute;top:0;left:0;right:0;z-index:3;color:#fff"><span>18:42</span><span>●●●</span></div>
+      <div class="top"><div class="cp"><span class="av">P</span>Pontus</div><div class="cp"><span class="av b">M</span>Martina</div><div class="cp off"><span class="av c">E</span>Embla</div><div class="cp plain">＋ Gäst</div><div class="cp on2">Ikväll (3)</div></div>
+      <div class="cseg"><span class="on">Med sällskapet</span><span>Bara förklara</span></div>
+      <div class="tip">Fota gärna fler sidor</div>
+      <div class="bot"><div class="shutrow"><div class="thumbs"><div class="th"></div><div class="th b"></div></div><div class="shut"></div><div class="sp">2 sidor</div></div><div class="btn">Läs menyn</div></div>
+    </div></div>
+
+  <div class="scr"><div class="num">1b · Bara förklara</div><h2>Kamera: bara förklara</h2>
+    <p>Nytt sällskap? Ingen profil krävs. Avatarerna tonas ned och knappen heter "Förklara menyn".</p>
+    <div class="phone cam"><div class="view"></div>
+      <div class="frame"><div class="menuart"><b></b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="sb" style="position:absolute;top:0;left:0;right:0;z-index:3;color:#fff"><span>18:42</span><span>●●●</span></div>
+      <div class="top" style="opacity:.28;pointer-events:none"><div class="cp"><span class="av">P</span>Pontus</div><div class="cp"><span class="av b">M</span>Martina</div><div class="cp off"><span class="av c">E</span>Embla</div><div class="cp plain">＋ Gäst</div><div class="cp on2">Ikväll (3)</div></div>
+      <div class="cseg"><span>Med sällskapet</span><span class="on">Bara förklara</span></div>
+      <div class="tip">Fota gärna fler sidor</div>
+      <div class="bot"><div class="shutrow"><div class="thumbs"><div class="th"></div><div class="th b"></div></div><div class="shut"></div><div class="sp">2 sidor</div></div><div class="btn">Förklara menyn</div></div>
+    </div></div>
+
+  <div class="scr"><div class="num">2 · Utlåtande</div><h2>Vem äter vad?</h2>
+    <p>Överst en beställningslista att läsa från bordet. Bara en i sällskapet har appen, så "Skicka till sällskapet" delar förslaget som text. Standard: var sin rätt och normal prisnivå (val av detta kommer i version 2). Sparas automatiskt i Ikväll. Skrollar.</p>
+    <div class="phone" style="height:1130px"><div class="sb"><span>18:43</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span><span class="rt">Ikväll (3)</span></div>
+      <div class="ttl">Bodega La Parra</div><div class="sub">Läste: spanska · 12 rätter · 2 sidor</div>
+      <div class="lab" style="margin-top:2px">Beställningslista</div>
+      <div class="ord">
+        <div class="or"><span class="av s">P</span><b>Pontus</b><span class="t">Solomillo de buey <i>oxfilé</i><span class="dr">🍺 Öl 69 kr</span></span><em>245</em></div><div class="or"><span class="av s b">M</span><b>Martina</b><span class="t">Gambas al ajillo <i>vitlöksräkor</i><span class="dr">🍷 Vin (glas) ca 65 kr <u>uppskattat</u></span></span><em>165</em></div><div class="or"><span class="av s c">E</span><b>Embla</b><span class="t">Tortilla española <i>potatisomelett</i><span class="dr">🥤 Läsk ca 35 kr <u>uppskattat</u></span></span><em>95</em></div><div class="or warn"><span class="av s g">A</span><b>Anna</b><span class="t">Pollo a la plancha <i>grillad kyckling</i><span class="dr">🍷 Vin (glas) ca 65 kr <u>uppskattat</u></span></span><em>185</em></div><div class="or tot2"><span><b style="width:auto">Totalt ca 920 kr</b> · ca 230 kr per person<br><span style="font-weight:400">varav dryck ca 235 kr, mest uppskattat</span></span></div></div>
+      <div class="ex" style="margin:6px 2px 0">Dryckespriser som inte stod på menyn är uppskattade.</div>
+      <div class="share2">✉ Skicka till sällskapet</div>
+      <div class="verdict"><div class="vrow"><span class="pastille warn">● Passar de flesta</span><span class="dots" style="margin-left:auto"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span></div>
+        <p class="vtxt">Svårt för Anna: nötter finns i det mesta som inte är kött eller skaldjur.</p>
+        <div class="meta" style="margin-top:8px"><div class="mb" style="padding:0;background:none"><small>Prisklass</small><b class="eur">€€<i>€</i></b><span>huvudrätter ca 180–260 kr</span></div><div class="mb" style="padding:0;background:none"><small>Karaktär</small><span style="font-size:14px;color:var(--ink);margin-top:2px">Tapas och grillat, mycket skaldjur</span></div></div></div>
+      <div class="lab" style="margin-top:8px">Varför</div>
+      <div class="pk"><span class="av">P</span><div class="t"><div class="d"><span>Solomillo de buey</span></div><div class="w">Nötkött, bekant. <span class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></span></div></div></div>
+      <div class="pk"><span class="av b">M</span><div class="t"><div class="d"><span>Gambas al ajillo</span></div><div class="w">Skaldjur, lagom nytt. <span class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span></div></div></div>
+      <div class="pk"><span class="av c">E</span><div class="t"><div class="d"><span>Tortilla española</span></div><div class="w">Bekant och billigt. <span class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></span></div></div></div>
+      <div class="pk warn"><span class="av g">A</span><div class="t"><div class="d"><span>Pollo a la plancha</span></div><div class="w">Gäst, smak okänd: brett val.</div><div class="al">⚠ Fråga om nötter innan ni beställer</div></div></div>
+      <div class="foot"><div class="calmnote">ⓘ AI:n kan ha fel. Fråga alltid personalen vid allergi.</div><div class="saved">✓ Sparad i Ikväll</div><div class="btns"><div class="btn alt">Se menyn enklare</div><div class="btn alt">📷 Fota nästa meny</div></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">2b · Fel: oläsbar bild</div><h2>Kunde inte läsa bilden</h2>
+    <p>Skäl och tips; man fotar om direkt.</p>
+    <div class="phone" style="height:560px"><div class="sb"><span>18:44</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span></div>
+      <div class="errc"><div class="eic">📷</div><div class="ttl" style="text-align:center">Kunde inte läsa bilden</div><div class="etx">Bilden var för suddig. Inget har sparats.</div></div>
+      <div class="list"><div class="li">Håll telefonen stilla och vänta på skärpan</div><div class="li">Undvik blänk från lampor och glas</div><div class="li">Mörkt? Slå på blixten eller gå närmare ljus</div></div>
+      <div class="foot"><div class="btn">Fota om</div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">2c · Fel: delvis läst</div><h2>Läste en del</h2>
+    <p>Visas aldrig som säkert för allergi när svaret är ofullständigt.</p>
+    <div class="phone" style="height:560px"><div class="sb"><span>18:44</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span></div>
+      <div class="errc"><div class="eic">⚠️</div><div class="ttl" style="text-align:center">Läste en del</div><div class="etx">12 rätter hittade. Sidan verkar sakna priser.</div></div>
+      <div class="calmnote" style="margin-top:12px;background:var(--dangerbg);color:var(--dangerink)">Allergi: ingen rätt markeras som säker när menyn är ofullständigt läst.</div>
+      <div class="foot"><div class="btns"><div class="btn alt">Fortsätt ändå</div><div class="btn">Fota en sida till</div></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">2d · Fel: ingen uppkoppling</div><h2>Ingen uppkoppling</h2>
+    <p>Bilderna finns kvar i minnet, man fotar inte om.</p>
+    <div class="phone" style="height:520px"><div class="sb"><span>18:44</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span></div>
+      <div class="errc"><div class="eic">📡</div><div class="ttl" style="text-align:center">Ingen uppkoppling</div><div class="etx">AI:n svarar inte just nu. Dina 2 bilder är kvar.</div></div>
+      <div class="thumbs" style="margin:14px auto 0;justify-content:center;flex:none"><div class="th"></div><div class="th b"></div></div>
+      <div class="foot"><div class="btn">Försök igen</div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">2e · Skicka</div><h2>Skicka till sällskapet</h2>
+    <p>Förhandsvisning av texten; "Dela" öppnar telefonens delningsmeny (Messenger, SMS …).</p>
+    <div class="phone"><div class="dimbg"></div><div class="scrim"></div>
+      <div class="sheet"><div class="grab"></div>
+        <div style="font-size:20px;font-weight:600;margin-bottom:8px">Skicka till sällskapet</div>
+        <div class="msg">Förslag på Bodega La Parra:<br>Pontus – Solomillo de buey (oxfilé) + öl<br>Martina – Gambas al ajillo (vitlöksräkor) + vin<br>Embla – Tortilla española (potatisomelett) + läsk<br>Anna – Pollo a la plancha (grillad kyckling) + vin<br>Totalt ca 920 kr inkl. dryck. Fråga personalen om allergier.</div>
+        <p class="quiet">Skickas som vanlig text. Ingen länk, ingen app behövs.</p>
+        <div class="btns"><div class="btn alt">Kopiera</div><div class="btn">Dela …</div></div>
+      </div></div></div>
+
+  <div class="scr"><div class="num">3 · Enklare meny</div><h2>Överblick vid bordet</h2>
+    <p>Hela menyn som lättläst lista med svenska namn och taggar. Tre filter och sök; "Våra 3 bästa val" syns direkt.</p>
+    <div class="phone"><div class="sb"><span>19:05</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Utlåtande</span><span class="rt">Bodega La Parra</span></div>
+      <div class="sub" style="margin:0 2px 6px">Läste: spanska · 12 rätter · 2 sidor</div><div class="search">🔍 Sök i menyn</div>
+      <div class="filters"><span class="fc on">Passar alla</span><span class="fc">Vegetariskt</span><span class="fc">Under 200 kr</span></div>
+      <div class="lab" style="margin-top:2px">Våra 3 bästa val</div>
+      <div class="best">
+        <div class="bs"><span class="star">1</span><div class="t"><div class="n">Pollo a la plancha</div><div class="m">grillad kyckling · passar alla</div></div><span class="pr">185 kr</span></div>
+        <div class="bs"><span class="star">2</span><div class="t"><div class="n">Paella de verduras</div><div class="m">grönsakspaella · passar alla</div></div><span class="pr">170 kr</span></div>
+        <div class="bs"><span class="star">3</span><div class="t"><div class="n">Patatas bravas</div><div class="m">stekt potatis, stark sås · att dela</div></div><span class="pr">65 kr</span></div>
+      </div>
+      <div class="lab">Förrätt</div>
+      <div class="best"><div class="mi"><span class="gp "></span><div class="t"><div class="n">Patatas bravas <i>stekt potatis, stark sås</i></div><div class="m"><span class="tg v">vegetariskt</span></div></div><span class="pr">65 kr</span></div><div class="mi"><span class="gp rd"></span><div class="t"><div class="n">Croquetas <i>kroketter</i></div><div class="m"><span class="tg r">mejeri</span><span class="tg">kött</span></div></div><span class="pr">85 kr</span></div></div>
+      <div class="lab">Huvudrätt</div>
+      <div class="best"><div class="mi"><span class="gp "></span><div class="t"><div class="n">Pollo a la plancha <i>grillad kyckling</i></div><div class="m"><span class="tg">kött</span></div></div><span class="pr">185 kr</span></div><div class="mi"><span class="gp "></span><div class="t"><div class="n">Paella de verduras <i>grönsakspaella</i></div><div class="m"><span class="tg v">vegetariskt</span></div></div><span class="pr">170 kr</span></div><div class="mi"><span class="gp rd"></span><div class="t"><div class="n">Solomillo de buey <i>oxfilé</i></div><div class="m"><span class="tg">kött</span><span class="tg r">nötter i såsen</span></div></div><span class="pr">245 kr</span></div></div>
+      <div class="lab">Drycker <span>passar vem</span></div>
+      <div class="best"><div class="mi" style="padding:5px 12px"><span class="gp"></span><div class="t"><div class="n">Cerveza caña <i>öl</i></div></div><span class="m">🍺 Pontus</span><span class="pr">45 kr</span></div><div class="mi" style="padding:5px 12px"><span class="gp"></span><div class="t"><div class="n">Vino tinto, copa <i>rödvin, glas</i></div></div><span class="m">🍷 Martina, Anna</span><span class="pr">65 kr</span></div><div class="mi" style="padding:5px 12px"><span class="gp"></span><div class="t"><div class="n">Refresco <i>läsk</i></div></div><span class="m">🥤 Embla</span><span class="pr">35 kr</span></div></div>
+      <div class="calmnote" style="margin-top:auto;margin-bottom:12px">ⓘ AI:n kan ha fel. Fråga alltid personalen vid allergi.</div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">3b · Menyn förklarad</div><h2>Bara förklara</h2>
+    <p>Resultatet i läget "Bara förklara": ingen matchning, bara en tydlig, omordnad meny. Kursen (≈) är en uppskattning. "Matcha mot sällskapet" byter läge utan att fota om.</p>
+    <div class="phone"><div class="sb"><span>20:12</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span><span class="rt">Ikväll (3)</span></div>
+      <div class="ttl" style="font-size:20px;line-height:24px">Menyn förklarad</div><div class="sub" style="margin-bottom:6px">Läste: spanska · 12 rätter · priser i € (≈ kr)</div>
+      <div class="btn alt" style="height:40px;font-size:15px">👥 Matcha mot sällskapet</div>
+      <div class="search" style="margin-top:8px;height:36px">🔍 Sök i menyn</div>
+      <div class="filters" style="margin-top:6px;padding-bottom:4px"><span class="fc">Vegetariskt</span><span class="fc">Utan skaldjur</span><span class="fc">Under 200 kr</span></div>
+      <div class="scroll fade"><div class="lab sl">Förrätt</div><div class="best"><div class="xr"><div class="xh"><b>Pulpo a la gallega</b><span class="pr">14,50 € ≈ 165 kr</span></div><div class="xe">kokt bläckfisk med potatis och paprika</div><div class="xi">bläckfisk, potatis, paprikapulver, olivolja</div><div class="xt"><span class="tg">fisk</span><span class="al">🦐 skaldjur</span></div></div><div class="xr"><div class="xh"><b>Croquetas de jamón</b><span class="pr">8 € ≈ 90 kr</span></div><div class="xe">krämiga friterade kroketter med skinka</div><div class="xi">skinka, mjölk, vetemjöl</div><div class="xt"><span class="tg">kött</span><span class="al">🥛 mjölk</span><span class="al">🌾 gluten</span></div></div></div><div class="lab sl">Varmrätt</div><div class="best"><div class="xr"><div class="xh"><b>Paella de verduras</b><span class="pr">15 € ≈ 170 kr</span></div><div class="xe">risrätt med grönsaker och saffran</div><div class="xi">ris, paprika, ärtor, saffran</div><div class="xt"><span class="tg v">vegetariskt</span></div></div><div class="xr"><div class="xh"><b>Solomillo de buey</b><span class="pr">24 € ≈ 275 kr</span></div><div class="xe">grillad oxfilé med sås</div><div class="xi">oxfilé, rödvinssås, potatis</div><div class="xt"><span class="tg">kött</span><span class="al">🥜 nötter</span></div></div></div><div class="lab sl">Efterrätt</div><div class="best"><div class="xr"><div class="xh"><b>Crema catalana</b><span class="pr">6 € ≈ 70 kr</span></div><div class="xe">katalansk vaniljkräm med brynt socker</div><div class="xi">mjölk, ägg, socker, kanel</div><div class="xt"><span class="tg v">vegetariskt</span><span class="al">🥛 mjölk</span><span class="al">🥚 ägg</span></div></div></div><div class="lab sl">Drycker</div><div class="best"><div class="xr"><div class="xh"><b>Cerveza caña</b><span class="pr">3,50 € ≈ 40 kr</span></div><div class="xe">litet fatöl</div><div class="xi">öl</div><div class="xt"><span class="tg">alkohol</span></div></div></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">4 · Ikväll</div><h2>Jämför dagens menyer</h2>
+    <p>Tillfällig lista över menyer ni fotat idag. Töms nästa dag eller med "Rensa". Inget register.</p>
+    <div class="phone"><div class="sb"><span>18:58</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Kamera</span><span class="rt">Rensa listan</span></div>
+      <div class="ttl">Ikväll</div><div class="sub">3 menyer · töms i morgon</div>
+      <div class="rest pick"><div class="im"></div><div class="t"><div class="n">Bodega La Parra <span class="eur">€€</span></div><div class="m">Totalt ca 920 kr inkl. dryck</div><div class="p"><span class="pill s">Passar de flesta</span></div><div class="ck">✓ Vi tar den här</div><div class="ck" style="margin-top:6px;color:var(--skyink)">✉ Skicka till sällskapet</div></div><span class="go">›</span></div>
+      <div class="rest"><div class="im b"></div><div class="t"><div class="n">Casa Verde <span class="eur">€</span></div><div class="m">Bäst: Paella de verduras, 140 kr</div><div class="p"><span class="pill">Passar alla</span></div></div><span class="go">›</span></div>
+      <div class="rest"><div class="im c"></div><div class="t"><div class="n">El Puerto <span class="eur">€€€</span></div><div class="m">Bäst: Arroz negro, 260 kr</div><div class="p"><span class="pill r">Svårt för Anna</span></div></div><span class="go">›</span></div>
+      <div class="info">Tips: tryck på en rad för utlåtande och enklare meny. Markera en med "Vi tar den här".</div>
+      <div class="foot"><div class="btn">📷 Fota nästa meny</div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">5 · Gäst</div><h2>Gäst på ett tryck</h2>
+    <p>Bara namn (valfritt) och allergi. Gästen sparas inte och glöms efter besöket.</p>
+    <div class="phone"><div class="dimbg"></div><div class="frame" style="position:absolute;left:34px;right:34px;top:110px;height:300px"><div class="menuart"><b></b><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="top" style="position:absolute;left:0;right:0;top:40px;padding:6px 12px;display:flex;gap:6px;color:#fff"><div class="cp"><span class="av">P</span>Pontus</div><div class="cp"><span class="av b">M</span>Martina</div><div class="cp"><span class="av c">E</span>Embla</div></div><div class="scrim"></div>
+      <div class="sheet"><div class="grab"></div>
+        <div style="font-size:20px;font-weight:600;margin-bottom:10px">Lägg till gäst</div>
+        <div class="input">Anna <span style="margin-left:8px;font-size:13.5px">(namn valfritt)</span></div>
+        <div class="hint" style="margin:6px 2px 8px;font-size:14px;color:var(--ink2)">Allergi? Tryck de som gäller</div>
+        <div class="tags"><span class="tgc">🌾 Gluten</span><span class="tgc">🥛 Laktos</span><span class="tgc al">🥜 Nötter</span><span class="tgc">🦐 Skaldjur</span><span class="tgc">🥚 Ägg</span><span class="tgc">🐟 Fisk</span><span class="tgc">🥦 Vegetariskt</span></div>
+        <div class="hint" style="margin:10px 2px 6px;font-size:14px;color:var(--ink2)">Dryck (valfritt)</div><div class="tags"><span class="tgc like">Vatten</span><span class="tgc">Läsk</span><span class="tgc">Öl</span><span class="tgc">Vin</span></div>
+        <p class="quiet">Sparas inte. Smaken är okänd, så förslaget blir brett.</p>
+        <div class="btn">Lägg till Anna</div>
+      </div></div></div>
+
+  <div class="scr"><div class="num">6a · Hushåll</div><h2>Profilöversikt</h2>
+    <p>Inställningar → Hushåll → Martina. Smak i centrum, allergier som en rad.</p>
+    <div class="phone" style="height:570px"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+<div class="nav"><span class="bk">‹ Hushåll</span><span class="rt">5 snabba frågor</span></div><div style="display:flex;gap:10px;align-items:center;margin:2px 0 8px"><span class="av b" style="width:44px;height:44px;font-size:17px">M</span><div class="ttl" style="margin:0">Martina</div></div><div class="status"><b>Styr förslagen:</b> 5 gillar · 3 undviker</div><div class="ex" style="margin:6px 2px 4px">Tomt = allätare. Det du fyller i styr förslagen.</div><div class="list" style="margin-top:8px"><div class="lr"><span class="l">Smaker</span><span class="v ">Gillar nötkött, pasta +2 · undviker svamp</span><span class="ch">›</span></div><div class="lr"><span class="l">Allergier och kost</span><span class="v red">Nötter, laktos</span><span class="ch">›</span></div><div class="lr"><span class="l">Dryck</span><span class="v ">Öl</span><span class="ch">›</span></div></div><div class="lr" style="background:var(--surface);border-radius:14px;margin-top:14px;min-height:56px"><span class="l" style="font-size:14.5px"><b style="font-weight:600;color:var(--accent)">＋ Lägg till person utan konto</b><br><span style="font-size:12.5px;color:var(--ink3)">t.ex. barn · sparas på den här telefonen</span></span></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">6b · Hushåll</div><h2>Tomt läge</h2>
+    <p>Inget angivet: allätare, AI:n föreslår fritt.</p>
+    <div class="phone" style="height:570px"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+<div class="nav"><span class="bk">‹ Hushåll</span><span class="rt">5 snabba frågor</span></div><div style="display:flex;gap:10px;align-items:center;margin:2px 0 8px"><span class="av b" style="width:44px;height:44px;font-size:17px">M</span><div class="ttl" style="margin:0">Martina</div></div><div class="status calm"><b>Allätare</b> – inget angivet</div><div class="ex" style="margin:6px 2px 4px">Tomt = allätare. Det du fyller i styr förslagen.</div><div class="list" style="margin-top:8px"><div class="lr"><span class="l">Smaker</span><span class="v e">Inget angivet</span><span class="ch">›</span></div><div class="lr"><span class="l">Allergier och kost</span><span class="v e">Inga</span><span class="ch">›</span></div><div class="lr"><span class="l">Dryck</span><span class="v e">Ej valt</span><span class="ch">›</span></div></div><div class="lr" style="background:var(--surface);border-radius:14px;margin-top:14px;min-height:56px"><span class="l" style="font-size:14.5px"><b style="font-weight:600;color:var(--accent)">＋ Lägg till person utan konto</b><br><span style="font-size:12.5px;color:var(--ink3)">t.ex. barn · sparas på den här telefonen</span></span></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">6c · Smaker</div><h2>Huvudsidan för profilen</h2>
+    <p>Det som mest styr förslagen: ett val per matsort.</p>
+    <div class="phone" style="height:844px"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+<div class="nav"><span class="bk">‹ Martina</span></div><div class="ttl">Smaker</div><div class="status" style="margin-top:4px"><b>Styr förslagen:</b> 5 gillar · 3 undviker</div><div class="ex" style="margin:6px 2px 6px">Tomt = allätare. Det du fyller i styr förslagen. 👍 gillar, 👎 undviker, – lämnas.</div><div style="display:flex;gap:8px;margin-bottom:2px"><div class="search" style="flex:1">🔍 Sök</div><div class="search" style="color:var(--accent);font-weight:600;background:var(--mint)">＋ Egen</div></div><div class="scroll fade"><div class="lab sl">Kött och fisk</div><div class="list"><div class="sr tight"><div class="tx">Nötkött</div><span class="tri"><i class="">👎</i><i class="">–</i><i class="on l">👍</i></span></div><div class="sr tight"><div class="tx">Fläsk</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Kyckling</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Lamm</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Fisk</div><span class="tri"><i class="">👎</i><i class="">–</i><i class="on l">👍</i></span></div><div class="sr tight"><div class="tx">Skaldjur</div><span class="tri"><i class="">👎</i><i class="">–</i><i class="on l">👍</i></span></div><div class="sr tight"><div class="tx">Vegetariskt</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div></div><div class="lab sl">Kök</div><div class="list"><div class="sr tight"><div class="tx">Pasta</div><span class="tri"><i class="">👎</i><i class="">–</i><i class="on l">👍</i></span></div><div class="sr tight"><div class="tx">Pizza</div><span class="tri"><i class="">👎</i><i class="">–</i><i class="on l">👍</i></span></div><div class="sr tight"><div class="tx">Asiatiskt</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Mexikanskt</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Indiskt</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Grillat</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Starkt kryddat</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div></div><div class="lab sl">Undviker ofta</div><div class="list"><div class="sr tight"><div class="tx">Svamp</div><span class="tri"><i class="on d">👎</i><i class="">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Koriander</div><span class="tri"><i class="on d">👎</i><i class="">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Lever</div><span class="tri"><i class="on d">👎</i><i class="">–</i><i class="">👍</i></span></div><div class="sr tight"><div class="tx">Oliver</div><span class="tri"><i class="">👎</i><i class="on ">–</i><i class="">👍</i></span></div></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">6d · Allergier</div><h2>Allergier och kost</h2>
+    <p>Undersida, registreras en gång. Switchlista.</p>
+    <div class="phone" style="height:844px"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+<div class="nav"><span class="bk">‹ Martina</span></div><div class="ttl">Allergier och kost</div><div class="ex" style="margin:0 2px 8px">Registreras en gång. Aldrig i förslagen.</div><div class="list"><div class="sr tight"><div class="tx">Gluten</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Laktos</div><span class="sw on r"></span></div><div class="sr tight"><div class="tx">Nötter</div><span class="sw on r"></span></div><div class="sr tight"><div class="tx">Skaldjur</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Ägg</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Fisk</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Soja</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Sesam</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Vegetariskt</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Veganskt</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Halal</div><span class="sw"></span></div><div class="sr tight"><div class="tx">Kosher</div><span class="sw"></span></div><div class="sr tight"><div class="tx" style="color:var(--ink3)">Annat … <span style="font-size:13px">t.ex. kiwi, selleri</span></div></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">6e · Dryck</div><h2>Vad väljer du oftast?</h2>
+    <p>Enval-lista. Dryck är en egen preferens per person och används för totalkostnaden.</p>
+    <div class="phone" style="height:560px"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+      <div class="nav"><span class="bk">‹ Martina</span></div><div class="ttl">Dryck</div>
+      <div class="ex" style="margin:0 2px 8px;font-size:13.5px"><b style="color:var(--ink)">Vad väljer du oftast till maten?</b><br>Används för att räkna ut totalkostnaden. Priset hämtas från menyn, annars uppskattas det. Ej valt = ingen dryck räknas.</div>
+      <div class="list"><div class="cr"><span>Vatten / ingen dryck</span></div><div class="cr"><span>Läsk (Cola, Fanta …)</span></div><div class="cr on"><span>Öl</span><b>✓</b></div><div class="cr"><span>Vin</span></div><div class="cr"><span>Cider</span></div><div class="cr"><span>Alkoholfritt</span></div><div class="cr"><span>Annat</span></div></div>
+    </div></div></div>
+
+  <div class="scr"><div class="num">7 · Genväg och Tillval</div><h2>Ingång och av/på</h2>
+    <p>En enda genväg, under Matsedel. Tillvalet är av som standard och genvägen syns bara när det är på.</p>
+    <div class="phone"><div class="sb"><span>09:12</span><span>●●●</span></div><div class="body">
+      <div style="display:flex;align-items:center;margin:0 2px 6px"><div class="ttl" style="flex:1;font-size:26px;margin:0">Matsedel</div><span style="font-size:20px;color:var(--accent);width:40px;text-align:center">＋</span></div>
+      <div class="lab" style="margin-top:2px;font-size:16px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600">Veckans rätter</div>
+      <div class="list"><div class="row"><div class="dchip"><b>Mån</b><span>9</span></div><div class="rtx"><div class="n">Köttbullar med potatismos</div><div class="m">4 port. · Allt hemma</div></div></div><div class="row"><div class="dchip"><b>Tis</b><span>10</span></div><div class="rtx"><div class="n">Laxpasta med spenat</div><div class="m">4 port. · Saknar 2 varor</div></div></div><div class="row"><div class="dchip e"><b>Fre</b><span>13</span></div><div class="rtx" style="text-align:right;color:var(--ink3);font-size:20px">＋</div></div></div>
+      <div class="short"><div class="ic">🍽️</div><div class="t"><b>Äter ute?</b><small>Menyrådgivaren hjälper er välja</small></div><span style="color:var(--ink3);font-size:22px">›</span></div>
+      <div class="div">Inställningar → Tillval</div>
+      <div class="list" style="margin-top:10px;border-radius:16px">
+        <div class="sr"><div class="tx">Näringsvärden<small>Visa kalorier och näring på recepten</small></div><span class="sw on"></span></div>
+        <div class="sr" style="background:linear-gradient(90deg,var(--mint) 0,var(--mint) 4px,transparent 4px)"><div class="tx"><b style="font-weight:600">Menyrådgivare</b><small>För dig som äter ute och vill ha hjälp att välja. Av som standard.</small></div><span class="sw on"></span></div>
+        <div class="sr"><div class="tx">Timer<small>Visa en timer i receptens steg</small></div><span class="sw"></span></div>
+      </div>
+      <div style="flex:1"></div>
+    </div>
+    <div class="tabs"><div class="tab"><i>📖</i>Recept</div><div class="tab on"><i>🗓️</i>Mat<br>sedel</div><div class="tab"><i>🛒</i>Inköps<br>lista</div><div class="tab"><i>🥕</i>Mat<br>varor</div><div class="tab"><i>📦</i>Förråd</div></div></div></div>
+
+  </div>
+
+  <div class="boxes">
+    <div class="box"><h2>Så byggs den som en flyttbar modul</h2>Steg 1 (läs, förklara, översätt, strukturera, läs även dryckespriser) fungerar fristående och är samma sak som läget "Bara förklara"; steg 2 (matchning mot personer) är valfritt. Valutaomräkning görs i koden mot en kurstabell, inte av modellen, och totalen räknas i koden. Dryck är en egen preferens per person; saknas pris uppskattar steg 2 med standardprisnivån Normalt (val av nivå kommer i version 2). Tre PR:er: 1) backend readMenu + /api/menu/read, 2) UI-MVP, 3) profiler i databasen. Sällskapet sparas lokalt i första versionen. Kameran återanvänds från Förråd. Ingen jobbkö: anropet är synkront med Avbryt. Personer och AI-anrop skickas in utifrån, så modulen kan flyttas till en egen app.</div>
+    <div class="box"><h2>Så vägs olika detaljerade profiler</h2>Tomt = allätare får aldrig mindre vikt. Bara allergier är hårda krav; ogillar är mjuka krav och gillar en bonus. Alla bedöms på samma 1–5-skala, och gruppens mått bygger på lägsta och snittet. Utlåtandet pekar ut flaskhalsen ("Svårt för Anna").</div>
+    <div class="box"><h2>Version 2 (senare)</h2>Dela flera (en växel "Var sin rätt | Dela flera"), prisnivå-chips (Billigt / Normalt / Unna oss) på Utlåtandet, och en utökad smaklista med fler matsorter och fritext. Ikväll-jämförelsen finns kvar i version 1.</div>
+    <div class="box illb"><h2>Illustrativt</h2>Foton, restauranger, rätter och priser är exempel för skissen. Matsedel-skärmen är återskapad från koden.</div>
+  </div>
+</div>
+</body>
+</html>

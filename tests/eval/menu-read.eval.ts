@@ -68,7 +68,7 @@ const budget = Number(args.get("budget") ?? 4.5);
 const only = args.get("only")?.split(",");
 const chosenConfigs = args.get("configs")?.split(",");
 
-const mediaType = (file: string) => (file.endsWith(".png") ? "image/png" : "image/jpeg");
+const mediaType = (file: string) => (file.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
 const imageFiles = (dir: string) =>
   existsSync(dir) ? readdirSync(dir).filter((f) => /\.(png|jpe?g)$/i.test(f)).sort() : [];
 

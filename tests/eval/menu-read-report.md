@@ -4,108 +4,67 @@ Genererad av `pnpm eval:menu` (tests/eval/menu-read.eval.ts). Prompt: tests/eval
 
 Mått: **recall rätter** = andel av sanningens rätter som hittades (fuzzy namnmatchning); **pris rätt** = andel av hittade rätter där pris och valuta stämmer exakt (null väntas där menyn saknar eget pris); **allergen recall/precision** mot allergener som följer av namn/beskrivning (missade allergener är det allvarliga; "inkl. kan_innehåller" räknar en miss som mjuk om modellen åtminstone angav allergenen som osäker; precision är pessimistisk eftersom en riktig men inte sanningsmärkt allergen räknas som fel); **kategori rätt** = kött/fisk/skaldjur/vegetariskt/veganskt; **översättning** = svenska förklaringen innehåller ett av nyckelorden; **parsbar** = giltig JSON enligt schemat (trunkerade svar räknas som fel och som alla rätter missade).
 
-Körningar per bild och konfiguration: 2. Kostnad totalt för sparade körningar: 0.596 USD.
+Körningar per bild och konfiguration: 1. Kostnad totalt för sparade körningar: 0.934 USD.
 
 ### Alla menyer
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 18 | 100.0 % | 100.0 % | 96.8 % | 93.7 % | 90.1 % | 98.8 % | 96.5 % | 94.7 % | 97.7 % | 8.5 s | 0.0014 USD |
-| haiku-medium | 18 | 94.4 % | 93.2 % | 90.8 % | 95.7 % | 87.7 % | 98.7 % | 97.2 % | 95.0 % | 98.6 % | 8.9 s | 0.0020 USD |
-| sonnet-medium | 18 | 100.0 % | 100.0 % | 100.0 % | 98.6 % | 94.3 % | 100.0 % | 99.1 % | 95.3 % | 98.2 % | 13.0 s | 0.0296 USD |
+
 
 ### Språk: es
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 6 | 100.0 % | 100.0 % | 100.0 % | 98.7 % | 92.2 % | 100.0 % | 100.0 % | 91.1 % | 94.9 % | 8.9 s | 0.0015 USD |
-| haiku-medium | 6 | 83.3 % | 80.8 % | 100.0 % | 98.4 % | 95.7 % | 100.0 % | 100.0 % | 93.3 % | 95.2 % | 9.1 s | 0.0026 USD |
-| sonnet-medium | 6 | 100.0 % | 100.0 % | 100.0 % | 100.0 % | 96.9 % | 100.0 % | 100.0 % | 92.9 % | 96.2 % | 13.0 s | 0.0304 USD |
+
 
 ### Språk: en
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 6 | 100.0 % | 100.0 % | 100.0 % | 89.7 % | 98.6 % | 100.0 % | 95.2 % | 100.0 % | 98.7 % | 8.8 s | 0.0015 USD |
-| haiku-medium | 6 | 100.0 % | 100.0 % | 84.6 % | 93.6 % | 95.1 % | 100.0 % | 95.7 % | 98.3 % | 100.0 % | 10.6 s | 0.0018 USD |
-| sonnet-medium | 6 | 100.0 % | 100.0 % | 100.0 % | 98.7 % | 98.6 % | 100.0 % | 99.3 % | 98.3 % | 98.7 % | 13.7 s | 0.0307 USD |
+
 
 ### Språk: sv
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 6 | 100.0 % | 100.0 % | 89.4 % | 92.4 % | 79.7 % | 96.9 % | 96.2 % | 92.6 % | 100.0 % | 6.9 s | 0.0013 USD |
-| haiku-medium | 6 | 100.0 % | 100.0 % | 89.4 % | 95.5 % | 76.6 % | 96.9 % | 98.0 % | 92.6 % | 100.0 % | 7.8 s | 0.0017 USD |
-| sonnet-medium | 6 | 100.0 % | 100.0 % | 100.0 % | 97.0 % | 88.3 % | 100.0 % | 98.3 % | 94.4 % | 100.0 % | 10.6 s | 0.0277 USD |
+
 
 ### Sämre bilder (rotation, oskärpa, låg kontrast, JPEG, perspektiv)
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 8 | 100.0 % | 100.0 % | 91.7 % | 88.1 % | 89.2 % | 97.7 % | 95.1 % | 95.6 % | 98.8 % | 7.6 s | 0.0013 USD |
-| haiku-medium | 8 | 100.0 % | 100.0 % | 77.4 % | 91.7 % | 85.4 % | 98.5 % | 94.9 % | 95.6 % | 100.0 % | 8.6 s | 0.0017 USD |
-| sonnet-medium | 8 | 100.0 % | 100.0 % | 100.0 % | 98.8 % | 93.1 % | 100.0 % | 97.6 % | 95.6 % | 100.0 % | 13.5 s | 0.0283 USD |
+
 
 ### Rena bilder
 
 | Konfiguration | Anrop | Parsbar | Recall rätter | Pris rätt | Grupp rätt | Allergen recall | Allergen recall (inkl. kan_innehåller) | Allergen precision | Kategori rätt | Översättning | Medianlatens | Kostnad/bild |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| haiku-low | 10 | 100.0 % | 100.0 % | 100.0 % | 97.1 % | 90.7 % | 99.5 % | 97.4 % | 94.1 % | 97.1 % | 9.5 s | 0.0015 USD |
-| haiku-medium | 10 | 90.0 % | 89.1 % | 100.0 % | 98.4 % | 89.3 % | 98.9 % | 98.8 % | 94.5 % | 97.6 % | 9.4 s | 0.0024 USD |
-| sonnet-medium | 10 | 100.0 % | 100.0 % | 100.0 % | 98.6 % | 95.1 % | 100.0 % | 100.0 % | 95.1 % | 97.1 % | 12.5 s | 0.0307 USD |
+
 
 ### Per meny (recall / pris rätt / missade allergener, summa över körningar)
 
 | Meny | haiku-low | haiku-medium | sonnet-medium |
 |---|---|---|---|
-| en1-gilded-pig | 100.0 % / 100.0 % / 0 | 100.0 % / 100.0 % / 0 | 100.0 % / 100.0 % / 2 |
-| en2-harbour | 100.0 % / 100.0 % / 1 | 100.0 % / 100.0 % / 3 | 100.0 % / 100.0 % / 0 |
-| en3-blue-door | 100.0 % / 100.0 % / 1 | 100.0 % / 50.0 % / 4 | 100.0 % / 100.0 % / 0 |
-| es1-tapas | 100.0 % / 100.0 % / 3 | 50.0 % / 100.0 % / 0 | 100.0 % / 100.0 % / 0 |
-| es2-menu-del-dia | 100.0 % / 100.0 % / 2 | 100.0 % / 100.0 % / 2 | 100.0 % / 100.0 % / 2 |
-| es3-pizarra | 100.0 % / 100.0 % / 0 | 100.0 % / 100.0 % / 0 | 100.0 % / 100.0 % / 0 |
-| sv1-lilla-torget | 100.0 % / 100.0 % / 8 | 100.0 % / 100.0 % / 9 | 100.0 % / 100.0 % / 0 |
-| sv2-vita-hjorten | 100.0 % / 100.0 % / 6 | 100.0 % / 100.0 % / 9 | 100.0 % / 100.0 % / 6 |
-| sv3-tavlan | 100.0 % / 56.3 % / 12 | 100.0 % / 56.3 % / 12 | 100.0 % / 100.0 % / 9 |
+
 
 ### Tokens
 
-- haiku-low: median 1907 utdatatokens (varav tänkande 0), 4946 indatatokens
-- haiku-medium: median 2063.5 utdatatokens (varav tänkande 0), 4946 indatatokens
-- sonnet-medium: median 1963.5 utdatatokens (varav tänkande 0), 4946 indatatokens
+- haiku-low: median 1925.5 utdatatokens (varav tänkande 0), 4627 indatatokens
+- haiku-medium: median 2152.5 utdatatokens (varav tänkande 0), 4627 indatatokens
+- sonnet-medium: median 1963.5 utdatatokens (varav tänkande 0), 4627 indatatokens
 
 ### Värsta missarna (allergener först, sedan mest frekventa)
 
-- es2-menu-del-dia: ALLERGEN missad: Solomillo de cerdo ibérico (laktos), fanns i kan_innehalla (6 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv2-vita-hjorten: ALLERGEN missad: Svamppasta (agg), fanns i kan_innehalla (6 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv3-tavlan: ALLERGEN missad: Fiskgratäng (gluten), fanns i kan_innehalla (6 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv3-tavlan: ALLERGEN missad: Räksmörgås (laktos), fanns i kan_innehalla (6 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv2-vita-hjorten: ALLERGEN missad: Svampsoppa (laktos), fanns i kan_innehalla (5 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv1-lilla-torget: ALLERGEN missad: Måndag: Pannbiff med lök (gluten), fanns i kan_innehalla (4 körningar: haiku-low, haiku-medium)
-- sv1-lilla-torget: ALLERGEN missad: Tisdag: Ugnsbakad torsk (laktos), fanns i kan_innehalla (4 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Dagens soppa (laktos), fanns i kan_innehalla (4 körningar: haiku-low, haiku-medium, sonnet-medium)
-- en2-harbour: ALLERGEN missad: Lobster roll (agg), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium)
-- en3-blue-door: ALLERGEN missad: The Reuben (agg), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium)
-- sv1-lilla-torget: ALLERGEN missad: Raggmunk med fläsk (gluten), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium)
-- sv2-vita-hjorten: ALLERGEN missad: Älggryta (laktos), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Vegolasagne (laktos), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Vegolasagne (agg) (3 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Kanelbulle (agg), fanns i kan_innehalla (3 körningar: haiku-low, haiku-medium, sonnet-medium)
-- sv3-tavlan: ALLERGEN missad: Vegolasagne (agg), fanns i kan_innehalla (3 körningar: haiku-medium, sonnet-medium)
-- es1-tapas: ALLERGEN missad: Patatas bravas (agg), fanns i kan_innehalla (2 körningar: haiku-low)
-- sv1-lilla-torget: ALLERGEN missad: Måndag: Pannbiff med lök (agg), fanns i kan_innehalla (2 körningar: haiku-low, haiku-medium)
-- sv1-lilla-torget: ALLERGEN missad: Måndag: Pannbiff med lök (agg) (2 körningar: haiku-low, haiku-medium)
-- sv2-vita-hjorten: ALLERGEN missad: Vegetarisk burgare (laktos), fanns i kan_innehalla (2 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Dagens soppa (gluten), fanns i kan_innehalla (2 körningar: haiku-low, haiku-medium)
-- sv3-tavlan: ALLERGEN missad: Dagens soppa (laktos) (2 körningar: haiku-low, haiku-medium)
-- en3-blue-door: ALLERGEN missad: Chocolate malt shake (gluten), fanns i kan_innehalla (2 körningar: haiku-medium)
-- sv1-lilla-torget: ALLERGEN missad: Toast Skagen (laktos), fanns i kan_innehalla (2 körningar: haiku-medium)
-- en1-gilded-pig: ALLERGEN missad: Wild mushroom wellington (laktos), fanns i kan_innehalla (2 körningar: sonnet-medium)
+- inga
 
 ### Misslyckade anrop (ej parsbara)
 
 - haiku-medium es1-tapas #2: stop_reason max_tokens, 16000 utdatatokens
 
+### Riktiga foton (ingen sanning)
+
+Sparade i menu-read-results/ för ögonkontroll: real-IMG_0778, real-IMG_4569, real-IMG_4719, real-IMG_4737, real-IMG_4738, real-IMG_4739, real-IMG_4776, real-IMG_4804, real-IMG_5042, real-IMG_5043.
 
 ## Rekommendation
 
