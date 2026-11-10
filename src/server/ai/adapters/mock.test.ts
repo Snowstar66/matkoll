@@ -846,6 +846,25 @@ describe("mock matchOffers (Story 9.10)", () => {
   });
 });
 
+describe("mock planWeek (Veckoagenten)", () => {
+  const service = createMockAiService();
+  const recipe = (id: string) => ({ id, title: id, ingredients: [], minutes: null, vegetarian: false, offers: [], useSoon: [] });
+  const input = { weekStart: "2026-11-16", openDays: [1, 2, 4], recipes: [recipe("a"), recipe("b"), recipe("c")], fixedDays: [], vegetarianDays: [], leftoverDays: [], skipDays: [], budget: "normal" as const, quickWeekdays: false, useSoonFirst: true, favourOffers: true, likes: [], dislikes: [], recent: [] };
+
+  it("takes the first dishes of the list for the open days and counts as a call", async () => {
+    const seen: AiUsage[] = [];
+    const result = await withUsageSink((usage) => void seen.push(usage), () => service.planWeek(input, signal()));
+    expect(result).toEqual({ ok: true, data: { quality: "standard", picks: [{ dayIndex: 1, recipeId: "a", reasons: [] }, { dayIndex: 2, recipeId: "b", reasons: [] }, { dayIndex: 4, recipeId: "c", reasons: [] }] } });
+    expect(seen).toHaveLength(1);
+  });
+
+  it("is ai_unavailable when stopped", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.planWeek(input, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
+
 describe("mock ideasNow (Story 25.4)", () => {
   const service = createMockAiService();
   const pantry = [{ name: "dressing", amount: null, unit: null }, { name: "ketchup", amount: 1, unit: "st" }];

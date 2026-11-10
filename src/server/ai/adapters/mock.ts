@@ -531,6 +531,7 @@ function countingCalls(service: AiService): AiService {
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
     matchOffers: counted(service.matchOffers),
+    planWeek: counted(service.planWeek),
     thingSearchTerms: counted(service.thingSearchTerms),
     categorizeThings: counted(service.categorizeThings),
   };
@@ -684,6 +685,12 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
     async matchOffers(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
       return ok(mockOfferPairs(input));
+    },
+    async planWeek(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      // Deterministic: the first dishes of the list on the open days, in order.
+      const picks = input.openDays.slice(0, input.recipes.length).map((dayIndex, index) => ({ dayIndex, recipeId: input.recipes[index]?.id ?? "", reasons: [] }));
+      return ok({ picks, quality: input.quality ?? "standard" });
     },
     async thingSearchTerms(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");

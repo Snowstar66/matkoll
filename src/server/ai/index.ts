@@ -28,6 +28,11 @@ export type {
   MergeThingsPair,
   MergeThingsResult,
   NowIdeasInput,
+  PlanWeekInput,
+  PlanWeekPick,
+  PlanWeekQuality,
+  PlanWeekRecipe,
+  PlanWeekResult,
   NowIdeasResult,
   LocateThingInput,
   LocateThingResult,
@@ -44,7 +49,7 @@ export type {
   WarmUpKind,
   WarmUpResult,
 } from "./service";
-export { aiEfforts, menuModels, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
+export { aiEfforts, menuModels, planWeekModels, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
 export type { MenuAnswer, MenuDishAnswer, NowIdea, NowIdeaKind } from "./schemas";
 export { nowIdeaKinds } from "./schemas";
@@ -100,6 +105,7 @@ function withGate(service: AiService, gate: AiGate): AiService {
     askThings: gated(service.askThings),
     mergeThings: gated(service.mergeThings),
     matchOffers: gated(service.matchOffers),
+    planWeek: gated(service.planWeek),
     thingSearchTerms: gated(service.thingSearchTerms),
     categorizeThings: gated(service.categorizeThings),
     warmUp: service.warmUp,
@@ -132,6 +138,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
     askThings: (input, signal, options) => withUsageSink(sink, () => service.askThings(input, signal, options)),
     mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
     matchOffers: (input, signal, options) => withUsageSink(sink, () => service.matchOffers(input, signal, options)),
+    planWeek: (input, signal, options) => withUsageSink(sink, () => service.planWeek(input, signal, options)),
     thingSearchTerms: (input, signal, options) => withUsageSink(sink, () => service.thingSearchTerms(input, signal, options)),
     categorizeThings: (input, signal, options) => withUsageSink(sink, () => service.categorizeThings(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),

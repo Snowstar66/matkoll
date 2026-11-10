@@ -149,3 +149,17 @@ export async function getCookedCountsIn(db: MealPlanDb): Promise<Record<string, 
   }
   return counts;
 }
+
+/** A dish of a week as the week agent reads it: which day, which recipe, and who put it there (`source`: null or "user" is the household). */
+export type WeekDish = { id: string; weekday: number | null; recipeId: string | null; recipeTitle: string; source: string | null; cookedAt: string | null };
+
+/** The dishes of the week starting `weekStart` with `source`, or none when the week has no plan. Throws MealPlanDataError. */
+export async function listWeekDishesIn(db: MealPlanDb, weekStart: string): Promise<WeekDish[]> {
+  const { data, error } = await db
+    .from("meal_plan")
+    .select("id, dishes:meal_plan_recipe(id, recipe_id, recipe_title, weekday, source, cooked_at)")
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  if (error) throw new MealPlanDataError(`query_failed ${error.code}`);
+  return (data?.dishes ?? []).map((dish) => ({ id: dish.id, weekday: dish.weekday, recipeId: dish.recipe_id, recipeTitle: dish.recipe_title, source: dish.source, cookedAt: dish.cooked_at }));
+}
