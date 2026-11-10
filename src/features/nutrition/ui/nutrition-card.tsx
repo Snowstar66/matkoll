@@ -14,8 +14,8 @@ import { useNutritionOptions } from "./use-nutrition-options";
 /**
  * The recipe's nutrition card (only with Tillval "Visa näring" on): the plate, up to two
  * kostråd tags and a colour legend, and with "Visa kcal" a line "ca 300 kcal per portion".
- * A tap opens the sheet "Näring". A recipe that can show neither a plate nor a tag shows
- * no card at all. Everything is per portion, so the chosen portions change nothing.
+ * A tap opens the sheet "Näring". A recipe with no plate and no tag still shows the kcal line when Visa kcal is
+ * on and the numbers are trustworthy; with nothing at all to show there is no card. Everything is per portion, so the chosen portions change nothing.
  */
 export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string; nutrition: RecipeNutrition }) {
   const { show, kcal } = useNutritionOptions();
@@ -25,8 +25,9 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
   const { tags } = assessKostrad(nutrition);
   const { perServing, coverage } = nutrition;
   const unsure = coverage.total > 0 && !isTrustworthy(coverage);
-  if (!shares && tags.length === 0 && !unsure) return null;
   const showKcal = kcal && isTrustworthy(coverage);
+  // Nothing to show: no plate, no tag, no warning and no kcal line (a baked good with Visa kcal on still gets its kcal).
+  if (!shares && tags.length === 0 && !unsure && !showKcal) return null;
   return (
     <>
       <button
