@@ -7,10 +7,10 @@ import { OptionRow, OptionSettings } from "./option-settings";
 beforeEach(() => localStorage.clear());
 
 describe("OptionSettings", () => {
-  it("has the groups I receptet, Näring and Dagens, with the Näring switches off by default", () => {
+  it("has the groups I receptet, Hushållet, Näring and Dagens, with the Näring switches off by default", () => {
     render(<OptionSettings />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
-    expect(headings).toEqual(["I receptet", "Näring", "Dagens", "Äta ute"]);
+    expect(headings).toEqual(["I receptet", "Hushållet", "Näring", "Dagens", "Äta ute"]);
     const show = screen.getByRole("switch", { name: /^Visa näring/ });
     expect(show).toHaveAttribute("aria-checked", "false");
     expect(show).toHaveAccessibleDescription("Tallriken, märken och veckans rad");
@@ -18,6 +18,9 @@ describe("OptionSettings", () => {
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeDisabled();
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("Kräver Visa näring");
     expect(screen.getByRole("switch", { name: /Timer i receptet/ })).toHaveAttribute("aria-checked", "true");
+    const fit = screen.getByRole("switch", { name: /^Visa vem rätten passar/ });
+    expect(fit).toHaveAttribute("aria-checked", "true");
+    expect(fit).toHaveAccessibleDescription("Små prickar på recept och Matsedel när hushållet har olika smak");
   });
 
   it("shows the Näringskoll under Näring only with Visa näring on", async () => {
@@ -42,7 +45,7 @@ describe("OptionSettings", () => {
         }
       />,
     );
-    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["I receptet", "Näring", "Dagens", "Äta ute", "Delade recept"]);
+    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["I receptet", "Hushållet", "Näring", "Dagens", "Äta ute", "Delade recept"]);
     const note = screen.getByText("Gäller bara den här enheten.");
     expect(note.compareDocumentPosition(screen.getByTestId("after")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const show = within(screen.getByTestId("after")).getByRole("switch", { name: /^Visa delade recept/ });

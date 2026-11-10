@@ -4,7 +4,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/cx";
 import { HeartToggle } from "@/components/heart-toggle";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import { TrashButton } from "@/components/trash-button";
 import { RecipeImage } from "@/components/recipe-image";
 import type { DishKind } from "@/lib/dish-kind";
@@ -125,7 +126,7 @@ export function RecipeCard({
             </p>
           ) : null}
           {offerTags}
-          <PreferenceNotes notes={fit} max={2} />
+          <FitRow notes={fit} maxNotes={2} />
         </div>
         {onDelete ? (
           <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />

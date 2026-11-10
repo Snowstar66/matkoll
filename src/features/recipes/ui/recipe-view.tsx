@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import { dishKind } from "@/lib/dish-kind";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
@@ -179,7 +180,7 @@ export function RecipeView({
             {offerLine}
           </p>
         ) : null}
-        <PreferenceNotes notes={fit} />
+        <FitRow notes={fit} expandable />
         </div>
       </header>
 

@@ -220,6 +220,7 @@ test("a favourite is on the first free day after one tap on +, with its own serv
 
 test("hushållets preferenser: a planned dish with grädde is flagged for a laktos allergy, never hidden; no profile, no notes", async ({ page }) => {
   const errors = watchErrors(page);
+  await page.addInitScript(() => localStorage.setItem("livskoll-option-showFit", "0"));
   await clearFoodProfiles(userId);
   await page.goto("/matsedel");
   await expect(dish(page, gryta)).toBeVisible();
@@ -236,6 +237,28 @@ test("hushållets preferenser: a planned dish with grädde is flagged for a lakt
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/preferenser-matsedel.png` });
 
+  await clearFoodProfiles(userId);
+  expect(errors).toEqual([]);
+});
+
+test("Visa vem rätten passar: a planned dish gets a red ring and the word for an allergy, and the notes return when it is off", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seedFoodProfile(userId, { allergies: ["laktos"] });
+  await page.goto("/matsedel");
+  const fit = dish(page, gryta).getByTestId("fit-row");
+  await expect(fit.getByTestId("fit-dot")).toHaveAttribute("data-kind", "allergy");
+  await expect(fit.getByTestId("fit-allergy-word")).toHaveText("Laktos");
+  await expect(dish(page, gryta).getByTestId("preference-notes")).toHaveCount(0);
+  await expect(page.getByTestId("week-allergy-line").filter({ visible: true })).toContainText("kan innehålla en allergen");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-matsedel.png` });
+
+  await page.evaluate(() => localStorage.setItem("livskoll-option-showFit", "0"));
+  await page.reload();
+  await expect(dish(page, gryta).getByTestId("fit-dot")).toHaveCount(0);
+  await expect(dish(page, gryta).getByTestId("preference-notes")).toContainText("Kan innehålla laktos");
+
+  await page.evaluate(() => localStorage.removeItem("livskoll-option-showFit"));
   await clearFoodProfiles(userId);
   expect(errors).toEqual([]);
 });

@@ -176,6 +176,7 @@ test("IDÉER answers like a friend: an intro, text rows, one thing missing apart
 
 test("hushållets preferenser: the sheet notes an Undviker on a recipe and an idea, and an allergy leaves an idea out", async ({ page }) => {
   const errors = watchErrors(page);
+  await page.addInitScript(() => localStorage.setItem("livskoll-option-showFit", "0"));
   await seed({ old: false });
   // The recipe has lime, the mock's dip "buljong med lite gul lök" has lök, and its sandwich has surdegsbröd (gluten).
   await seedFoodProfile(userId, { allergies: ["gluten"], dislikes: ["lime", "lök"] });

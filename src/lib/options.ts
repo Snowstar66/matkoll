@@ -10,6 +10,7 @@
  */
 export const optionGroups = [
   { id: "recipe", label: "I receptet" },
+  { id: "household", label: "Hushållet" },
   { id: "nutrition", label: "Näring" },
   { id: "dagens", label: "Dagens" },
   { id: "menu", label: "Äta ute" },
@@ -40,6 +41,7 @@ export const options = [
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
   },
+  { id: "showFit", group: "household", label: "Visa vem rätten passar", hint: "Små prickar på recept och Matsedel när hushållet har olika smak", defaultOn: true },
   { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
   { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },

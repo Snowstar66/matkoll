@@ -74,6 +74,7 @@ beforeEach(() => {
   logged = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
+  window.localStorage.removeItem("livskoll-option-showFit");
   vi.clearAllMocks();
   logged.mockRestore();
 });
@@ -113,6 +114,7 @@ describe("MealPlanContent", () => {
     };
     vi.mocked(getMealPlanView).mockResolvedValue(withRecipe as never);
     vi.mocked(getFoodFitPeople).mockResolvedValue([{ name: "Anna", allergies: ["gluten"], dislikes: [], likes: [] }]);
+    window.localStorage.setItem("livskoll-option-showFit", "0");
     await show();
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta Alfredo");
     expect(screen.getByTestId("preference-notes")).toHaveTextContent("Kan innehålla gluten (Anna)");
