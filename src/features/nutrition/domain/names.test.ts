@@ -39,6 +39,9 @@ describe("compound fallback", () => {
     expect(nameCandidates("jätteräka")).toEqual(["jätteräka", "räka"]);
     expect(nameCandidates("tigerräkor")).toEqual(["tigerräkor", "räkor"]);
   });
+  it("drops a remark in brackets", () => {
+    expect(nameCandidates("ägg (stora)")).toEqual(["ägg (stora)", "ägg"]);
+  });
   it("takes the longest head: ströbröd before bröd", () => {
     expect(compoundHead("pankoströbröd")).toBe("ströbröd");
     expect(compoundHead("surdegsbröd")).toBe("bröd");

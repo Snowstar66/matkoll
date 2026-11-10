@@ -53,11 +53,13 @@ export function compoundHead(word: string): string | null {
  * (the name itself is the first).
  */
 export function nameCandidates(name: string): string[] {
-  const words = name.trim().split(/\s+/).filter(Boolean);
   const out: string[] = [];
   const add = (candidate: string) => {
     if (candidate && !out.includes(candidate)) out.push(candidate);
   };
+  add(name.trim().split(/\s+/).filter(Boolean).join(" "));
+  // A remark in brackets is not part of the food ("ägg (stora)").
+  const words = name.replace(/\([^)]*\)?/g, " ").trim().split(/\s+/).filter(Boolean);
   add(words.join(" "));
   const kept = words.filter((word) => !DESCRIPTIVE.has(word));
   if (kept.length > 0 && kept.length < words.length) add(kept.join(" "));
