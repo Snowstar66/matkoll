@@ -11,7 +11,8 @@ export {
 } from "./domain/groups";
 export { nameCandidates, compoundHead, COMPOUND_HEADS } from "./domain/names";
 export { toGrams, GARLIC_CLOVE_G } from "./domain/grams";
-export { defaultPortionGrams } from "./domain/portion-defaults";
+export { isNegligible } from "./domain/negligible";
+export { defaultPortionGrams, lengthGrams } from "./domain/portion-defaults";
 export {
   recipeNutrition,
   plateRole,
@@ -47,7 +48,7 @@ export {
   type PlateShares,
   type WeekSummary,
 } from "./domain/kostrad";
-export { KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, checkCountText, checkMissingText, coverageText, portionEstimatesText, shareText, weekLineText } from "./domain/texts";
+export { KOSTRAD_TAG_EXPLANATIONS, PLATE_PARTS, checkCountText, checkMissingText, coverageText, negligibleText, portionEstimatesText, shareText, weekLineText } from "./domain/texts";
 export { nutritionCheck, MAX_MISSING_ITEMS, type CheckedRecipe, type MissingItem, type NutritionCheck } from "./domain/coverage";
 export { NutritionCard } from "./ui/nutrition-card";
 export { NutritionWeekLine, NutritionWeekLineAsync } from "./ui/week-line";

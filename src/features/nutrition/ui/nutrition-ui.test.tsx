@@ -16,6 +16,7 @@ function dish(
   coverage: RecipeNutrition["coverage"] = { counted: 9, total: 11 },
   uncounted: RecipeNutrition["uncounted"] = [],
   portionEstimates: RecipeNutrition["portionEstimates"] = [],
+  negligible: string[] = [],
 ): RecipeNutrition {
   const g = Object.fromEntries(KOSTRAD_GROUPS.map((group) => [group, groups[group] ?? 0])) as Record<KostradGroup, number>;
   return {
@@ -26,6 +27,7 @@ function dish(
     coverage,
     uncounted,
     portionEstimates,
+    negligible,
   };
 }
 
@@ -94,6 +96,14 @@ describe("NutritionCard", () => {
     await userEvent.click(screen.getByTestId("nutrition-card"));
     expect(screen.getByTestId("nutrition-portion-estimates")).toHaveTextContent("Uppskattat till en vanlig portion: jasminris 75 g per portion.");
     expect(screen.getByText(/varav 1 med uppskattad vikt/)).toBeInTheDocument();
+  });
+
+  it("names negligible ingredients that were left out", async () => {
+    saveOption("showNutrition", true);
+    const d = dish({ gronsak: 280, agg: 40, raffinerad: 75 }, { counted: 9, total: 9 }, [], [], ["färsk ingefära"]);
+    render(<NutritionCard recipeTitle="Wok" nutrition={d} />);
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.getByTestId("nutrition-negligible")).toHaveTextContent("Försumbart, ej medräknat: färsk ingefära.");
   });
 
   it("shows no estimate line when nothing was estimated", async () => {
