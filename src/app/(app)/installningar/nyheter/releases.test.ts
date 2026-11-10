@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { latestReleaseDate, releaseDateText, releases, releasesByDate } from "./releases";
 
@@ -22,11 +23,16 @@ describe("releases", () => {
 
   it("are grouped by day for the page", () => {
     const groups = releasesByDate();
-    expect(groups.map((group) => group.date)).toEqual([...new Set(releases.map((release) => release.date))]);
     expect(groups.flatMap((group) => group.entries)).toEqual(releases);
   });
 
   it("show the day in Swedish", () => {
     expect(releaseDateText("2026-11-04")).toBe("4 november 2026");
+  });
+
+  it("collect every file in releases/, each named after its date", () => {
+    const files = readdirSync(new URL("./releases", import.meta.url)).filter((name) => name.endsWith(".ts"));
+    expect(releases).toHaveLength(files.length);
+    for (const file of files) expect(releases.some((release) => file.startsWith(`${release.date}-`))).toBe(true);
   });
 });

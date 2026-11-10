@@ -6,7 +6,7 @@ import { latestReleaseDate, releaseDateText, releasesByDate } from "./releases";
 
 export const metadata: Metadata = { title: "Nyheter" };
 
-// Nyheter: what is new in the app, newest first and grouped by day (releases.ts).
+// Nyheter: what is new in the app, newest first and grouped by day (releases/, collected by releases.ts).
 // Opening it clears the dot on the Nyheter row on this device.
 export default function NewsPage() {
   return (
