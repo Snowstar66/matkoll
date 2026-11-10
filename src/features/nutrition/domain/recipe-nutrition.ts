@@ -1,5 +1,6 @@
 import { estimateGrams, toGrams } from "./grams";
-import { defaultPortionGrams } from "./portion-defaults";
+import { isNegligible } from "./negligible";
+import { defaultPortionGrams, lengthGrams } from "./portion-defaults";
 import { KOSTRAD_GROUPS, type IngredientNutrition, type KostradGroup } from "./groups";
 
 // Nutrition of a recipe per portion, from its lines and the nutrition rows of
@@ -92,6 +93,8 @@ export type RecipeNutrition = {
   uncounted: UncountedLine[];
   /** Lines without an amount that were counted as a usual portion (never written back to the recipe). */
   portionEstimates: PortionEstimate[];
+  /** Negligible ingredients (ginger, herbs, a dash of soy) that could not be weighed and are left out of the coverage. */
+  negligible: string[];
 };
 
 /**
@@ -172,27 +175,57 @@ export function recipeNutrition(
   const uncounted: UncountedLine[] = [];
   let uncountedG = 0;
   const portionEstimates: PortionEstimate[] = [];
+  const negligible: string[] = [];
+  const leaveOut = (line: NutritionLine, nutrition: IngredientNutrition | null) => {
+    const name = lineName(line) ?? nutrition?.name ?? "";
+    if (name && !negligible.includes(name)) negligible.push(name);
+  };
 
   for (const line of lines) {
     const nutrition = line.ingredientId !== null && Object.hasOwn(byIngredientId, line.ingredientId) ? byIngredientId[line.ingredientId] : null;
     if (nutrition?.group === "ej_raknad") continue;
-    // No amount: a known food that carries a dish is counted as a usual portion per person.
-    const portion = line.amount === null ? defaultPortionGrams(nutrition, lineName(line) ?? "") : null;
-    if (line.isVague && line.amount === null && portion === null) continue;
-    total++;
+    const name = lineName(line) ?? "";
+    const isNeg = isNegligible(nutrition, name);
+    // No amount: a length in the text ("5 cm ingefära") or a usual portion of a known food that carries a dish.
+    let guessed: number | null = null;
+    if (line.amount === null && nutrition?.per100g) {
+      guessed = lengthGrams(line.originalText, nutrition, name);
+      if (guessed === null) {
+        const portion = defaultPortionGrams(nutrition, name);
+        if (portion !== null) guessed = portion * portions;
+      }
+    }
+    if (line.isVague && line.amount === null && guessed === null) {
+      if (isNeg) leaveOut(line, nutrition);
+      continue;
+    }
     if (!nutrition?.per100g) {
+      if (isNeg && knownWeight(line) === 0) {
+        leaveOut(line, nutrition);
+        continue;
+      }
+      total++;
       uncounted.push({ label: lineLabel(line, false), reason: "unknown_ingredient", name: lineName(line), unit: line.unit });
       uncountedG += knownWeight(line);
       continue;
     }
-    let lineGrams = portion !== null ? portion * portions : toGrams(line.amount, line.unit, nutrition);
-    if (portion !== null) {
+    let lineGrams: number | null;
+    if (guessed !== null) {
+      lineGrams = guessed;
       estimated++;
-      portionEstimates.push({ name: lineName(line) ?? nutrition.name, gramsPerServing: portion });
-    } else if (lineGrams === null) {
-      lineGrams = estimateGrams(line.amount, line.unit, nutrition);
-      if (lineGrams !== null) estimated++;
+      portionEstimates.push({ name: lineName(line) ?? nutrition.name, gramsPerServing: guessed / portions });
+    } else {
+      lineGrams = toGrams(line.amount, line.unit, nutrition);
+      if (lineGrams === null && isNeg) {
+        leaveOut(line, nutrition);
+        continue;
+      }
+      if (lineGrams === null) {
+        lineGrams = estimateGrams(line.amount, line.unit, nutrition);
+        if (lineGrams !== null) estimated++;
+      }
     }
+    total++;
     if (lineGrams === null) {
       uncounted.push({ label: lineLabel(line, true), reason: "unknown_unit", name: lineName(line), unit: line.unit });
       continue;
@@ -229,6 +262,7 @@ export function recipeNutrition(
     coverage: { counted, total, countedG: grams, uncountedG, estimated },
     uncounted,
     portionEstimates,
+    negligible,
   };
 }
 

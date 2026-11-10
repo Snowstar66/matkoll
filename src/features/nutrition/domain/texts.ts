@@ -69,3 +69,8 @@ export function portionEstimatesText(estimates: readonly PortionEstimate[]): str
   if (estimates.length === 0) return null;
   return `Uppskattat till en vanlig portion: ${estimates.map((e) => `${e.name} ${Math.round(e.gramsPerServing)} g per portion`).join(", ")}.`;
 }
+
+/** "Försumbart, ej medräknat: färsk ingefära."; `null` when nothing was left out. */
+export function negligibleText(names: readonly string[]): string | null {
+  return names.length === 0 ? null : `Försumbart, ej medräknat: ${names.join(", ")}.`;
+}
