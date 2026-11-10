@@ -7,10 +7,10 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
-import { detachRecipeIn } from "./data/write";
+import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn, listWeekDishesIn, type WeekDish } from "./data/queries";
+import { addToCurrentPlanIn, detachRecipeIn, markDishesFromAgentIn, removePlanRecipeIn } from "./data/write";
 import { cookies } from "next/headers";
-import { currentWeekStart, rememberedWeekCookie, viewedWeek } from "./domain/week";
+import { currentWeekStart, rememberedWeekCookie, viewedWeek, weekName } from "./domain/week";
 import {
   toPlanDishes,
   type DishRecipe,
@@ -187,4 +187,33 @@ export async function getMealPlanView(weekStart?: string): Promise<MealPlanView>
 export async function detachRecipe(recipeId: string): Promise<void> {
   const removed = await detachRecipeIn(await createClient(), recipeId);
   if (removed > 0) revalidateFor("meal_plan_recipe");
+}
+
+export type { WeekDish } from "./data/queries";
+
+/** The dishes of a week with the day and who put them there (Veckoagenten); none when the week has no plan. Throws MealPlanDataError. */
+export async function getWeekDishes(weekStart: string): Promise<WeekDish[]> {
+  return listWeekDishesIn(await createClient(), weekStart);
+}
+
+/** A dish "Använd veckan" puts on a day; `id` is made by the caller (the same id twice adds the dish once). */
+export type AgentDish = { id: string; recipeId: string; recipeTitle: string; servings: number; weekday: number };
+
+/**
+ * "Använd veckan" (Veckoagenten): adds the dishes to the plan of `weekStart` (creating it on the first) on their days
+ * and marks them as the agent's (source 'week_agent'). A dish id that is already there is returned as it is, so a
+ * retry adds nothing twice. `replaceDishIds` are removed first (overwrite). Revalidates Matsedel and the list. Throws MealPlanDataError.
+ */
+export async function addAgentDishes(weekStart: string, dishes: readonly AgentDish[], replaceDishIds: readonly string[] = []): Promise<void> {
+  const db = await createClient();
+  try {
+    // Only with the household's confirmation ("Skriv över"): the dishes the new ones take the day from.
+    for (const id of replaceDishIds) await removePlanRecipeIn(db, id);
+    for (const dish of dishes) {
+      await addToCurrentPlanIn(db, { ...dish, planName: weekName(weekStart), weekStart });
+    }
+    await markDishesFromAgentIn(db, dishes.map((dish) => dish.id));
+  } finally {
+    if (dishes.length > 0) revalidateFor("meal_plan_recipe");
+  }
 }

@@ -17,6 +17,7 @@
     "test:integration": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "eval:menu": "node --env-file-if-exists=.env.local tests/eval/menu-read.eval.ts",
+    "eval:week": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config vitest.week-eval.config.ts",
     "eval:ai": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config vitest.eval.config.ts",
     "sites:probe": "node --env-file-if-exists=.env.local scripts/probe-recipe-sites.mjs",
     "db:start": "supabase start",

@@ -20,7 +20,7 @@ export type ApplyPlan = {
  */
 export function applyPlan(proposal: WeekProposal, occupiedDays: readonly number[], overwrite = false): ApplyPlan {
   const occupied = new Set(occupiedDays);
-  const proposed = proposal.days.filter((day) => day.source === "proposed" && day.slot === "dinner" && day.recipeId !== null && !day.locked);
+  const proposed = proposal.days.filter((day) => day.source === "proposed" && day.slot === "dinner" && day.recipeId !== null);
   const write = proposed.filter((day) => overwrite || !occupied.has(day.dayIndex));
   return { write, skippedOccupied: proposed.filter((day) => !write.includes(day)) };
 }

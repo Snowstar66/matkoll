@@ -32,6 +32,17 @@ Status: 2026-11-10. Describes where "Undviker / Älskar / allergies" logic lives
 5. `sameTag` (lower case) in `preferences.ts` vs `sameText` (accent-folded) in `dish-fit.ts`: two equality notions. Left; unifying changes which tags count as the same.
 6. `allergenHits` (menu dishes, from the reading's allergen lists) vs `lineHasAllergen` (keywords in free ingredient text): two different inputs, not duplicates, but both answer "does this contain allergen X".
 
+## Allergen matching rule (hard rule)
+
+Allergies are a hard rule (the Veckoagenten and the Menyrådgivare must never propose a dish that may hold a household allergen), so allergen detection and taste detection deliberately differ:
+
+- **Taste ("Undviker"/"Älskar", `matchPreference`)**: word-start only, so `ost` never finds `kostrad`.
+- **Allergen in ingredient text (`lineHasAllergen`, `allergenWords` in `dish-fit.ts`)**: a keyword also counts as the END of a compound (`ends`, e.g. `matlagningsgrädde`, `getost`, `vetetortilla` via `vete`) and, for long unambiguous stems, anywhere inside a word (`inside`, e.g. `sesam`, `soja`, `nöt`, `räk`, `fisk`). A false "kan innehålla" is acceptable; a silent miss is not.
+- **Exceptions** are explicit and tested in `allergen-keywords.test.ts`: `not` (substring kills the word: `ostron`, `smörgås`, `muskotnöt`, `kokosnöt`, `äggplanta`, `bläckfisk` for fisk, other grains' flours for gluten), `notWords` (exact short words: `kost`, `rost`), `notPattern` (plant dairy is not laktos: `kokosmjölk`, `havregrädde`, `mandelsmör`, `jordnötssmör`) and `free` words that clear a line (`glutenfri`, `laktosfri`, `mjölkfri`, `äggfri`, `nötfri`).
+- Decisions: coconut and nutmeg are not "Nötter"; peanut is (as before). `nöt` at the start of a word is beef (`nötfärs`) except nut words. Oats and soy sauce count as gluten, margarine and glass as laktos, hummus as sesam (cautious on purpose). Squid and octopus are skaldjur, not fisk.
+- Menu dishes use `allergenHits` on the lists the reading model fills in (`allergener`, `kan_innehalla`); there is no keyword matching there.
+- Only the eight allergens in `labels.ts` are tracked; senap, selleri, lupin and sulfit are not detected.
+
 ## The intended single public interface
 
 Everything a consumer needs is exported from `@/features/menu-advisor` (pure) and `@/features/menu-advisor/server` (readers):

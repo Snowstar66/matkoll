@@ -2,7 +2,17 @@
 
 import { requireUser } from "@/features/auth/server";
 import { listStores } from "@/features/settings/server";
-import { getAgentPlacedDays, getWeekAgentSettings } from "@/features/week-agent/server";
+import {
+  alternativesForDay as realAlternatives,
+  applyWeek as realApply,
+  discardDraft as realDiscard,
+  getAgentPlacedDays,
+  getWeekAgentSettings,
+  proposeWeek as realPropose,
+  saveWeekAgentSettings as realSave,
+  setDayLock as realLock,
+  swapDay as realSwap,
+} from "@/features/week-agent/server";
 import { weekStartSchema } from "@/features/mealplan";
 import type {
   AlternativesInput,
@@ -21,39 +31,28 @@ import type { WeekAgentSettings } from "@/features/week-agent";
 import type { SettingsContext } from "@/features/week-agent/ui";
 
 // The Server Actions Matsedel's Veckoagent screens call, at the route layer (AD-1: the screens never import
-// another module; this file puts them together). The seven actions of the contract (src/features/week-agent/actions/
-// contract.ts) belong to the backend (PR 2). Until it lands each answers "error" with a plain message, so the screens
-// show their error state instead of failing; swap each body for a call of the real action when PR 2 is merged.
-
-const notReady = { status: "error" as const, message: "Veckoagenten är inte klar än. Försök igen när den har uppdaterats." };
+// another module; this file puts them together). Each wraps the backend's action (src/features/week-agent/actions).
 
 export async function proposeWeek(input: ProposeWeekInput): Promise<ProposeWeekResult> {
-  void input;
-  return notReady;
+  return realPropose(input);
 }
 export async function alternativesForDay(input: AlternativesInput): Promise<AlternativesResult> {
-  void input;
-  return notReady;
+  return realAlternatives(input);
 }
 export async function swapDay(input: SwapDayInput): Promise<DraftResult> {
-  void input;
-  return notReady;
+  return realSwap(input);
 }
 export async function setDayLock(input: SetDayLockInput): Promise<DraftResult> {
-  void input;
-  return notReady;
+  return realLock(input);
 }
 export async function applyWeek(input: ApplyWeekInput): Promise<ApplyWeekResult> {
-  void input;
-  return notReady;
+  return realApply(input);
 }
 export async function discardDraft(input: DiscardDraftInput): Promise<OkOrError> {
-  void input;
-  return notReady;
+  return realDiscard(input);
 }
 export async function saveWeekAgentSettings(settings: WeekAgentSettings): Promise<OkOrError> {
-  void settings;
-  return notReady;
+  return realSave(settings);
 }
 
 /** The household's settings and followed stores for the sheet Ställ in; `null` when they cannot be read. */

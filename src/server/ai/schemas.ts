@@ -1150,3 +1150,34 @@ export function parseMenu(answer: MenuAnswer): MenuAnswer {
       .slice(0, maxMenuDishes),
   };
 }
+
+/** planWeek: at most seven days, and at most this many reasons per day are kept. */
+export const maxPlanWeekReasons = 3;
+
+/**
+ * What the model answers to planWeek (Veckoagenten): a dish for each open day, as the number the dish has in the list
+ * it was given. The field names are Swedish, as the prompt asks. The caller (the week agent) checks every pick again
+ * in code, so nothing here is trusted: numbers outside the list are kept as unknown and caught there.
+ */
+export const planWeekAnswer = z.object({
+  dagar: z
+    .array(
+      z.object({
+        dag: z.number().describe("Veckodagens nummer: 1 måndag till 7 söndag, en av de lediga dagarna"),
+        recept: z.number().describe("Numret på rätten i listan Rätter"),
+        skal: z.array(z.string()).describe("Högst två korta skäl på svenska, bara fakta ur listan: extrapris, går ut snart, tid, passar vid sidan av en bestämd dag"),
+      }),
+    )
+    .describe("En rad per ledig dag, i dagordning"),
+});
+
+export type PlanWeekAnswer = z.output<typeof planWeekAnswer>;
+
+/** The answer as picks of recipe ids: a number outside the list gives the empty id (the planner's check names it unknown), the days and reasons are cleaned. */
+export function parsePlanWeek(answer: PlanWeekAnswer, recipeIds: readonly string[]): { dayIndex: number; recipeId: string; reasons: string[] }[] {
+  return answer.dagar.map((row) => ({
+    dayIndex: Number.isInteger(row.dag) ? row.dag : 0,
+    recipeId: Number.isInteger(row.recept) && row.recept >= 1 && row.recept <= recipeIds.length ? (recipeIds[row.recept - 1] ?? "") : "",
+    reasons: row.skal.map(cleanModelText).filter((text) => text !== "").slice(0, maxPlanWeekReasons),
+  }));
+}

@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { parseWeekAgentSettings, toStoredSettings, type WeekAgentSettings } from "../domain/settings";
@@ -64,6 +65,14 @@ const columns = "id, week_start, status, proposal, model, created_at";
 /** The week's draft, if any. Throws WeekAgentDataError. */
 export async function readDraftIn(db: Db, weekStart: string): Promise<StoredProposal | null> {
   const { data, error } = await db.from("week_agent_proposals").select(columns).eq("week_start", weekStart).eq("status", "draft").maybeSingle();
+  if (error) throw new WeekAgentDataError(`draft_read_failed ${error.code}`);
+  return data ? toStored(data) : null;
+}
+
+/** A draft by id, if it is still a draft. Throws WeekAgentDataError. */
+export async function readDraftByIdIn(db: Db, id: string): Promise<StoredProposal | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const { data, error } = await db.from("week_agent_proposals").select(columns).eq("id", id).eq("status", "draft").maybeSingle();
   if (error) throw new WeekAgentDataError(`draft_read_failed ${error.code}`);
   return data ? toStored(data) : null;
 }
