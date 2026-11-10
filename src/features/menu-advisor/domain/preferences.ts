@@ -130,10 +130,5 @@ export function matchPreference(tag: string, dish: Pick<MenuDish, "originalnamn"
   return terms.some((term) => hasTerm(textTokens, term, not));
 }
 
-/** The tags (display spelling) of the list the dish matches. */
-export function preferenceHits(tags: readonly string[], dish: Parameters<typeof matchPreference>[1]): string[] {
-  return tags.filter((tag) => matchPreference(tag, dish));
-}
-
 /** "Anna" or "du" for the one holding the phone. */
 export const whoName = (person: Pick<Person, "id" | "name">) => (person.id === "me" ? "du" : person.name);
