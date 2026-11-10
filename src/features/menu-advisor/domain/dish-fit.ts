@@ -33,47 +33,111 @@ export type FitNote = PreferenceNote & {
 /** What goes to the model: the household's lists without names. */
 export type FoodPrefs = { allergies: string[]; avoid: string[]; love: string[] };
 
-type AllergenWords = { terms: readonly string[]; not?: readonly string[]; free?: string; ends?: readonly string[] };
-
-// Keywords per allergen, whole words or the start of a compound ("mjölk" finds "mjölkchoklad"). Deliberately plain:
-// a miss is possible (a hidden ingredient), so a note is a hint, never a guarantee.
-const allergenWords: Readonly<Record<MenuAllergen, AllergenWords>> = {
-  gluten: {
-    terms: ["vete", "vetemjöl", "mjöl", "råg", "korn", "dinkel", "pasta", "spaghetti", "penne", "makaroner", "tagliatelle", "lasagne", "nudlar", "bröd", "ströbröd", "panko", "tortilla", "wrap", "couscous", "bulgur", "naan", "knäcke", "semolina", "pizzadeg", "filodeg"],
-    not: ["mjölk"],
-    ends: ["bröd"],
-    free: "glutenfri",
-  },
-  laktos: {
-    terms: ["mjölk", "grädde", "smör", "ost", "yoghurt", "yogurt", "filmjölk", "gräddfil", "kvarg", "creme fraiche", "fraiche", "mascarpone", "ricotta", "mozzarella", "parmesan", "feta", "halloumi", "cheddar", "keso", "vassle", "smetana"],
-    not: ["ostron", "smörgås"],
-    free: "laktosfri",
-  },
-  notter: {
-    terms: ["nötter", "nötmix", "valnöt", "hasselnöt", "jordnöt", "pekannöt", "paranöt", "cashew", "mandel", "pistage", "macadamia", "nutella"],
-    not: ["mandelpotatis"],
-  },
-  skaldjur: { terms: ["skaldjur", "räk", "räkor", "krabba", "hummer", "kräft", "mussla", "musslor", "scampi", "bläckfisk", "ostron", "pilgrimsmussla"], not: ["räkn"] },
-  agg: { terms: ["ägg", "äggula", "äggvita", "majonnäs", "aioli"], not: ["äggplanta"] },
-  fisk: { terms: ["fisk", "lax", "torsk", "sej", "sill", "makrill", "tonfisk", "ansjovis", "sardin", "rödspätta", "röding", "gös", "abborre", "strömming", "kolja", "hälleflundra"] },
-  soja: { terms: ["soja", "sojasås", "tofu", "edamame", "tamari", "miso", "tempeh"] },
-  sesam: { terms: ["sesam", "tahini"] },
+/**
+ * Keywords per allergen. Swedish builds compounds, so a keyword can sit at the start ("mjölkchoklad"), at the end
+ * ("matlagningsgrädde", "getost") or inside ("jordnötssmör") of a word. Taste matching (preferences.ts) stays
+ * word-start only ("ost" must not find "kostrad"); for an ALLERGY a silent miss is worse than a "kan innehålla" that
+ * turns out wrong, so the allergen words are also read at the end of a compound, and for a curated list of long,
+ * unambiguous stems anywhere inside it.
+ */
+type AllergenWords = {
+  /** Whole word or start of a word ("mjölk" finds "mjölkchoklad"); a term under three letters only as a whole word; a term with a space is a phrase. */
+  terms: readonly string[];
+  /** Also a hit as the END of a compound word ("grädde" finds "vispgrädde"). */
+  ends?: readonly string[];
+  /** Also a hit anywhere in a word: only for long stems that mean nothing else ("sesam" finds "svartsesam"). */
+  inside?: readonly string[];
+  /** A word that has any of these in it is no hit (known false positives: "ostron", "muskotnöt"). */
+  not?: readonly string[];
+  /** A word that is exactly one of these is no hit (short words an ending would catch: "kost" ends in "ost"). */
+  notWords?: readonly string[];
+  /** A word that fits this is no hit (plant "milk": "kokosmjölk", "havregrädde", "mandelsmör"). */
+  notPattern?: RegExp;
+  /** A word that starts with one of these makes the whole line safe ("glutenfri pasta"). */
+  free?: readonly string[];
 };
 
+const plantBase = "(?:kokos|havre|soja|mandel|ris|ärt|cashew|nöt|jordnöt|hasselnöt|kakao|shea|solros|hampa|potatis|lin)";
+
+const allergenWords: Readonly<Record<MenuAllergen, AllergenWords>> = {
+  gluten: {
+    terms: ["vete", "mjöl", "råg", "korn", "dinkel", "havre", "malt", "seitan", "pasta", "spaghetti", "penne", "makaroner", "tagliatelle", "lasagne", "nudlar", "bröd", "ströbröd", "paner", "panko", "tortilla", "wrap", "couscous", "kuskus", "bulgur", "naan", "knäcke", "semolina", "pizzadeg", "filodeg", "köttbull", "sojasås", "soyasås", "teriyaki", "hoisin"],
+    ends: ["bröd", "mjöl", "pasta", "nudlar", "korv"],
+    inside: ["vete", "dinkel"],
+    // Flours of other grains, and "bovete" (buckwheat), hold no gluten; "rågad" is a heaped spoon, not rye.
+    not: ["mjölk", "bovete", "majsmjöl", "rismjöl", "potatismjöl", "kikärtsmjöl", "kokosmjöl", "mandelmjöl", "quinoamjöl", "ärtmjöl", "sojamjöl", "tapiokamjöl", "hirsmjöl", "kastanjmjöl", "teffmjöl", "linsmjöl", "lupinmjöl", "bananmjöl", "rågad"],
+    free: ["glutenfri"],
+  },
+  laktos: {
+    terms: ["mjölk", "grädde", "smör", "ost", "yoghurt", "yogurt", "filmjölk", "gräddfil", "kvarg", "creme fraiche", "fraiche", "mascarpone", "ricotta", "mozzarella", "parmesan", "feta", "halloumi", "cheddar", "keso", "vassle", "smetana", "margarin", "kefir", "ghee", "glass"],
+    ends: ["mjölk", "grädde", "yoghurt", "yogurt", "smör", "ost", "fraiche", "kvarg"],
+    not: ["ostron", "smörgås", "grillrost", "ugnsrost"],
+    notWords: ["kost", "rost", "most", "post", "frost", "tost", "host", "prost", "bost", "lost"],
+    // Plant "dairy" ("kokosmjölk", "havregrädde", "mandelsmör", "jordnötssmör", "kakaosmör"): no lactose.
+    notPattern: new RegExp(`^${plantBase}s?(?:mjölk|grädde|yoghurt|yogurt|smör|fraiche|kvarg|glass|ost|dryck|fil)`, "u"),
+    free: ["laktosfri", "mjölkfri"],
+  },
+  // "Nötter" are the tree nuts and peanuts. Coconut and nutmeg are not nuts for the allergy, and "nöt" at the start of
+  // a word is usually beef ("nötfärs", "nötkött"), so those are exceptions.
+  notter: {
+    terms: ["nötter", "nötmix", "valnöt", "hasselnöt", "jordnöt", "pekannöt", "paranöt", "cashew", "mandel", "pistage", "pinjenöt", "pinjekärn", "macadamia", "nutella", "marsipan", "nougat", "praliné", "praline"],
+    inside: ["nöt", "mandel", "cashew", "pistage", "macadamia"],
+    not: [
+      "mandelpotatis", "kokosnöt", "muskotnöt", "nötfärs", "nötkött", "nötbiff", "nötstek", "nötfil", "nötfond", "nötbuljong", "nötgryta", "nötgul", "nötkreatur", "nötlever", "nötytter", "nötrost", "nötbring", "nötsvans", "nötkorv", "nötinner", "nötentr", "nötsnitsel", "nötschnitzel", "nötburg", "nötbull", "nötlägg", "nötkotlet", "nötmedaljong",
+    ],
+    free: ["nötfri"],
+  },
+  skaldjur: {
+    terms: ["skaldjur", "räk", "räkor", "krabba", "krabb", "hummer", "kräft", "mussla", "mussl", "musslor", "scampi", "calamari", "bläckfisk", "ostron", "pilgrimsmussla"],
+    inside: ["räk", "skaldjur", "krabb", "kräft", "mussl", "hummer", "ostron"],
+    not: ["räkn", "räkt"],
+  },
+  agg: {
+    terms: ["ägg", "äggula", "äggvita", "majonnäs", "mayo", "mayonnaise", "aioli", "remoulad", "hollandaise", "bearnaise", "maräng"],
+    ends: ["ägg", "majonnäs", "aioli", "remoulad"],
+    not: ["äggplanta"],
+    notWords: ["vägg", "skägg"],
+    free: ["äggfri"],
+  },
+  fisk: {
+    terms: ["fisk", "lax", "torsk", "sej", "sill", "makrill", "tonfisk", "ansjovis", "sardin", "rödspätta", "röding", "gös", "abborre", "strömming", "kolja", "hälleflundra", "kabeljo", "pangasius", "tilapia", "gädda", "piggvar", "sjötunga", "kaviar", "rom", "löjrom", "sikrom", "stenbitsrom", "forellrom", "tobiko", "surimi", "worcester", "caesar"],
+    ends: ["lax", "torsk", "sill", "rom", "fisk"],
+    inside: ["fisk", "ansjovis", "makrill", "strömming"],
+    // Squid and octopus are molluscs (they count as skaldjur), not fish.
+    not: ["bläckfisk", "fiskeri"],
+    notWords: ["krom", "brom", "grom", "arom"],
+  },
+  soja: { terms: ["soja", "sojasås", "tofu", "edamame", "tamari", "miso", "tempeh", "natto", "teriyaki", "hoisin"], ends: ["tofu", "miso", "tempeh"], inside: ["soja"] },
+  sesam: { terms: ["sesam", "tahini", "tahin", "hummus", "gomasio", "dukkah", "halva"], inside: ["sesam"], ends: ["tahini"] },
+};
+
+type Prepared = { terms: string[]; phrases: string[]; ends: string[]; inside: string[]; not: string[]; notWords: Set<string>; notPattern?: RegExp; free: string[] };
 const prepared = Object.fromEntries(
   (Object.keys(allergenWords) as MenuAllergen[]).map((key) => {
-    const { terms, not = [], free, ends = [] } = allergenWords[key];
-    return [key, { terms: terms.map(normalizeText), not: not.map(normalizeText), free: free ? normalizeText(free) : null, ends: ends.map(normalizeText) }];
+    const { terms, ends = [], inside = [], not = [], notWords = [], notPattern, free = [] } = allergenWords[key];
+    const all = terms.map(normalizeText);
+    return [key, { terms: all.filter((t) => !t.includes(" ")), phrases: all.filter((t) => t.includes(" ")), ends: ends.map(normalizeText), inside: inside.map(normalizeText), not: not.map(normalizeText), notWords: new Set(notWords.map(normalizeText)), notPattern, free: free.map(normalizeText) }];
   }),
-) as Record<MenuAllergen, { terms: string[]; not: string[]; free: string | null; ends: string[] }>;
+) as Record<MenuAllergen, Prepared>;
 
-/** Whether one line of text names something the allergen is in ("2 dl grädde" and laktos; "glutenfri pasta" is not gluten). */
+function tokenHasAllergen(token: string, rule: Prepared): boolean {
+  if (rule.notWords.has(token) || rule.not.some((word) => token.includes(word)) || rule.notPattern?.test(token)) return false;
+  return (
+    rule.terms.some((term) => (term.length < 3 ? token === term : token.startsWith(term))) ||
+    rule.ends.some((end) => token.endsWith(end)) ||
+    rule.inside.some((stem) => token.includes(stem))
+  );
+}
+
+/**
+ * Whether one line of text names something the allergen is in ("2 dl grädde" and laktos; "glutenfri pasta" is not gluten).
+ * Keywords count at the start, the end (compounds like "vispgrädde") and, for long stems, inside a word; see allergenWords.
+ */
 export function lineHasAllergen(allergen: MenuAllergen, line: string): boolean {
-  const { terms, not, free, ends } = prepared[allergen];
+  const rule = prepared[allergen];
   const found = tokens(line);
-  if (free && found.some((token) => token.startsWith(free))) return false;
-  // Words that END in the allergen are hits too for the few that are safe to read that way ("surdegsbröd").
-  return terms.some((term) => hasTerm(found, term, not)) || ends.some((end) => found.some((token) => token.endsWith(end)));
+  if (rule.free.some((free) => found.some((token) => token.startsWith(free)))) return false;
+  return found.some((token) => tokenHasAllergen(token, rule)) || rule.phrases.some((phrase) => hasTerm(found, phrase, []));
 }
 
 const sameText = (a: string, b: string) => normalizeText(a) === normalizeText(b);
