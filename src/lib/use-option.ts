@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { type OptionId, optionChangedEvent, options, readOption } from "./options";
+import { type ChoiceOptionId, type OptionId, defaultChoice, optionChangedEvent, options, readChoice, readOption } from "./options";
 
 function subscribe(listener: () => void) {
   window.addEventListener("storage", listener);
@@ -18,5 +18,14 @@ export function useOption(id: OptionId): boolean {
     subscribe,
     () => readOption(id),
     () => options.find((option) => option.id === id)?.defaultOn ?? false,
+  );
+}
+
+/** The chosen value of a choice option (src/lib/options.ts); the default on the server and during the first render. */
+export function useChoice(id: ChoiceOptionId): string {
+  return useSyncExternalStore(
+    subscribe,
+    () => readChoice(id),
+    () => defaultChoice(id),
   );
 }

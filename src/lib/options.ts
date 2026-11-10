@@ -41,7 +41,6 @@ export const options = [
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
   },
-  { id: "showFit", group: "household", label: "Visa vem rätten passar", hint: "Små prickar på recept och Matsedel när hushållet har olika smak", defaultOn: true },
   { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
   { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
@@ -83,6 +82,61 @@ export function readOption(id: OptionId): boolean {
 export function saveOption(id: OptionId, on: boolean): void {
   try {
     storage()?.setItem(optionStorageKey(id), on ? "1" : "0");
+  } catch {
+    // Storage blocked: the choice holds until the page is closed.
+  }
+  try {
+    window.dispatchEvent(new Event(optionChangedEvent));
+  } catch {
+    // No window.
+  }
+}
+
+/**
+ * Choice options: a few named values instead of on/off, kept per device under the same key scheme.
+ * "showFit" (Visa vem rätten passar) was a switch ("1"/"0") before: "0" now reads as Inget, anything else as the default.
+ */
+export const choiceOptions = [
+  {
+    id: "showFit",
+    group: "household",
+    label: "Visa vem rätten passar",
+    hint: "Hur hushållets smak och allergier syns på recept och Matsedel",
+    defaultValue: "dots",
+    choices: [
+      { value: "dots", label: "Prickar" },
+      { value: "text", label: "Text" },
+      { value: "none", label: "Inget" },
+    ],
+  },
+] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultValue: string; choices: readonly { value: string; label: string }[] }[];
+
+export type ChoiceOptionId = (typeof choiceOptions)[number]["id"];
+export type FitMode = Extract<(typeof choiceOptions)[0]["choices"][number]["value"], string>;
+
+const choiceDefaults = { showFit: "dots" } as const satisfies Record<ChoiceOptionId, string>;
+
+export const defaultChoice = <Id extends ChoiceOptionId>(id: Id): string => choiceDefaults[id];
+
+/** The chosen value of a choice option; the default when nothing valid is stored (a legacy "0" is "none"). */
+export function readChoice(id: ChoiceOptionId): string {
+  const option = choiceOptions.find((entry) => entry.id === id);
+  const fallback = choiceDefaults[id];
+  try {
+    const value = storage()?.getItem(optionStorageKey(id as unknown as OptionId));
+    if (value === null || value === undefined) return fallback;
+    if (option?.choices.some((choice) => choice.value === value)) return value;
+    if (id === "showFit" && value === "0") return "none";
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Remembers a choice on this device. Never throws. */
+export function saveChoice(id: ChoiceOptionId, value: string): void {
+  try {
+    storage()?.setItem(optionStorageKey(id as unknown as OptionId), value);
   } catch {
     // Storage blocked: the choice holds until the page is closed.
   }
