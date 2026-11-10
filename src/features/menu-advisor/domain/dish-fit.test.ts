@@ -72,10 +72,25 @@ describe("lineHasAllergen", () => {
 
 describe("fitRank and rankByFit", () => {
   it("ranks an allergy lowest, then an Undviker, then nothing, then only Älskar", () => {
-    expect(fitRank([{ kind: "allergy", text: "a" }, { kind: "like", text: "b" }])).toBe(-2);
+    expect(fitRank([{ kind: "allergy", text: "a" }, { kind: "like", text: "b" }])).toBe(-3);
     expect(fitRank([{ kind: "dislike", text: "a" }, { kind: "like", text: "b" }])).toBe(-1);
     expect(fitRank([])).toBe(0);
     expect(fitRank([{ kind: "like", text: "b" }])).toBe(1);
+  });
+
+  it("lets the strong end (Ogillar, Älskar) weigh more, and marks it on the note only when the person has it", () => {
+    expect(fitRank([{ kind: "dislike", text: "a", strong: true }])).toBe(-2);
+    expect(fitRank([{ kind: "like", text: "b", strong: true }])).toBe(2);
+    const strongNotes = foodFit(gryta, [person("Anna", { dislikes: ["vitlök", "koriander"], strongDislikes: ["koriander"], likes: ["paprika"], strongLikes: ["paprika"] })]);
+    expect(strongNotes).toEqual([
+      { kind: "dislike", text: "Anna undviker vitlök och koriander", strong: true },
+      { kind: "like", text: "Anna älskar paprika", strong: true },
+    ]);
+    expect(foodFit(gryta, [person("Anna", { dislikes: ["vitlök"], strongDislikes: ["koriander"] })])).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }]);
+    const items = ["mild", "strong"];
+    const notes: Record<string, { kind: "dislike"; text: string; strong?: boolean }[]> = { mild: [{ kind: "dislike", text: "x" }], strong: [{ kind: "dislike", text: "y", strong: true }] };
+    expect(rankByFit(items, (item) => notes[item] ?? [])).toEqual(["mild", "strong"]);
+    expect(rankByFit(["strong", "mild"], (item) => notes[item] ?? [])).toEqual(["mild", "strong"]);
   });
 
   it("keeps the order when no item has a note, and otherwise keeps the given order among equals", () => {

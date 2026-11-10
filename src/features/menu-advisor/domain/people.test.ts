@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withTaste } from "./tastes";
 import {
   isHouseholdPerson,
   profileHref,
@@ -17,9 +18,6 @@ import {
   unfitFor,
   upsertPerson,
   withMe,
-  withoutTag,
-  withTag,
-  withTaste,
 } from "./people";
 
 const anna = { ...newPerson("a", "Anna", "member"), allergies: ["notter" as const], drink: "vin" as const, tastes: { fisk: 2 as const } };
@@ -47,7 +45,7 @@ describe("reading stored people", () => {
         { id: "d", name: "Dubbel", kind: "guest" },
       ],
     });
-    expect(parsePeople(text)).toEqual([{ id: "d", name: "Dan", kind: "guest", dislikes: [], likes: [], allergies: ["gluten"], tastes: { fisk: -2 }, drink: null }]);
+    expect(parsePeople(text)).toEqual([{ id: "d", name: "Dan", kind: "guest", allergies: ["gluten"], tastes: { fisk: -2, extra: 1 }, drink: null }]);
   });
 
   it("keeps at most maxPeople", () => {
@@ -134,25 +132,35 @@ describe("household members as people", () => {
   });
 });
 
-describe("free-text preferences in storage", () => {
-  it("reads people saved before dislikes and likes existed as empty lists", () => {
+describe("older free-text preferences in storage", () => {
+  it("folds Undviker into -2 and Älskar into +2, as the presets they name or as own things", () => {
+    const text = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", dislikes: [" Koriander ", "koriander", "<img>", "Vitlök"], likes: ["nasi goreng", "Pasta"] }] });
+    const [anna] = parsePeople(text);
+    expect(anna!.tastes).toEqual({ koriander: -2, vitlok: -2, "nasi goreng": 2, pasta: 2 });
+    expect(anna).not.toHaveProperty("dislikes");
+    expect(anna).not.toHaveProperty("likes");
+  });
+
+  it("never overwrites a taste that is already set, and a thing in both lists is avoided", () => {
+    const text = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", tastes: { vitlok: 1 }, dislikes: ["vitlök", "ost"], likes: ["Ost", "paprika"] }] });
+    expect(parsePeople(text)[0]!.tastes).toEqual({ vitlok: 1, ost: -2, paprika: 2 });
+  });
+
+  it("reads people saved before dislikes and likes existed", () => {
     const old = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", allergies: ["notter"], tastes: { fisk: 2 }, drink: "vin" }] });
-    expect(parsePeople(old)[0]).toMatchObject({ dislikes: [], likes: [], allergies: ["notter"] });
+    expect(parsePeople(old)[0]).toMatchObject({ tastes: { fisk: 2 }, allergies: ["notter"] });
   });
 
-  it("round-trips tags and cleans bad ones", () => {
-    const text = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", dislikes: [" Koriander ", "koriander", "<img>"], likes: "nasi goreng" }] });
-    expect(parsePeople(text)[0]).toMatchObject({ dislikes: ["Koriander"], likes: [] });
-    const anna = { ...newPerson("a", "Anna", "member"), dislikes: ["Vitlök"], likes: ["Nasi goreng"] };
+  it("round-trips preset and own tastes, and drops bad keys and values", () => {
+    const anna = { ...newPerson("a", "Anna", "member"), tastes: { vitlok: -2 as const, "nasi goreng": 2 as const } };
     expect(parsePeople(serializePeople([anna]))).toEqual([anna]);
+    const text = JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", tastes: { "<b>": 1, Vitlok: 1, "-x": 1, ris: 3, soppa: 0, tacos: -1 } }] });
+    expect(parsePeople(text)[0]!.tastes).toEqual({ tacos: -1 });
   });
 
-  it("adds and removes tags on a person", () => {
-    const anna = newPerson("a", "Anna", "member");
-    const added = withTag(anna, "dislikes", " vitlök ");
-    expect(added.person.dislikes).toEqual(["vitlök"]);
-    expect(withTag(added.person, "dislikes", "Vitlök")).toMatchObject({ error: "Det finns redan i listan." });
-    expect(withoutTag(added.person, "dislikes", "vitlök").dislikes).toEqual([]);
+  it("keeps at most 40 own things", () => {
+    const tastes = Object.fromEntries(Array.from({ length: 60 }, (_, index) => [`sak ${index}`, 1]));
+    expect(Object.keys(parsePeople(JSON.stringify({ v: 1, people: [{ id: "a", name: "Anna", kind: "member", tastes }] }))[0]!.tastes)).toHaveLength(40);
   });
 });
 
@@ -162,13 +170,13 @@ describe("profileSummary", () => {
   });
 
   it("puts allergies first, then what is avoided and loved", () => {
-    const person = { ...newPerson("p-1", "Anna", "member"), allergies: ["gluten" as const], dislikes: ["vitlök", "lök"], likes: ["pasta"] };
-    expect(profileSummary(person)).toBe("Allergi: gluten · Undviker: vitlök, lök · Älskar: pasta");
+    const person = { ...newPerson("p-1", "Anna", "member"), allergies: ["gluten" as const], tastes: { vitlok: -2 as const, lok: -1 as const, pasta: 1 as const } };
+    expect(profileSummary(person)).toBe("Allergi: gluten · Undviker: lök, vitlök · Älskar: pasta");
   });
 
-  it("notes taste and drink when only those are filled in", () => {
+  it("notes what is avoided and the drink when only those are filled in", () => {
     const person = { ...newPerson("p-1", "Anna", "member"), tastes: { fisk: -1 as const }, drink: "vin" as const };
-    expect(profileSummary(person)).toBe("Smak ifylld · Vin");
+    expect(profileSummary(person)).toBe("Undviker: fisk · Vin");
   });
 });
 

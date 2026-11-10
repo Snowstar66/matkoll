@@ -6,7 +6,7 @@ import type { Person } from "./profile";
 const userId = "11111111-1111-4111-8111-111111111111";
 const otherId = "22222222-2222-4222-8222-222222222222";
 
-const anna: Person = { ...newPerson("m-" + otherId, "Anna", "member"), allergies: ["notter"], tastes: { fisk: -1 }, dislikes: ["koriander"], likes: ["pasta"], drink: "vin" };
+const anna: Person = { ...newPerson("m-" + otherId, "Anna", "member"), allergies: ["notter"], tastes: { fisk: -1, koriander: -2, pasta: 1 }, drink: "vin" };
 
 describe("personKeyOf", () => {
   it("gives Du the signed-in member's key, and other ids as they are", () => {
@@ -37,9 +37,11 @@ describe("rowFromPerson and personFromRow", () => {
     expect(personFromRow(rowFromPerson(anna, userId)!, userId)).toMatchObject({ id: `m-${otherId}`, name: "Medlem" });
   });
 
-  it("cleans tags and refuses a person that is not one", () => {
-    const dirty = { ...anna, dislikes: ["<b>x</b>", " vitlök ", "vitlök"], likes: ["https://x.se"] };
-    expect(rowFromPerson(dirty, userId)).toMatchObject({ dislikes: ["vitlök"], likes: [] });
+  it("folds the older lists of a phone that has not updated into the tastes, and refuses a person that is not one", () => {
+    const dirty = { ...anna, tastes: {}, dislikes: ["<b>x</b>", " vitlök ", "vitlök"], likes: ["https://x.se", "nasi goreng"] };
+    const row = rowFromPerson(dirty, userId)!;
+    expect(row.tastes).toEqual({ vitlok: -2, "nasi goreng": 2 });
+    expect(row).not.toHaveProperty("dislikes");
     expect(rowFromPerson({ id: "me" }, userId)).toBeNull();
     expect(rowFromPerson(newPerson("me", "Du", "member"), null)).toBeNull();
   });
@@ -49,7 +51,11 @@ describe("personInputSchema", () => {
   it("accepts a person and refuses bad tastes, allergies, drinks and long tags", () => {
     expect(personInputSchema.safeParse(anna).success).toBe(true);
     expect(personInputSchema.safeParse({ ...anna, tastes: { fisk: 3 } }).success).toBe(false);
-    expect(personInputSchema.safeParse({ ...anna, tastes: { sten: 1 } }).success).toBe(false);
+    expect(personInputSchema.safeParse({ ...anna, tastes: { sten: 1, "nasi goreng": -1 } }).success).toBe(true);
+    expect(personInputSchema.safeParse({ ...anna, tastes: { "<b>": 1 } }).success).toBe(false);
+    expect(personInputSchema.safeParse({ ...anna, tastes: { Sten: 1 } }).success).toBe(false);
+    expect(personInputSchema.safeParse({ ...anna, tastes: { [`x${"y".repeat(40)}`]: 1 } }).success).toBe(false);
+    expect(personInputSchema.safeParse({ ...anna, tastes: Object.fromEntries(Array.from({ length: 64 }, (_, i) => [`sak ${i}`, 1])) }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, allergies: ["pollen"] }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, drink: "mjölk" }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, likes: ["x".repeat(41)] }).success).toBe(false);
@@ -75,9 +81,9 @@ describe("peopleToImport", () => {
 
 describe("combineFoodPreferences", () => {
   const rows: FoodProfileRow[] = [
-    { personKey: `m-${otherId}`, kind: "member", name: null, allergies: ["notter"], tastes: { fisk: -1 }, dislikes: [], likes: ["pasta"], drink: "vin" },
-    { personKey: "p-g1", kind: "guest", name: "Bo", allergies: [], tastes: {}, dislikes: [], likes: [], drink: null },
-    { personKey: "m-33333333-3333-4333-8333-333333333333", kind: "member", name: null, allergies: ["soja"], tastes: {}, dislikes: [], likes: [], drink: null },
+    { personKey: `m-${otherId}`, kind: "member", name: null, allergies: ["notter"], tastes: { fisk: -1, pasta: 2, vitlok: -2, ris: 1 }, drink: "vin" },
+    { personKey: "p-g1", kind: "guest", name: "Bo", allergies: [], tastes: {}, drink: null },
+    { personKey: "m-33333333-3333-4333-8333-333333333333", kind: "member", name: null, allergies: ["soja"], tastes: {}, drink: null },
   ];
   const members = [
     { id: userId, name: "Pontus", isMe: true },
@@ -92,7 +98,15 @@ describe("combineFoodPreferences", () => {
       ["p-g1", "Bo"],
     ]);
     expect(people[0]).toMatchObject({ allergies: [], tastes: {}, dislikes: [], likes: [], drink: null });
-    expect(people[1]).toMatchObject({ allergies: ["notter"], tastes: { fisk: -1 }, likes: ["pasta"], drink: "vin" });
+    expect(people[1]).toMatchObject({
+      allergies: ["notter"],
+      tastes: { fisk: -1, pasta: 2, vitlok: -2, ris: 1 },
+      dislikes: ["fisk", "vitlök"],
+      likes: ["pasta", "ris"],
+      strongDislikes: ["vitlök"],
+      strongLikes: ["pasta"],
+      drink: "vin",
+    });
   });
 
   it("still lists the members when no row could be read", () => {

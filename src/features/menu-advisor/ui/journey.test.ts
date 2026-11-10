@@ -76,7 +76,7 @@ describe("words", () => {
     expect(drinkPhrase("ingen")).toBe("utan dryck");
     expect(drinkPhrase(null)).toBe("");
     expect(hasProfileInfo(person())).toBe(false);
-    expect(hasProfileInfo(person({ likes: ["paprika"] }))).toBe(true);
+    expect(hasProfileInfo(person({ tastes: { paprika: 1 } }))).toBe(true);
     expect(hasProfileInfo(person({ tastes: { fisk: 2 } }))).toBe(true);
   });
 

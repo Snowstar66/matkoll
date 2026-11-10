@@ -8,28 +8,16 @@ import { Chip } from "@/components/chip";
 import { Input } from "@/components/field";
 import { ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
-import { Segment } from "@/components/segment";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, meId, tasteLabels, toggleAllergy, withoutTag, withTag, withTaste } from "../domain/people";
-import { drinkKinds, type Person, type Taste, tasteKeys } from "../domain/profile";
-import { PreferenceSection } from "./preference-section";
+import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, meId, toggleAllergy } from "../domain/people";
+import { drinkKinds, type Person } from "../domain/profile";
+import { TasteSection } from "./preference-section";
 import { menuAllergens } from "../domain/types";
 import { usePeople } from "./use-people";
 
-// Smak och allergier (Inställningar → Medlemmar): per person a taste list (nothing filled in = eats anything), the drink they usually
-// order, and their allergies in a box of their own, registered once. Saved for the household as you go (this device's own list when the household's cannot be reached).
-
-const dislikeSuggestions = ["koriander", "vitlök", "lök", "svamp", "oliver", "ost", "kryddstarkt", "fisk", "skaldjur", "ingefära"];
-const likeSuggestions = ["pasta", "pizza", "paprika", "nasi goreng", "tacos", "sushi", "ost", "chili", "grillat"];
-
-const tasteOptions = [
-  { value: "-2", label: "Hatar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👎👎</span> },
-  { value: "-1", label: "Ogillar", icon: "👎" },
-  { value: "0", label: "Ingen åsikt", icon: "–" },
-  { value: "1", label: "Gillar", icon: "👍" },
-  { value: "2", label: "Älskar", icon: <span className="whitespace-nowrap text-[13px] tracking-tighter">👍👍</span> },
-].map((option) => ({ ...option, iconOnly: true }));
+// Smak och allergier (Inställningar → Medlemmar): per person the allergies (a row that opens its own page, registered once), a two-way
+// slider per taste (nothing filled in = eats anything) and the drink they usually order. Saved for the household as you go (this device's own list when the household's cannot be reached).
 
 /**
  * One person's profile (Inställningar → Medlemmar → Smak och allergier): taste, usual drink and allergies, and the
@@ -105,11 +93,6 @@ function PersonView({
 }) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
-  function addTo(list: "dislikes" | "likes", text: string): string | null {
-    const result = withTag(person, list, text);
-    if (result.error === null && result.person !== person) onChange(result.person);
-    return result.error;
-  }
   return (
     <div className="flex flex-col gap-5" data-testid="menu-profile">
       {isHouseholdPerson(person) ? (
@@ -123,51 +106,11 @@ function PersonView({
         </div>
       )}
 
-      <section aria-labelledby={`${id}-taste`} className="flex flex-col gap-3">
-        <div>
-          <h3 id={`${id}-taste`} className="text-section-label text-ink-2 uppercase">
-            Smak
-          </h3>
-          <p className="text-meta text-ink-3">Rör bara det du har en åsikt om. Inget ifyllt betyder att personen äter allt.</p>
-        </div>
-        <ul className="flex flex-col gap-3 rounded-lg bg-surface p-4">
-          {tasteKeys.map((key) => (
-            <li key={key} className="flex flex-col gap-1.5">
-              <span className="text-control text-ink">{tasteLabels[key]}</span>
-              <Segment
-                label={tasteLabels[key]}
-                value={String(person.tastes[key] ?? 0)}
-                onChange={(value) => onChange(withTaste(person, key, Number(value) as Taste))}
-                options={tasteOptions}
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
+      <AllergiesRow person={person} onAllergies={onAllergies} />
 
-      <PreferenceSection
-        testId="menu-dislikes"
-        title="Undviker"
-        hint="Det du helst slipper, som koriander eller vitlök. Rätterna får en markering och föreslås inte i första hand."
-        inputLabel="Lägg till något du undviker"
-        tags={person.dislikes}
-        suggestions={dislikeSuggestions}
-        onAdd={(text) => addTo("dislikes", text)}
-        onRemove={(tag) => onChange(withoutTag(person, "dislikes", tag))}
-      />
+      <TasteSection person={person} onChange={onChange} />
 
-      <PreferenceSection
-        testId="menu-likes"
-        title="Älskar"
-        hint="Det du gärna äter, som paprika eller nasi goreng. Sådana rätter föreslås oftare."
-        inputLabel="Lägg till något du älskar"
-        tags={person.likes}
-        suggestions={likeSuggestions}
-        onAdd={(text) => addTo("likes", text)}
-        onRemove={(tag) => onChange(withoutTag(person, "likes", tag))}
-      />
-
-      <p className="rounded-md bg-fill px-3 py-2 text-meta text-ink-2">Allergier = får aldrig föreslås. Undviker = föreslås inte i första hand.</p>
+      <p className="rounded-md bg-fill px-3 py-2 text-meta text-ink-2">Allergier = får aldrig föreslås. Undviker (Ogillar och Hellre inte) = föreslås inte i första hand.</p>
 
       <section aria-labelledby={`${id}-drink`} className="flex flex-col gap-2">
         <h3 id={`${id}-drink`} className="text-section-label text-ink-2 uppercase">
@@ -187,21 +130,6 @@ function PersonView({
           ))}
         </div>
       </section>
-
-      <button
-        type="button"
-        data-testid="menu-allergies-open"
-        onClick={onAllergies}
-        className="flex min-h-row w-full items-center gap-3 rounded-lg bg-surface px-4 py-2.5 text-left"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block text-row-title">Allergier</span>
-          <span className="block text-meta text-ink-2">
-            {person.allergies.length > 0 ? person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ") : "Inga angivna"}
-          </span>
-        </span>
-        <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
-      </button>
 
       {isHouseholdPerson(person) ? (
         <p className="text-meta text-ink-3">Sparas för hushållet och syns på alla era telefoner. Alla i hushållet kan ändra.</p>
@@ -226,6 +154,25 @@ function PersonView({
         </>
       )}
     </div>
+  );
+}
+
+function AllergiesRow({ person, onAllergies }: { person: Person; onAllergies: () => void }) {
+  return (
+    <button
+      type="button"
+      data-testid="menu-allergies-open"
+      onClick={onAllergies}
+      className="flex min-h-row w-full items-center gap-3 rounded-lg bg-surface px-4 py-2.5 text-left"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-row-title">Allergier</span>
+        <span className="block text-meta text-ink-2">
+          {person.allergies.length > 0 ? person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ") : "Inga angivna"}
+        </span>
+      </span>
+      <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
+    </button>
   );
 }
 

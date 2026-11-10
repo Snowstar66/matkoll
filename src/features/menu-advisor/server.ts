@@ -25,7 +25,7 @@ export const listFoodProfiles = cache(async (): Promise<FoodProfileRow[] | null>
 /**
  * What the household eats and avoids, for the server to steer AI suggestions and "Laga nu" with: every member
  * (a member without a row has nothing filled in) and every person kept by hand, with allergies, tastes (-2..2 per
- * kind of food), free-text dislikes and likes, and the usual drink. Does not need the Menyrådgivare option (that is
+ * kind of food), dislikes and likes (from tastes, also the older free lists), and the usual drink. Does not need the Menyrådgivare option (that is
  * per device); what is filled in may be used. Unreadable gives an empty list (logged). Memoised per request.
  */
 export const getHouseholdFoodPreferences = cache(async (): Promise<HouseholdFoodPreferences> => {
@@ -41,7 +41,7 @@ export const getHouseholdFoodPreferences = cache(async (): Promise<HouseholdFood
 export const getFoodFitPeople = cache(async (): Promise<FitPerson[]> => {
   try {
     const { people } = await getHouseholdFoodPreferences();
-    const fit = people.map(({ name, allergies, dislikes, likes }): FitPerson => ({ name, allergies, dislikes, likes }));
+    const fit = people.map(({ name, allergies, dislikes, likes, strongDislikes, strongLikes }): FitPerson => ({ name, allergies, dislikes, likes, strongDislikes, strongLikes }));
     return hasFitPreferences(fit) ? fit : [];
   } catch (error) {
     console.error("food_preferences_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
