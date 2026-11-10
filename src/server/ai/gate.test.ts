@@ -91,3 +91,22 @@ describe("readMenu (Menyrådgivare) goes through the gate and the usage sink", (
     expect(sink).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("planWeek (Veckoagenten) goes through the gate and the usage sink", () => {
+  const recipe = { id: "a", title: "Pasta", ingredients: ["400 g pasta"], minutes: 30, vegetarian: true, offers: [], useSoon: [] };
+  const input = { weekStart: "2026-11-16", openDays: [1], recipes: [recipe], fixedDays: [], vegetarianDays: [], leftoverDays: [], skipDays: [], budget: "normal" as const, quickWeekdays: false, useSoonFirst: true, favourOffers: true, likes: [], dislikes: [], recent: [] };
+
+  it("answers ai_cap_reached without reaching the model when the gate says no", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(false));
+    expect(await service.planWeek(input, AbortSignal.timeout(5_000))).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
+    expect(sink).not.toHaveBeenCalled();
+  });
+
+  it("reports one usage record when the gate lets it through", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue(true));
+    expect(await service.planWeek(input, AbortSignal.timeout(5_000))).toMatchObject({ ok: true });
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+});

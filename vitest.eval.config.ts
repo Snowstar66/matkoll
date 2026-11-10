@@ -17,7 +17,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/eval/**/*.eval.ts"],
     // `pnpm eval:menu` is a standalone script that costs money: never part of `pnpm eval:ai`.
-    exclude: ["node_modules/**", "tests/eval/menu-read.eval.ts"],
+    exclude: ["node_modules/**", "tests/eval/menu-read.eval.ts", "tests/eval/week-plan.eval.ts"],
     // One local model: one case at a time. A case may use the port's whole 115 s budget, and a
     // photo's case then its lookup of the points (Story 6.6: one attempt of 30 s after a health check).
     fileParallelism: false,

@@ -21,6 +21,8 @@ import {
   minRunMs,
   isValidAnalyzeImageInput,
   matchOffersText,
+  planWeekText,
+  planWeekModels,
   mergeThingsText,
   locateLimitsFrom,
   withInputValidation,
@@ -31,6 +33,7 @@ import {
   type CategorizeThingsInput,
   type ThingSearchTermsInput,
   type MatchOffersInput,
+  type PlanWeekInput,
   type MergeThingsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
@@ -1626,6 +1629,90 @@ describe("matchOffers on a model (Story 9.10)", () => {
       { offers: ["Bregott"], ingredients: Array.from({ length: 301 }, (_, index) => `ingrediens ${index}`) },
     ]) {
       expect(await service.matchOffers(bad, signal())).toMatchObject({ ok: false, error: { code: "validation" } });
+    }
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+});
+
+describe("planWeek on a model (Veckoagenten)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const input: PlanWeekInput = {
+    weekStart: "2026-11-16",
+    openDays: [1, 2, 3],
+    recipes: [
+      { id: "id-a", title: "Pasta med köttfärssås", ingredients: ["400 g spaghetti", "500 g nötfärs"], minutes: 35, vegetarian: false, offers: ["Nötfärs 69 kr/kg hos ICA"], useSoon: [] },
+      { id: "id-b", title: "Linssoppa", ingredients: ["3 dl röda linser"], minutes: null, vegetarian: true, offers: [], useSoon: ["grädde, går ut fredag"] },
+    ],
+    fixedDays: [{ dayIndex: 4, title: "Pannkakor" }],
+    vegetarianDays: [2],
+    leftoverDays: [],
+    skipDays: [],
+    budget: "low",
+    quickWeekdays: true,
+    useSoonFirst: true,
+    favourOffers: false,
+    likes: ["pasta"],
+    dislikes: ["svamp"],
+    recent: [{ title: "Tacos", weeksAgo: 1 }],
+  };
+  const answer = (dagar: unknown[]) => JSON.stringify({ dagar });
+
+  it("sends the plan prompt and the numbered dishes without ids, names or allergies, and maps the numbers back to ids", async () => {
+    const model = fakeModel(answer([{ dag: 1, recept: 1, skal: [" Extrapris på nötfärs "] }, { dag: 2, recept: 2, skal: [] }]));
+    const result = await createModelAiService({ model }, limits).planWeek(input, signal());
+    expect(result).toEqual({ ok: true, data: { quality: "standard", picks: [{ dayIndex: 1, recipeId: "id-a", reasons: ["Extrapris på nötfärs"] }, { dayIndex: 2, recipeId: "id-b", reasons: [] }] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.planWeek.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.planWeek });
+    expect(user.content).toEqual([{ type: "text", text: planWeekText(input) }]);
+    const text = planWeekText(input);
+    expect(text).toContain("Lediga dagar: måndag, tisdag, onsdag");
+    expect(text).toContain("Bestämda dagar: torsdag Pannkakor");
+    expect(text).toContain("Vegetariska dagar: tisdag");
+    expect(text).toContain("1. Pasta med köttfärssås | 35 min | Ingredienser: 400 g spaghetti; 500 g nötfärs | Extrapris: Nötfärs 69 kr/kg hos ICA");
+    expect(text).toContain("2. Linssoppa | vegetarisk | Ingredienser: 3 dl röda linser | Går ut snart: grädde, går ut fredag");
+    expect(text).not.toContain("id-a");
+    expect(prompts.planWeek).toContain("Allergier kontrolleras i kod");
+  });
+
+  it("gives an empty id for a number outside the list, so the planner can name it unknown, and drops nothing else", async () => {
+    const model = fakeModel(answer([{ dag: 1, recept: 9, skal: [] }, { dag: 2.5, recept: 1, skal: ["a", "b", "c", "d"] }]));
+    const result = await createModelAiService({ model }, limits).planWeek(input, signal());
+    expect(result).toEqual({ ok: true, data: { quality: "standard", picks: [{ dayIndex: 1, recipeId: "", reasons: [] }, { dayIndex: 0, recipeId: "id-a", reasons: ["a", "b", "c"] }] } });
+  });
+
+  it("asks the careful target for quality careful, and fixes the models", async () => {
+    const standard = fakeModel(answer([]));
+    const careful = fakeModel(answer([]));
+    const service = createModelAiService({ model: fakeModel(answer([])) }, limits, undefined, undefined, { standard: { model: standard }, careful: { model: careful } });
+    expect(await service.planWeek({ ...input, quality: "careful" }, signal())).toMatchObject({ ok: true, data: { quality: "careful" } });
+    expect(careful.doGenerateCalls).toHaveLength(1);
+    expect(standard.doGenerateCalls).toHaveLength(0);
+    expect(planWeekModels).toEqual({ standard: { model: "claude-haiku-5-5", effort: "low" }, careful: { model: "claude-sonnet-5-5", effort: "medium" } });
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer([]));
+    expect(await createModelAiService({ model }, limits).planWeek(input, signal(), { deadline: Date.now() + 1_000 })).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("refuses a week outside the limits before any call", async () => {
+    const model = fakeModel(answer([]));
+    const service = withInputValidation(createModelAiService({ model }, limits));
+    const recipe = input.recipes[0];
+    for (const bad of [
+      { ...input, openDays: [] },
+      { ...input, openDays: [8] },
+      { ...input, recipes: [] },
+      { ...input, recipes: Array.from({ length: 41 }, () => recipe) },
+      { ...input, recipes: [{ ...recipe, title: "två\nrader" }] },
+      { ...input, recipes: [{ ...recipe, ingredients: Array.from({ length: 9 }, () => "ägg") }] },
+      { ...input, weekStart: "nästa vecka" },
+      { ...input, likes: Array.from({ length: 13 }, (_, index) => `mat ${index}`) },
+    ]) {
+      expect(await service.planWeek(bad, signal())).toMatchObject({ ok: false, error: { code: "validation" } });
     }
     expect(model.doGenerateCalls).toHaveLength(0);
   });
