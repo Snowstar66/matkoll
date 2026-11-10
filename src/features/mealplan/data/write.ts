@@ -245,3 +245,14 @@ export async function unmarkDishCookedIn(db: MealPlanDb, id: string): Promise<bo
   if (error) throw new MealPlanDataError(`uncook_failed ${error.code}`);
   return data.length > 0;
 }
+
+/**
+ * Marks dishes as put there by the week agent (meal_plan_recipe.source = 'week_agent'): "Använd veckan" calls it right
+ * after adding them, so Matsedel can tell them from the household's own. Throws MealPlanDataError.
+ */
+export async function markDishesFromAgentIn(db: MealPlanDb, ids: readonly string[]): Promise<void> {
+  if (ids.length === 0) return;
+  if (!ids.every((id) => idSchema.safeParse(id).success)) throw new MealPlanDataError("invalid_id");
+  const { error } = await db.from("meal_plan_recipe").update({ source: "week_agent" }).in("id", [...ids]);
+  if (error) throw new MealPlanDataError(`source_failed ${error.code}`);
+}

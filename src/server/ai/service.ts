@@ -62,6 +62,8 @@ import {
   parseLocatedBox,
   mergeThingsAnswer,
   matchOffersAnswer,
+  planWeekAnswer,
+  parsePlanWeek,
   parseOfferMatches,
   parseMergePairs,
   parseAnalyzeItems,
@@ -363,6 +365,52 @@ export type MatchOffersPair = { offer: number; ingredient: number };
 /** What matchOffers answers: the offers that have an ingredient, each at most once. */
 export type MatchOffersResult = { pairs: MatchOffersPair[] };
 
+/** How hard planWeek tries: `standard` is Haiku 5.5 at low effort, `careful` is Sonnet 5.5 at medium (about ten times the price). */
+export type PlanWeekQuality = "standard" | "careful";
+
+/** One dish the week may be planned from, with the facts the model may use (all text, one line each). Made by the week agent's code. */
+export type PlanWeekRecipe = {
+  /** Never sent to the model: the dishes are numbered in the list's order, and the answer's numbers are mapped back to ids. */
+  id: string;
+  title: string;
+  ingredients: string[];
+  minutes: number | null;
+  vegetarian: boolean;
+  /** "Laxfilé, extrapris 79 kr/kg hos ICA": offers on its main ingredients. */
+  offers: string[];
+  /** "grädde, går ut fredag": what is at home and goes out soon. */
+  useSoon: string[];
+};
+
+/** planWeek (Veckoagenten): the shortlist and the rules, text only. Data for the model, never instructions. No person names, no allergy facts (allergies are enforced in code). */
+export type PlanWeekInput = {
+  weekStart: string;
+  /** The weekdays (1-7) that need a dish. */
+  openDays: number[];
+  recipes: PlanWeekRecipe[];
+  /** Days that are decided already, for the model to plan around. */
+  fixedDays: { dayIndex: number; title: string }[];
+  vegetarianDays: number[];
+  leftoverDays: number[];
+  skipDays: number[];
+  budget: "normal" | "low";
+  quickWeekdays: boolean;
+  useSoonFirst: boolean;
+  favourOffers: boolean;
+  /** What the household likes and dislikes, as words, without who. */
+  likes: string[];
+  dislikes: string[];
+  /** Dishes cooked or planned in the last weeks. */
+  recent: { title: string; weeksAgo: number }[];
+  /** Default `standard`. */
+  quality?: PlanWeekQuality;
+};
+
+export type PlanWeekPick = { dayIndex: number; recipeId: string; reasons: string[] };
+
+/** What planWeek answers: a pick for the days the model chose (not checked: the caller validates every one), and which quality made it. */
+export type PlanWeekResult = { picks: PlanWeekPick[]; quality: PlanWeekQuality };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -466,6 +514,14 @@ export interface AiService {
    * (also when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
    */
   matchOffers(input: MatchOffersInput, signal: AbortSignal, options?: RunOptions): Promise<Result<MatchOffersResult>>;
+  /**
+   * A dish for each open day of a week (Veckoagenten), chosen from the numbered shortlist the week agent's code made:
+   * one text call, no image, `quality` standard (Haiku 5.5 low) or careful (Sonnet 5.5 medium). The picks are NOT
+   * checked beyond their shape (a number outside the list gives an empty recipe id): the caller validates every pick
+   * against the rules, allergies included. Fails with `validation` (lists outside inputLimits.planWeek),
+   * `ai_unavailable` (also when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  planWeek(input: PlanWeekInput, signal: AbortSignal, options?: RunOptions): Promise<Result<PlanWeekResult>>;
   /**
    * The words to search the things for, from a question and the latest turns
    * of the chat (Story 18.14): one short text call, no image. Fails with
@@ -600,6 +656,11 @@ export const inputLimits = {
    */
   matchOffers: { maxOffers: 60, maxOfferChars: 120, maxIngredients: 300, maxIngredientChars: 60, maxChars: 12_000, maxOutputTokens: 1_500 },
   /**
+   * planWeek (Veckoagenten): at most 40 dishes of about 120 tokens (a title, up to 8 ingredient lines of 50 characters,
+   * the offers and use-soon facts) in 24 000 characters; the answer is a line of about 40 tokens per day, so 1 500 leave room.
+   */
+  planWeek: { maxRecipes: 40, maxIngredients: 8, maxIngredientChars: 50, maxFacts: 4, maxFactChars: 90, maxTitleChars: 100, maxWords: 12, maxRecent: 20, maxChars: 24_000, maxOutputTokens: 1_500 },
+  /**
    * locateThing's one attempt (Story 6.6, 18.7): at most 30 s, since a box is
    * extra, so failing fast is better than keeping the model busy.
    */
@@ -691,6 +752,36 @@ export function isValidMergeThingsInput(input: MergeThingsInput): boolean {
   if (!oneLine(room) || !oneLine(addedCard)) return false;
   if (added.length === 0 || added.length > limits.maxAdded || existing.length === 0 || existing.length > limits.maxExisting) return false;
   return added.every(thing) && existing.every((item) => thing(item) && oneLine(item.card)) && mergeThingsText(input).length <= limits.maxChars;
+}
+
+/** True for a week within inputLimits.planWeek: open days, a shortlist of one-line dishes, each list short. */
+export function isValidPlanWeekInput(input: PlanWeekInput): boolean {
+  const limits = inputLimits.planWeek;
+  const line = (text: string, max: number) => text !== "" && text === cleanModelText(text) && Array.from(text).length <= max;
+  const days = (list: readonly number[]) => list.length <= 7 && list.every((day) => Number.isInteger(day) && day >= 1 && day <= 7);
+  const { recipes } = input;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.weekStart)) return false;
+  if (input.openDays.length === 0 || !days(input.openDays) || !days(input.vegetarianDays) || !days(input.leftoverDays) || !days(input.skipDays)) return false;
+  if (recipes.length === 0 || recipes.length > limits.maxRecipes) return false;
+  const recipe = (item: PlanWeekRecipe) =>
+    line(item.title, limits.maxTitleChars) &&
+    item.ingredients.length <= limits.maxIngredients &&
+    item.ingredients.every((text) => line(text, limits.maxIngredientChars)) &&
+    item.offers.length <= limits.maxFacts &&
+    item.offers.every((text) => line(text, limits.maxFactChars)) &&
+    item.useSoon.length <= limits.maxFacts &&
+    item.useSoon.every((text) => line(text, limits.maxFactChars));
+  const words = (list: readonly string[]) => list.length <= limits.maxWords && list.every((text) => line(text, 40));
+  return (
+    recipes.every(recipe) &&
+    input.fixedDays.length <= 7 &&
+    input.fixedDays.every((fixed) => Number.isInteger(fixed.dayIndex) && line(fixed.title, limits.maxTitleChars)) &&
+    words(input.likes) &&
+    words(input.dislikes) &&
+    input.recent.length <= limits.maxRecent &&
+    input.recent.every((item) => line(item.title, limits.maxTitleChars)) &&
+    planWeekText(input).length <= limits.maxChars
+  );
 }
 
 /** True for lists within inputLimits.matchOffers: something in both, every name on one line. */
@@ -806,6 +897,10 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidMatchOffersInput(input)) return fail("validation");
       return service.matchOffers(input, signal, options);
     },
+    async planWeek(input, signal, options) {
+      if (!isValidPlanWeekInput(input)) return fail("validation");
+      return service.planWeek(input, signal, options);
+    },
     async thingSearchTerms(input, signal, options) {
       if (!isValidThingSearchTermsInput(input)) return fail("validation");
       return service.thingSearchTerms(input, signal, options);
@@ -830,6 +925,7 @@ export function createModelAiService(
   limits: Limits = defaultLimits,
   ideasTarget: ModelTarget = target,
   menuTargets: Record<MenuQuality, ModelTarget> = { standard: target, careful: target },
+  planTargets: Record<PlanWeekQuality, ModelTarget> = { standard: target, careful: target },
 ): AiService {
   return {
     async parseRecipe(input, signal) {
@@ -1150,6 +1246,28 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok({ pairs: parseOfferMatches(answer.data, input.offers.length, input.ingredients.length) });
     },
+    async planWeek(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const quality = input.quality ?? "standard";
+      const answer = await runStructured(
+        planTargets[quality],
+        {
+          schema: planWeekAnswer,
+          system: prompts.planWeek,
+          messages: [{ role: "user", content: planWeekText(input) }],
+          maxOutputTokens: inputLimits.planWeek.maxOutputTokens,
+          onTruncated: () => console.info("plan_week_truncated", { quality }),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ picks: parsePlanWeek(answer.data, input.recipes.map((item) => item.id)), quality });
+    },
     async thingSearchTerms(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1405,6 +1523,39 @@ export function matchOffersText(input: MatchOffersInput): string {
   return `Erbjudanden:\n${list(input.offers)}\n\nIngredienser:\n${list(input.ingredients)}`;
 }
 
+const dayNames = ["", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"];
+const dayList = (days: readonly number[]) => days.map((day) => dayNames[day] ?? "").join(", ");
+
+/**
+ * The user message for planWeek (Veckoagenten): the open days, the decided days, the rules as lines, the likes and
+ * dislikes as words, the recent dishes, and the numbered dishes ("Rätter:") with their facts. Every part is one line,
+ * so none can start a section of its own; the prompt says they are data. The dishes' ids are not sent.
+ */
+export function planWeekText(input: PlanWeekInput): string {
+  const lines: string[] = [`Vecka som börjar ${input.weekStart}`, `Lediga dagar: ${dayList(input.openDays)}`];
+  if (input.fixedDays.length > 0) lines.push(`Bestämda dagar: ${input.fixedDays.map((fixed) => `${dayNames[fixed.dayIndex] ?? ""} ${fixed.title}`).join("; ")}`);
+  if (input.vegetarianDays.length > 0) lines.push(`Vegetariska dagar: ${dayList(input.vegetarianDays)}`);
+  if (input.leftoverDays.length > 0) lines.push(`Dagar med rester: ${dayList(input.leftoverDays)}`);
+  if (input.skipDays.length > 0) lines.push(`Dagar utan middag: ${dayList(input.skipDays)}`);
+  lines.push(`Budget: ${input.budget === "low" ? "låg" : "normal"}`);
+  lines.push(`Snabba vardagar: ${input.quickWeekdays ? "på" : "av"}`);
+  lines.push(`Använd det som går ut snart: ${input.useSoonFirst ? "på" : "av"}`);
+  lines.push(`Gynna extrapriser: ${input.favourOffers ? "på" : "av"}`);
+  if (input.likes.length > 0) lines.push(`Hushållet gillar: ${input.likes.join(", ")}`);
+  if (input.dislikes.length > 0) lines.push(`Hushållet ogillar: ${input.dislikes.join(", ")}`);
+  if (input.recent.length > 0) lines.push(`Lagat nyligen: ${input.recent.map((item) => `${item.title} (${item.weeksAgo === 1 ? "förra veckan" : `för ${item.weeksAgo} veckor sedan`})`).join("; ")}`);
+  const dishes = input.recipes.map((item, index) => {
+    const parts = [`${index + 1}. ${item.title}`];
+    if (item.minutes !== null) parts.push(`${item.minutes} min`);
+    if (item.vegetarian) parts.push("vegetarisk");
+    if (item.ingredients.length > 0) parts.push(`Ingredienser: ${item.ingredients.join("; ")}`);
+    if (item.offers.length > 0) parts.push(`Extrapris: ${item.offers.join("; ")}`);
+    if (item.useSoon.length > 0) parts.push(`Går ut snart: ${item.useSoon.join("; ")}`);
+    return parts.join(" | ");
+  });
+  return `${lines.join("\n")}\n\nRätter:\n${dishes.join("\n")}`;
+}
+
 /**
  * The user message for locateThing (Story 18.7): the photo as a `file` part,
  * then "Föremål:" with the name, and "Var:" with where the reading said it
@@ -1557,6 +1708,11 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
           standard: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: menuModels.standard.model, effort: menuModels.standard.effort, fetch: options.fetch }),
           careful: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: menuModels.careful.model, effort: menuModels.careful.effort, fetch: options.fetch }),
         },
+        // Veckoagenten: fixed models per quality too (measured in tests/eval/week-plan.eval.ts, docs/week-agent-eval.md).
+        {
+          standard: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: planWeekModels.standard.model, effort: planWeekModels.standard.effort, fetch: options.fetch }),
+          careful: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: planWeekModels.careful.model, effort: planWeekModels.careful.effort, fetch: options.fetch }),
+        },
       );
     case "openai":
       if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -1569,6 +1725,12 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
 
 /** readMenu: Haiku 5.5 at low effort, and Sonnet 5.5 at medium for `careful`. */
 export const menuModels = {
+  standard: { model: "claude-haiku-5-5", effort: "low" },
+  careful: { model: "claude-sonnet-5-5", effort: "medium" },
+} as const;
+
+/** planWeek: Haiku 5.5 at low effort, and Sonnet 5.5 at medium for `careful` (and for the retry after a hard violation). */
+export const planWeekModels = {
   standard: { model: "claude-haiku-5-5", effort: "low" },
   careful: { model: "claude-sonnet-5-5", effort: "medium" },
 } as const;

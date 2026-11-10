@@ -6,7 +6,7 @@ import { defaultWeekAgentSettings, type WeekAgentSettings } from "./domain/setti
 
 // Server-only entry (AD-1): the household's week agent settings and drafts, saved in the database for every phone.
 
-export { finishDraftIn, saveDraftIn, saveSettingsIn, updateDraftIn, WeekAgentDataError, type StoredProposal } from "./data/week-agent";
+export { finishDraftIn, readDraftByIdIn, saveDraftIn, saveSettingsIn, updateDraftIn, WeekAgentDataError, type StoredProposal } from "./data/week-agent";
 
 /** The household's settings, or the defaults when they cannot be read (logged by reason only). Memoised per request. */
 export const getWeekAgentSettings = cache(async (): Promise<WeekAgentSettings> => {
@@ -29,3 +29,11 @@ export async function getWeekDraft(weekStart: string): Promise<StoredProposal | 
     return null;
   }
 }
+
+export { getWeekAgentContext } from "./read-context";
+// The Server Actions of Veckoagenten (AD-1): a page passes them down to the UI, which cannot import this module's server code.
+export { proposeWeek } from "./actions/propose-week";
+export { alternativesForDay, setDayLock, swapDay } from "./actions/day-actions";
+export { applyWeek, discardDraft } from "./actions/apply-week";
+export { saveWeekAgentSettings } from "./actions/settings-actions";
+export { planWithAi, toPortInput, type AiPlanOutcome, type PlanMode, type PlanModel } from "./ai-plan";
