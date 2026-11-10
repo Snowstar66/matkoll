@@ -30,6 +30,8 @@ export type ToastOptions = {
    * takes the undo of something Pontus just did.
    */
   waitForUndo?: boolean;
+  /** How long the toast stays, in milliseconds, instead of the usual time (Veckoagenten: 10 s to undo a whole week). */
+  durationMs?: number;
   /**
    * `alert` for a failure (e.g. "Det gick inte att ångra."): announced at
    * once through `role="alert"` instead of the polite live region.
@@ -91,7 +93,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     nextId.current += 1;
     remaining.current = {
       id: nextId.current,
-      ms: options?.show ? toastWithShowDurationMs : options?.onUndo ? toastWithUndoDurationMs : toastDurationMs,
+      ms: options?.durationMs ?? (options?.show ? toastWithShowDurationMs : options?.onUndo ? toastWithUndoDurationMs : toastDurationMs),
     };
     return {
       id: nextId.current,

@@ -486,6 +486,17 @@ export function LockIcon(props: IconProps) {
   );
 }
 
+/** A padlock with an open shackle: a day that is not locked (Veckoagenten). */
+export function LockOpenIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+      <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.6-1.6" />
+      <path d="M12 14.5v2" />
+    </Icon>
+  );
+}
+
 /** Two people (Story 21.2b): Medlemmar. */
 export function UsersIcon(props: IconProps) {
   return (

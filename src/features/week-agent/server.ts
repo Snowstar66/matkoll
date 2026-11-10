@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { readAgentDaysIn } from "./data/agent-days";
 import { readDraftIn, readSettingsIn, WeekAgentDataError, type StoredProposal } from "./data/week-agent";
 import { defaultWeekAgentSettings, type WeekAgentSettings } from "./domain/settings";
 
@@ -26,6 +27,17 @@ export async function getWeekDraft(weekStart: string): Promise<StoredProposal | 
   } catch (error) {
     if (!(error instanceof WeekAgentDataError)) throw error;
     console.error("week_agent_draft_unavailable", { reason: error.detail });
+    return null;
+  }
+}
+
+/** The weekdays of the week whose dish "Använd veckan" put there; null when they cannot be read (logged by reason only). */
+export async function getAgentPlacedDays(weekStart: string): Promise<number[] | null> {
+  try {
+    return await readAgentDaysIn(await createClient(), weekStart);
+  } catch (error) {
+    if (!(error instanceof WeekAgentDataError)) throw error;
+    console.error("week_agent_days_unavailable", { reason: error.detail });
     return null;
   }
 }
