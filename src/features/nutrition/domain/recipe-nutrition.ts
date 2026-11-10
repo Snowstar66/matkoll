@@ -1,4 +1,5 @@
 import { estimateGrams, toGrams } from "./grams";
+import { defaultPortionGrams } from "./portion-defaults";
 import { KOSTRAD_GROUPS, type IngredientNutrition, type KostradGroup } from "./groups";
 
 // Nutrition of a recipe per portion, from its lines and the nutrition rows of
@@ -75,6 +76,9 @@ function knownWeight(line: NutritionLine): number {
 /** The three parts of the plate model, in grams per portion. */
 export type PlateGrams = { gronsaker: number; kolhydrater: number; protein: number };
 
+/** A line without an amount that was counted as a usual portion of a known food ("jasminris", 75 g per portion). */
+export type PortionEstimate = { name: string; gramsPerServing: number };
+
 export type RecipeNutrition = {
   /** Energy and nutrients per portion, of the counted lines. */
   perServing: NutritionTotals;
@@ -86,6 +90,8 @@ export type RecipeNutrition = {
   coverage: Coverage;
   /** The countable lines that are not in the numbers, and why. */
   uncounted: UncountedLine[];
+  /** Lines without an amount that were counted as a usual portion (never written back to the recipe). */
+  portionEstimates: PortionEstimate[];
 };
 
 /**
@@ -141,6 +147,9 @@ const emptyGroups = (): Record<KostradGroup, number> =>
  *   or when it is vague and has no amount ("olja till stekning", "salt efter
  *   smak"), whatever its ingredient: such a line cannot be weighed, and
  *   it must not drag the coverage down.
+ * - Exception: a line with no amount whose ingredient is a known food that
+ *   carries a dish (rice, pasta, potatoes, meat, fish...) is counted as a usual
+ *   portion per person (defaultPortionGrams times `servings`), and as estimated.
  * - Every other line is in `total`. It is `counted` when its ingredient has
  *   nutrition values and its amount and unit give grams (toGrams). A line
  *   without a catalog ingredient, an unknown ingredient, an unknown unit or a
@@ -162,19 +171,25 @@ export function recipeNutrition(
   let total = 0;
   const uncounted: UncountedLine[] = [];
   let uncountedG = 0;
+  const portionEstimates: PortionEstimate[] = [];
 
   for (const line of lines) {
     const nutrition = line.ingredientId !== null && Object.hasOwn(byIngredientId, line.ingredientId) ? byIngredientId[line.ingredientId] : null;
     if (nutrition?.group === "ej_raknad") continue;
-    if (line.isVague && line.amount === null) continue;
+    // No amount: a known food that carries a dish is counted as a usual portion per person.
+    const portion = line.amount === null ? defaultPortionGrams(nutrition, lineName(line) ?? "") : null;
+    if (line.isVague && line.amount === null && portion === null) continue;
     total++;
     if (!nutrition?.per100g) {
       uncounted.push({ label: lineLabel(line, false), reason: "unknown_ingredient", name: lineName(line), unit: line.unit });
       uncountedG += knownWeight(line);
       continue;
     }
-    let lineGrams = toGrams(line.amount, line.unit, nutrition);
-    if (lineGrams === null) {
+    let lineGrams = portion !== null ? portion * portions : toGrams(line.amount, line.unit, nutrition);
+    if (portion !== null) {
+      estimated++;
+      portionEstimates.push({ name: lineName(line) ?? nutrition.name, gramsPerServing: portion });
+    } else if (lineGrams === null) {
       lineGrams = estimateGrams(line.amount, line.unit, nutrition);
       if (lineGrams !== null) estimated++;
     }
@@ -213,6 +228,7 @@ export function recipeNutrition(
     },
     coverage: { counted, total, countedG: grams, uncountedG, estimated },
     uncounted,
+    portionEstimates,
   };
 }
 

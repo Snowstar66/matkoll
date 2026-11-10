@@ -13,8 +13,9 @@ import { NutritionWeekLine, NutritionWeekLineAsync } from "./week-line";
 
 function dish(
   groups: Partial<Record<KostradGroup, number>>,
-  coverage = { counted: 9, total: 11 },
+  coverage: RecipeNutrition["coverage"] = { counted: 9, total: 11 },
   uncounted: RecipeNutrition["uncounted"] = [],
+  portionEstimates: RecipeNutrition["portionEstimates"] = [],
 ): RecipeNutrition {
   const g = Object.fromEntries(KOSTRAD_GROUPS.map((group) => [group, groups[group] ?? 0])) as Record<KostradGroup, number>;
   return {
@@ -24,6 +25,7 @@ function dish(
     plateGrams: { gronsaker: g.gronsak + g.baljvaxt, kolhydrater: g.fullkorn + g.raffinerad, protein: g.fisk + g.rott_kott + g.fagel + g.agg },
     coverage,
     uncounted,
+    portionEstimates,
   };
 }
 
@@ -82,6 +84,23 @@ describe("NutritionCard", () => {
     expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();
     await userEvent.click(screen.getByTestId("nutrition-card"));
     expect(screen.getByTestId("nutrition-uncounted")).toHaveTextContent("lövbiff (okänd vara)");
+  });
+
+  it("says in the sheet which lines were estimated as a usual portion", async () => {
+    saveOption("showNutrition", true);
+    saveOption("showKcal", true);
+    const rice = dish({ gronsak: 280, agg: 40, raffinerad: 75 }, { counted: 9, total: 10, estimated: 1 }, [], [{ name: "jasminris", gramsPerServing: 75 }]);
+    render(<NutritionCard recipeTitle="Kyckling med ris" nutrition={rice} />);
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.getByTestId("nutrition-portion-estimates")).toHaveTextContent("Uppskattat till en vanlig portion: jasminris 75 g per portion.");
+    expect(screen.getByText(/varav 1 med uppskattad vikt/)).toBeInTheDocument();
+  });
+
+  it("shows no estimate line when nothing was estimated", async () => {
+    saveOption("showNutrition", true);
+    render(<NutritionCard recipeTitle="Spagettipumpa" nutrition={green} />);
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.queryByTestId("nutrition-portion-estimates")).not.toBeInTheDocument();
   });
 
   it("explains that the plate is by weight, not nutrients", async () => {

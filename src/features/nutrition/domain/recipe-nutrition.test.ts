@@ -9,6 +9,11 @@ const rows = {
   salt: food("salt", "ej_raknad", null, { lmvNumber: null }),
   tofu: food("tofu", "baljvaxt", per(70, 6.6, 4.2, 1.2, 0.4), { lmvNumber: 905 }),
   lentils: food("linser", "baljvaxt", per(339, 24, 1, 52, 10), { lmvNumber: 884, gramsPerDl: 80 }),
+  jasmin: food("jasminris", "raffinerad", per(354, 7.5, 0.7, 78.2, 0), { lmvNumber: 2477 }),
+  chicken: food("kycklingfilé", "fagel", per(104, 23, 1.2, 0, 0), { gramsPerPiece: 150 }),
+  oil: food("olja", "fett", per(900, 0, 100, 0, 0)),
+  garlic: food("vitlök", "gronsak", per(130, 6, 0.1, 25, 2), { lmvNumber: 371 }),
+  milk: food("mjölk", "mejeri", per(60, 3.6, 3, 4.6, 0)),
   cheese: food("ost", "mejeri", per(358, 26, 27, 3, 0), { gramsPerDl: 40 }),
 };
 
@@ -34,7 +39,7 @@ describe("recipeNutrition", () => {
   });
 
   it("leaves out a vague line with no amount, with or without an ingredient", () => {
-    const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true), line("beef", null, null, true)], rows, 1);
+    const result = recipeNutrition([line("pasta", 100, "g"), line(null, null, null, true), line("oil", null, null, true)], rows, 1);
     expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
   });
 
@@ -44,7 +49,7 @@ describe("recipeNutrition", () => {
         line("pasta", 100, "g"),
         line(null, 2, "dl"), // no catalog ingredient
         line("beef", 1, "kvist"), // unit unknown
-        line("beef", null, null), // no amount, not vague
+        line("unknown-id", null, null), // no amount, not vague, unknown food
         line("unknown-id", 100, "g"), // no nutrition row
         line("pasta", 1, "st"), // no piece weight: guessed
         line("pasta", 2, "skiva"), // no slice weight: guessed
@@ -198,5 +203,55 @@ describe("Biff Rydberg for 4", () => {
 
   it("has the weight limit at 15 %", () => {
     expect(TRUST_MAX_UNCOUNTED_WEIGHT).toBe(0.15);
+  });
+});
+
+describe("lines without an amount: a usual portion of a known food", () => {
+  it("counts jasminris with no amount as 75 g dry per portion, 300 g for 4, and says it is estimated", () => {
+    const withRice = recipeNutrition([{ ...line("jasmin", null, null, true), ingredientName: "Jasminris" }, line("chicken", 600, "g")], rows, 4);
+    const without = recipeNutrition([line("chicken", 600, "g")], rows, 4);
+    expect(withRice.gramsPerServing).toBeCloseTo(150 + 75);
+    expect(withRice.perServing.kcal).toBeCloseTo(without.perServing.kcal + 3.54 * 75);
+    expect(withRice.coverage).toMatchObject({ counted: 2, total: 2, estimated: 1, countedG: 900 });
+    expect(withRice.groupGrams.raffinerad).toBeCloseTo(75);
+    expect(withRice.portionEstimates).toEqual([{ name: "jasminris", gramsPerServing: 75 }]);
+  });
+
+  it("makes a recipe trustworthy that was held back only by the missing rice", () => {
+    const lines = [line("chicken", 600, "g"), line("jasmin", null, null, true), line("tomato", 4, "dl"), line("pasta", 100, "g"), line("unknown-id", null, null)];
+    const result = recipeNutrition(lines, rows, 4);
+    expect(result.coverage).toMatchObject({ counted: 4, total: 5 });
+    expect(isTrustworthy(result.coverage)).toBe(true);
+    const old = recipeNutrition(lines.filter((l) => l.ingredientId !== "jasmin"), rows, 4);
+    expect(old.coverage).toMatchObject({ counted: 3, total: 4 });
+  });
+
+  it("does not estimate dairy, not even without the vague flag", () => {
+    const result = recipeNutrition([line("chicken", 400, "g"), line("milk", null, null)], rows, 4);
+    expect(result.coverage).toMatchObject({ counted: 1, total: 2 });
+    expect(result.uncounted).toHaveLength(1);
+    expect(result.portionEstimates).toEqual([]);
+  });
+
+  it("still skips spices, vague oil, garlic and vague dairy with no amount", () => {
+    const result = recipeNutrition(
+      [line("pasta", 100, "g"), line("salt", null, null, true), line("oil", null, null, true), line("garlic", null, null, true), line("milk", null, null, true)],
+      rows,
+      1,
+    );
+    expect(result.coverage).toMatchObject({ counted: 1, total: 1 });
+    expect(result.portionEstimates).toEqual([]);
+  });
+
+  it("leaves a not vague line without an ingredient row uncounted", () => {
+    const result = recipeNutrition([line("pasta", 100, "g"), line("unknown-id", null, null)], rows, 1);
+    expect(result.uncounted).toHaveLength(1);
+    expect(result.uncounted[0].reason).toBe("unknown_ingredient");
+  });
+
+  it("still counts when most counted lines are estimated", () => {
+    const result = recipeNutrition([line("jasmin", null, null, true), line("chicken", null, null, true)], rows, 2);
+    expect(result.coverage).toMatchObject({ counted: 2, total: 2, estimated: 2 });
+    expect(result.gramsPerServing).toBeCloseTo(75 + 140);
   });
 });
