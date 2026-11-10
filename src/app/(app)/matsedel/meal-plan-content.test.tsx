@@ -114,7 +114,7 @@ describe("MealPlanContent", () => {
     };
     vi.mocked(getMealPlanView).mockResolvedValue(withRecipe as never);
     vi.mocked(getFoodFitPeople).mockResolvedValue([{ name: "Anna", allergies: ["gluten"], dislikes: [], likes: [] }]);
-    window.localStorage.setItem("livskoll-option-showFit", "0");
+    window.localStorage.setItem("livskoll-option-showFit", "text");
     await show();
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta Alfredo");
     expect(screen.getByTestId("preference-notes")).toHaveTextContent("Kan innehålla gluten (Anna)");

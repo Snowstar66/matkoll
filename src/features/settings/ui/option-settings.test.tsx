@@ -18,9 +18,19 @@ describe("OptionSettings", () => {
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeDisabled();
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("Kräver Visa näring");
     expect(screen.getByRole("switch", { name: /Timer i receptet/ })).toHaveAttribute("aria-checked", "true");
-    const fit = screen.getByRole("switch", { name: /^Visa vem rätten passar/ });
-    expect(fit).toHaveAttribute("aria-checked", "true");
-    expect(fit).toHaveAccessibleDescription("Små prickar på recept och Matsedel när hushållet har olika smak");
+    const fit = screen.getByRole("radiogroup", { name: "Visa vem rätten passar" });
+    expect(screen.getByRole("radio", { name: "Prickar" })).toHaveAttribute("aria-checked", "true");
+    expect(fit).toBeInTheDocument();
+  });
+
+  it("chooses Prickar, Text or Inget for Visa vem rätten passar and remembers it", async () => {
+    render(<OptionSettings />);
+    await userEvent.click(screen.getByRole("radio", { name: "Text" }));
+    expect(screen.getByRole("radio", { name: "Text" })).toHaveAttribute("aria-checked", "true");
+    expect(window.localStorage.getItem("livskoll-option-showFit")).toBe("text");
+    await userEvent.click(screen.getByRole("radio", { name: "Inget" }));
+    expect(window.localStorage.getItem("livskoll-option-showFit")).toBe("none");
+    window.localStorage.removeItem("livskoll-option-showFit");
   });
 
   it("shows the Näringskoll under Näring only with Visa näring on", async () => {

@@ -3,8 +3,9 @@
 import type { ReactNode } from "react";
 import { SwitchRow } from "@/components/switch-row";
 import { NUTRITION_LICENSE_URL } from "@/features/nutrition";
-import { type OptionId, optionGroups, options, saveOption } from "@/lib/options";
-import { useOption } from "@/lib/use-option";
+import { cx } from "@/components/cx";
+import { type ChoiceOptionId, type OptionId, choiceOptions, optionGroups, options, saveChoice, saveOption } from "@/lib/options";
+import { useChoice, useOption } from "@/lib/use-option";
 
 // Tillval: one switch row per entry in src/lib/options.ts, remembered on this device.
 
@@ -20,6 +21,38 @@ export function OptionRow({ id, label, hint, disabled = false }: { id: OptionId;
       onToggle={() => saveOption(id, !on)}
       disabled={disabled}
     />
+  );
+}
+
+/** One choice option as a small segmented control (radio group) under its label, remembered on this device. */
+export function ChoiceRow({ id }: { id: ChoiceOptionId }) {
+  const value = useChoice(id);
+  const option = choiceOptions.find((entry) => entry.id === id);
+  if (!option) return null;
+  return (
+    <li className="flex flex-col gap-2 px-4 py-3">
+      <span className="flex flex-col">
+        <span className="text-body text-ink">{option.label}</span>
+        <span className="text-meta text-ink-2">{option.hint}</span>
+      </span>
+      <div role="radiogroup" aria-label={option.label} className="grid grid-cols-3 gap-1 rounded-lg bg-fill p-1">
+        {option.choices.map((choice) => {
+          const on = value === choice.value;
+          return (
+            <button
+              key={choice.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => saveChoice(id, choice.value)}
+              className={cx("min-h-tap rounded-md px-2 text-control", on ? "bg-surface font-semibold text-ink shadow-sm" : "text-ink-2")}
+            >
+              {choice.label}
+            </button>
+          );
+        })}
+      </div>
+    </li>
   );
 }
 
@@ -50,6 +83,9 @@ export function OptionSettings({ after, nutritionNote }: { after?: ReactNode; nu
                     disabled={option.id === "showKcal" && !showNutrition}
                   />
                 ))}
+              {choiceOptions.filter((option) => option.group === group.id).map((option) => (
+                <ChoiceRow key={option.id} id={option.id} />
+              ))}
             </ul>
             {group.id === "nutrition" && showNutrition ? nutritionNote : null}
             {group.id === "nutrition" ? (

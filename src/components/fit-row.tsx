@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cx } from "@/components/cx";
 import { type FitDot, fitDots } from "@/components/fit-dots";
 import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
-import { useOption } from "@/lib/use-option";
+import { useChoice } from "@/lib/use-option";
 
 /** Most dots in one row; an allergy dot is never cut. */
 const maxDots = 5;
@@ -15,23 +16,110 @@ const dotStyle: Record<FitDot["kind"], string> = {
   allergy: "border-[2.5px] border-danger bg-surface text-danger",
 };
 
-function Dot({ dot }: { dot: FitDot }) {
+type Anchor = { left: number; top: number };
+
+function Dot({ dot, open, onOpen, onClose }: { dot: FitDot; open: boolean; onOpen: (anchor: Anchor) => void; onClose: () => void }) {
+  const pointer = useRef("touch");
+  const show = (element: HTMLElement) => {
+    const box = element.getBoundingClientRect();
+    onOpen({ left: box.left + box.width / 2, top: box.bottom + 4 });
+  };
   return (
-    <span role="img" aria-label={dot.label} data-kind={dot.kind} data-testid="fit-dot" className={cx("inline-grid size-[26px] shrink-0 place-items-center rounded-full text-[0.875rem]/none font-semibold", dotStyle[dot.kind])}>
-      <span aria-hidden>{dot.initial}</span>
-    </span>
+    <button
+      type="button"
+      aria-label={dot.label}
+      aria-expanded={open}
+      data-kind={dot.kind}
+      data-testid="fit-dot"
+      onPointerDown={(event) => {
+        pointer.current = event.pointerType;
+      }}
+      onClick={(event) => {
+        // The dot sits on cards that are links: a tap here is for the bubble only.
+        event.preventDefault();
+        event.stopPropagation();
+        if (open && pointer.current !== "mouse") onClose();
+        else show(event.currentTarget);
+      }}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") show(event.currentTarget);
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") onClose();
+      }}
+      onFocus={(event) => {
+        if (event.currentTarget.matches(":focus-visible")) show(event.currentTarget);
+      }}
+      onBlur={onClose}
+      className="-m-[3px] inline-grid shrink-0 place-items-center rounded-full p-[3px] outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+    >
+      <span aria-hidden className={cx("inline-grid size-[26px] place-items-center rounded-full text-[0.875rem]/none font-semibold", dotStyle[dot.kind])}>
+        {dot.initial}
+      </span>
+    </button>
+  );
+}
+
+function Bubble({ dot, anchor }: { dot: FitDot; anchor: Anchor }) {
+  const width = typeof window === "undefined" ? 320 : window.innerWidth;
+  const left = Math.min(Math.max(anchor.left, 130), Math.max(width - 130, 130));
+  return createPortal(
+    <div
+      role="status"
+      data-testid="fit-bubble"
+      style={{ left, top: anchor.top }}
+      className={cx(
+        "pointer-events-none fixed z-50 max-w-[240px] -translate-x-1/2 rounded-lg bg-surface px-3 py-2 text-[0.9375rem]/5 shadow-lg ring-1 ring-border",
+        dot.kind === "allergy" ? "font-semibold text-danger" : "text-ink-2",
+      )}
+    >
+      {dot.label}
+    </div>,
+    document.body,
   );
 }
 
 function DotRow({ dots }: { dots: readonly FitDot[] }) {
   const words = [...new Set(dots.flatMap((dot) => dot.words))];
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const row = useRef<HTMLSpanElement>(null);
+  const close = useCallback(() => setOpenId(null), []);
+  useEffect(() => {
+    if (openId === null) return;
+    const outside = (event: Event) => {
+      if (!row.current?.contains(event.target as Node)) close();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [openId, close]);
+  const openDot = dots.find((dot) => dot.personId === openId);
   return (
     <>
-      <span className="inline-flex items-center gap-1">
+      <span ref={row} className="inline-flex items-center gap-1.5">
         {dots.map((dot) => (
-          <Dot key={dot.personId} dot={dot} />
+          <Dot
+            key={dot.personId}
+            dot={dot}
+            open={openId === dot.personId}
+            onOpen={(next) => {
+              setAnchor(next);
+              setOpenId(dot.personId);
+            }}
+            onClose={close}
+          />
         ))}
       </span>
+      {openDot && anchor ? <Bubble dot={openDot} anchor={anchor} /> : null}
       {words.length > 0 ? (
         <span data-testid="fit-allergy-word" className="text-[0.875rem]/[18px] font-semibold text-danger">
           {words.join(", ")}
@@ -42,42 +130,22 @@ function DotRow({ dots }: { dots: readonly FitDot[] }) {
 }
 
 /**
- * FitRow: who a dish suits, as small round initials, only for those who stand out (Tillval Visa vem rätten passar):
- * mint is a lover, sand is an avoider, a red ring with the allergen word is an allergy. Nobody neutral is shown and a dish
- * that fits everyone has no row at all. It replaces the grey and green lines of PreferenceNotes (the allergy too, as the
- * red ring and word); with the option off, the notes are shown as before. `expandable` (the recipe page) makes the whole
- * row a button that opens the sentences ("Anna älskar fetaost. Gunnar undviker vitlök."); elsewhere the row is plain, so a
- * tap goes on to the card's own link.
+ * FitRow: who a dish suits (Tillval Visa vem rätten passar, three ways per device). "Prickar" (default): small round
+ * initials only for those who stand out, mint is a lover, sand an avoider, a red ring with the allergen word an allergy;
+ * nobody neutral is shown, a dish that fits everyone has no row. A dot is a button: a tap (or hover or keyboard focus)
+ * opens a small bubble with the sentence ("Anna älskar fetaost"); it never follows the card's own link. "Text": the grey
+ * and green lines of PreferenceNotes as before, allergies in red. "Inget": nothing here (allergy warnings elsewhere,
+ * like the week line, stay).
  */
-export function FitRow({ notes, maxNotes, expandable = false, className }: { notes: readonly PreferenceNote[] | undefined; maxNotes?: number; expandable?: boolean; className?: string }) {
-  const on = useOption("showFit");
-  const [open, setOpen] = useState(false);
-  if (!on) return <PreferenceNotes notes={notes} max={maxNotes} className={className} />;
+export function FitRow({ notes, maxNotes, className }: { notes: readonly PreferenceNote[] | undefined; maxNotes?: number; className?: string }) {
+  const mode = useChoice("showFit");
+  if (mode === "none") return null;
+  if (mode === "text") return <PreferenceNotes notes={notes} max={maxNotes} className={className} />;
   const dots = fitDots(notes, maxDots);
   if (dots.length === 0) return null;
-  if (!expandable) {
-    return (
-      <span data-testid="fit-row" className={cx("flex min-h-[26px] min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1", className)}>
-        <DotRow dots={dots} />
-      </span>
-    );
-  }
   return (
-    <div data-testid="fit-row" className={className}>
-      <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} className="flex min-h-11 w-full items-center gap-2 text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-        <DotRow dots={dots} />
-        <span className="text-meta text-ink-3">{open ? "Dölj" : "Tryck för mer"}</span>
-      </button>
-      {open ? (
-        <ul data-testid="fit-details" className="mb-1 flex flex-col gap-1 rounded-lg bg-surface px-3.5 py-3 text-[0.9375rem]/5 text-ink-2">
-          {dots.map((dot) => (
-            <li key={dot.personId} className={dot.kind === "allergy" ? "font-semibold text-danger" : undefined}>
-              {dot.label}
-              {dot.kind === "allergy" ? "" : "."}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+    <span data-testid="fit-row" className={cx("flex min-h-[26px] min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1", className)}>
+      <DotRow dots={dots} />
+    </span>
   );
 }

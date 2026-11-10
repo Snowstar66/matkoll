@@ -186,7 +186,7 @@ test("Kan lagas nu shows only what can be cooked, with Nästan below, and keeps 
 
 test("hushållets preferenser: the cards and the recipe page note an allergy, an Undviker and an Älskar, and rank the library lightly", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.addInitScript(() => localStorage.setItem("livskoll-option-showFit", "0"));
+  await page.addInitScript(() => localStorage.setItem("livskoll-option-showFit", "text"));
   await seedFoodProfile(userId, { allergies: ["laktos"], dislikes: ["linser"], likes: ["torsk"] });
   await page.goto("/recept");
   // Without notes the order is newest first (fisk, gryta, soppa); an Undviker goes before an allergy, nothing is left out.
@@ -225,16 +225,16 @@ test("Visa vem rätten passar: dots for those who stand out replace the notes, n
   await expectNoHorizontalScroll(page);
   if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-recept.png` });
 
-  // The recipe page: the row is a button of at least 44 px that opens the sentence.
+  // The recipe page: a dot is a button of at least 32 px that opens a bubble with the sentence.
   await row(soppa).getByRole("link").click();
-  const toggle = page.getByTestId("fit-row").filter({ visible: true }).getByRole("button");
-  expect((await toggle.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  const toggle = page.getByTestId("fit-row").filter({ visible: true }).getByRole("button").first();
+  expect((await toggle.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(32);
   await toggle.click();
-  await expect(page.getByTestId("fit-details")).toContainText(/undviker linser/);
+  await expect(page.getByTestId("fit-bubble")).toContainText(/undviker linser/);
   if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-receptsida.png` });
 
   // Switched off under Tillval: today's notes.
-  await page.evaluate(() => localStorage.setItem("livskoll-option-showFit", "0"));
+  await page.evaluate(() => localStorage.setItem("livskoll-option-showFit", "text"));
   await page.goto("/recept");
   await expect(page.getByTestId("fit-dot")).toHaveCount(0);
   await expect(row(gryta).getByTestId("preference-notes")).toContainText("Kan innehålla laktos");
