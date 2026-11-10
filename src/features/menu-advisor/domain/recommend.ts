@@ -2,6 +2,7 @@
 // Never claims a dish is allergy-safe: allergens exclude, "may contain" only warns, and what is left is
 // "nothing in the profile rules it out", always shown with the allergy disclaimer.
 import { allergenHits } from "./allergens";
+import { allergenLabels } from "./labels";
 import { whoName } from "./preferences";
 import { softHits } from "./tastes";
 import type { Person, Taste, TasteKey } from "./profile";
@@ -37,17 +38,6 @@ export type PersonSuggestions = {
   picks: Suggestion[];
   /** Dishes left out because of the person's allergies. */
   excluded: number;
-};
-
-const allergenNames: Readonly<Record<MenuAllergen, string>> = {
-  gluten: "gluten",
-  laktos: "laktos",
-  notter: "nötter",
-  skaldjur: "skaldjur",
-  agg: "ägg",
-  fisk: "fisk",
-  soja: "soja",
-  sesam: "sesam",
 };
 
 const tasteNames: Readonly<Record<TasteKey, { like: string; group: string }>> = {
@@ -156,7 +146,7 @@ export function rank(dish: MenuDish, person: Person, ctx: RankContext): Suggesti
   const maybe = allergenHits(dish, person.allergies).filter((hit) => hit.source === "kan_innehalla");
   let warning: string | null = null;
   if (maybe.length > 0) {
-    warning = `Kan innehålla ${maybe.map((hit) => allergenNames[hit.allergen]).join(", ")}. Fråga personalen.`;
+    warning = `Kan innehålla ${maybe.map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE")).join(", ")}. Fråga personalen.`;
     score -= warningPenalty;
   }
 
