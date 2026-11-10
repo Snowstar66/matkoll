@@ -319,7 +319,8 @@ test("a dish with an allergen of the person, and nothing else to give, is shown 
   const count = await flagged.count();
   expect(count).toBeGreaterThan(0);
   await expect(page.getByText("Inget annat på menyn passar. Den här innehåller en allergen du har, fråga personalen.")).toBeVisible();
-  await expect(page.locator("[data-tone='danger']")).toHaveCount(count);
+  // One red reason per flagged dish at least (the first dish also says that nothing else fits).
+  await expect.poll(() => page.locator("[data-tone='danger']").count()).toBeGreaterThanOrEqual(count);
   await page.screenshot({ path: `${shots}/16-answer-allergy.png` });
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByTestId("menu-choice-person")).toContainText("Inget annat på menyn passar");
