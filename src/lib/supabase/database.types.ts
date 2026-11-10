@@ -283,6 +283,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"household_week_agent_settings": {
+                  Row: {
+                    "created_at": string,"household_id": string,"id": string,"settings": NonNullable<Json>,"updated_at": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"settings"?: NonNullable<Json>,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"settings"?: NonNullable<Json>,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "household_week_agent_settings_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: true
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"household_id": string,"id": string,"keeps_days": number | null,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string | null
@@ -365,14 +385,14 @@ isOneToOne: false
                   ]
                 },"meal_plan_recipe": {
                   Row: {
-                    "cooked_at": string | null,"cooked_deductions": Json | null,"created_at": string,"household_id": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"user_id": string | null,"weekday": number | null
+                    "cooked_at": string | null,"cooked_deductions": Json | null,"created_at": string,"household_id": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"source": string | null,"user_id": string | null,"weekday": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"household_id"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"user_id"?: string | null,"weekday"?: number | null
+                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"household_id"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"source"?: string | null,"user_id"?: string | null,"weekday"?: number | null
                   }
                   Update: {
-                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"household_id"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"user_id"?: string | null,"weekday"?: number | null
+                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"household_id"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"source"?: string | null,"user_id"?: string | null,"weekday"?: number | null
                   }
                   Relationships: [
                     {
@@ -969,6 +989,26 @@ isOneToOne: false
       referencedColumns: ["id","household_id"]
     }
                   ]
+                },"week_agent_proposals": {
+                  Row: {
+                    "created_at": string,"household_id": string,"id": string,"model": string | null,"proposal": NonNullable<Json>,"status": string,"updated_at": string,"user_id": string | null,"week_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"model"?: string | null,"proposal": NonNullable<Json>,"status"?: string,"updated_at"?: string,"user_id"?: string | null,"week_start": string
+                  }
+                  Update: {
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"model"?: string | null,"proposal"?: NonNullable<Json>,"status"?: string,"updated_at"?: string,"user_id"?: string | null,"week_start"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "week_agent_proposals_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"welcome_tour": {
                   Row: {
                     "created_at": string,"id": string,"tour_seen_at": string,"user_id": string
@@ -1030,6 +1070,7 @@ isOneToOne: false
 "recipe_id": string | null,
 "recipe_title": string,
 "servings": number,
+"source": string | null,
 "user_id": string | null,
 "weekday": number | null
             }
@@ -1054,6 +1095,7 @@ isOneToOne: false
 "recipe_id": string | null,
 "recipe_title": string,
 "servings": number,
+"source": string | null,
 "user_id": string | null,
 "weekday": number | null
             }
@@ -1443,6 +1485,7 @@ isOneToOne: false
 "recipe_id": string | null,
 "recipe_title": string,
 "servings": number,
+"source": string | null,
 "user_id": string | null,
 "weekday": number | null
             }
@@ -1716,7 +1759,13 @@ isOneToOne: false
         to: "shopping_custom_item"
         isOneToOne: true
         isSetofReturn: false
-      } }
+      } },
+"week_agent_proposal_valid":
+{ Args: { "p": Json }; Returns: boolean
+                           },
+"week_agent_settings_valid":
+{ Args: { "s": Json }; Returns: boolean
+                           }
           }
           Enums: {
             "household_note_mood": "happy"|"love"|"yum"|"cross"|"weary"
