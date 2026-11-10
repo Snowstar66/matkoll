@@ -13,6 +13,14 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     date: "2026-11-10",
+    title: "Näringen räknas för fler recept, till exempel räkcurry",
+    bullets: [
+      "Räkor i alla former, som jätteräka, tigerräkor och kungsräkor, känns nu igen, så kcal och näring kan räknas för rätter med skaldjur.",
+      "Limefrukt räknas som lime, och chiliflakes räknas som en smakgivare som inte stoppar räkningen.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Välj hur vem-rätten-passar visas, och tryck på en prick",
     bullets: [
       "Under Inställningar, Tillval, Hushållet väljer du Prickar, Text eller Inget för Visa vem rätten passar. Prickar är som förut, Text ger raderna med ord (\"Pontus älskar kött\") och Inget döljer smakraden.",

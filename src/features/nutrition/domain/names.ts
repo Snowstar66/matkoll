@@ -24,6 +24,8 @@ export const COMPOUND_HEADS: readonly string[] = [
   "ströbröd",
   "majonnäs",
   "buljong",
+  "räkor",
+  "räka",
   "dressing",
   "senap",
   "olja",
