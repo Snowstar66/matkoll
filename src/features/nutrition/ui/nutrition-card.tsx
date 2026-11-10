@@ -7,7 +7,7 @@ import { Sheet } from "@/components/sheet";
 import { NUTRITION_LICENSE_URL } from "../domain/groups";
 import { assessKostrad, plateShares } from "../domain/kostrad";
 import { isTrustworthy, type RecipeNutrition, roundedGrams, roundedKcal } from "../domain/recipe-nutrition";
-import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
+import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, portionEstimatesText, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
 import { Plate, plateColors } from "./plate";
 import { useNutritionOptions } from "./use-nutrition-options";
 
@@ -98,6 +98,7 @@ function NutritionSheet({
   const { perServing, coverage } = nutrition;
   const trusted = isTrustworthy(coverage);
   const notCounted = uncountedText(nutrition.uncounted);
+  const estimatedText = portionEstimatesText(nutrition.portionEstimates);
   const rows = [
     ["Energi", `ca ${roundedKcal(perServing.kcal)} kcal`],
     ["Protein", `${roundedGrams(perServing.proteinG)} g`],
@@ -165,6 +166,7 @@ function NutritionSheet({
         ) : null}
         <p className="px-1 text-meta text-ink-2">
           {coverageText(coverage.counted, coverage.total, coverage.estimated)} Salt och kryddor räknas inte.
+          {estimatedText ? <span data-testid="nutrition-portion-estimates"> {estimatedText}</span> : null}
           {notCounted ? <span data-testid="nutrition-uncounted"> {notCounted}</span> : null}
         </p>
         <p className="px-1 text-meta text-ink-3">

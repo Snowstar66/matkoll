@@ -17,6 +17,7 @@ function dish(groups: Partial<Record<KostradGroup, number>>, coverage: RecipeNut
     },
     coverage,
     uncounted: [],
+    portionEstimates: [],
   };
 }
 
