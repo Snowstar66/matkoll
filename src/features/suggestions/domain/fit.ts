@@ -6,6 +6,8 @@ import { z } from "zod";
 export const fitNoteSchema = z.object({
   kind: z.enum(["allergy", "dislike", "like"]),
   text: z.string().min(1).max(160),
+  people: z.array(z.object({ id: z.string().max(80), name: z.string().max(80) })).max(12).optional(),
+  terms: z.array(z.string().max(60)).max(12).optional(),
 });
 
 /** At most this many notes on one suggestion. */

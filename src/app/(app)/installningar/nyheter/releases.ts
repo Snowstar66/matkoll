@@ -21,6 +21,15 @@ export const releases: readonly Release[] = [
   },
   {
     date: "2026-11-10",
+    title: "Välj hur vem-rätten-passar visas, och tryck på en prick",
+    bullets: [
+      "Under Inställningar, Tillval, Hushållet väljer du Prickar, Text eller Inget för Visa vem rätten passar. Prickar är som förut, Text ger raderna med ord (\"Pontus älskar kött\") och Inget döljer smakraden.",
+      "Ett tryck på en prick visar en liten bubbla med vad som gäller, till exempel \"Anna älskar fetaost\" eller allergin. Tryck igen eller utanför för att stänga. På dator visas den när du pekar på pricken.",
+      "Allergivarningar visas som förut, även med Text, och veckans allergirad finns kvar vid Inget.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Prickar visar vem rätten passar",
     bullets: [
       "På receptlistan, receptsidan, Matsedel och i Vad kan jag laga nu? visar små runda prickar med bokstav vem som älskar något i rätten (grön), vem som undviker något (beige, streckad kant) och vem som är allergisk (röd ring med ordet, till exempel Gluten).",

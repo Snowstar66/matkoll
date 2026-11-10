@@ -382,7 +382,7 @@ describe("WeekPlanner, Hushållets preferenser", () => {
   const fitsFor = { [uuid(1)]: [{ kind: "allergy" as const, text: "Kan innehålla gluten (Anna)" }, { kind: "dislike" as const, text: "Anna undviker lök" }, { kind: "like" as const, text: "Anna älskar ost" }] };
 
   it("flags a dish with at most two notes, allergy first, and keeps the dish; the week line links to it", () => {
-    window.localStorage.setItem("livskoll-option-showFit", "0");
+    window.localStorage.setItem("livskoll-option-showFit", "text");
     render(
       <ToastProvider>
         <WeekPlanner weekStart="2026-11-02" dishes={[onWeek(1, "Tacos", 2), onWeek(2, "Korvstroganoff", null)]} options={options} toBuy={0} fits={fitsFor} />

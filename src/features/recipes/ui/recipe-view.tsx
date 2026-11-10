@@ -180,7 +180,7 @@ export function RecipeView({
             {offerLine}
           </p>
         ) : null}
-        <FitRow notes={fit} expandable />
+        <FitRow notes={fit} />
         </div>
       </header>
 

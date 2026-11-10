@@ -808,7 +808,7 @@ describe("Library, hushållets preferenser", () => {
   });
 
   it("puts what is loved first and what holds an allergen last, with the notes on the cards (red allergy, two lines at most)", () => {
-    window.localStorage.setItem("livskoll-option-showFit", "0");
+    window.localStorage.setItem("livskoll-option-showFit", "text");
     renderLibrary(ranking, { fits });
     expect(titles()).toEqual(["Fiskgratäng", "Linssoppa", "Pannkakor", "Krämig kycklinggryta"]);
     const card = screen.getAllByTestId("recipe-card")[3];
@@ -825,7 +825,7 @@ describe("Library, hushållets preferenser", () => {
   });
 
   it("shows one line of notes in the compact list", async () => {
-    window.localStorage.setItem("livskoll-option-showFit", "0");
+    window.localStorage.setItem("livskoll-option-showFit", "text");
     const user = userEvent.setup();
     renderLibrary(ranking, { fits });
     await user.click(screen.getByRole("radio", { name: "Lista" }));
