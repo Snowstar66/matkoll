@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MealPlanDataError } from "@/features/mealplan/data/client";
 import { addWeeks, currentWeekStart } from "@/features/mealplan/domain/week";
-import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "@/features/mealplan/data/queries";
+import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, listPreviousPlansIn, listWeekDishesIn } from "@/features/mealplan/data/queries";
 import {
   addToCurrentPlanIn,
   deletePlanIn,
   detachRecipeIn,
+  markDishesFromAgentIn,
   removePlanRecipeIn,
   restorePlanRecipeIn,
   setCurrentPlanIn,
@@ -793,5 +794,33 @@ describe("planning the coming weeks (Story 13.7)", () => {
     const closed = await user.db.from("meal_plan").select("is_current").eq("id", past.data.id).single();
     expect(closed.data?.is_current).toBe(false);
     expect((await listPreviousPlansIn(user.db)).map(({ id }) => id)).toContain(past.data.id);
+  });
+});
+
+describe("Ångra of Veckoagenten's 'Använd veckan'", () => {
+  it("removes the dishes it wrote and puts a replaced dish back with the same id, day, title and servings, on a coming week, twice without harm", async () => {
+    const user = await createTestUser("mealplan-agent-undo");
+    const recipe = await addRecipe(user.db, "Pannkaka", 6);
+    const weekStart = addWeeks(currentWeekStart(), 1);
+    const own = dish(recipe, { recipeTitle: "Pannkaka", servings: 6, weekday: 3, weekStart });
+    await addToCurrentPlanIn(user.db, own);
+    const before = (await listWeekDishesIn(user.db, weekStart)).find((row) => row.id === own.id);
+    expect(before).toMatchObject({ weekday: 3, recipeId: recipe, recipeTitle: "Pannkaka", servings: 6, source: null });
+
+    // "Använd veckan" with overwrite: the household's dish goes, the agent's comes.
+    await removePlanRecipeIn(user.db, own.id);
+    const agent = dish(recipe, { recipeTitle: "Pannkaka", weekday: 3, weekStart });
+    await addToCurrentPlanIn(user.db, agent);
+    await markDishesFromAgentIn(user.db, [agent.id]);
+    expect((await listWeekDishesIn(user.db, weekStart)).map((row) => [row.id, row.source])).toEqual([[agent.id, "week_agent"]]);
+
+    // Ångra, run twice: the agent's dish is gone, the household's is back as it was.
+    for (let round = 0; round < 2; round++) {
+      await removePlanRecipeIn(user.db, agent.id);
+      await addToCurrentPlanIn(user.db, own);
+    }
+    const after = await listWeekDishesIn(user.db, weekStart);
+    expect(after).toHaveLength(1);
+    expect(after[0]).toEqual(before);
   });
 });

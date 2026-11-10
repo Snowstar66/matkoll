@@ -55,7 +55,9 @@ type Phase =
 
 const failedText = "Det gick inte att ta fram ett förslag. Försök igen.";
 
-export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, initialDraft, autoStart, redo = null, actions, settings, onStarted }: ProposalScreenProps) {
+export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, initialDraft, autoStart, redo: redoProp = null, actions, settings, onStarted }: ProposalScreenProps) {
+  // The address loses ?gor-om as soon as the run has started (onStarted), so the page passes no redo after that: the screen keeps the one it was opened with.
+  const [redo] = useState(redoProp);
   const router = useRouter();
   const { showToast } = useToast();
   const on = useOption("weekAgent");
