@@ -6,7 +6,7 @@ import { allergenLabels } from "./labels";
 import { whoName } from "./preferences";
 import { softHits } from "./tastes";
 import type { Person, Taste, TasteKey } from "./profile";
-import type { Menu, MenuAllergen, MenuDish, MenuGroup } from "./types";
+import type { Menu, MenuDish, MenuGroup } from "./types";
 import { dishSek } from "./view";
 
 export type Budget = "billigt" | "normalt" | "unna";
