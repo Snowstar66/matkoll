@@ -1,5 +1,5 @@
 import type { NutritionCheck } from "./coverage";
-import type { UncountedLine } from "./recipe-nutrition";
+import type { PortionEstimate, UncountedLine } from "./recipe-nutrition";
 import type { KostradTag, PlateShares, WeekSummary } from "./kostrad";
 
 // The words of the nutrition UI, kept apart from the components so they can be tested.
@@ -62,4 +62,10 @@ export function uncountedText(uncounted: readonly UncountedLine[]): string | nul
     return line.label.endsWith(")") ? `${line.label.slice(0, -1)}, okänd storlek)` : `${line.label} (okänd storlek)`;
   });
   return `Räknas inte: ${parts.join(", ")}.`;
+}
+
+/** "Uppskattat till en vanlig portion: jasminris 75 g per portion."; `null` when nothing was estimated. */
+export function portionEstimatesText(estimates: readonly PortionEstimate[]): string | null {
+  if (estimates.length === 0) return null;
+  return `Uppskattat till en vanlig portion: ${estimates.map((e) => `${e.name} ${Math.round(e.gramsPerServing)} g per portion`).join(", ")}.`;
 }
