@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStor
 import { Chip } from "@/components/chip";
 import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
+import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
 import { useToast } from "@/components/toast";
 import { openAddDishesEvent } from "./add-dishes-button";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
@@ -27,7 +28,7 @@ import {
   type WeekdayChange,
 } from "../domain/meal-plan";
 import { NutritionWeekLineAsync, type RecipeNutrition } from "@/features/nutrition";
-import { addedToWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
+import { addedToWeekText, allergyWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
 import { chipDateText } from "../domain/week";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
@@ -88,9 +89,11 @@ export type WeekPlannerProps = {
   offersFooter?: ReactNode;
   /** The nutrition per portion of the week's recipes by recipe id, for the quiet week line (shown only with Tillval "Visa näring"). */
   nutrition?: Promise<Readonly<Record<string, RecipeNutrition>>>;
+  /** Hushållets preferenser: the notes of each recipe on the week that has any, by recipe id (worked out by the page); dishes are flagged, never hidden. */
+  fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
 };
 
-export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter, nutrition }: WeekPlannerProps) {
+export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter, nutrition, fits }: WeekPlannerProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
@@ -283,6 +286,11 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
     previousDay = row.weekday;
   }
   const dayDish = shown.find((dish) => dish.id === dayFor) ?? null;
+  const fitOf = (dish: PlanDish) => (dish.recipeId ? fits?.[dish.recipeId] : undefined);
+  // In the order of the rows, so the line's link goes to the first dish with an allergy note.
+  const dishesInOrder = rowsOfWeek.flatMap((row) => (row.kind === "dish" ? [row.dish] : []));
+  const firstAllergy = dishesInOrder.find((dish) => fitOf(dish)?.some((note) => note.kind === "allergy"));
+  const allergyLine = allergyWeekText(dishesInOrder.map(fitOf));
 
   return (
     <div className="flex flex-col gap-5">
@@ -295,6 +303,13 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
           {shown.length > 0 ? (
             <p data-testid="week-bar-count" className="text-meta text-ink-2">
               {weekBarText(shown.length, toBuy)}
+            </p>
+          ) : null}
+          {allergyLine && firstAllergy ? (
+            <p data-testid="week-allergy-line" className="text-meta">
+              <a href={`#dish-${firstAllergy.id}`} className="text-danger underline">
+                {allergyLine}
+              </a>
             </p>
           ) : null}
         </div>
@@ -337,7 +352,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
               }
               const dish = row.dish;
               return (
-                <li key={dish.id} data-testid="plan-dish" data-dish={dish.id} className="flex items-stretch border-t border-hairline first:border-t-0">
+                <li key={dish.id} id={`dish-${dish.id}`} data-testid="plan-dish" data-dish={dish.id} className="flex scroll-mt-4 items-stretch border-t border-hairline first:border-t-0">
                   <button
                     type="button"
                     data-testid="dish-day"
@@ -366,6 +381,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       <p data-testid="dish-note" className="text-meta text-ink-2">
                         {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
                       </p>
+                      <PreferenceNotes notes={fitOf(dish)} max={2} />
                       {dish.recipeId ? <OfferTags tags={byId.get(dish.recipeId)?.deal?.tags ?? []} className="mt-0.5" /> : null}
                     </div>
                     <TrashButton

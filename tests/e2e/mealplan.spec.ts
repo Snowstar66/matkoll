@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
-import { adminClient, dayWords, e2eUserId, firstFree, mealplanEmail, mealplanStorageState, openLibrary, todayDay } from "./support";
+import { adminClient, clearFoodProfiles, seedFoodProfile, dayWords, e2eUserId, firstFree, mealplanEmail, mealplanStorageState, openLibrary, todayDay } from "./support";
 
 // Story 3.1 and 25.3: Matsedel as the place to plan the week: "Veckans rätter"
 // with their day chip and ✕ (with "Ångra"), and "Lägg till rätter" with
@@ -215,6 +215,28 @@ test("a favourite is on the first free day after one tap on +, with its own serv
   expect(saved.data).toEqual([{ servings: 4, weekday: day }]);
   await page.reload();
   await expect(dish(page, gryta).getByTestId("dish-note")).toHaveText("Allt finns hemma");
+  expect(errors).toEqual([]);
+});
+
+test("hushållets preferenser: a planned dish with grädde is flagged for a laktos allergy, never hidden; no profile, no notes", async ({ page }) => {
+  const errors = watchErrors(page);
+  await clearFoodProfiles(userId);
+  await page.goto("/matsedel");
+  await expect(dish(page, gryta)).toBeVisible();
+  await expect(page.getByTestId("preference-notes")).toHaveCount(0);
+  await expect(page.getByTestId("week-allergy-line")).toHaveCount(0);
+
+  await seedFoodProfile(userId, { allergies: ["laktos"] });
+  await page.reload();
+  const note = dish(page, gryta).getByTestId("preference-notes").locator('[data-kind="allergy"]');
+  await expect(note).toHaveText(/^Kan innehålla laktos \(/);
+  await expect(note).toHaveCSS("font-weight", "600");
+  await expect(page.getByTestId("week-allergy-line").filter({ visible: true })).toContainText("1 rätt på veckan kan innehålla en allergen");
+  await expect(dishes(page)).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/preferenser-matsedel.png` });
+
+  await clearFoodProfiles(userId);
   expect(errors).toEqual([]);
 });
 

@@ -7,7 +7,7 @@ import { Chip } from "@/components/chip";
 import { Sheet } from "@/components/sheet";
 import { Input } from "@/components/field";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { companySummary, maxNameLength, newPerson, toggleAllergy } from "../domain/people";
+import { companySummary, maxNameLength, newPerson, profilesHref, toggleAllergy } from "../domain/people";
 import { menuAllergens, type MenuAllergen } from "../domain/types";
 import type { Person } from "../domain/profile";
 import { makePersonId } from "./use-people";
@@ -140,10 +140,10 @@ export function CompanySheet({
             </div>
           </form>
         ) : null}
-        <Link href="/installningar/tillval/aata-ute" className="inline-flex min-h-tap items-center self-start text-body font-medium text-accent">
-          Profiler: allergier och vad ni gillar
+        <Link href={profilesHref} className="inline-flex min-h-tap items-center self-start text-body font-medium text-accent">
+          Smak och allergier
         </Link>
-        <p className="text-meta text-ink-3">Allergier som står i profilerna används när jag väljer rätter åt er.</p>
+        <p className="text-meta text-ink-3">Allergier som står under Smak och allergier används när jag väljer rätter åt er.</p>
       </div>
     </Sheet>
   );

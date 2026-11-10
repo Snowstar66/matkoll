@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedToWeekText, calendarRows, targetDayText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, notOnWeek, onWeekLabel, shownDishes, weekBarText } from "./planner";
+import { addedToWeekText, allergyWeekText, calendarRows, targetDayText, changeDayLabel, compareByWeekday, dayChipText, dishFromRow, dishNoteText, itemsText, notOnWeek, onWeekLabel, shownDishes, weekBarText } from "./planner";
 import type { PlanDish } from "./meal-plan";
 
 const dish = (id: string, position: number, extra: Partial<PlanDish> = {}): PlanDish => ({
@@ -103,5 +103,16 @@ describe("calendarRows", () => {
 
   it("words the target day", () => {
     expect(targetDayText(2)).toBe("Läggs på tisdag");
+  });
+});
+
+describe("allergyWeekText", () => {
+  const allergy = (who: string) => ({ kind: "allergy", text: `Kan innehålla gluten (${who})` });
+  it("is null without an allergy note, whatever else the dishes carry", () => {
+    expect(allergyWeekText([undefined, [{ kind: "dislike", text: "Anna undviker lök" }]])).toBeNull();
+  });
+  it("counts the dishes and names each person once", () => {
+    expect(allergyWeekText([[allergy("Anna")], undefined, [allergy("Anna, Bo")]])).toBe("2 rätter på veckan kan innehålla en allergen (Anna och Bo)");
+    expect(allergyWeekText([[allergy("Anna")]])).toBe("1 rätt på veckan kan innehålla en allergen (Anna)");
   });
 });

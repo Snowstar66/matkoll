@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Chip } from "@/components/chip";
 import { CameraIcon, ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
+import { profilesHref } from "../domain/people";
 import type { Person } from "../domain/profile";
 import { BigButton, Headline, StickyFooter, TextLink } from "./journey-parts";
 import { companyLine } from "./journey";
@@ -52,7 +53,7 @@ export function StartScreen({
       </button>
       {firstTime ? (
         <div className="flex items-center gap-2 rounded-xl bg-mint py-1 pr-1 pl-4 text-mint-ink" data-testid="menu-first-time">
-          <Link href="/installningar/tillval/aata-ute" className="flex min-h-tap min-w-0 flex-1 flex-col justify-center py-2">
+          <Link href={profilesHref} className="flex min-h-tap min-w-0 flex-1 flex-col justify-center py-2">
             <b className="text-headline font-semibold">Berätta kort vad ni inte äter</b>
             <span className="text-body">Då sorterar jag bort det som inte passar.</span>
           </Link>

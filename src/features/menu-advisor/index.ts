@@ -2,7 +2,7 @@
 export { allergenHits, type AllergenHit } from "./domain/allergens";
 export { approxRatesDate, approxSekRates, currencyFromText, toSek, type KnownCurrency } from "./domain/currency";
 export { allergyDisclaimer } from "./domain/disclaimer";
-export { type HouseholdPerson } from "./domain/people";
+export { type HouseholdPerson, profileHref, profilesBackHref, profilesHref } from "./domain/people";
 // Preferences held against any dish (a recipe, an AI suggestion): notes, a light ranking, and the lists for the model.
 export {
   fitRank,

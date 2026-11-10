@@ -1,5 +1,6 @@
 import { allergenHits, type AllergenHit } from "./allergens";
 import { type DrinkKind, drinkKinds, type Person, type Taste, type TasteKey, tasteKeys } from "./profile";
+import { allergenLabels } from "./labels";
 import { addTag, parseTags } from "./preferences";
 import { type MenuAllergen, type MenuDish, menuAllergens } from "./types";
 
@@ -138,6 +139,29 @@ export function withMembers(saved: readonly Person[], members: readonly Househol
     });
   const byHand = rest.filter((person) => !person.id.startsWith(memberPrefix));
   return [mine, ...others, ...byHand];
+}
+
+/**
+ * Where the household's profiles are listed (Inställningar → Medlemmar), and the page of one person. The person is a
+ * query parameter, not a path segment: a dynamic segment under Inställningar makes the settings shell (it reads the
+ * selected segment) block prerendering.
+ */
+export const profilesHref = "/installningar/medlemmar#smak-och-allergier";
+export const profilesBackHref = "/installningar/medlemmar";
+export function profileHref(personId: string): string {
+  return `/installningar/medlemmar/smak-och-allergier?person=${encodeURIComponent(personId)}`;
+}
+
+/** One short line for a list row: "Allergi: gluten · Undviker: vitlök", or "Inget ifyllt: äter allt". */
+export function profileSummary(person: Person): string {
+  const parts = [
+    person.allergies.length > 0 ? `Allergi: ${person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ")}` : null,
+    person.dislikes.length > 0 ? `Undviker: ${person.dislikes.join(", ")}` : null,
+    person.likes.length > 0 ? `Älskar: ${person.likes.join(", ")}` : null,
+    Object.keys(person.tastes).length > 0 ? "Smak ifylld" : null,
+    person.drink ? drinkLabels[person.drink] : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "Inget ifyllt: äter allt";
 }
 
 /** Adds the person, or replaces the one with the same id. Beyond maxPeople a new person is not added. */
