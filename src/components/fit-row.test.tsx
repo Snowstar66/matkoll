@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { FitRow } from "./fit-row";
 
 const notes = [
-  { kind: "allergy" as const, text: "Kan innehålla gluten (Anna)" },
-  { kind: "dislike" as const, text: "Gunnar undviker vitlök" },
-  { kind: "like" as const, text: "Du älskar paprika" },
+  { kind: "allergy" as const, text: "Kan innehålla gluten (Anna)", people: [{ id: "anna", name: "Anna" }], terms: ["gluten"] },
+  { kind: "dislike" as const, text: "Gunnar undviker vitlök", people: [{ id: "gunnar", name: "Gunnar" }], terms: ["vitlök"] },
+  { kind: "like" as const, text: "Du älskar paprika", people: [{ id: "du", name: "Du" }], terms: ["paprika"] },
 ];
 
 afterEach(() => window.localStorage.clear());
@@ -68,7 +68,7 @@ describe("FitRow", () => {
           followed = true;
         }}
       >
-        <FitRow notes={[{ kind: "like", text: "Anna älskar fetaost" }, { kind: "dislike", text: "Gunnar undviker vitlök" }]} />
+        <FitRow notes={[{ kind: "like", text: "Anna älskar fetaost", people: [{ id: "anna", name: "Anna" }], terms: ["fetaost"] }, { kind: "dislike", text: "Gunnar undviker vitlök", people: [{ id: "gunnar", name: "Gunnar" }], terms: ["vitlök"] }]} />
       </a>,
     );
     expect(screen.queryByText("Tryck för mer")).toBeNull();

@@ -1,3 +1,4 @@
+import type { NotePerson } from "@/components/preference-notes";
 import { allergenLabels } from "./labels";
 import { hasTerm, matchPreference, normalizeText, tokens } from "./preferences";
 import type { MenuAllergen, MenuDish } from "./types";
@@ -12,6 +13,8 @@ export type FoodText = { name: string; ingredients: readonly string[] };
 
 /** One person's preferences, as the notes need them. A household person (HouseholdFoodPerson) fits as it is. */
 export type FitPerson = {
+  /** The stable person key where there is one (HouseholdFoodPerson.personKey); the name stands in otherwise. */
+  personKey?: string;
   name: string;
   allergies: readonly MenuAllergen[];
   dislikes: readonly string[];
@@ -22,7 +25,7 @@ export type FitPerson = {
 };
 
 /** One short sentence about a dish, ready to show: the kind sets the colour (allergy red, dislike calm, like positive). */
-export type FitNote = { kind: "allergy" | "dislike" | "like"; text: string; /** Set for a dislike or like at the strong end (Ogillar, Älskar); only the ranking looks at it. */ strong?: boolean };
+export type FitNote = { kind: "allergy" | "dislike" | "like"; text: string; people?: NotePerson[]; terms?: string[]; /** Set for a dislike or like at the strong end (Ogillar, Älskar); only the ranking looks at it. */ strong?: boolean };
 
 /** What goes to the model: the household's lists without names. */
 export type FoodPrefs = { allergies: string[]; avoid: string[]; love: string[] };
@@ -95,22 +98,28 @@ export function foodFit(food: FoodText, people: readonly FitPerson[]): FitNote[]
     forklaring: "",
     kategori: "ej_tillampligt",
   };
-  const allergy = new Map<MenuAllergen, string[]>();
+  const allergy = new Map<MenuAllergen, NotePerson[]>();
   const dislike: FitNote[] = [];
   const like: FitNote[] = [];
   for (const person of people) {
+    const who: NotePerson = { id: person.personKey ?? person.name, name: person.name };
     for (const allergen of new Set(person.allergies)) {
-      if (lines.some((line) => lineHasAllergen(allergen, line))) allergy.set(allergen, [...(allergy.get(allergen) ?? []), person.name]);
+      if (lines.some((line) => lineHasAllergen(allergen, line))) allergy.set(allergen, [...(allergy.get(allergen) ?? []), who]);
     }
     const avoids = person.dislikes.filter((tag) => matchPreference(tag, asDish));
     const loves = person.likes.filter((tag) => matchPreference(tag, asDish) && !avoids.some((other) => sameText(other, tag)));
     const strong = (words: readonly string[], of: readonly string[] | undefined) => words.some((word) => (of ?? []).some((other) => sameText(other, word)));
     if (avoids.length > 0) {
-      dislike.push({ kind: "dislike", text: `${person.name} undviker ${listWords(avoids.slice(0, maxWordsInNote).map(lower))}`, ...(strong(avoids, person.strongDislikes) ? { strong: true } : {}) });
+      const terms = avoids.slice(0, maxWordsInNote).map(lower);
+      dislike.push({ kind: "dislike", text: `${person.name} undviker ${listWords(terms)}`, people: [who], terms, ...(strong(avoids, person.strongDislikes) ? { strong: true } : {}) });
     }
-    if (loves.length > 0) like.push({ kind: "like", text: `${person.name} älskar ${listWords(loves.slice(0, maxWordsInNote).map(lower))}`, ...(strong(loves, person.strongLikes) ? { strong: true } : {}) });
+    const loved = loves.slice(0, maxWordsInNote).map(lower);
+    if (loves.length > 0) like.push({ kind: "like", text: `${person.name} älskar ${listWords(loved)}`, people: [who], terms: loved, ...(strong(loves, person.strongLikes) ? { strong: true } : {}) });
   }
-  const allergyNotes = [...allergy].map(([allergen, names]): FitNote => ({ kind: "allergy", text: `Kan innehålla ${lower(allergenLabels[allergen])} (${names.join(", ")})` }));
+  const allergyNotes = [...allergy].map(([allergen, who]): FitNote => {
+    const term = lower(allergenLabels[allergen]);
+    return { kind: "allergy", text: `Kan innehålla ${term} (${who.map((person) => person.name).join(", ")})`, people: who, terms: [term] };
+  });
   return [...allergyNotes, ...dislike, ...like];
 }
 
