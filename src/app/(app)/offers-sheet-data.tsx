@@ -1,10 +1,11 @@
+import { type ReactNode, Suspense } from "react";
 import { fittingOffers, type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
 import type { OffersListing, OffersSheetProps } from "@/features/offers/ui/offers-sheet";
 import { addKeyedItems, getKeyedItemsOnList, removeKeyedItems, ShoppingDataError } from "@/features/shopping/server";
 import { offersSiteName, type Store } from "@/features/settings";
 import { MealPlanDataError } from "@/features/mealplan/server";
-import { loadOfferDishes } from "./offer-dishes";
+import { OfferDishesSlot } from "./offer-dishes";
 import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getIngredientRecipeCounts, RecipeDataError } from "@/features/recipes/server";
 import { listStores, SettingsDataError } from "@/features/settings/server";
@@ -29,38 +30,56 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
     // Story 9.13: every store of the user, the selected one first; the sheet fetches from those with a link.
     stores = await listStores();
     const read = await Promise.all(
-      stores.map(async (store) => ({ store, offers: await getActiveOffers(store.id), fetched: await getLastFetch(store.id) })),
+      stores.map(async (store) => {
+        // The offers and the last fetch are independent: read together, not one after the other.
+        const [storeOffers, fetched] = await Promise.all([getActiveOffers(store.id), getLastFetch(store.id)]);
+        return { store, offers: storeOffers, fetched };
+      }),
     );
     offers = read.flatMap((entry) => entry.offers);
     for (const entry of read) fetchedAt.set(entry.store.id, entry.fetched);
-    // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
-    try {
-      const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
-      listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems, remove: removeKeyedItems };
-    } catch (error) {
-      if (!(error instanceof ShoppingDataError || error instanceof MealPlanDataError)) throw error;
-      console.error("offers_listing_unavailable", { reason: error.detail });
-    }
   } catch (error) {
     if (!(error instanceof SettingsDataError || error instanceof OffersDataError)) throw error;
     console.error("offers_unavailable", { reason: error.detail });
     unavailable = true;
   }
+  // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
+  const readListing = async (): Promise<OffersListing | null> => {
+    try {
+      const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
+      return { planId: onList.planId, onList: onList.onList, add: addKeyedItems, remove: removeKeyedItems };
+    } catch (error) {
+      if (!(error instanceof ShoppingDataError || error instanceof MealPlanDataError)) throw error;
+      console.error("offers_listing_unavailable", { reason: error.detail });
+      return null;
+    }
+  };
   // Story 16.7: the rows that fit what Pontus cooks or has at home say "Passar dig", counted without AI from the pantry and the recipes; left out when either cannot be read.
-  let fitIds: string[] | undefined;
-  if (!unavailable && offers.length > 0) {
+  const readFitIds = async (): Promise<string[] | undefined> => {
     try {
       const [snapshot, counts] = await Promise.all([getPantrySnapshot(), getIngredientRecipeCounts()]);
       const pantry = new Set(snapshot.keys());
       // Story 16.7: the rows that fit say "Passar dig", by the same rule as the best store.
-      fitIds = [...fittingOffers(offers, pantry, counts).keys()];
+      return [...fittingOffers(offers, pantry, counts).keys()];
     } catch (error) {
       if (!(error instanceof PantryDataError || error instanceof RecipeDataError)) throw error;
       console.error("best_store_unavailable", { reason: error.detail });
+      return undefined;
     }
+  };
+  // The two reads do not depend on each other, so they go together. "Rätter med extrapris" at the top of the sheet
+  // is not waited for: it streams in under its own <Suspense> (OfferDishesSlot), so the page and the offers never wait for it.
+  let fitIds: string[] | undefined;
+  let dishes: ReactNode = null;
+  if (!unavailable) {
+    [listing, fitIds] = await Promise.all([readListing(), offers.length > 0 ? readFitIds() : Promise.resolve(undefined)]);
+    dishes =
+      offers.length > 0 ? (
+        <Suspense fallback={null}>
+          <OfferDishesSlot offers={offers} />
+        </Suspense>
+      ) : null;
   }
-  // "Rätter med extrapris" at the top of the sheet: the user's dishes that use an offer, or nothing (never throws).
-  const dishes = !unavailable && offers.length > 0 ? await loadOfferDishes(offers) : null;
   const now = new Date();
   return {
     offers,

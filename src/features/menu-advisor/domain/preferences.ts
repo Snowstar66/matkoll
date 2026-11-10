@@ -43,13 +43,31 @@ export function addTag(tags: readonly string[], text: string): { tags: string[];
   return { tags: [...tags, tag], error: null };
 }
 
-/** Lower case; accents removed except å, ä, ö (Swedish letters stay, so "é" and "e" meet but "å" and "a" do not). */
-export function normalizeText(text: string): string {
-  return [...text.toLocaleLowerCase("sv-SE").normalize("NFC")].map((char) => ("åäö".includes(char) ? char : char.normalize("NFD").replace(/\p{M}/gu, ""))).join("");
+// The same ingredient lines and tags are normalised again and again (every line against every allergen, every tag
+// against every recipe), so the results are remembered; the memory is dropped when it grows past `memoLimit`.
+const memoLimit = 4000;
+const normalized = new Map<string, string>();
+const tokenized = new Map<string, readonly string[]>();
+
+function remember<T>(memo: Map<string, T>, key: string, make: () => T): T {
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  if (memo.size >= memoLimit) memo.clear();
+  const made = make();
+  memo.set(key, made);
+  return made;
 }
 
-export function tokens(text: string): string[] {
-  return normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+/** Lower case; accents removed except å, ä, ö (Swedish letters stay, so "é" and "e" meet but "å" and "a" do not). */
+export function normalizeText(text: string): string {
+  return remember(normalized, text, () =>
+    [...text.toLocaleLowerCase("sv-SE").normalize("NFC")].map((char) => ("åäö".includes(char) ? char : char.normalize("NFD").replace(/\p{M}/gu, ""))).join(""),
+  );
+}
+
+/** The words of a text, normalised. The list is shared between calls: do not change it. */
+export function tokens(text: string): readonly string[] {
+  return remember(tokenized, text, () => normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 }
 
 type Group = { terms: readonly string[]; not?: readonly string[]; category?: MenuCategory | readonly MenuCategory[] };
@@ -92,7 +110,14 @@ const groups: readonly Group[] = [
 const prepared = groups.map((group) => ({ ...group, terms: group.terms.map(normalizeText), not: (group.not ?? []).map(normalizeText) }));
 
 /** The words a tag stands for: its synonym group(s) when it is one of their words, else just itself. */
-function termsFor(tag: string): { terms: string[]; not: string[]; categories: MenuCategory[] } {
+type TagTerms = { terms: string[]; not: string[]; categories: MenuCategory[] };
+const termsOfTag = new Map<string, TagTerms>();
+
+function termsFor(tag: string): TagTerms {
+  return remember(termsOfTag, tag, () => buildTermsFor(tag));
+}
+
+function buildTermsFor(tag: string): TagTerms {
   const wanted = tokens(tag).join(" ");
   // The group the tag heads wins (chili is not "kryddstarkt"); else every group that has the word.
   const heads = prepared.filter((group) => group.terms[0] === wanted);
@@ -107,6 +132,14 @@ function termsFor(tag: string): { terms: string[]; not: string[]; categories: Me
 
 /** Whether the words of the term (all whole, the last one may only begin a compound word) are found in the tokens. */
 export function hasTerm(textTokens: readonly string[], term: string, not: readonly string[]): boolean {
+  if (!term.includes(" ")) {
+    // The usual case, one word: no need to split the term and slice it for every position.
+    const whole = term.length < 3;
+    for (const token of textTokens) {
+      if ((whole ? token === term : token.startsWith(term)) && !not.some((word) => token.startsWith(word))) return true;
+    }
+    return false;
+  }
   const parts = term.split(" ");
   const last = parts[parts.length - 1];
   for (let i = 0; i + parts.length <= textTokens.length; i += 1) {
@@ -124,9 +157,18 @@ export function hasTerm(textTokens: readonly string[], term: string, not: readon
  * broad groups (fisk, skaldjur, kött) also count the dish's own category.
  */
 export function matchPreference(tag: string, dish: Pick<MenuDish, "originalnamn" | "huvudingredienser" | "forklaring" | "kategori">): boolean {
+  return matchPreferenceTokens(tag, dishTokens(dish), dish.kategori);
+}
+
+/** The words of a dish's name, main ingredients and explanation, for matchPreferenceTokens (worked out once for many tags). */
+export function dishTokens(dish: Pick<MenuDish, "originalnamn" | "huvudingredienser" | "forklaring">): string[] {
+  return [dish.originalnamn, ...dish.huvudingredienser, dish.forklaring].flatMap(tokens);
+}
+
+/** matchPreference for a dish whose words are already known (dishTokens), so a list of tags does not read the dish again. */
+export function matchPreferenceTokens(tag: string, textTokens: readonly string[], kategori: MenuDish["kategori"]): boolean {
   const { terms, not, categories } = termsFor(tag);
-  if (categories.includes(dish.kategori)) return true;
-  const textTokens = [dish.originalnamn, ...dish.huvudingredienser, dish.forklaring].flatMap(tokens);
+  if (categories.includes(kategori)) return true;
   return terms.some((term) => hasTerm(textTokens, term, not));
 }
 
