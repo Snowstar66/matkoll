@@ -1,7 +1,17 @@
 import { cx } from "@/components/cx";
 
 /** One note about a dish against the household's food preferences, already worded ("Anna undviker koriander"). */
-export type PreferenceNote = { kind: "allergy" | "dislike" | "like"; text: string };
+export type PreferenceNote = {
+  kind: "allergy" | "dislike" | "like";
+  text: string;
+  /** Who the note is about: one person for a dislike or like, everyone with the allergy for an allergy. Dots read this, never the text. */
+  people?: NotePerson[];
+  /** The words it is about: the tags ("koriander") or the allergen ("gluten"), as written in the text. */
+  terms?: string[];
+};
+
+/** A person in a note; `id` is the stable person key where there is one, else the name. */
+export type NotePerson = { id: string; name: string };
 
 /**
  * PreferenceNotes: the small lines under a recipe or an AI suggestion that say what it means for the household's

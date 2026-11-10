@@ -855,9 +855,9 @@ describe("suggestNowIdeas (Story 25.4)", () => {
       const result = await run();
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.ideas.map(({ name }) => name)).toEqual(["Sås", "Dipp", "Soppa"]);
-      expect(result.data.ideas[0].fit).toEqual([{ kind: "like", text: "Bo älskar grädde" }]);
+      expect(result.data.ideas[0].fit).toMatchObject([{ kind: "like", text: "Bo älskar grädde" }]);
       expect(result.data.ideas[1].fit).toBeUndefined();
-      expect(result.data.ideas[2].fit).toEqual([{ kind: "dislike", text: "Anna undviker lök" }]);
+      expect(result.data.ideas[2].fit).toMatchObject([{ kind: "dislike", text: "Anna undviker lök" }]);
     });
 
     it("is ai_invalid when every idea may hold an allergen", async () => {
@@ -897,9 +897,9 @@ describe("suggestFromPantry and the household's food preferences", () => {
       "Kycklinggryta med tomat och grädde",
       "Krämig pasta med spenat",
     ]);
-    expect(suggestions[0].fit).toEqual([{ kind: "like", text: "Bo älskar ost" }]);
-    expect(suggestions[1].fit).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }]);
-    expect(suggestions[2].fit).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }, { kind: "like", text: "Bo älskar ost" }]);
+    expect(suggestions[0].fit).toMatchObject([{ kind: "like", text: "Bo älskar ost" }]);
+    expect(suggestions[1].fit).toMatchObject([{ kind: "dislike", text: "Anna undviker vitlök" }]);
+    expect(suggestions[2].fit).toMatchObject([{ kind: "dislike", text: "Anna undviker vitlök" }, { kind: "like", text: "Bo älskar ost" }]);
   });
 
   it("asks once more, with the titles left out to avoid, when every dish had an allergen", async () => {

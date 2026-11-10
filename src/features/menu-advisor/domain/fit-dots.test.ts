@@ -34,6 +34,12 @@ describe("fitDots", () => {
     expect(dots(["ost"], people).map((dot) => dot.kind)).toEqual(["allergy", "avoid", "love"]);
   });
 
+  it("reads the structured fields, not the text, and keeps two people with the same name apart by key", () => {
+    const result = dots(["ost"], [person("Anna", { personKey: "k1", likes: ["ost"] }), person("Anna", { personKey: "k2", dislikes: ["ost"] })]);
+    expect(result.map((dot) => [dot.personId, dot.kind])).toEqual([["k2", "avoid"], ["k1", "love"]]);
+    expect(fitDots([{ kind: "like", text: "Anna älskar ost" }])).toEqual([]);
+  });
+
   it("works for a household of one", () => {
     expect(dots(["2 dl grädde"], [person("Du", { allergies: ["laktos"] })]).map((dot) => [dot.initial, dot.kind])).toEqual([["D", "allergy"]]);
     expect(dots(["2 dl grädde"], [person("Du")])).toEqual([]);
