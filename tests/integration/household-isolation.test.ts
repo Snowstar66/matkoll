@@ -166,6 +166,9 @@ const coverage: Record<IsolatedTable, Coverage> = {
   household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
   // Matpreferenser: one person's allergies, tastes and tags (person_key is unique per household).
   food_profile: { row: () => ({ person_key: `p-${randomUUID()}`, kind: "guest", name: "Gäst", allergies: ["gluten"], tastes: { kott: -1, koriander: -2 } }) },
+  // Veckoagenten: the household's settings (one row per household) and its drafts.
+  household_week_agent_settings: { row: () => ({ settings: { dinners: 4, budget: "low" } }) },
+  week_agent_proposals: { row: () => ({ week_start: "2026-11-09", status: "draft", proposal: { weekStart: "2026-11-09", days: [] }, model: "rules" }) },
   // Idéerna är klara när du öppnar erbjudandena: the saved AI ideas of one offer week (household-scoped, one row per week).
   offer_idea_set: { row: () => ({ week_start: "2026-10-26", status: "ready", intro: "Billigt i veckan.", ideas: [] }) },
   // Story 23.3: one device a person turned notifications on for, and what they want to be told about.
@@ -207,6 +210,8 @@ const seedOrder: IsolatedTable[] = [
   "household_note",
   "household_staple",
   "food_profile",
+  "household_week_agent_settings",
+  "week_agent_proposals",
   "offer_idea_set",
   "push_preference",
   "push_subscription",
@@ -969,7 +974,7 @@ describe("household isolation", () => {
       // Delade recept: the caller's own household's dela alla and count (shared-recipes.test.ts tries each).
       "recipe_sharing", "set_recipe_share_all", "stop_sharing_recipes",
       // Pure functions of their arguments.
-      "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "food_tastes_valid", "food_tags_valid", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
+      "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "food_tastes_valid", "food_tags_valid", "week_agent_settings_valid", "week_agent_proposal_valid", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
 
     /** What B is calling, with A's ids. */
