@@ -61,10 +61,12 @@ describe("ProfilesScreen", () => {
     expect(within(profile).getByTestId("menu-allergies-open")).toHaveTextContent("Inga angivna");
     expect(within(profile).queryByRole("button", { name: "Nötter" })).not.toBeInTheDocument();
 
-    const fisk = within(profile).getAllByRole("radiogroup", { name: "Fisk" })[0];
-    await user.click(within(fisk).getByRole("radio", { name: "Ogillar" }));
+    await user.click(within(profile).getByRole("button", { name: /Protein/ }));
+    const fisk = within(profile).getByRole("slider", { name: "Fisk" });
+    fisk.focus();
+    await user.keyboard("{Home}");
     await user.click(within(profile).getByRole("button", { name: /Vin/ }));
-    expect(saved().find((person) => person.name === "Anna")).toMatchObject({ kind: "member", drink: "vin", tastes: { fisk: -1 } });
+    expect(saved().find((person) => person.name === "Anna")).toMatchObject({ kind: "member", drink: "vin", tastes: { fisk: -2 } });
 
     await user.click(within(profile).getByTestId("menu-allergies-open"));
     const box = await screen.findByTestId("menu-allergies");
@@ -82,10 +84,13 @@ describe("ProfilesScreen", () => {
     await user.click(screen.getByRole("radio", { name: "Gäst" }));
     await user.click(screen.getByRole("button", { name: "Lägg till" }));
     await user.click(await screen.findByText("Bo"));
-    const pasta = (await screen.findAllByRole("radiogroup", { name: "Pasta" }))[0];
-    await user.click(within(pasta).getByRole("radio", { name: "Hatar" }));
+    await user.click(await screen.findByRole("button", { name: /Maträtter/ }));
+    const pasta = screen.getByRole("slider", { name: "Pasta" });
+    pasta.focus();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
     expect(saved().find((person) => person.name === "Bo")?.tastes).toEqual({ pasta: -2 });
-    await user.click(within(pasta).getByRole("radio", { name: "Ingen åsikt" }));
+    await user.keyboard("{End}{Home}");
+    await user.keyboard("{ArrowRight}{ArrowRight}");
     expect(saved().find((person) => person.name === "Bo")?.tastes).toEqual({});
 
     await user.click(screen.getByRole("button", { name: "Ta bort Bo" }));
@@ -111,45 +116,58 @@ describe("ProfilesScreen", () => {
     expect(saved().find((person) => person.id === "m-u2")).toMatchObject({ name: "Martina", drink: "ol" });
   });
 
-  it("adds what is avoided and loved as chips, from the field and from suggestions, and saves it", async () => {
+  it("adds an own thing with its own slider, saves it as a taste, and removes it again", async () => {
     const user = userEvent.setup();
     render(<ProfilesPages />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
-    const avoid = await screen.findByTestId("menu-dislikes");
-    const love = screen.getByTestId("menu-likes");
+    const field = await screen.findByTestId("menu-taste-input");
     expect(screen.getByText(/Allergier = får aldrig föreslås/)).toBeInTheDocument();
+    expect(screen.queryByTestId("menu-dislikes")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("menu-likes")).not.toBeInTheDocument();
 
-    await user.type(within(avoid).getByRole("textbox"), "  Koriander {Enter}");
-    expect(saved()[0].dislikes).toEqual(["Koriander"]);
-    expect(within(avoid).getByRole("button", { name: "Ta bort Koriander" })).toBeInTheDocument();
-    // Added tags leave the suggestions; the other suggestions stay.
-    expect(within(avoid).queryByRole("button", { name: "Lägg till koriander" })).not.toBeInTheDocument();
-    await user.click(within(avoid).getByRole("button", { name: "Lägg till vitlök" }));
-    expect(saved()[0].dislikes).toEqual(["Koriander", "vitlök"]);
+    await user.type(field, "  Nasi goreng {Enter}");
+    const slider = screen.getByRole("slider", { name: "Nasi goreng" });
+    // Okej until it is moved: nothing is stored yet.
+    expect(saved()[0]?.tastes ?? {}).toEqual({});
+    slider.focus();
+    await user.keyboard("{End}");
+    expect(saved()[0].tastes).toEqual({ "nasi goreng": 2 });
+    expect(screen.getByTestId("taste-summary")).toHaveTextContent("Du älskar nasi goreng.");
 
-    await user.type(within(love).getByRole("textbox"), "nasi goreng");
-    await user.click(within(love).getByRole("button", { name: "Lägg till" }));
-    expect(saved()[0].likes).toEqual(["nasi goreng"]);
-    expect(within(love).queryByRole("button", { name: "Lägg till nasi goreng" })).not.toBeInTheDocument();
-
-    await user.click(within(avoid).getByRole("button", { name: "Ta bort Koriander" }));
-    expect(saved()[0].dislikes).toEqual(["vitlök"]);
-    expect(within(avoid).getByRole("button", { name: "Lägg till koriander" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ta bort nasi goreng" }));
+    expect(saved()[0].tastes).toEqual({});
+    expect(screen.queryByRole("slider", { name: "Nasi goreng" })).not.toBeInTheDocument();
   });
 
-  it("refuses a repeat and a tag that is too long, and says why", async () => {
+  it("refuses a repeat, a markup text and a text that is too long, and says why", async () => {
     const user = userEvent.setup();
     render(<ProfilesPages />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
-    const avoid = await screen.findByTestId("menu-dislikes");
-    const field = within(avoid).getByRole("textbox");
+    const field = await screen.findByTestId("menu-taste-input");
     await user.type(field, "lök{Enter}");
-    await user.type(field, "LÖK{Enter}");
-    expect(within(avoid).getByRole("alert")).toHaveTextContent("Det finns redan i listan.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Det finns redan i listan.");
+    await user.clear(field);
+    await user.type(field, "<b>x</b>{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Skriv bara ord");
     await user.clear(field);
     await user.type(field, "a".repeat(45));
     await user.keyboard("{Enter}");
-    expect(within(avoid).getByRole("alert")).toHaveTextContent("Max 40 tecken.");
-    expect(saved()[0].dislikes).toEqual(["lök"]);
+    expect(screen.getByRole("alert")).toHaveTextContent("Max 40 tecken.");
+    expect(saved()[0]?.tastes ?? {}).toEqual({});
+  });
+
+  it("shows an older Undviker / Älskar list as sliders and saves it as tastes", async () => {
+    localStorage.setItem(peopleStorageKey, JSON.stringify({ v: 1, people: [{ id: "me", name: "Du", kind: "member", dislikes: ["vitlök"], likes: ["nasi goreng"] }] }));
+    const user = userEvent.setup();
+    render(<ProfilesPages />);
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
+    expect(await screen.findByTestId("taste-summary")).toHaveTextContent("Du älskar nasi goreng. Undviker vitlök.");
+    await user.click(screen.getByRole("button", { name: /Smaker och råvaror/ }));
+    const garlic = screen.getByRole("slider", { name: "Vitlök" });
+    expect(garlic).toHaveAttribute("aria-valuetext", "Ogillar");
+    garlic.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(saved()[0].tastes).toEqual({ vitlok: -1, "nasi goreng": 2 });
+    expect(JSON.parse(localStorage.getItem(peopleStorageKey)!).people[0]).not.toHaveProperty("dislikes");
   });
 });

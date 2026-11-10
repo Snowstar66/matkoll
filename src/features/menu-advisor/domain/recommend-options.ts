@@ -3,7 +3,8 @@
 import { allergenHits } from "./allergens";
 import { allergenLabels } from "./labels";
 import type { Choices, DishOption, PersonOptions } from "./options";
-import { preferenceHits, whoName } from "./preferences";
+import { whoName } from "./preferences";
+import { softHits } from "./tastes";
 import type { Person } from "./profile";
 import { type Budget, rank, rankContext } from "./recommend";
 import type { Menu, MenuDish } from "./types";
@@ -39,8 +40,7 @@ function candidate(entry: { dish: MenuDish; index: number }, person: Person, ctx
   const warning: DishOption["warning"] = certain.length > 0 ? "allergy" : hits.length > 0 ? "maybe" : null;
   const who = whoName(person);
   const reasons: string[] = [];
-  const avoided = preferenceHits(person.dislikes, entry.dish);
-  const loved = preferenceHits(person.likes, entry.dish).filter((tag) => !avoided.some((other) => lower(other) === lower(tag)));
+  const { avoided, loved } = softHits(person, entry.dish);
   if (loved.length > 0) reasons.push(capital(`${who} älskar ${loved.map(lower).join(", ")}`));
   if (avoided.length > 0) reasons.push(capital(`${who} undviker ${avoided.map(lower).join(", ")}`));
   if (warning === "allergy") reasons.push(`Innehåller ${certain.map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE")).join(", ")}. Fråga personalen.`);

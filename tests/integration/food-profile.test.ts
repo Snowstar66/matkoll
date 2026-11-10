@@ -21,8 +21,6 @@ const row = (personKey: string, extra: Partial<FoodProfileRow> = {}): FoodProfil
   name: "Gäst",
   allergies: [],
   tastes: {},
-  dislikes: [],
-  likes: [],
   drink: null,
   ...extra,
 });
@@ -53,12 +51,12 @@ afterAll(async () => {
 describe("food_profile", () => {
   it("saves a person for the household, as the caller, and every member sees and changes it", async () => {
     const k = key();
-    await saveFoodProfileIn(a.db, row(k, { name: "Bo", allergies: ["gluten", "notter"], tastes: { fisk: -2, pasta: 1 }, dislikes: ["koriander"], likes: ["pasta"], drink: "vin" }));
+    await saveFoodProfileIn(a.db, row(k, { name: "Bo", allergies: ["gluten", "notter"], tastes: { fisk: -2, pasta: 1, koriander: -2, "nasi goreng": 2 }, drink: "vin" }));
     const stored = await adminClient().from("food_profile").select("household_id, user_id, saved").eq("person_key", k).single();
     expect(stored.data).toEqual({ household_id: householdA, user_id: a.id, saved: true });
 
     const seen = (await listFoodProfilesIn(a2.db)).find((entry) => entry.personKey === k);
-    expect(seen).toEqual(row(k, { name: "Bo", allergies: ["gluten", "notter"], tastes: { fisk: -2, pasta: 1 }, dislikes: ["koriander"], likes: ["pasta"], drink: "vin" }));
+    expect(seen).toEqual(row(k, { name: "Bo", allergies: ["gluten", "notter"], tastes: { fisk: -2, pasta: 1, koriander: -2, "nasi goreng": 2 }, drink: "vin" }));
 
     await saveFoodProfileIn(a2.db, row(k, { name: "Bo", drink: "ol" }));
     const changed = (await listFoodProfilesIn(a.db)).find((entry) => entry.personKey === k);
@@ -120,7 +118,12 @@ describe("food_profile", () => {
       ["a repeated-out-of-range allergy list", { allergies: ["gluten", "laktos", "notter", "skaldjur", "agg", "fisk", "soja", "sesam", "gluten"] }],
       ["a taste of 3", { tastes: { kott: 3 } }],
       ["a taste of 0", { tastes: { kott: 0 } }],
-      ["an unknown taste key", { tastes: { sten: 1 } }],
+      ["a taste key with a capital", { tastes: { Sten: 1 } }],
+      ["a taste key with markup", { tastes: { "<b>": 1 } }],
+      ["a taste key that starts with a dash", { tastes: { "-sten": 1 } }],
+      ["a taste key of 41 characters", { tastes: { [`a${"b".repeat(40)}`]: 1 } }],
+      ["a taste key with a dot", { tastes: { "a.b": 1 } }],
+      ["71 taste keys", { tastes: Object.fromEntries(Array.from({ length: 71 }, (_, i) => [`sak ${i}`, 1])) }],
       ["a taste that is text", { tastes: { kott: "mycket" } }],
       ["tastes as a list", { tastes: [1] }],
       ["31 tags", { dislikes: Array.from({ length: 31 }, (_, i) => `t${i}`) }],
@@ -143,6 +146,30 @@ describe("food_profile", () => {
       expect(result.error, what).not.toBeNull();
     }
     expect(await insert(a, { tastes: { kott: 2, sott: -2 }, dislikes: ["x".repeat(40)], allergies: ["gluten"] })).toMatchObject({ error: null });
+  });
+
+  it("accepts the own things of Smak och allergier: presets and keys of the app's own making, up to 70 keys", async () => {
+    const own = { vitlok: -2, "nasi goreng": 2, creme_fraiche: 1, "åäö-1": -1, [`a${"b".repeat(39)}`]: 1 };
+    expect(await insert(a, { tastes: own })).toMatchObject({ error: null });
+    const many = Object.fromEntries(Array.from({ length: 70 }, (_, i) => [`sak ${i}`, i % 2 ? 1 : -1]));
+    expect(await insert(a, { tastes: many })).toMatchObject({ error: null });
+    expect(await insert(a, { tastes: {} })).toMatchObject({ error: null });
+  });
+
+  it("keeps the older Undviker / Älskar columns as they are, and the app reads them as tastes and empties them on the next save", async () => {
+    const k = key();
+    expect(await insert(a, { person_key: k, dislikes: ["vitlök"], likes: ["nasi goreng"], tastes: { kott: -1 } })).toMatchObject({ error: null });
+    const read = (await listFoodProfilesIn(a.db)).find((entry) => entry.personKey === k)!;
+    expect(read.tastes).toEqual({ kott: -1, vitlok: -2, "nasi goreng": 2 });
+    await saveFoodProfileIn(a.db, read);
+    const raw = await adminClient().from("food_profile").select("dislikes, likes, tastes").eq("person_key", k).eq("household_id", householdA).single();
+    expect(raw.data).toEqual({ dislikes: [], likes: [], tastes: { kott: -1, vitlok: -2, "nasi goreng": 2 } });
+  });
+
+  it("changes nothing for a row that already holds the eight original keys", async () => {
+    const k = key();
+    await saveFoodProfileIn(a.db, row(k, { tastes: { kott: -2, fisk: -1, skaldjur: 1, vegetariskt: 2, pasta: 1, pizza: 1, starkt: -2, sott: 2 } }));
+    expect((await listFoodProfilesIn(a2.db)).find((entry) => entry.personKey === k)?.tastes).toEqual({ kott: -2, fisk: -1, skaldjur: 1, vegetariskt: 2, pasta: 1, pizza: 1, starkt: -2, sott: 2 });
   });
 
   it("imports only the people the household has no row for, and leaves a row that exists as it is", async () => {
