@@ -46,9 +46,9 @@ export function companyLine(company: readonly Pick<Person, "id" | "name">[]): st
   return `Ni är ${count} · ${names}`;
 }
 
-/** Whether anything is filled in for the person that could steer or warn: allergies, Undviker, Älskar, tastes. */
-export function hasProfileInfo(person: Pick<Person, "allergies" | "dislikes" | "likes" | "tastes">): boolean {
-  return person.allergies.length + person.dislikes.length + person.likes.length + Object.keys(person.tastes).length > 0;
+/** Whether anything is filled in for the person that could steer or warn: allergies and tastes (Undviker and Älskar are tastes). */
+export function hasProfileInfo(person: Pick<Person, "allergies" | "tastes">): boolean {
+  return person.allergies.length + Object.keys(person.tastes).length > 0;
 }
 
 /** The drink as "med öl"; "utan dryck" for none; empty when the person has no drink set. */

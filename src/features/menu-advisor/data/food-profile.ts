@@ -28,8 +28,6 @@ function toRow(data: StoredRow): FoodProfileRow | null {
     name: data.name,
     allergies: person.allergies,
     tastes: person.tastes,
-    dislikes: person.dislikes,
-    likes: person.likes,
     drink: person.drink,
   };
 }
@@ -49,8 +47,9 @@ const content = (row: FoodProfileRow) => ({
   name: row.name,
   allergies: row.allergies,
   tastes: row.tastes as NonNullable<Json>,
-  dislikes: row.dislikes,
-  likes: row.likes,
+  // The older columns are left empty: what they held was folded into the tastes when the row was read.
+  dislikes: [] as string[],
+  likes: [] as string[],
   drink: row.drink,
   saved: true,
 });

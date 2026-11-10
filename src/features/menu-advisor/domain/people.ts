@@ -1,7 +1,7 @@
 import { allergenHits, type AllergenHit } from "./allergens";
-import { type DrinkKind, drinkKinds, type Person, type Taste, type TasteKey, tasteKeys } from "./profile";
+import { type DrinkKind, drinkKinds, type Person, type TasteKey } from "./profile";
 import { allergenLabels } from "./labels";
-import { addTag, parseTags } from "./preferences";
+import { foldLegacyTags, parseTastes, tasteLists } from "./tastes";
 import { type MenuAllergen, type MenuDish, menuAllergens } from "./types";
 
 // Managing the people the advisor chooses for: the saved profiles (read from storage, never trusted), adding,
@@ -44,14 +44,13 @@ export const drinkIcons: Readonly<Record<DrinkKind, string>> = {
 };
 
 export function newPerson(id: string, name: string, kind: Person["kind"]): Person {
-  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies: [], tastes: {}, dislikes: [], likes: [], drink: null };
+  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies: [], tastes: {}, drink: null };
 }
 
 /** The built-in "Du". */
 export const me: Person = newPerson(meId, "Du", "member");
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-const tasteValues: readonly number[] = [-2, -1, 0, 1, 2];
 
 /** One stored person, or null when it is not one. Unknown fields are dropped; bad parts fall back to "nothing filled in". */
 export function parsePerson(value: unknown): Person | null {
@@ -63,15 +62,10 @@ export function parsePerson(value: unknown): Person | null {
   const allergies = Array.isArray(value.allergies)
     ? [...new Set(value.allergies.filter((entry): entry is MenuAllergen => (menuAllergens as readonly unknown[]).includes(entry)))]
     : [];
-  const tastes: Person["tastes"] = {};
-  if (isRecord(value.tastes)) {
-    for (const key of tasteKeys) {
-      const taste = value.tastes[key];
-      if (typeof taste === "number" && tasteValues.includes(taste) && taste !== 0) tastes[key] = taste as Taste;
-    }
-  }
+  // The older free lists (Undviker / Älskar) are folded into the tastes; saving the person drops them.
+  const tastes = foldLegacyTags(parseTastes(value.tastes), value.dislikes, value.likes);
   const drink = (drinkKinds as readonly unknown[]).includes(value.drink) ? (value.drink as DrinkKind) : null;
-  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies, tastes, dislikes: parseTags(value.dislikes), likes: parseTags(value.likes), drink };
+  return { id, name: name.trim().slice(0, maxNameLength), kind, allergies, tastes, drink };
 }
 
 /** The saved people from the stored text: `{ v: 1, people: [...] }`. Anything broken gives an empty list; a bad entry is skipped. */
@@ -154,11 +148,11 @@ export function profileHref(personId: string): string {
 
 /** One short line for a list row: "Allergi: gluten · Undviker: vitlök", or "Inget ifyllt: äter allt". */
 export function profileSummary(person: Person): string {
+  const { dislikes, likes } = tasteLists(person.tastes);
   const parts = [
     person.allergies.length > 0 ? `Allergi: ${person.allergies.map((allergen) => allergenLabels[allergen].toLowerCase()).join(", ")}` : null,
-    person.dislikes.length > 0 ? `Undviker: ${person.dislikes.join(", ")}` : null,
-    person.likes.length > 0 ? `Älskar: ${person.likes.join(", ")}` : null,
-    Object.keys(person.tastes).length > 0 ? "Smak ifylld" : null,
+    dislikes.length > 0 ? `Undviker: ${dislikes.join(", ")}` : null,
+    likes.length > 0 ? `Älskar: ${likes.join(", ")}` : null,
     person.drink ? drinkLabels[person.drink] : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : "Inget ifyllt: äter allt";
@@ -172,14 +166,6 @@ export function upsertPerson(people: readonly Person[], person: Person): Person[
 
 export function removePerson(people: readonly Person[], id: string): Person[] {
   return id === meId ? [...people] : people.filter((person) => person.id !== id);
-}
-
-/** Sets one taste; 0 (no opinion) removes it, so nothing filled in stays "eats anything". */
-export function withTaste(person: Person, key: TasteKey, taste: Taste): Person {
-  const tastes = { ...person.tastes };
-  if (taste === 0) delete tastes[key];
-  else tastes[key] = taste;
-  return { ...person, tastes };
 }
 
 export function toggleAllergy(person: Person, allergen: MenuAllergen): Person {
@@ -206,14 +192,4 @@ export function unfitFor(dish: Pick<MenuDish, "allergener" | "kan_innehalla">, c
     const hits = allergenHits(dish, person.allergies);
     return hits.length > 0 ? [{ person, hits }] : [];
   });
-}
-
-/** Adds a free-text tag to a list ("dislikes" or "likes"); `error` says why it was not added. */
-export function withTag(person: Person, list: "dislikes" | "likes", text: string): { person: Person; error: string | null } {
-  const result = addTag(person[list], text);
-  return { person: result.tags === person[list] ? person : { ...person, [list]: result.tags }, error: result.error };
-}
-
-export function withoutTag(person: Person, list: "dislikes" | "likes", tag: string): Person {
-  return { ...person, [list]: person[list].filter((entry) => entry !== tag) };
 }

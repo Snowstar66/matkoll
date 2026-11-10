@@ -4,7 +4,10 @@ import type { MenuAllergen } from "./types";
 /** -2 = hate, -1 = dislike, 0 = no opinion (default), 1 = like, 2 = love. */
 export type Taste = -2 | -1 | 0 | 1 | 2;
 
-/** Food kinds a person can have a taste for. Keys of Person.tastes. */
+/**
+ * The eight food kinds that existed first. They keep their link to a dish's category and word list (recommend.ts), so
+ * they stay a fixed list; every other taste (the other presets and the ones a person adds) is matched by words.
+ */
 export const tasteKeys = ["kott", "fisk", "skaldjur", "vegetariskt", "pasta", "pizza", "starkt", "sott"] as const;
 export type TasteKey = (typeof tasteKeys)[number];
 
@@ -17,11 +20,12 @@ export type Person = {
   kind: "member" | "guest";
   /** One-time registration: allergies and intolerances that must never be suggested. */
   allergies: MenuAllergen[];
-  tastes: Partial<Record<TasteKey, Taste>>;
-  /** Free-text "Undviker" (coriander, garlic): not an allergy, so a dish is ranked down and flagged, never left out. Display spelling kept. */
-  dislikes: string[];
-  /** Free-text "Älskar" (nasi goreng, paprika): ranked up and named. */
-  likes: string[];
+  /**
+   * Everything a person likes or dislikes, one key each (domain/tastes.ts): a preset (kott, vitlok, ris) or an own thing
+   * (a key like "nasi goreng"). -2 Ogillar, -1 Hellre inte, 1 Gillar, 2 Älskar; 0 is never stored. Not an allergy: a
+   * dish is ranked down and flagged, never left out.
+   */
+  tastes: Record<string, Taste>;
   /** The drink the person usually orders; null = not set. */
   drink: DrinkKind | null;
 };
