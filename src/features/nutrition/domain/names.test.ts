@@ -35,6 +35,10 @@ describe("compound fallback", () => {
     expect(nameCandidates("honungssenap")).toEqual(["honungssenap", "senap"]);
     expect(nameCandidates("rödpesto")).toEqual(["rödpesto", "pesto"]);
   });
+  it("cuts shrimp compounds down to räkor and räka", () => {
+    expect(nameCandidates("jätteräka")).toEqual(["jätteräka", "räka"]);
+    expect(nameCandidates("tigerräkor")).toEqual(["tigerräkor", "räkor"]);
+  });
   it("takes the longest head: ströbröd before bröd", () => {
     expect(compoundHead("pankoströbröd")).toBe("ströbröd");
     expect(compoundHead("surdegsbröd")).toBe("bröd");
