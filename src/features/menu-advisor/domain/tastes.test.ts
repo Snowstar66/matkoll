@@ -211,11 +211,11 @@ describe("what the callers get (recipes, notes, the AI prompt)", () => {
   const gryta = { name: "Risotto", ingredients: ["2 dl ris", "2 vitlöksklyftor", "1 röd paprika", "1 knippe koriander"] };
 
   it("makes the same notes as before from the derived lists, and marks the strong end", () => {
-    expect(foodFit(gryta, [anna({ vitlok: -2, koriander: -1, paprika: 1 })])).toEqual([
+    expect(foodFit(gryta, [anna({ vitlok: -2, koriander: -1, paprika: 1 })])).toMatchObject([
       { kind: "dislike", text: "Anna undviker vitlök och koriander", strong: true },
       { kind: "like", text: "Anna älskar paprika" },
     ]);
-    expect(recipeFits([{ id: "r", title: "Risotto", lines: gryta.ingredients.map((originalText) => ({ originalText })) }], [anna({ ris: -1 })])).toEqual({
+    expect(recipeFits([{ id: "r", title: "Risotto", lines: gryta.ingredients.map((originalText) => ({ originalText })) }], [anna({ ris: -1 })])).toMatchObject({
       r: [{ kind: "dislike", text: "Anna undviker ris" }],
     });
   });

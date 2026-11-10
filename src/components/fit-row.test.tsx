@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { FitRow } from "./fit-row";
 
 const notes = [
-  { kind: "allergy" as const, text: "Kan innehålla gluten (Anna)" },
-  { kind: "dislike" as const, text: "Gunnar undviker vitlök" },
-  { kind: "like" as const, text: "Du älskar paprika" },
+  { kind: "allergy" as const, text: "Kan innehålla gluten (Anna)", people: [{ id: "anna", name: "Anna" }], terms: ["gluten"] },
+  { kind: "dislike" as const, text: "Gunnar undviker vitlök", people: [{ id: "gunnar", name: "Gunnar" }], terms: ["vitlök"] },
+  { kind: "like" as const, text: "Du älskar paprika", people: [{ id: "du", name: "Du" }], terms: ["paprika"] },
 ];
 
 afterEach(() => window.localStorage.clear());
@@ -46,7 +46,7 @@ describe("FitRow", () => {
 
   it("opens the sentences from a button when expandable, at least 44 px tall", async () => {
     const user = userEvent.setup();
-    render(<FitRow notes={[{ kind: "like", text: "Anna älskar fetaost" }, { kind: "dislike", text: "Gunnar undviker vitlök" }]} expandable />);
+    render(<FitRow notes={[{ kind: "like", text: "Anna älskar fetaost", people: [{ id: "anna", name: "Anna" }], terms: ["fetaost"] }, { kind: "dislike", text: "Gunnar undviker vitlök", people: [{ id: "gunnar", name: "Gunnar" }], terms: ["vitlök"] }]} expandable />);
     const button = screen.getByRole("button", { name: /Tryck för mer/ });
     expect(button).toHaveClass("min-h-11");
     expect(button).toHaveAttribute("aria-expanded", "false");

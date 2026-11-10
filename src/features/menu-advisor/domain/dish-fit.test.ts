@@ -11,25 +11,25 @@ describe("foodFit", () => {
   });
 
   it("says who avoids what, with the same matching as the menu advisor (a word or the start of one)", () => {
-    expect(foodFit(gryta, [person("Anna", { dislikes: ["Vitlök", "koriander"] })])).toEqual([{ kind: "dislike", text: "Anna undviker vitlök och koriander" }]);
+    expect(foodFit(gryta, [person("Anna", { dislikes: ["Vitlök", "koriander"] })])).toMatchObject([{ kind: "dislike", text: "Anna undviker vitlök och koriander" }]);
     // "ris" is not "grisfötter"-style hits, and "ost" is not "ostron": the advisor's rules.
     expect(foodFit({ name: "Ostron", ingredients: ["12 ostron"] }, [person("Anna", { dislikes: ["ost"] })])).toEqual([]);
   });
 
   it("finds a synonym (cilantro for koriander) and names what is loved", () => {
-    expect(foodFit(gryta, [person("Bo", { dislikes: ["cilantro"], likes: ["paprika", "lax"] })])).toEqual([
+    expect(foodFit(gryta, [person("Bo", { dislikes: ["cilantro"], likes: ["paprika", "lax"] })])).toMatchObject([
       { kind: "dislike", text: "Bo undviker cilantro" },
       { kind: "like", text: "Bo älskar paprika" },
     ]);
   });
 
   it("does not call the same word both avoided and loved", () => {
-    expect(foodFit(gryta, [person("Cia", { dislikes: ["paprika"], likes: ["paprika"] })])).toEqual([{ kind: "dislike", text: "Cia undviker paprika" }]);
+    expect(foodFit(gryta, [person("Cia", { dislikes: ["paprika"], likes: ["paprika"] })])).toMatchObject([{ kind: "dislike", text: "Cia undviker paprika" }]);
   });
 
   it("gives one allergy note per allergen with everyone it concerns, first, in red words", () => {
     const notes = foodFit(gryta, [person("Anna", { allergies: ["laktos"], dislikes: ["vitlök"] }), person("Bo", { allergies: ["laktos", "fisk"] })]);
-    expect(notes).toEqual([
+    expect(notes).toMatchObject([
       { kind: "allergy", text: "Kan innehålla laktos (Anna, Bo)" },
       { kind: "dislike", text: "Anna undviker vitlök" },
     ]);
@@ -37,9 +37,9 @@ describe("foodFit", () => {
   });
 
   it("matches the dish's name too, and keeps at most three tags in a note", () => {
-    expect(foodFit({ name: "Pasta carbonara", ingredients: [] }, [person("Anna", { dislikes: ["pasta"] })])).toEqual([{ kind: "dislike", text: "Anna undviker pasta" }]);
+    expect(foodFit({ name: "Pasta carbonara", ingredients: [] }, [person("Anna", { dislikes: ["pasta"] })])).toMatchObject([{ kind: "dislike", text: "Anna undviker pasta" }]);
     const four = foodFit({ name: "Mix", ingredients: ["lök", "vitlök", "paprika", "tomat"] }, [person("Anna", { dislikes: ["lök", "vitlök", "paprika", "tomat"] })]);
-    expect(four).toEqual([{ kind: "dislike", text: "Anna undviker lök, vitlök och paprika" }]);
+    expect(four).toMatchObject([{ kind: "dislike", text: "Anna undviker lök, vitlök och paprika" }]);
   });
 });
 
@@ -82,11 +82,11 @@ describe("fitRank and rankByFit", () => {
     expect(fitRank([{ kind: "dislike", text: "a", strong: true }])).toBe(-2);
     expect(fitRank([{ kind: "like", text: "b", strong: true }])).toBe(2);
     const strongNotes = foodFit(gryta, [person("Anna", { dislikes: ["vitlök", "koriander"], strongDislikes: ["koriander"], likes: ["paprika"], strongLikes: ["paprika"] })]);
-    expect(strongNotes).toEqual([
+    expect(strongNotes).toMatchObject([
       { kind: "dislike", text: "Anna undviker vitlök och koriander", strong: true },
       { kind: "like", text: "Anna älskar paprika", strong: true },
     ]);
-    expect(foodFit(gryta, [person("Anna", { dislikes: ["vitlök"], strongDislikes: ["koriander"] })])).toEqual([{ kind: "dislike", text: "Anna undviker vitlök" }]);
+    expect(foodFit(gryta, [person("Anna", { dislikes: ["vitlök"], strongDislikes: ["koriander"] })])).toMatchObject([{ kind: "dislike", text: "Anna undviker vitlök" }]);
     const items = ["mild", "strong"];
     const notes: Record<string, { kind: "dislike"; text: string; strong?: boolean }[]> = { mild: [{ kind: "dislike", text: "x" }], strong: [{ kind: "dislike", text: "y", strong: true }] };
     expect(rankByFit(items, (item) => notes[item] ?? [])).toEqual(["mild", "strong"]);
@@ -95,7 +95,7 @@ describe("fitRank and rankByFit", () => {
 
   it("keeps the order when no item has a note, and otherwise keeps the given order among equals", () => {
     const items = ["a", "b", "c", "d"];
-    expect(rankByFit(items, () => [])).toEqual(items);
+    expect(rankByFit(items, () => [])).toMatchObject(items);
     const notes: Record<string, { kind: "dislike" | "like"; text: string }[]> = { a: [{ kind: "dislike", text: "x" }], c: [{ kind: "like", text: "y" }] };
     expect(rankByFit(items, (item) => notes[item] ?? [])).toEqual(["c", "b", "d", "a"]);
   });
@@ -107,7 +107,7 @@ describe("recipeFits", () => {
     { id: "r2", title: "Soppa", lines: [{ originalText: "1 lök" }] },
   ];
   it("gives the notes of the recipes that have any, by id", () => {
-    expect(recipeFits(recipes, [person("Anna", { dislikes: ["vitlök"] })])).toEqual({ r1: [{ kind: "dislike", text: "Anna undviker vitlök" }] });
+    expect(recipeFits(recipes, [person("Anna", { dislikes: ["vitlök"] })])).toMatchObject({ r1: [{ kind: "dislike", text: "Anna undviker vitlök" }] });
   });
   it("gives {} for a household with nothing filled in", () => {
     expect(recipeFits(recipes, [person("Anna")])).toEqual({});
