@@ -10,6 +10,8 @@ import type {
   ProposeWeekResult,
   SetDayLockInput,
   SwapDayInput,
+  UndoWeekInput,
+  UndoWeekResult,
 } from "../actions/contract";
 import type { WeekAgentSettings } from "../domain/settings";
 
@@ -23,8 +25,8 @@ export type WeekAgentActions = {
   setLock: (input: SetDayLockInput) => Promise<DraftResult>;
   apply: (input: ApplyWeekInput) => Promise<ApplyWeekResult>;
   discard: (input: DiscardDraftInput) => Promise<OkOrError>;
-  /** Deletes the rows `apply` wrote. Left out when the backend has no such action: "Använd veckan" then has no Ångra. */
-  undo?: (input: { draftId: string }) => Promise<OkOrError>;
+  /** Takes back what `apply` did (removes its dishes, puts back what it replaced). Left out: "Använd veckan" then has no Ångra. */
+  undo?: (input: UndoWeekInput) => Promise<UndoWeekResult>;
 };
 
 /** A store the household follows, for "Butiker för erbjudanden". */

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { parseWeekAgentSettings, toStoredSettings, type WeekAgentSettings } from "../domain/settings";
-import { weekProposalSchema, type ProposalStatus } from "../domain/proposal";
+import { appliedWeekSchema, weekProposalSchema, type AppliedWeek, type ProposalStatus } from "../domain/proposal";
 import type { WeekProposal } from "../domain/types";
 
 // The tables household_week_agent_settings and week_agent_proposals (supabase/migrations/20261110130000_week_agent.sql).
@@ -106,4 +106,42 @@ export async function finishDraftIn(db: Db, id: string, status: Exclude<Proposal
   const { data, error } = await db.from("week_agent_proposals").update({ status }).eq("id", id).eq("status", "draft").select("id");
   if (error) throw new WeekAgentDataError(`draft_finish_failed ${error.code}`);
   return data.length > 0;
+}
+
+/** Marks a draft used and keeps what it did (`applied`) next to its days, for "Ångra". False when it is not a draft any more. */
+export async function finishDraftUsedIn(db: Db, id: string, proposal: WeekProposal, applied: AppliedWeek): Promise<boolean> {
+  const stored = { ...weekProposalSchema.parse(proposal), applied: appliedWeekSchema.parse(applied) };
+  const { data, error } = await db.from("week_agent_proposals").update({ status: "used", proposal: stored as unknown as NonNullable<Json> }).eq("id", id).eq("status", "draft").select("id");
+  if (error) throw new WeekAgentDataError(`draft_finish_failed ${error.code}`);
+  return data.length > 0;
+}
+
+export type UsedDraft = { id: string; weekStart: string; status: ProposalStatus; proposal: WeekProposal; applied: AppliedWeek | null };
+
+/** Any draft row of the household by id, whatever its status, with what "Använd veckan" did to it. Null when there is none or it is not a proposal the app knows. */
+export async function readDraftAnyStatusIn(db: Db, id: string): Promise<UsedDraft | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const { data, error } = await db.from("week_agent_proposals").select(columns).eq("id", id).maybeSingle();
+  if (error) throw new WeekAgentDataError(`draft_read_failed ${error.code}`);
+  if (!data) return null;
+  const stored = toStored(data);
+  if (!stored) return null;
+  const raw = data.proposal as { applied?: unknown } | null;
+  const applied = appliedWeekSchema.safeParse(raw?.applied);
+  return { id: stored.id, weekStart: stored.weekStart, status: stored.status, proposal: stored.proposal, applied: applied.success ? applied.data : null };
+}
+
+/**
+ * "Ångra" of a used draft: the draft is a draft again (without `applied`, so it cannot be undone twice) and the
+ * household sees the proposal again. When the week got another draft meanwhile (one draft per week), it ends as
+ * discarded instead. Returns the status it ended with; null when it was not used.
+ */
+export async function reopenUsedDraftIn(db: Db, id: string, proposal: WeekProposal): Promise<"draft" | "discarded" | null> {
+  const plain = weekProposalSchema.parse(proposal) as unknown as NonNullable<Json>;
+  const back = await db.from("week_agent_proposals").update({ status: "draft", proposal: plain }).eq("id", id).eq("status", "used").select("id");
+  if (!back.error) return back.data.length > 0 ? "draft" : null;
+  if (back.error.code !== "23505") throw new WeekAgentDataError(`draft_reopen_failed ${back.error.code}`);
+  const gone = await db.from("week_agent_proposals").update({ status: "discarded", proposal: plain }).eq("id", id).eq("status", "used").select("id");
+  if (gone.error) throw new WeekAgentDataError(`draft_reopen_failed ${gone.error.code}`);
+  return gone.data.length > 0 ? "discarded" : null;
 }

@@ -50,7 +50,7 @@ export function fakeActions(overrides: Partial<WeekAgentActions> = {}, withUndo 
     setLock: vi.fn(async () => ({ status: "ok" as const, proposal: proposal({ 2: { locked: true } }) })),
     apply: vi.fn(async () => apply),
     discard: vi.fn(async () => ({ status: "ok" as const })),
-    undo: withUndo ? vi.fn(async () => ({ status: "ok" as const })) : (undefined as never),
+    undo: withUndo ? vi.fn(async () => ({ status: "ok" as const, removed: [] as number[], restored: [] as number[] })) : (undefined as never),
     ...overrides,
   } as never;
 }

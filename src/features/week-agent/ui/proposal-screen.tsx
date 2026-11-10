@@ -69,7 +69,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
   const [swapDay, setSwapDay] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirm, setConfirm] = useState<null | "overwrite" | "discard">(null);
-  const [conflict, setConflict] = useState<null | { written: number[]; skipped: number[] }>(null);
+  const [conflict, setConflict] = useState<null | { written: number[]; skipped: number[]; toBuy?: number | null }>(null);
   const [busy, setBusy] = useState(false);
   // The redo is meant for the run that was asked for; once it has happened the draft is what is shown and applied.
   const overwrite = redo !== null;
@@ -83,10 +83,11 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
       setPhase({ kind: "running", reason: mode });
       setNotice(null);
       setStatus(null);
-      const locked = current ? current.proposal.days.filter((day) => day.locked).map((day) => day.dayIndex) : redo ? redo.ownDays : undefined;
+      // The household's own days are fixed by the backend (it reads Matsedel); `replaceAgentDays` opens the days the agent filled.
+      const locked = current ? current.proposal.days.filter((day) => day.locked).map((day) => day.dayIndex) : undefined;
       let result;
       try {
-        result = await actions.propose({ weekStart, mode, ...(locked ? { lockedDays: locked } : {}) });
+        result = await actions.propose({ weekStart, mode, ...(locked ? { lockedDays: locked } : {}), ...(redo ? { replaceAgentDays: true } : {}) });
       } catch {
         if (cancelled.current) return;
         if (current) {
@@ -169,10 +170,10 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
     }
   }
 
-  async function finish(written: number[], kept: number, draftId: string) {
+  async function finish(written: number[], kept: number, draftId: string, toBuy?: number | null) {
     const undo = actions.undo;
     router.push(backHref);
-    showToast(appliedText(written.length, kept), {
+    showToast(appliedText(written.length, kept, toBuy), {
       durationMs: 10_000,
       ...(undo
         ? {
@@ -198,18 +199,18 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
     setNotice(null);
     setConfirm(null);
     try {
-      const result = await actions.apply({ draftId: draft.id, weekStart, ...(withOverwrite ? { overwrite: true } : {}) });
+      const result = await actions.apply({ draftId: draft.id, weekStart, ...(withOverwrite ? { overwrite: true } : {}), ...(redo ? { replaceAgentDays: true } : {}) });
       if (result.status === "error") {
         setNotice(result.message);
         return;
       }
       if (result.skippedOccupied.length > 0 && !withOverwrite) {
         // Someone filled a day since the proposal was made: nothing is written over it without a clear yes.
-        setConflict({ written: result.written, skipped: result.skippedOccupied });
+        setConflict({ written: result.written, skipped: result.skippedOccupied, toBuy: result.toBuy });
         return;
       }
       setConflict(null);
-      await finish(result.written, fixed, draft.id);
+      await finish(result.written, fixed, draft.id, result.toBuy);
     } catch {
       setNotice("Det gick inte att spara veckan. Inget ändrades. Försök igen.");
     } finally {
@@ -388,7 +389,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
         closeLabel="Avbryt"
         footer={
           <>
-            <Button fullWidth onClick={() => void apply(true)} disabled={busy}>
+            <Button fullWidth onClick={() => void apply(false)} disabled={busy}>
               Byt ut och använd
             </Button>
             <Button variant="text" fullWidth onClick={() => setConfirm(null)}>
@@ -425,7 +426,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
           // Closing is the same as "Behåll mina": what was empty is filled, and nothing else is touched.
           const current = conflict;
           setConflict(null);
-          if (current && draft) void finish(current.written, fixed, draft.id);
+          if (current && draft) void finish(current.written, fixed, draft.id, current.toBuy);
         }}
         title={conflict && conflict.skipped.length === 1 ? `${dayWord(conflict.skipped[0] ?? 1)[0]?.toUpperCase()}${dayWord(conflict.skipped[0] ?? 1).slice(1)} har fått en rätt` : "Några dagar har fått en rätt"}
         closeLabel="Behåll mina"
@@ -436,7 +437,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
               onClick={() => {
                 const current = conflict;
                 setConflict(null);
-                if (current && draft) void finish(current.written, fixed, draft.id);
+                if (current && draft) void finish(current.written, fixed, draft.id, current.toBuy);
               }}
             >
               Behåll mina

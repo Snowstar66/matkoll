@@ -13,6 +13,7 @@ import {
   saveWeekAgentSettings,
   setDayLock,
   swapDay,
+  undoWeek,
 } from "./week-agent-actions";
 import { weekAgentCost } from "./week-agent-cost";
 
@@ -23,7 +24,6 @@ const cost = weekAgentCost();
 
 const settingsActions: SettingsActions = { load: loadWeekAgentSettings, save: saveWeekAgentSettings };
 
-// No undo action exists yet (the backend adds undoWeek({ draftId })); "Använd veckan" has no Ångra until it is passed here.
 const actions: WeekAgentActions = {
   propose: proposeWeek,
   alternatives: alternativesForDay,
@@ -31,6 +31,7 @@ const actions: WeekAgentActions = {
   setLock: setDayLock,
   apply: applyWeek,
   discard: discardDraft,
+  undo: undoWeek,
 };
 
 /** The card at the top of Matsedel; nothing unless the Tillval is on and the week has days to fill. */

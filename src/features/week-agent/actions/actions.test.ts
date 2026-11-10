@@ -15,20 +15,26 @@ vi.mock("@/features/auth/server", () => ({ requireUser: async () => (world.signe
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
 vi.mock("@/features/settings/server", () => ({ getAiServiceForUser: async () => ({ planWeek }), listStores: async () => [] }));
 vi.mock("@/features/menu-advisor/server", () => ({ getFoodFitPeople: async () => world.people }));
-vi.mock("@/features/pantry/server", () => ({ getStapleRules: async () => ({}), listHouseholdOldItems: async () => [] }));
+vi.mock("@/features/pantry/server", () => ({ getStapleRules: async () => ({}), listHouseholdExpiringItems: async () => world.expiring }));
+vi.mock("@/features/shopping/server", () => ({ getShoppingList: async () => (world.shoppingFails ? Promise.reject(new Error("x")) : ok({ lines: new Array(world.shoppingLines).fill({}) })) }));
 vi.mock("@/features/offers/server", () => ({ getActiveOffers: async () => [] }));
 vi.mock("@/features/recipes/server", () => ({
   RecipeDataError: Boom,
-  listRecipeRows: async () => world.recipes.map((recipe) => ({ id: recipe.id, title: recipe.title, totalMinutes: recipe.minutes, originalServings: 4, lines: recipe.lines.map((text) => ({ originalText: text, ingredientId: null, amount: null, unit: null })) })),
+  listRecipeRows: async () => world.recipes.map((recipe) => ({ id: recipe.id, title: recipe.title, totalMinutes: recipe.minutes, originalServings: 4, lines: recipe.lines.map((text) => ({ originalText: text, ingredientId: world.lineIds[text] ?? null, amount: null, unit: null })) })),
   listRecipeTitles: async () => world.recipes.map((recipe) => ({ id: recipe.id, title: recipe.title })),
 }));
 vi.mock("@/features/mealplan/server", () => ({
   MealPlanDataError: Boom,
   getWeekDishes: async (week: string) => (world.failDishes ? Promise.reject(new Boom("x")) : world.dishes.filter((dish) => dish.week === week)),
+  undoAgentDishes: async (week: string, removeIds: string[], restore: { id: string; recipeId: string; recipeTitle: string; servings: number; weekday: number; source: string | null }[]) => {
+    world.undoCalls.push({ week, removeIds, restore });
+    world.dishes = world.dishes.filter((dish) => !removeIds.includes(dish.id));
+    for (const dish of restore) if (!world.dishes.some((existing) => existing.id === dish.id)) world.dishes.push({ id: dish.id, week, weekday: dish.weekday, recipeId: dish.recipeId, recipeTitle: dish.recipeTitle, servings: dish.servings, source: dish.source, cookedAt: null });
+  },
   addAgentDishes: async (week: string, dishes: { id: string; recipeId: string; recipeTitle: string; weekday: number }[], replace: string[] = []) => {
     world.addCalls.push({ week, dishes, replace });
     world.dishes = world.dishes.filter((dish) => !replace.includes(dish.id));
-    for (const dish of dishes) if (!world.dishes.some((existing) => existing.id === dish.id)) world.dishes.push({ id: dish.id, week, weekday: dish.weekday, recipeId: dish.recipeId, recipeTitle: dish.recipeTitle, source: "week_agent", cookedAt: null });
+    for (const dish of dishes) if (!world.dishes.some((existing) => existing.id === dish.id)) world.dishes.push({ id: dish.id, week, weekday: dish.weekday, recipeId: dish.recipeId, recipeTitle: dish.recipeTitle, servings: 4, source: "week_agent", cookedAt: null });
   },
 }));
 vi.mock("../data/week-agent", () => ({
@@ -48,6 +54,22 @@ vi.mock("../data/week-agent", () => ({
     if (draft) Object.assign(draft, { proposal, model });
     return Boolean(draft);
   },
+  finishDraftUsedIn: async (_db: unknown, id: string, _proposal: WeekProposal, applied: Applied) => {
+    const draft = world.drafts.find((entry) => entry.id === id && entry.status === "draft");
+    if (draft) Object.assign(draft, { status: "used", applied });
+    return Boolean(draft);
+  },
+  readDraftAnyStatusIn: async (_db: unknown, id: string) => {
+    const draft = world.drafts.find((entry) => entry.id === id);
+    return draft ? { id: draft.id, weekStart: draft.weekStart, status: draft.status, proposal: draft.proposal, applied: draft.applied ?? null } : null;
+  },
+  reopenUsedDraftIn: async (_db: unknown, id: string) => {
+    const draft = world.drafts.find((entry) => entry.id === id && entry.status === "used");
+    if (!draft) return null;
+    delete draft.applied;
+    draft.status = world.drafts.some((other) => other !== draft && other.weekStart === draft.weekStart && other.status === "draft") ? "discarded" : "draft";
+    return draft.status;
+  },
   finishDraftIn: async (_db: unknown, id: string, status: "used" | "discarded") => {
     const draft = world.drafts.find((entry) => entry.id === id && entry.status === "draft");
     if (draft) draft.status = status;
@@ -55,7 +77,8 @@ vi.mock("../data/week-agent", () => ({
   },
 }));
 
-type Dish = { id: string; week: string; weekday: number | null; recipeId: string | null; recipeTitle: string; source: string | null; cookedAt: string | null };
+type Dish = { id: string; week: string; weekday: number | null; recipeId: string | null; recipeTitle: string; servings: number; source: string | null; cookedAt: string | null };
+type Applied = { writtenDays: number[]; replaced: { id: string; recipeId: string; recipeTitle: string; servings: number; weekday: number; source: string | null }[] };
 type Recipe = { id: string; title: string; minutes: number; lines: string[] };
 const world = {
   signedIn: true,
@@ -64,7 +87,12 @@ const world = {
   people: [] as { name: string; allergies: string[]; dislikes: string[]; likes: string[] }[],
   recipes: [] as Recipe[],
   dishes: [] as Dish[],
-  drafts: [] as (StoredProposal & { status: "draft" | "used" | "discarded" })[],
+  drafts: [] as (StoredProposal & { status: "draft" | "used" | "discarded"; applied?: Applied })[],
+  expiring: [] as { ingredientId: string; name: string; expiresOn: string; overdue: boolean }[],
+  lineIds: {} as Record<string, string>,
+  shoppingLines: 14,
+  shoppingFails: false,
+  undoCalls: [] as { week: string; removeIds: string[]; restore: unknown[] }[],
   addCalls: [] as { week: string; dishes: { id: string; recipeId: string; recipeTitle: string; weekday: number }[]; replace: string[] }[],
   savedSettings: undefined as unknown,
 };
@@ -72,11 +100,12 @@ const planWeek = vi.fn();
 
 const { proposeWeek } = await import("./propose-week");
 const { alternativesForDay, setDayLock, swapDay } = await import("./day-actions");
-const { applyWeek, discardDraft } = await import("./apply-week");
+const { applyWeek, discardDraft, undoWeek } = await import("./apply-week");
 const { saveWeekAgentSettings } = await import("./settings-actions");
 const { getWeekAgentContext } = await import("../read-context");
 
 const week = addWeeks(currentWeekStart(), 1);
+const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 const rid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const titles = ["Pasta med köttfärssås", "Kycklinggryta", "Laxfilé med potatis", "Linssoppa", "Grönsakscurry", "Korvstroganoff", "Wok med tofu", "Fiskgratäng", "Tacos med nötfärs", "Chili con carne"];
 const lines: Record<string, string[]> = {
@@ -91,7 +120,7 @@ const lines: Record<string, string[]> = {
   "Tacos med nötfärs": ["500 g nötfärs", "8 tacoskal"],
   "Chili con carne": ["500 g nötfärs", "2 burkar kidneybönor"],
 };
-const dish = (weekday: number, recipeNumber: number | null, source: string | null = null): Dish => ({ id: `20000000-0000-4000-8000-${String(weekday).padStart(12, "0")}`, week, weekday, recipeId: recipeNumber === null ? null : rid(recipeNumber), recipeTitle: recipeNumber === null ? "Egen rätt" : titles[recipeNumber - 1], source, cookedAt: null });
+const dish = (weekday: number, recipeNumber: number | null, source: string | null = null): Dish => ({ id: `20000000-0000-4000-8000-${String(weekday).padStart(12, "0")}`, week, weekday, recipeId: recipeNumber === null ? null : rid(recipeNumber), recipeTitle: recipeNumber === null ? "Egen rätt" : titles[recipeNumber - 1], servings: 4, source, cookedAt: null });
 
 /** The AI answers with the first `n` open days of its input, a different dish each, from `first` on in the list. */
 const answerWith = (pick: (input: PlanWeekInput) => { dayIndex: number; recipeId: string }[]) => planWeek.mockImplementation(async (input: PlanWeekInput) => ok({ picks: pick(input).map((p) => ({ ...p, reasons: [] })), quality: input.quality ?? "standard" }));
@@ -107,6 +136,11 @@ beforeEach(() => {
   world.dishes = [];
   world.drafts = [];
   world.addCalls = [];
+  world.undoCalls = [];
+  world.expiring = [];
+  world.shoppingLines = 14;
+  world.lineIds = {};
+  world.shoppingFails = false;
   world.savedSettings = undefined;
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -127,6 +161,31 @@ describe("proposeWeek", () => {
     expect(world.drafts[0].id).toBe(result.draftId);
     expect(world.addCalls).toEqual([]);
     expect(world.dishes).toEqual([]);
+  });
+
+  it("reasons with the pantry's estimated last day: 'håller till ca fredag', never a date it does not have", async () => {
+    world.lineIds = { "2 dl grädde": "ing-gradde", "500 g nötfärs": "ing-notfars" };
+    world.expiring = [
+      { ingredientId: "ing-gradde", name: "Grädde", expiresOn: addDays(week, 4), overdue: false },
+      { ingredientId: "ing-notfars", name: "Nötfärs", expiresOn: addDays(week, -3), overdue: true },
+    ];
+    const result = await proposeWeek({ weekStart: week, mode: "plan" });
+    if (result.status !== "ok") throw new Error(JSON.stringify(result));
+    const reasons = proposed(result.proposal).flatMap((day) => day.reasons);
+    expect(reasons).toContain("Grädde håller till ca fredag");
+    expect(reasons).toContain("Nötfärs behöver användas snart");
+    expect(reasons.join(" ")).not.toMatch(/går ut/);
+    const tag = proposed(result.proposal).flatMap((day) => day.useSoonTags).find((t) => t.name === "Grädde");
+    expect(tag).toMatchObject({ expiresWeekday: 5, estimated: true });
+  });
+
+  it("leaves expiry out when the setting is off", async () => {
+    world.lineIds = { "2 dl grädde": "ing-gradde" };
+    world.expiring = [{ ingredientId: "ing-gradde", name: "Grädde", expiresOn: addDays(week, 4), overdue: false }];
+    world.settings.useSoonFirst = false;
+    const result = await proposeWeek({ weekStart: week, mode: "plan" });
+    if (result.status !== "ok") throw new Error(JSON.stringify(result));
+    expect(proposed(result.proposal).flatMap((day) => day.reasons).join(" ")).not.toMatch(/Grädde/);
   });
 
   it("keeps every existing Matsedel day as it is and plans around it, and never sends the model a person's name or an allergy", async () => {
@@ -323,7 +382,7 @@ describe("applyWeek", () => {
     world.dishes = [dish(4, 7, "user")];
     const { draftId } = await draftWeek();
     const result = await applyWeek({ draftId, weekStart: week });
-    expect(result).toEqual({ status: "ok", written: [1, 2, 3, 5], skippedOccupied: [] });
+    expect(result).toEqual({ status: "ok", written: [1, 2, 3, 5], skippedOccupied: [], toBuy: 14 });
     expect(world.addCalls).toHaveLength(1);
     expect(world.addCalls[0].dishes.map((entry) => entry.weekday)).toEqual([1, 2, 3, 5]);
     expect(world.addCalls[0].replace).toEqual([]);
@@ -332,11 +391,17 @@ describe("applyWeek", () => {
     expect(world.dishes.find((entry) => entry.weekday === 4)).toMatchObject({ recipeId: rid(7), source: "user" });
   });
 
+  it("tells how many lines the week's shopping list has, and nothing when the list cannot be read", async () => {
+    const { draftId } = await draftWeek();
+    world.shoppingFails = true;
+    expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ status: "ok", toBuy: null });
+  });
+
   it("never overwrites a day that got a dish after the draft was made, unless overwrite is true", async () => {
     const { draftId } = await draftWeek();
     world.dishes = [dish(2, 9, "user")];
     const result = await applyWeek({ draftId, weekStart: week });
-    expect(result).toEqual({ status: "ok", written: [1, 3, 4, 5], skippedOccupied: [2] });
+    expect(result).toMatchObject({ status: "ok", written: [1, 3, 4, 5], skippedOccupied: [2] });
     expect(world.dishes.find((entry) => entry.weekday === 2)).toMatchObject({ recipeId: rid(9), source: "user" });
   });
 
@@ -344,7 +409,7 @@ describe("applyWeek", () => {
     const { draftId } = await draftWeek();
     world.dishes = [dish(2, 9, "user")];
     const result = await applyWeek({ draftId, weekStart: week, overwrite: true });
-    expect(result).toEqual({ status: "ok", written: [1, 2, 3, 4, 5], skippedOccupied: [] });
+    expect(result).toMatchObject({ status: "ok", written: [1, 2, 3, 4, 5], skippedOccupied: [] });
     expect(world.addCalls[0].replace).toEqual([dish(2, 9).id]);
     expect(world.dishes.filter((entry) => entry.weekday === 2)).toHaveLength(1);
     expect(world.dishes.find((entry) => entry.weekday === 2)?.source).toBe("week_agent");
@@ -391,6 +456,101 @@ describe("applyWeek", () => {
     world.recipes = [];
     expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ status: "error", message: expect.stringContaining("finns inte längre") });
     expect(world.drafts[0].status).toBe("draft");
+  });
+});
+
+describe("full-week Gör om (replaceAgentDays) and undoWeek", () => {
+  /** 3 days of the household's own (2, 4, 6) and 4 days the agent filled (1, 3, 5, 7). */
+  const fullWeek = () => {
+    world.settings.dinners = 7;
+    world.dishes = [dish(2, 8, "user"), dish(4, 9, null), dish(6, 10, "user"), dish(1, 1, "week_agent"), dish(3, 2, "week_agent"), dish(5, 3, "week_agent"), dish(7, 4, "week_agent")];
+  };
+  const own = () => JSON.stringify(world.dishes.filter((entry) => entry.source !== "week_agent"));
+
+  it("re-proposes only the days the agent filled; the household's own days stay fixed", async () => {
+    fullWeek();
+    const result = await proposeWeek({ weekStart: week, mode: "plan", replaceAgentDays: true });
+    if (result.status !== "ok") throw new Error(JSON.stringify(result));
+    expect(proposed(result.proposal).map((day) => day.dayIndex)).toEqual([1, 3, 5, 7]);
+    expect(result.proposal.days.filter((day) => day.source === "fixed").map((day) => day.dayIndex)).toEqual([2, 4, 6]);
+    expect((planWeek.mock.calls[0][0] as PlanWeekInput).openDays).toEqual([1, 3, 5, 7]);
+    // Only 3 dishes are left after the household's own 3 and the agent's 4, so the agent's own come back for the 4th day.
+    expect(proposed(result.proposal)).toHaveLength(4);
+  });
+
+  it("without replaceAgentDays a full week has nothing open", async () => {
+    fullWeek();
+    expect(await proposeWeek({ weekStart: week, mode: "plan" })).toMatchObject({ status: "error", message: "Alla dagar har redan en rätt." });
+  });
+
+  it("replaces exactly the agent's days on apply and leaves the household's days byte-identical, then Ångra puts the old agent dishes back", async () => {
+    fullWeek();
+    const before = own();
+    const agentBefore = world.dishes.filter((entry) => entry.source === "week_agent").map((entry) => entry.id).sort();
+    const result = await proposeWeek({ weekStart: week, mode: "plan", replaceAgentDays: true });
+    if (result.status !== "ok") throw new Error("ok expected");
+    const applied = await applyWeek({ draftId: result.draftId, weekStart: week, replaceAgentDays: true });
+    expect(applied).toMatchObject({ status: "ok", written: [1, 3, 5, 7], skippedOccupied: [] });
+    expect(own()).toBe(before);
+    expect(world.addCalls[0].replace.sort()).toEqual(agentBefore);
+    expect(world.dishes.filter((entry) => entry.source === "week_agent").map((entry) => entry.weekday).sort()).toEqual([1, 3, 5, 7]);
+
+    const undone = await undoWeek({ draftId: result.draftId });
+    expect(undone).toEqual({ status: "ok", removed: [1, 3, 5, 7], restored: [1, 3, 5, 7] });
+    expect(own()).toBe(before);
+    expect(world.dishes.filter((entry) => entry.source === "week_agent").map((entry) => entry.id).sort()).toEqual(agentBefore);
+    expect(world.drafts.find((entry) => entry.id === result.draftId)?.status).toBe("draft");
+  });
+
+  it("never touches a household day with replaceAgentDays alone, even when the draft proposed a day that became the household's", async () => {
+    const { draftId } = await draftWeek();
+    world.dishes = [dish(2, 9, "user")];
+    const before = JSON.stringify(world.dishes);
+    expect(await applyWeek({ draftId, weekStart: week, replaceAgentDays: true })).toMatchObject({ status: "ok", written: [1, 3, 4, 5], skippedOccupied: [2] });
+    expect(JSON.stringify(world.dishes.filter((entry) => entry.weekday === 2))).toBe(JSON.stringify(JSON.parse(before)));
+  });
+
+  it("does not replace a dish Ångra could not put back (cooked, or without a recipe): the day counts as occupied", async () => {
+    const { draftId } = await draftWeek();
+    world.dishes = [{ ...dish(2, 9, "week_agent"), cookedAt: "2026-11-01T10:00:00Z" }, dish(3, null, "week_agent")];
+    expect(await applyWeek({ draftId, weekStart: week, replaceAgentDays: true, overwrite: true })).toMatchObject({ status: "ok", written: [1, 4, 5], skippedOccupied: [2, 3] });
+  });
+
+  describe("undoWeek", () => {
+    it("removes exactly the dishes apply wrote and puts an overwritten household day back", async () => {
+      const { draftId } = await draftWeek();
+      world.dishes = [dish(2, 9, "user"), dish(6, 10, "user")];
+      await applyWeek({ draftId, weekStart: week, overwrite: true });
+      expect(world.dishes.find((entry) => entry.weekday === 2)?.source).toBe("week_agent");
+      const result = await undoWeek({ draftId });
+      expect(result).toEqual({ status: "ok", removed: [1, 2, 3, 4, 5], restored: [2] });
+      expect(world.dishes.map((entry) => [entry.weekday, entry.recipeId, entry.source]).sort()).toEqual([[2, rid(9), "user"], [6, rid(10), "user"]]);
+      expect(world.drafts[0].status).toBe("draft");
+      expect(world.drafts[0].applied).toBeUndefined();
+    });
+
+    it("is idempotent, and ok with nothing removed for a draft that was never applied", async () => {
+      const { draftId } = await draftWeek();
+      expect(await undoWeek({ draftId })).toEqual({ status: "ok", removed: [], restored: [] });
+      await applyWeek({ draftId, weekStart: week });
+      expect(await undoWeek({ draftId })).toMatchObject({ status: "ok", removed: [1, 2, 3, 4, 5] });
+      expect(await undoWeek({ draftId })).toEqual({ status: "ok", removed: [], restored: [] });
+      expect(world.dishes).toEqual([]);
+      expect(world.undoCalls).toHaveLength(1);
+    });
+
+    it("ends as discarded when the week got another draft meanwhile, and refuses unknown ids, bad input and a signed-out user", async () => {
+      const { draftId } = await draftWeek();
+      await applyWeek({ draftId, weekStart: week });
+      world.drafts.push({ ...world.drafts[0], id: rid(96), status: "draft" });
+      delete world.drafts[1].applied;
+      expect(await undoWeek({ draftId })).toMatchObject({ status: "ok" });
+      expect(world.drafts.find((entry) => entry.id === draftId)?.status).toBe("discarded");
+      expect(await undoWeek({ draftId: rid(97) })).toMatchObject({ status: "error" });
+      expect(await undoWeek({ draftId: "nope" })).toMatchObject({ status: "error" });
+      world.signedIn = false;
+      expect(await undoWeek({ draftId })).toMatchObject({ status: "error", message: expect.stringContaining("logga in") });
+    });
   });
 });
 

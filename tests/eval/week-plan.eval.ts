@@ -78,9 +78,9 @@ function wrongReasons(input: PlanInput, picks: readonly { recipeId: string; reas
         const price = /extrapris|erbjudande/.test(text);
         if (price && offers.length === 0) wrong.push(`${recipe?.title ?? "?"}: "${reason}" (inget extrapris)`);
       }
-      if (/går ut|utgång|snart|behöver användas|håller på att/.test(text)) {
+      if (/går ut|utgång|snart|behöver användas|håller på att|håller till/.test(text)) {
         claimed = true;
-        const named = dayWords.findIndex((word, index) => index > 0 && text.includes(`går ut ${word}`));
+        const named = dayWords.findIndex((word, index) => index > 0 && (text.includes(`går ut ${word}`) || text.includes(`håller till ca ${word}`)));
         if (soon.length === 0) wrong.push(`${recipe?.title ?? "?"}: "${reason}" (inget som går ut)`);
         else if (named > 0 && !soon.some((item) => item.expiresWeekday === named)) wrong.push(`${recipe?.title ?? "?"}: "${reason}" (fel dag)`);
       }
