@@ -74,3 +74,7 @@ export function portionEstimatesText(estimates: readonly PortionEstimate[]): str
 export function negligibleText(names: readonly string[]): string | null {
   return names.length === 0 ? null : `Försumbart, ej medräknat: ${names.join(", ")}.`;
 }
+
+/** Under the bars in the sheet. "Riktvärde", never "krav" or a daily need. */
+export const REFERENCE_NOTE =
+  "Strecket är ett riktvärde för en måltid: en tredjedel av en dag för en vuxen på ca 2 000 kcal, enligt nordiska näringsrekommendationerna. Ungefärligt.";

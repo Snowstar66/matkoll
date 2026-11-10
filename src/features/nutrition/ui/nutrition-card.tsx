@@ -5,9 +5,11 @@ import { Badge } from "@/components/badges";
 import { ChevronRightIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { NUTRITION_LICENSE_URL } from "../domain/groups";
-import { assessKostrad, plateShares } from "../domain/kostrad";
+import { assessKostrad, plateShares, type PlateShares } from "../domain/kostrad";
+import { BAR_MAX_SHARE, MEAL_REFERENCE, shareOfReference } from "../domain/reference";
+import { nutritionSentence } from "../domain/sentence";
 import { isTrustworthy, type RecipeNutrition, roundedGrams, roundedKcal } from "../domain/recipe-nutrition";
-import { coverageText, KCAL_UNSURE_TEXT, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, negligibleText, portionEstimatesText, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
+import { coverageText, KCAL_UNSURE_TEXT, REFERENCE_NOTE, KOSTRAD_TAG_EXPLANATIONS, PLATE_NOTE, PLATE_PARTS, negligibleText, portionEstimatesText, shareText, uncountedText, UNSURE_CARD_TEXT } from "../domain/texts";
 import { Plate, plateColors } from "./plate";
 import { useNutritionOptions } from "./use-nutrition-options";
 
@@ -26,6 +28,7 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
   const { perServing, coverage } = nutrition;
   const unsure = coverage.total > 0 && !isTrustworthy(coverage);
   const showKcal = kcal && isTrustworthy(coverage);
+  const sentence = nutritionSentence(nutrition);
   // Nothing to show: no plate, no tag, no warning and no kcal line (a baked good with Visa kcal on still gets its kcal).
   if (!shares && tags.length === 0 && !unsure && !showKcal) return null;
   return (
@@ -38,11 +41,15 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
         data-testid="nutrition-card"
         className="flex w-full items-center gap-3 rounded-lg bg-surface px-4 py-3 text-left"
       >
-        {shares ? <Plate shares={shares} size={56} /> : null}
-        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-2">
           {showKcal ? (
-            <span className="text-body text-ink" data-testid="nutrition-kcal">
-              ca {roundedKcal(perServing.kcal)} kcal <span className="text-ink-2">per portion</span>
+            <span className="text-body text-ink-2" data-testid="nutrition-kcal">
+              <b className="text-recipe-title text-ink">ca {roundedKcal(perServing.kcal)}</b> kcal per portion
+            </span>
+          ) : null}
+          {sentence ? (
+            <span className="text-body text-ink" data-testid="nutrition-sentence">
+              {sentence}
             </span>
           ) : null}
           {unsure ? (
@@ -50,6 +57,14 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
               {UNSURE_CARD_TEXT}
             </span>
           ) : null}
+          {shares ? (
+            <span className="flex items-center gap-3">
+              <Plate shares={shares} size={64} />
+              <Legend shares={shares} />
+            </span>
+          ) : (
+            <span className="text-meta text-ink-3">Tryck för detaljer</span>
+          )}
           {tags.length > 0 ? (
             <span className="flex flex-wrap gap-1.5" data-testid="nutrition-tags">
               {tags.map((tag) => (
@@ -59,7 +74,6 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
               ))}
             </span>
           ) : null}
-          {shares ? <Legend /> : null}
         </span>
         <ChevronRightIcon size={18} className="shrink-0 text-ink-3" />
       </button>
@@ -68,16 +82,55 @@ export function NutritionCard({ recipeTitle, nutrition }: { recipeTitle: string;
   );
 }
 
-function Legend() {
+function Legend({ shares }: { shares: PlateShares }) {
   return (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-ink-2">
+    <ul className="flex min-w-0 flex-1 flex-col gap-0.5 text-meta text-ink-2">
       {PLATE_PARTS.map((part) => (
-        <span key={part.key} className="inline-flex items-center gap-1">
-          <span aria-hidden="true" className="size-2 rounded-full opacity-70" style={{ background: plateColors[part.key] }} />
-          {part.legend}
-        </span>
+        <li key={part.key} className="flex items-center gap-2">
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full opacity-70" style={{ background: plateColors[part.key] }} />
+          <span className="flex-1">{part.legend}</span>
+          <span className="text-ink-3">{shareText(shares[part.key])}</span>
+        </li>
       ))}
-    </span>
+    </ul>
+  );
+}
+
+const BARS = [
+  { key: "proteinG", label: "Protein", reference: MEAL_REFERENCE.proteinG },
+  { key: "fatG", label: "Fett", reference: MEAL_REFERENCE.fatG },
+  { key: "carbsG", label: "Kolhydrater", reference: MEAL_REFERENCE.carbsG },
+  { key: "fiberG", label: "Fiber", reference: MEAL_REFERENCE.fiberG },
+] as const;
+
+/** Four small bars against the per-meal riktvärde; a thin tick marks the riktvärde, values are in text. */
+function ReferenceBars({ perServing }: { perServing: RecipeNutrition["perServing"] }) {
+  const tick = (1 / BAR_MAX_SHARE) * 100;
+  return (
+    <ul className="flex flex-col gap-2.5" data-testid="nutrition-bars">
+      {BARS.map(({ key, label, reference }) => {
+        const share = shareOfReference(perServing[key], reference);
+        const percent = Math.round(share * 100);
+        return (
+          <li
+            key={key}
+            className="grid grid-cols-[5.5rem_1fr_4.5rem] items-center gap-2.5 text-meta"
+            data-testid={`nutrition-bar-${key}`}
+            aria-label={`${label}: ${roundedGrams(perServing[key])} gram, ${percent} procent av riktvärdet`}
+          >
+            <span className="text-ink-2">{label}</span>
+            <span aria-hidden="true" className="relative h-2.5 rounded-full bg-fill">
+              <span className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${Math.min(share, BAR_MAX_SHARE) * tick}%` }} />
+              <span className="absolute -inset-y-1 w-0.5 rounded-sm bg-ink-2" style={{ left: `${tick}%` }} />
+            </span>
+            <span className="flex flex-col items-end leading-tight">
+              <b className="font-semibold text-ink">{roundedGrams(perServing[key])} g</b>
+              <span className="text-ink-3">{percent} %</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -98,19 +151,18 @@ function NutritionSheet({
   const { tags } = assessKostrad(nutrition);
   const { perServing, coverage } = nutrition;
   const trusted = isTrustworthy(coverage);
+  const sentence = nutritionSentence(nutrition);
   const notCounted = uncountedText(nutrition.uncounted);
   const estimatedText = portionEstimatesText(nutrition.portionEstimates);
   const negligible = negligibleText(nutrition.negligible);
-  const rows = [
-    ["Energi", `ca ${roundedKcal(perServing.kcal)} kcal`],
-    ["Protein", `${roundedGrams(perServing.proteinG)} g`],
-    ["Fett", `${roundedGrams(perServing.fatG)} g`],
-    ["Kolhydrater", `${roundedGrams(perServing.carbsG)} g`],
-    ["Fiber", `${roundedGrams(perServing.fiberG)} g`],
-  ] as const;
   return (
     <Sheet open={open} onClose={onClose} title="Näring" subtitle={`${recipeTitle}, per portion`} closeLabel="Klar">
       <div className="flex flex-col gap-3" data-testid="nutrition-sheet">
+        {sentence ? (
+          <p className="px-1 text-body text-ink" data-testid="nutrition-sheet-sentence">
+            {sentence}
+          </p>
+        ) : null}
         {shares ? (
           <section aria-labelledby="nutrition-plate-heading" className="flex flex-col gap-2 rounded-lg bg-surface px-4 py-3">
             <h3 id="nutrition-plate-heading" className="text-section-label text-ink-2">
@@ -147,18 +199,16 @@ function NutritionSheet({
           </section>
         ) : null}
         {showKcal && trusted ? (
-          <section aria-labelledby="nutrition-values-heading" className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-3">
+          <section aria-labelledby="nutrition-values-heading" className="flex flex-col gap-2 rounded-lg bg-surface px-4 py-3">
             <h3 id="nutrition-values-heading" className="text-section-label text-ink-2">
               Per portion
             </h3>
-            <dl className="flex flex-col divide-y divide-hairline">
-              {rows.map(([label, value]) => (
-                <div key={label} className="flex justify-between py-2 text-body text-ink">
-                  <dt>{label}</dt>
-                  <dd className="text-ink-2">{value}</dd>
-                </div>
-              ))}
-            </dl>
+            <p className="text-body text-ink" data-testid="nutrition-energy">
+              <span>Energi</span>: ca {roundedKcal(perServing.kcal)} kcal
+              <span className="block text-meta text-ink-2">{Math.round(shareOfReference(perServing.kcal, MEAL_REFERENCE.kcal) * 100)} % av en måltids riktvärde</span>
+            </p>
+            <ReferenceBars perServing={perServing} />
+            <p className="text-meta text-ink-3">{REFERENCE_NOTE}</p>
           </section>
         ) : null}
         {!trusted ? (

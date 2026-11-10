@@ -53,3 +53,5 @@ export { nutritionCheck, MAX_MISSING_ITEMS, type CheckedRecipe, type MissingItem
 export { NutritionCard } from "./ui/nutrition-card";
 export { NutritionWeekLine, NutritionWeekLineAsync } from "./ui/week-line";
 export { useNutritionOptions } from "./ui/use-nutrition-options";
+export { nutritionSentence } from "./domain/sentence";
+export { MEAL_REFERENCE, BAR_MAX_SHARE, shareOfReference } from "./domain/reference";
