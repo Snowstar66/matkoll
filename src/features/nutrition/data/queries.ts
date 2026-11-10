@@ -48,11 +48,11 @@ export async function loadNutritionByNames(
 ): Promise<Record<string, IngredientNutrition>> {
   const names = [...new Set(normalizedNames.filter(Boolean))];
   const found: Record<string, IngredientNutrition> = {};
-  for (let start = 0; start < names.length; start += chunkSize) {
-    const { data, error } = await db
-      .from("ingredient_nutrition")
-      .select("*")
-      .in("normalized_name", names.slice(start, start + chunkSize));
+  const chunks: string[][] = [];
+  for (let start = 0; start < names.length; start += chunkSize) chunks.push(names.slice(start, start + chunkSize));
+  // The chunks are independent reads: all at once instead of one after the other.
+  const results = await Promise.all(chunks.map((chunk) => db.from("ingredient_nutrition").select("*").in("normalized_name", chunk)));
+  for (const { data, error } of results) {
     if (error) throw new NutritionDataError(error.code);
     for (const row of data) {
       const nutrition = toIngredientNutrition(row);

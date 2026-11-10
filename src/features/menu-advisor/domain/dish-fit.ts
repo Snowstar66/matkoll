@@ -1,6 +1,6 @@
 import type { NotePerson, PreferenceNote } from "@/components/preference-notes";
 import { allergenLabels } from "./labels";
-import { hasTerm, matchPreference, normalizeText, tokens } from "./preferences";
+import { dishTokens, hasTerm, matchPreferenceTokens, normalizeText, tokens } from "./preferences";
 import type { MenuAllergen, MenuDish } from "./types";
 
 // What a dish or recipe says about the household's food preferences, for any dish that is not a menu line: a name and a
@@ -101,6 +101,8 @@ export function foodFit(food: FoodText, people: readonly FitPerson[]): FitNote[]
     forklaring: "",
     kategori: "ej_tillampligt",
   };
+  const dishWords = dishTokens(asDish);
+  const matches = (tag: string) => matchPreferenceTokens(tag, dishWords, asDish.kategori);
   const allergy = new Map<MenuAllergen, NotePerson[]>();
   const dislike: FitNote[] = [];
   const like: FitNote[] = [];
@@ -109,8 +111,8 @@ export function foodFit(food: FoodText, people: readonly FitPerson[]): FitNote[]
     for (const allergen of new Set(person.allergies)) {
       if (lines.some((line) => lineHasAllergen(allergen, line))) allergy.set(allergen, [...(allergy.get(allergen) ?? []), who]);
     }
-    const avoids = person.dislikes.filter((tag) => matchPreference(tag, asDish));
-    const loves = person.likes.filter((tag) => matchPreference(tag, asDish) && !avoids.some((other) => sameText(other, tag)));
+    const avoids = person.dislikes.filter(matches);
+    const loves = person.likes.filter((tag) => matches(tag) && !avoids.some((other) => sameText(other, tag)));
     const strong = (words: readonly string[], of: readonly string[] | undefined) => words.some((word) => (of ?? []).some((other) => sameText(other, word)));
     if (avoids.length > 0) {
       const terms = avoids.slice(0, maxWordsInNote).map(lower);

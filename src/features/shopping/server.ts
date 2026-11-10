@@ -212,8 +212,7 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
  * now, among `keys`. Throws ShoppingDataError or MealPlanDataError.
  */
 export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ planId: string | null; onList: string[] }> {
-  const plan = await getCurrentPlan();
-  const items = await listCustomItemsIn(await createClient());
+  const [plan, items] = await Promise.all([getCurrentPlan(), createClient().then(listCustomItemsIn)]);
   const ids = new Set(items.map((item) => item.id));
   return { planId: plan?.id ?? null, onList: keys.filter((key) => ids.has(keyedItemId(key))) };
 }

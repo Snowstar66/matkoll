@@ -27,12 +27,22 @@ const maxOfferDishes = 3;
 export async function loadOfferDishes(offers: readonly StoreOffer[] = []): Promise<ReactNode> {
   try {
     // This week and the next two, and the week last viewed when that is further ahead (UX-04), each with the dishes already on it.
+    // Independent reads go together: the week last viewed, the options and the saved ideas; only the plans of the weeks need the first.
+    const ideasRead = loadOfferIdeas().catch((error: unknown) => {
+      if (!isOfferIdeaError(error)) throw error;
+      console.error("offer_ideas_unavailable", { reason: "detail" in error ? error.detail : "recipes" });
+      return null;
+    });
+    const optionsRead = weekPlanOptions();
+    // Both are awaited further down; these keep one from ending unhandled while the other fails first.
+    optionsRead.catch(() => undefined);
+    ideasRead.catch(() => undefined);
     const remembered = await getRememberedWeek();
     const base = copyTargets().map((target) => ({ weekStart: target.weekStart, offset: target.offset }));
     const targets = base.some((target) => target.weekStart === remembered)
       ? base
       : [...base, { weekStart: remembered, offset: weeksBetween(currentWeekStart(), remembered) }];
-    const [options, ...views] = await Promise.all([weekPlanOptions(), ...targets.map((target) => getMealPlanView(target.weekStart))]);
+    const [options, ...views] = await Promise.all([optionsRead, ...targets.map((target) => getMealPlanView(target.weekStart))]);
     const dishes = optionsForTab(options, "offers").slice(0, maxOfferDishes);
     const weeks: OfferWeek[] = targets.map((target, index) => {
       const onWeek: Record<string, number | null> = {};
@@ -40,11 +50,7 @@ export async function loadOfferDishes(offers: readonly StoreOffer[] = []): Promi
       return { weekStart: target.weekStart, offset: target.offset, number: weekNumber(target.weekStart), onWeek };
     });
     // The saved ideas, prepared in the background; a set that cannot be read leaves the card without them.
-    const ideas = await loadOfferIdeas().catch((error: unknown) => {
-      if (!isOfferIdeaError(error)) throw error;
-      console.error("offer_ideas_unavailable", { reason: "detail" in error ? error.detail : "recipes" });
-      return null;
-    });
+    const ideas = await ideasRead;
     // UX-20: the ideas only know the labels of the offers they use; the tags need the name and the price.
     const tagsByLabel: Record<string, OfferTagData> = {};
     for (const offer of offers) if (!Object.hasOwn(tagsByLabel, offer.label)) tagsByLabel[offer.label] = offerTagOf(offer);
@@ -76,4 +82,12 @@ export async function loadOfferDishes(offers: readonly StoreOffer[] = []): Promi
     console.error("offer_dishes_unavailable", { reason: error instanceof CatalogDataError ? error.code : error.detail });
     return null;
   }
+}
+
+/**
+ * loadOfferDishes as a server component, so the sheet can render it inside its own <Suspense>: the page shows at once
+ * and "Rätter med extrapris" arrives when it has been worked out (it is shown only when the sheet is opened).
+ */
+export async function OfferDishesSlot({ offers }: { offers: readonly StoreOffer[] }) {
+  return loadOfferDishes(offers);
 }
