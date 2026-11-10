@@ -6,7 +6,8 @@ import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStor
 import { Chip } from "@/components/chip";
 import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import { useToast } from "@/components/toast";
 import { openAddDishesEvent } from "./add-dishes-button";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
@@ -381,7 +382,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       <p data-testid="dish-note" className="text-meta text-ink-2">
                         {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
                       </p>
-                      <PreferenceNotes notes={fitOf(dish)} max={2} />
+                      <FitRow notes={fitOf(dish)} maxNotes={2} />
                       {dish.recipeId ? <OfferTags tags={byId.get(dish.recipeId)?.deal?.tags ?? []} className="mt-0.5" /> : null}
                     </div>
                     <TrashButton

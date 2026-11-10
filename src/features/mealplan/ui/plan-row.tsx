@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import type { OfferTagData } from "@/lib/offer-tag";
 import type { DishKind } from "@/lib/dish-kind";
@@ -48,7 +49,7 @@ export function PlanRow({ title, imageUrl, dish, meta, note, tags, fit, onWeekLa
             {note}
           </p>
         ) : null}
-        <PreferenceNotes notes={fit} max={2} />
+        <FitRow notes={fit} maxNotes={2} />
         {tags && tags.length > 0 ? <OfferTags tags={tags} className="mt-0.5" /> : null}
       </div>
       {onWeekLabel ? (

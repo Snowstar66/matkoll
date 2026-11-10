@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OfferTags } from "@/components/offer-tag";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import type { OfferTagData } from "@/lib/offer-tag";
 import { HeartToggle } from "@/components/heart-toggle";
 import { ListGroup } from "@/components/list-group";
@@ -83,7 +84,7 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
                 {offerTags && offerTags[recipe.id]?.length ? (
                   <OfferTags tags={offerTags[recipe.id]} className="mt-1" />
                 ) : null}
-                <PreferenceNotes notes={fits?.[recipe.id]} max={1} className="mt-0.5" />
+                <FitRow notes={fits?.[recipe.id]} maxNotes={1} className="mt-0.5" />
               </>
             }
             leading={

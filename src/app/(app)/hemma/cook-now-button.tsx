@@ -5,7 +5,8 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
 import { ChevronRightIcon, InfoIcon, SparkleIcon } from "@/components/icons";
-import { PreferenceNotes, type PreferenceNote } from "@/components/preference-notes";
+import { FitRow } from "@/components/fit-row";
+import type { PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -366,7 +367,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                   lead={<RecipeImage src={recipe.imageUrl} dish={recipe.dish} title={recipe.title} artSize={36} className="size-11 rounded-md" />}
                   title={recipe.title}
                   meta={recipeMetaText(recipe.totalMinutes, recipe.servings)}
-                  notes={<PreferenceNotes notes={recipe.fit} />}
+                  notes={<FitRow notes={recipe.fit} />}
                 />
                 {expanded === recipe.id ? (
                   <div className="flex flex-col items-start gap-2 px-3 pb-3 pl-[68px]">
@@ -398,7 +399,7 @@ function CookNowSheet({ open, onClose, readCookNow, saveRecipe, sendFeedback }: 
                   <span className="text-meta text-ink-2">{idea.kind}</span>
                 </p>
                 <p className="text-body">{idea.how}</p>
-                <PreferenceNotes notes={idea.fit} />
+                <FitRow notes={idea.fit} />
                 {idea.why ? (
                   <p data-testid="cook-now-why" className="text-meta text-ink-3">
                     {idea.why}
@@ -500,7 +501,7 @@ function RecipePreview({
       {suggestion ? (
         <>
           <p className="text-row-title">{suggestion.draft.title}</p>
-          <PreferenceNotes notes={suggestion.fit} />
+          <FitRow notes={suggestion.fit} />
           <ul className="flex flex-col gap-1.5">
             {suggestion.draft.lines.map((line, index) => (
               <li key={index} className="flex gap-2 text-body">
@@ -535,7 +536,7 @@ function MissingRow({ title, missing, fit }: { title: string; missing: string; f
     <li className="flex items-baseline justify-between gap-2">
       <span className="min-w-0 break-words">
         {title}
-        <PreferenceNotes notes={fit} />
+        <FitRow notes={fit} />
       </span>
       <span className="shrink-0 font-semibold text-sand-ink">Saknar {missing}</span>
     </li>

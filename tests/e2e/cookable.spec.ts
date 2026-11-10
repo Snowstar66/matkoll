@@ -186,6 +186,7 @@ test("Kan lagas nu shows only what can be cooked, with Nästan below, and keeps 
 
 test("hushållets preferenser: the cards and the recipe page note an allergy, an Undviker and an Älskar, and rank the library lightly", async ({ page }) => {
   const errors = watchErrors(page);
+  await page.addInitScript(() => localStorage.setItem("livskoll-option-showFit", "0"));
   await seedFoodProfile(userId, { allergies: ["laktos"], dislikes: ["linser"], likes: ["torsk"] });
   await page.goto("/recept");
   // Without notes the order is newest first (fisk, gryta, soppa); an Undviker goes before an allergy, nothing is left out.
@@ -206,6 +207,44 @@ test("hushållets preferenser: the cards and the recipe page note an allergy, an
   await clearFoodProfiles(userId);
   await page.goto("/recept");
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
+  await expect(page.getByTestId("preference-notes")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("Visa vem rätten passar: dots for those who stand out replace the notes, nothing when everyone fits, and the notes return when it is off", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seedFoodProfile(userId, { allergies: ["laktos"], dislikes: ["linser"], likes: ["torsk"] });
+  await page.goto("/recept");
+  const row = (title: string) => rows(page).filter({ hasText: title });
+  // An allergy is a red ring with the word; an Undviker is a sand dot; a lover is mint. No grey or green note is left.
+  await expect(row(gryta).getByTestId("fit-dot")).toHaveAttribute("data-kind", "allergy");
+  await expect(row(gryta).getByTestId("fit-allergy-word")).toHaveText("Laktos");
+  await expect(row(soppa).getByTestId("fit-dot")).toHaveAttribute("data-kind", "avoid");
+  await expect(row(fisk).getByTestId("fit-dot").first()).toHaveAttribute("data-kind", "allergy");
+  await expect(page.getByTestId("preference-notes")).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-recept.png` });
+
+  // The recipe page: the row is a button of at least 44 px that opens the sentence.
+  await row(soppa).getByRole("link").click();
+  const toggle = page.getByTestId("fit-row").filter({ visible: true }).getByRole("button");
+  expect((await toggle.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await toggle.click();
+  await expect(page.getByTestId("fit-details")).toContainText(/undviker linser/);
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-receptsida.png` });
+
+  // Switched off under Tillval: today's notes.
+  await page.evaluate(() => localStorage.setItem("livskoll-option-showFit", "0"));
+  await page.goto("/recept");
+  await expect(page.getByTestId("fit-dot")).toHaveCount(0);
+  await expect(row(gryta).getByTestId("preference-notes")).toContainText("Kan innehålla laktos");
+
+  // Everyone neutral: no row at all, with the option on.
+  await page.evaluate(() => localStorage.removeItem("livskoll-option-showFit"));
+  await clearFoodProfiles(userId);
+  await page.goto("/recept");
+  await expect(titles(page)).toHaveCount(3);
+  await expect(page.getByTestId("fit-row")).toHaveCount(0);
   await expect(page.getByTestId("preference-notes")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
