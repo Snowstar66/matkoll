@@ -2,7 +2,8 @@
 // Never claims a dish is allergy-safe: allergens exclude, "may contain" only warns, and what is left is
 // "nothing in the profile rules it out", always shown with the allergy disclaimer.
 import { allergenHits } from "./allergens";
-import { preferenceHits, whoName } from "./preferences";
+import { whoName } from "./preferences";
+import { softHits } from "./tastes";
 import type { Person, Taste, TasteKey } from "./profile";
 import type { Menu, MenuAllergen, MenuDish, MenuGroup } from "./types";
 import { dishSek } from "./view";
@@ -96,6 +97,8 @@ const dislikeCap = 12;
 const likeBonus = 4;
 const likeCap = 8;
 const dessertPenalty = 2;
+/** The strong end (Ogillar, Älskar) weighs this much more than the other step. */
+const strongExtra = 3;
 
 /** 0 (cheapest) to 1 (dearest) for each priced dish. */
 function priceRanks(dishes: readonly MenuDish[]): Map<MenuDish, number> {
@@ -159,11 +162,11 @@ export function rank(dish: MenuDish, person: Person, ctx: RankContext): Suggesti
 
   // Free-text preferences: a clear deduction and a note for what is avoided, a bonus and a reason for what is loved.
   // Never an exclusion: only allergies leave a dish out.
-  const avoided = preferenceHits(person.dislikes, dish);
-  const loved = preferenceHits(person.likes, dish).filter((tag) => !avoided.some((other) => other.toLocaleLowerCase("sv-SE") === tag.toLocaleLowerCase("sv-SE")));
+  // The original eight (kött, fisk, pasta ...) are scored above through the dish's category; the rest are matched by words.
+  const { avoided, loved, strongAvoided, strongLoved } = softHits(person, dish);
   const concerns = avoided.length > 0 ? [`Innehåller ${avoided.join(", ").toLocaleLowerCase("sv-SE")}. ${whoName(person) === "du" ? "Du undviker" : `${person.name} undviker`} ${avoided.length > 1 ? "dem" : "det"}.`] : [];
-  score -= Math.min(dislikeCap, avoided.length * dislikePenalty);
-  score += Math.min(likeCap, loved.length * likeBonus);
+  score -= Math.min(dislikeCap + strongAvoided * strongExtra, avoided.length * dislikePenalty + strongAvoided * strongExtra);
+  score += Math.min(likeCap + strongLoved * strongExtra, loved.length * likeBonus + strongLoved * strongExtra);
   if (loved.length > 0) reasons.unshift(`${whoName(person) === "du" ? "du älskar" : `${person.name} älskar`} ${loved.join(", ").toLocaleLowerCase("sv-SE")}`);
   if (reasons.length === 0) reasons.push("inget i din profil talar emot den");
   return { dish, sek: dishSek(dish), reasons, warning, concerns, score };

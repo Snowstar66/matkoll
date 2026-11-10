@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { maxNameLength, maxPeople, memberPersonId, meId, newPerson, parsePerson } from "./people";
 import { maxTagLength, maxTags } from "./preferences";
-import { drinkKinds, type Person, tasteKeys } from "./profile";
+import { drinkKinds, type Person } from "./profile";
+import { maxTastes, tasteKeyPattern, tasteLists, type TasteLists } from "./tastes";
 import { menuAllergens } from "./types";
 
 // The household's food preferences as the database keeps them (table food_profile): one row per person, found by a
@@ -15,14 +16,13 @@ export type FoodProfileRow = {
   kind: "member" | "guest";
   name: string | null;
   allergies: Person["allergies"];
+  /** Everything a person likes or dislikes (domain/tastes.ts). The older Undviker / Älskar columns are folded in here when read and emptied when saved. */
   tastes: Person["tastes"];
-  dislikes: string[];
-  likes: string[];
   drink: Person["drink"];
 };
 
 /** One person for a server reader: member names included, nothing filled in = empty lists and no drink. */
-export type HouseholdFoodPerson = Omit<FoodProfileRow, "name"> & { name: string };
+export type HouseholdFoodPerson = Omit<FoodProfileRow, "name"> & { name: string } & TasteLists;
 export type HouseholdFoodPreferences = { people: HouseholdFoodPerson[] };
 
 const tasteValue = z.union([z.literal(-2), z.literal(-1), z.literal(1), z.literal(2)]);
@@ -33,9 +33,10 @@ export const personInputSchema = z.object({
   name: z.string().trim().min(1).max(maxNameLength),
   kind: z.enum(["member", "guest"]),
   allergies: z.array(z.enum(menuAllergens)).max(menuAllergens.length),
-  tastes: z.partialRecord(z.enum(tasteKeys), tasteValue),
-  dislikes: z.array(z.string().max(maxTagLength)).max(maxTags),
-  likes: z.array(z.string().max(maxTagLength)).max(maxTags),
+  tastes: z.record(z.string().regex(tasteKeyPattern), tasteValue).refine((tastes) => Object.keys(tastes).length <= maxTastes),
+  // Only a phone that has not updated yet still sends the older lists; they are folded into the tastes.
+  dislikes: z.array(z.string().max(maxTagLength)).max(maxTags).optional(),
+  likes: z.array(z.string().max(maxTagLength)).max(maxTags).optional(),
   drink: z.enum(drinkKinds).nullable(),
 });
 
@@ -60,8 +61,6 @@ export function rowFromPerson(input: unknown, meUserId: string | null): FoodProf
     name: ofHousehold ? null : person.name,
     allergies: person.allergies,
     tastes: person.tastes,
-    dislikes: person.dislikes,
-    likes: person.likes,
     drink: person.drink,
   };
 }
@@ -79,8 +78,6 @@ export function hasContent(person: Person): boolean {
     !ofHousehold ||
     person.allergies.length > 0 ||
     Object.keys(person.tastes).length > 0 ||
-    person.dislikes.length > 0 ||
-    person.likes.length > 0 ||
     person.drink !== null
   );
 }
@@ -105,15 +102,14 @@ export function combineFoodPreferences(members: readonly { id: string; name: str
       name: newPerson(key, member.name, "member").name || "Medlem",
       allergies: row?.allergies ?? [],
       tastes: row?.tastes ?? {},
-      dislikes: row?.dislikes ?? [],
-      likes: row?.likes ?? [],
       drink: row?.drink ?? null,
+      ...tasteLists(row?.tastes ?? {}),
     };
   });
   for (const row of rows) {
     // A member who left the household is hidden, as on the phones.
     if (row.personKey.startsWith("m-")) continue;
-    people.push({ ...row, name: row.name ?? "Medlem" });
+    people.push({ ...row, name: row.name ?? "Medlem", ...tasteLists(row.tastes) });
   }
   return { people };
 }

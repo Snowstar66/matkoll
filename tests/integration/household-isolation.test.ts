@@ -165,7 +165,7 @@ const coverage: Record<IsolatedTable, Coverage> = {
   // Basvaror: one staple the household always has (the defaults have no maker; this one is a's).
   household_staple: { row: () => ({ name: "Kardemumma", normalized_name: `kardemumma ${randomUUID()}`, max_amount: 1, max_unit: "tsk" }) },
   // Matpreferenser: one person's allergies, tastes and tags (person_key is unique per household).
-  food_profile: { row: () => ({ person_key: `p-${randomUUID()}`, kind: "guest", name: "Gäst", allergies: ["gluten"], tastes: { kott: -1 }, dislikes: ["koriander"] }) },
+  food_profile: { row: () => ({ person_key: `p-${randomUUID()}`, kind: "guest", name: "Gäst", allergies: ["gluten"], tastes: { kott: -1, koriander: -2 } }) },
   // Idéerna är klara när du öppnar erbjudandena: the saved AI ideas of one offer week (household-scoped, one row per week).
   offer_idea_set: { row: () => ({ week_start: "2026-10-26", status: "ready", intro: "Billigt i veckan.", ideas: [] }) },
   // Story 23.3: one device a person turned notifications on for, and what they want to be told about.

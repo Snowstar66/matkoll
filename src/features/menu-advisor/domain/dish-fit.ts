@@ -11,10 +11,18 @@ import type { MenuAllergen, MenuDish } from "./types";
 export type FoodText = { name: string; ingredients: readonly string[] };
 
 /** One person's preferences, as the notes need them. A household person (HouseholdFoodPerson) fits as it is. */
-export type FitPerson = { name: string; allergies: readonly MenuAllergen[]; dislikes: readonly string[]; likes: readonly string[] };
+export type FitPerson = {
+  name: string;
+  allergies: readonly MenuAllergen[];
+  dislikes: readonly string[];
+  likes: readonly string[];
+  /** Optional: the words of `dislikes` / `likes` that are the strong end (Ogillar / Älskar), which weigh more in a ranking. */
+  strongDislikes?: readonly string[];
+  strongLikes?: readonly string[];
+};
 
 /** One short sentence about a dish, ready to show: the kind sets the colour (allergy red, dislike calm, like positive). */
-export type FitNote = { kind: "allergy" | "dislike" | "like"; text: string };
+export type FitNote = { kind: "allergy" | "dislike" | "like"; text: string; /** Set for a dislike or like at the strong end (Ogillar, Älskar); only the ranking looks at it. */ strong?: boolean };
 
 /** What goes to the model: the household's lists without names. */
 export type FoodPrefs = { allergies: string[]; avoid: string[]; love: string[] };
@@ -96,8 +104,11 @@ export function foodFit(food: FoodText, people: readonly FitPerson[]): FitNote[]
     }
     const avoids = person.dislikes.filter((tag) => matchPreference(tag, asDish));
     const loves = person.likes.filter((tag) => matchPreference(tag, asDish) && !avoids.some((other) => sameText(other, tag)));
-    if (avoids.length > 0) dislike.push({ kind: "dislike", text: `${person.name} undviker ${listWords(avoids.slice(0, maxWordsInNote).map(lower))}` });
-    if (loves.length > 0) like.push({ kind: "like", text: `${person.name} älskar ${listWords(loves.slice(0, maxWordsInNote).map(lower))}` });
+    const strong = (words: readonly string[], of: readonly string[] | undefined) => words.some((word) => (of ?? []).some((other) => sameText(other, word)));
+    if (avoids.length > 0) {
+      dislike.push({ kind: "dislike", text: `${person.name} undviker ${listWords(avoids.slice(0, maxWordsInNote).map(lower))}`, ...(strong(avoids, person.strongDislikes) ? { strong: true } : {}) });
+    }
+    if (loves.length > 0) like.push({ kind: "like", text: `${person.name} älskar ${listWords(loves.slice(0, maxWordsInNote).map(lower))}`, ...(strong(loves, person.strongLikes) ? { strong: true } : {}) });
   }
   const allergyNotes = [...allergy].map(([allergen, names]): FitNote => ({ kind: "allergy", text: `Kan innehålla ${lower(allergenLabels[allergen])} (${names.join(", ")})` }));
   return [...allergyNotes, ...dislike, ...like];
@@ -106,11 +117,17 @@ export function foodFit(food: FoodText, people: readonly FitPerson[]): FitNote[]
 /** Whether a dish may hold something a person is allergic to: such a dish is never suggested. */
 export const hasAllergyNote = (notes: readonly FitNote[]) => notes.some((note) => note.kind === "allergy");
 
-/** -2 allergy, -1 a dislike, +1 only loved things, 0 no opinion: the order of a light ranking (higher first). */
+/**
+ * -3 allergy, -2 a strong dislike (Ogillar), -1 a dislike, +1 only loved things, +2 only strongly loved (Älskar), 0 no
+ * opinion: the order of a light ranking (higher first).
+ */
 export function fitRank(notes: readonly FitNote[]): number {
-  if (hasAllergyNote(notes)) return -2;
-  if (notes.some((note) => note.kind === "dislike")) return -1;
-  return notes.some((note) => note.kind === "like") ? 1 : 0;
+  if (hasAllergyNote(notes)) return -3;
+  const dislikes = notes.filter((note) => note.kind === "dislike");
+  if (dislikes.length > 0) return dislikes.some((note) => note.strong) ? -2 : -1;
+  const likes = notes.filter((note) => note.kind === "like");
+  if (likes.length === 0) return 0;
+  return likes.some((note) => note.strong) ? 2 : 1;
 }
 
 /** The items sorted by fitRank (best first), the given order kept among equals. Without any note the list is returned as it is. */

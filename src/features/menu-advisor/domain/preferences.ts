@@ -21,10 +21,10 @@ export function parseTags(value: unknown): string[] {
   return out;
 }
 
-const sameTag = (a: string, b: string) => a.toLocaleLowerCase("sv-SE") === b.toLocaleLowerCase("sv-SE");
+export const sameTag = (a: string, b: string) => a.toLocaleLowerCase("sv-SE") === b.toLocaleLowerCase("sv-SE");
 
 /** The tag trimmed and with inner spaces collapsed, or null when it is empty, too long or looks like code/markup. */
-function cleanTag(value: unknown): string | null {
+export function cleanTag(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const tag = value.replace(/\s+/g, " ").trim();
   if (tag === "" || tag.length > maxTagLength || /[<>{}[\]\\`]|https?:/i.test(tag)) return null;
@@ -52,11 +52,11 @@ export function tokens(text: string): string[] {
   return normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 }
 
-type Group = { terms: readonly string[]; not?: readonly string[]; category?: MenuCategory };
+type Group = { terms: readonly string[]; not?: readonly string[]; category?: MenuCategory | readonly MenuCategory[] };
 
 const groups: readonly Group[] = [
   { terms: ["koriander", "cilantro", "coriander", "culantro"] },
-  { terms: ["vitlök", "garlic", "ajo", "ail"] },
+  { terms: ["vitlök", "garlic", "ajo", "ajillo", "ail"] },
   { terms: ["lök", "rödlök", "salladslök", "schalottenlök", "silverlök", "vårlök", "onion", "cebolla", "cebolleta"] },
   { terms: ["paprika", "bell pepper", "pimiento"] },
   { terms: ["ost", "cheese", "queso", "parmesan", "mozzarella", "gorgonzola", "cheddar"], not: ["ostron"] },
@@ -68,7 +68,14 @@ const groups: readonly Group[] = [
   { terms: ["räkor", "räka", "shrimp", "prawn", "gambas", "camarones"] },
   { terms: ["skaldjur", "shellfish", "mariscos", "räk", "hummer", "lobster", "krabba", "crab", "musslor", "mussels", "mejillones", "bläckfisk", "calamar", "pulpo", "ostron", "oyster"], category: "skaldjur" },
   { terms: ["fisk", "fish", "pescado", "lax", "salmon", "torsk", "cod", "bacalao", "pescatore"], category: "fisk" },
-  { terms: ["kött", "meat", "carne", "biff", "beef", "fläsk", "pork", "cerdo", "kyckling", "chicken", "pollo"], category: "kott" },
+  { terms: ["kött", "meat", "carne", "biff", "beef", "fläsk", "pork", "cerdo", "kyckling", "chicken", "pollo", "köttbull", "bacon", "skinka", "korv", "köttfärs"], category: "kott" },
+  { terms: ["vegetariskt", "vegetarisk", "vegetarian", "vegetariano", "veggie", "veganskt", "vegansk", "vegan"], category: ["vegetariskt", "veganskt"] },
+  { terms: ["ris", "rice", "arroz", "risotto", "paella"] },
+  { terms: ["soppa", "soup", "sopa", "gazpacho", "bisque"] },
+  { terms: ["sallad", "salad", "ensalada"], not: ["salladslök"] },
+  { terms: ["burgare", "hamburgare", "burger", "hamburger", "cheeseburger", "hamburguesa"] },
+  { terms: ["sött", "söt", "sweet", "dulce", "dessert", "efterrätt", "choklad", "chocolate", "glass", "tårta", "pannacotta", "tiramisu", "brownie", "kladdkaka", "karamell", "caramel"], not: ["sötpotatis"] },
+  { terms: ["oliver", "olive", "olives", "aceituna", "aceitunas"] },
   { terms: ["ägg", "egg", "huevo"], not: ["äggplanta", "eggplant"] },
   { terms: ["nötter", "nuts", "nueces", "valnöt", "hasselnöt", "jordnöt", "cashew", "mandel", "almond", "peanut", "walnut", "hazelnut"] },
   { terms: ["oliv", "olive", "aceituna"] },
@@ -94,7 +101,7 @@ function termsFor(tag: string): { terms: string[]; not: string[]; categories: Me
   return {
     terms: [...new Set(found.flatMap((group) => group.terms))],
     not: found.flatMap((group) => group.not),
-    categories: found.flatMap((group) => (group.category && group.terms[0] === wanted ? [group.category] : [])),
+    categories: found.flatMap((group) => (group.category && group.terms[0] === wanted ? [group.category].flat() : [])),
   };
 }
 
@@ -126,18 +133,6 @@ export function matchPreference(tag: string, dish: Pick<MenuDish, "originalnamn"
 /** The tags (display spelling) of the list the dish matches. */
 export function preferenceHits(tags: readonly string[], dish: Parameters<typeof matchPreference>[1]): string[] {
   return tags.filter((tag) => matchPreference(tag, dish));
-}
-
-/** What a dish says about one person's free-text preferences. */
-export type SoftFit = { person: Person; dislikes: string[]; likes: string[] };
-
-/** For each person with a match, the tags they avoid and the tags they love that the dish has. */
-export function softFitFor(dish: Parameters<typeof matchPreference>[1], company: readonly Person[]): SoftFit[] {
-  return company.flatMap((person) => {
-    const dislikes = preferenceHits(person.dislikes, dish);
-    const likes = preferenceHits(person.likes, dish).filter((tag) => !dislikes.some((other) => sameTag(other, tag)));
-    return dislikes.length > 0 || likes.length > 0 ? [{ person, dislikes, likes }] : [];
-  });
 }
 
 /** "Anna" or "du" for the one holding the phone. */

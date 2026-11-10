@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dish, person } from "./fixtures";
-import { addTag, matchPreference, maxTagLength, maxTags, normalizeText, parseTags, softFitFor } from "./preferences";
+import { dish } from "./fixtures";
+import { addTag, matchPreference, maxTagLength, maxTags, normalizeText, parseTags } from "./preferences";
 
 const d = (patch: Parameters<typeof dish>[0]) => dish({ kategori: "ej_tillampligt", forklaring: "", ...patch });
 
@@ -76,14 +76,5 @@ describe("tags", () => {
     expect(addTag([], "<script>").error).not.toBeNull();
     expect(addTag(Array.from({ length: maxTags }, (_, i) => `t${i}`), "ny").error).toMatch(/Max/);
     expect(addTag(["a"], "   ")).toEqual({ tags: ["a"], error: null });
-  });
-});
-
-describe("softFitFor", () => {
-  it("names what each person avoids and loves in a dish, dislike winning over a like of the same word", () => {
-    const anna = person({ id: "a", name: "Anna", dislikes: ["vitlök"], likes: ["paprika", "Vitlök"] });
-    const bo = person({ id: "b", name: "Bo" });
-    const fits = softFitFor(d({ originalnamn: "Paprikagryta", huvudingredienser: ["vitlök"] }), [anna, bo]);
-    expect(fits).toEqual([{ person: anna, dislikes: ["vitlök"], likes: ["paprika"] }]);
   });
 });
