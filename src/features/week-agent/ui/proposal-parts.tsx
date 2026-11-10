@@ -27,7 +27,11 @@ export function AllergyFlag({ warning }: { warning: string }) {
   );
 }
 
-const soonText = (expiresWeekday: number | null): string => (expiresWeekday ? `Går ut ${dayWord(expiresWeekday).slice(0, 3)}` : "Går ut snart");
+const soonText = (tag: { expiresWeekday: number | null; estimated?: boolean; today?: boolean }): string => {
+  if (!tag.expiresWeekday) return "Går ut snart";
+  if (tag.today) return tag.estimated ? "Bör ätas idag" : "Går ut idag";
+  return tag.estimated ? `Håller till ca ${dayWord(tag.expiresWeekday).slice(0, 3)}` : `Går ut ${dayWord(tag.expiresWeekday).slice(0, 3)}`;
+};
 
 export type ProposalRowProps = {
   weekStart: string;
@@ -72,7 +76,7 @@ export function ProposalRow({ weekStart, day, loading = false, disabled = false,
               {day.useSoonTags.slice(0, 2).map((tag) => (
                 <span key={tag.name} data-testid="use-soon-tag" className="inline-flex items-center gap-1 rounded-full bg-deal px-2.5 py-0.5 text-badge font-medium text-deal-ink">
                   <FridgeIcon size={12} />
-                  {soonText(tag.expiresWeekday)}
+                  {soonText(tag)}
                 </span>
               ))}
             </div>

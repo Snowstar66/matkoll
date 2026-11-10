@@ -18,5 +18,7 @@ export type {
   ProposeWeekResult,
   SetDayLockInput,
   SwapDayInput,
+  UndoWeekInput,
+  UndoWeekResult,
   WeekAgentModel,
 } from "../actions/contract";

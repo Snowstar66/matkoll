@@ -32,7 +32,8 @@ export function offerFact(offer: OfferHit): string {
 
 /** "grädde, går ut fredag" / "grädde, behöver användas snart". */
 export function useSoonFact(item: UseSoonItem): string {
-  return clip(`${item.name}, ${item.expiresWeekday ? `går ut ${dayWord(item.expiresWeekday)}` : "behöver användas snart"}`, 90);
+  const when = !item.expiresWeekday ? "behöver användas snart" : item.today ? (item.estimated ? "bör ätas idag" : "går ut idag") : `${item.estimated ? "håller till ca" : "går ut"} ${dayWord(item.expiresWeekday)}`;
+  return clip(`${item.name}, ${when}`, 90);
 }
 
 /** The words the household likes or dislikes, without who, each once. */

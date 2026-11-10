@@ -13,6 +13,8 @@ export const proposeWeekInputSchema = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   mode: z.enum(["plan", "reroll", "careful"]),
   lockedDays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+  /** Full-week "Gör om": the days whose dish an earlier "Använd veckan" put there (source 'week_agent') are planned again; the household's own days stay fixed. */
+  replaceAgentDays: z.boolean().optional(),
 });
 export type ProposeWeekInput = z.infer<typeof proposeWeekInputSchema>;
 
@@ -30,8 +32,21 @@ export type SwapDayInput = { draftId: string; dayIndex: number; recipeId: string
 export type SetDayLockInput = { draftId: string; dayIndex: number; locked: boolean };
 export type DraftResult = { status: "ok"; proposal: WeekProposal } | { status: "error"; message: string };
 
-export type ApplyWeekInput = { draftId: string; weekStart: string; overwrite?: boolean };
-export type ApplyWeekResult = { status: "ok"; written: number[]; skippedOccupied: number[] } | { status: "error"; message: string };
+export type ApplyWeekInput = {
+  draftId: string;
+  weekStart: string;
+  /** Write over days that have the household's own dish (explicit confirmation). Only a dish that can be put back by "Ångra" is replaced; the others are skipped. */
+  overwrite?: boolean;
+  /** Full-week "Gör om": days whose dish the agent put there are replaced; the household's own days are never touched (unless `overwrite`). */
+  replaceAgentDays?: boolean;
+};
+export type ApplyWeekResult =
+  /** `toBuy`: the number of lines on the week's shopping list after the write (derived from the plan, minus the pantry); null when the list could not be read. */
+  { status: "ok"; written: number[]; skippedOccupied: number[]; toBuy?: number | null } | { status: "error"; message: string };
+
+export type UndoWeekInput = { draftId: string };
+/** `removed`: the weekdays whose dish was taken off again (restored days included in `restored`). */
+export type UndoWeekResult = { status: "ok"; removed: number[]; restored: number[] } | { status: "error"; message: string };
 
 export type DiscardDraftInput = { draftId: string };
 export type OkOrError = { status: "ok" } | { status: "error"; message: string };

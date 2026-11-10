@@ -10,7 +10,14 @@ import type { WeekAgentSettings } from "./settings";
 export type OfferHit = OfferTagData & { store: string | null; storeId?: string | null };
 
 /** Something at home that goes out soon and that the recipe uses. `expiresWeekday` is the day of THIS week (1-7), null when it is not in this week (already old, or no date). */
-export type UseSoonItem = { name: string; expiresWeekday: number | null };
+export type UseSoonItem = {
+  name: string;
+  expiresWeekday: number | null;
+  /** True when the day is the app's own estimate (added + the days the ingredient keeps), not a date from a package. Pantry items always are. */
+  estimated?: boolean;
+  /** The last day is today (and today is in the week). */
+  today?: boolean;
+};
 
 export type CostLevel = "low" | "normal" | "high";
 
@@ -70,7 +77,7 @@ export type ExcludedDish = { recipeId: string; title: string; allergens: string[
 /** What a day is: a dinner (fixed or proposed), a day with leftovers, or a day with no dinner (skipped, or past the number of dinners). */
 export type DaySlot = "dinner" | "leftover" | "skip";
 
-export type UseSoonTag = { name: string; expiresWeekday: number | null };
+export type UseSoonTag = UseSoonItem;
 
 export type ProposalDay = {
   dayIndex: number;

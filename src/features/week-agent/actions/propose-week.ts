@@ -25,13 +25,13 @@ export async function proposeWeek(input: ProposeWeekInput): Promise<ProposeWeekR
   if (!user.ok) return { status: "error", message: user.message };
   const parsed = proposeWeekInputSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: messages.invalid };
-  const { weekStart, mode, lockedDays = [] } = parsed.data;
+  const { weekStart, mode, lockedDays = [], replaceAgentDays = false } = parsed.data;
   if (!isPlannableWeek(weekStart)) return { status: "error", message: messages.badWeek };
 
   return guarded(async (): Promise<ProposeWeekResult> => {
     const db = await createClient();
     const [settings, draft] = await Promise.all([settingsOfHousehold(), readDraftIn(db, weekStart)]);
-    const { input: planInput, shortlist } = await buildPlanInput(weekStart, settings, draft, lockedDays, mode !== "plan");
+    const { input: planInput, shortlist } = await buildPlanInput(weekStart, settings, draft, lockedDays, mode !== "plan", replaceAgentDays);
     if (openDays(planInput).length === 0) return { status: "error", message: messages.weekFull };
 
     // Too few dishes after the hard rules: say so before any paid call.
