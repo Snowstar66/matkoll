@@ -1,4 +1,4 @@
-import type { NotePerson } from "@/components/preference-notes";
+import type { NotePerson, PreferenceNote } from "@/components/preference-notes";
 import { allergenLabels } from "./labels";
 import { hasTerm, matchPreference, normalizeText, tokens } from "./preferences";
 import type { MenuAllergen, MenuDish } from "./types";
@@ -25,7 +25,10 @@ export type FitPerson = {
 };
 
 /** One short sentence about a dish, ready to show: the kind sets the colour (allergy red, dislike calm, like positive). */
-export type FitNote = { kind: "allergy" | "dislike" | "like"; text: string; people?: NotePerson[]; terms?: string[]; /** Set for a dislike or like at the strong end (Ogillar, Älskar); only the ranking looks at it. */ strong?: boolean };
+export type FitNote = PreferenceNote & {
+  /** Set for a dislike or like at the strong end (Ogillar, Älskar); only the ranking looks at it. */
+  strong?: boolean;
+};
 
 /** What goes to the model: the household's lists without names. */
 export type FoodPrefs = { allergies: string[]; avoid: string[]; love: string[] };
