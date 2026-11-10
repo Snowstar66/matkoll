@@ -90,7 +90,7 @@ describe("recommendOptions: reasons", () => {
   ]);
 
   it("names what she loves, and what she avoids when it is suggested anyway, and what saves money", () => {
-    const [options] = recommendOptions(menu, [person({ name: "Anna", likes: ["paprika"], dislikes: ["vitlök"] })]);
+    const [options] = recommendOptions(menu, [person({ name: "Anna", tastes: { paprika: 1, vitlok: -1 } })]);
     const [first, second, third] = options!.options;
     expect(first!.dish.originalnamn).toBe("Paprikagryta");
     expect(first!.reasons).toEqual(["Anna älskar paprika"]);
@@ -101,7 +101,7 @@ describe("recommendOptions: reasons", () => {
   });
 
   it("says du for the person me, and gives no reasons when nothing matters", () => {
-    const [mine] = recommendOptions(menu, [person({ id: "me", likes: ["paprika"] })]);
+    const [mine] = recommendOptions(menu, [person({ id: "me", tastes: { paprika: 1 } })]);
     expect(mine!.options[0]!.reasons).toEqual(["Du älskar paprika"]);
     const plain = menuOf([dish({ originalnamn: "A", pris: 100 }), dish({ originalnamn: "B", pris: 105 })]);
     expect(recommendOptions(plain, [person()])[0]!.options.map((option) => option.reasons)).toEqual([[], []]);
@@ -202,6 +202,6 @@ describe("optionFor: a dish added from the whole menu", () => {
 
   it("'may contain' is a calm warning and love is named", () => {
     expect(optionFor(menu, 2, person({ allergies: ["gluten"] }))).toMatchObject({ warning: "maybe", reasons: ["Kan innehålla gluten. Fråga personalen."] });
-    expect(optionFor(menu, 3, person({ likes: ["paprika"] }))?.reasons).toEqual(["Anna älskar paprika"]);
+    expect(optionFor(menu, 3, person({ tastes: { paprika: 1 } }))?.reasons).toEqual(["Anna älskar paprika"]);
   });
 });

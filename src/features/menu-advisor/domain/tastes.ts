@@ -87,7 +87,7 @@ const presetByText: ReadonlyMap<string, string> = new Map(presets.flatMap((item)
 /** The key a typed text stands for: a preset when it names one ("Vitlök" → vitlok), else an own key. Null when there is no usable word. */
 export function tasteKeyFor(text: string): string | null {
   if (cleanTag(text) === null) return null;
-  const plain = normalizeText(text).replace(/[^a-zåäö0-9 _-]+/g, " ").replace(/\s+/g, " ").trim();
+  const plain = normalizeText(text).replace(/[^a-zåäö0-9 _-]+/g, " ").replace(/\s+/g, " ").replace(/^[ _-]+/, "").trim();
   const preset = presetByText.get(plain);
   if (preset) return preset;
   const key = plain.slice(0, maxTagLength).trim();

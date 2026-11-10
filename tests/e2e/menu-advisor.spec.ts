@@ -431,7 +431,7 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   expect(await noSideScroll(page)).toBe(true);
 });
 
-test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Undviker, it stays after a reload; the old address leads there", async ({ page }) => {
+test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitlök to Ogillar, it stays after a reload; the old address leads there", async ({ page }) => {
   await page.goto("/installningar/medlemmar");
   const section = page.getByTestId("menu-profiles");
   await expect(section.getByRole("heading", { name: "Smak och allergier" })).toBeVisible();
@@ -442,18 +442,22 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, add an Un
   await page.screenshot({ path: "test-results/shots/medlemmar-smak.png", fullPage: true });
   await mine.click();
   await expect(page).toHaveURL(/\/installningar\/medlemmar\/smak-och-allergier\?person=me$/);
-  const avoid = page.getByTestId("menu-dislikes");
-  await avoid.getByRole("textbox").fill("rödbetor");
-  await avoid.getByRole("textbox").press("Enter");
-  await expect(avoid.getByRole("button", { name: "Ta bort rödbetor" })).toBeVisible();
+  await expect(page.getByTestId("taste-summary")).toContainText("Inget ifyllt: äter allt");
+  await page.screenshot({ path: "test-results/shots/smak-profil-tom.png", fullPage: true });
+  await page.getByRole("button", { name: /Smaker och råvaror/ }).click();
+  const garlic = page.getByRole("slider", { name: "Vitlök" });
+  await expect(garlic).toHaveAttribute("aria-valuetext", "Okej");
+  await garlic.focus();
+  await page.keyboard.press("Home");
+  await expect(garlic).toHaveAttribute("aria-valuetext", "Ogillar");
+  await expect(page.getByTestId("taste-summary")).toContainText("undviker vitlök");
   await page.screenshot({ path: "test-results/shots/smak-profil.png", fullPage: true });
-  await expect
-    .poll(async () => (await savedRows()).some((row) => row.dislikes.includes("rödbetor")))
-    .toBe(true);
+  await expect.poll(async () => (await savedRows()).find((row) => row.person_key.startsWith("m-"))?.tastes).toMatchObject({ vitlok: -2 });
   await page.reload();
-  await expect(page.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort rödbetor" })).toBeVisible();
+  await page.getByRole("button", { name: /Smaker och råvaror/ }).click();
+  await expect(page.getByRole("slider", { name: "Vitlök" })).toHaveAttribute("aria-valuetext", "Ogillar");
   await page.getByRole("link", { name: "Medlemmar" }).first().click();
-  await expect(page.getByTestId("menu-profile-row").first()).toContainText("Undviker: rödbetor");
+  await expect(page.getByTestId("menu-profile-row").first()).toContainText("Undviker: vitlök");
 
   await page.goto("/installningar/tillval/aata-ute");
   await expect(page).toHaveURL(/\/installningar\/medlemmar#smak-och-allergier$/);
@@ -474,18 +478,19 @@ test("what is filled in is the household's: it stays after a reload and shows on
   await page.getByTestId("menu-profile-row").filter({ hasText: "Maja" }).click();
   const profile = page.getByTestId("menu-profile");
   await profile.getByRole("button", { name: /Vin/ }).click();
-  await profile.getByTestId("menu-dislikes").getByRole("textbox").fill("koriander");
-  await profile.getByTestId("menu-dislikes").getByRole("textbox").press("Enter");
+  await profile.getByRole("button", { name: /Smaker och råvaror/ }).click();
+  await profile.getByRole("slider", { name: "Koriander" }).focus();
+  await page.keyboard.press("Home");
   await expect(page.getByTestId("menu-profiles-notice")).toHaveCount(0);
-  await expect(profile.getByRole("button", { name: "Ta bort koriander" })).toBeVisible();
+  await expect(profile.getByRole("slider", { name: "Koriander" })).toHaveAttribute("aria-valuetext", "Ogillar");
 
   // The saves have reached the database when the reload shows them.
   await expect
     .poll(async () => {
       const rows = await savedRows();
-      return rows.find((row) => row.name === "Maja")?.dislikes.join(",") ?? null;
+      return JSON.stringify(rows.find((row) => row.name === "Maja")?.tastes ?? null);
     })
-    .toBe("koriander");
+    .toBe('{"koriander":-2}');
   await page.goto("/installningar/medlemmar");
   await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Undviker: koriander");
   await page.screenshot({ path: "test-results/shots/profiles-household.png", fullPage: true });
@@ -498,7 +503,8 @@ test("what is filled in is the household's: it stays after a reload and shows on
   await expect(phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" })).toContainText("Undviker: koriander");
   await expect(phone.getByTestId("menu-profiles-notice")).toHaveCount(0);
   await phone.getByTestId("menu-profile-row").filter({ hasText: "Maja" }).click();
-  await expect(phone.getByTestId("menu-dislikes").getByRole("button", { name: "Ta bort koriander" })).toBeVisible();
+  await phone.getByRole("button", { name: /Smaker och råvaror/ }).click();
+  await expect(phone.getByRole("slider", { name: "Koriander" })).toHaveAttribute("aria-valuetext", "Ogillar");
   await other.close();
 });
 
@@ -523,7 +529,7 @@ test("a phone's own old list moves up to the household once, and nothing the hou
   await expect.poll(() => page.evaluate(() => localStorage.getItem("livskoll-menu-people-imported-v1"))).toBe("1");
   const rows = await savedRows();
   expect(rows.find((row) => row.person_key === `m-${userId}`)).toMatchObject({ drink: "ol", allergies: ["notter"], name: null });
-  expect(rows.find((row) => row.person_key === "p-gammal1")).toMatchObject({ kind: "guest", name: "Gammal gäst", dislikes: ["lök"] });
+  expect(rows.find((row) => row.person_key === "p-gammal1")).toMatchObject({ kind: "guest", name: "Gammal gäst", tastes: { lok: -2 } });
 
   // A second phone with a different old list: only what the household lacks is added; Du is not overwritten.
   const other = await browser.newContext({ storageState: userStorageState, viewport: mobile });
@@ -558,8 +564,8 @@ async function savedRows() {
   const member = await admin.from("household_member").select("household_id").eq("user_id", await e2eUserId(e2eEmail)).single();
   const { data, error } = await admin
     .from("food_profile")
-    .select("person_key, kind, name, allergies, dislikes, drink")
+    .select("person_key, kind, name, allergies, dislikes, tastes, drink")
     .eq("household_id", member.data!.household_id);
   if (error) throw error;
-  return data as { person_key: string; kind: string; name: string | null; allergies: string[]; dislikes: string[]; drink: string | null }[];
+  return data as { person_key: string; kind: string; name: string | null; allergies: string[]; dislikes: string[]; tastes: Record<string, number>; drink: string | null }[];
 }

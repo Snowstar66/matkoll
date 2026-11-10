@@ -1,3 +1,4 @@
+import type { Person } from "./profile";
 import type { MenuCategory, MenuDish } from "./types";
 
 // Free-text food preferences ("Undviker" / "Älskar"): the tag lists as stored, and matching a tag against a dish.
@@ -55,7 +56,7 @@ type Group = { terms: readonly string[]; not?: readonly string[]; category?: Men
 
 const groups: readonly Group[] = [
   { terms: ["koriander", "cilantro", "coriander", "culantro"] },
-  { terms: ["vitlök", "garlic", "ajo", "ail"] },
+  { terms: ["vitlök", "garlic", "ajo", "ajillo", "ail"] },
   { terms: ["lök", "rödlök", "salladslök", "schalottenlök", "silverlök", "vårlök", "onion", "cebolla", "cebolleta"] },
   { terms: ["paprika", "bell pepper", "pimiento"] },
   { terms: ["ost", "cheese", "queso", "parmesan", "mozzarella", "gorgonzola", "cheddar"], not: ["ostron"] },
