@@ -31,6 +31,28 @@ const NOT_A_PORTION = /mjöl|ströbröd|panko|stärkelse|maizena|jäst|bakpulver
 /** Vegetables and fruit that flavour rather than carry a dish. */
 const FLAVOURING_VEG = /lök|vitlök|chili|ingefära|citron|lime|persilja|dill|koriander|basilika|timjan|rosmarin|mynta|gräslök|oregano|salvia|örter|krydd|puré|soltork|oliv|kapris|pepparrot|senap|saft|skal|apelsin/;
 
+/** Cooking fat: about a teaspoon (5 g) per person; 4 portions is 20 g, about 1,5 msk. */
+export const FAT_PORTION_G = 5;
+const COOKING_FAT = /olja|smör|margarin/;
+
+/** Grams per cm of the few foods that are written in cm ("5 cm färsk ingefära"); other foods are not guessed. */
+const GRAMS_PER_CM: readonly { match: RegExp; grams: number }[] = [{ match: /ingefära/, grams: 5 }];
+
+/**
+ * Grams from a length in the line's text as written ("5 cm färsk ingefära" gives 25), for a line whose amount
+ * was lost because cm is no catalog unit. `null` without "<number> cm" in the text or for a food with no
+ * grams per cm. Read only by the calculation, never written back.
+ */
+export function lengthGrams(originalText: string | undefined, nutrition: IngredientNutrition | null, name: string): number | null {
+  const found = /(\d+(?:[.,]\d+)?)\s*cm\b/i.exec(originalText ?? "");
+  if (!found) return null;
+  const cm = Number(found[1].replace(",", "."));
+  if (!Number.isFinite(cm) || cm <= 0) return null;
+  const text = `${nutrition?.name ?? ""} ${name}`.toLowerCase();
+  const per = GRAMS_PER_CM.find((entry) => entry.match.test(text));
+  return per ? cm * per.grams : null;
+}
+
 const PROTEIN_PULSE_LMV: ReadonlySet<number> = new Set([905, 7027, 6287, 6284]);
 
 /**
@@ -55,6 +77,9 @@ export function defaultPortionGrams(nutrition: IngredientNutrition | null, name:
       if (nutrition.lmvNumber !== null && PROTEIN_PULSE_LMV.has(nutrition.lmvNumber)) return 120;
       // Dried lentils and chickpeas: 60 g dry; canned beans: 100 g drained.
       return /tork|linser/.test(text) ? 60 : 100;
+    case "fett":
+      // Cooking fat "for frying", "as needed": about a teaspoon per person. Real kcal, so it counts.
+      return COOKING_FAT.test(text) ? FAT_PORTION_G : null;
     case "gronsak":
       return FLAVOURING_VEG.test(text) ? null : 100;
     case "fullkorn":

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { food, per } from "./fixtures";
-import { defaultPortionGrams } from "./portion-defaults";
+import { isNegligible } from "./negligible";
+import { defaultPortionGrams, lengthGrams } from "./portion-defaults";
 
 const p = per(100, 1, 1, 1, 1);
 
@@ -39,7 +40,7 @@ describe("defaultPortionGrams", () => {
   });
 
   it("gives null for fat, sugar, dairy, other, spices, flour and crumbs", () => {
-    expect(defaultPortionGrams(food("olja", "fett", p), "olja")).toBeNull();
+    expect(defaultPortionGrams(food("grädde", "fett", p), "grädde")).toBeNull();
     expect(defaultPortionGrams(food("socker", "socker", p), "socker")).toBeNull();
     expect(defaultPortionGrams(food("grädde", "mejeri", p), "grädde")).toBeNull();
     expect(defaultPortionGrams(food("ost", "mejeri", p), "ost")).toBeNull();
@@ -52,5 +53,37 @@ describe("defaultPortionGrams", () => {
   it("gives null for an unknown ingredient", () => {
     expect(defaultPortionGrams(null, "okänd sak")).toBeNull();
     expect(defaultPortionGrams(food("konstig", "raffinerad", p), "konstig")).toBeNull();
+  });
+});
+
+describe("cooking fat", () => {
+  it("is 5 g per person for oil, butter and margarine", () => {
+    for (const name of ["matolja", "rapsolja", "olivolja", "smör", "margarin"]) {
+      expect(defaultPortionGrams(food(name, "fett", p), name)).toBe(5);
+    }
+  });
+});
+
+describe("lengthGrams", () => {
+  const ginger = food("färsk ingefära", "gronsak", p);
+  it("reads cm from the text: 5 g per cm of ginger", () => {
+    expect(lengthGrams("5 cm färsk ingefära", ginger, "färsk ingefära")).toBe(25);
+    expect(lengthGrams("2,5 cm ingefära", ginger, "ingefära")).toBe(12.5);
+  });
+  it("gives null without cm or for other foods", () => {
+    expect(lengthGrams("färsk ingefära", ginger, "färsk ingefära")).toBeNull();
+    expect(lengthGrams(undefined, ginger, "ingefära")).toBeNull();
+    expect(lengthGrams("5 cm gurka", food("gurka", "gronsak", p), "gurka")).toBeNull();
+  });
+});
+
+describe("isNegligible", () => {
+  it("is true for ginger, garlic, herbs, stock and soy, false for onion, potato puree and oil", () => {
+    for (const name of ["färsk ingefära", "vitlök", "chili", "citron", "persilja", "grönsaksbuljong", "senap", "soja", "tomatpuré", "kapris"]) {
+      expect(isNegligible(null, name)).toBe(true);
+    }
+    for (const name of ["gul lök", "purjolök", "potatismos", "olivolja", "sojabönor", "tomat"]) {
+      expect(isNegligible(null, name)).toBe(false);
+    }
   });
 });
