@@ -23,6 +23,7 @@ describe("Kladdkaka nutrition card", () => {
     await userEvent.click(card);
     const sheet = await screen.findByRole("dialog", { name: "Näring" });
     for (const word of ["Energi", "Protein", "Fett", "Kolhydrater", "Fiber"]) expect(within(sheet).getByText(word)).toBeInTheDocument();
+    expect(within(card).getByTestId("nutrition-sentence")).toHaveTextContent("Mest kolhydrater och fett, inga grönsaker och lite fibrer.");
     expect(within(sheet).queryByText("Tallriken")).not.toBeInTheDocument();
   });
 

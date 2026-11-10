@@ -154,21 +154,49 @@ describe("NutritionCard", () => {
     render(<NutritionCard recipeTitle="Spagettipumpa" nutrition={green} />);
     await userEvent.click(screen.getByTestId("nutrition-card"));
     const sheet = await screen.findByRole("dialog", { name: "Näring" });
-    for (const [label, value] of [
-      ["Energi", "ca 300 kcal"],
-      ["Protein", "11 g"],
-      ["Fett", "14 g"],
-      ["Kolhydrater", "27 g"],
-      ["Fiber", "6 g"],
+    expect(within(sheet).getByTestId("nutrition-energy")).toHaveTextContent("Energi: ca 300 kcal");
+    expect(within(sheet).getByTestId("nutrition-energy")).toHaveTextContent("46 % av en måltids riktvärde");
+    for (const [key, value] of [
+      ["proteinG", "11 g45 %"],
+      ["fatG", "14 g60 %"],
+      ["carbsG", "27 g30 %"],
+      ["fiberG", "6 g61 %"],
     ]) {
-      expect(within(sheet).getByText(label, { selector: "dt" }).nextElementSibling).toHaveTextContent(value);
+      expect(within(sheet).getByTestId(`nutrition-bar-${key}`)).toHaveTextContent(value);
     }
+    expect(within(sheet).getByTestId("nutrition-bar-proteinG")).toHaveAccessibleName(/Protein: 11 gram, 45 procent av riktvärdet/);
+    expect(within(sheet).getByText(/riktvärde för en måltid/)).toBeInTheDocument();
+    expect(within(sheet).queryByText(/krav|dagsbehov|rekommenderat/i)).not.toBeInTheDocument();
   });
 
   it("shows the Fisk tag", () => {
     saveOption("showNutrition", true);
     render(<NutritionCard recipeTitle="Lax" nutrition={fish} />);
     expect(within(screen.getByTestId("nutrition-tags")).getByText("Fisk")).toBeInTheDocument();
+  });
+});
+
+describe("the card's sentence", () => {
+  it("shows one descriptive sentence under kcal, and the sheet repeats it", async () => {
+    saveOption("showNutrition", true);
+    saveOption("showKcal", true);
+    render(<NutritionCard recipeTitle="Kaka" nutrition={dish({ raffinerad: 30 })} />);
+    expect(screen.getByTestId("nutrition-sentence")).toHaveTextContent("Inga grönsaker.");
+    await userEvent.click(screen.getByTestId("nutrition-card"));
+    expect(screen.getByTestId("nutrition-sheet-sentence")).toHaveTextContent("Inga grönsaker.");
+  });
+
+  it("has no sentence when the numbers are not trustworthy", () => {
+    saveOption("showNutrition", true);
+    const unsure = dish({ raffinerad: 300 }, { counted: 3, total: 4 }, [{ label: "x", reason: "unknown_ingredient", name: "x", unit: null }]);
+    render(<NutritionCard recipeTitle="Biff" nutrition={unsure} />);
+    expect(screen.queryByTestId("nutrition-sentence")).not.toBeInTheDocument();
+  });
+
+  it("with a plate, lists the parts with their share", () => {
+    saveOption("showNutrition", true);
+    render(<NutritionCard recipeTitle="Spagettipumpa" nutrition={green} />);
+    expect(within(screen.getByTestId("nutrition-card")).getByText("ca 80 %")).toBeInTheDocument();
   });
 });
 
