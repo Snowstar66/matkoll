@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { nameCandidates, type IngredientNutrition, type KostradGroup } from "@/features/nutrition";
 import { MAPPING, PACKAGE_GRAMS } from "../../scripts/nutrition-mapping.mjs";
 
@@ -10,7 +10,7 @@ type Entry = readonly [string[], number | null, string, number | null, number | 
 type Food = { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number };
 
 const data = JSON.parse(
-  readFileSync(fileURLToPath(new URL("../../scripts/nutrition-data/livsmedelsverket.json", import.meta.url)), "utf8"),
+  readFileSync(resolve(process.cwd(), "scripts/nutrition-data/livsmedelsverket.json"), "utf8"),
 ) as { foods: Record<string, Food> };
 
 const normalise = (name: string) => name.normalize("NFC").trim().toLocaleLowerCase("sv-SE");

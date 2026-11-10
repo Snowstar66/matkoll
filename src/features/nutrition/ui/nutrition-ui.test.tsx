@@ -214,3 +214,17 @@ describe("NutritionWeekLineAsync", () => {
     expect(await screen.findByTestId("nutrition-week-line")).toHaveTextContent("Veckans middagar: 1 fiskrätt · 1 grön");
   });
 });
+
+describe("NutritionCard without a plate", () => {
+  it("shows kcal for a trusted recipe with no plate and no tag, and none when Visa kcal is off", () => {
+    saveOption("showNutrition", true);
+    saveOption("showKcal", true);
+    const { unmount } = render(<NutritionCard recipeTitle="Kaka" nutrition={dish({ raffinerad: 30 })} />);
+    expect(screen.getByTestId("nutrition-kcal")).toHaveTextContent("ca 300 kcal per portion");
+    expect(screen.queryByTestId("nutrition-plate")).not.toBeInTheDocument();
+    unmount();
+    saveOption("showKcal", false);
+    render(<NutritionCard recipeTitle="Kaka" nutrition={dish({ raffinerad: 30 })} />);
+    expect(screen.queryByTestId("nutrition-card")).not.toBeInTheDocument();
+  });
+});
