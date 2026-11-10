@@ -3,7 +3,7 @@ import { fixedDaysOf, readWeekPool, type WeekPool } from "../context";
 import type { StoredProposal } from "../data/week-agent";
 import { openDays } from "../domain/plan";
 import { buildShortlist, type ShortlistResult } from "../domain/shortlist";
-import type { WeekAgentSettings } from "../domain/settings";
+import { maxDinners, type WeekAgentSettings } from "../domain/settings";
 import type { PlanInput } from "../domain/types";
 
 // One place that builds the planner's input for a week, so proposeWeek and the day actions agree: the household's
@@ -20,6 +20,11 @@ export type BuiltInput = { input: PlanInput; shortlist: ShortlistResult; pool: W
 export async function buildPlanInput(weekStart: string, settings: WeekAgentSettings, draft: StoredProposal | null, lockedDays: readonly number[], keepDraftLocks: boolean, replaceAgentDays = false): Promise<BuiltInput> {
   const pool = await readWeekPool(weekStart, settings);
   const fixedDays = fixedDaysOf(pool, draft, lockedDays, keepDraftLocks, replaceAgentDays);
+  if (replaceAgentDays) {
+    // A "Gör om" gives every day it freed a new dish, also when the household's dinners setting is lower than the week was.
+    const freed = new Set(pool.dishes.flatMap((dish) => (dish.weekday !== null && dish.source === "week_agent" && !fixedDays.some((day) => day.dayIndex === dish.weekday) ? [dish.weekday] : [])));
+    settings = { ...settings, dinners: Math.min(maxDinners, Math.max(settings.dinners, fixedDays.length + freed.size)) };
+  }
   const onPlan = new Set(pool.dishes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
   const context = { weekStart, settings, fixedDays, people: pool.people, recent: pool.recent };
   let shortlist = buildShortlist(pool.pool.filter((candidate) => !onPlan.has(candidate.id)), context);

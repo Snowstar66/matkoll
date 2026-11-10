@@ -44,18 +44,29 @@ export function CollapsingTitleRow({
   const [box, setBox] = useState<Box | null>(null);
   const [backBox, setBackBox] = useState<Box | null>(null);
 
-  // Every render while the buttons are in the row (their content may change); the setters bail out when the size is the same.
+  // Every render while the buttons are in the row (their content may change). The last size lives in a ref and a state
+  // is set only when the size really changed: an updater function queued with an older size could otherwise swap the
+  // state back and forth when the content grows after the first render (a Tillval's button that shows up after
+  // hydration), which ended in "Maximum update depth exceeded".
+  const lastBox = useRef<Box | null>(null);
+  const lastBackBox = useRef<Box | null>(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (collapsed) return;
-    const same = (before: Box | null, { width, height }: Box) => (before && before.width === width && before.height === height ? before : { width, height });
+    const changed = (before: Box | null, { width, height }: Box) => !before || before.width !== width || before.height !== height;
     if (actionsRef.current) {
-      const size = actionsRef.current.getBoundingClientRect();
-      setBox((before) => same(before, size));
+      const { width, height } = actionsRef.current.getBoundingClientRect();
+      if (changed(lastBox.current, { width, height })) {
+        lastBox.current = { width, height };
+        setBox({ width, height });
+      }
     }
     if (backRef.current) {
-      const size = backRef.current.getBoundingClientRect();
-      setBackBox((before) => same(before, size));
+      const { width, height } = backRef.current.getBoundingClientRect();
+      if (changed(lastBackBox.current, { width, height })) {
+        lastBackBox.current = { width, height };
+        setBackBox({ width, height });
+      }
     }
   });
 

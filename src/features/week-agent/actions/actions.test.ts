@@ -478,6 +478,14 @@ describe("full-week Gör om (replaceAgentDays) and undoWeek", () => {
     expect(proposed(result.proposal)).toHaveLength(4);
   });
 
+  it("gives every freed day a new dish even when the dinners setting is lower than the week was", async () => {
+    fullWeek();
+    world.settings.dinners = 5;
+    const result = await proposeWeek({ weekStart: week, mode: "plan", replaceAgentDays: true });
+    if (result.status !== "ok") throw new Error(JSON.stringify(result));
+    expect(proposed(result.proposal).map((day) => day.dayIndex)).toEqual([1, 3, 5, 7]);
+  });
+
   it("without replaceAgentDays a full week has nothing open", async () => {
     fullWeek();
     expect(await proposeWeek({ weekStart: week, mode: "plan" })).toMatchObject({ status: "error", message: "Alla dagar har redan en rätt." });

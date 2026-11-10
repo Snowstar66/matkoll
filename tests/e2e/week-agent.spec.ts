@@ -178,3 +178,45 @@ test("a full week has the ⋯ menu with Gör om (only the days the agent filled)
   await expect(redo).toContainText("Byter 4 rätter. Dina 3 ligger kvar.");
   await expect(redo).toHaveAttribute("href", /veckoforslag\?vecka=.*gor-om=1/);
 });
+
+test("Gör om on a full week replaces only the agent's days, the household's days are untouched, and Ångra puts the old dishes back", async ({ page }) => {
+  await clearNextWeek();
+  const admin = adminClient();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka", is_current: false, week_start: nextWeek }).select("id").single();
+  if (plan.error) throw plan.error;
+  const rows = titles.slice(0, 7).map((title, index) => ({
+    user_id: userId,
+    meal_plan_id: (plan.data as { id: string }).id,
+    recipe_id: recipeIds[title],
+    recipe_title: title,
+    servings: 4,
+    position: index,
+    weekday: index + 1,
+    source: index < 3 ? "user" : "week_agent",
+  }));
+  const inserted = await admin.from("meal_plan_recipe").insert(rows);
+  if (inserted.error) throw inserted.error;
+  const key = (dishes: { weekday: number | null; recipe_title: string; source: string | null }[]) => dishes.map((dish) => `${dish.weekday}:${dish.recipe_title}:${dish.source}`).sort();
+  const before = await dishesOfNextWeek();
+  const ownBefore = key(before.filter((dish) => dish.source === "user"));
+
+  await agentOn(page);
+  await page.goto(nextWeekAddress);
+  await page.getByTestId("week-agent-menu").click();
+  await page.getByRole("menuitem", { name: /Gör om de olåsta/ }).click();
+  const proposalRows = await waitForProposal(page);
+  await expect(proposalRows).toHaveCount(7);
+  await page.getByTestId("proposal-use").click();
+  await page.getByRole("button", { name: "Byt ut och använd" }).click();
+  await expect(page).toHaveURL(/\/matsedel\?vecka=/);
+  await expect(page.getByTestId("toast")).toContainText("rätter tillagda.");
+  const replaced = await dishesOfNextWeek();
+  expect(replaced).toHaveLength(7);
+  expect(key(replaced.filter((dish) => dish.source === "user"))).toEqual(ownBefore);
+  expect(replaced.filter((dish) => dish.source === "week_agent").map((dish) => dish.weekday).sort()).toEqual([4, 5, 6, 7]);
+
+  // Ångra within ten seconds: exactly the first state again.
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(page.getByText("Ångrade. Veckan är som förut.").first()).toBeVisible();
+  expect(key(await dishesOfNextWeek())).toEqual(key(before));
+});

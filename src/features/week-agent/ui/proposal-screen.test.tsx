@@ -209,6 +209,16 @@ describe("ProposalScreen: Använd veckan", () => {
     await waitFor(() => expect(actions.apply).toHaveBeenCalledWith({ draftId, weekStart, replaceAgentDays: true }));
   });
 
+  it("keeps the redo after the address lost ?gor-om (the page then passes no redo), so Använd veckan still replaces the agent's days", async () => {
+    const user = userEvent.setup();
+    const actions = fakeActions();
+    const { rerender } = render(screenWith({ initialDraft: draft(proposalAroundFixed()), redo: { ownDays: [4] }, actions }).ui);
+    rerender(screenWith({ initialDraft: draft(proposalAroundFixed()), redo: null, actions }).ui);
+    await user.click(screen.getByTestId("proposal-use"));
+    await user.click(within(await screen.findByRole("dialog", { name: "Byta ut 4 rätter i Matsedel?" })).getByRole("button", { name: "Byt ut och använd" }));
+    await waitFor(() => expect(actions.apply).toHaveBeenCalledWith({ draftId, weekStart, replaceAgentDays: true }));
+  });
+
   it("when a day was filled meanwhile, keeps it unless the user says Byt till förslaget", async () => {
     const user = userEvent.setup();
     const actions = fakeActions();
