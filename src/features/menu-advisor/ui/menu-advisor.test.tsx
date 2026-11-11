@@ -98,7 +98,7 @@ describe("the Tillval", () => {
 describe("the start", () => {
   it("is a question, a row with who is with, one photo button and a quiet link: no panels, no chips", () => {
     render(<MenuAdvisor />);
-    expect(screen.getByRole("heading", { name: "Vad står det på menyn?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tolka menyn" })).toBeInTheDocument();
     expect(screen.getByTestId("menu-company-line")).toHaveTextContent("Bara du");
     expect(screen.getByTestId("menu-photo")).toHaveTextContent("Fota menyn");
     expect(screen.getByTestId("menu-explain")).toHaveTextContent("Bara förklara menyn");
@@ -372,7 +372,7 @@ describe("the answer", () => {
     await toAnswer(u);
     await u.click(screen.getByRole("button", { name: "Klart" }));
     await u.click(screen.getByRole("button", { name: "Klart" }));
-    expect(screen.getByRole("heading", { name: "Vad står det på menyn?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tolka menyn" })).toBeInTheDocument();
   });
 });
 
