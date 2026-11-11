@@ -1,19 +1,20 @@
-// LEGAL DESIGN (Google Maps Platform ToS 3.2.3, decided by Pontus 2026-11-11). READ BEFORE CHANGING ANYTHING HERE.
+// TRUST AND SOURCES DESIGN (Pontus, 2026-11-11). READ BEFORE CHANGING ANYTHING HERE.
 //
-// Google Maps Content may not be used to create content from, stored, or used to train or test models. Whether sending
-// Places fields to an LLM counts is unclear, so we do not do it. The rules of this module:
+// Restaurangagenten finds restaurants with Anthropic's web search tool, billed inside the Claude API (10 USD per 1000
+// searches). No other paid source: no Google data anywhere, no coordinates, no map service. The rules of this module:
 //
-//  1. Google Places is ONLY the finder. It gives us a `Candidate` (place_id and distance) and, shown live to the
-//     user with "Google Maps" attribution and never altered, `PlaceFacts`.
-//  2. Names, addresses, ratings, opening hours, reviews and website text from Google are NEVER sent to Claude and
-//     NEVER stored. At most the place_id may be stored (and by default nothing is: Pontus d7).
-//  3. Claude ranks and summarises ONLY from the restaurant's own website or menu text (`MenuSource`, fetched by us or
-//     by web search) and from the household profile (`LlmHousehold`).
-//  4. The two worlds are separate types with no shared object: `PlaceFacts` and `Candidate` are branded, and
-//     `LlmInput` (domain/llm-input.ts) is built field by field from `LlmHousehold`, `LlmRestaurant` and
-//     `MenuSource`, so a Places field cannot reach a prompt. domain/llm-input.test.ts asserts it.
-//  5. Location: the user's coordinates are rounded to 3 decimals (domain/location.ts), sent only to Google, never to
-//     Anthropic and never stored.
+//  1. The only place the household gives is a typed city or postcode (domain/location.ts). It goes to Anthropic as the
+//     search tool's city and in the message, and is never stored. Nothing about where a person is leaves the phone otherwise.
+//  2. The model may only write what a page it found says, and every reason carries that page's address. The guard
+//     (domain/guard.ts) lets a reason through only if its address is one the search tool actually returned in this run;
+//     a place with no such reason is dropped. Names, addresses, hours and prices are never invented: they appear only
+//     when quoted from a cited page, and hours only as "enligt <källa>" with "ring och kolla".
+//  3. Web text is untrusted data, never instructions (the prompt says so). The household's allergies are never a safety
+//     claim: a menu can never prove a dish safe, so the flag `allergy_unverified` is set by us whenever anyone has one.
+//  4. Cost is counted in kronor: tokens plus searches (domain/cost.ts), 2 kr cap per run on top of the household's day cap.
+//
+// This feature is kept small and self-contained so it can be hidden or deleted in one PR (see the PR description's
+// deletion checklist).
 
 export const cuisines = [
   { id: "pizza", label: "Pizza" },
@@ -43,9 +44,21 @@ export type PriorityId = (typeof priorities)[number]["id"];
 export const priorityIds = priorities.map((priority) => priority.id) as [PriorityId, ...PriorityId[]];
 export const maxPriorities = 3;
 
+/** How far the person wants to go. A soft wish to the search ("ungefär 2 km från <ort>"), never a measured distance. */
 export const radiiM = [500, 1000, 2000, 5000] as const;
 export type RadiusM = (typeof radiiM)[number];
 export const defaultRadiusM: RadiusM = 1000;
+
+/** When they want to eat: a soft wish too ("föredra ställen som enligt en källa har öppet ikväll"). */
+export const whenOptions = [
+  { id: "evening", label: "Ikväll", prompt: "ikväll" },
+  { id: "lunch", label: "Lunch idag", prompt: "lunch idag" },
+  { id: "any", label: "Valfri tid", prompt: "" },
+] as const;
+export type WhenId = (typeof whenOptions)[number]["id"];
+export const whenIds = whenOptions.map((option) => option.id) as [WhenId, ...WhenId[]];
+export const defaultWhen: WhenId = "evening";
+
 export const minParty = 1;
 export const maxParty = 12;
 export const defaultParty = 2;
@@ -53,6 +66,7 @@ export const defaultParty = 2;
 /** What the user chooses for one run. Nothing here is stored (d7). */
 export type RestaurantSettings = {
   radiusM: RadiusM;
+  when: WhenId;
   /** How many eat together, 1-12. */
   party: number;
   /** "Sugen på": cuisine niches that weigh in, in addition to the household's food profile. */
@@ -62,42 +76,10 @@ export type RestaurantSettings = {
 
 export const defaultRestaurantSettings: Readonly<RestaurantSettings> = {
   radiusM: defaultRadiusM,
+  when: defaultWhen,
   party: defaultParty,
   cuisines: [],
   priorities: [],
-};
-
-declare const googleContent: unique symbol;
-
-/** The coarse kind of a place, mapped by us from Google's primary type; used only to weigh and to show. */
-export type PlaceKind = CuisineId | "restaurant" | "cafe" | "bar" | "other";
-
-/** What the finder returns: the id Google gave and how far away it is. Google-derived: never goes to Claude, except the id as an opaque handle. */
-export type Candidate = {
-  readonly [googleContent]?: true;
-  placeId: string;
-  distanceM: number;
-  kind: PlaceKind;
-};
-
-/** Google fields shown live with "Google Maps" attribution, never altered, never stored, never sent to Claude. */
-export type PlaceFacts = {
-  readonly [googleContent]?: true;
-  placeId: string;
-  name: string;
-  address: string;
-  rating: number | null;
-  openNow: boolean | null;
-  mapsUrl: string;
-};
-
-/** Where a piece of menu text came from: the restaurant's own site, fetched by us or via web search. Never Google. */
-export type MenuSource = {
-  placeId: string;
-  /** The restaurant's own page. */
-  url: string;
-  text: string;
-  via: "fetch" | "web_search";
 };
 
 export type Reason = { text: string; sourceUrl: string };
@@ -105,16 +87,41 @@ export type Reason = { text: string; sourceUrl: string };
 export const warningFlags = ["menu_missing", "allergy_unverified", "diet_unverified", "open_hours_unverified"] as const;
 export type WarningFlag = (typeof warningFlags)[number];
 
+/** A restaurant the model found, after the guard: every reason cites a page the search returned. */
+/** A rating a returned page states outright. One source, never an average; shown as a number with its source and link. */
+export type Rating = { value: number; scale: number; count: number | null; sourceName: string; sourceUrl: string };
+
 export type Suggestion = {
-  placeId: string;
-  /** Short reasons, each with the page it comes from. */
+  /** Stable hash of the name and the website (suggestionId). */
+  id: string;
+  name: string;
+  /** City district or street, only when a cited page says so. */
+  area: string | null;
+  /** The restaurant's own address, only when the search returned a page on that site. */
+  website: string | null;
+  /** Short reasons, each with the page it comes from. Never empty. */
   why: Reason[];
+  /** Menu text quoted from a cited page, for handover to Menyrådgivaren. */
+  menu: Reason | null;
+  /** Street address and opening hours as a cited page wrote them, with that page; null when no returned page gave them. */
+  address: Reason | null;
+  hours: Reason | null;
+  /** Only when a returned page states it and the number stands in the quoted text; null otherwise (the place stays). */
+  rating: Rating | null;
   menuStatus: "found" | "missing";
   warnings: WarningFlag[];
 };
 
-export type RunResult =
-  | { status: "ok"; suggestions: Suggestion[]; costSek: number }
-  | { status: "no_results"; costSek: number }
-  | { status: "cap_reached"; cap: "run" | "day"; costSek: number }
-  | { status: "needs_location" };
+/** A stable id from the name and the website, so a re-run of the same place has the same id (FNV-1a, two seeds). */
+export function suggestionId(name: string, website: string | null): string {
+  const text = `${name.trim().toLowerCase()}|${(website ?? "").trim().toLowerCase()}`;
+  const hash = (seed: number) => {
+    let h = seed;
+    for (let index = 0; index < text.length; index += 1) {
+      h ^= text.charCodeAt(index);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  };
+  return `${hash(2166136261)}${hash(0x9747b28c)}`;
+}

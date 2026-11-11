@@ -35,9 +35,10 @@ describe("options", () => {
     expect(readOption("weekAgent")).toBe(true);
   });
 
-  it("has Restaurangagenten, off by default, under Äta ute", () => {
+  it("has Äta ute and the parked web search, both off by default, under Äta ute", () => {
     const option = options.find((entry) => entry.id === "restaurantAgent");
-    expect(option).toMatchObject({ label: "Restaurangagenten", group: "menu", defaultOn: false });
+    expect(option).toMatchObject({ label: "Äta ute", group: "menu", defaultOn: false });
+    expect(options.find((entry) => entry.id === "restaurantAgentWeb")).toMatchObject({ label: "Låt agenten söka på webben", group: "menu", defaultOn: false });
     expect(optionGroups.map((group) => group.id)).toContain(option?.group);
     expect(option?.hint).not.toBe("");
     expect(readOption("restaurantAgent")).toBe(false);

@@ -1,6 +1,6 @@
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cx } from "@/components/cx";
-import { ChevronLeftIcon } from "@/components/icons";
+import { ChevronLeftIcon, ExternalIcon } from "@/components/icons";
 import { texts } from "./format";
 
 // Small pieces the screens of the restaurant agent share (a copy of the look of Menyrådgivarens resa; features do not import each other, AD-1).
@@ -63,5 +63,26 @@ export function StopBody({ icon, title, children }: { icon: ReactNode; title: st
       <h2 className="text-section-title font-semibold text-ink wrap-break-word">{title}</h2>
       <p className="max-w-80 text-body text-ink-2 wrap-break-word">{children}</p>
     </div>
+  );
+}
+
+export const chipClass = "inline-flex min-h-7 items-center gap-1 rounded-pill px-2.5 py-0.5 text-badge font-semibold";
+
+/** The small "opens outside the app" mark after the text of an external link. Named for screen readers, since the icon itself is decoration. */
+export function ExternalMark() {
+  return (
+    <span role="img" aria-label="Öppnas utanför appen" className="inline-flex shrink-0" data-testid="external-mark">
+      <ExternalIcon size={14} />
+    </span>
+  );
+}
+
+/** A link that leaves the app: a new tab or app, no referrer, and the mark after its text. */
+export function ExternalLink({ href, className, children, testId }: { href: string; className?: string; children: ReactNode; testId?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className} data-testid={testId}>
+      {children}
+      <ExternalMark />
+    </a>
   );
 }

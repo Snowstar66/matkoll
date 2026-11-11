@@ -7,5 +7,6 @@ it("ui port equals the action contract", () => {
   expectTypeOf<Ui.FindInput>().toEqualTypeOf<Server.FindInput>();
   expectTypeOf<Ui.FindResult>().toEqualTypeOf<Server.FindResult>();
   expectTypeOf<Ui.SuggestionView>().toEqualTypeOf<Server.SuggestionView>();
+  expectTypeOf<Ui.MenuLinkResult>().toEqualTypeOf<Server.MenuLinkResult>();
   expectTypeOf<Ui.LocationQuery>().toEqualTypeOf<Server.LocationQuery>();
 });

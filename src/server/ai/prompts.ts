@@ -14,7 +14,7 @@ import readShoppingListPrompt from "./prompts/read-shopping-list.md?raw";
 import readMenuPrompt from "./prompts/read-menu.md?raw";
 import readMenuTextPrompt from "./prompts/read-menu-text.md?raw";
 import planWeekPrompt from "./prompts/plan-week.md?raw";
-import pickRestaurantsPrompt from "./prompts/pick-restaurants.md?raw";
+import findRestaurantsWebPrompt from "./prompts/find-restaurants-web.md?raw";
 import nowIdeasPrompt from "./prompts/now-ideas.md?raw";
 
 // System prompts for the AI port, kept as files in prompts/ (AD-9). They are
@@ -38,5 +38,5 @@ export const prompts = {
   readMenu: readMenuPrompt,
   readMenuText: readMenuTextPrompt,
   planWeek: planWeekPrompt,
-  pickRestaurants: pickRestaurantsPrompt,
+  findRestaurantsWeb: findRestaurantsWebPrompt,
 } as const;

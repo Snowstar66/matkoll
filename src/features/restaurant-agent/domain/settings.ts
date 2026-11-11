@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { cuisineIds, defaultRestaurantSettings, maxCuisines, maxParty, maxPriorities, minParty, priorityIds, radiiM, type RestaurantSettings } from "./types";
+import { cuisineIds, defaultRestaurantSettings, maxCuisines, maxParty, maxPriorities, minParty, priorityIds, radiiM, whenIds, type RestaurantSettings } from "./types";
 
 // The choices of one run. Parsed from what a phone sends; nothing is stored (d7).
 
 export const restaurantSettingsSchema = z.object({
   radiusM: z.union([z.literal(radiiM[0]), z.literal(radiiM[1]), z.literal(radiiM[2]), z.literal(radiiM[3])]),
+  when: z.enum(whenIds),
   party: z.number().int().min(minParty).max(maxParty),
   cuisines: z.array(z.enum(cuisineIds)).max(maxCuisines),
   priorities: z.array(z.enum(priorityIds)).max(maxPriorities),
@@ -23,6 +24,7 @@ export function parseRestaurantSettings(input: unknown): RestaurantSettings {
     Array.isArray(value) ? unique(value.filter((item): item is T => (allowed as readonly unknown[]).includes(item))).slice(0, max) : [];
   return {
     radiusM: pick("radiusM", defaults.radiusM),
+    when: pick("when", defaults.when),
     party: pick("party", defaults.party),
     cuisines: listOf(source.cuisines, cuisineIds, maxCuisines),
     priorities: listOf(source.priorities, priorityIds, maxPriorities),

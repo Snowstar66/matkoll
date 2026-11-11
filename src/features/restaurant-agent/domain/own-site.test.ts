@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isBlockedAddress, ownSiteUrl } from "./own-site";
+import { isBlockedAddress, pastedMenuUrl } from "./own-site";
 
-describe("ownSiteUrl", () => {
-  it("upgrades http to https and strips the fragment", () => {
-    expect(ownSiteUrl("http://www.trattoria.se/#meny")).toBe("https://www.trattoria.se/");
+describe("pastedMenuUrl", () => {
+  it("accepts an https link and strips the fragment", () => {
+    expect(pastedMenuUrl("  https://www.trattoria.se/meny#lunch ")).toBe("https://www.trattoria.se/meny");
   });
-  it("refuses credentials, odd ports, IP-less hosts, other schemes and non-strings", () => {
-    for (const value of ["https://user:pw@a.se/", "https://a.se:8443/", "https://localhost/", "ftp://a.se/", "javascript:alert(1)", "nonsense", null, 5]) expect(ownSiteUrl(value)).toBeNull();
-  });
-  it("is not fooled into treating social, review and booking sites as the restaurant's own", () => {
-    for (const value of ["https://www.facebook.com/pizzeria", "https://instagram.com/x", "https://www.tripadvisor.se/Restaurant", "https://maps.google.com/x", "https://m.thefork.com/x", "https://linktr.ee/x"]) expect(ownSiteUrl(value)).toBeNull();
-    expect(ownSiteUrl("https://notfacebook.com/")).not.toBeNull();
+  it("refuses http (not upgraded), credentials, odd ports, localhost, IP literals, other schemes, long and non-strings", () => {
+    for (const value of ["http://www.trattoria.se/meny", "https://user:pw@a.se/", "https://a.se:8443/", "https://localhost/", "https://127.0.0.1/", "https://10.0.0.5/meny", "https://[::1]/", "https://169.254.169.254/latest", "ftp://a.se/", "javascript:alert(1)", "nonsense", "", null, 5, `https://a.se/${"x".repeat(2100)}`]) expect(pastedMenuUrl(value)).toBeNull();
   });
 });
 

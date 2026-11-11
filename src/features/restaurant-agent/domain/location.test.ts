@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { maxPlaceTextLength, parsePlaceText, roundCoordinates } from "./location";
 
 describe("roundCoordinates", () => {
-  it("rounds to 3 decimals", () => {
-    expect(roundCoordinates(59.329323, 18.068581)).toEqual({ lat: 59.329, lng: 18.069 });
-    expect(roundCoordinates(-0.0004, 0.0005)).toEqual({ lat: 0, lng: 0.001 });
+  it("rounds to 2 decimals (about 1 km)", () => {
+    expect(roundCoordinates(59.329323, 18.068581)).toEqual({ lat: 59.33, lng: 18.07 });
+    expect(roundCoordinates(-0.004, 0.005)).toEqual({ lat: 0, lng: 0.01 });
   });
   it("refuses values that are not coordinates", () => {
     expect(roundCoordinates(NaN, 1)).toBeNull();
@@ -12,7 +12,7 @@ describe("roundCoordinates", () => {
     expect(roundCoordinates(1, -181)).toBeNull();
     expect(roundCoordinates("59", "18")).toBeNull();
     expect(roundCoordinates(Infinity, 0)).toBeNull();
-    expect(Object.is(roundCoordinates(-0.0001, 0)?.lat, 0)).toBe(true);
+    expect(Object.is(roundCoordinates(-0.001, 0)?.lat, 0)).toBe(true);
   });
 });
 

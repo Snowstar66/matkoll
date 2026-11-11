@@ -18,7 +18,9 @@ import {
   type SuggestPantryEntry,
 } from "@/lib/suggest-input";
 import type { Env } from "@/server/env-schema";
-import { createAnthropicTarget, photoReadingOptionsFor } from "./adapters/anthropic";
+import { anthropicThinkingRoom, createAnthropicTarget, photoReadingOptionsFor } from "./adapters/anthropic";
+import { createAnthropicWebSearch, parseJsonAnswer, type WebSearchRunner } from "./web-search";
+import { reportUsage, tokenCount } from "./usage";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
@@ -64,8 +66,8 @@ import {
   matchOffersAnswer,
   planWeekAnswer,
   parsePlanWeek,
-  pickRestaurantsAnswer,
-  parsePickRestaurants,
+  findRestaurantsWebAnswer,
+  parseFindRestaurantsWeb,
   parseOfferMatches,
   parseMergePairs,
   parseAnalyzeItems,
@@ -418,27 +420,50 @@ export type PlanWeekPick = { dayIndex: number; recipeId: string; reasons: string
 /** What planWeek answers: a pick for the days the model chose (not checked: the caller validates every one), and which quality made it. */
 export type PlanWeekResult = { picks: PlanWeekPick[]; quality: PlanWeekQuality };
 
-/** A restaurant the finder returned, as the model sees it: an opaque id and the restaurant's own pages. Never a Google field. */
-export type PickRestaurantsRestaurant = { placeId: string; pages: { url: string; text: string }[] };
-
 /**
- * pickRestaurants (Restaurangagenten): the household's tastes and the restaurants' OWN website text, nothing from Google
- * Places (see the legal design in features/restaurant-agent/domain/types.ts). Structurally the feature's LlmInput; the
- * feature builds it only with buildLlmInput. Data for the model, never instructions.
+ * findRestaurantsWeb (Restaurangagenten): the household's tastes and a typed place; the model finds restaurants itself
+ * with Anthropic's web search tool. Nothing is sent that the household did not choose for this run. Data for the model,
+ * never instructions. See the legal and trust design in features/restaurant-agent/domain/types.ts.
  */
-export type PickRestaurantsInput = {
+export type FindRestaurantsWebInput = {
+  /** The city or postcode the person typed (one line, checked by the feature's parsePlaceText). */
+  place: string;
   party: number;
+  /** A soft wish (500, 1000, 2000 or 5000 m): "ungefär N km från <ort>". The model may never claim a measured distance. */
+  radiusM: number;
+  /** A soft wish: evening, lunch or any: prefer places that a source says are open then. */
+  when: "evening" | "lunch" | "any";
   wantedCuisines: string[];
   priorities: string[];
   household: { people: { allergies: string[]; likes: string[]; avoids: string[] }[] };
-  restaurants: PickRestaurantsRestaurant[];
   /** Default `standard` (Haiku 5.5 low); `careful` is Sonnet 5.5 at medium. */
   quality?: PlanWeekQuality;
 };
 
-/** One suggestion as the model wrote it, cleaned to text but NOT checked: the caller's guard checks ids and sources. */
-export type PickRestaurantsSuggestion = { placeId: string; menuStatus: string; why: { text: string; sourceUrl: string }[]; warnings: string[] };
-export type PickRestaurantsResult = { suggestions: PickRestaurantsSuggestion[]; quality: PlanWeekQuality };
+/** One suggestion as the model wrote it, cleaned to text but NOT checked: the caller's guard checks every source against `sourceUrls`. */
+export type FindRestaurantsWebSuggestion = {
+  name: string;
+  area: string | null;
+  website: string | null;
+  why: { text: string; sourceUrl: string }[];
+  menu: { text: string; sourceUrl: string } | null;
+  /** The street address and the opening hours, each as the page wrote it and with that page's address; the guard checks the source. */
+  address: { text: string; sourceUrl: string } | null;
+  hours: { text: string; sourceUrl: string } | null;
+  /** A rating a returned page states outright, with the short text it stands in; the guard checks both. Never an average or an own number. */
+  rating: { value: number; scale: number; count: number | null; sourceName: string; sourceUrl: string; quote: string } | null;
+  warnings: string[];
+};
+export type FindRestaurantsWebResult = {
+  suggestions: FindRestaurantsWebSuggestion[];
+  /** Every page address the search tool returned in this call. The guard lets a suggestion cite only these. */
+  sourceUrls: string[];
+  /** Web searches the call made: billed 10 USD per 1000 on top of the tokens. */
+  searches: number;
+  inputTokens: number;
+  outputTokens: number;
+  quality: PlanWeekQuality;
+};
 
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
@@ -552,12 +577,12 @@ export interface AiService {
    */
   planWeek(input: PlanWeekInput, signal: AbortSignal, options?: RunOptions): Promise<Result<PlanWeekResult>>;
   /**
-   * The best restaurants of the ones the finder returned (Restaurangagenten), ranked and each with short reasons that
-   * cite the restaurant's own page: one text call, `quality` standard (Haiku 5.5 low) or careful (Sonnet 5.5 medium).
-   * The answer is NOT checked beyond its shape: the caller runs it through guardSuggestions. Fails with `validation`
-   * (outside inputLimits.pickRestaurants), `ai_unavailable`, `ai_rejected`, `ai_invalid` or `ai_cap_reached`.
+   * Restaurants near a typed place (Restaurangagenten), found with the web search tool: `quality` standard (Haiku 5.5 low)
+   * or careful (Sonnet 5.5 medium). The answer is NOT checked beyond its shape: the caller runs it through its guard,
+   * which only lets a source through that is in `sourceUrls`. Fails with `validation` (outside inputLimits.findRestaurantsWeb),
+   * `ai_unavailable`, `ai_rejected`, `ai_invalid` or `ai_cap_reached`. Only the Anthropic adapter can search the web.
    */
-  pickRestaurants(input: PickRestaurantsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<PickRestaurantsResult>>;
+  findRestaurantsWeb(input: FindRestaurantsWebInput, signal: AbortSignal, options?: RunOptions): Promise<Result<FindRestaurantsWebResult>>;
   /**
    * The words to search the things for, from a question and the latest turns
    * of the chat (Story 18.14): one short text call, no image. Fails with
@@ -697,11 +722,10 @@ export const inputLimits = {
    */
   planWeek: { maxRecipes: 40, maxIngredients: 8, maxIngredientChars: 50, maxFacts: 4, maxFactChars: 90, maxTitleChars: 100, maxWords: 12, maxRecent: 20, maxChars: 24_000, maxOutputTokens: 1_500 },
   /**
-   * pickRestaurants (Restaurangagenten): at most 8 restaurants of at most 2 pages of 6 000 characters (the feature cuts
-   * them at maxPageChars) in 80 000 characters (about 25 000 tokens); the answer is a line of about 80 tokens per
-   * restaurant, so 2 000 leave room.
+   * findRestaurantsWeb (Restaurangagenten): a place on one line, the household as short word lists, at most two web
+   * searches; the answer is a line of about 120 tokens per restaurant on top of the model's own thinking.
    */
-  pickRestaurants: { maxRestaurants: 8, maxPages: 2, maxPageChars: 6_000, maxPeople: 12, maxWords: 12, maxWordChars: 40, maxWanted: 6, maxChars: 80_000, maxOutputTokens: 2_000 },
+  findRestaurantsWeb: { maxPlaceChars: 80, maxPeople: 12, maxWords: 12, maxWordChars: 40, maxWanted: 6, maxSearches: 2, maxChars: 6_000, maxOutputTokens: 4_000 },
   /**
    * locateThing's one attempt (Story 6.6, 18.7): at most 30 s, since a box is
    * extra, so failing fast is better than keeping the model busy.
@@ -826,26 +850,20 @@ export function isValidPlanWeekInput(input: PlanWeekInput): boolean {
   );
 }
 
-/** True for a pickRestaurants input within inputLimits.pickRestaurants: short one-line lists, bounded pages. */
-export function isValidPickRestaurantsInput(input: PickRestaurantsInput): boolean {
-  const limits = inputLimits.pickRestaurants;
+/** True for a findRestaurantsWeb input within inputLimits.findRestaurantsWeb: one-line place and short one-line lists. */
+export function isValidFindRestaurantsWebInput(input: FindRestaurantsWebInput): boolean {
+  const limits = inputLimits.findRestaurantsWeb;
   const word = (text: string) => text !== "" && text === cleanModelText(text) && Array.from(text).length <= limits.maxWordChars;
   const words = (list: readonly string[]) => list.length <= limits.maxWords && list.every(word);
-  const { restaurants, household } = input;
+  const { household } = input;
   if (!Number.isInteger(input.party) || input.party < 1 || input.party > 12) return false;
-  if (restaurants.length === 0 || restaurants.length > limits.maxRestaurants) return false;
+  if (![500, 1000, 2000, 5000].includes(input.radiusM) || !["evening", "lunch", "any"].includes(input.when)) return false;
+  if (input.place === "" || input.place !== cleanModelText(input.place) || Array.from(input.place).length > limits.maxPlaceChars) return false;
   if (input.wantedCuisines.length > limits.maxWanted || !input.wantedCuisines.every(word)) return false;
   if (input.priorities.length > limits.maxWanted || !input.priorities.every(word)) return false;
   if (household.people.length > limits.maxPeople) return false;
   if (!household.people.every((person) => words(person.allergies) && words(person.likes) && words(person.avoids))) return false;
-  const ids = new Set<string>();
-  for (const restaurant of restaurants) {
-    if (restaurant.placeId === "" || restaurant.placeId !== cleanModelText(restaurant.placeId) || ids.has(restaurant.placeId)) return false;
-    ids.add(restaurant.placeId);
-    if (restaurant.pages.length > limits.maxPages) return false;
-    if (!restaurant.pages.every((page) => /^https?:\/\/\S+$/.test(page.url) && Array.from(page.text).length <= limits.maxPageChars)) return false;
-  }
-  return pickRestaurantsText(input).length <= limits.maxChars;
+  return findRestaurantsWebText(input).length <= limits.maxChars;
 }
 
 /** True for lists within inputLimits.matchOffers: something in both, every name on one line. */
@@ -965,9 +983,9 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidPlanWeekInput(input)) return fail("validation");
       return service.planWeek(input, signal, options);
     },
-    async pickRestaurants(input, signal, options) {
-      if (!isValidPickRestaurantsInput(input)) return fail("validation");
-      return service.pickRestaurants(input, signal, options);
+    async findRestaurantsWeb(input, signal, options) {
+      if (!isValidFindRestaurantsWebInput(input)) return fail("validation");
+      return service.findRestaurantsWeb(input, signal, options);
     },
     async thingSearchTerms(input, signal, options) {
       if (!isValidThingSearchTermsInput(input)) return fail("validation");
@@ -994,6 +1012,7 @@ export function createModelAiService(
   ideasTarget: ModelTarget = target,
   menuTargets: Record<MenuQuality, ModelTarget> = { standard: target, careful: target },
   planTargets: Record<PlanWeekQuality, ModelTarget> = { standard: target, careful: target },
+  webSearch?: WebSearchRunner,
 ): AiService {
   return {
     async parseRecipe(input, signal) {
@@ -1336,28 +1355,51 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok({ picks: parsePlanWeek(answer.data, input.recipes.map((item) => item.id)), quality });
     },
-    async pickRestaurants(input, signal, options = {}) {
+    async findRestaurantsWeb(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
         console.error("ai_unavailable", { reason: "deadline" });
         return fail("ai_unavailable");
       }
+      // Only the Anthropic adapter has a web search tool; the others cannot find restaurants.
+      if (!webSearch) {
+        console.error("ai_unavailable", { reason: "no_web_search" });
+        return fail("ai_unavailable");
+      }
       const quality = input.quality ?? "standard";
-      const answer = await runStructured(
-        // The same two models as planWeek (Haiku 5.5 low, Sonnet 5.5 medium).
-        planTargets[quality],
+      const chosen = restaurantWebModels[quality];
+      const turn = await webSearch(
         {
-          schema: pickRestaurantsAnswer,
-          system: prompts.pickRestaurants,
-          messages: [{ role: "user", content: pickRestaurantsText(input) }],
-          maxOutputTokens: inputLimits.pickRestaurants.maxOutputTokens,
-          onTruncated: () => console.info("pick_restaurants_truncated", { quality }),
+          model: chosen.model,
+          effort: chosen.effort,
+          system: prompts.findRestaurantsWeb,
+          user: findRestaurantsWebText(input),
+          city: /\d/.test(input.place) ? null : input.place,
+          maxSearches: inputLimits.findRestaurantsWeb.maxSearches,
+          maxOutputTokens: inputLimits.findRestaurantsWeb.maxOutputTokens + anthropicThinkingRoom,
+          timeoutMs: within.attemptMs,
         },
         signal,
-        within,
       );
-      if (!answer.ok) return answer;
-      return ok({ suggestions: parsePickRestaurants(answer.data), quality });
+      if (!turn.ok) return turn;
+      const { data } = turn;
+      // The tokens of the call go to the day's cost like any call (the searches are counted by the caller).
+      await reportUsage({ model: chosen.model, inputTokens: tokenCount(data.inputTokens), outputTokens: tokenCount(data.outputTokens) });
+      // The searches are metered use, saved like a call (features/settings/domain/ai-usage.ts meteredUnitsUsd): units in inputTokens.
+      if (data.searches > 0) await reportUsage({ model: "web-search", inputTokens: tokenCount(data.searches), outputTokens: 0 });
+      const parsed = parseJsonAnswer(data.text, findRestaurantsWebAnswer);
+      if (!parsed) {
+        console.error("ai_invalid", { reason: "web_answer_shape" });
+        return fail("ai_invalid");
+      }
+      return ok({
+        suggestions: parseFindRestaurantsWeb(parsed),
+        sourceUrls: data.sourceUrls,
+        searches: data.searches,
+        inputTokens: data.inputTokens,
+        outputTokens: data.outputTokens,
+        quality,
+      });
     },
     async thingSearchTerms(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -1658,12 +1700,14 @@ export function planWeekText(input: PlanWeekInput): string {
 }
 
 /**
- * The user message for pickRestaurants: the party, the wishes, the household's tastes as words, and each restaurant by
- * its opaque id with its own pages. Page text is flattened to one line, so it cannot start a section of its own; the
- * prompt says everything here is data. No Google field can be in it (the input type has none).
+ * The user message for findRestaurantsWeb: the place, the party, the wishes and the household's tastes as words, each
+ * on one line so none can start a section of its own; the prompt says everything here is data.
  */
-export function pickRestaurantsText(input: PickRestaurantsInput): string {
-  const lines: string[] = [`Sällskap: ${input.party} personer`];
+export function findRestaurantsWebText(input: FindRestaurantsWebInput): string {
+  const lines: string[] = [`Plats: ${input.place}`, `Sällskap: ${input.party} personer`];
+  // Soft wishes in words, never coordinates: "ungefär 2 km från <ort>" and when they want to eat.
+  lines.push(`Avstånd (mjukt önskemål, inget exakt mått): ungefär ${input.radiusM < 1000 ? `${input.radiusM} m` : `${input.radiusM / 1000} km`} från ${input.place}`);
+  if (input.when !== "any") lines.push(`När: ${input.when === "evening" ? "ikväll" : "lunch idag"}`);
   if (input.wantedCuisines.length > 0) lines.push(`Sugen på: ${input.wantedCuisines.join(", ")}`);
   if (input.priorities.length > 0) lines.push(`Viktigt: ${input.priorities.join(", ")}`);
   input.household.people.forEach((person, index) => {
@@ -1673,11 +1717,7 @@ export function pickRestaurantsText(input: PickRestaurantsInput): string {
     if (person.avoids.length > 0) parts.push(`undviker: ${person.avoids.join(", ")}`);
     if (parts.length > 0) lines.push(`Person ${index + 1}: ${parts.join("; ")}`);
   });
-  const blocks = input.restaurants.map((restaurant) => {
-    const pages = restaurant.pages.length === 0 ? ["  (ingen egen sida hittades)"] : restaurant.pages.map((page) => `  Sida: ${page.url}\n  Text: ${page.text.replace(/\s+/g, " ").trim()}`);
-    return [`Restaurang ${restaurant.placeId}`, ...pages].join("\n");
-  });
-  return `${lines.join("\n")}\n\nRestauranger:\n${blocks.join("\n\n")}`;
+  return lines.join("\n");
 }
 
 /**
@@ -1837,6 +1877,8 @@ function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): 
           standard: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: planWeekModels.standard.model, effort: planWeekModels.standard.effort, fetch: options.fetch }),
           careful: createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: planWeekModels.careful.model, effort: planWeekModels.careful.effort, fetch: options.fetch }),
         },
+        // Restaurangagenten: Anthropic's web search tool, with the key and fetch of this adapter.
+        createAnthropicWebSearch({ apiKey: env.ANTHROPIC_API_KEY, fetch: options.fetch }),
       );
     case "openai":
       if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -1855,6 +1897,12 @@ export const menuModels = {
 
 /** planWeek: Haiku 5.5 at low effort, and Sonnet 5.5 at medium for `careful` (and for the retry after a hard violation). */
 export const planWeekModels = {
+  standard: { model: "claude-haiku-5-5", effort: "low" },
+  careful: { model: "claude-sonnet-5-5", effort: "medium" },
+} as const;
+
+/** findRestaurantsWeb: Haiku 5.5 at low effort, and Sonnet 5.5 at medium only when the guard rejected the first answer. */
+export const restaurantWebModels = {
   standard: { model: "claude-haiku-5-5", effort: "low" },
   careful: { model: "claude-sonnet-5-5", effort: "medium" },
 } as const;

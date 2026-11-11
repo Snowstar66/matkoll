@@ -22,19 +22,21 @@ export type RestaurantFlowProps = {
   /** Leaves the flow: back to Menyrådgivarens start, where the photo of the menu is. */
   onClose: () => void;
   /** Hands a found menu text to Menyrådgivaren. Left out: the screen shows the text and the photo way only. */
-  onUseMenu?: (menu: { placeId: string; name: string; menuText: string }) => void;
+  onUseMenu?: (menu: { id: string; name: string; menuText: string }) => void;
   costText?: string;
   /** Test seam for the browser's position. */
   getPosition?: WhereScreenProps["getPosition"];
 };
 
-const placeWords = (location: LocationQuery | null) => (location?.kind === "text" ? location.text : "din plats");
+const placeWords = (location: LocationQuery | null, found: string | null = null) => found ?? (location?.kind === "text" ? location.text : "din plats");
 
 export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosition }: RestaurantFlowProps) {
   const [stage, setStage] = useState<Stage>("where");
   const [settings, setSettings] = useState<RestaurantSettings>(readStoredSettings);
   const [location, setLocation] = useState<LocationQuery | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionView[]>([]);
+  // The city or district the search used (looked up on the server for a position), kept for the headline and the map link.
+  const [foundPlace, setFoundPlace] = useState<string | null>(null);
   const [stop, setStop] = useState<{ kind: StopKind; message?: string } | null>(null);
   const [chosen, setChosen] = useState<SuggestionView | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -67,6 +69,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         return setStage("stop");
       }
       setSuggestions(result.suggestions);
+      setFoundPlace(result.place);
       return setStage("results");
     }
     if (result.status === "needs_location") {
@@ -82,7 +85,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
     setStage("where");
   }
 
-  const where = placeWords(location);
+  const where = placeWords(location, stage === "running" ? null : foundPlace);
   let screen;
   if (stage === "running") screen = <RunningScreen settings={settings} where={where} onCancel={cancel} />;
   else if (stage === "results") {
@@ -91,6 +94,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         suggestions={suggestions}
         settings={settings}
         where={where}
+        place={foundPlace ?? ""}
         onChoose={(suggestion) => {
           setChosen(suggestion);
           setStage("handover");
@@ -106,20 +110,28 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
       <StopScreen
         kind={stop.kind}
         message={stop.message}
-        radiusM={settings.radiusM}
+        cuisines={settings.cuisines}
+        place={location?.kind === "text" ? location.text : null}
         onAdjust={() => setStage("where")}
         onRetry={() => (location ? void find(location) : setStage("where"))}
-        onWiden={(radiusM) => {
-          const next = { ...settings, radiusM };
-          changeSettings(next);
-          if (location) void find(location, next);
-          else setStage("where");
-        }}
         onPhoto={onClose}
       />
     );
   } else {
-    screen = <WhereScreen settings={settings} onSettings={changeSettings} onBack={onClose} onFind={(at) => void find(at)} costText={costText} notice={notice} getPosition={getPosition} />;
+    screen = (
+      <WhereScreen
+        settings={settings}
+        onSettings={changeSettings}
+        onBack={onClose}
+        onFind={(at) => void find(at)}
+        costText={costText}
+        notice={notice}
+        getPosition={getPosition}
+        readMenuLink={actions.readMenuLink}
+        onMenu={onUseMenu ? (menu) => onUseMenu({ id: "menu-link", name: menu.host, menuText: menu.menuText }) : undefined}
+        onPhoto={onClose}
+      />
+    );
   }
   return (
     <div data-testid="restaurant-flow" data-stage={stage}>

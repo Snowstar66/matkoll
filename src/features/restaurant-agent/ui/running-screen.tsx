@@ -1,5 +1,5 @@
 import { SearchIcon, SparkleIcon, PinIcon } from "@/components/icons";
-import { partyText, radiusLabels, texts } from "./format";
+import { partyText, texts } from "./format";
 import type { RestaurantSettings } from "../domain/types";
 import { GhostButton, Headline, StickyFooter } from "./parts";
 
@@ -7,15 +7,15 @@ import { GhostButton, Headline, StickyFooter } from "./parts";
 // is being done and from which source, and that it can be stopped. Stopping ignores the answer when it arrives.
 
 const steps = [
-  { icon: PinIcon, text: "Letar ställen i närheten", source: "Karttjänsten Google Maps" },
-  { icon: SearchIcon, text: "Läser menyerna", source: "Restaurangernas egna hemsidor" },
+  { icon: PinIcon, text: "Söker på webben efter ställen", source: "Webbsökning via Claude" },
+  { icon: SearchIcon, text: "Läser sidorna och letar efter menyer", source: "Bara sidor som sökningen hittade" },
   { icon: SparkleIcon, text: "Väljer ut de som passar er", source: "Efter hushållets smak och allergier" },
 ];
 
 export function RunningScreen({ settings, where, onCancel }: { settings: RestaurantSettings; where: string; onCancel: () => void }) {
   return (
     <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="restaurant-running">
-      <Headline sub={`${partyText(settings.party)}, inom ${radiusLabels[settings.radiusM]} från ${where}`}>{texts.runningTitle}</Headline>
+      <Headline sub={`${partyText(settings.party)}, ${where}`}>{texts.runningTitle}</Headline>
       <ul role="status" aria-live="polite" className="flex flex-col rounded-xl bg-surface px-4 py-1">
         {steps.map((step) => (
           <li key={step.text} className="flex items-start gap-3 border-b border-hairline py-3 last:border-b-0">

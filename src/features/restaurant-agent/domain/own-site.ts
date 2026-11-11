@@ -1,23 +1,24 @@
-// What counts as a restaurant's OWN site, and what we may fetch. Pure. The address of a restaurant's website comes from
-// the finder (an address, not content); the text we use comes from fetching that page ourselves.
+// What we may fetch when a person pastes the link to a restaurant's menu, and which addresses we never connect to. Pure.
 
-/** Hosts that are about a restaurant but are not its own site: social media, review and booking sites, maps. */
-const notOwn = ["facebook.com", "instagram.com", "tripadvisor.", "google.", "yelp.", "thefork.", "bokabord.", "foursquare.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "linktr.ee", "wolt.com", "foodora.", "ubereats.com", "bolt.eu"];
+const maxUrlChars = 2_048;
 
-/** The https URL to fetch for a website address, or null when it is not https, has credentials or a port, or is not an own site. */
-export function ownSiteUrl(value: unknown): string | null {
+/**
+ * The https URL to fetch for a pasted menu link, or null when it is not https (a plain http link is refused, not
+ * upgraded), has credentials or a port, a host without a dot (localhost) or an IP literal, or is too long.
+ */
+export function pastedMenuUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (text === "" || text.length > maxUrlChars) return null;
   let url: URL;
   try {
-    url = new URL(value);
+    url = new URL(text);
   } catch {
     return null;
   }
-  // A plain http address is upgraded: we only ever fetch https.
-  if (url.protocol === "http:") url.protocol = "https:";
   if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || (url.port !== "" && url.port !== "443")) return null;
   const host = url.hostname.toLowerCase();
-  if (!host.includes(".") || notOwn.some((entry) => (entry.endsWith(".") ? host.includes(entry) : host === entry || host.endsWith(`.${entry}`)))) return null;
+  if (!host.includes(".") || /^[\d.]+$/.test(host) || host.includes(":") || host.startsWith("[")) return null;
   url.hash = "";
   return url.toString();
 }

@@ -1182,46 +1182,56 @@ export function parsePlanWeek(answer: PlanWeekAnswer, recipeIds: readonly string
   }));
 }
 
-/** pickRestaurants: at most this many suggestions, and this many reasons per suggestion, are kept. */
-export const maxPickRestaurantSuggestions = 8;
-export const maxPickRestaurantReasons = 3;
+/** findRestaurantsWeb: at most this many suggestions, and this many reasons per suggestion, are kept. */
+export const maxFindRestaurantsSuggestions = 8;
+export const maxFindRestaurantsReasons = 3;
+/** Longest quoted menu text kept per suggestion, in characters. */
+export const maxFindRestaurantsMenuChars = 1_500;
 
 /**
- * What the model answers to pickRestaurants (Restaurangagenten): the restaurants worth going to, best first, each with
- * short reasons that cite the restaurant's own page. Loose on purpose (strings): the feature's guard decides what is
- * valid, so one odd value does not throw away the whole answer.
+ * What the model answers to findRestaurantsWeb (Restaurangagenten) after it searched the web: the restaurants worth
+ * going to, best first, each with short reasons that cite a page the search returned. Loose on purpose (strings and
+ * optionals): the feature's guard decides what is valid, so one odd value does not throw away the whole answer.
  */
-export const pickRestaurantsAnswer = z.object({
-  suggestions: z
-    .array(
-      z.object({
-        placeId: z.string().describe("The id of the restaurant exactly as given"),
-        menuStatus: z.string().describe("found when the restaurant's own text gave something to base a reason on, otherwise missing"),
-        why: z
-          .array(
-            z.object({
-              text: z.string().describe("A short reason in Swedish, only from the restaurant's own text"),
-              sourceUrl: z.string().describe("The page the reason comes from, exactly as given"),
-            }),
-          )
-          .describe("At most two reasons; empty when menuStatus is missing"),
-        warnings: z.array(z.string()).describe("Any of: menu_missing, allergy_unverified, diet_unverified, open_hours_unverified"),
-      }),
-    )
-    .describe("Best first"),
+export const findRestaurantsWebAnswer = z.object({
+  suggestions: z.array(
+    z.object({
+      name: z.string(),
+      area: z.string().nullable().optional(),
+      website: z.string().nullable().optional(),
+      why: z.array(z.object({ text: z.string(), sourceUrl: z.string() })),
+      menu: z.object({ text: z.string(), sourceUrl: z.string() }).nullable().optional(),
+      address: z.object({ text: z.string(), sourceUrl: z.string() }).nullable().optional(),
+      hours: z.object({ text: z.string(), sourceUrl: z.string() }).nullable().optional(),
+      rating: z
+        .object({ value: z.number(), scale: z.number(), count: z.number().nullable().optional(), sourceName: z.string(), sourceUrl: z.string(), quote: z.string() })
+        .nullable()
+        .optional(),
+      warnings: z.array(z.string()).optional(),
+    }),
+  ),
 });
 
-export type PickRestaurantsAnswer = z.output<typeof pickRestaurantsAnswer>;
+export type FindRestaurantsWebAnswer = z.output<typeof findRestaurantsWebAnswer>;
 
-/** The answer with its text cleaned to one line, and bounded in length (not checked: the caller's guard does that). */
-export function parsePickRestaurants(answer: PickRestaurantsAnswer): { placeId: string; menuStatus: string; why: { text: string; sourceUrl: string }[]; warnings: string[] }[] {
-  return answer.suggestions.slice(0, maxPickRestaurantSuggestions).map((row) => ({
-    placeId: row.placeId.trim(),
-    menuStatus: row.menuStatus.trim(),
+/** The answer with its text cleaned to one line (the menu quote keeps its line breaks), and bounded in length. Not checked: the caller's guard does that. */
+export function parseFindRestaurantsWeb(answer: FindRestaurantsWebAnswer) {
+  const line = (text: string | null | undefined) => (text ? cleanModelText(text) : "");
+  const quote = (value: { text: string; sourceUrl: string } | null | undefined) => (value && line(value.text) !== "" ? { text: line(value.text), sourceUrl: value.sourceUrl.trim() } : null);
+  return answer.suggestions.slice(0, maxFindRestaurantsSuggestions).map((row) => ({
+    name: line(row.name),
+    area: line(row.area) || null,
+    website: row.website?.trim() || null,
     why: row.why
-      .map((reason) => ({ text: cleanModelText(reason.text), sourceUrl: reason.sourceUrl.trim() }))
+      .map((reason) => ({ text: line(reason.text), sourceUrl: reason.sourceUrl.trim() }))
       .filter((reason) => reason.text !== "")
-      .slice(0, maxPickRestaurantReasons),
-    warnings: row.warnings.map((warning) => warning.trim()),
+      .slice(0, maxFindRestaurantsReasons),
+    menu: row.menu ? { text: Array.from(row.menu.text.replace(/\r/g, "").replace(/[^\S\n]+/g, " ").trim()).slice(0, maxFindRestaurantsMenuChars).join(""), sourceUrl: row.menu.sourceUrl.trim() } : null,
+    address: quote(row.address),
+    hours: quote(row.hours),
+    rating: row.rating
+      ? { value: row.rating.value, scale: row.rating.scale, count: row.rating.count ?? null, sourceName: line(row.rating.sourceName), sourceUrl: row.rating.sourceUrl.trim(), quote: line(row.rating.quote) }
+      : null,
+    warnings: (row.warnings ?? []).map((warning) => warning.trim()),
   }));
 }

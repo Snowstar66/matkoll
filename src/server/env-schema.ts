@@ -58,10 +58,10 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: optional(z.string()),
   OPENAI_API_KEY: optional(z.string()),
   /**
-   * Restaurangagenten: the Google Places API (New) key. Without it "Hitta restaurang" says the search is not turned on
-   * yet. Server only; restrict it to the Places API (New) in Google Cloud. Vercel Production only.
+   * Restaurangagenten: set to 1 to stop looking up a place name from the phone's position at OpenStreetMap's Nominatim
+   * (their usage policy asks that an app can be switched off without a new release). The typed place still works.
    */
-  GOOGLE_PLACES_API_KEY: optional(z.string()),
+  NOMINATIM_DISABLED: optional(z.string()),
   /**
    * How long the mock takes for an AI-förslag call, in milliseconds (0-30 000,
    * Story 12.4). Only the mock reads it, and only tests set it.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkCap, costSek, maxSearchesPerRun, mayStartSearch, noUsage, runCapSek, usdPerPlacesRequest, usdPerSearch } from "./cost";
+import { checkCap, costSek, maxSearchesPerRun, mayStartSearch, noUsage, runCapSek, usdPerSearch } from "./cost";
 
 const haiku = { usdPerMTokIn: 0.1, usdPerMTokOut: 0.5 };
 const sonnet = { usdPerMTokIn: 2, usdPerMTokOut: 10 };
@@ -8,22 +8,20 @@ describe("costSek", () => {
   it("is 0 for nothing", () => {
     expect(costSek(haiku, noUsage)).toBe(0);
   });
-  it("uses the list prices: 10 USD per 1000 searches, 35 USD per 1000 Places requests, 10 kr per USD", () => {
+  it("uses the list prices: 10 USD per 1000 searches, 10 kr per USD", () => {
     expect(usdPerSearch).toBeCloseTo(0.01);
-    expect(usdPerPlacesRequest).toBeCloseTo(0.035);
     expect(costSek(haiku, { ...noUsage, searches: 1 })).toBeCloseTo(0.1);
-    expect(costSek(haiku, { ...noUsage, placesRequests: 1 })).toBeCloseTo(0.35);
-    expect(costSek(haiku, { ...noUsage, placesRequests: 2, searches: 2 })).toBeCloseTo(0.9);
+    expect(costSek(haiku, { ...noUsage, searches: 2 })).toBeCloseTo(0.2);
   });
   it("counts tokens by model", () => {
     const usage = { ...noUsage, tokensIn: 20_000, tokensOut: 2_000 };
     expect(costSek(haiku, usage)).toBeCloseTo(0.03);
     expect(costSek(sonnet, usage)).toBeCloseTo(0.6);
   });
-  it("a typical run (1 Places, 2 searches, 20k in, 2k out) fits the 2 kr cap on Haiku, and on Sonnet", () => {
-    const run = { tokensIn: 20_000, tokensOut: 2_000, searches: maxSearchesPerRun, placesRequests: 1 };
-    expect(costSek(haiku, run)).toBeCloseTo(0.58, 2);
-    expect(costSek(sonnet, run)).toBeCloseTo(1.15, 2);
+  it("a typical run (2 searches, 20k in, 2k out) fits the 2 kr cap on Haiku, and on Sonnet", () => {
+    const run = { tokensIn: 20_000, tokensOut: 2_000, searches: maxSearchesPerRun };
+    expect(costSek(haiku, run)).toBeCloseTo(0.23, 2);
+    expect(costSek(sonnet, run)).toBeCloseTo(0.8, 2);
     expect(costSek(sonnet, run)).toBeLessThan(runCapSek);
   });
 });

@@ -2,12 +2,12 @@ import type { Release } from "../release";
 
 export const release: Release = {
   date: "2026-11-11",
-  title: "Restaurangagenten: hitta ett ställe att äta på",
+  title: "Äta ute: sök i kartan med dina val ifyllda",
   bullets: [
-    "Nytt Tillval under Äta ute, av från början: slå på Restaurangagenten under Inställningar, Tillval. Då visas ett kort överst i Menyrådgivaren: Vet inte var ni ska äta?",
-    "Du trycker på Använd min plats, eller skriver en ort eller ett postnummer. Telefonen frågar om plats först när du trycker, och platsen sparas aldrig.",
-    "Välj avstånd och hur många ni är, och vad som ska väga mest. Under Sugen på väljer du till exempel Pizza eller Asiatiskt, så hamnar sådana ställen högre upp.",
-    "Du får tre till fem förslag med en mening om varför, och om menyn hittades eller saknas. Ring och kolla öppettiderna före ni åker, de kan vara gamla.",
-    "Hittades menyn på restaurangens hemsida går den vidare till Menyrådgivaren med ett tryck, så väljs rätter åt alla. Saknas menyn tar du en bild på den i stället.",
+    "Nytt Tillval under Äta ute, av från början: slå på Äta ute under Inställningar, Tillval. Då visas ett kort överst i Menyrådgivaren: Vet inte var ni ska äta?",
+    "Sök i kartan med dina val ifyllda: ort, När (Ikväll, Lunch idag, Valfri tid), ungefär hur långt och högst tre sorter. Tryck Sök i Apple Kartor eller Sök i Google Maps, så öppnas kartan utanför appen med en färdig sökning. Öppettider och betyg ser du där. Gratis, ingen AI.",
+    "Klistra in menylänken så föreslår Menyrådgivaren rätter: appen läser sidan (bara https) och väljer rätter åt alla som när du fotar en meny. Är menyn en bild eller PDF tar du ett foto i stället.",
+    "Använd min plats frågar telefonen först när du trycker. Platsen avrundas och används bara för att öppna kartan runt dig, och den sparas aldrig.",
+    "Under Tillval finns också Låt agenten söka på webben, experimentell och av från början: en knapp som söker på webben och läser restaurangernas egna sidor åt dig och ger förslag med källor. Den kostar cirka 1 kr per sökning och räknas in i dagens AI-tak.",
   ],
 };

@@ -7,7 +7,7 @@ import { fakeActions, okResult, salvia, wok } from "@/features/restaurant-agent/
 import { MenuWithRestaurants } from "./menu-with-restaurants";
 
 let actions = fakeActions();
-vi.mock("./restaurant-agent-actions", () => ({ restaurantActions: { findRestaurants: (input: never) => actions.findRestaurants(input) }, restaurantCostText: "" }));
+vi.mock("./restaurant-agent-actions", () => ({ restaurantActions: { findRestaurants: (input: never) => actions.findRestaurants(input), readMenuLink: (url: string) => actions.readMenuLink(url) }, restaurantCostText: "" }));
 const readMenuText = vi.fn();
 vi.mock("@/features/menu-advisor/actions/read-menu-text", () => ({ readMenuText: (input: unknown) => readMenuText(input) }));
 
@@ -40,6 +40,7 @@ describe("MenuWithRestaurants", () => {
 
   async function toHandover(user: ReturnType<typeof userEvent.setup>) {
     saveOption("restaurantAgent", true);
+    saveOption("restaurantAgentWeb", true);
     render(<MenuWithRestaurants members={null} profiles={[]} />);
     await user.click(await screen.findByTestId("restaurant-agent-card"));
     await user.type(screen.getByTestId("restaurant-place-text"), "Uppsala");
@@ -64,5 +65,19 @@ describe("MenuWithRestaurants", () => {
     await user.click(screen.getByTestId("restaurant-photo"));
     expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
     expect(readMenuText).not.toHaveBeenCalled();
+  });
+
+  it("hands the text of a pasted menu link to Menyrådgivaren, with the AI web search off", async () => {
+    saveOption("restaurantAgent", true);
+    const user = userEvent.setup();
+    render(<MenuWithRestaurants members={null} profiles={[]} />);
+    await user.click(await screen.findByTestId("restaurant-agent-card"));
+    expect(screen.queryByTestId("restaurant-find")).toBeNull();
+    await user.type(screen.getByTestId("menu-link-input"), "https://trattoriasalvia.example/meny");
+    await user.click(screen.getByTestId("menu-link-read"));
+    expect(actions.readMenuLink).toHaveBeenCalledWith("https://trattoriasalvia.example/meny");
+    await waitFor(() => expect(readMenuText).toHaveBeenCalledTimes(1));
+    expect(readMenuText).toHaveBeenCalledWith({ text: "Pasta al pomodoro 135 kr\nPizza margherita 125 kr", quality: "standard" });
+    expect(actions.findRestaurants).not.toHaveBeenCalled();
   });
 });

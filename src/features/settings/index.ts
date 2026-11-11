@@ -22,7 +22,6 @@ export {
   stockholmMonth,
   usageCostSek,
   meteredUnitsUsd,
-  type MeteredKind,
   type AiMonthUsage,
   type ModelUsage,
 } from "./domain/ai-usage";
