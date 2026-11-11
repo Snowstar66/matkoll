@@ -46,6 +46,6 @@ export { getWeekAgentContext } from "./read-context";
 // The Server Actions of Veckoagenten (AD-1): a page passes them down to the UI, which cannot import this module's server code.
 export { proposeWeek } from "./actions/propose-week";
 export { alternativesForDay, setDayLock, swapDay } from "./actions/day-actions";
-export { applyWeek, discardDraft, undoWeek } from "./actions/apply-week";
+export { applyWeek, currentWeek, discardDraft, undoWeek } from "./actions/apply-week";
 export { saveWeekAgentSettings } from "./actions/settings-actions";
 export { planWithAi, toPortInput, type AiPlanOutcome, type PlanMode, type PlanModel } from "./ai-plan";

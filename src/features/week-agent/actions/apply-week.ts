@@ -5,13 +5,13 @@ import { clampServings } from "@/features/mealplan";
 import { addAgentDishes, undoAgentDishes, type WeekDish } from "@/features/mealplan/server";
 import { getShoppingList } from "@/features/shopping/server";
 import { createClient } from "@/lib/supabase/server";
-import { finishDraftIn, finishDraftUsedIn, readDraftAnyStatusIn, reopenUsedDraftIn } from "../data/week-agent";
+import { finishDraftIn, finishDraftUsedIn, readDraftAnyStatusIn, readDraftIn, readLatestUsedIn, reopenUsedDraftIn } from "../data/week-agent";
 import { appliedWeekSchema } from "../domain/proposal";
 import { applyPlan } from "../domain/apply";
 import { dishIdFor } from "../dish-id";
 import { isPlannableWeek, readApplyFacts } from "../context";
-import type { ApplyWeekInput, ApplyWeekResult, DiscardDraftInput, OkOrError, UndoWeekInput, UndoWeekResult } from "./contract";
-import { draftById, guarded, messages, signedIn } from "./support";
+import type { ApplyWeekInput, CurrentWeekInput, CurrentWeekResult, ApplyWeekResult, DiscardDraftInput, OkOrError, UndoWeekInput, UndoWeekResult } from "./contract";
+import { draftById, guarded, messages, noDraftError, signedIn } from "./support";
 
 const applySchema = z.object({ draftId: z.uuid(), weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), overwrite: z.boolean().optional(), replaceAgentDays: z.boolean().optional() });
 const discardSchema = z.object({ draftId: z.uuid() });
@@ -38,7 +38,7 @@ export async function applyWeek(input: ApplyWeekInput): Promise<ApplyWeekResult>
 
   return guarded(async (): Promise<ApplyWeekResult> => {
     const draft = await draftById(draftId);
-    if (!draft || draft.weekStart !== weekStart) return { status: "error", message: messages.noDraft };
+    if (!draft || draft.weekStart !== weekStart) return noDraftError;
 
     const { dishes, servingsOf } = await readApplyFacts(weekStart);
     // The dishes this very draft wrote earlier (a retry) are ours, never "occupied" and never "replaced".
@@ -106,7 +106,7 @@ export async function undoWeek(input: UndoWeekInput): Promise<UndoWeekResult> {
   return guarded(async (): Promise<UndoWeekResult> => {
     const db = await createClient();
     const used = await readDraftAnyStatusIn(db, parsed.data.draftId);
-    if (!used) return { status: "error", message: messages.noDraft };
+    if (!used) return noDraftError;
     if (used.status !== "used") return { status: "ok", removed: [], restored: [] };
     const applied = used.applied ?? { writtenDays: [], replaced: [] };
     await undoAgentDishes(
@@ -127,6 +127,27 @@ export async function discardDraft(input: DiscardDraftInput): Promise<OkOrError>
   if (!parsed.success) return { status: "error", message: messages.invalid };
   return guarded(async (): Promise<OkOrError> => {
     const done = await finishDraftIn(await createClient(), parsed.data.draftId, "discarded");
-    return done ? { status: "ok" } : { status: "error", message: messages.noDraft };
+    return done ? { status: "ok" } : noDraftError;
+  });
+}
+
+/**
+ * What a screen does when an action answers `no_draft`: the week's state as it is now. A new draft (made on another
+ * phone, or by "Gör om") is handed over; otherwise `used` says the week was already used and whether Ångra can still
+ * undo it. Read-only.
+ */
+export async function currentWeek(input: CurrentWeekInput): Promise<CurrentWeekResult> {
+  const user = await signedIn();
+  if (!user.ok) return { status: "error", message: user.message };
+  const parsed = z.object({ weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse(input);
+  if (!parsed.success || !isPlannableWeek(parsed.data.weekStart)) return { status: "error", message: messages.badWeek };
+  return guarded(async (): Promise<CurrentWeekResult> => {
+    const db = await createClient();
+    const [draft, used] = await Promise.all([readDraftIn(db, parsed.data.weekStart), readLatestUsedIn(db, parsed.data.weekStart)]);
+    return {
+      status: "ok",
+      draft: draft ? { id: draft.id, proposal: draft.proposal, model: draft.model } : null,
+      used: !draft && used ? { draftId: used.id, undoable: used.applied !== null && used.applied.writtenDays.length > 0 } : null,
+    };
   });
 }

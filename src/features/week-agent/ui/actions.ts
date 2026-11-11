@@ -3,6 +3,8 @@ import type {
   AlternativesResult,
   ApplyWeekInput,
   ApplyWeekResult,
+  CurrentWeekInput,
+  CurrentWeekResult,
   DiscardDraftInput,
   DraftResult,
   OkOrError,
@@ -26,6 +28,8 @@ export type WeekAgentActions = {
   apply: (input: ApplyWeekInput) => Promise<ApplyWeekResult>;
   discard: (input: DiscardDraftInput) => Promise<OkOrError>;
   /** Takes back what `apply` did (removes its dishes, puts back what it replaced). Left out: "Använd veckan" then has no Ångra. */
+  /** The week's state now, for a screen whose draft is gone (`code: "no_draft"`). Left out: the screen offers a new proposal. */
+  current?: (input: CurrentWeekInput) => Promise<CurrentWeekResult>;
   undo?: (input: UndoWeekInput) => Promise<UndoWeekResult>;
 };
 
