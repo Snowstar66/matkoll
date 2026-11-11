@@ -25,7 +25,7 @@ export const placePhotoBucket = "pantry-photo";
 
 /**
  * The most files a household keeps in the bucket (S-10, photo_household_cap in
- * 20261111100000_photo_caps.sql): one latest photo per place and location is
+ * 20261111130000_photo_caps.sql): one latest photo per place and location is
  * at most maxSites x 3 = 30, so this leaves room for files a sweep has not
  * taken yet, and stops a flood of uploads made past the app.
  */

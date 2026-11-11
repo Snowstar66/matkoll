@@ -5,7 +5,7 @@ import { thingPhotoBucket, thingPhotoHouseholdCap, thingPhotoMediaTypes, thingPh
 import { maxImageBytes } from "@/lib/images";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, householdOf, localSql, moveToHousehold, type TestUser } from "./support";
 
-// The photo caps (security review S-10, 20261111100000_photo_caps.sql): a
+// The photo caps (security review S-10, 20261111130000_photo_caps.sql): a
 // household keeps at most placePhotoHouseholdCap files in pantry-photo and
 // thingPhotoHouseholdCap in thing-photo, counted over its members' folders.
 // An upload past the cap is refused by the bucket's insert policy, straight
