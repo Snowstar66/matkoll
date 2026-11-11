@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
 import { getMemberPeople } from "@/features/household/server";
 import { getSavedFoodPeople } from "@/features/menu-advisor/server";
-import { MenuAdvisor } from "@/features/menu-advisor/ui/menu-advisor";
+import { MenuWithRestaurants } from "./menu-with-restaurants";
 
 export const metadata: Metadata = { title: "Menyrådgivare" };
 
@@ -24,5 +24,5 @@ export default function MenuAdvisorPage() {
 
 async function Advisor() {
   const [members, profiles] = await Promise.all([getMemberPeople(), getSavedFoodPeople()]);
-  return <MenuAdvisor members={members} profiles={profiles} />;
+  return <MenuWithRestaurants members={members} profiles={profiles} />;
 }
