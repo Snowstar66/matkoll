@@ -23,6 +23,14 @@ import { definite } from "./places";
 /** The private Storage bucket of the photos (AD-26). Never public, never a signed URL. */
 export const placePhotoBucket = "pantry-photo";
 
+/**
+ * The most files a household keeps in the bucket (S-10, photo_household_cap in
+ * 20261111100000_photo_caps.sql): one latest photo per place and location is
+ * at most maxSites x 3 = 30, so this leaves room for files a sweep has not
+ * taken yet, and stops a flood of uploads made past the app.
+ */
+export const placePhotoHouseholdCap = 100;
+
 /** The image types a kept photo may have: the client's canvas gives JPEG, a small PNG is sent as it is. */
 export const placePhotoMediaTypes = ["image/jpeg", "image/png"] as const;
 export type PlacePhotoMediaType = (typeof placePhotoMediaTypes)[number];

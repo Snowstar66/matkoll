@@ -133,6 +133,8 @@ export const errorMessages = {
   // Pontus: the code is only logged and sent to the client, which shows
   // nothing for it. The other two are shown in the photo's sheet (Story 10.2).
   pantry_photo_failed: "Det gick inte att spara fotot.",
+  // S-10: the household has placePhotoHouseholdCap (100) photos in Storage. Only logged, like pantry_photo_failed.
+  pantry_photo_cap: "Hushållet har redan 100 sparade kylfoton.",
   pantry_photo_gone: "Fotot finns inte längre.",
   pantry_photo_remove_failed: "Det gick inte att ta bort fotot. Försök igen.",
   // Prylar (Epic 18): places, cards and the things read from them. Nothing here touches food.
@@ -144,6 +146,8 @@ export const errorMessages = {
   // The place was removed elsewhere, or the boende was: the view is read again.
   things_place_gone: "Platsen finns inte längre.",
   things_photo_failed: "Det gick inte att spara fotot. Försök igen.",
+  // S-10: the household has thingPhotoHouseholdCap (300) cards' photos; trying again helps only once some are removed.
+  things_photo_cap: "Hushållet har nått taket på 300 kort. Ta bort några kort och försök igen.",
   things_card_gone: "Kortet finns inte längre.",
   // Förnya och ta bort (Story 18.3): the card or thing stays, or "Ångra" did not go.
   things_card_remove_failed: "Det gick inte att ta bort kortet. Försök igen.",

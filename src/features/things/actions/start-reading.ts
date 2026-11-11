@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { ThingsDataError, type ThingsDb } from "../data/client";
 import {
+  cardFileRoomIn,
   downloadCardFile,
   insertCardIn,
   loadCardIn,
@@ -174,6 +175,12 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
   try {
     await uploadCardFile(db, path, image.data, image.mediaType);
   } catch (error) {
+    if ((await cardFileRoomIn(db)) === false) {
+      // S-10: the household has thingPhotoHouseholdCap card files. Files without a card may hold the room, so the sweep runs now.
+      console.info("things_photo_failed", { reason: "photo_cap" });
+      await sweepCardFilesIn(db, user.data.id);
+      return fail("things_photo_cap");
+    }
     console.error("things_photo_failed", { reason: error instanceof ThingsDataError ? error.detail : "upload_threw" });
     return fail("things_photo_failed");
   }

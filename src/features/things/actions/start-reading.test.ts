@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ok } from "@/lib/errors";
+import { fail, ok } from "@/lib/errors";
 import { startCardReading } from "./start-reading";
 
 // startCardReading with stand-ins for the session, the database and the queue:
@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => {
   return {
     deleted,
     removeCardFiles: vi.fn(async () => ({ failed: null })),
+    uploadCardFile: vi.fn(async (): Promise<void> => undefined),
+    cardFileRoomIn: vi.fn(async (): Promise<boolean | null> => true),
+    sweepCardFilesIn: vi.fn(async () => 0),
+    insertCardIn: vi.fn(async () => "saved"),
     enqueueAiJob: vi.fn(),
     db: {
       from: () => ({
@@ -32,8 +36,9 @@ vi.mock("@/features/ai-jobs/server", () => ({ enqueueAiJob: mocks.enqueueAiJob, 
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => mocks.db }));
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: vi.fn() }));
 vi.mock("../data/photos", () => ({
-  uploadCardFile: vi.fn(async () => undefined),
-  insertCardIn: vi.fn(async () => "saved"),
+  uploadCardFile: mocks.uploadCardFile,
+  cardFileRoomIn: mocks.cardFileRoomIn,
+  insertCardIn: mocks.insertCardIn,
   loadCardIn: vi.fn(),
   markCardFailedIn: vi.fn(),
   reopenCardIn: vi.fn(),
@@ -42,7 +47,7 @@ vi.mock("../data/photos", () => ({
   removeCardFiles: mocks.removeCardFiles,
 }));
 vi.mock("./merge-card", () => ({ mergeCardWithRoom: vi.fn() }));
-vi.mock("./sweep-card-files", () => ({ sweepCardFilesIn: vi.fn() }));
+vi.mock("./sweep-card-files", () => ({ sweepCardFilesIn: mocks.sweepCardFilesIn }));
 
 /** The smallest JPEG the cleaner accepts: SOI, a frame, a scan with one byte of data, EOI. */
 const jpeg = new Uint8Array([
@@ -62,6 +67,11 @@ describe("startCardReading", () => {
     mocks.deleted.length = 0;
     mocks.removeCardFiles.mockClear();
     mocks.enqueueAiJob.mockReset();
+    mocks.uploadCardFile.mockReset().mockResolvedValue(undefined);
+    mocks.cardFileRoomIn.mockReset().mockResolvedValue(true);
+    mocks.sweepCardFilesIn.mockReset().mockResolvedValue(0);
+    mocks.insertCardIn.mockClear();
+    vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -77,5 +87,20 @@ describe("startCardReading", () => {
     const result = await startCardReading(input);
     expect(result.ok).toBe(true);
     expect(mocks.deleted).toHaveLength(0);
+  });
+
+  it("gives things_photo_cap when the household is at its cap (S-10), sweeps files without a card, and saves no card", async () => {
+    mocks.uploadCardFile.mockRejectedValue(new Error("upload_failed 403"));
+    mocks.cardFileRoomIn.mockResolvedValue(false);
+    expect(await startCardReading(input)).toEqual(fail("things_photo_cap"));
+    expect(mocks.sweepCardFilesIn).toHaveBeenCalledWith(mocks.db, "user-1");
+    expect(mocks.insertCardIn).not.toHaveBeenCalled();
+  });
+
+  it("gives things_photo_failed for another failed upload", async () => {
+    mocks.uploadCardFile.mockRejectedValue(new Error("upload_failed 500"));
+    mocks.cardFileRoomIn.mockResolvedValue(true);
+    expect(await startCardReading(input)).toEqual(fail("things_photo_failed"));
+    expect(mocks.sweepCardFilesIn).not.toHaveBeenCalled();
   });
 });
