@@ -57,7 +57,10 @@ const failedText = "Det gick inte att ta fram ett förslag. Försök igen.";
 
 export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, initialDraft, autoStart, redo: redoProp = null, actions, settings, onStarted }: ProposalScreenProps) {
   // The address loses ?gor-om as soon as the run has started (onStarted), so the page passes no redo after that: the screen keeps the one it was opened with.
-  const [redo] = useState(redoProp);
+  // On for a full-week redo, and after "Gör nytt förslag" on a week that was already used: the agent's days are planned and replaced again.
+  const [replaceMode, setReplaceMode] = useState(redoProp !== null);
+  // The draft the screen held is gone (used, replaced elsewhere): what the week looks like now.
+  const [stale, setStale] = useState<null | { kind: "used"; draftId: string; undoable: boolean } | { kind: "none" }>(null);
   const router = useRouter();
   const { showToast } = useToast();
   const on = useOption("weekAgent");
@@ -74,7 +77,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
   const [conflict, setConflict] = useState<null | { written: number[]; skipped: number[]; toBuy?: number | null }>(null);
   const [busy, setBusy] = useState(false);
   // The redo is meant for the run that was asked for; once it has happened the draft is what is shown and applied.
-  const overwrite = redo !== null;
+  const overwrite = replaceMode;
   const started = useRef(false);
   const cancelled = useRef(false);
 
@@ -89,7 +92,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
       const locked = current ? current.proposal.days.filter((day) => day.locked).map((day) => day.dayIndex) : undefined;
       let result;
       try {
-        result = await actions.propose({ weekStart, mode, ...(locked ? { lockedDays: locked } : {}), ...(redo ? { replaceAgentDays: true } : {}) });
+        result = await actions.propose({ weekStart, mode, ...(locked ? { lockedDays: locked } : {}), ...(replaceMode ? { replaceAgentDays: true } : {}) });
       } catch {
         if (cancelled.current) return;
         if (current) {
@@ -119,7 +122,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
         setNotice(result.message);
       } else setPhase({ kind: "error", message: result.message });
     },
-    [actions, redo, weekStart],
+    [actions, replaceMode, weekStart],
   );
 
   // The user tapped the card: the run starts on arrival (once; Strict Mode runs effects twice).
@@ -164,12 +167,64 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
     try {
       const result = await actions.setLock({ draftId: draft.id, dayIndex, locked });
       if (result.status === "ok") setDraft({ ...draft, proposal: result.proposal });
+      else if (result.code === "no_draft") void recover();
       else setNotice(result.message);
     } catch {
       setNotice("Det gick inte att låsa dagen. Försök igen.");
     } finally {
       setBusy(false);
     }
+  }
+
+  /** An action answered `no_draft`: read the week again. A newer draft is shown; a used week says so; otherwise a new proposal is offered. */
+  async function recover() {
+    setSwapDay(null);
+    setConfirm(null);
+    setConflict(null);
+    const current = actions.current;
+    let result: Awaited<ReturnType<NonNullable<typeof current>>> | null = null;
+    if (current) {
+      try {
+        result = await current({ weekStart });
+      } catch {
+        result = null;
+      }
+    }
+    if (result?.status === "ok" && result.draft) {
+      setDraft(result.draft);
+      setModel(result.draft.model);
+      setStale(null);
+      setNotice("Det här förslaget var inte längre aktuellt. Här är det nya.");
+      return;
+    }
+    setDraft(null);
+    setNotice(null);
+    setStatus(null);
+    setPhase({ kind: "ready" });
+    setStale(result?.status === "ok" && result.used ? { kind: "used", ...result.used } : { kind: "none" });
+  }
+
+  async function undoUsed(draftId: string) {
+    const undo = actions.undo;
+    if (!undo || busy) return;
+    setBusy(true);
+    try {
+      const result = await undo({ draftId });
+      if (result.status === "ok") {
+        router.refresh();
+        await recover();
+      } else setNotice(result.message);
+    } catch {
+      setNotice("Det gick inte att ångra. Försök igen.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startNew() {
+    setStale(null);
+    setReplaceMode(stale?.kind === "used");
+    void run("plan", null);
   }
 
   async function finish(written: number[], kept: number, draftId: string, toBuy?: number | null) {
@@ -201,9 +256,10 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
     setNotice(null);
     setConfirm(null);
     try {
-      const result = await actions.apply({ draftId: draft.id, weekStart, ...(withOverwrite ? { overwrite: true } : {}), ...(redo ? { replaceAgentDays: true } : {}) });
+      const result = await actions.apply({ draftId: draft.id, weekStart, ...(withOverwrite ? { overwrite: true } : {}), ...(replaceMode ? { replaceAgentDays: true } : {}) });
       if (result.status === "error") {
-        setNotice(result.message);
+        if (result.code === "no_draft") void recover();
+        else setNotice(result.message);
         return;
       }
       if (result.skippedOccupied.length > 0 && !withOverwrite) {
@@ -236,7 +292,8 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
         showToast("Utkastet slängdes.");
         return;
       }
-      setNotice(result.message);
+      if (result.code === "no_draft") void recover();
+      else setNotice(result.message);
     } catch {
       setNotice("Det gick inte att slänga utkastet. Försök igen.");
     } finally {
@@ -319,7 +376,24 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
           </div>
         ) : null}
 
-        {phase.kind === "ready" && !draft ? (
+        {phase.kind === "ready" && !draft && stale ? (
+          <div className="flex flex-col gap-3 py-6" data-testid="week-agent-stale">
+            {notice ? <Notice role="alert">{notice}</Notice> : null}
+            <p className="text-body text-ink-2" data-testid="week-agent-stale-text">
+              {stale.kind === "used" ? "Veckan är redan använd. Förslaget ligger i Matsedel." : "Det här förslaget är inte längre aktuellt."}
+            </p>
+            {stale.kind === "used" && stale.undoable && actions.undo ? (
+              <Button fullWidth disabled={busy} onClick={() => void undoUsed(stale.draftId)} data-testid="week-agent-stale-undo">
+                Ångra
+              </Button>
+            ) : null}
+            <Button variant={stale.kind === "used" && stale.undoable && actions.undo ? "secondary" : "primary"} fullWidth disabled={busy} onClick={startNew} data-testid="week-agent-stale-new">
+              Gör nytt förslag
+            </Button>
+          </div>
+        ) : null}
+
+        {phase.kind === "ready" && !draft && !stale ? (
           <div className="flex flex-col gap-3 py-6" data-testid="week-agent-nodraft">
             <p className="text-body text-ink-2">Inget utkast för vecka {weekNumber} än. Ett förslag tas fram av dina recept och sparas inte förrän du trycker Använd veckan.</p>
             <Button fullWidth onClick={() => void run("plan", null)}>
@@ -381,7 +455,7 @@ export function ProposalScreen({ weekStart, weekNumber, backHref, recipesHref, i
         ) : null}
       </div>
 
-      {draft ? <AlternativesSheet open={swapDay !== null} onClose={() => setSwapDay(null)} draftId={draft.id} dayIndex={swapDay ?? 1} actions={actions} onChosen={(next) => { setDraft({ ...draft, proposal: next }); setSwapDay(null); }} /> : null}
+      {draft ? <AlternativesSheet open={swapDay !== null} onClose={() => setSwapDay(null)} draftId={draft.id} dayIndex={swapDay ?? 1} actions={actions} onChosen={(next) => { setDraft({ ...draft, proposal: next }); setSwapDay(null); }} onNoDraft={() => void recover()} /> : null}
       <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} actions={settings.actions} cost={settings.cost} preloaded={settings.preloaded} />
 
       <Sheet

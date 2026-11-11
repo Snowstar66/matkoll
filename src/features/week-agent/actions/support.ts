@@ -12,11 +12,14 @@ import type { WeekAgentSettings } from "../domain/settings";
 export const messages = {
   signedOut: "Du behöver logga in igen.",
   invalid: "Något gick fel med uppgifterna. Försök igen.",
-  noDraft: "Förslaget finns inte längre, eller är redan använt. Gör ett nytt.",
+  noDraft: "Det här förslaget är inte längre aktuellt. Vi hämtar ett nytt.",
   unavailable: "Det gick inte att läsa eller spara just nu. Försök igen om en stund.",
   badWeek: "Veckan går inte att planera: välj den här veckan eller en kommande.",
   weekFull: "Alla dagar har redan en rätt.",
 } as const;
+
+/** The answer when the draft a screen holds is gone (used, replaced from elsewhere, discarded). Carries a code so the screen reads the week again instead of matching on the text. */
+export const noDraftError = { status: "error", message: messages.noDraft, code: "no_draft" } as const;
 
 export type Signed = { ok: true } | { ok: false; message: string };
 

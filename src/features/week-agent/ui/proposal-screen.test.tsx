@@ -189,6 +189,54 @@ describe("ProposalScreen: Använd veckan", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it("a second Använd veckan on a used draft (back button, double tap) reads the week again and shows the new draft instead of a dead end", async () => {
+    const user = userEvent.setup();
+    const next = draft(proposalAroundFixed());
+    const actions = fakeActions({
+      apply: vi.fn(async () => ({ status: "error" as const, message: "x", code: "no_draft" as const })),
+      current: vi.fn(async () => ({ status: "ok" as const, draft: { id: "30000000-0000-4000-8000-000000000009", proposal: next.proposal, model: "haiku-5.5" }, used: null })),
+    });
+    render(screenWith({ initialDraft: draft(proposalAroundFixed()), actions }).ui);
+    await user.click(screen.getByTestId("proposal-use"));
+    await waitFor(() => expect(actions.current).toHaveBeenCalledWith({ weekStart }));
+    expect(await screen.findByText("Det här förslaget var inte längre aktuellt. Här är det nya.")).toBeInTheDocument();
+    await user.click(screen.getByTestId("proposal-use"));
+    await waitFor(() => expect(actions.apply).toHaveBeenLastCalledWith({ draftId: "30000000-0000-4000-8000-000000000009", weekStart }));
+  });
+
+  it("a week that was already used says so, with Ångra and Gör nytt förslag; Ångra brings the draft back", async () => {
+    const user = userEvent.setup();
+    const back = draft(proposalAroundFixed());
+    const current = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "ok", draft: null, used: { draftId, undoable: true } })
+      .mockResolvedValueOnce({ status: "ok", draft: { id: draftId, proposal: back.proposal, model: "haiku-5.5" }, used: null });
+    const actions = fakeActions({ setLock: vi.fn(async () => ({ status: "error" as const, message: "x", code: "no_draft" as const })), current });
+    render(screenWith({ initialDraft: draft(proposalAroundFixed()), actions }).ui);
+    await user.click(screen.getAllByRole("button", { name: /lås|Lås/ })[0]);
+    expect(await screen.findByTestId("week-agent-stale-text")).toHaveTextContent("Veckan är redan använd.");
+    expect(screen.getByTestId("week-agent-stale-new")).toBeInTheDocument();
+    await user.click(screen.getByTestId("week-agent-stale-undo"));
+    await waitFor(() => expect(actions.undo).toHaveBeenCalledWith({ draftId }));
+    expect(await screen.findByTestId("proposal-use")).toBeInTheDocument();
+  });
+
+  it("with no draft and no used week it offers Gör nytt förslag, which starts a proposal at once", async () => {
+    const user = userEvent.setup();
+    const actions = fakeActions({
+      discard: vi.fn(async () => ({ status: "error" as const, message: "x", code: "no_draft" as const })),
+      current: vi.fn(async () => ({ status: "ok" as const, draft: null, used: null })),
+    });
+    render(screenWith({ initialDraft: draft(proposalAroundFixed()), actions }).ui);
+    await user.click(screen.getByRole("button", { name: "Fler val för förslaget" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Släng utkast/ }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Släng utkast" }));
+    expect(await screen.findByTestId("week-agent-stale-text")).toHaveTextContent("inte längre aktuellt");
+    expect(screen.queryByTestId("week-agent-stale-undo")).toBeNull();
+    await user.click(screen.getByTestId("week-agent-stale-new"));
+    await waitFor(() => expect(actions.propose).toHaveBeenCalled());
+  });
+
   it("has no Ångra when the backend has no undo", async () => {
     const user = userEvent.setup();
     render(screenWith({ initialDraft: draft(), actions: fakeActions({}, false) }).ui);

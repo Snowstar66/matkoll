@@ -121,6 +121,7 @@ export function AlternativesSheet({
   dayIndex,
   actions,
   onChosen,
+  onNoDraft,
 }: {
   open: boolean;
   onClose: () => void;
@@ -129,17 +130,19 @@ export function AlternativesSheet({
   actions: WeekAgentActions;
   /** The proposal after the swap. */
   onChosen: (proposal: WeekProposal) => void;
+  /** The draft is gone (answer code no_draft): the screen reads the week again. */
+  onNoDraft: () => void;
 }) {
   const [choosing, setChoosing] = useState(false);
   return (
     <Sheet open={open} onClose={onClose} title={`Byt ${dayWord(dayIndex)}`} closeLabel="Avbryt" preventClose={choosing}>
       {/* Mounted only while the sheet is open, so each opening starts a fresh read. */}
-      <AlternativesList draftId={draftId} dayIndex={dayIndex} actions={actions} onChosen={onChosen} onChoosing={setChoosing} />
+      <AlternativesList draftId={draftId} dayIndex={dayIndex} actions={actions} onChosen={onChosen} onChoosing={setChoosing} onNoDraft={onNoDraft} />
     </Sheet>
   );
 }
 
-function AlternativesList({ draftId, dayIndex, actions, onChosen, onChoosing }: { draftId: string; dayIndex: number; actions: WeekAgentActions; onChosen: (proposal: WeekProposal) => void; onChoosing: (choosing: boolean) => void }) {
+function AlternativesList({ draftId, dayIndex, actions, onChosen, onChoosing, onNoDraft }: { onNoDraft: () => void; draftId: string; dayIndex: number; actions: WeekAgentActions; onChosen: (proposal: WeekProposal) => void; onChoosing: (choosing: boolean) => void }) {
   const [options, setOptions] = useState<AlternativeOption[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<string | null>(null);
@@ -151,6 +154,7 @@ function AlternativesList({ draftId, dayIndex, actions, onChosen, onChoosing }: 
       (result) => {
         if (!live) return;
         if (result.status === "ok") setOptions(result.options);
+        else if (result.code === "no_draft") onNoDraft();
         else setError(result.message);
       },
       () => live && setError("Det gick inte att hämta andra rätter. Försök igen."),
@@ -171,7 +175,8 @@ function AlternativesList({ draftId, dayIndex, actions, onChosen, onChoosing }: 
         onChosen(result.proposal);
         return;
       }
-      setError(result.message);
+      if (result.code === "no_draft") onNoDraft();
+      else setError(result.message);
     } catch {
       setError("Det gick inte att byta. Försök igen.");
     } finally {

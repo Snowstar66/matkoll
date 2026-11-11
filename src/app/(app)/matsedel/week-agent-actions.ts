@@ -5,6 +5,7 @@ import { listStores } from "@/features/settings/server";
 import {
   alternativesForDay as realAlternatives,
   applyWeek as realApply,
+  currentWeek as realCurrent,
   discardDraft as realDiscard,
   getAgentPlacedDays,
   getWeekAgentSettings,
@@ -20,6 +21,8 @@ import type {
   AlternativesResult,
   ApplyWeekInput,
   ApplyWeekResult,
+  CurrentWeekInput,
+  CurrentWeekResult,
   DiscardDraftInput,
   DraftResult,
   OkOrError,
@@ -53,6 +56,9 @@ export async function applyWeek(input: ApplyWeekInput): Promise<ApplyWeekResult>
 }
 export async function undoWeek(input: UndoWeekInput): Promise<UndoWeekResult> {
   return realUndo(input);
+}
+export async function currentWeek(input: CurrentWeekInput): Promise<CurrentWeekResult> {
+  return realCurrent(input);
 }
 export async function discardDraft(input: DiscardDraftInput): Promise<OkOrError> {
   return realDiscard(input);

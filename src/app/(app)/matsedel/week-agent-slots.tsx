@@ -6,6 +6,7 @@ import { ProposalScreen, type ProposalDraft, type SettingsActions, type WeekAgen
 import {
   alternativesForDay,
   applyWeek,
+  currentWeek,
   discardDraft,
   loadAgentDays,
   loadWeekAgentSettings,
@@ -32,6 +33,7 @@ const actions: WeekAgentActions = {
   apply: applyWeek,
   discard: discardDraft,
   undo: undoWeek,
+  current: currentWeek,
 };
 
 /** The card at the top of Matsedel; nothing unless the Tillval is on and the week has days to fill. */

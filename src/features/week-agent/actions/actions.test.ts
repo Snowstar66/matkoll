@@ -59,6 +59,10 @@ vi.mock("../data/week-agent", () => ({
     if (draft) Object.assign(draft, { status: "used", applied });
     return Boolean(draft);
   },
+  readLatestUsedIn: async (_db: unknown, week: string) => {
+    const draft = [...world.drafts].reverse().find((entry) => entry.weekStart === week && entry.status === "used");
+    return draft ? { id: draft.id, weekStart: draft.weekStart, status: draft.status, proposal: draft.proposal, applied: draft.applied ?? null } : null;
+  },
   readDraftAnyStatusIn: async (_db: unknown, id: string) => {
     const draft = world.drafts.find((entry) => entry.id === id);
     return draft ? { id: draft.id, weekStart: draft.weekStart, status: draft.status, proposal: draft.proposal, applied: draft.applied ?? null } : null;
@@ -100,7 +104,7 @@ const planWeek = vi.fn();
 
 const { proposeWeek } = await import("./propose-week");
 const { alternativesForDay, setDayLock, swapDay } = await import("./day-actions");
-const { applyWeek, discardDraft, undoWeek } = await import("./apply-week");
+const { applyWeek, currentWeek, discardDraft, undoWeek } = await import("./apply-week");
 const { saveWeekAgentSettings } = await import("./settings-actions");
 const { getWeekAgentContext } = await import("../read-context");
 
@@ -427,7 +431,7 @@ describe("applyWeek", () => {
     const { draftId } = await draftWeek();
     expect((await applyWeek({ draftId, weekStart: week })).status).toBe("ok");
     const before = world.dishes.length;
-    expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ status: "error", message: expect.stringContaining("redan använt") });
+    expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ status: "error", code: "no_draft" });
     expect(world.dishes).toHaveLength(before);
     expect(world.addCalls).toHaveLength(1);
   });
@@ -559,6 +563,37 @@ describe("full-week Gör om (replaceAgentDays) and undoWeek", () => {
       world.signedIn = false;
       expect(await undoWeek({ draftId })).toMatchObject({ status: "error", message: expect.stringContaining("logga in") });
     });
+  });
+});
+
+describe("no_draft and currentWeek", () => {
+  it("answers every action on a gone draft with code no_draft", async () => {
+    const { draftId } = await draftWeek();
+    await applyWeek({ draftId, weekStart: week });
+    expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ status: "error", code: "no_draft" });
+    expect(await setDayLock({ draftId, dayIndex: 1, locked: true })).toMatchObject({ status: "error", code: "no_draft" });
+    expect(await alternativesForDay({ draftId, dayIndex: 1 })).toMatchObject({ status: "error", code: "no_draft" });
+    expect(await swapDay({ draftId, dayIndex: 1, recipeId: rid(9) })).toMatchObject({ status: "error", code: "no_draft" });
+    expect(await discardDraft({ draftId })).toMatchObject({ status: "error", code: "no_draft" });
+    expect(await applyWeek({ draftId, weekStart: week })).toMatchObject({ message: "Det här förslaget är inte längre aktuellt. Vi hämtar ett nytt." });
+  });
+
+  it("tells a replaced draft's screen about the new draft", async () => {
+    const first = await draftWeek();
+    const second = await draftWeek();
+    expect(await applyWeek({ draftId: first.draftId, weekStart: week })).toMatchObject({ code: "no_draft" });
+    const result = await currentWeek({ weekStart: week });
+    expect(result).toMatchObject({ status: "ok", draft: { id: second.draftId }, used: null });
+  });
+
+  it("says the week is used, and whether Ångra can undo it, when there is no draft", async () => {
+    const { draftId } = await draftWeek();
+    await applyWeek({ draftId, weekStart: week });
+    expect(await currentWeek({ weekStart: week })).toEqual({ status: "ok", draft: null, used: { draftId, undoable: true } });
+    await undoWeek({ draftId });
+    expect(await currentWeek({ weekStart: week })).toMatchObject({ draft: { id: draftId }, used: null });
+    expect(await currentWeek({ weekStart: addWeeks(week, 1) })).toEqual({ status: "ok", draft: null, used: null });
+    expect(await currentWeek({ weekStart: "2020-01-06" })).toMatchObject({ status: "error" });
   });
 });
 
