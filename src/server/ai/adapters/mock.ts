@@ -532,7 +532,7 @@ function countingCalls(service: AiService): AiService {
     mergeThings: counted(service.mergeThings),
     matchOffers: counted(service.matchOffers),
     planWeek: counted(service.planWeek),
-    pickRestaurants: counted(service.pickRestaurants),
+    findRestaurantsWeb: counted(service.findRestaurantsWeb),
     thingSearchTerms: counted(service.thingSearchTerms),
     categorizeThings: counted(service.categorizeThings),
   };
@@ -693,14 +693,15 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const picks = input.openDays.slice(0, input.recipes.length).map((dayIndex, index) => ({ dayIndex, recipeId: input.recipes[index]?.id ?? "", reasons: [] }));
       return ok({ picks, quality: input.quality ?? "standard" });
     },
-    async pickRestaurants(input, signal) {
+    async findRestaurantsWeb(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
-      // Deterministic: the restaurants in the given order, each citing its first page when it has one.
-      const suggestions = input.restaurants.slice(0, 5).map((restaurant) => {
-        const page = restaurant.pages[0];
-        return { placeId: restaurant.placeId, menuStatus: page ? "found" : "missing", why: page ? [{ text: "Har en egen meny på sin sida", sourceUrl: page.url }] : [], warnings: page ? [] : ["menu_missing"] };
-      });
-      return ok({ suggestions, quality: input.quality ?? "standard" });
+      // Deterministic and offline: two invented places, each citing an invented page that the "search" returned.
+      const sourceUrls = ["https://mock.example/restauranger/salvia", "https://mock.example/restauranger/fyrvaktaren"];
+      const suggestions = [
+        { name: "Mock Trattoria Salvia", area: input.place, website: "https://mock.example/", why: [{ text: "Har vegetariska pastarätter enligt sidan", sourceUrl: sourceUrls[0] }], menu: { text: "Pasta al pomodoro 135 kr\nPizza margherita 125 kr", sourceUrl: sourceUrls[0] }, address: { text: "Exempelgatan 4", sourceUrl: sourceUrls[0] }, hours: { text: "Måndag till fredag 11-21", sourceUrl: sourceUrls[0] }, rating: { value: 4.3, scale: 5, count: 120, sourceName: "mock.example", sourceUrl: sourceUrls[0], quote: "4,3 av 5, 120 omdömen" }, warnings: [] },
+        { name: "Mock Bistro Fyrvaktaren", area: null, website: null, why: [{ text: "Husmanskost enligt sidan", sourceUrl: sourceUrls[1] }], menu: null, address: null, hours: null, rating: null, warnings: [] },
+      ];
+      return ok({ suggestions, sourceUrls, searches: 1, inputTokens: 0, outputTokens: 0, quality: input.quality ?? "standard" });
     },
     async thingSearchTerms(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");

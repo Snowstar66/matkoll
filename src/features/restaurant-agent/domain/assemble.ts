@@ -1,68 +1,48 @@
-import type { MenuSource, PlaceFacts, Suggestion, WarningFlag } from "./types";
+import type { Suggestion, WarningFlag } from "./types";
 
-// Puts the screen's suggestions together: the guarded picks of the model first (its order), then the remaining ranked
-// places without a menu, up to `maxSuggestions`. Pure. Google facts are copied to the view only (to the browser).
+// Puts the screen's suggestions together from the guarded picks, in the model's order, up to `maxSuggestions`. Pure.
 
 export const maxSuggestions = 5;
 /** Longest menu text handed over to the Menyrådgivare, in characters. */
 export const maxMenuTextChars = 8000;
 
-export type PlaceEntry = { facts: PlaceFacts; distanceM: number | null };
-
 export type SuggestionViewData = {
-  placeId: string;
+  id: string;
   name: string;
-  address: string;
-  distanceM: number | null;
-  openNow: boolean | null;
-  mapsUrl: string;
+  area: string | null;
+  website: string | null;
   why: { text: string; sourceUrl: string }[];
   menuStatus: "found" | "missing";
   menuText: string | null;
+  address: { text: string; sourceUrl: string } | null;
+  hours: { text: string; sourceUrl: string } | null;
+  rating: { value: number; scale: number; count: number | null; sourceName: string; sourceUrl: string } | null;
   flags: string[];
 };
 
-const menuTextOf = (placeId: string, sources: readonly MenuSource[]): string | null => {
-  const text = sources.filter((source) => source.placeId === placeId && source.text.trim() !== "").map((source) => source.text.trim()).join("\n\n");
-  return text === "" ? null : Array.from(text).slice(0, maxMenuTextChars).join("");
-};
-
 /**
- * @param rankedIds Every place of this run, best first by our own weighting.
- * @param picks What the guard let through, in the model's order; empty when the model was not used or failed.
- * @param hasAllergies Whether anyone in the household has an allergy: a menu can never prove one safe, so every found menu says so.
+ * @param picks What the guard let through, in the model's order.
+ * @param hasAllergies Whether anyone in the household has an allergy: a menu can never prove one safe, so every suggestion says so.
  */
-export function assembleViews(rankedIds: readonly string[], places: ReadonlyMap<string, PlaceEntry>, picks: readonly Suggestion[], sources: readonly MenuSource[], hasAllergies: boolean): SuggestionViewData[] {
-  const withMenu = new Set(sources.filter((source) => source.text.trim() !== "").map((source) => source.placeId));
-  const order: Suggestion[] = [...picks];
-  const taken = new Set(picks.map((pick) => pick.placeId));
-  for (const placeId of rankedIds) {
-    if (order.length >= maxSuggestions) break;
-    if (taken.has(placeId)) continue;
-    // Without the model, a place with a menu is still shown (no reasons); with it, only the places it left out for lack of a menu fill up.
-    if (picks.length > 0 && withMenu.has(placeId)) continue;
-    taken.add(placeId);
-    order.push({ placeId, why: [], menuStatus: withMenu.has(placeId) ? "found" : "missing", warnings: [] });
-  }
-  return order.slice(0, maxSuggestions).flatMap((suggestion) => {
-    const entry = places.get(suggestion.placeId);
-    if (!entry) return [];
-    const flags = new Set<WarningFlag>(suggestion.warnings);
-    if (suggestion.menuStatus === "missing") flags.add("menu_missing");
+export function assembleViews(picks: readonly Suggestion[], hasAllergies: boolean): SuggestionViewData[] {
+  return picks.slice(0, maxSuggestions).map((pick) => {
+    const flags = new Set<WarningFlag>(pick.warnings);
+    if (pick.menuStatus === "missing") flags.add("menu_missing");
+    // No source gave the opening hours: the card says so (the person must call and check).
+    if (!pick.hours) flags.add("open_hours_unverified");
     if (hasAllergies) flags.add("allergy_unverified");
-    return [
-      {
-        placeId: suggestion.placeId,
-        name: entry.facts.name,
-        address: entry.facts.address,
-        distanceM: entry.distanceM,
-        openNow: entry.facts.openNow,
-        mapsUrl: entry.facts.mapsUrl,
-        why: suggestion.why,
-        menuStatus: suggestion.menuStatus,
-        menuText: menuTextOf(suggestion.placeId, sources),
-        flags: [...flags],
-      },
-    ];
+    return {
+      id: pick.id,
+      name: pick.name,
+      area: pick.area,
+      website: pick.website,
+      why: pick.why,
+      menuStatus: pick.menuStatus,
+      menuText: pick.menu ? Array.from(pick.menu.text).slice(0, maxMenuTextChars).join("") : null,
+      address: pick.address,
+      hours: pick.hours,
+      rating: pick.rating,
+      flags: [...flags],
+    };
   });
 }

@@ -1,26 +1,32 @@
-import type { PriorityId, RadiusM } from "../domain/types";
+import { maxCuisines, type CuisineId, type PriorityId, type RadiusM } from "../domain/types";
 import type { SuggestionView } from "./actions-port";
 
 // The words of the screens (Swedish, no technical terms) and the small pure helpers behind them.
 
 export const texts = {
   cardTitle: "Vet inte var ni ska äta?",
-  cardBody: "Jag letar upp ställen i närheten som passar alla.",
+  cardBody: "Sök i kartan med dina val ifyllda, eller klistra in en menylänk.",
   whereTitle: "Var vill ni äta?",
-  whereSub: "Fyra val. Resten sköter jag.",
+  whereSub: "Några val. Resten sköter jag.",
   useMyPlace: "Använd min plats",
   askingPlace: "Hämtar platsen …",
-  placeHint: "Telefonen frågar om ni tillåter plats. Platsen används en gång för att hitta ställen och sparas inte.",
-  placeGot: "Platsen är hämtad. Den görs lite grövre (cirka 100 meter) innan den skickas.",
+  placeHint: "Telefonen frågar om ni tillåter plats. Platsen görs grövre (cirka 1 km) och används för att öppna kartan runt er. Inget sparas.",
+  placeGot: "Platsen är hämtad. Den görs grövre (cirka 1 km) och används för att öppna kartan runt er.",
+  osmLine: "För agentens sökning slås ortnamnet upp hos OpenStreetMap (© OpenStreetMap-bidragsgivare), bara namnet används.",
   placeFailed: "Vi fick ingen plats. Telefonen sa nej, eller platsen gick inte att läsa. Skriv en ort eller ett postnummer i stället.",
   placeUnavailable: "Den här enheten kan inte ge plats. Skriv en ort eller ett postnummer i stället.",
   textLabel: "Eller skriv ort eller postnummer",
   textPlaceholder: "Till exempel Uppsala eller 753 20",
   textInvalid: "Skriv bara en ort eller ett postnummer, till exempel Uppsala eller 753 20.",
   textTooLong: "Det är för långt. Skriv bara en ort eller ett postnummer.",
-  find: "Hitta ställen",
+  find: "Låt agenten föreslå ställen",
+  mapSearchHint: "Vi fyller i sökningen åt dig. Öppettider och betyg ser du i kartan. Gratis.",
+  menuLinkLabel: "Har du en länk till menyn? Klistra in den",
+  menuLinkHint: "Menyrådgivaren läser sidan och föreslår rätter. Funkar för menyer som är text på en sida, inte för bilder och PDF.",
+  menuLinkRead: "Läs menyn",
+  menuLinkBusy: "Läser menyn …",
   runningTitle: "Letar åt er",
-  runningTakes: "Brukar ta 20 till 40 sekunder.",
+  runningTakes: "Brukar ta 20 till 60 sekunder.",
   cancel: "Avbryt",
   closeLabel: "Stäng",
   back: "Tillbaka",
@@ -28,7 +34,18 @@ export const texts = {
   retry: "Försök igen",
   caveatTitle: "Ring och kolla före ni åker.",
   caveatBody: "Öppettider och menyer kommer från nätet och kan vara gamla.",
-  googleLine: "Plats och öppettider från Google Maps. Hämtade nu och sparas inte.",
+  webLine: "Hämtat från webben – kontrollera öppettider och meny. Hämtat nu och sparas inte.",
+  directTitle: "Hellre se alla ställen i kartan?",
+  directBody: "Vi fyller i sökningen åt dig, öppettider och betyg ser du där.",
+  directOpen: "Sök i",
+  radiusLabel: "Ungefär hur långt",
+  radiusHint: "Ett önskemål till sökningen, inget uppmätt avstånd.",
+  whenLabel: "När",
+  siteLink: "Restaurangens sida",
+  ratingCaveat: "Omdömen från webben kan vara gamla eller ojämna.",
+  addressMissing: "Adress saknas, öppna kartan.",
+  hoursMissing: "Öppettider saknas. Ring och kolla.",
+  mapOpen: "Öppna i kartan",
   menuFound: "Meny hittad",
   menuMissing: "Meny saknas",
   menuMissingWhy: "Menyn hittades inte, så jag kan inte säga om det passar alla.",
@@ -37,7 +54,6 @@ export const texts = {
   settingsOpen: "Ställ in sökningen",
   sheetTitle: "Ställ in sökningen",
   sheetDone: "Klar",
-  radiusLabel: "Avstånd",
   partyLabel: "Vi är",
   prioritiesLabel: "Vad ska väga mest",
   prioritiesHint: "Högst tre. Det som passar allas mat väger alltid.",
@@ -45,20 +61,19 @@ export const texts = {
   cuisinesHint: "Högst tre. Det ändrar ordningen, det utesluter inget.",
   remembered: "Valen kommer ihåg på den här enheten. Inget sparas hos oss.",
   noResultsTitle: "Inget hittades",
-  noResultsBody: "Det finns inga ställen som passar just nu inom det avståndet. Prova längre avstånd eller en annan plats.",
-  widen: "Sök inom längre avstånd",
+  noResultsBody: "Jag hittade inga ställen jag kunde styrka med en källa. Prova en annan ort eller andra önskemål.",
   capTitle: "Dagens AI-tak är nått",
   capBody: "Hushållet har använt dagens AI-pengar. Det nollställs i natt. Ni kan höja taket i Inställningar.",
   capRaise: "Höj taket",
   needsLocationTitle: "Vi vet inte var ni är",
-  needsLocationBody: "Tryck på Använd min plats, eller skriv en ort eller ett postnummer.",
+  needsLocationBody: "Platsen gick inte att läsa av. Skriv en ort eller ett postnummer i stället.",
   errorTitle: "Det gick inte",
-  errorBody: "Karttjänsten eller nätet svarade inte. Försök igen om en stund.",
+  errorBody: "Sökningen på webben eller nätet svarade inte. Försök igen om en stund.",
   handoverFound: "Menyn är hämtad.",
-  handoverFoundBody: "Den kommer från restaurangens egen hemsida.",
+  handoverFoundBody: "Den är hämtad från en sida på webben. Kontrollera den på plats.",
   handoverUse: "Låt Menyrådgivaren välja åt oss",
   handoverShowMenu: "Visa menytexten",
-  handoverMissing: "Menyn hittades inte på nätet.",
+  handoverMissing: "Menyn hittades inte på webben.",
   handoverMissingBody: "Ta en bild på den när ni är på plats, så väljer Menyrådgivaren rätter åt er.",
   backToSuggestions: "Tillbaka till förslagen",
 } as const;
@@ -67,23 +82,9 @@ export const radiusLabels: Record<RadiusM, string> = { 500: "500 m", 1000: "1 km
 
 export const priorityLabels: Record<PriorityId, string> = { price: "Prisvärt", quick: "Snabbt", kids: "Barnvänligt", quiet: "Lugnt", veg: "Bra vegetariskt" };
 
-/** "700 m", "1,2 km"; null when the distance is not known. */
-export function distanceText(meters: number | null): string | null {
-  if (meters === null || !Number.isFinite(meters) || meters < 0) return null;
-  if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
-  return `${(Math.round(meters / 100) / 10).toString().replace(".", ",")} km`;
-}
-
-/** The open/closed line, always with its source: Google's hours are a claim, not a fact. */
-export function openText(openNow: boolean | null): string | null {
-  if (openNow === null) return null;
-  return openNow ? "Öppet nu enligt Google Maps" : "Stängt nu enligt Google Maps";
-}
-
 const flagTexts: Record<string, string> = {
   allergy_unverified: "Allergier är inte kontrollerade mot menyn.",
   diet_unverified: "Kost är inte kontrollerad mot menyn.",
-  open_hours_unverified: "Öppettiderna är osäkra.",
 };
 
 /** The warnings worth saying out loud; `menu_missing` is the chip, and unknown flags are left out. */
@@ -114,3 +115,83 @@ export const partyText = (party: number) => (party === 1 ? "1 person" : `${party
 
 /** The suggestions as shown: at most five, best first as the server ordered them. */
 export const shown = (suggestions: readonly SuggestionView[]) => suggestions.slice(0, 5);
+
+/** "enligt trattoria.se, kontrollera": where a quoted address or opening hours come from. */
+export const accordingTo = (url: string) => {
+  const host = hostOf(url);
+  return host ? `enligt ${host}, kontrollera` : "kontrollera";
+};
+
+export type MapLink = { label: string; href: string };
+
+/**
+ * Links that open the place in the phone's map app: a plain link the person opens themselves (no API, no key, no cost,
+ * nothing fetched by us). Only the restaurant's name and the city go in the address, URL-encoded, never coordinates.
+ * Both Apple Kartor and Google Maps are always offered side by side; an iPhone or iPad gets Apple first, the rest Google first.
+ */
+export function mapLinks(name: string, place: string, userAgent: string | null, view: MapView | null = null): MapLink[] {
+  return mapLinksFor(`${name} ${place}`.trim(), userAgent, view);
+}
+
+/** The phone's rounded position and how far the person wants to go: a map window around it. Lives only in the link the person opens. */
+export type MapView = { lat: number; lng: number; radiusM: RadiusM };
+
+/** Google zoom levels for the window: about 15 for 500 m, 14 for 1 km, 13 for 2 km, 12 for 5 km. Approximate. */
+export const mapZoom: Record<RadiusM, number> = { 500: 15, 1000: 14, 2000: 13, 5000: 12 };
+
+/** Apple's span in degrees: about twice the radius, at 111 000 m per degree. Approximate. */
+export const mapSpan = (radiusM: RadiusM) => Math.round(((2 * radiusM) / 111_000) * 10_000) / 10_000;
+
+/**
+ * The map links for a ready search text. The host and path are fixed here; only the encoded text varies. With a `view`
+ * (the person tapped "Använd min plats") the map opens around that spot; without, the map app uses its own position.
+ * The window is approximate and the link form is not verified in the real apps. The user agent only orders the two.
+ */
+export function mapLinksFor(text: string, userAgent: string | null, view: MapView | null = null): MapLink[] {
+  const query = encodeURIComponent(text);
+  const at = view ? `${view.lat.toFixed(2)},${view.lng.toFixed(2)}` : null;
+  const apple = { label: "Apple Kartor", href: view && at ? `https://maps.apple.com/?q=${query}&ll=${at}&spn=${mapSpan(view.radiusM)},${mapSpan(view.radiusM)}` : `https://maps.apple.com/?q=${query}` };
+  const google = { label: "Google Maps", href: view && at ? `https://www.google.com/maps/search/${query}/@${at},${mapZoom[view.radiusM]}z` : `https://www.google.com/maps/search/?api=1&query=${query}` };
+  // Both are always offered; the device only decides which comes first.
+  return userAgent && /iPhone|iPad|iPod/.test(userAgent) ? [apple, google] : [google, apple];
+}
+
+/** The page of the restaurant to link: its own site when the search returned a page on it, else the first page a reason cites. https only. */
+export function siteLinkOf(suggestion: SuggestionView): string | null {
+  const candidates = [suggestion.website, ...suggestion.why.map((reason) => reason.sourceUrl)];
+  for (const url of candidates) {
+    const safe = url ? safeHttpsUrl(url) : null;
+    if (safe) return safe;
+  }
+  return null;
+}
+
+/** "Betyg 4,3/5 (120)": the number as a page gave it, with the scale and the count when there is one. */
+export function ratingText(rating: { value: number; scale: number; count: number | null }): string {
+  const value = (Math.round(rating.value * 10) / 10).toString().replace(".", ",");
+  return `Betyg ${value}/${rating.scale}${rating.count !== null ? ` (${rating.count})` : ""}`;
+}
+
+/** What the map search says for each "Sugen på" niche: Swedish words as people type them in a map. */
+const cuisineSearchWords: Record<CuisineId, string> = {
+  pizza: "pizza",
+  asiatiskt: "asiatisk",
+  italienskt: "italiensk",
+  fisk: "fisk",
+  hamburgare: "hamburgare",
+  husmanskost: "husmanskost",
+  mexikanskt: "mexikansk",
+  indiskt: "indisk",
+  vegetariskt: "vegetarisk",
+  sushi: "sushi",
+};
+
+/**
+ * The search text of "Sök direkt i kartan": the chosen niches (at most three), "restaurang", and the typed place when
+ * there is one (without it the map app uses the phone's own position, which we never ask for here). Nothing else: no
+ * names, no allergies, nothing from the household's profile and no coordinates.
+ */
+export function directMapQuery(cuisines: readonly CuisineId[], place: string | null): string {
+  const words = cuisines.slice(0, maxCuisines).map((id) => cuisineSearchWords[id]).filter((word): word is string => Boolean(word));
+  return [...words, "restaurang", ...(place && place.trim() !== "" ? [place.trim()] : [])].join(" ");
+}

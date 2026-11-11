@@ -81,8 +81,7 @@ describe("stockholmMonth", () => {
 });
 
 describe("metered services in the daily cost (Restaurangagenten)", () => {
-  it("prices a Google Places request and a web search per unit, in kronor", () => {
-    expect(usageCostSek([{ model: "google-places", calls: 1, inputTokens: 2, outputTokens: 0 }])).toBeCloseTo(0.7, 5);
+  it("prices a web search per unit, in kronor (10 USD per 1000 searches)", () => {
     expect(usageCostSek([{ model: "web-search", calls: 1, inputTokens: 3, outputTokens: 0 }])).toBeCloseTo(0.3, 5);
   });
 });

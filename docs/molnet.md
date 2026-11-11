@@ -163,7 +163,7 @@ Sätt miljövariablerna under **Settings → Environment Variables** *innan* ste
 | `VAPID_SUBJECT` | `mailto:din@adress` eller en https-adress som pushtjänsten kan nå dig på. Tomt = `OWNER_EMAIL`, annars `SITE_URL`. | nej | nej | privat |
 | `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | **sätts inte** när molnet kör Claude. Behövs bara om du vill att Qwen på Macen ska kunna väljas, via Cloudflare Tunnel ([`drift.md` steg 8](drift.md#8-cloudflare-tunnel-och-access-för-lm-studio)). | nej | nej | CF-hemligheten är hemlig |
 | `OPENAI_API_KEY` | används inte | nej | nej | hemlig |
-| `GOOGLE_PLACES_API_KEY` | nyckel för Places API (New) från Google Cloud (Restaurangagenten). Begränsa den till Places API (New) och sätt en kvot. Utan nyckeln står det "Restaurangsökning är inte påslagen än." | nej (valfri) | nej | **hemlig: markera Sensitive** |
+| `NOMINATIM_DISABLED` | `1` stänger av ortuppslaget hos OpenStreetMap Nominatim för "Använd min plats" i Restaurangagenten (OSM:s policy kräver att det går att stänga av utan ny version). Tomt = på. Restaurangsökningen själv kostar bara Claude-API:t (webbsökning), inga andra betaltjänster. | nej (valfri) | nej | – |
 | `AI_MOCK_DELAY_MS` | **sätts aldrig** (bara testerna) | nej | nej | – |
 | `DEV_AUTO_LOGIN_EMAIL`, `DEV_AUTO_LOGIN_PASSWORD`, `MATKOLL_DEV_LOOPBACK` | **sätts aldrig** (automatisk inloggning på din dator) | nej | nej | – |
 | `SUPABASE_SERVICE_ROLE_KEY` | **läggs aldrig i Vercel**: tillfälligt i din terminal i steg 5, och som hemlighet i GitHub för erbjudandejobbet (steg 8) | nej | nej | hemlig |

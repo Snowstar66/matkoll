@@ -8,11 +8,10 @@ import { claudeModels, sekPerUsd } from "./ai-choice";
 /**
  * Metered services that are not a model (Restaurangagenten): their use is saved in ai_usage like a call, with the model
  * id below and the number of units in `input_tokens`, so the household's daily cap counts them with no new table.
- * USD per unit, list prices: a Google Places request (Enterprise tier fields, 35 USD per 1000) and a web search
- * (10 USD per 1000).
+ * USD per unit, list prices: a web search of
+ * Anthropic's search tool (10 USD per 1000), saved by the AI port (server/ai/service.ts findRestaurantsWeb).
  */
-export const meteredUnitsUsd = { "google-places": 35 / 1000, "web-search": 10 / 1000 } as const;
-export type MeteredKind = keyof typeof meteredUnitsUsd;
+export const meteredUnitsUsd = { "web-search": 10 / 1000 } as const;
 
 /** One model's calls and tokens in a month, as ai_usage_month gives them. */
 export type ModelUsage = { model: string; calls: number; inputTokens: number; outputTokens: number };

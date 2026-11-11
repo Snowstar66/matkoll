@@ -1,5 +1,5 @@
 // What one run costs, in kronor, and the caps. Prices are passed in (the route layer hands over the app's price table,
-// settings/domain/ai-choice.ts: AD-1 forbids importing it here); the rest are Google's and Anthropic's list prices.
+// settings/domain/ai-choice.ts: AD-1 forbids importing it here); the rest are Anthropic's list prices.
 
 export type ModelPrice = { usdPerMTokIn: number; usdPerMTokOut: number };
 
@@ -7,8 +7,6 @@ export type ModelPrice = { usdPerMTokIn: number; usdPerMTokOut: number };
 export const sekPerUsd = 10;
 /** Anthropic web search: 10 USD per 1000 searches. */
 export const usdPerSearch = 10 / 1000;
-/** Google Places Text Search, Enterprise tier: 35 USD per 1000 requests. */
-export const usdPerPlacesRequest = 35 / 1000;
 
 /** At most this many web searches per run (d5). */
 export const maxSearchesPerRun = 2;
@@ -17,15 +15,14 @@ export const runCapSek = 2;
 /** The existing daily AI cap in kronor (10 kr/day); the real figure is read by the server and passed in. */
 export const defaultDayCapSek = 10;
 
-export type Usage = { tokensIn: number; tokensOut: number; searches: number; placesRequests: number };
-export const noUsage: Usage = { tokensIn: 0, tokensOut: 0, searches: 0, placesRequests: 0 };
+export type Usage = { tokensIn: number; tokensOut: number; searches: number };
+export const noUsage: Usage = { tokensIn: 0, tokensOut: 0, searches: 0 };
 
-/** The cost of a usage in kronor: tokens, searches and Places requests all counted. */
+/** The cost of a usage in kronor: tokens and searches both counted. */
 export function costSek(model: ModelPrice, usage: Usage): number {
   const usd =
     (usage.tokensIn * model.usdPerMTokIn + usage.tokensOut * model.usdPerMTokOut) / 1_000_000 +
-    usage.searches * usdPerSearch +
-    usage.placesRequests * usdPerPlacesRequest;
+    usage.searches * usdPerSearch;
   return usd * sekPerUsd;
 }
 

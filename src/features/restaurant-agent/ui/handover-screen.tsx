@@ -6,11 +6,11 @@ import type { SuggestionView } from "./actions-port";
 import { texts } from "./format";
 import { BackLink, BigButton, GhostButton, Headline, StickyFooter, TextLink } from "./parts";
 
-// Step 4: the place is chosen. With a menu found on the restaurant's own site the text goes on to Menyrådgivaren
+// Step 4: the place is chosen. With menu text quoted from a page the search found, the text goes on to Menyrådgivaren
 // (the route layer decides how: `onUseMenu`), and nothing but the name and the menu text goes with it, never the
 // place. Without a menu the way on is the photo of the menu, as Menyrådgivaren always had.
 
-export function HandoverScreen({ suggestion, onUseMenu, onPhoto, onBack }: { suggestion: SuggestionView; onUseMenu?: (menu: { placeId: string; name: string; menuText: string }) => void; onPhoto: () => void; onBack: () => void }) {
+export function HandoverScreen({ suggestion, onUseMenu, onPhoto, onBack }: { suggestion: SuggestionView; onUseMenu?: (menu: { id: string; name: string; menuText: string }) => void; onPhoto: () => void; onBack: () => void }) {
   const text = suggestion.menuStatus === "found" ? suggestion.menuText : null;
   return (
     <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="restaurant-handover" data-menu={text ? "found" : "missing"}>
@@ -30,7 +30,7 @@ export function HandoverScreen({ suggestion, onUseMenu, onPhoto, onBack }: { sug
           </details>
           <StickyFooter>
             {onUseMenu ? (
-              <BigButton data-testid="restaurant-use-menu" onClick={() => onUseMenu({ placeId: suggestion.placeId, name: suggestion.name, menuText: text })}>
+              <BigButton data-testid="restaurant-use-menu" onClick={() => onUseMenu({ id: suggestion.id, name: suggestion.name, menuText: text })}>
                 {texts.handoverUse}
               </BigButton>
             ) : null}

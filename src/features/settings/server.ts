@@ -11,7 +11,7 @@ import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/q
 import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
 import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
 import { aiCapReached, type HouseholdCost } from "./domain/ai-cap";
-import { stockholmMonth, usageCostSek, type AiMonthUsage, type MeteredKind } from "./domain/ai-usage";
+import { stockholmMonth, usageCostSek, type AiMonthUsage } from "./domain/ai-usage";
 import { compareDomains } from "./domain/domain-name";
 import { compareStores, type Store } from "./domain/store";
 
@@ -218,18 +218,5 @@ export async function getAiDayRemainingSek(): Promise<number> {
   } catch (error) {
     console.error("ai_cap_check_failed", { reason: error instanceof SettingsDataError ? error.detail : "exception" });
     return Number.POSITIVE_INFINITY;
-  }
-}
-
-/**
- * Counts a metered service that is not a model (a Google Places request, a web search) in the household's daily cost,
- * as a row in ai_usage (see meteredUnitsUsd). Never throws: a row that cannot be saved is logged and never fails the run.
- */
-export async function recordMeteredUse(kind: MeteredKind, units: number): Promise<void> {
-  if (!Number.isInteger(units) || units <= 0) return;
-  try {
-    await insertAiUsageIn(await createClient(), { model: kind, inputTokens: units, outputTokens: 0 });
-  } catch (error) {
-    console.error("metered_usage_unrecorded", { kind, reason: error instanceof SettingsDataError ? error.detail : "exception" });
   }
 }

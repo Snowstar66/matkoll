@@ -5,15 +5,19 @@ import { InfoIcon, PinIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { parsePlaceText, roundCoordinates } from "../domain/location";
 import type { RestaurantSettings } from "../domain/types";
-import type { LocationQuery } from "./actions-port";
+import type { LocationQuery, MenuLinkResult } from "./actions-port";
 import { texts } from "./format";
-import { BackLink, BigButton, GhostButton, Headline, StickyFooter } from "./parts";
+import { useOption } from "@/lib/use-option";
+import { DirectMap } from "./direct-map";
+import { MenuLinkField } from "./menu-link-field";
+import { BackLink, GhostButton, Headline, StickyFooter } from "./parts";
 import { SettingsFields } from "./settings-fields";
 
 // Step 1: where, how far, how many, what to weigh. The phone's own question about place is asked ONLY after the
 // button is tapped (never on load), with a line above it saying what the place is used for. Refused, timed out or
-// unreadable place falls back to the text field, which is always there. The place is rounded (domain/location.ts)
-// before it leaves this screen, and nothing about it is stored.
+// unreadable place falls back to the text field, which is always there. The place is rounded (domain/location.ts,
+// about 1 km) before it leaves this screen; the server looks up the place NAME at OpenStreetMap and only the name
+// goes on. Nothing about it is stored.
 
 export type GeoState = "idle" | "asking" | "got" | "failed" | "unavailable";
 
@@ -26,6 +30,11 @@ export type WhereScreenProps = {
   costText?: string;
   /** An answer of "needs_location" from the server or a place that was refused: the text field is open and says so. */
   notice?: string | null;
+  /** Reads a pasted menu link; with `onMenu` this shows the menu link field. */
+  readMenuLink?: (url: string) => Promise<MenuLinkResult>;
+  onMenu?: (menu: { host: string; menuText: string }) => void;
+  /** The way to the photo of the menu. */
+  onPhoto?: () => void;
   /** Browser geolocation; replaced in tests. */
   getPosition?: (onOk: (lat: number, lng: number) => void, onFail: () => void) => void;
 };
@@ -36,11 +45,13 @@ export function browserPosition(onOk: (lat: number, lng: number) => void, onFail
   navigator.geolocation.getCurrentPosition((position) => onOk(position.coords.latitude, position.coords.longitude), onFail, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 });
 }
 
-export function WhereScreen({ settings, onSettings, onBack, onFind, costText, notice = null, getPosition }: WhereScreenProps) {
+export function WhereScreen({ settings, onSettings, onBack, onFind, costText, notice = null, getPosition, readMenuLink, onMenu, onPhoto }: WhereScreenProps) {
   const [geo, setGeo] = useState<GeoState>(() => (!getPosition && typeof navigator !== "undefined" && !navigator.geolocation ? "unavailable" : "idle"));
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [text, setText] = useState("");
   const [touched, setTouched] = useState(false);
+  // The AI web search is a parked experiment behind its own Tillval (per device): without it only the map and the menu link show.
+  const webSearch = useOption("restaurantAgentWeb");
   const textId = useId();
   const errorId = useId();
   const parsed = parsePlaceText(text);
@@ -89,7 +100,7 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
           ) : null}
           {geo === "got" && !typed ? (
             <p role="status" className="text-meta text-mint-ink" data-testid="restaurant-place-got">
-              {texts.placeGot}
+              {texts.placeGot} {webSearch ? <span className="text-ink-3">{texts.osmLine}</span> : null}
             </p>
           ) : null}
           <div className="flex flex-col gap-1.5">
@@ -110,7 +121,7 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
               onChange={(event) => setText(event.currentTarget.value)}
               onBlur={() => setTouched(true)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && location) onFind(location);
+                if (event.key === "Enter" && location && webSearch) onFind(location);
               }}
               className="min-h-tap w-full min-w-0 rounded-md border border-border bg-bg px-3 text-body text-ink outline-none placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
             />
@@ -124,11 +135,16 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
       </section>
       <SettingsFields value={settings} onChange={onSettings} />
       <p className="text-meta text-ink-3">{texts.remembered}</p>
+      {readMenuLink && onMenu && onPhoto ? <MenuLinkField read={readMenuLink} onMenu={onMenu} onPhoto={onPhoto} /> : null}
       <StickyFooter>
-        <BigButton data-testid="restaurant-find" disabled={!location} onClick={() => location && onFind(location)}>
-          {texts.find}
-        </BigButton>
-        {costText ? <p className="text-center text-meta text-ink-3">{costText}</p> : null}
+        <DirectMap primary cuisines={settings.cuisines} place={parsed.ok ? parsed.text : null} view={coords && !typed ? { ...coords, radiusM: settings.radiusM } : null} />
+        <p className="text-center text-meta text-ink-3">{texts.mapSearchHint}</p>
+        {webSearch ? (
+          <GhostButton data-testid="restaurant-find" disabled={!location} onClick={() => location && onFind(location)}>
+            {texts.find}
+          </GhostButton>
+        ) : null}
+        {webSearch && costText ? <p className="text-center text-meta text-ink-3">{costText}</p> : null}
       </StickyFooter>
     </div>
   );
