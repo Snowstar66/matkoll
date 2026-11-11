@@ -18,7 +18,7 @@ export function cleanMenuText(raw: string): string {
     .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => codePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec: string) => codePoint(parseInt(dec, 10)))
     .replace(/&([a-z]+);/gi, (whole, name: string) => entities[name] ?? entities[name.toLowerCase()] ?? whole)
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f​﻿]/g, "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u200b\ufeff]/g, "")
     .replace(/[ \t ]+/g, " ")
     .replace(/ ?\n ?/g, "\n")
     .replace(/\n{2,}/g, "\n")
