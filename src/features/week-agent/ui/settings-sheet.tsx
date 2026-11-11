@@ -212,7 +212,7 @@ export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, 
             <li className="flex min-h-14 items-center justify-between gap-3 px-4 py-2">
               <span className="flex min-w-0 flex-col">
                 <span className="text-body text-ink">Middagar</span>
-                <span className="text-meta text-ink-2">Av {minDinners} till {maxDinners}</span>
+                <span className="text-meta text-ink-2">Övriga dagar lämnas tomma</span>
               </span>
               <Stepper
                 compact

@@ -4,7 +4,9 @@ import { getAiServiceForUser } from "@/features/settings/server";
 import { createClient } from "@/lib/supabase/server";
 import { readDraftIn, saveDraftIn } from "../data/week-agent";
 import { planWithAi } from "../ai-plan";
+import { dayWord } from "../domain/facts";
 import { openDays, planAroundFixed } from "../domain/plan";
+import { cookableDays } from "../domain/settings";
 import { isPlannableWeek } from "../context";
 import { proposeWeekInputSchema, type ProposeWeekInput, type ProposeWeekResult } from "./contract";
 import { buildPlanInput } from "./plan-input";
@@ -32,7 +34,12 @@ export async function proposeWeek(input: ProposeWeekInput): Promise<ProposeWeekR
     const db = await createClient();
     const [settings, draft] = await Promise.all([settingsOfHousehold(), readDraftIn(db, weekStart)]);
     const { input: planInput, shortlist } = await buildPlanInput(weekStart, settings, draft, lockedDays, mode !== "plan", replaceAgentDays);
-    if (openDays(planInput).length === 0) return { status: "error", message: messages.weekFull };
+    if (openDays(planInput).length === 0) {
+      // Say what is true: the week is full, or it holds as many dinners as the setting says while some days stay empty.
+      const taken = new Set(planInput.fixedDays.map((day) => day.dayIndex));
+      const empty = cookableDays(planInput.settings).filter((day) => !taken.has(day));
+      return { status: "error", message: empty.length > 0 ? messages.dinnersReached(planInput.settings.dinners, empty.map((day) => dayWord(day))) : messages.weekFull };
+    }
 
     // Too few dishes after the hard rules: say so before any paid call.
     const check = planAroundFixed(planInput, [], shortlist.excludedForAllergy);
