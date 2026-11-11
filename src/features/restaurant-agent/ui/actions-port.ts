@@ -4,7 +4,7 @@ import type { RestaurantSettings } from "../domain/types";
 // structurally identical so the route layer can pass the real action straight in. The screens know nothing of
 // Anthropic, OpenStreetMap or the database (AD-1).
 
-/** Where to look: rounded coordinates from the phone (the server looks up the place name; only the name goes on), or a city or postcode typed by hand (already checked by parsePlaceText). */
+/** Where to look: rounded coordinates from the phone (the server looks up the place name; only the name goes on) (the server also accepts a typed city or postcode; the screens no longer offer it). */
 export type LocationQuery = { kind: "coords"; lat: number; lng: number } | { kind: "text"; text: string };
 
 export type FindInput = { location: LocationQuery; settings: RestaurantSettings; cuisines: string[] };
@@ -30,17 +30,7 @@ export type FindResult =
   | { status: "needs_location" }
   | { status: "error"; message: string; code?: string };
 
-export type MenuLinkResult =
-  | { status: "ok"; menuText: string; host: string }
-  | { status: "invalid" }
-  | { status: "unreachable" }
-  | { status: "image_or_pdf" }
-  | { status: "too_short" }
-  | { status: "error"; message: string };
-
 export type RestaurantAgentActions = {
   /** The AI web search (parked behind the Tillval restaurantAgentWeb). */
   findRestaurants: (input: FindInput) => Promise<FindResult>;
-  /** The text of a pasted menu link, for Menyrådgivaren. */
-  readMenuLink: (url: string) => Promise<MenuLinkResult>;
 };
