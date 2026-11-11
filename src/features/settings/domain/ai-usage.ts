@@ -5,6 +5,15 @@ import { claudeModels, sekPerUsd } from "./ai-choice";
 // of Story 17.5 (claudeModels); a local model (Qwen in LM Studio, the mock)
 // costs 0 kr, and a Claude id missing from it is priced as the dearest model.
 
+/**
+ * Metered services that are not a model (Restaurangagenten): their use is saved in ai_usage like a call, with the model
+ * id below and the number of units in `input_tokens`, so the household's daily cap counts them with no new table.
+ * USD per unit, list prices: a Google Places request (Enterprise tier fields, 35 USD per 1000) and a web search
+ * (10 USD per 1000).
+ */
+export const meteredUnitsUsd = { "google-places": 35 / 1000, "web-search": 10 / 1000 } as const;
+export type MeteredKind = keyof typeof meteredUnitsUsd;
+
 /** One model's calls and tokens in a month, as ai_usage_month gives them. */
 export type ModelUsage = { model: string; calls: number; inputTokens: number; outputTokens: number };
 
@@ -29,6 +38,11 @@ const dearestModel = claudeModels.reduce((dearest, model) => (model.usdPerMTokOu
 export function usageCostSek(models: readonly ModelUsage[]): number {
   let usd = 0;
   for (const { model, inputTokens, outputTokens } of models) {
+    const unitUsd = (meteredUnitsUsd as Record<string, number>)[model];
+    if (unitUsd !== undefined) {
+      usd += inputTokens * unitUsd;
+      continue;
+    }
     const price = claudeModels.find((candidate) => candidate.id === model) ?? (model.startsWith("claude") ? dearestModel : undefined);
     if (!price) continue;
     usd += (inputTokens * price.usdPerMTokIn + outputTokens * price.usdPerMTokOut) / 1_000_000;

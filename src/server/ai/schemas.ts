@@ -1181,3 +1181,47 @@ export function parsePlanWeek(answer: PlanWeekAnswer, recipeIds: readonly string
     reasons: row.skal.map(cleanModelText).filter((text) => text !== "").slice(0, maxPlanWeekReasons),
   }));
 }
+
+/** pickRestaurants: at most this many suggestions, and this many reasons per suggestion, are kept. */
+export const maxPickRestaurantSuggestions = 8;
+export const maxPickRestaurantReasons = 3;
+
+/**
+ * What the model answers to pickRestaurants (Restaurangagenten): the restaurants worth going to, best first, each with
+ * short reasons that cite the restaurant's own page. Loose on purpose (strings): the feature's guard decides what is
+ * valid, so one odd value does not throw away the whole answer.
+ */
+export const pickRestaurantsAnswer = z.object({
+  suggestions: z
+    .array(
+      z.object({
+        placeId: z.string().describe("The id of the restaurant exactly as given"),
+        menuStatus: z.string().describe("found when the restaurant's own text gave something to base a reason on, otherwise missing"),
+        why: z
+          .array(
+            z.object({
+              text: z.string().describe("A short reason in Swedish, only from the restaurant's own text"),
+              sourceUrl: z.string().describe("The page the reason comes from, exactly as given"),
+            }),
+          )
+          .describe("At most two reasons; empty when menuStatus is missing"),
+        warnings: z.array(z.string()).describe("Any of: menu_missing, allergy_unverified, diet_unverified, open_hours_unverified"),
+      }),
+    )
+    .describe("Best first"),
+});
+
+export type PickRestaurantsAnswer = z.output<typeof pickRestaurantsAnswer>;
+
+/** The answer with its text cleaned to one line, and bounded in length (not checked: the caller's guard does that). */
+export function parsePickRestaurants(answer: PickRestaurantsAnswer): { placeId: string; menuStatus: string; why: { text: string; sourceUrl: string }[]; warnings: string[] }[] {
+  return answer.suggestions.slice(0, maxPickRestaurantSuggestions).map((row) => ({
+    placeId: row.placeId.trim(),
+    menuStatus: row.menuStatus.trim(),
+    why: row.why
+      .map((reason) => ({ text: cleanModelText(reason.text), sourceUrl: reason.sourceUrl.trim() }))
+      .filter((reason) => reason.text !== "")
+      .slice(0, maxPickRestaurantReasons),
+    warnings: row.warnings.map((warning) => warning.trim()),
+  }));
+}

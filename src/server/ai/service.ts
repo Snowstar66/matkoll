@@ -64,6 +64,8 @@ import {
   matchOffersAnswer,
   planWeekAnswer,
   parsePlanWeek,
+  pickRestaurantsAnswer,
+  parsePickRestaurants,
   parseOfferMatches,
   parseMergePairs,
   parseAnalyzeItems,
@@ -411,6 +413,28 @@ export type PlanWeekPick = { dayIndex: number; recipeId: string; reasons: string
 /** What planWeek answers: a pick for the days the model chose (not checked: the caller validates every one), and which quality made it. */
 export type PlanWeekResult = { picks: PlanWeekPick[]; quality: PlanWeekQuality };
 
+/** A restaurant the finder returned, as the model sees it: an opaque id and the restaurant's own pages. Never a Google field. */
+export type PickRestaurantsRestaurant = { placeId: string; pages: { url: string; text: string }[] };
+
+/**
+ * pickRestaurants (Restaurangagenten): the household's tastes and the restaurants' OWN website text, nothing from Google
+ * Places (see the legal design in features/restaurant-agent/domain/types.ts). Structurally the feature's LlmInput; the
+ * feature builds it only with buildLlmInput. Data for the model, never instructions.
+ */
+export type PickRestaurantsInput = {
+  party: number;
+  wantedCuisines: string[];
+  priorities: string[];
+  household: { people: { allergies: string[]; likes: string[]; avoids: string[] }[] };
+  restaurants: PickRestaurantsRestaurant[];
+  /** Default `standard` (Haiku 5.5 low); `careful` is Sonnet 5.5 at medium. */
+  quality?: PlanWeekQuality;
+};
+
+/** One suggestion as the model wrote it, cleaned to text but NOT checked: the caller's guard checks ids and sources. */
+export type PickRestaurantsSuggestion = { placeId: string; menuStatus: string; why: { text: string; sourceUrl: string }[]; warnings: string[] };
+export type PickRestaurantsResult = { suggestions: PickRestaurantsSuggestion[]; quality: PlanWeekQuality };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -522,6 +546,13 @@ export interface AiService {
    * `ai_unavailable` (also when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
    */
   planWeek(input: PlanWeekInput, signal: AbortSignal, options?: RunOptions): Promise<Result<PlanWeekResult>>;
+  /**
+   * The best restaurants of the ones the finder returned (Restaurangagenten), ranked and each with short reasons that
+   * cite the restaurant's own page: one text call, `quality` standard (Haiku 5.5 low) or careful (Sonnet 5.5 medium).
+   * The answer is NOT checked beyond its shape: the caller runs it through guardSuggestions. Fails with `validation`
+   * (outside inputLimits.pickRestaurants), `ai_unavailable`, `ai_rejected`, `ai_invalid` or `ai_cap_reached`.
+   */
+  pickRestaurants(input: PickRestaurantsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<PickRestaurantsResult>>;
   /**
    * The words to search the things for, from a question and the latest turns
    * of the chat (Story 18.14): one short text call, no image. Fails with
@@ -661,6 +692,12 @@ export const inputLimits = {
    */
   planWeek: { maxRecipes: 40, maxIngredients: 8, maxIngredientChars: 50, maxFacts: 4, maxFactChars: 90, maxTitleChars: 100, maxWords: 12, maxRecent: 20, maxChars: 24_000, maxOutputTokens: 1_500 },
   /**
+   * pickRestaurants (Restaurangagenten): at most 8 restaurants of at most 2 pages of 6 000 characters (the feature cuts
+   * them at maxPageChars) in 80 000 characters (about 25 000 tokens); the answer is a line of about 80 tokens per
+   * restaurant, so 2 000 leave room.
+   */
+  pickRestaurants: { maxRestaurants: 8, maxPages: 2, maxPageChars: 6_000, maxPeople: 12, maxWords: 12, maxWordChars: 40, maxWanted: 6, maxChars: 80_000, maxOutputTokens: 2_000 },
+  /**
    * locateThing's one attempt (Story 6.6, 18.7): at most 30 s, since a box is
    * extra, so failing fast is better than keeping the model busy.
    */
@@ -784,6 +821,28 @@ export function isValidPlanWeekInput(input: PlanWeekInput): boolean {
   );
 }
 
+/** True for a pickRestaurants input within inputLimits.pickRestaurants: short one-line lists, bounded pages. */
+export function isValidPickRestaurantsInput(input: PickRestaurantsInput): boolean {
+  const limits = inputLimits.pickRestaurants;
+  const word = (text: string) => text !== "" && text === cleanModelText(text) && Array.from(text).length <= limits.maxWordChars;
+  const words = (list: readonly string[]) => list.length <= limits.maxWords && list.every(word);
+  const { restaurants, household } = input;
+  if (!Number.isInteger(input.party) || input.party < 1 || input.party > 12) return false;
+  if (restaurants.length === 0 || restaurants.length > limits.maxRestaurants) return false;
+  if (input.wantedCuisines.length > limits.maxWanted || !input.wantedCuisines.every(word)) return false;
+  if (input.priorities.length > limits.maxWanted || !input.priorities.every(word)) return false;
+  if (household.people.length > limits.maxPeople) return false;
+  if (!household.people.every((person) => words(person.allergies) && words(person.likes) && words(person.avoids))) return false;
+  const ids = new Set<string>();
+  for (const restaurant of restaurants) {
+    if (restaurant.placeId === "" || restaurant.placeId !== cleanModelText(restaurant.placeId) || ids.has(restaurant.placeId)) return false;
+    ids.add(restaurant.placeId);
+    if (restaurant.pages.length > limits.maxPages) return false;
+    if (!restaurant.pages.every((page) => /^https?:\/\/\S+$/.test(page.url) && Array.from(page.text).length <= limits.maxPageChars)) return false;
+  }
+  return pickRestaurantsText(input).length <= limits.maxChars;
+}
+
 /** True for lists within inputLimits.matchOffers: something in both, every name on one line. */
 export function isValidMatchOffersInput(input: MatchOffersInput): boolean {
   const limits = inputLimits.matchOffers;
@@ -900,6 +959,10 @@ export function withInputValidation(service: AiService): AiService {
     async planWeek(input, signal, options) {
       if (!isValidPlanWeekInput(input)) return fail("validation");
       return service.planWeek(input, signal, options);
+    },
+    async pickRestaurants(input, signal, options) {
+      if (!isValidPickRestaurantsInput(input)) return fail("validation");
+      return service.pickRestaurants(input, signal, options);
     },
     async thingSearchTerms(input, signal, options) {
       if (!isValidThingSearchTermsInput(input)) return fail("validation");
@@ -1268,6 +1331,29 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok({ picks: parsePlanWeek(answer.data, input.recipes.map((item) => item.id)), quality });
     },
+    async pickRestaurants(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const quality = input.quality ?? "standard";
+      const answer = await runStructured(
+        // The same two models as planWeek (Haiku 5.5 low, Sonnet 5.5 medium).
+        planTargets[quality],
+        {
+          schema: pickRestaurantsAnswer,
+          system: prompts.pickRestaurants,
+          messages: [{ role: "user", content: pickRestaurantsText(input) }],
+          maxOutputTokens: inputLimits.pickRestaurants.maxOutputTokens,
+          onTruncated: () => console.info("pick_restaurants_truncated", { quality }),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ suggestions: parsePickRestaurants(answer.data), quality });
+    },
     async thingSearchTerms(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1554,6 +1640,29 @@ export function planWeekText(input: PlanWeekInput): string {
     return parts.join(" | ");
   });
   return `${lines.join("\n")}\n\nRätter:\n${dishes.join("\n")}`;
+}
+
+/**
+ * The user message for pickRestaurants: the party, the wishes, the household's tastes as words, and each restaurant by
+ * its opaque id with its own pages. Page text is flattened to one line, so it cannot start a section of its own; the
+ * prompt says everything here is data. No Google field can be in it (the input type has none).
+ */
+export function pickRestaurantsText(input: PickRestaurantsInput): string {
+  const lines: string[] = [`Sällskap: ${input.party} personer`];
+  if (input.wantedCuisines.length > 0) lines.push(`Sugen på: ${input.wantedCuisines.join(", ")}`);
+  if (input.priorities.length > 0) lines.push(`Viktigt: ${input.priorities.join(", ")}`);
+  input.household.people.forEach((person, index) => {
+    const parts: string[] = [];
+    if (person.allergies.length > 0) parts.push(`allergi: ${person.allergies.join(", ")}`);
+    if (person.likes.length > 0) parts.push(`gillar: ${person.likes.join(", ")}`);
+    if (person.avoids.length > 0) parts.push(`undviker: ${person.avoids.join(", ")}`);
+    if (parts.length > 0) lines.push(`Person ${index + 1}: ${parts.join("; ")}`);
+  });
+  const blocks = input.restaurants.map((restaurant) => {
+    const pages = restaurant.pages.length === 0 ? ["  (ingen egen sida hittades)"] : restaurant.pages.map((page) => `  Sida: ${page.url}\n  Text: ${page.text.replace(/\s+/g, " ").trim()}`);
+    return [`Restaurang ${restaurant.placeId}`, ...pages].join("\n");
+  });
+  return `${lines.join("\n")}\n\nRestauranger:\n${blocks.join("\n\n")}`;
 }
 
 /**
