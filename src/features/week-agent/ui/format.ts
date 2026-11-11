@@ -41,7 +41,16 @@ export const cardTexts = {
   emptyBody: (week: number) => `Vecka ${week} är tom. Få ett förslag på middagar efter vad du har hemma och vad som är på erbjudande.`,
   partialBody: (emptyDays: number, filledDays: readonly number[]) =>
     `${pluralDays(emptyDays)}. ${filledDays.length === 1 ? "Din rätt" : "Dina rätter"} (${joinDays(filledDays)}) ligger kvar som ${filledDays.length === 1 ? "den" : "de"} är.`,
-  draftBody: (week: number) => `Du har ett utkast för vecka ${week}. Öppna det eller gör ett nytt där.`,
+  draftBody: (week: number) => `Du har ett utkast för vecka ${week}. Inget är sparat i Matsedel än.`,
+  waitingTitle: "Du har ett förslag på väntan",
+  waitingOpen: "Se förslaget",
+  waitingNew: "Gör nytt",
+  oldTitle: "Ditt förra förslag är gammalt. Gör nytt?",
+  discard: "Förkasta",
+  discardTitle: "Förkasta förslaget?",
+  discardBody: "Inget ändras i Matsedel.",
+  discardKeep: "Behåll",
+  discarded: "Förslaget förkastades.",
   settings: "Ställ in",
 } as const;
 

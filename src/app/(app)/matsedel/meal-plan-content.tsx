@@ -27,6 +27,8 @@ import { MenuShortcut } from "@/features/menu-advisor/ui/menu-shortcut";
 import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
 import { OfferIdeas } from "../offer-ideas";
+import { draftFreshness } from "@/features/week-agent";
+import { getWeekDraft } from "@/features/week-agent/server";
 import { MatsedelWeekAgentCard, MatsedelWeekAgentMenu } from "./week-agent-slots";
 
 /**
@@ -177,6 +179,9 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const filledDays = [...new Set(view.dishes.flatMap((dish) => (dish.weekday ? [dish.weekday] : [])))].sort((a, b) => a - b);
   const emptyDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => day >= firstOpenDay && !filledDays.includes(day));
   const agentAddress = `/matsedel/veckoforslag${weekQueryAlways(weekStart)}`;
+  // The waiting proposal and its age on the server's clock; never throws (null when it cannot be read).
+  const waiting = emptyDays.length > 0 ? await getWeekDraft(weekStart) : null;
+  const waitingDraft = waiting ? { id: waiting.id, freshness: draftFreshness(waiting.createdAt, now) } : null;
 
   // Not awaited: the plan renders at once and the week line arrives when the nutrition has been read.
   const nutrition = weekNutrition(view.dishes);
@@ -204,7 +209,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       ) : null}
       <div className="flex flex-col gap-4">
         <WeekNav weekStart={weekStart} counts={counts} now={now} />
-        <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
+        <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} draft={waitingDraft} draftHref={agentAddress} newHref={`${agentAddress}&starta=1&nytt=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
         <WeekPlanner
           key={weekStart}
           weekStart={weekStart}
