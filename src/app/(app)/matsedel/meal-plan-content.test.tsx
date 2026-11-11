@@ -26,6 +26,7 @@ vi.mock("@/features/suggestions/server", () => ({
   readOfferIdeas: vi.fn(),
   startOfferIdeas: vi.fn(),
 }));
+vi.mock("@/features/week-agent/server", () => ({ getWeekDraft: vi.fn(async () => null), getWeekAgentSettings: vi.fn(), getAgentPlacedDays: vi.fn(), proposeWeek: vi.fn(), alternativesForDay: vi.fn(), setDayLock: vi.fn(), swapDay: vi.fn(), applyWeek: vi.fn(), discardDraft: vi.fn(), undoWeek: vi.fn(), currentWeek: vi.fn(), saveWeekAgentSettings: vi.fn() }));
 vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
 vi.mock("@/features/menu-advisor/server", () => ({ getFoodFitPeople: vi.fn(async () => []) }));
 vi.mock("@/features/catalog/server", async (importOriginal) => ({

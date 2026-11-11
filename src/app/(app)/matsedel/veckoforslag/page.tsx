@@ -6,6 +6,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { weekNumber, weekParam, weekQueryAlways } from "@/features/mealplan";
 import { getMealPlanView, resolveViewedWeek } from "@/features/mealplan/server";
 import { listStores } from "@/features/settings/server";
+import { draftToShow } from "@/features/week-agent";
 import { getAgentPlacedDays, getWeekAgentSettings, getWeekDraft } from "@/features/week-agent/server";
 import { MatsedelProposal } from "../week-agent-slots";
 
@@ -33,12 +34,13 @@ export default function ProposalPage({ searchParams }: PageProps<"/matsedel/veck
   );
 }
 
-async function Proposal({ searchParams }: { searchParams: Promise<{ vecka?: string | string[]; starta?: string | string[]; "gor-om"?: string | string[] }> }) {
+async function Proposal({ searchParams }: { searchParams: Promise<{ vecka?: string | string[]; starta?: string | string[]; "gor-om"?: string | string[]; nytt?: string | string[] }> }) {
   await requireUserOrRedirect("/matsedel/veckoforslag");
   const params = await searchParams;
   const vecka = Array.isArray(params.vecka) ? params.vecka[0] : params.vecka;
   const startFlag = (Array.isArray(params.starta) ? params.starta[0] : params.starta) === "1";
   const redoFlag = (Array.isArray(params["gor-om"]) ? params["gor-om"][0] : params["gor-om"]) === "1";
+  const newFlag = (Array.isArray(params.nytt) ? params.nytt[0] : params.nytt) === "1";
   const weekStart = await resolveViewedWeek(vecka);
   const week = weekNumber(weekStart);
   const backHref = `/matsedel${weekQueryAlways(weekStart)}`;
@@ -54,7 +56,9 @@ async function Proposal({ searchParams }: { searchParams: Promise<{ vecka?: stri
   const filled = [...new Set(view.dishes.flatMap((dish) => (dish.weekday ? [dish.weekday] : [])))].sort((a, b) => a - b);
   // A redo asks for a new proposal even when a draft exists; it keeps what the household put there itself.
   const ownDays = redoFlag ? filled.filter((day) => !(agentDays ?? []).includes(day)) : null;
-  const initialDraft = !redoFlag && draft ? { id: draft.id, proposal: draft.proposal, model: draft.model } : null;
+  // A draft older than a day is not shown as current: without ?starta=1 the screen is empty (nothing runs, nothing costs); with it a new proposal replaces the old.
+  const usable = draftToShow(draft, new Date(), { redo: redoFlag, fresh: newFlag });
+  const initialDraft = usable ? { id: usable.id, proposal: usable.proposal, model: usable.model } : null;
 
   return (
     <MatsedelProposal

@@ -37,8 +37,24 @@ const actions: WeekAgentActions = {
 };
 
 /** The card at the top of Matsedel; nothing unless the Tillval is on and the week has days to fill. */
-export function MatsedelWeekAgentCard({ href, weekNumber, filledDays, emptyDays }: { href: string; weekNumber: number; filledDays: number[]; emptyDays: number[] }) {
-  return <WeekAgentCard href={href} weekNumber={weekNumber} filledDays={filledDays} emptyDays={emptyDays} settings={{ actions: settingsActions, cost }} />;
+export function MatsedelWeekAgentCard({
+  href,
+  weekNumber,
+  filledDays,
+  emptyDays,
+  draft,
+  draftHref,
+  newHref,
+}: {
+  href: string;
+  weekNumber: number;
+  filledDays: number[];
+  emptyDays: number[];
+  draft?: { id: string; freshness: "fresh" | "old" } | null;
+  draftHref?: string;
+  newHref?: string;
+}) {
+  return <WeekAgentCard href={href} weekNumber={weekNumber} filledDays={filledDays} emptyDays={emptyDays} draft={draft} draftHref={draftHref} newHref={newHref} discard={discardDraft} settings={{ actions: settingsActions, cost }} />;
 }
 
 /** The ⋯ in Matsedel's header for a full week. */

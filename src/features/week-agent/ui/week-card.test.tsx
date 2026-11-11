@@ -1,4 +1,4 @@
-import { render as rtlRender, screen } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,15 +8,81 @@ import { cost, fakeSettings } from "./fake-actions";
 import { WeekAgentCard } from "./week-card";
 import { WeekAgentMenu } from "./week-menu";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh, replace: vi.fn() }) }));
 
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: ToastProvider });
 const settings = () => ({ actions: fakeSettings(), cost });
 const all = [1, 2, 3, 4, 5, 6, 7];
 
 beforeEach(() => {
+  refresh.mockClear();
   window.localStorage.clear();
   saveOption("weekAgent", true);
+});
+
+describe("WeekAgentCard with a waiting proposal", () => {
+  const props = { href: "/start", draftHref: "/see", newHref: "/new", weekNumber: 47, filledDays: [], emptyDays: all, settings: settings() };
+  const ok = () => vi.fn(async () => ({ status: "ok" as const }));
+
+  it("a fresh draft: Du har ett förslag på väntan, Se förslaget (no run), Gör nytt and Förkasta", () => {
+    render(<WeekAgentCard {...props} draft={{ id: "d", freshness: "fresh" }} discard={ok()} />);
+    expect(screen.getByTestId("week-agent-card")).toHaveTextContent("Du har ett förslag på väntan");
+    expect(screen.getByRole("link", { name: "Se förslaget" })).toHaveAttribute("href", "/see");
+    expect(screen.getByRole("link", { name: "Gör nytt" })).toHaveAttribute("href", "/new");
+    expect(screen.getByRole("button", { name: "Förkasta" })).toBeInTheDocument();
+  });
+
+  it("an old draft: says it is old, keeps Föreslå veckan as the way to a new proposal, and a small Förkasta", () => {
+    render(<WeekAgentCard {...props} draft={{ id: "d", freshness: "old" }} discard={ok()} />);
+    const card = screen.getByTestId("week-agent-card");
+    expect(card).toHaveTextContent("Ditt förra förslag är gammalt. Gör nytt?");
+    expect(screen.queryByText("Se förslaget")).toBeNull();
+    expect(screen.getByTestId("week-agent-card-link")).toHaveAttribute("href", "/start");
+    expect(card).toHaveTextContent("Föreslå veckan");
+    expect(screen.getByRole("button", { name: "Förkasta" })).toBeInTheDocument();
+  });
+
+  it("an old draft on a partly filled week keeps Fyll resten av veckan in the button", () => {
+    render(<WeekAgentCard {...props} filledDays={[4]} emptyDays={[1, 2, 3, 5, 6, 7]} draft={{ id: "d", freshness: "old" }} />);
+    expect(screen.getByTestId("week-agent-card")).toHaveTextContent("Fyll resten av veckan");
+  });
+
+  it("without a draft it is the card as before, with no Förkasta", () => {
+    render(<WeekAgentCard {...props} discard={ok()} />);
+    expect(screen.getByTestId("week-agent-card")).toHaveTextContent("Föreslå veckan");
+    expect(screen.queryByRole("button", { name: "Förkasta" })).toBeNull();
+  });
+
+  it("Förkasta asks first, then throws the draft away and refreshes the card", async () => {
+    const user = userEvent.setup();
+    const discard = ok();
+    render(<WeekAgentCard {...props} draft={{ id: "d", freshness: "fresh" }} discard={discard} />);
+    await user.click(screen.getByRole("button", { name: "Förkasta" }));
+    const dialog = await screen.findByRole("dialog", { name: "Förkasta förslaget?" });
+    expect(dialog).toHaveTextContent("Inget ändras i Matsedel.");
+    expect(discard).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Förkasta" }));
+    await waitFor(() => expect(discard).toHaveBeenCalledWith({ draftId: "d" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("when the draft is already gone it only refreshes; a real error stays in the sheet", async () => {
+    const user = userEvent.setup();
+    const gone = vi.fn(async () => ({ status: "error" as const, message: "x", code: "no_draft" as const }));
+    const { unmount } = render(<WeekAgentCard {...props} draft={{ id: "d", freshness: "old" }} discard={gone} />);
+    await user.click(screen.getByRole("button", { name: "Förkasta" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Förkasta" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    unmount();
+    refresh.mockClear();
+    const failing = vi.fn(async () => ({ status: "error" as const, message: "Det gick inte just nu." }));
+    render(<WeekAgentCard {...props} draft={{ id: "d", freshness: "old" }} discard={failing} />);
+    await user.click(screen.getByRole("button", { name: "Förkasta" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Förkasta" }));
+    expect(await screen.findByText("Det gick inte just nu.")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
 });
 
 describe("WeekAgentCard", () => {

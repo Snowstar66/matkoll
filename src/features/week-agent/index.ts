@@ -40,3 +40,4 @@ export { allergenTerms, allergyWarningText, isVegetarian } from "./domain/facts"
 export { offerReason, useSoonReason } from "./domain/reasons";
 export { agentSource, applyPlan, lockedDaysOf, rerollableDays, type ApplyPlan } from "./domain/apply";
 export { proposalDaySchema, proposalStatuses, weekProposalSchema, type ProposalStatus } from "./domain/proposal";
+export { draftFreshness, draftMaxAgeMs, draftToShow, type DraftFreshness } from "./domain/draft-age";
