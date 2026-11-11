@@ -145,3 +145,10 @@ export async function reopenUsedDraftIn(db: Db, id: string, proposal: WeekPropos
   if (gone.error) throw new WeekAgentDataError(`draft_reopen_failed ${gone.error.code}`);
   return gone.data.length > 0 ? "discarded" : null;
 }
+
+/** The week's latest used proposal, with whether "Ångra" still has what it needs. Null when none. Throws WeekAgentDataError. */
+export async function readLatestUsedIn(db: Db, weekStart: string): Promise<UsedDraft | null> {
+  const { data, error } = await db.from("week_agent_proposals").select("id").eq("week_start", weekStart).eq("status", "used").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new WeekAgentDataError(`draft_read_failed ${error.code}`);
+  return data ? readDraftAnyStatusIn(db, data.id) : null;
+}

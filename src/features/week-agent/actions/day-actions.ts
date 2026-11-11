@@ -9,7 +9,7 @@ import { buildShortlist } from "../domain/shortlist";
 import type { PlanInput, ProposalDay, RecipeCandidate, WeekProposal } from "../domain/types";
 import { readWeekPool } from "../context";
 import type { AlternativeOption, AlternativesInput, AlternativesResult, DraftResult, SetDayLockInput, SwapDayInput } from "./contract";
-import { draftById, guarded, messages, settingsOfHousehold, signedIn } from "./support";
+import { draftById, guarded, messages, noDraftError, settingsOfHousehold, signedIn } from "./support";
 
 const dayIndexSchema = z.number().int().min(1).max(7);
 const uuid = z.uuid();
@@ -39,7 +39,7 @@ export async function alternativesForDay(input: AlternativesInput): Promise<Alte
 
   return guarded(async (): Promise<AlternativesResult> => {
     const draft = await draftById(draftId);
-    if (!draft) return { status: "error", message: messages.noDraft };
+    if (!draft) return noDraftError;
     const day = dayOf(draft.proposal, dayIndex);
     if (!day || day.slot !== "dinner" || day.source === "fixed") return { status: "error", message: messages.invalid };
 
@@ -93,7 +93,7 @@ export async function swapDay(input: SwapDayInput): Promise<DraftResult> {
 
   return guarded(async (): Promise<DraftResult> => {
     const draft = await draftById(draftId);
-    if (!draft) return { status: "error", message: messages.noDraft };
+    if (!draft) return noDraftError;
     const day = dayOf(draft.proposal, dayIndex);
     if (!day || day.slot !== "dinner" || day.source === "fixed") return { status: "error", message: messages.invalid };
 
@@ -118,7 +118,7 @@ export async function swapDay(input: SwapDayInput): Promise<DraftResult> {
       allergyWarning: allergyWarningText(candidate, pool.people),
     };
     const proposal: WeekProposal = { ...draft.proposal, days: draft.proposal.days.map((other) => (other.dayIndex === dayIndex ? swapped : other)) };
-    if (!(await saveProposal(draftId, proposal, draft.model))) return { status: "error", message: messages.noDraft };
+    if (!(await saveProposal(draftId, proposal, draft.model))) return noDraftError;
     return { status: "ok", proposal };
   });
 }
@@ -133,11 +133,11 @@ export async function setDayLock(input: SetDayLockInput): Promise<DraftResult> {
 
   return guarded(async (): Promise<DraftResult> => {
     const draft = await draftById(draftId);
-    if (!draft) return { status: "error", message: messages.noDraft };
+    if (!draft) return noDraftError;
     const day = dayOf(draft.proposal, dayIndex);
     if (!day || day.slot !== "dinner" || day.source === "fixed" || day.recipeId === null) return { status: "error", message: messages.invalid };
     const proposal: WeekProposal = { ...draft.proposal, days: draft.proposal.days.map((other) => (other.dayIndex === dayIndex ? { ...other, locked } : other)) };
-    if (!(await saveProposal(draftId, proposal, draft.model))) return { status: "error", message: messages.noDraft };
+    if (!(await saveProposal(draftId, proposal, draft.model))) return noDraftError;
     return { status: "ok", proposal };
   });
 }

@@ -3,6 +3,9 @@ import type { ExcludedDish, WeekProposal } from "../domain/types";
 import type { StoredProposal } from "../data/week-agent";
 import type { WeekAgentSettings } from "../domain/settings";
 
+/** `code: "no_draft"`: the draft the screen holds is not a draft any more (used, replaced from another phone or tab, discarded). The screen reads the week again. */
+export type ErrorResult = { status: "error"; message: string; code?: "no_draft" };
+
 // The contract of the Veckoagent server actions (PR 2). Types only (plus input schemas), safe to import from the
 // client. Every action returns a discriminated union and never throws for an expected case.
 
@@ -22,15 +25,15 @@ export type ProposeWeekResult =
   | { status: "ok"; draftId: string; proposal: WeekProposal; excludedForAllergy: ExcludedDish[]; model: WeekAgentModel }
   | { status: "too_few_recipes"; needed: number; available: number; excludedForAllergy: ExcludedDish[] }
   | { status: "cap_reached" }
-  | { status: "error"; message: string };
+  | ErrorResult;
 
 export type AlternativeOption = { recipeId: string; title: string; reasons: string[]; allergyWarning: string | null };
 export type AlternativesInput = { draftId: string; dayIndex: number };
-export type AlternativesResult = { status: "ok"; options: AlternativeOption[] } | { status: "error"; message: string };
+export type AlternativesResult = { status: "ok"; options: AlternativeOption[] } | ErrorResult;
 
 export type SwapDayInput = { draftId: string; dayIndex: number; recipeId: string };
 export type SetDayLockInput = { draftId: string; dayIndex: number; locked: boolean };
-export type DraftResult = { status: "ok"; proposal: WeekProposal } | { status: "error"; message: string };
+export type DraftResult = { status: "ok"; proposal: WeekProposal } | ErrorResult;
 
 export type ApplyWeekInput = {
   draftId: string;
@@ -42,14 +45,20 @@ export type ApplyWeekInput = {
 };
 export type ApplyWeekResult =
   /** `toBuy`: the number of lines on the week's shopping list after the write (derived from the plan, minus the pantry); null when the list could not be read. */
-  { status: "ok"; written: number[]; skippedOccupied: number[]; toBuy?: number | null } | { status: "error"; message: string };
+  { status: "ok"; written: number[]; skippedOccupied: number[]; toBuy?: number | null } | ErrorResult;
 
 export type UndoWeekInput = { draftId: string };
 /** `removed`: the weekdays whose dish was taken off again (restored days included in `restored`). */
-export type UndoWeekResult = { status: "ok"; removed: number[]; restored: number[] } | { status: "error"; message: string };
+export type UndoWeekResult = { status: "ok"; removed: number[]; restored: number[] } | ErrorResult;
+
+export type CurrentWeekInput = { weekStart: string };
+/** Where the week stands now: its draft (if any) and whether an earlier proposal was used (`undoable` when Ångra can still take it back). */
+export type CurrentWeekResult =
+  | { status: "ok"; draft: { id: string; proposal: WeekProposal; model: string | null } | null; used: { draftId: string; undoable: boolean } | null }
+  | ErrorResult;
 
 export type DiscardDraftInput = { draftId: string };
-export type OkOrError = { status: "ok" } | { status: "error"; message: string };
+export type OkOrError = { status: "ok" } | ErrorResult;
 
 export type WeekAgentContext = {
   settings: WeekAgentSettings;
