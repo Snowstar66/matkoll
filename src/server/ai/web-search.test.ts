@@ -39,6 +39,40 @@ describe("createAnthropicWebSearch", () => {
     expect(result).toMatchObject({ ok: true, data: { searches: 2, inputTokens: 1200, outputTokens: 130, sourceUrls: ["https://a.example/meny"] } });
     expect(JSON.parse(String(fetchMock.mock.calls[1]![1]!.body)).messages.at(-1).role).toBe("assistant");
   });
+  it("reports the earlier requests' tokens and searches when a later request fails (S-01)", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failing = (status: number) => {
+      const fetchMock = vi.fn(async (_url: unknown, _init?: RequestInit) =>
+        fetchMock.mock.calls.length === 1
+          ? message(searchBlocks, { stop_reason: "pause_turn", usage: { input_tokens: 500, output_tokens: 50, server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } } })
+          : new Response(JSON.stringify({ type: "error", error: { type: "api_error", message: "x" } }), { status, headers: { "content-type": "application/json" } }),
+      );
+      return fetchMock;
+    };
+    const used = vi.fn();
+    expect(await createAnthropicWebSearch({ apiKey: "k", fetch: failing(529) as never })(request, signal(), used)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(used).toHaveBeenCalledExactlyOnceWith({ inputTokens: 500, outputTokens: 50, searches: 1, unanswered: true });
+    // A 4xx is a refusal: nothing more was generated.
+    const refused = vi.fn();
+    expect(await createAnthropicWebSearch({ apiKey: "k", fetch: failing(400) as never })(request, signal(), refused)).toMatchObject({ ok: false, error: { code: "ai_rejected" } });
+    expect(refused).toHaveBeenCalledExactlyOnceWith({ inputTokens: 500, outputTokens: 50, searches: 1, unanswered: false });
+    // An abort reports what came before it too.
+    const controller = new AbortController();
+    const aborting = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (aborting.mock.calls.length === 1) return message(searchBlocks, { stop_reason: "pause_turn" });
+      controller.abort();
+      throw init?.signal?.reason ?? new Error("aborted");
+    });
+    const abortedUse = vi.fn();
+    expect(await createAnthropicWebSearch({ apiKey: "k", fetch: aborting as never })(request, controller.signal, abortedUse)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(abortedUse).toHaveBeenCalledExactlyOnceWith({ inputTokens: 1000, outputTokens: 200, searches: 2, unanswered: true });
+    log.mockRestore();
+  });
+  it("reports what a successful run used", async () => {
+    const used = vi.fn();
+    await createAnthropicWebSearch({ apiKey: "k", fetch: (async () => message([{ type: "text", text: "{}", citations: null }])) as never })(request, signal(), used);
+    expect(used).toHaveBeenCalledExactlyOnceWith({ inputTokens: 1000, outputTokens: 200, searches: 2, unanswered: false });
+  });
   it("maps a 4xx to ai_rejected and a 5xx to ai_unavailable, logging only the status", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const status = (code: number) => createAnthropicWebSearch({ apiKey: "k", fetch: (async () => new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Plats: Uppsala secret" } }), { status: code, headers: { "content-type": "application/json" } })) as never })(request, signal());
