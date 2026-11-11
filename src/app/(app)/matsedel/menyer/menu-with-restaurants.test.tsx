@@ -1,12 +1,22 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fail } from "@/lib/errors";
 import { saveOption } from "@/lib/options";
+import { fakeActions, okResult, salvia, wok } from "@/features/restaurant-agent/ui/fake-actions";
 import { MenuWithRestaurants } from "./menu-with-restaurants";
+
+let actions = fakeActions();
+vi.mock("./restaurant-agent-actions", () => ({ restaurantActions: { findRestaurants: (input: never) => actions.findRestaurants(input) }, restaurantCostText: "" }));
+const readMenuText = vi.fn();
+vi.mock("@/features/menu-advisor/actions/read-menu-text", () => ({ readMenuText: (input: unknown) => readMenuText(input) }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }));
 
 beforeEach(() => {
+  actions = fakeActions();
+  readMenuText.mockReset();
+  readMenuText.mockResolvedValue(fail("ai_unavailable"));
   window.localStorage.clear();
   saveOption("menuAdvisor", true);
 });
@@ -26,5 +36,33 @@ describe("MenuWithRestaurants", () => {
     expect(screen.getByTestId("restaurant-where")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tillbaka" }));
     expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
+  });
+
+  async function toHandover(user: ReturnType<typeof userEvent.setup>) {
+    saveOption("restaurantAgent", true);
+    render(<MenuWithRestaurants members={null} profiles={[]} />);
+    await user.click(await screen.findByTestId("restaurant-agent-card"));
+    await user.type(screen.getByTestId("restaurant-place-text"), "Uppsala");
+    await user.click(screen.getByTestId("restaurant-find"));
+    await user.click(await screen.findByTestId("restaurant-choose"));
+  }
+
+  it("hands a found menu text to Menyrådgivaren, which reads it", async () => {
+    const user = userEvent.setup();
+    await toHandover(user);
+    await user.click(screen.getByTestId("restaurant-use-menu"));
+    await waitFor(() => expect(readMenuText).toHaveBeenCalledTimes(1));
+    expect(readMenuText).toHaveBeenCalledWith({ text: salvia.menuText, quality: "standard" });
+    expect(screen.queryByTestId("restaurant-handover")).toBeNull();
+  });
+
+  it("a missing menu goes the photo way, with nothing read", async () => {
+    actions = fakeActions(okResult([wok]));
+    const user = userEvent.setup();
+    await toHandover(user);
+    expect(screen.queryByTestId("restaurant-use-menu")).toBeNull();
+    await user.click(screen.getByTestId("restaurant-photo"));
+    expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
+    expect(readMenuText).not.toHaveBeenCalled();
   });
 });
