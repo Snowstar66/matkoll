@@ -1428,6 +1428,9 @@ isOneToOne: false
 "photo_household_cap":
 { Args: { "bucket": string }; Returns: number
                            },
+"photo_household_count":
+{ Args: { "bucket": string,"hid": string }; Returns: number
+                           },
 "photo_room_in_my_household":
 { Args: { "bucket": string }; Returns: boolean
                            },
