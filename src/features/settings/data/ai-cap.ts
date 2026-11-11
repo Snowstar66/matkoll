@@ -21,6 +21,13 @@ export async function loadAiCapStatusIn(db: SettingsDb): Promise<AiCapStatus | n
   return capStatusFromRows(data ?? []);
 }
 
+/** Whether the signed-in user's household is exempt from the cap, without summing its usage (ai_cap_exempt). Throws SettingsDataError. */
+export async function loadAiCapExemptIn(db: SettingsDb): Promise<boolean> {
+  const { data, error } = await db.rpc("ai_cap_exempt");
+  if (error) throw new SettingsDataError(`load_ai_cap_exempt_failed ${error.code}`);
+  return data === true;
+}
+
 /** Every household's estimated cost today and this month, and the cap, or `null` for anyone but the owner. Throws SettingsDataError. */
 export async function loadHouseholdCostsIn(db: SettingsDb): Promise<{ capSek: number; households: HouseholdCost[] } | null> {
   const { data, error } = await db.rpc("ai_cap_households");

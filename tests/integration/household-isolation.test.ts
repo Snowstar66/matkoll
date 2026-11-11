@@ -47,6 +47,11 @@ type Seed = {
 type Coverage = {
   /** A row for the table as `owner`; foreign keys come from `seed`. */
   row: (seed: Seed, ownerId: string) => Record<string, unknown>;
+  /**
+   * The row is written with the service role for the owner, since no client may insert it (ai_usage,
+   * security review S-03: only ai_usage_reserve and ai_usage_settle write it; ai-cap.test.ts tries them).
+   */
+  byService?: true;
 };
 
 // Story 20.3: tables that are not one user's own. The owner of a feedback row may
@@ -63,8 +68,9 @@ const coveredInFeedbackTest = ["app_owner", "feedback", "push_event", "eat_soon_
 const coveredInAppInvitesTest = ["app_invite"];
 
 // Tak för AI-kostnad: the owner's one-row daily cap; no client reads or writes it, and the functions
-// around it answer the caller's own household or only the owner (ai-cap.test.ts tries each).
-const coveredInAiCapTest = ["ai_cap"];
+// around it answer the caller's own household or only the owner (ai-cap.test.ts tries each). The
+// reservations of ai_usage rows (security review S-02) are the same: RLS, no policy, no grant.
+const coveredInAiCapTest = ["ai_cap", "ai_usage_reservation"];
 
 // Nutrition values per ingredient name: shared reference data, no user or household; select for
 // authenticated only, nothing writable (nutrition.test.ts tries to read, write and read as anon).
@@ -87,7 +93,7 @@ type IsolatedTable = Exclude<TableName, "feedback">;
 // that names it even when the types were not regenerated.
 const coverage: Record<IsolatedTable, Coverage> = {
   ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
-  ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }) },
+  ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }), byService: true },
   // Story 17.9: the hash is never granted for reading, so the generic checks below read A's row by id.
   api_key: { row: () => ({ key_hash: sha256(randomUUID()), label: "Siri" }) },
   ai_job: {
@@ -315,9 +321,10 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<IsolatedTa
   const seed = {} as Seed;
   const ids = new Map<IsolatedTable, string>();
   for (const table of seedOrder) {
-    const inserted = await owner
+    const { byService } = coverage[table];
+    const inserted = await (byService ? adminClient() : owner)
       .from(table)
-      .insert(coverage[table].row(seed, ownerId) as never)
+      .insert((byService ? { ...coverage[table].row(seed, ownerId), user_id: ownerId } : coverage[table].row(seed, ownerId)) as never)
       .select("id")
       .single();
     expect(inserted.error, `A inserts ${table}`).toBeNull();
@@ -965,6 +972,9 @@ describe("household isolation", () => {
       "create_app_invite", "app_invites", "remove_app_invite", "claim_app_invite", "app_invite_preview", "app_invited_access",
       // Tak för AI-kostnad: the caller's own household's usage, and the owner's list and cap (ai-cap.test.ts tries each).
       "ai_cap_status", "ai_cap_households", "set_ai_cap",
+      // Security review S-02, S-03: reserving and settling the caller's own household's usage, and whether it is
+      // exempt; ai-cap.test.ts tries B with A's reservation and with rows for A's household.
+      "ai_usage_reserve", "ai_usage_settle", "ai_cap_exempt",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
       // S-10: whether the caller's own household is under its photo cap (photo-caps.test.ts tries it).

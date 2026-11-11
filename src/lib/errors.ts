@@ -41,6 +41,8 @@ export const errorMessages = {
   ai_job_gone: "Resultatet finns inte längre.",
   // Tak för AI-kostnad: the household's daily cap is reached; the model is not asked, and trying again today does not help.
   ai_cap_reached: "Dagens AI-tak är nått – prova igen i morgon.",
+  // The cap could not be checked (the database did not answer): the model is not asked (fails closed).
+  ai_cap_check_failed: "Det gick inte att kontrollera dagens AI-tak just nu. Försök igen om en stund.",
   ai_cap_not_owner: "Bara appens ägare kan ändra AI-taket.",
   ai_cap_unavailable: "Det gick inte att läsa AI-kostnaden. Försök igen.",
   ai_cap_save_failed: "Det gick inte att spara taket. Försök igen.",

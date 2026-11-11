@@ -79,6 +79,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"ai_usage_reservation": {
+                  Row: {
+                    "created_at": string,"reservation_id": string,"usage_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"reservation_id": string,"usage_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"reservation_id"?: string,"usage_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ai_usage_reservation_usage_id_fkey"
+      columns: ["usage_id"]
+isOneToOne: true
+      referencedRelation: "ai_usage"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"api_key": {
                   Row: {
                     "created_at": string,"day_count": number,"day_start": string | null,"id": string,"key_hash": string,"label": string,"last_used_at": string | null,"revoked_at": string | null,"user_id": string,"window_count": number,"window_start": string | null
@@ -1105,6 +1125,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"ai_cap_exempt":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "ai_cap_households":
 { Args: Record<PropertyKey, never>; Returns: {
               "cap_sek": number,"day_input_tokens": number,"day_output_tokens": number,"exempt": boolean,"household_id": string,"members": string,"model": string,"month_input_tokens": number,"month_output_tokens": number,"name": string
@@ -1130,10 +1153,19 @@ isOneToOne: false
 "ai_month_start":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"ai_usage_check_rows":
+{ Args: { "min_rows": number,"usage": Json }; Returns: undefined
+                           },
 "ai_usage_month":
 { Args: { "from_at": string,"to_at": string }; Returns: {
               "calls": number,"input_tokens": number,"model": string,"output_tokens": number
             }[]
+                           },
+"ai_usage_reserve":
+{ Args: { "usage": Json }; Returns: Json
+                           },
+"ai_usage_settle":
+{ Args: { "reservation": string,"usage": Json }; Returns: boolean
                            },
 "app_invite_open":
 { Args: { "code": string,"who": string }; Returns: string
