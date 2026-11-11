@@ -6,6 +6,8 @@ export {
   claudeKeyMissingText,
   claudeModels,
   costSummaryText,
+  formatSek,
+  sekPerUsd,
   levelOffForQwenText,
   qwenUnavailableText,
   type AiLevel,

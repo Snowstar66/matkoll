@@ -298,6 +298,11 @@ export const offlineListEmail = "e2e-offline-lista@matkoll.test";
  */
 export const feedbackEmail = "e2e-tyck-till@matkoll.test";
 /**
+ * The E2E user of week-agent.spec.ts alone (Veckoagenten, Tillval): eight recipes and an empty meal plan are made
+ * with the service role, and the household's agent settings and drafts are removed before each test.
+ */
+export const weekAgentEmail = "e2e-veckoagent@matkoll.test";
+/**
  * The E2E user of household.spec.ts alone (Medlemmar och inbjudan, Story 21.2b): it owns a
  * household, invites, and a second browser makes an account on /ga-med and joins it.
  */
@@ -392,6 +397,7 @@ export const e2eEmails = [
   liveListEmail,
   offlineListEmail,
   feedbackEmail,
+  weekAgentEmail,
   householdEmail,
   appInvitesEmail,
   notesEmail,
@@ -453,6 +459,7 @@ export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.j
 export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
+export const weekAgentStorageState = "tests/e2e/.auth/week-agent.json";
 export const householdStorageState = "tests/e2e/.auth/household.json";
 export const appInvitesStorageState = "tests/e2e/.auth/app-invites.json";
 export const notesStorageState = "tests/e2e/.auth/notes.json";

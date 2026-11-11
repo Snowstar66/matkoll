@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, resolveViewedWeek, type MealPlanView } from "@/features/mealplan/server";
-import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday } from "@/features/mealplan";
+import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday, weekNumber, weekQueryAlways } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import { recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
@@ -27,6 +27,7 @@ import { MenuShortcut } from "@/features/menu-advisor/ui/menu-shortcut";
 import { AddDishesButton } from "@/features/mealplan/ui/add-dishes-button";
 import { loadBoendeCounts } from "../boende-counts";
 import { OfferIdeas } from "../offer-ideas";
+import { MatsedelWeekAgentCard, MatsedelWeekAgentMenu } from "./week-agent-slots";
 
 /**
  * The library as rows for "Lägg till rätter", or `null` when it cannot be read
@@ -170,6 +171,13 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     people,
   );
 
+  // Veckoagenten (Tillval, per device: the components hide themselves when it is off): which weekdays have a dish and
+  // which are free and still ahead decide the card (empty / partly filled) and the ⋯ (full week).
+  const firstOpenDay = firstOpenWeekday(weekStart, now, todayWeekday(now));
+  const filledDays = [...new Set(view.dishes.flatMap((dish) => (dish.weekday ? [dish.weekday] : [])))].sort((a, b) => a - b);
+  const emptyDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => day >= firstOpenDay && !filledDays.includes(day));
+  const agentAddress = `/matsedel/veckoforslag${weekQueryAlways(weekStart)}`;
+
   // Not awaited: the plan renders at once and the week line arrives when the nutrition has been read.
   const nutrition = weekNutrition(view.dishes);
 
@@ -184,6 +192,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
               <ListOffers next="/matsedel" />
             </Suspense>
             <AddDishesButton />
+            <MatsedelWeekAgentMenu weekStart={weekStart} redoHref={`${agentAddress}&gor-om=1`} filledDays={filledDays} emptyDays={emptyDays} />
           </>
         }
       />
@@ -195,10 +204,11 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       ) : null}
       <div className="flex flex-col gap-4">
         <WeekNav weekStart={weekStart} counts={counts} now={now} />
+        <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
         <WeekPlanner
           key={weekStart}
           weekStart={weekStart}
-          firstOpenDay={firstOpenWeekday(weekStart, now, todayWeekday(now))}
+          firstOpenDay={firstOpenDay}
           dishes={view.dishes}
           options={options}
           toBuy={toBuy}
