@@ -257,7 +257,7 @@ const appOwner = "( SELECT is_app_owner() AS is_app_owner)";
 const uuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const fileRule = (bucket: string) => `((bucket_id = '${bucket}'::text) AND photo_file_in_my_household(bucket_id, name))`;
 const uploadRule = (bucket: string, shape: string) =>
-  `((bucket_id = '${bucket}'::text) AND (name ~ '^${shape}$'::text) AND photo_folder_in_my_household(bucket_id, name))`;
+  `((bucket_id = '${bucket}'::text) AND (name ~ '^${shape}$'::text) AND photo_folder_in_my_household(bucket_id, name) AND photo_room_in_my_household(bucket_id))`;
 
 /** The policies every table, and storage.objects, must have: exactly these. */
 function expectedPolicies(): Omit<LivePolicy, "roles">[] {
@@ -981,6 +981,8 @@ describe("household isolation", () => {
       "ai_usage_reserve", "ai_usage_settle", "ai_cap_exempt",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
+      // S-10: whether the caller's own household is under its photo cap (photo-caps.test.ts tries it).
+      "photo_room_in_my_household",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).
       "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
       // Ät snart: the caller's own household's devices that want the daily push (eat-soon.test.ts tries it).

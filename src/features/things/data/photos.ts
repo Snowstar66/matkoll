@@ -84,6 +84,20 @@ export async function uploadCardFile(db: ThingsDb, path: string, bytes: Uint8Arr
   });
 }
 
+/**
+ * Whether the household has room for another card file in the bucket
+ * (photo_room_in_my_household, S-10): `false` at thingPhotoHouseholdCap, where
+ * Storage refuses the upload. `null` when it cannot be read. Never throws.
+ */
+export async function cardFileRoomIn(db: ThingsDb): Promise<boolean | null> {
+  try {
+    const { data, error } = await db.rpc("photo_room_in_my_household", { bucket: thingPhotoBucket });
+    return error ? null : data === true;
+  } catch {
+    return null;
+  }
+}
+
 export type NewCard = {
   id: string;
   placeId: string;

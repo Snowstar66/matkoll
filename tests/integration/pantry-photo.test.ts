@@ -16,7 +16,7 @@ import {
   setPlacePhotoPointsIn,
   type PantryPhotoRow,
 } from "@/features/pantry/data/photos";
-import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
+import { placePhotoBucket, placePhotoHouseholdCap, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { normalizeSiteName } from "@/features/pantry/domain/site";
 import { ok } from "@/lib/errors";
 import { stripPngMetadata } from "@/lib/images";
@@ -699,10 +699,13 @@ describe("the sweep (Story 10.3)", () => {
     try {
       const place = await addSite(many.id, "Hemma", true);
       const paths = Array.from({ length: 120 }, () => placePhotoPath(many.id, place, "Kyl", randomUUID(), "image/png"));
-      for (let start = 0; start < paths.length; start += 15) {
+      // Batches of 20, so no batch has both the member's last uploads and the service role's first.
+      for (let start = 0; start < paths.length; start += 20) {
         await Promise.all(
-          paths.slice(start, start + 15).map(async (path) => {
-            const uploaded = await bucket(many.db).upload(path, png(), { contentType: "image/png", upsert: false });
+          paths.slice(start, start + 20).map(async (path, index) => {
+            // Past the household's cap (S-10, placePhotoHouseholdCap) only the service role may add files.
+            const uploader = start + index < placePhotoHouseholdCap ? many.db : adminClient();
+            const uploaded = await bucket(uploader).upload(path, png(), { contentType: "image/png", upsert: false });
             if (uploaded.error) throw uploaded.error;
           }),
         );

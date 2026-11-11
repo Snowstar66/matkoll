@@ -36,12 +36,14 @@ const uploadPlacePhoto = vi.fn();
 const savePantryPhotoIn = vi.fn();
 const removePlacePhotoFiles = vi.fn();
 const photoRowExistsIn = vi.fn();
+const placePhotoRoomIn = vi.fn();
 vi.mock("../data/photos", () => ({
   uploadUnauthorizedDetail: "upload_unauthorized",
   uploadPlacePhoto: (...args: unknown[]) => (steps.push("upload"), uploadPlacePhoto(...args)),
   savePantryPhotoIn: (...args: unknown[]) => (steps.push("save"), savePantryPhotoIn(...args)),
   removePlacePhotoFiles: (...args: unknown[]) => (steps.push("remove"), removePlacePhotoFiles(...args)),
   photoRowExistsIn: (...args: unknown[]) => (steps.push("exists"), photoRowExistsIn(...args)),
+  placePhotoRoomIn: (...args: unknown[]) => (steps.push("room"), placePhotoRoomIn(...args)),
 }));
 
 const sweepPlacePhotosIn = vi.fn();
@@ -76,6 +78,7 @@ beforeEach(() => {
   uploadPlacePhoto.mockReset().mockResolvedValue(undefined);
   savePantryPhotoIn.mockReset().mockResolvedValue({ kind: "saved", previous: null });
   photoRowExistsIn.mockReset().mockResolvedValue(false);
+  placePhotoRoomIn.mockReset().mockResolvedValue(true);
   removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => ({ removed: paths, failed: null }));
   sweepPlacePhotosIn.mockReset().mockResolvedValue({ removed: 0, more: false, failed: null });
   revalidateFor.mockReset();
@@ -257,6 +260,22 @@ describe("savePlacePhoto", () => {
     uploadPlacePhoto.mockRejectedValue(new PantryDataError("upload_unauthorized"));
     expect(await savePlacePhoto(input(jpeg), { now })).toEqual(fail("unauthorized"));
     expect(savePantryPhotoIn).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_photo_cap when the household is at its cap (S-10), and sweeps so files without a row free the room", async () => {
+    uploadPlacePhoto.mockRejectedValue(new PantryDataError("upload_unauthorized"));
+    placePhotoRoomIn.mockResolvedValue(false);
+    expect(await savePlacePhoto(input(jpeg), { now })).toEqual(fail("pantry_photo_cap"));
+    expect(steps).toEqual(["upload", "room", "sweep"]);
+    expect(savePantryPhotoIn).not.toHaveBeenCalled();
+    expect(logged()).toContain("photo_cap");
+  });
+
+  it("keeps the upload's own error when the room cannot be read", async () => {
+    uploadPlacePhoto.mockRejectedValue(new PantryDataError("upload_failed 500"));
+    placePhotoRoomIn.mockResolvedValue(null);
+    expect(await savePlacePhoto(input(jpeg), { now })).toEqual(fail("pantry_photo_failed"));
+    expect(sweepPlacePhotosIn).not.toHaveBeenCalled();
   });
 
   it("gives unauthorized without a user, and touches nothing", async () => {

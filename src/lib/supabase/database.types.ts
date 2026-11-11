@@ -1431,6 +1431,15 @@ isOneToOne: false
 "photo_folder_in_my_household":
 { Args: { "bucket": string,"object_name": string }; Returns: boolean
                            },
+"photo_household_cap":
+{ Args: { "bucket": string }; Returns: number
+                           },
+"photo_household_count":
+{ Args: { "bucket": string,"hid": string }; Returns: number
+                           },
+"photo_room_in_my_household":
+{ Args: { "bucket": string }; Returns: boolean
+                           },
 "put_thing_changes":
 { Args: { "changes": Json,"item": string }; Returns: undefined
                            },
