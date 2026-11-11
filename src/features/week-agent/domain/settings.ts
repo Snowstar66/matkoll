@@ -9,7 +9,7 @@ export const weekdaySchema = z.number().int().min(1).max(7);
 
 export const minDinners = 3;
 export const maxDinners = 7;
-export const defaultDinners = 5;
+export const defaultDinners = 7;
 
 export const budgets = ["normal", "low"] as const;
 export type Budget = (typeof budgets)[number];
