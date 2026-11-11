@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, magicLinkPath, openMagicLink, openSettingsViaAvatar, settingsEmail, settingsStorageState } from "./support";
+import { adminClient, e2eAiSettingsPassword, e2eUserId, magicLinkPath, openMagicLink, openSettingsViaAvatar, settingsEmail, settingsStorageState } from "./support";
 
 // Story 1.12: Inställningar with the approved recipe sites and "Logga ut".
 // The specs use a user of their own (settingsEmail): turning koket.se off and
@@ -344,7 +344,7 @@ test("Story 17.5: the page AI saves the choice, which is read again after a relo
   await section.getByLabel("Lösenord").fill("fel");
   await section.getByRole("button", { name: /^Lås upp$/ }).click();
   await expect(section.getByText("Fel lösenord.")).toBeVisible();
-  await section.getByLabel("Lösenord").fill("frasse");
+  await section.getByLabel("Lösenord").fill(e2eAiSettingsPassword);
   await section.getByRole("button", { name: /^Lås upp$/ }).click();
   await expect(section.getByTestId("ai-unlocked")).toBeVisible();
   // Without ANTHROPIC_API_KEY (the server's environment) Claude is off with the key text; with it, Claude can be picked.
@@ -356,19 +356,25 @@ test("Story 17.5: the page AI saves the choice, which is read again after a relo
   if ((await keyMissing.count()) > 0) {
     await expect(page.getByTestId("ai-claude-missing")).toHaveText("Lägg in ANTHROPIC_API_KEY i .env.local och starta om");
   } else {
-    // With the mock provider as the default, Claude is available but not chosen yet.
-    if (!(await claude.isChecked())) await claude.click();
-    await expect(section.getByRole("radio", { name: "Haiku 5.5" })).toBeChecked();
-    await section.getByRole("radio", { name: "Sonnet 5.5" }).click();
-    await section.getByRole("radio", { name: "Hög" }).click();
-    await expect(toast(page)).toContainText("Sparat");
-    await expect
-      .poll(async () => (await adminClient().from("ai_setting").select("model, effort").eq("user_id", userId)).data)
-      .toEqual([{ model: "claude-sonnet-5-5", effort: "high" }]);
-    await page.reload();
-    await expect(section.getByRole("radio", { name: "Sonnet 5.5" })).toBeChecked();
-    await expect(section.getByRole("radio", { name: "Hög" })).toBeChecked();
-    await adminClient().from("ai_setting").delete().eq("user_id", userId);
+    // Security review S-07: only the app's owner may save the choice, so this user is made the owner here.
+    expect((await adminClient().from("app_owner").upsert({ user_id: userId })).error).toBeNull();
+    try {
+      // With the mock provider as the default, Claude is available but not chosen yet.
+      if (!(await claude.isChecked())) await claude.click();
+      await expect(section.getByRole("radio", { name: "Haiku 5.5" })).toBeChecked();
+      await section.getByRole("radio", { name: "Sonnet 5.5" }).click();
+      await section.getByRole("radio", { name: "Hög" }).click();
+      await expect(toast(page)).toContainText("Sparat");
+      await expect
+        .poll(async () => (await adminClient().from("ai_setting").select("model, effort").eq("user_id", userId)).data)
+        .toEqual([{ model: "claude-sonnet-5-5", effort: "high" }]);
+      await page.reload();
+      await expect(section.getByRole("radio", { name: "Sonnet 5.5" })).toBeChecked();
+      await expect(section.getByRole("radio", { name: "Hög" })).toBeChecked();
+    } finally {
+      await adminClient().from("ai_setting").delete().eq("user_id", userId);
+      await adminClient().from("app_owner").delete().eq("user_id", userId);
+    }
   }
   expect(errors).toEqual([]);
 });

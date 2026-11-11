@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
-import { e2eEmails } from "./tests/e2e/support";
+import { e2eAiSettingsPassword, e2eEmails } from "./tests/e2e/support";
 
 // Supabase URL and keys come from .env.local (`pnpm db:env`); set variables win.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -48,6 +48,8 @@ export default defineConfig({
       ALLOWED_EMAILS: e2eEmails.join(","),
       // Story 17.5: the AI section shows outside development only for these addresses.
       AI_SETTINGS_EMAILS: e2eEmails.join(","),
+      // Security review S-08: no built-in password, so the AI choice is unlocked with a test value.
+      AI_SETTINGS_PASSWORD: e2eAiSettingsPassword,
       SITE_URL: `http://localhost:${port}`,
     },
   },

@@ -346,6 +346,11 @@ export const newsEmail = "e2e-brickor@matkoll.test";
  */
 export const sharedOwnerEmail = "e2e-delade@matkoll.test";
 export const sharedSaverEmail = "e2e-delade-2@matkoll.test";
+/**
+ * AI_SETTINGS_PASSWORD for the E2E server (see playwright.config.ts): there is no built-in password
+ * (security review S-08), so the page AI is unlocked with this test value.
+ */
+export const e2eAiSettingsPassword = "e2e-ai-losenord";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,

@@ -199,14 +199,14 @@ isOneToOne: false
                   ]
                 },"household_invite": {
                   Row: {
-                    "code_hash": string,"created_at": string,"created_by": string | null,"expires_at": string,"household_id": string,"id": string,"revoked_at": string | null,"used_at": string | null,"used_by": string | null
+                    "code_hash": string,"created_at": string,"created_by": string | null,"expires_at": string,"household_id": string,"id": string,"revoked_at": string | null,"signup_count": number,"used_at": string | null,"used_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "code_hash": string,"created_at"?: string,"created_by"?: string | null,"expires_at": string,"household_id": string,"id"?: string,"revoked_at"?: string | null,"used_at"?: string | null,"used_by"?: string | null
+                    "code_hash": string,"created_at"?: string,"created_by"?: string | null,"expires_at": string,"household_id": string,"id"?: string,"revoked_at"?: string | null,"signup_count"?: number,"used_at"?: string | null,"used_by"?: string | null
                   }
                   Update: {
-                    "code_hash"?: string,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"household_id"?: string,"id"?: string,"revoked_at"?: string | null,"used_at"?: string | null,"used_by"?: string | null
+                    "code_hash"?: string,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"household_id"?: string,"id"?: string,"revoked_at"?: string | null,"signup_count"?: number,"used_at"?: string | null,"used_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -1179,6 +1179,9 @@ isOneToOne: false
               "actor_name": string,"auth": string,"endpoint": string,"kind": string,"n": number,"note_text": string,"p256dh": string,"user_id": string
             }[]
                            },
+"clear_ai_setting":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "clear_other_store_offers":
 { Args: { "keep": (string)[] }; Returns: number
                            },
@@ -1302,6 +1305,9 @@ isOneToOne: false
                            },
 "household_signup_hook":
 { Args: { "event": Json }; Returns: Json
+                           },
+"household_signup_limit":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "household_staple_defaults":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1614,6 +1620,9 @@ isOneToOne: false
                            },
 "set_ai_job_result":
 { Args: { "job_id": string,"job_result": Json }; Returns: boolean
+                           },
+"set_ai_setting":
+{ Args: { "new_effort": string,"new_model": string,"new_provider": string }; Returns: undefined
                            },
 "set_current_meal_plan":
 { Args: { "new_plan_id": string,"plan_name": string,"source_id"?: string }; Returns: {
