@@ -9,14 +9,15 @@ import { userStorageState } from "./support";
 const mobile = { width: 375, height: 812 };
 test.use({ storageState: userStorageState, viewport: mobile });
 
-async function optionsOn(page: Page, agent: boolean, size?: "xl") {
+async function optionsOn(page: Page, agent: boolean, size?: "xl", web = false) {
   await page.addInitScript(
-    ([withAgent, textSize]) => {
+    ([withAgent, textSize, withWeb]) => {
       localStorage.setItem("livskoll-option-menuAdvisor", "1");
       if (withAgent) localStorage.setItem("livskoll-option-restaurantAgent", "1");
+      if (withWeb) localStorage.setItem("livskoll-option-restaurantAgentWeb", "1");
       if (textSize) localStorage.setItem("livskoll-text", textSize);
     },
-    [agent, size ?? null] as const,
+    [agent, size ?? null, web] as const,
   );
 }
 
@@ -36,13 +37,29 @@ for (const size of [undefined, "xl"] as const) {
     await page.getByTestId("restaurant-agent-card").click();
     await expect(page.getByTestId("restaurant-where")).toBeVisible();
     await expect(page.getByTestId("restaurant-use-place")).toBeVisible();
-    await expect(page.getByTestId("restaurant-find")).toBeDisabled();
+    // The map search is the main action: both buttons are live links, there is no AI button without its own Tillval.
+    const maps = page.getByTestId("direct-map-link");
+    await expect(maps).toHaveCount(2);
+    await expect(maps.nth(0)).toBeVisible();
+    await expect(maps.nth(1)).toBeVisible();
+    await expect(page.getByTestId("restaurant-find")).toHaveCount(0);
     await page.getByRole("button", { name: "Pizza" }).click();
     await page.getByTestId("restaurant-place-text").fill("Uppsala");
-    await expect(page.getByTestId("restaurant-find")).toBeEnabled();
+    await expect(maps.first()).toHaveAttribute("href", /pizza%20restaurang%20Uppsala/);
+    await expect(page.getByTestId("menu-link-input")).toBeVisible();
     expect(await noSideScroll(page)).toBe(true);
   });
 }
+
+test("the agent button shows only with the web search Tillval on, and needs a place", async ({ page }) => {
+  await optionsOn(page, true, undefined, true);
+  await page.goto("/matsedel/menyer");
+  await page.getByTestId("restaurant-agent-card").click();
+  await expect(page.getByTestId("restaurant-find")).toBeDisabled();
+  await page.getByTestId("restaurant-place-text").fill("Uppsala");
+  await expect(page.getByTestId("restaurant-find")).toBeEnabled();
+  expect(await noSideScroll(page)).toBe(true);
+});
 
 test("the phone's place is asked only after the tap, and a refusal leaves the text field", async ({ page, context }) => {
   await optionsOn(page, true);
@@ -62,5 +79,5 @@ test("the phone's place is asked only after the tap, and a refusal leaves the te
   expect(await page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls)).toBe(1);
   await expect(page.getByText(/Vi fick ingen plats/)).toBeVisible();
   await page.getByTestId("restaurant-place-text").fill("753 20");
-  await expect(page.getByTestId("restaurant-find")).toBeEnabled();
+  await expect(page.getByTestId("direct-map-link").first()).toHaveAttribute("href", /753%2020/);
 });
