@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { cookableDays, defaultWeekAgentSettings, parseWeekAgentSettings, toStoredSettings } from "./settings";
 
 describe("week agent settings", () => {
-  it("has the decided defaults: 5 dinners, use soon and offers on", () => {
-    expect(defaultWeekAgentSettings).toEqual({ dinners: 5, budget: "normal", vegetarianDays: [], skipDays: [], leftoverDays: [], quickWeekdays: false, useSoonFirst: true, favourOffers: true, offerStoreIds: [] });
+  it("has the decided defaults: 7 dinners, use soon and offers on", () => {
+    expect(defaultWeekAgentSettings).toEqual({ dinners: 7, budget: "normal", vegetarianDays: [], skipDays: [], leftoverDays: [], quickWeekdays: false, useSoonFirst: true, favourOffers: true, offerStoreIds: [] });
   });
 
   it("reads nothing, junk and arrays as the defaults", () => {
@@ -12,10 +12,10 @@ describe("week agent settings", () => {
 
   it("keeps each valid field and defaults an invalid one", () => {
     const out = parseWeekAgentSettings({ dinners: 9, budget: "low", vegetarianDays: [3, 3, 1], skipDays: ["x"], quickWeekdays: true, favourOffers: "yes", offerStoreIds: ["not-a-uuid"] });
-    expect(out).toMatchObject({ dinners: 5, budget: "low", vegetarianDays: [1, 3], skipDays: [], quickWeekdays: true, favourOffers: true, offerStoreIds: [] });
+    expect(out).toMatchObject({ dinners: 7, budget: "low", vegetarianDays: [1, 3], skipDays: [], quickWeekdays: true, favourOffers: true, offerStoreIds: [] });
     expect(parseWeekAgentSettings({ dinners: 3 }).dinners).toBe(3);
-    expect(parseWeekAgentSettings({ dinners: 2 }).dinners).toBe(5);
-    expect(parseWeekAgentSettings({ dinners: 4.5 }).dinners).toBe(5);
+    expect(parseWeekAgentSettings({ dinners: 2 }).dinners).toBe(7);
+    expect(parseWeekAgentSettings({ dinners: 4.5 }).dinners).toBe(7);
   });
 
   it("gives a weekday one role: skip, then leftover, then vegetarian", () => {
