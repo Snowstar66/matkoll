@@ -10,6 +10,9 @@ import { MenuAdvisor } from "./menu-advisor";
 // The journey: off without the Tillval, then start, a live reading, the answer, Ert val, the whole menu and a dish.
 // The photo is not decoded here (downscaleImage is mocked) and the route is a mocked fetch.
 
+const readMenuText = vi.fn();
+vi.mock("../actions/read-menu-text", () => ({ readMenuText: (input: unknown) => readMenuText(input) }));
+
 const downscaleImage = vi.fn<(file: Blob) => Promise<Result<Blob>>>();
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: (file: Blob) => downscaleImage(file) }));
 
@@ -49,6 +52,7 @@ beforeEach(() => {
   sessionStorage.clear();
   saveOption("menuAdvisor", true);
   downscaleImage.mockReset().mockResolvedValue(ok(new Blob(["jpeg"], { type: "image/jpeg" })));
+  readMenuText.mockReset();
   fetchMock.mockReset().mockImplementation(() => Promise.resolve(reading()));
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -455,5 +459,37 @@ describe("the whole menu and a dish", () => {
     expect(screen.getByTestId("menu-tonight-total")).toHaveTextContent("Totalt ca 277 kr");
     await u.click(screen.getByRole("button", { name: "Rensa listan" }));
     expect(screen.getByText("Inga rätter valda än")).toBeInTheDocument();
+  });
+});
+
+describe("a menu handed in by the route layer", () => {
+  it("initialMenu goes straight to the answer: no photo, no reading", async () => {
+    render(<MenuAdvisor initialMenu={menu} />);
+    expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(readMenuText).not.toHaveBeenCalled();
+  });
+
+  it("startWithMenuText reads the text once through readMenuText and goes on to the answer", async () => {
+    readMenuText.mockResolvedValue(ok({ menu, quality: "standard", escalated: false, model: "Haiku 5.5", effort: "låg" }));
+    render(<MenuAdvisor startWithMenuText="Paella 200 kr" />);
+    expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
+    expect(readMenuText).toHaveBeenCalledTimes(1);
+    expect(readMenuText).toHaveBeenCalledWith({ text: "Paella 200 kr", quality: "standard" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed text reading says so in Swedish and returns to the start", async () => {
+    readMenuText.mockResolvedValue(fail("ai_unavailable"));
+    render(<MenuAdvisor startWithMenuText="Paella 200 kr" />);
+    expect(await screen.findByText("Det gick inte att läsa menyn just nu. Försök igen.")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-photo")).toBeInTheDocument();
+  });
+
+  it("stays off with the Tillval off: nothing is read", async () => {
+    localStorage.clear();
+    render(<MenuAdvisor startWithMenuText="Paella 200 kr" />);
+    expect(await screen.findByText(/Menyrådgivaren är avstängd/)).toBeInTheDocument();
+    expect(readMenuText).not.toHaveBeenCalled();
   });
 });

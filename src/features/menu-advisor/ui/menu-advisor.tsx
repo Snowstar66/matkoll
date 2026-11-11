@@ -5,12 +5,13 @@ import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalSt
 import { Notice } from "@/components/notice";
 import { useOption } from "@/lib/use-option";
 import { prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
+import { readMenuText } from "../actions/read-menu-text";
 import { defaultChoices, drinkOptions, estimateTotalSek, optionFor, recommendOptions } from "../index";
 import type { Choices, PersonOptions } from "../domain/options";
 import { type HouseholdPerson, meId } from "../domain/people";
 import type { Person } from "../domain/profile";
 import { pickId } from "../domain/tonight";
-import type { MenuDish } from "../domain/types";
+import type { Menu, MenuDish } from "../domain/types";
 import { dishSek } from "../domain/view";
 import { AnswerScreen } from "./answer-screen";
 import { CompanySheet } from "./company-sheet";
@@ -50,7 +51,21 @@ function readSkipped(): boolean {
  * `startSlot`: something the route layer shows on the start screen only (the card of Restaurangagenten).
  * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
  */
-export function MenuAdvisor({ members = null, profiles = null, startSlot }: { members?: readonly HouseholdPerson[] | null; profiles?: Person[] | null; startSlot?: ReactNode }) {
+export function MenuAdvisor({
+  members = null,
+  profiles = null,
+  startSlot,
+  initialMenu,
+  startWithMenuText,
+}: {
+  members?: readonly HouseholdPerson[] | null;
+  profiles?: Person[] | null;
+  startSlot?: ReactNode;
+  /** A menu the route layer already holds: the advisor starts on its answer, with no photo and no reading. */
+  initialMenu?: Menu;
+  /** Plain menu text (from a restaurant's own website): the advisor reads it (readMenuText) and goes on as with a photo. `initialMenu` wins when both are given. */
+  startWithMenuText?: string;
+}) {
   const enabled = useOption("menuAdvisor");
   // Off on the server and during hydration: nothing flashes for people who have it on.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -72,6 +87,8 @@ export function MenuAdvisor({ members = null, profiles = null, startSlot }: { me
   const [selectedIds, setSelectedIds] = useState<string[]>([meId]);
   const [tempGuests, setTempGuests] = useState<Person[]>([]);
   const photo = useRef<Blob | null>(null);
+  const menuText = useRef<string | null>(null);
+  const handedIn = useRef(false);
   const request = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   // Where a stopped or failed reading goes back to: the screen it was started from.
@@ -85,6 +102,20 @@ export function MenuAdvisor({ members = null, profiles = null, startSlot }: { me
     const chosen = everyone.filter((person) => selectedIds.includes(person.id));
     return chosen.length > 0 ? chosen : everyone.slice(0, 1);
   }, [everyone, selectedIds]);
+
+  // A menu handed in by the route layer is taken once, when the advisor is on.
+  useEffect(() => {
+    if (!mounted || !enabled || handedIn.current) return;
+    if (initialMenu) {
+      handedIn.current = true;
+      apply({ menu: initialMenu, quality: "standard", escalated: false });
+    } else if (startWithMenuText && startWithMenuText.trim() !== "") {
+      handedIn.current = true;
+      void runText(startWithMenuText, false);
+    }
+    // apply and runText are re-made every render; only the hand-in matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, enabled, initialMenu, startWithMenuText]);
 
   if (!mounted) return null;
   if (!enabled) {
@@ -133,6 +164,25 @@ export function MenuAdvisor({ members = null, profiles = null, startSlot }: { me
     setStage(backStage.current);
   }
 
+  async function runText(text: string, isCareful: boolean) {
+    request.current?.abort();
+    // A server action cannot be aborted; the controller says whether this reading is still the current one.
+    const controller = new AbortController();
+    request.current = controller;
+    menuText.current = text;
+    photo.current = null;
+    setError(null);
+    setCareful(isCareful);
+    setView(emptyReadingView);
+    setStage("reading");
+    const answer = await readMenuText({ text, quality: isCareful ? "careful" : "standard" });
+    if (request.current !== controller) return;
+    request.current = null;
+    if (answer.ok) return apply(answer.data);
+    setError(answer.error.code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : answer.error.message);
+    setStage(backStage.current);
+  }
+
   async function takePhoto(file: File) {
     request.current?.abort();
     const controller = new AbortController();
@@ -161,9 +211,9 @@ export function MenuAdvisor({ members = null, profiles = null, startSlot }: { me
   }
 
   function readAgainCarefully() {
-    if (!photo.current) return;
     backStage.current = stage;
-    void run(photo.current, true);
+    if (photo.current) void run(photo.current, true);
+    else if (menuText.current) void runText(menuText.current, true);
   }
 
   function pick(next: Mode) {
@@ -174,6 +224,7 @@ export function MenuAdvisor({ members = null, profiles = null, startSlot }: { me
 
   function finish() {
     photo.current = null;
+    menuText.current = null;
     setReading(null);
     setJourney({ options: [], choices: {} });
     setError(null);

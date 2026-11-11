@@ -12,6 +12,7 @@ import suggestDishesNowPrompt from "./prompts/suggest-dishes-now.md?raw";
 import suggestDishesFriendPrompt from "./prompts/suggest-dishes-friend.md?raw";
 import readShoppingListPrompt from "./prompts/read-shopping-list.md?raw";
 import readMenuPrompt from "./prompts/read-menu.md?raw";
+import readMenuTextPrompt from "./prompts/read-menu-text.md?raw";
 import planWeekPrompt from "./prompts/plan-week.md?raw";
 import pickRestaurantsPrompt from "./prompts/pick-restaurants.md?raw";
 import nowIdeasPrompt from "./prompts/now-ideas.md?raw";
@@ -35,6 +36,7 @@ export const prompts = {
   thingSearchTerms: thingSearchTermsPrompt,
   readShoppingList: readShoppingListPrompt,
   readMenu: readMenuPrompt,
+  readMenuText: readMenuTextPrompt,
   planWeek: planWeekPrompt,
   pickRestaurants: pickRestaurantsPrompt,
 } as const;
