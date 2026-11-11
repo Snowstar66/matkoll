@@ -14,6 +14,7 @@ import { verifyAiPassword } from "../actions/verify-ai-password";
 import {
   aiLevelLabels,
   aiLevels,
+  aiPasswordMissingText,
   aiProviderLabels,
   claudeKeyMissingText,
   claudeModels,
@@ -57,7 +58,8 @@ function isClaudeModel(model: string | undefined): model is ClaudeModelId {
  * URL is missing cannot be chosen and says what to do. The choice is read-only
  * until the password is given ("Lås upp för att ändra"); the password stays in
  * this component's state for the page session and goes along with each save,
- * where the server checks it again.
+ * where the server checks it again. Without AI_SETTINGS_PASSWORD on the server
+ * there is nothing to unlock with: the choice stays read-only and says so.
  */
 export function AiSettings({ view }: AiSettingsProps) {
   const { showToast } = useToast();
@@ -119,7 +121,13 @@ export function AiSettings({ view }: AiSettingsProps) {
         AI
       </h2>
       {error ? <Notice role="alert">{error}</Notice> : null}
-      <AiUnlock unlocked={unlocked} hydrated={hydrated} onUnlock={setPassword} />
+      {view.passwordSet ? (
+        <AiUnlock unlocked={unlocked} hydrated={hydrated} onUnlock={setPassword} />
+      ) : (
+        <p data-testid="ai-password-missing" className="px-1 desktop:px-0 text-meta text-ink-3">
+          {aiPasswordMissingText}
+        </p>
+      )}
       <div className="flex flex-col gap-2">
         <p className="px-1 desktop:px-0 text-section-label text-ink-2">Leverantör</p>
         <Segment

@@ -21,6 +21,7 @@ const withKey: AiSettingsView = {
   qwenAvailable: true,
   qwenModel: "qwen/test",
   defaultText: "Qwen lokalt (qwen/test)",
+  passwordSet: true,
 };
 const withoutKey: AiSettingsView = { ...withKey, effective: null, claudeAvailable: false };
 
@@ -34,7 +35,7 @@ function renderSection(view: AiSettingsView) {
 
 const radio = (name: string) => screen.getByRole("radio", { name });
 
-async function unlock(user: ReturnType<typeof userEvent.setup>, password = "frasse") {
+async function unlock(user: ReturnType<typeof userEvent.setup>, password = "test-ai-losenord") {
   await waitFor(() => expect(screen.getByRole("button", { name: "Lås upp för att ändra" })).toBeEnabled());
   await user.click(screen.getByRole("button", { name: "Lås upp för att ändra" }));
   await user.type(screen.getByLabelText("Lösenord"), password);
@@ -43,7 +44,7 @@ async function unlock(user: ReturnType<typeof userEvent.setup>, password = "fras
 
 beforeEach(() => {
   saveAiSetting.mockReset().mockImplementation(async (input) => ok(input));
-  verifyAiPassword.mockReset().mockImplementation(async (password) => (password === "frasse" ? ok(true) : fail("validation")));
+  verifyAiPassword.mockReset().mockImplementation(async (password) => (password === "test-ai-losenord" ? ok(true) : fail("validation")));
 });
 
 describe("AiSettings", () => {
@@ -79,12 +80,12 @@ describe("AiSettings", () => {
     await waitFor(() => expect(radio("Opus 5.5")).toBeEnabled());
     await user.click(radio("Opus 5.5"));
     await waitFor(() =>
-      expect(saveAiSetting).toHaveBeenLastCalledWith({ provider: "anthropic", model: "claude-opus-5-5", effort: "medium" }, "frasse"),
+      expect(saveAiSetting).toHaveBeenLastCalledWith({ provider: "anthropic", model: "claude-opus-5-5", effort: "medium" }, "test-ai-losenord"),
     );
     await waitFor(() => expect(radio("Hög")).toBeEnabled());
     await user.click(radio("Hög"));
     await waitFor(() =>
-      expect(saveAiSetting).toHaveBeenLastCalledWith({ provider: "anthropic", model: "claude-opus-5-5", effort: "high" }, "frasse"),
+      expect(saveAiSetting).toHaveBeenLastCalledWith({ provider: "anthropic", model: "claude-opus-5-5", effort: "high" }, "test-ai-losenord"),
     );
   });
 
@@ -94,7 +95,7 @@ describe("AiSettings", () => {
     await unlock(user);
     await waitFor(() => expect(radio("Qwen lokalt")).toBeEnabled());
     await user.click(radio("Qwen lokalt"));
-    await waitFor(() => expect(saveAiSetting).toHaveBeenCalledWith({ provider: "lmstudio" }, "frasse"));
+    await waitFor(() => expect(saveAiSetting).toHaveBeenCalledWith({ provider: "lmstudio" }, "test-ai-losenord"));
     expect(await screen.findByText("qwen/test")).toBeInTheDocument();
   });
 
@@ -129,5 +130,17 @@ describe("AiSettings", () => {
     expect(await screen.findByTestId("ai-unlocked")).toBeInTheDocument();
     expect(screen.queryByLabelText("Lösenord")).not.toBeInTheDocument();
     await waitFor(() => expect(radio("Opus 5.5")).toBeEnabled());
+  });
+
+  it("stays locked and says the owner must set AI_SETTINGS_PASSWORD when it is not set", async () => {
+    renderSection({ ...withKey, passwordSet: false });
+    expect(screen.getByTestId("ai-password-missing")).toHaveTextContent(
+      "Valet är låst: inget lösenord är satt. Ägaren måste sätta AI_SETTINGS_PASSWORD",
+    );
+    expect(screen.queryByRole("button", { name: "Lås upp för att ändra" })).not.toBeInTheDocument();
+    expect(radio("Haiku 5.5")).toBeChecked();
+    expect(radio("Opus 5.5")).toBeDisabled();
+    expect(radio("Qwen lokalt")).toBeDisabled();
+    expect(verifyAiPassword).not.toHaveBeenCalled();
   });
 });

@@ -607,28 +607,47 @@ describe("store: save_store and select_store", () => {
 });
 
 describe("ai_setting (Story 17.5)", () => {
-  it("isolates ai_setting", async () => {
-    await expectRlsIsolation("ai_setting", async () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" }));
-  });
+  // Security review S-07: only the app's owner writes the choice, through set_ai_setting and
+  // clear_ai_setting; a member and another household are refused (security-signup-ai.test.ts).
+  async function asAppOwner<T>(userId: string, run: () => Promise<T>): Promise<T> {
+    expect((await adminClient().from("app_owner").upsert({ user_id: userId })).error).toBeNull();
+    try {
+      return await run();
+    } finally {
+      await adminClient().from("app_owner").delete().eq("user_id", userId);
+    }
+  }
 
-  it("keeps one row per user: saves, replaces, reads and clears the choice", async () => {
+  it("keeps one row per household: the owner saves, replaces, reads and clears the choice", async () => {
     const user = await createTestUser("ai-setting");
-    expect(await loadAiSettingIn(user.db)).toBeNull();
-    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
-    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
-    expect(await loadAiSettingIn(user.db)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
-    const { data } = await adminClient().from("ai_setting").select("id").eq("user_id", user.id);
-    expect(data).toHaveLength(1);
-    await clearAiSettingIn(user.db);
-    expect(await loadAiSettingIn(user.db)).toBeNull();
+    await asAppOwner(user.id, async () => {
+      expect(await loadAiSettingIn(user.db)).toBeNull();
+      await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
+      await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+      expect(await loadAiSettingIn(user.db)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+      const { data } = await adminClient().from("ai_setting").select("id").eq("user_id", user.id);
+      expect(data).toHaveLength(1);
+      await clearAiSettingIn(user.db);
+      expect(await loadAiSettingIn(user.db)).toBeNull();
+    });
   });
 
   it("refuses a provider, a level or a model length the table does not allow", async () => {
     const user = await createTestUser("ai-setting-bad");
-    const insert = (row: Record<string, string>) => user.db.from("ai_setting").insert({ provider: "anthropic", model: "m", effort: "low", ...row });
-    expect((await insert({ provider: "openai" })).error?.code).toBe("23514");
-    expect((await insert({ effort: "max" })).error?.code).toBe("23514");
-    expect((await insert({ model: "" })).error?.code).toBe("23514");
+    await asAppOwner(user.id, async () => {
+      const save = (row: Record<string, string>) =>
+        user.db.rpc("set_ai_setting", { new_provider: "anthropic", new_model: "m", new_effort: "low", ...row });
+      expect((await save({ new_provider: "openai" })).error?.code).toBe("23514");
+      expect((await save({ new_effort: "max" })).error?.code).toBe("23514");
+      expect((await save({ new_model: "" })).error?.code).toBe("23514");
+    });
+  });
+
+  it("refuses a user who is not the app's owner, with SettingsDataError", async () => {
+    const user = await createTestUser("ai-setting-not-owner");
+    await expect(saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" })).rejects.toBeInstanceOf(SettingsDataError);
+    await expect(clearAiSettingIn(user.db)).rejects.toBeInstanceOf(SettingsDataError);
+    expect(await loadAiSettingIn(user.db)).toBeNull();
   });
 });
 

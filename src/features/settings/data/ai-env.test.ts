@@ -32,6 +32,14 @@ describe("the default when nothing is saved", () => {
   });
 });
 
+describe("the password", () => {
+  it("is set only when AI_SETTINGS_PASSWORD has a value; empty or blank counts as missing", () => {
+    expect(aiSettingsViewFor(withKey, null).passwordSet).toBe(false);
+    expect(aiSettingsViewFor(parseEnv({ ...qwen, AI_SETTINGS_PASSWORD: "  " }), null).passwordSet).toBe(false);
+    expect(aiSettingsViewFor(parseEnv({ ...qwen, AI_SETTINGS_PASSWORD: "hemligt" }), null).passwordSet).toBe(true);
+  });
+});
+
 describe("a saved choice", () => {
   it("is used as saved, with Qwen's model from the environment", () => {
     const sonnet = { provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" } as const;

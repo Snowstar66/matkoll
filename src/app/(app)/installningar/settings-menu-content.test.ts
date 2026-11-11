@@ -38,6 +38,7 @@ const base: AiSettingsView = {
   qwenAvailable: true,
   qwenModel: "qwen/test",
   defaultText: "Qwen lokalt (qwen/test)",
+  passwordSet: true,
 };
 
 describe("the values on the start page of Inställningar", () => {

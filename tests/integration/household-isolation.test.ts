@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
+import { SettingsDataError } from "@/features/settings/data/client";
 import { saveAiSettingIn } from "@/features/settings/data/ai-setting";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import {
@@ -48,8 +49,9 @@ type Coverage = {
   /** A row for the table as `owner`; foreign keys come from `seed`. */
   row: (seed: Seed, ownerId: string) => Record<string, unknown>;
   /**
-   * The row is written with the service role for the owner, since no client may insert it (ai_usage,
-   * security review S-03: only ai_usage_reserve and ai_usage_settle write it; ai-cap.test.ts tries them).
+   * The row is written with the service role for the owner, since no client may insert it (ai_setting: security
+   * review S-07, only the owner's functions write it; ai_usage: S-03, only ai_usage_reserve and ai_usage_settle write it;
+   * security-signup-ai.test.ts and ai-cap.test.ts try them).
    */
   byService?: true;
 };
@@ -92,7 +94,7 @@ type IsolatedTable = Exclude<TableName, "feedback">;
 // new table is a type error here too; the live schema check below is the one
 // that names it even when the types were not regenerated.
 const coverage: Record<IsolatedTable, Coverage> = {
-  ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
+  ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }), byService: true },
   ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }), byService: true },
   // Story 17.9: the hash is never granted for reading, so the generic checks below read A's row by id.
   api_key: { row: () => ({ key_hash: sha256(randomUUID()), label: "Siri" }) },
@@ -322,9 +324,10 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<IsolatedTa
   const ids = new Map<IsolatedTable, string>();
   for (const table of seedOrder) {
     const { byService } = coverage[table];
+    const payload = byService ? { ...coverage[table].row(seed, ownerId), user_id: ownerId, household_id: await householdOf(ownerId) } : coverage[table].row(seed, ownerId);
     const inserted = await (byService ? adminClient() : owner)
       .from(table)
-      .insert((byService ? { ...coverage[table].row(seed, ownerId), user_id: ownerId } : coverage[table].row(seed, ownerId)) as never)
+      .insert(payload as never)
       .select("id")
       .single();
     expect(inserted.error, `A inserts ${table}`).toBeNull();
@@ -874,9 +877,8 @@ describe("household isolation", () => {
       expect((await a.db.from("thing_photo").insert({ id: cardId, place_id: from.data!.id, object_path: oldPath, media_type: "image/png", width: 10, height: 10, taken_at: new Date().toISOString(), status: "done" })).error).toBeNull();
       expect((await a.db.rpc("add_card_things", { photo: cardId, things: [{ name: "Vinterdäck", category: "Övrigt" }] })).data).toBe(1);
       expect((await a2.db.rpc("search_things", { terms: ["vinterdäck"] })).data?.map((row) => row.name), "a2 finds a's thing").toEqual(["Vinterdäck"]);
-      // The household's one AI choice: a2 replaces the one a saved, which keeps its maker.
-      await saveAiSettingIn(a.db, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
-      await saveAiSettingIn(a2.db, { provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" });
+      // The household's one AI choice (security review S-07): only the app's owner changes it, not a member.
+      await expect(saveAiSettingIn(a2.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" })).rejects.toBeInstanceOf(SettingsDataError);
       expect((await adminClient().from("ai_setting").select("model, user_id").eq("household_id", householdA)).data).toEqual([{ model: "claude-sonnet-5-5", user_id: a.id }]);
 
       // a2 merges a's room into another; the card keeps a's folder, and a2 may copy the file there.
@@ -972,6 +974,8 @@ describe("household isolation", () => {
       "create_app_invite", "app_invites", "remove_app_invite", "claim_app_invite", "app_invite_preview", "app_invited_access",
       // Tak för AI-kostnad: the caller's own household's usage, and the owner's list and cap (ai-cap.test.ts tries each).
       "ai_cap_status", "ai_cap_households", "set_ai_cap",
+      // Security review S-07: the owner's AI choice for the caller's own household (security-signup-ai.test.ts tries each).
+      "set_ai_setting", "clear_ai_setting",
       // Security review S-02, S-03: reserving and settling the caller's own household's usage, and whether it is
       // exempt; ai-cap.test.ts tries B with A's reservation and with rows for A's household.
       "ai_usage_reserve", "ai_usage_settle", "ai_cap_exempt",
