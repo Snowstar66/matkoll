@@ -2,9 +2,6 @@ import { allergenHits, type AllergenHit } from "./allergens";
 import { toSek } from "./currency";
 import { menuGroups, type MenuAllergen, type MenuDish, type MenuGroup } from "./types";
 
-/** "Hjälp mig välja" marks dishes against what you avoid; "Bara förklara menyn" only explains. */
-export type MenuMode = "help" | "explain";
-
 // What the menu page shows: the dishes in groups, filtered, with their price text and what to warn about.
 
 /** The dishes of each group that has any, in the order of menuGroups; the dishes keep their order within a group. */

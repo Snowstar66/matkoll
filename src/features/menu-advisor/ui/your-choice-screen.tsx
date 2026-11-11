@@ -5,7 +5,7 @@ import type { Choices, PersonOptions } from "../domain/options";
 import type { Person } from "../domain/profile";
 import type { Menu } from "../domain/types";
 import { allergyLine, approxKr, drinkFor } from "./journey";
-import { BigButton, Headline, StickyFooter, TextLink, TotalRow } from "./journey-parts";
+import { BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 import { PersonAvatar } from "./person-avatar";
 import { dishSek } from "../domain/view";
 
@@ -37,6 +37,7 @@ export function YourChoiceScreen({
   const allergies = allergyLine(company);
   return (
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-choice">
+      <TopBack onClick={onChange}>Förslag</TopBack>
       <Headline sub={menu.restaurang ? `${menu.restaurang} · visa upp för servitören` : "Visa upp för servitören"}>Ert val</Headline>
       <div className="flex flex-col gap-3">
         {company.map((person, index) => {
