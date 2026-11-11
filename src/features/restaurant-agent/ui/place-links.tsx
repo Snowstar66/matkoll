@@ -1,12 +1,12 @@
 import { cx } from "@/components/cx";
 import { LinkIcon, PinIcon } from "@/components/icons";
 import type { SuggestionView } from "./actions-port";
-import { accordingTo, hostOf, mapLinks, type MapView, ratingText, safeHttpsUrl, siteLinkOf, texts } from "./format";
+import { accordingTo, hostOf, mapLink, type MapView, ratingText, safeHttpsUrl, siteLinkOf, texts } from "./format";
 import { chipClass, ExternalLink } from "./parts";
 
 // The links that let a person check a place themselves: the restaurant's page (always, when the search gave one), the
 // address and opening hours when a returned page said them (each with that page and "enligt <domän>, kontrollera"),
-// and a plain map link that is opened by the person (name and city only, no coordinates, nothing fetched by us).
+// and a plain Google Maps link that is opened by the person (name and city only, no coordinates, nothing fetched by us).
 
 function Quoted({ label, quoted, missing, testId }: { label: string; quoted: SuggestionView["address"]; missing: string; testId: string }) {
   if (!quoted) {
@@ -50,7 +50,6 @@ function RatingLine({ rating }: { rating: NonNullable<SuggestionView["rating"]> 
 
 export function PlaceLinks({ suggestion, place, view = null }: { suggestion: SuggestionView; place: string; view?: MapView | null }) {
   const site = siteLinkOf(suggestion);
-  const userAgent = typeof navigator === "undefined" ? null : navigator.userAgent;
   return (
     <div className="flex flex-col gap-1.5" data-testid="place-links">
       {suggestion.rating ? <RatingLine rating={suggestion.rating} /> : null}
@@ -63,12 +62,10 @@ export function PlaceLinks({ suggestion, place, view = null }: { suggestion: Sug
             {texts.siteLink}
           </ExternalLink>
         ) : null}
-        {mapLinks(suggestion.name, place, userAgent, view).map((link) => (
-          <ExternalLink key={link.href} href={link.href} className={cx(chipClass, "bg-sky text-sky-ink no-underline")} testId="map-link">
-            <PinIcon size={14} />
-            {`${texts.mapOpen}: ${link.label}`}
-          </ExternalLink>
-        ))}
+        <ExternalLink href={mapLink(suggestion.name, place, view).href} className={cx(chipClass, "bg-sky text-sky-ink no-underline")} testId="map-link">
+          <PinIcon size={14} />
+          {texts.mapOpen}
+        </ExternalLink>
       </div>
     </div>
   );
