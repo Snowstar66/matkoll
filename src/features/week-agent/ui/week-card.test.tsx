@@ -121,7 +121,7 @@ describe("WeekAgentCard", () => {
     render(<WeekAgentCard href="/x" weekNumber={47} filledDays={[]} emptyDays={all} settings={{ actions, cost }} />);
     await user.click(screen.getByTestId("week-agent-card-settings"));
     expect(await screen.findByRole("dialog", { name: "Ställ in veckoförslaget" })).toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Fler middagar" }));
+    await user.click(await screen.findByRole("button", { name: "Färre middagar" }));
     await user.click(screen.getByTestId("week-agent-settings-save"));
     expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ dinners: 6 }));
   });
