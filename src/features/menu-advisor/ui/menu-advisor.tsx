@@ -48,16 +48,19 @@ function readSkipped(): boolean {
 
 /**
  * `members`: the household's members (read on the server), pickable as company from the start; null = not readable.
+ * `startSlot`: something the route layer shows on the start screen only (the card of Restaurangagenten).
  * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
  */
 export function MenuAdvisor({
   members = null,
   profiles = null,
+  startSlot,
   initialMenu,
   startWithMenuText,
 }: {
   members?: readonly HouseholdPerson[] | null;
   profiles?: Person[] | null;
+  startSlot?: ReactNode;
   /** A menu the route layer already holds: the advisor starts on its answer, with no photo and no reading. */
   initialMenu?: Menu;
   /** Plain menu text (from a restaurant's own website): the advisor reads it (readMenuText) and goes on as with a photo. `initialMenu` wins when both are given. */
@@ -369,6 +372,7 @@ export function MenuAdvisor({
         onPhoto={() => pick("help")}
         onExplain={() => pick("explain")}
         onTonight={() => setShowTonight(true)}
+        slot={startSlot}
       />
     );
   }
