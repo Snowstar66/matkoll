@@ -173,17 +173,6 @@ export function toggleAllergy(person: Person, allergen: MenuAllergen): Person {
   return { ...person, allergies: menuAllergens.filter((entry) => allergies.includes(entry)) };
 }
 
-/** "Du + Anna + 2 gäster": who is with tonight. Guests are counted, members are named. */
-export function companySummary(company: readonly Person[]): string {
-  if (company.length === 0) return "Ingen vald";
-  const guests = company.filter((person) => person.kind === "guest").length;
-  const parts = [
-    ...company.filter((person) => person.kind === "member").map((person) => person.name),
-    ...(guests > 0 ? [`${guests} ${guests === 1 ? "gäst" : "gäster"}`] : []),
-  ];
-  return parts.join(" + ");
-}
-
 /** Who a dish does not suit: the people whose allergies the dish has or may have, with the hits. */
 export type Unfit = { person: Person; hits: AllergenHit[] };
 

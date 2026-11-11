@@ -42,13 +42,11 @@ export function maybeSentence(dish: MenuDish, company: readonly Person[]): strin
 /**
  * Step 6, the dish in a sheet: name, what it is, what is in it, the price, who it suits, and one button to add it as
  * an option for a person ("Lägg till åt Anna"; from "Fler rätter åt Anna" the person is chosen, else a row of avatars).
- * In "Bara förklara" there is no one to add it for; only "Lägg till Ikväll".
  */
 export function DishSheet({
   dish,
   company,
   fromPersonId,
-  explain,
   starred,
   onAdd,
   onStar,
@@ -58,7 +56,6 @@ export function DishSheet({
   company: readonly Person[];
   /** Opened from "Fler rätter åt Anna": that person is chosen. */
   fromPersonId: string | null;
-  explain: boolean;
   starred: boolean;
   onAdd: (personId: string) => void;
   onStar: () => void;
@@ -66,9 +63,9 @@ export function DishSheet({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const target = company.find((person) => person.id === (fromPersonId ?? picked)) ?? company[0];
-  const canAdd = dish !== null && !explain && dish.grupp !== "Drycker" && target !== undefined;
-  const fit = dish && !explain ? fitParts(dish, company) : [];
-  const maybe = dish && !explain ? maybeSentence(dish, company) : "";
+  const canAdd = dish !== null && dish.grupp !== "Drycker" && target !== undefined;
+  const fit = dish ? fitParts(dish, company) : [];
+  const maybe = dish ? maybeSentence(dish, company) : "";
   const price = dish ? listPrice(dish) : "";
   const ingredients = dish?.huvudingredienser.join(", ") ?? "";
   return (

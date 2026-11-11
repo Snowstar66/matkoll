@@ -1,12 +1,15 @@
+import Link from "next/link";
 import { cx } from "@/components/cx";
+import { InfoIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
+import { profilesHref } from "../domain/people";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
 import type { Person } from "../domain/profile";
 import type { Totals } from "../domain/drinks";
 import type { Menu } from "../domain/types";
 import { menuReaderText, type MenuReader } from "../domain/reading";
-import { approxKr, cardSek, drinkFor, drinkPhrase, reasonTone, type ReasonTone } from "./journey";
-import { BackLink, BigButton, Headline, RadioCard, StickyFooter, TextLink, TotalRow } from "./journey-parts";
+import { approxKr, cardSek, drinkFor, drinkPhrase, reasonTone, unpricedNote, type ReasonTone } from "./journey";
+import { AnswerTabs, BigButton, Headline, RadioCard, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 import { PersonAvatar } from "./person-avatar";
 
 const toneClass: Record<ReasonTone, string> = {
@@ -34,7 +37,7 @@ function Reasons({ option }: { option: DishOption }) {
 }
 
 /**
- * Step 3, "Det här passar er": a group per person with two or three cards (the best one chosen, the others toned);
+ * Step 4, "Det här passar er", the first tab beside Hela menyn: a group per person with two or three cards (the best one chosen, the others toned);
  * one tap changes the choice and the sum below. The total and "Klart" stay at the bottom while the list scrolls.
  * Only reasons that change a decision are written: love (mint), avoid (sand), a certain allergen (red), a price gap.
  */
@@ -61,7 +64,7 @@ export function AnswerScreen({
   options: readonly PersonOptions[];
   choices: Choices;
   totals: Totals;
-  /** Someone has an allergy or a taste filled in: false adds the line that allergens are not filtered. */
+  /** Someone ticked has an allergy: false shows the sand box that nothing is sorted out, with a way to add one. */
   filtered: boolean;
   uncertain: readonly string[];
   reader: MenuReader | null;
@@ -77,8 +80,20 @@ export function AnswerScreen({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-answer">
-      <BackLink onClick={onBack} />
+      <TopBack onClick={onBack}>Tolka menyn</TopBack>
+      <AnswerTabs value="answer" onChange={(tab) => tab === "menu" && onFullMenu()} />
       <Headline sub="Tryck på det du vill ha.">Det här passar er</Headline>
+      {filtered ? null : (
+        <div data-testid="menu-unfiltered" className="flex gap-2.5 rounded-xl bg-sand px-3.5 py-3 text-body text-sand-ink">
+          <InfoIcon size={20} className="mt-0.5 shrink-0" />
+          <p>
+            Ingen av er har angett allergier, så inget är bortsorterat.{" "}
+            <Link href={profilesHref} className="font-semibold underline underline-offset-4">
+              Lägg till allergi
+            </Link>
+          </p>
+        </div>
+      )}
       {error ? <Notice role="alert">{error}</Notice> : null}
       <div className="flex flex-col gap-5">
         {company.map((person, index) => {
@@ -134,15 +149,9 @@ export function AnswerScreen({
           </button>
         ) : null}
       </p>
-      {filtered ? null : (
-        <p data-testid="menu-unfiltered" className="text-center text-meta text-ink-3">
-          Allergener är inte filtrerade
-        </p>
-      )}
       <StickyFooter>
-        <TotalRow sek={totals.totalSek} note={totals.unpriced > 0 ? `${totals.unpriced} ${totals.unpriced === 1 ? "rätt saknar" : "rätter saknar"} pris och räknas inte med` : null} />
+        <TotalRow sek={totals.totalSek} note={unpricedNote(totals)} />
         <BigButton onClick={onDone}>Klart</BigButton>
-        <TextLink onClick={onFullMenu}>Se hela menyn</TextLink>
       </StickyFooter>
     </div>
   );

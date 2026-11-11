@@ -18,14 +18,3 @@ export function PersonAvatar({ name, index, size = "md", className }: { name: st
     </span>
   );
 }
-
-/** The overlapping row of avatars on the start screen. */
-export function AvatarStack({ names }: { names: readonly string[] }) {
-  return (
-    <span aria-hidden="true" className="flex shrink-0">
-      {names.slice(0, 3).map((name, index) => (
-        <PersonAvatar key={`${name}-${index}`} name={name} index={index} className={cx("border-2 border-surface", index > 0 && "-ml-2")} />
-      ))}
-    </span>
-  );
-}

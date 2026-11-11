@@ -6,7 +6,6 @@ import {
   profileSummary,
   memberPersonId,
   withMembers,
-  companySummary,
   maxPeople,
   me,
   meId,
@@ -85,13 +84,6 @@ describe("managing people", () => {
 });
 
 describe("the company", () => {
-  it("is told in a short line: members by name, guests counted", () => {
-    const guests = [newPerson("g1", "Gunnar", "guest"), newPerson("g2", "Greta", "guest")];
-    expect(companySummary([me, ...guests])).toBe("Du + 2 gäster");
-    expect(companySummary([me, anna, guests[0]])).toBe("Du + Anna + 1 gäst");
-    expect(companySummary([])).toBe("Ingen vald");
-  });
-
   it("says who a dish does not suit, with the hits, and nobody when no allergies are filled in", () => {
     const dish = { allergener: ["gluten" as const], kan_innehalla: ["notter" as const] };
     const unfit = unfitFor(dish, [me, anna]);

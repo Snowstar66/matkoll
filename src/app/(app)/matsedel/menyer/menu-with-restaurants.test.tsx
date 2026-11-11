@@ -24,13 +24,13 @@ beforeEach(() => {
 });
 
 describe("MenuWithRestaurants", () => {
-  it("shows no card with the Tillval off", async () => {
+  it("shows no link to Sök restauranger with the Tillval off", async () => {
     render(<MenuWithRestaurants members={null} profiles={[]} />);
     expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
     expect(screen.queryByTestId("restaurant-agent-card")).toBeNull();
   });
 
-  it("shows the card on the start screen with it on, opens the journey and comes back for the photo", async () => {
+  it("shows the link under Fota menyn with it on, opens the journey and comes back for the photo", async () => {
     saveOption("restaurantAgent", true);
     const user = userEvent.setup();
     render(<MenuWithRestaurants members={null} profiles={[]} />);

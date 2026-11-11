@@ -30,6 +30,11 @@ export async function getOwnerInbox(): Promise<{ unread: number } | null> {
   return { unread: await countUnreadFeedbackIn(db) };
 }
 
+/** Whether the signed-in user is the app's owner (is_app_owner() in the database decides). Throws FeedbackDataError. */
+export async function isAppOwner(): Promise<boolean> {
+  return isAppOwnerIn(await createClient());
+}
+
 /** Every message for the owner's inbox, newest first, or null for anyone else. Throws FeedbackDataError. */
 export async function listInbox(): Promise<FeedbackItem[] | null> {
   const db = await createClient();

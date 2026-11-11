@@ -2,28 +2,35 @@ import { useMemo, useState } from "react";
 import { SearchField } from "@/components/search-field";
 import { cx } from "@/components/cx";
 import { Notice } from "@/components/notice";
+import type { Totals } from "../domain/drinks";
+import { languageName } from "../domain/labels";
 import type { Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
 import { menuReaderText, type MenuReader } from "../domain/reading";
 import { unfitFor } from "../domain/people";
 import { filterDishes, groupDishes, noFilter } from "../domain/view";
 import { DishSheet } from "./dish-sheet";
-import { listPrice } from "./journey";
-import { BackLink, Headline, TextLink } from "./journey-parts";
+import { listPrice, unpricedNote } from "./journey";
+import { AnswerTabs, BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 
 type Indexed = MenuDish & { index: number };
 
+/** The line under "Hela menyn": "Taverna Sol · översatt från spanska"; the place alone for a Swedish menu. */
+export function menuSubline(menu: Pick<Menu, "restaurang" | "sprak">): string {
+  return [menu.restaurang, menu.sprak === "sv" ? null : `översatt från ${languageName(menu.sprak)}`].filter(Boolean).join(" · ");
+}
+
 /**
- * Step 5, "Hela menyn": the menu in groups (Förrätt, Varmrätt, Efterrätt, Drycker), name, price and a one-line
+ * Step 4, the tab "Hela menyn": the menu in groups (Förrätt, Varmrätt, Efterrätt, Drycker), name, price and a one-line
  * Swedish explanation, with a search field on top. A dish someone in the company cannot eat is toned with a red
- * dot and the name; nothing else is marked. A tap opens the dish in a sheet. In "Bara förklara" there is no company
- * and no mark.
+ * dot and the name; nothing else is marked. A tap opens the dish in a sheet. The footer (Ni landar på and Klart) is
+ * the same as on Förslag.
  */
 export function FullMenuScreen({
   menu,
   company,
-  explain,
   forPerson,
+  totals,
   isStarred,
   tonightCount,
   reader,
@@ -34,13 +41,15 @@ export function FullMenuScreen({
   onTonight,
   onCareful,
   onBack,
+  onAnswer,
+  onDone,
   onNext,
 }: {
   menu: Menu;
   company: readonly Person[];
-  explain: boolean;
   /** Opened from "Fler rätter åt Anna". */
   forPerson: Person | null;
+  totals: Totals;
   isStarred: (dish: MenuDish) => boolean;
   tonightCount: number;
   reader: MenuReader | null;
@@ -51,18 +60,23 @@ export function FullMenuScreen({
   onTonight: () => void;
   onCareful: () => void;
   onBack: () => void;
+  /** The tab "Förslag". */
+  onAnswer: () => void;
+  /** "Klart": on to Ert val. */
+  onDone: () => void;
   onNext: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<number | null>(null);
   const indexed = useMemo<Indexed[]>(() => menu.ratter.map((dish, index) => ({ ...dish, index })), [menu.ratter]);
   const groups = useMemo(() => groupDishes(filterDishes(indexed, { ...noFilter, query })), [indexed, query]);
-  const shownCompany = explain ? [] : company;
   const openDish = open === null ? null : (menu.ratter[open] ?? null);
+  const sub = forPerson ? `Välj en rätt att lägga till åt ${forPerson.name === "Du" ? "dig" : forPerson.name}` : menuSubline(menu);
   return (
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-full">
-      <BackLink onClick={onBack} />
-      <Headline sub={forPerson ? `Välj en rätt att lägga till åt ${forPerson.name === "Du" ? "dig" : forPerson.name}` : menu.restaurang ?? undefined}>Hela menyn</Headline>
+      <TopBack onClick={onBack}>Tolka menyn</TopBack>
+      <AnswerTabs value="menu" onChange={(tab) => tab === "answer" && onAnswer()} />
+      <Headline sub={sub || undefined}>Hela menyn</Headline>
       {error ? <Notice role="alert">{error}</Notice> : null}
       <SearchField label="Sök rätt" placeholder="Sök rätt" delayMs={0} onSearch={setQuery} />
       {groups.length === 0 ? <p className="text-body text-ink-2">Ingen rätt matchar sökningen.</p> : null}
@@ -71,7 +85,7 @@ export function FullMenuScreen({
           <h3 className="px-1 text-headline font-bold text-ink">{group}</h3>
           <ul className="flex flex-col rounded-xl bg-surface px-4 py-1">
             {dishes.map((dish) => {
-              const cannot = unfitFor(dish, shownCompany).filter((entry) => entry.hits.some((hit) => hit.source === "allergener"));
+              const cannot = unfitFor(dish, company).filter((entry) => entry.hits.some((hit) => hit.source === "allergener"));
               const price = listPrice(dish);
               return (
                 <li key={dish.index} className="border-t border-hairline first:border-t-0">
@@ -113,12 +127,15 @@ export function FullMenuScreen({
           ) : null}
         </div>
       </div>
+      <StickyFooter>
+        <TotalRow sek={totals.totalSek} note={unpricedNote(totals)} />
+        <BigButton onClick={onDone}>Klart</BigButton>
+      </StickyFooter>
       <DishSheet
         key={open ?? "none"}
         dish={openDish}
-        company={shownCompany}
+        company={company}
         fromPersonId={forPerson?.id ?? null}
-        explain={explain}
         starred={openDish ? isStarred(openDish) : false}
         onAdd={(personId) => {
           if (open !== null) onAdd(personId, open);

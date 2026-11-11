@@ -1,12 +1,27 @@
-import { CameraIcon } from "@/components/icons";
+import { CameraIcon, ImageIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
-import { BigButton, Headline, StickyFooter, TextLink } from "./journey-parts";
+import { BigButton, StickyFooter, StopBody, TextLink, TopBack } from "./journey-parts";
 
-/** A reading with no dishes: says so plainly, with tips for a better photo. */
-export function EmptyReading({ error, canReadCarefully, onCareful, onPhoto }: { error: string | null; canReadCarefully: boolean; onCareful: () => void; onPhoto: () => void }) {
+/** A reading with no dishes: a stop that says so plainly, with tips for a better photo. */
+export function EmptyReading({
+  error,
+  canReadCarefully,
+  onCareful,
+  onPhoto,
+  onBack,
+}: {
+  error: string | null;
+  canReadCarefully: boolean;
+  onCareful: () => void;
+  onPhoto: () => void;
+  onBack: () => void;
+}) {
   return (
-    <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="menu-empty">
-      <Headline sub="Det gick inte att hitta några rätter på fotot. Några tips:">Jag kunde inte läsa menyn</Headline>
+    <div className="flex min-h-[calc(100dvh-var(--tab-bar-height)-1rem)] flex-1 flex-col gap-4 desktop:min-h-[calc(100dvh-4rem)]" data-testid="menu-empty">
+      <TopBack onClick={onBack}>Tolka menyn</TopBack>
+      <StopBody icon={<ImageIcon size={34} />} title="Jag kunde inte läsa menyn">
+        Det gick inte att hitta några rätter på fotot.
+      </StopBody>
       {error ? <Notice role="alert">{error}</Notice> : null}
       <ul className="list-disc rounded-xl bg-surface py-4 pr-4 pl-9 text-body text-ink-2">
         <li>Håll kameran rakt framför menyn</li>

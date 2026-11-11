@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Notice } from "@/components/notice";
+import type { ErrorCode } from "@/lib/errors";
 import { useOption } from "@/lib/use-option";
 import { prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
 import { readMenuText } from "../actions/read-menu-text";
@@ -14,53 +15,56 @@ import { pickId } from "../domain/tonight";
 import type { Menu, MenuDish } from "../domain/types";
 import { dishSek } from "../domain/view";
 import { AnswerScreen } from "./answer-screen";
-import { CompanySheet } from "./company-sheet";
+import { readCompanyIds, writeCompanyIds } from "./company-store";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
-import { choose, chooseDrink, emptyReadingView, foldReading, hasProfileInfo, withOption, type ReadingView } from "./journey";
+import { GuestSheet } from "./guest-sheet";
+import { choose, chooseDrink, emptyReadingView, foldReading, withOption, type ReadingView } from "./journey";
+import { TopBack } from "./journey-parts";
 import { readMenuWithFallback } from "./read-with-fallback";
 import { ReadingScreen } from "./reading-screen";
 import { StartScreen } from "./start-screen";
+import { type MenuStop, StopScreen } from "./stop-screen";
 import { TonightList } from "./tonight-list";
 import { usePeople } from "./use-people";
 import { useTonight } from "./use-tonight";
 import { YourChoiceScreen } from "./your-choice-screen";
 
-// Menyrådgivare (Tillval, off by default), "En enkel resa": one thing per screen. Fota menyn, the app reads it live
-// (POST /api/menu/read?stream=1, the dishes come in one by one), proposes two or three dishes per person, you choose,
-// and "Ert val" is a clean summary to show the waiter. The whole menu and each dish are one tap away.
-// Nothing is saved except "Ikväll", the dishes starred in this session. The photo stays in memory only.
+// Menyrådgivare (Tillval, off by default), "Tolka menyn": one thing per screen. Who eats is ticked on the start, Fota
+// menyn, the app reads it live (POST /api/menu/read?stream=1, the dishes come in one by one), proposes two or three
+// dishes per person, you choose, and "Ert val" is a clean summary to show the waiter. The whole menu is the second tab
+// of the answer. A reading that stops has a screen of its own. Kept on this phone: who was ticked last time, and
+// "Ikväll" (the dishes starred in this session). The photo stays in memory only.
 
-type Stage = "start" | "reading" | "answer" | "choice" | "menu";
-type Mode = "help" | "explain";
+type Stage = "start" | "reading" | "answer" | "choice" | "menu" | "stop";
 
 const noopSubscribe = () => () => {};
-const skippedKey = "livskoll-menu-first-time-skipped";
 
-function readSkipped(): boolean {
-  try {
-    return localStorage.getItem(skippedKey) === "1";
-  } catch {
-    return false;
-  }
+/** What the stop says when the reading could not be run (the dev text of ai_unavailable is not for someone at a restaurant). */
+function stopMessage(code: ErrorCode, message: string, hasPhoto: boolean): string {
+  if (code !== "ai_unavailable") return message;
+  return hasPhoto ? "Menyn kunde inte läsas. Kontrollera nätet och försök igen. Fotot finns kvar." : "Menyn kunde inte läsas. Kontrollera nätet och försök igen.";
 }
 
 /**
  * `members`: the household's members (read on the server), pickable as company from the start; null = not readable.
- * `startSlot`: something the route layer shows on the start screen only (the card of Restaurangagenten).
+ * `startSlot`: a quiet link the route layer shows under Fota menyn on the start screen only (Sök restauranger).
  * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
+ * `canRaiseCap`: the signed-in user is the app's owner, so the AI-cap stop offers "Höj taket".
  */
 export function MenuAdvisor({
   members = null,
   profiles = null,
   startSlot,
+  canRaiseCap = false,
   initialMenu,
   startWithMenuText,
 }: {
   members?: readonly HouseholdPerson[] | null;
   profiles?: Person[] | null;
   startSlot?: ReactNode;
+  canRaiseCap?: boolean;
   /** A menu the route layer already holds: the advisor starts on its answer, with no photo and no reading. */
   initialMenu?: Menu;
   /** Plain menu text (from a restaurant's own website): the advisor reads it (readMenuText) and goes on as with a photo. `initialMenu` wins when both are given. */
@@ -70,21 +74,21 @@ export function MenuAdvisor({
   // Off on the server and during hydration: nothing flashes for people who have it on.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
   const [stage, setStage] = useState<Stage>("start");
-  const [mode, setMode] = useState<Mode>("help");
   const [careful, setCareful] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stop, setStop] = useState<MenuStop | null>(null);
   const [reading, setReading] = useState<MenuReading | null>(null);
   const [view, setView] = useState<ReadingView>(emptyReadingView);
   const [journey, setJourney] = useState<{ options: PersonOptions[]; choices: Choices }>({ options: [], choices: {} });
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [drinkOf, setDrinkOf] = useState<string | null>(null);
-  const [companyOpen, setCompanyOpen] = useState(false);
+  const [guestOpen, setGuestOpen] = useState(false);
   const [showTonight, setShowTonight] = useState(false);
-  const [skipped, setSkipped] = useState(readSkipped);
   const tonight = useTonight();
   const { people, save } = usePeople(members, profiles);
-  // Who is with tonight: ids of saved people plus guests added for tonight only (gone when the page closes).
-  const [selectedIds, setSelectedIds] = useState<string[]>([meId]);
+  // Who is with tonight: ids of saved people plus guests added for tonight only (gone when the page closes). It
+  // starts with whoever was ticked last time on this phone.
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => readCompanyIds() ?? [meId]);
   const [tempGuests, setTempGuests] = useState<Person[]>([]);
   const photo = useRef<Blob | null>(null);
   const menuText = useRef<string | null>(null);
@@ -102,6 +106,8 @@ export function MenuAdvisor({
     const chosen = everyone.filter((person) => selectedIds.includes(person.id));
     return chosen.length > 0 ? chosen : everyone.slice(0, 1);
   }, [everyone, selectedIds]);
+  const chosenIds = useMemo(() => new Set(company.map((person) => person.id)), [company]);
+  const tonightOnly = useMemo(() => new Set(tempGuests.map((guest) => guest.id)), [tempGuests]);
 
   // A menu handed in by the route layer is taken once, when the advisor is on.
   useEffect(() => {
@@ -120,27 +126,56 @@ export function MenuAdvisor({
   if (!mounted) return null;
   if (!enabled) {
     return (
-      <Notice
-        action={
-          <Link href="/installningar/tillval" className="inline-flex min-h-tap items-center pl-3 font-semibold underline">
-            Öppna Tillval
-          </Link>
-        }
-      >
-        Menyrådgivaren är avstängd. Slå på den under Inställningar, Tillval.
-      </Notice>
+      <div className="flex flex-col gap-4">
+        <TopBack href="/matsedel">Matsedel</TopBack>
+        <Notice
+          action={
+            <Link href="/installningar/tillval" className="inline-flex min-h-tap items-center pl-3 font-semibold underline">
+              Öppna Tillval
+            </Link>
+          }
+        >
+          Menyrådgivaren är avstängd. Slå på den under Inställningar, Tillval.
+        </Notice>
+      </div>
     );
   }
 
-  const explain = mode === "explain";
-  const readingCompany = explain ? [] : company;
+  function setCompany(ids: string[]) {
+    setSelectedIds(ids);
+    writeCompanyIds(ids);
+  }
+
+  function toggle(personId: string) {
+    const ids = company.map((person) => person.id);
+    setCompany(ids.includes(personId) ? ids.filter((entry) => entry !== personId) : [...ids, personId]);
+  }
+
+  function addGuest(guest: Person, keep: boolean) {
+    if (keep) save(guest);
+    else setTempGuests((current) => [...current, guest]);
+    setCompany([...company.map((person) => person.id), guest.id]);
+    setGuestOpen(false);
+  }
 
   function apply(next: MenuReading) {
-    const options = explain ? [] : recommendOptions(next.menu, company);
+    const options = recommendOptions(next.menu, company);
     setReading(next);
     setJourney({ options, choices: defaultChoices(options) });
     setMenuFor(null);
-    setStage(explain ? "menu" : "answer");
+    setStage("answer");
+  }
+
+  /** A reading that failed: from the start it is a stop of its own; from the answer (Läs noggrannare) a notice there. */
+  function failed(code: ErrorCode, message: string) {
+    if (backStage.current !== "start") {
+      setError(code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : message);
+      setStage(backStage.current);
+      return;
+    }
+    const canRetry = photo.current !== null || menuText.current !== null;
+    setStop(code === "ai_cap_reached" ? { kind: "cap" } : { kind: "error", message: stopMessage(code, message, photo.current !== null), canRetry });
+    setStage("stop");
   }
 
   async function run(blob: Blob, isCareful: boolean) {
@@ -159,9 +194,7 @@ export function MenuAdvisor({
     if (answer.ok) return apply(answer.data);
     // Stopped by "Avbryt": back to where it was.
     if (answer.error === undefined) return setStage(backStage.current);
-    // The dev text of ai_unavailable ("Är datorn med modellen igång?") is not for someone at a restaurant.
-    setError(answer.error.code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : answer.error.message);
-    setStage(backStage.current);
+    failed(answer.error.code, answer.error.message);
   }
 
   async function runText(text: string, isCareful: boolean) {
@@ -179,8 +212,7 @@ export function MenuAdvisor({
     if (request.current !== controller) return;
     request.current = null;
     if (answer.ok) return apply(answer.data);
-    setError(answer.error.code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : answer.error.message);
-    setStage(backStage.current);
+    failed(answer.error.code, answer.error.message);
   }
 
   async function takePhoto(file: File) {
@@ -188,6 +220,8 @@ export function MenuAdvisor({
     const controller = new AbortController();
     request.current = controller;
     backStage.current = "start";
+    photo.current = null;
+    menuText.current = null;
     setError(null);
     setCareful(false);
     setView(emptyReadingView);
@@ -195,11 +229,7 @@ export function MenuAdvisor({
     const prepared = await prepareMenuPhoto(file);
     if (request.current !== controller) return;
     request.current = null;
-    if (!prepared.ok) {
-      setError(prepared.error.message);
-      setStage("start");
-      return;
-    }
+    if (!prepared.ok) return failed(prepared.error.code, prepared.error.message);
     photo.current = prepared.data;
     await run(prepared.data, false);
   }
@@ -216,9 +246,15 @@ export function MenuAdvisor({
     else if (menuText.current) void runText(menuText.current, true);
   }
 
-  function pick(next: Mode) {
+  /** "Försök igen" on a stop: the same photo (or text) once more, as it was asked for. */
+  function retry() {
     backStage.current = "start";
-    setMode(next);
+    if (photo.current) void run(photo.current, careful);
+    else if (menuText.current) void runText(menuText.current, careful);
+  }
+
+  function pick() {
+    backStage.current = "start";
     picker.current?.click();
   }
 
@@ -228,6 +264,7 @@ export function MenuAdvisor({
     setReading(null);
     setJourney({ options: [], choices: {} });
     setError(null);
+    setStop(null);
     setStage("start");
   }
 
@@ -266,29 +303,34 @@ export function MenuAdvisor({
 
   const canReadCarefully = reading !== null && reading.quality !== "careful";
   const reader = reading?.model && reading.effort ? { model: reading.model, effort: reading.effort } : null;
-  const totals = reading ? estimateTotalSek(journey.choices, reading.menu, readingCompany) : null;
+  const totals = reading ? estimateTotalSek(journey.choices, reading.menu, company) : null;
   const drinkPerson = company.find((person) => person.id === drinkOf);
   const drinkNow = drinkPerson ? (journey.choices[drinkPerson.id]?.drink ?? drinkPerson.drink) : null;
 
   let content: ReactNode;
   if (showTonight) {
     content = (
-      <TonightList
-        picks={tonight.picks}
-        onRemove={tonight.toggle}
-        onClear={tonight.clear}
-        onBack={() => setShowTonight(false)}
-        onNext={() => {
-          setShowTonight(false);
-          finish();
-          pick("help");
-        }}
-      />
+      <div className="flex flex-col gap-4">
+        <TopBack />
+        <TonightList
+          picks={tonight.picks}
+          onRemove={tonight.toggle}
+          onClear={tonight.clear}
+          onBack={() => setShowTonight(false)}
+          onNext={() => {
+            setShowTonight(false);
+            finish();
+            pick();
+          }}
+        />
+      </div>
     );
   } else if (stage === "reading") {
     content = <ReadingScreen view={view} careful={careful} onCancel={cancel} />;
+  } else if (stage === "stop" && stop) {
+    content = <StopScreen stop={stop} canRaiseCap={canRaiseCap} onBack={finish} onRetry={retry} onPhoto={pick} />;
   } else if (reading && reading.menu.ratter.length === 0 && stage !== "start") {
-    content = <EmptyReading error={error} canReadCarefully={canReadCarefully} onCareful={readAgainCarefully} onPhoto={() => pick(mode)} />;
+    content = <EmptyReading error={error} canReadCarefully={canReadCarefully} onCareful={readAgainCarefully} onPhoto={pick} onBack={finish} />;
   } else if (reading && totals && stage === "answer") {
     content = (
       <AnswerScreen
@@ -329,13 +371,13 @@ export function MenuAdvisor({
         onChange={() => setStage("answer")}
       />
     );
-  } else if (reading && stage === "menu") {
+  } else if (reading && totals && stage === "menu") {
     content = (
       <FullMenuScreen
         menu={reading.menu}
         company={company}
-        explain={explain}
         forPerson={menuFor ? (company.find((person) => person.id === menuFor) ?? null) : null}
+        totals={totals}
         isStarred={(dish) => tonight.picks.some((entry) => entry.id === pickId(reading.menu.restaurang, dish.originalnamn))}
         tonightCount={tonight.picks.length}
         reader={reader}
@@ -345,32 +387,28 @@ export function MenuAdvisor({
         onStar={starDish}
         onTonight={() => setShowTonight(true)}
         onCareful={readAgainCarefully}
-        onBack={() => {
+        onBack={finish}
+        onAnswer={() => {
           setMenuFor(null);
-          if (explain) finish();
-          else setStage("answer");
+          setStage("answer");
         }}
-        onNext={() => pick(mode)}
+        onDone={() => {
+          setMenuFor(null);
+          setStage("choice");
+        }}
+        onNext={pick}
       />
     );
   } else {
     content = (
       <StartScreen
-        company={company}
-        error={error}
-        firstTime={!skipped && !everyone.some(hasProfileInfo)}
-        onSkipFirstTime={() => {
-          setSkipped(true);
-          try {
-            localStorage.setItem(skippedKey, "1");
-          } catch {
-            // Blocked storage: the row is back next time.
-          }
-        }}
+        people={everyone}
+        chosenIds={chosenIds}
+        tonightOnly={tonightOnly}
+        onToggle={toggle}
+        onAddGuest={() => setGuestOpen(true)}
         tonightCount={tonight.picks.length}
-        onCompany={() => setCompanyOpen(true)}
-        onPhoto={() => pick("help")}
-        onExplain={() => pick("explain")}
+        onPhoto={pick}
         onTonight={() => setShowTonight(true)}
         slot={startSlot}
       />
@@ -379,16 +417,7 @@ export function MenuAdvisor({
   return (
     <>
       {content}
-      <CompanySheet
-        open={companyOpen}
-        onClose={() => setCompanyOpen(false)}
-        people={people}
-        selectedIds={selectedIds}
-        onSelectedIds={setSelectedIds}
-        tempGuests={tempGuests}
-        onTempGuests={setTempGuests}
-        onSave={save}
-      />
+      <GuestSheet open={guestOpen} onClose={() => setGuestOpen(false)} onAdd={addGuest} />
       {reading && drinkPerson ? (
         <DrinkSheet
           open

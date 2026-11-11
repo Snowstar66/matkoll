@@ -1,7 +1,7 @@
 import { AiOrb, aiHeroOrbSize } from "@/components/ai-working";
 import { menuReaderText } from "../domain/reading";
 import { listPrice, readingStatus, type ReadingView } from "./journey";
-import { StickyFooter, TextLink } from "./journey-parts";
+import { StickyFooter, TextLink, TopBack } from "./journey-parts";
 
 /**
  * Step 2: a ring and one line that changes with what the server has found ("Läser menyn…", "Översätter från
@@ -11,7 +11,8 @@ import { StickyFooter, TextLink } from "./journey-parts";
 export function ReadingScreen({ view, careful, onCancel }: { view: ReadingView; careful: boolean; onCancel: () => void }) {
   const status = readingStatus(view, careful);
   return (
-    <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="menu-reading">
+    <div className="flex min-h-[calc(100dvh-var(--tab-bar-height)-1rem)] flex-1 flex-col gap-4 desktop:min-h-[calc(100dvh-4rem)]" data-testid="menu-reading">
+      <TopBack />
       <div className="flex flex-col items-center gap-4 pt-8 text-center">
         <AiOrb size={aiHeroOrbSize} />
         <h2 role="status" data-testid="menu-reading-status" className="text-[1.5rem] leading-8 font-semibold text-ink">

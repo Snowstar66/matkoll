@@ -1,9 +1,8 @@
 // The logic of "En enkel resa" that lives in the UI layer: what is chosen, what it adds up to, how a reason or a
 // reading is worded. Pure, so it is tested without a screen.
-import { meId } from "../domain/people";
 import { allergenLabels } from "../domain/labels";
 import { toSek } from "../domain/currency";
-import { drinkPrice } from "../domain/drinks";
+import { drinkPrice, type Totals } from "../domain/drinks";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
 import type { DrinkKind, Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
@@ -35,15 +34,10 @@ export function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}`;
 }
 
-const countWords = ["noll", "en", "två", "tre", "fyra", "fem", "sex", "sju", "åtta", "nio", "tio"];
-
-/** The start row's text: "Bara du", "Ni är tre · Du, Anna, Gunnar", and from five: "Ni är fem · Du, Anna +3". */
-export function companyLine(company: readonly Pick<Person, "id" | "name">[]): string {
-  if (company.length === 0) return "Ingen vald";
-  if (company.length === 1) return company[0]!.id === meId ? "Bara du" : `Bara ${company[0]!.name}`;
-  const count = countWords[company.length] ?? String(company.length);
-  const names = company.length <= 4 ? company.map(nameOf).join(", ") : `${company.slice(0, 2).map(nameOf).join(", ")} +${company.length - 2}`;
-  return `Ni är ${count} · ${names}`;
+/** The line under the total when dishes have no price: "2 rätter saknar pris och räknas inte med"; null when all have one. */
+export function unpricedNote(totals: Pick<Totals, "unpriced">): string | null {
+  if (totals.unpriced <= 0) return null;
+  return `${totals.unpriced} ${totals.unpriced === 1 ? "rätt saknar" : "rätter saknar"} pris och räknas inte med`;
 }
 
 /** Whether anything is filled in for the person that could steer or warn: allergies and tastes (Undviker and Älskar are tastes). */

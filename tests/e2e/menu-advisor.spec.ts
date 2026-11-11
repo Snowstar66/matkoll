@@ -67,11 +67,15 @@ test.beforeEach(async () => {
   await clearFoodProfiles(await e2eUserId(e2eEmail));
 });
 
-async function optionOn(page: Page, size?: "xl") {
-  await page.addInitScript((textSize) => {
-    localStorage.setItem("livskoll-option-menuAdvisor", "1");
-    if (textSize) localStorage.setItem("livskoll-text", textSize);
-  }, size ?? null);
+async function optionOn(page: Page, size?: "xl", restaurants = false) {
+  await page.addInitScript(
+    ([textSize, withRestaurants]) => {
+      localStorage.setItem("livskoll-option-menuAdvisor", "1");
+      if (withRestaurants) localStorage.setItem("livskoll-option-restaurantAgent", "1");
+      if (textSize) localStorage.setItem("livskoll-text", textSize);
+    },
+    [size ?? null, restaurants] as const,
+  );
 }
 
 /** Anna (a kept guest: gluten, avoids garlic, loves paprika, wine) and "Du" with beer, saved for the household. */
@@ -141,11 +145,14 @@ async function liveStream(page: Page) {
   };
 }
 
-async function takePhoto(page: Page, button: "menu-photo" | "menu-explain" = "menu-photo") {
+async function takePhoto(page: Page, button: Locator = page.getByTestId("menu-photo")) {
   const chooser = page.waitForEvent("filechooser");
-  await page.getByTestId(button).click();
+  await button.click();
   await (await chooser).setFiles(photo);
 }
+
+/** The tab "Hela menyn" at the top of the answer. */
+const fullMenuTab = (page: Page) => page.getByRole("radio", { name: "Hela menyn" });
 
 /** A tap on the card, as a finger does it: the radio itself is hidden inside its label. */
 const tap = (radio: Locator) => radio.locator("xpath=ancestor::label").click();
@@ -169,22 +176,29 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.getByTestId("menu-advisor-shortcut").click();
   await expect(page).toHaveURL(/\/matsedel\/menyer$/);
 
-  // 1. Start: a question, who is with, one button, a quiet link. Alone first, then with company.
-  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
-  await expect(page.getByTestId("menu-company-line")).toHaveText("Bara du");
-  await expect(page.getByTestId("menu-first-time")).toHaveCount(0);
+  // 1–2. Start: one title (no "Menyrådgivare" above it), one back link, who eats as rows with their allergies, one
+  // button. Alone first, then with Anna ticked and a guest added in the sheet.
+  await expect(page.getByRole("heading", { name: "Tolka menyn", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menyrådgivare" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Matsedel" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Du" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Anna" })).not.toBeChecked();
+  await expect(page.getByTestId("menu-company-person").filter({ hasText: "Anna" })).toContainText("Gluten");
+  await expect(page.getByText("Bara förklara menyn")).toHaveCount(0);
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
   await page.screenshot({ path: `${shots}/01-start-alone.png` });
-  await page.getByTestId("menu-company-row").click();
-  await expect(page.getByRole("dialog", { name: "Vilka är med?" })).toBeVisible();
-  await page.getByRole("button", { name: "Anna" }).click();
+  await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
+  await expect(page.getByRole("checkbox", { name: "Anna" })).toBeChecked();
   await page.getByRole("button", { name: "Lägg till gäst" }).click();
+  await expect(page.getByRole("dialog", { name: "Lägg till gäst" })).toBeVisible();
   await page.getByTestId("menu-guest-name").fill("Gunnar");
   await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
-  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${shots}/02-company-sheet.png` });
-  await page.getByRole("button", { name: "Klar", exact: true }).click();
-  await expect(page.getByTestId("menu-company-line")).toHaveText("Ni är tre · Du, Anna, Gunnar");
+  await page.screenshot({ path: `${shots}/02-guest-sheet.png` });
+  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: "Gunnar" })).toBeChecked();
+  await expect(page.getByTestId("menu-company-person").filter({ hasText: "Gunnar" })).toContainText("Nötter · bara ikväll");
   await page.screenshot({ path: `${shots}/03-start-company.png` });
   expect(await noSideScroll(page)).toBe(true);
 
@@ -203,8 +217,10 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   expect(await stream.qualities()).toEqual(["standard"]);
   await stream.push(doneLine(menu));
 
-  // 3. The answer: a group per person, the best chosen, "Anna älskar paprika" only where it changes something.
+  // 4. The answer: a group per person, the best chosen, "Anna älskar paprika" only where it changes something.
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Förslag" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Tolka menyn" })).toBeVisible();
   const du = page.getByRole("region", { name: "Du", exact: true });
   const anna = page.getByRole("region", { name: "Anna", exact: true });
   const gunnar = page.getByRole("region", { name: "Gunnar", exact: true });
@@ -228,9 +244,10 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.screenshot({ path: `${shots}/07-answer-scrolled.png` });
   expect(await noSideScroll(page)).toBe(true);
 
-  // 4. Ert val: the name as printed, big; the drink can be changed with a tap.
+  // 5. Ert val: the name as printed, big; the drink can be changed with a tap; the back link says Förslag.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ert val" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Förslag" })).toBeVisible();
   await expect(page.getByTestId("menu-choice-person")).toHaveCount(3);
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Anna: gluten.");
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Gunnar: nötter.");
@@ -246,11 +263,13 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(page.getByTestId("menu-total")).not.toHaveText(total);
   await expect(page.getByTestId("menu-choice-person").first()).toContainText("Vin");
 
-  // Back with "Ändra", then the whole menu: only dishes someone cannot eat are marked.
+  // Back with "Ändra", then the tab Hela menyn: only dishes someone cannot eat are marked.
   await page.getByRole("button", { name: "Ändra" }).click();
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await page.getByRole("button", { name: "Se hela menyn" }).click();
+  await fullMenuTab(page).click();
   await expect(page.getByRole("heading", { name: "Hela menyn" })).toBeVisible();
+  await expect(page.getByText("Taverna Mock · översatt från spanska")).toBeVisible();
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
   await expect(page.getByRole("heading", { name: "Efterrätt", level: 3 })).toBeVisible();
   await expect(page.getByTestId("menu-unfit").first()).toBeVisible();
   await page.screenshot({ path: `${shots}/10-full-menu.png` });
@@ -282,16 +301,20 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
 });
 
-test("the answer without company or preferences has no marks, and says allergens are not filtered; Läs noggrannare reads again", async ({ page }) => {
-  await optionOn(page);
+test("the answer without company or preferences has no marks, and a sand box says nothing is sorted out; Läs noggrannare reads again", async ({ page }) => {
+  await optionOn(page, undefined, true);
   const stream = await liveStream(page);
   await page.goto("/matsedel/menyer");
-  await expect(page.getByTestId("menu-first-time")).toBeVisible();
+  // The first time: no mint card about what you do not eat; the row itself says so. With Äta ute on, the way to the map.
+  await expect(page.getByText("Berätta kort vad ni inte äter")).toHaveCount(0);
+  await expect(page.getByTestId("menu-company-person")).toHaveText(["DDuInga allergier angivna"]);
+  await expect(page.getByRole("button", { name: "Inte på plats än? Sök restauranger" })).toBeVisible();
   await page.screenshot({ path: `${shots}/13-start-first-time.png` });
   await takePhoto(page);
   await stream.push(readerLine, doneLine(menu));
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await expect(page.getByTestId("menu-unfiltered")).toHaveText("Allergener är inte filtrerade");
+  await expect(page.getByTestId("menu-unfiltered")).toHaveText("Ingen av er har angett allergier, så inget är bortsorterat. Lägg till allergi");
+  await expect(page.getByTestId("menu-unfiltered")).toBeInViewport();
   await expect(page.locator("[data-tone='mint'], [data-tone='sand'], [data-tone='danger']")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Du" }).getByRole("radio")).toHaveCount(3);
   await page.screenshot({ path: `${shots}/14-answer-alone.png` });
@@ -327,20 +350,19 @@ test("a dish with an allergen of the person, and nothing else to give, is shown 
   await page.screenshot({ path: `${shots}/17-choice-allergy.png` });
 });
 
-test("Bara förklara menyn: reading, then the whole menu with no advice and no marks on people", async ({ page }) => {
+test("the tab Hela menyn: the whole menu translated, a dish to Ikväll, and the list", async ({ page }) => {
   await optionOn(page);
-  await seedCompany();
   const stream = await liveStream(page);
   await page.goto("/matsedel/menyer");
-  await takePhoto(page, "menu-explain");
+  await takePhoto(page);
   await stream.push(readerLine, doneLine(menu));
+  await fullMenuTab(page).click();
   await expect(page.getByRole("heading", { name: "Hela menyn" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toHaveCount(0);
   await expect(page.getByTestId("menu-unfit")).toHaveCount(0);
+  await page.screenshot({ path: `${shots}/18a-full-menu-tab.png` });
   await page.getByTestId("menu-dish").first().click();
   const sheet = page.getByRole("dialog");
-  await expect(sheet.getByTestId("menu-dish-fit")).toHaveCount(0);
-  await expect(sheet.getByRole("button", { name: /Lägg till åt/ })).toHaveCount(0);
   await sheet.getByRole("button", { name: "Lägg till Ikväll" }).click();
   await sheet.getByRole("button", { name: "Klar", exact: true }).click();
   await page.getByTestId("menu-tonight-open").click();
@@ -363,27 +385,37 @@ test("a stream that cannot be used falls back to the plain reading", async ({ pa
   expect(plain).toBe(1);
 });
 
-test("a failed reading says why right under the question, without scrolling", async ({ page }) => {
+test("the AI cap is a stop of its own, with Tillbaka to the start", async ({ page }) => {
   await optionOn(page);
   await page.route("**/api/menu/read?stream=1", (route) => route.fulfill({ json: { ok: false, error: { code: "ai_cap_reached" } } }));
   await page.goto("/matsedel/menyer");
   await takePhoto(page);
-  const alert = page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" });
-  await expect(alert).toBeVisible();
-  await expect(alert).toBeInViewport({ ratio: 1 });
+  const stop = page.getByTestId("menu-stop");
+  await expect(stop.getByRole("heading", { name: "Dagens AI-tak är nått" })).toBeInViewport();
+  await expect(stop).toContainText("Hushållet har använt dagens AI-pengar. Det nollställs i natt.");
+  await page.screenshot({ path: `${shots}/19-stop-cap.png` });
+  await stop.getByRole("button", { name: "Tillbaka" }).click();
   await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
-  await page.screenshot({ path: `${shots}/19-error-cap.png` });
 });
 
-test("a reading that could not be run says so in calm words", async ({ page }) => {
+test("a reading that could not be run is a stop in calm words, and Försök igen reads the same photo", async ({ page }) => {
   await optionOn(page);
+  let plain = 0;
   await page.route("**/api/menu/read?stream=1", (route) => route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable" } } }));
-  await page.route("**/api/menu/read", (route) => route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable" } } }));
+  await page.route("**/api/menu/read", (route) => {
+    plain += 1;
+    return plain === 1
+      ? route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable" } } })
+      : route.fulfill({ json: { ok: true, data: { menu, quality: "standard", escalated: false } } });
+  });
   await page.goto("/matsedel/menyer");
   await takePhoto(page);
-  const alert = page.getByRole("alert").filter({ hasText: "Det gick inte" });
-  await expect(alert).toHaveText("Det gick inte att läsa menyn just nu. Försök igen.");
-  await expect(alert).toBeInViewport({ ratio: 1 });
+  const stop = page.getByTestId("menu-stop");
+  await expect(stop.getByRole("heading", { name: "Det gick inte just nu" })).toBeInViewport();
+  await expect(stop).toContainText("Menyn kunde inte läsas. Kontrollera nätet och försök igen. Fotot finns kvar.");
+  await page.screenshot({ path: `${shots}/19b-stop-error.png` });
+  await stop.getByRole("button", { name: "Försök igen" }).click();
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
 });
 
 test("a reading with no dishes says so and gives tips", async ({ page }) => {
@@ -392,8 +424,9 @@ test("a reading with no dishes says so and gives tips", async ({ page }) => {
   await page.goto("/matsedel/menyer");
   await takePhoto(page);
   await stream.push(readerLine, doneLine({ ...menu, ratter: [] }));
-  await expect(page.getByText("Jag kunde inte läsa menyn")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Jag kunde inte läsa menyn" })).toBeVisible();
   await expect(page.getByText("Undvik blänk från lampor och glas")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tolka menyn" })).toBeVisible();
   await page.screenshot({ path: `${shots}/20-empty.png` });
 });
 
@@ -413,10 +446,13 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   await seedCompany();
   const stream = await liveStream(page);
   await page.goto("/matsedel/menyer");
+  await page.getByRole("checkbox", { name: "Anna" }).check();
   await page.screenshot({ path: `${shots}/21-xl-start.png` });
-  await page.getByTestId("menu-company-row").click();
-  await page.getByRole("button", { name: "Anna" }).click();
-  await page.getByRole("button", { name: "Klar", exact: true }).click();
+  expect(await noSideScroll(page)).toBe(true);
+  await page.getByRole("button", { name: "Lägg till gäst" }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/21b-xl-guest-sheet.png` });
+  await page.getByRole("button", { name: "Avbryt" }).click();
   await takePhoto(page);
   await stream.push(readerLine, { type: "dish", index: 0, dish: menu.ratter[0] }, { type: "dish", index: 1, dish: menu.ratter[1] });
   await expect(page.getByTestId("menu-reading-dishes").getByRole("listitem")).toHaveCount(2);
@@ -426,9 +462,59 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   await expect(page.getByTestId("menu-footer")).toBeInViewport();
   await page.screenshot({ path: `${shots}/23-xl-answer.png` });
   expect(await noSideScroll(page)).toBe(true);
+  await fullMenuTab(page).click();
+  await page.screenshot({ path: `${shots}/23b-xl-full-menu.png` });
+  expect(await noSideScroll(page)).toBe(true);
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await page.screenshot({ path: `${shots}/24-xl-choice.png` });
   expect(await noSideScroll(page)).toBe(true);
+});
+
+test("Större text and the dark: the stops fit at 375 px", async ({ page }) => {
+  await optionOn(page, "xl");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.route("**/api/menu/read?stream=1", (route) => route.fulfill({ json: { ok: false, error: { code: "ai_cap_reached" } } }));
+  await page.goto("/matsedel/menyer");
+  await takePhoto(page);
+  await expect(page.getByTestId("menu-stop")).toBeVisible();
+  await page.screenshot({ path: `${shots}/25-xl-dark-stop-cap.png` });
+  expect(await noSideScroll(page)).toBe(true);
+});
+
+test("the dark: the start, the guest sheet, the answer with both tabs, Ert val and the stops", async ({ page }) => {
+  await optionOn(page, undefined, true);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await seedCompany();
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await page.getByRole("checkbox", { name: "Anna" }).check();
+  await page.screenshot({ path: `${shots}/30-dark-start.png` });
+  await page.getByRole("button", { name: "Lägg till gäst" }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/31-dark-guest-sheet.png` });
+  await page.getByRole("button", { name: "Avbryt" }).click();
+  await takePhoto(page);
+  await stream.push(readerLine, doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await page.screenshot({ path: `${shots}/32-dark-answer.png` });
+  await fullMenuTab(page).click();
+  await page.screenshot({ path: `${shots}/33-dark-full-menu.png` });
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await page.screenshot({ path: `${shots}/34-dark-choice.png` });
+  // Alone, nobody has an allergy: the sand box.
+  await page.getByRole("button", { name: "Klart", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Anna" }).uncheck();
+  await takePhoto(page);
+  await expect.poll(async () => (await stream.qualities()).length).toBe(2);
+  await stream.push(readerLine, doneLine(menu));
+  await expect(page.getByTestId("menu-unfiltered")).toBeVisible();
+  await page.screenshot({ path: `${shots}/35-dark-answer-no-allergy.png` });
+  await page.getByRole("button", { name: "Tolka menyn" }).click();
+  await takePhoto(page);
+  await expect.poll(async () => (await stream.qualities()).length).toBe(3);
+  await stream.push(readerLine, doneLine({ ...menu, ratter: [] }));
+  await expect(page.getByTestId("menu-empty")).toBeVisible();
+  await page.screenshot({ path: `${shots}/36-dark-empty.png` });
 });
 
 test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitlök to Ogillar, it stays after a reload; the old address leads there", async ({ page }) => {

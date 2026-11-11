@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { allergyLine, approxKr, cardSek, choose, chooseDrink, companyLine, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, withOption } from "./journey";
+import { allergyLine, approxKr, cardSek, choose, chooseDrink, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -62,11 +62,10 @@ describe("words", () => {
     expect(listPrice({ pris: null, valuta: null })).toBe("");
   });
 
-  it("the company line", () => {
-    expect(companyLine([du])).toBe("Bara du");
-    expect(companyLine([anna])).toBe("Bara Anna");
-    expect(companyLine([du, anna, person({ id: "g", name: "Gunnar" })])).toBe("Ni är tre · Du, Anna, Gunnar");
-    expect(companyLine([du, anna, anna, anna, anna])).toBe("Ni är fem · Du, Anna +3");
+  it("names, and dishes without a price", () => {
+    expect(unpricedNote({ unpriced: 0 })).toBeNull();
+    expect(unpricedNote({ unpriced: 1 })).toBe("1 rätt saknar pris och räknas inte med");
+    expect(unpricedNote({ unpriced: 2 })).toBe("2 rätter saknar pris och räknas inte med");
     expect(joinNames(["Du", "Anna", "Gunnar"])).toBe("Du, Anna och Gunnar");
     expect(joinNames(["Du", "Anna"])).toBe("Du och Anna");
   });
