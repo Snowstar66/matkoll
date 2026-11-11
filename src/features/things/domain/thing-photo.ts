@@ -7,6 +7,14 @@ import { thingNoun } from "./thing-noun";
 // reads the things from it in the background. Pure.
 
 export const thingPhotoBucket = "thing-photo";
+/**
+ * The most card files a household keeps in the bucket (S-10, photo_household_cap
+ * in 20261111130000_photo_caps.sql): a card is one photo of a place, a place
+ * has 1-3, and a thorough inventory of two boenden is 100-250 cards.
+ * At the cap a new card is refused with things_photo_cap until some are removed.
+ */
+export const thingPhotoHouseholdCap = 300;
+
 export const thingPhotoMediaTypes = ["image/jpeg", "image/png"] as const;
 export type ThingPhotoMediaType = (typeof thingPhotoMediaTypes)[number];
 

@@ -66,6 +66,21 @@ export async function uploadPlacePhoto(
   });
 }
 
+/**
+ * Whether the household has room for another file in the bucket
+ * (photo_room_in_my_household, S-10): `false` at placePhotoHouseholdCap, where
+ * Storage refuses an upload like one that is not the user's. `null` when it
+ * cannot be read. Never throws.
+ */
+export async function placePhotoRoomIn(db: PantryDb): Promise<boolean | null> {
+  try {
+    const { data, error } = await db.rpc("photo_room_in_my_household", { bucket: placePhotoBucket });
+    return error ? null : data === true;
+  } catch {
+    return null;
+  }
+}
+
 /** A photo's row as save_pantry_photo takes it; its file is uploaded already. */
 export type PantryPhotoRow = {
   id: string;
