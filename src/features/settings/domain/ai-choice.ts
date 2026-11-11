@@ -71,6 +71,8 @@ export function costSummaryText(model: ClaudeModel): string {
 
 export const claudeKeyMissingText = "Lägg in ANTHROPIC_API_KEY i .env.local och starta om";
 export const qwenUnavailableText = "Lägg in LMSTUDIO_BASE_URL i .env.local och starta om";
+export const aiPasswordMissingText =
+  "Valet är låst: inget lösenord är satt. Ägaren måste sätta AI_SETTINGS_PASSWORD (i Vercel, eller i .env.local lokalt) och starta om.";
 export const levelOffForQwenText = "Nivån gäller bara Claude. För Qwen är den avstängd.";
 
 /** What Inställningar sends when the choice is saved. Qwen's model always comes from the environment. */
@@ -102,6 +104,8 @@ export type AiSettingsView = {
   qwenModel: string;
   /** What Standard means right now, e.g. "Qwen lokalt (qwen/qwen3.6-35b-a3b)". */
   defaultText: string;
+  /** Whether AI_SETTINGS_PASSWORD is set; without it the choice stays locked (no built-in password). */
+  passwordSet: boolean;
 };
 
 /**

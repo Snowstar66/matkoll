@@ -36,7 +36,16 @@ describe("MenuWithRestaurants", () => {
     render(<MenuWithRestaurants members={null} profiles={[]} />);
     await user.click(await screen.findByTestId("restaurant-agent-card"));
     expect(screen.getByTestId("restaurant-where")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Tillbaka" }));
+    await user.click(screen.getByRole("button", { name: "Tolka menyn" }));
+    expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
+  });
+
+  it("'Framme? Fota menyn' opens Tolka menyn", async () => {
+    saveOption("restaurantAgent", true);
+    const user = userEvent.setup();
+    render(<MenuWithRestaurants members={null} profiles={[]} />);
+    await user.click(await screen.findByTestId("restaurant-agent-card"));
+    await user.click(screen.getByRole("button", { name: "Framme? Fota menyn" }));
     expect(await screen.findByTestId("menu-start")).toBeInTheDocument();
   });
 

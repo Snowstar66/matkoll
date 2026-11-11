@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckIcon, PinIcon } from "@/components/icons";
+import { CameraIcon, CheckIcon, PinIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { roundCoordinates } from "../domain/location";
 import type { RestaurantSettings } from "../domain/types";
@@ -9,7 +9,8 @@ import type { LocationQuery } from "./actions-port";
 import { texts } from "./format";
 import { useOption } from "@/lib/use-option";
 import { DirectMap } from "./direct-map";
-import { BackLink, GhostButton, Headline, StickyFooter } from "./parts";
+import { BackLink, GhostButton, Headline, StickyFooter, StopBody, TextLink } from "./parts";
+import { Radar } from "./radar";
 import { SettingsFields } from "./settings-fields";
 
 // Step 1: when, how far, how many, what to weigh. The phone's place is asked ONCE when the screen shows (a line says
@@ -25,6 +26,8 @@ export type WhereScreenProps = {
   onSettings: (next: RestaurantSettings) => void;
   onBack: () => void;
   onFind: (location: LocationQuery) => void;
+  /** "Framme? Fota menyn": on to the photo of the menu. Left out: no link. */
+  onPhoto?: () => void;
   /** E.g. "Kostar cirka 0,6 kr"; left out when unknown. */
   costText?: string;
   /** An answer of "needs_location" from the server: said above the status line. */
@@ -39,7 +42,7 @@ export function browserPosition(onOk: (lat: number, lng: number) => void, onFail
   navigator.geolocation.getCurrentPosition((position) => onOk(position.coords.latitude, position.coords.longitude), onFail, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 });
 }
 
-export function WhereScreen({ settings, onSettings, onBack, onFind, costText, notice = null, getPosition }: WhereScreenProps) {
+export function WhereScreen({ settings, onSettings, onBack, onFind, onPhoto, costText, notice = null, getPosition }: WhereScreenProps) {
   const [geo, setGeo] = useState<GeoState>(() => (!getPosition && typeof navigator !== "undefined" && !navigator.geolocation ? "unavailable" : "asking"));
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   // The AI web search is a parked experiment behind its own Tillval (per device): without it only the map shows.
@@ -75,9 +78,38 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const view = coords ? { ...coords, radiusM: settings.radiusM } : null;
+  const photo = onPhoto ? (
+    <TextLink onClick={onPhoto} data-testid="restaurant-photo-link">
+      <CameraIcon size={20} className="mr-2 shrink-0" />
+      {texts.photoNow}
+    </TextLink>
+  ) : null;
+
+  // No place (refused, timed out, unreadable or no device support): a screen of its own. The map still opens.
+  if (geo === "failed" || geo === "unavailable") {
+    return (
+      <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="restaurant-where" data-geo={geo}>
+        <BackLink onClick={onBack}>{texts.backToMenu}</BackLink>
+        <div className="flex flex-col gap-4 pb-4" data-testid="restaurant-place-failed">
+          <StopBody icon={<PinIcon size={34} />} title={texts.noPlaceTitle}>
+            {texts.noPlaceBody}
+            {geo === "failed" ? <span className="mt-2 block">{texts.noPlaceTurnOn}</span> : null}
+          </StopBody>
+          <DirectMap primary cuisines={settings.cuisines} place={null} view={null} />
+          {geo === "failed" ? (
+            <TextLink onClick={askPlace} data-testid="restaurant-place-retry">
+              {texts.retry}
+            </TextLink>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="restaurant-where">
-      <BackLink onClick={onBack} />
+    <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="restaurant-where" data-geo={geo}>
+      <BackLink onClick={onBack}>{texts.backToMenu}</BackLink>
       <Headline>{texts.whereTitle}</Headline>
       <section className="flex flex-col gap-2" aria-label="Din plats" data-testid="restaurant-place" data-geo={geo}>
         {notice ? <Notice role="alert">{notice}</Notice> : null}
@@ -94,27 +126,15 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
               {texts.placeGot}
               <CheckIcon size={18} className="shrink-0" />
             </p>
-            <p className="text-meta text-ink-3">
-              {texts.placeGotHint} {webSearch ? texts.osmLine : null}
-            </p>
-          </div>
-        ) : null}
-        {geo === "failed" || geo === "unavailable" ? (
-          <div className="flex flex-col items-start gap-2" data-testid="restaurant-place-failed">
-            <Notice role="alert">{geo === "failed" ? texts.placeFailed : texts.placeUnavailable}</Notice>
-            {geo === "failed" ? (
-              <GhostButton onClick={askPlace} className="w-auto" data-testid="restaurant-place-retry">
-                {texts.retry}
-              </GhostButton>
-            ) : null}
+            {webSearch ? <p className="text-meta text-ink-3">{texts.osmLine}</p> : null}
           </div>
         ) : null}
       </section>
-      <SettingsFields value={settings} onChange={onSettings} />
-      <p className="text-meta text-ink-3">{texts.remembered}</p>
+      <SettingsFields value={settings} onChange={onSettings} part="map" radar={geo === "got" ? <Radar radiusM={settings.radiusM} /> : undefined} />
+      {webSearch ? <SettingsFields value={settings} onChange={onSettings} part="agent" /> : null}
       <StickyFooter>
-        <DirectMap primary cuisines={settings.cuisines} place={null} view={coords ? { ...coords, radiusM: settings.radiusM } : null} />
-        <p className="text-center text-meta text-ink-3">{texts.mapSearchHint}</p>
+        <DirectMap primary cuisines={settings.cuisines} place={null} view={view} />
+        {photo}
         {webSearch ? (
           <GhostButton data-testid="restaurant-find" disabled={!location} onClick={() => location && onFind(location)}>
             {texts.find}
@@ -125,3 +145,4 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, costText, no
     </div>
   );
 }
+

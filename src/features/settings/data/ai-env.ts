@@ -1,10 +1,12 @@
 import { defaultLmStudioModel, type Env } from "@/server/env-schema";
+import { aiPasswordConfigured } from "./ai-password";
 import { claudeModels, defaultClaudeLevel, defaultClaudeModel, type AiSetting, type AiSettingsView } from "../domain/ai-choice";
 
 // What the environment makes of the AI choice (Story 17.5). Pure: takes the
 // parsed env, so it can be tested without process.env.
 
 type AiEnv = Pick<Env, "AI_PROVIDER" | "AI_MODEL" | "ANTHROPIC_API_KEY" | "LMSTUDIO_BASE_URL">;
+type AiViewEnv = AiEnv & Pick<Env, "AI_SETTINGS_PASSWORD">;
 
 /** The model Qwen runs: AI_MODEL when the default is LM Studio, else the model the app is tested with. */
 export function qwenModelFor(env: Pick<Env, "AI_PROVIDER" | "AI_MODEL">): string {
@@ -35,7 +37,7 @@ export function defaultChoiceFor(env: AiEnv): AiSetting | null {
   return { provider: "anthropic", model: defaultClaudeModel, effort: defaultClaudeLevel };
 }
 
-export function aiSettingsViewFor(env: AiEnv, saved: AiSetting | null): AiSettingsView {
+export function aiSettingsViewFor(env: AiViewEnv, saved: AiSetting | null): AiSettingsView {
   const claudeAvailable = env.ANTHROPIC_API_KEY !== undefined;
   const qwenAvailable = env.LMSTUDIO_BASE_URL !== undefined;
   // A saved choice whose provider is not available now shows as Standard, as the jobs use it.
@@ -47,6 +49,7 @@ export function aiSettingsViewFor(env: AiEnv, saved: AiSetting | null): AiSettin
     claudeAvailable, qwenAvailable,
     qwenModel: qwenModelFor(env),
     defaultText: defaultText(env),
+    passwordSet: aiPasswordConfigured(env.AI_SETTINGS_PASSWORD),
   };
 }
 

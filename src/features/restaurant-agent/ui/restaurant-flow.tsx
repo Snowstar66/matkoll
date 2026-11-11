@@ -22,6 +22,8 @@ export type RestaurantFlowProps = {
   actions: RestaurantAgentActions;
   /** Leaves the flow: back to Menyrådgivarens start, where the photo of the menu is. */
   onClose: () => void;
+  /** "Framme? Fota menyn" and the photo way out of the stops: Tolka menyns photo step. Left out: the same as `onClose`. */
+  onPhoto?: () => void;
   /** Hands a found menu text to Menyrådgivaren. Left out: the screen shows the text and the photo way only. */
   onUseMenu?: (menu: { id: string; name: string; menuText: string }) => void;
   costText?: string;
@@ -31,7 +33,7 @@ export type RestaurantFlowProps = {
 
 const placeWords = (location: LocationQuery | null, found: string | null = null) => found ?? (location?.kind === "text" ? location.text : "din plats");
 
-export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosition }: RestaurantFlowProps) {
+export function RestaurantFlow({ actions, onClose, onPhoto, onUseMenu, costText, getPosition }: RestaurantFlowProps) {
   const [stage, setStage] = useState<Stage>("where");
   const [settings, setSettings] = useState<RestaurantSettings>(readStoredSettings);
   const [location, setLocation] = useState<LocationQuery | null>(null);
@@ -86,6 +88,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
     setStage("where");
   }
 
+  const photo = onPhoto ?? onClose;
   const where = placeWords(location, stage === "running" ? null : foundPlace);
   let screen;
   if (stage === "running") screen = <RunningScreen settings={settings} where={where} onCancel={cancel} />;
@@ -105,7 +108,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
       />
     );
   } else if (stage === "handover" && chosen) {
-    screen = <HandoverScreen suggestion={chosen} onUseMenu={onUseMenu} onPhoto={onClose} onBack={() => setStage("results")} />;
+    screen = <HandoverScreen suggestion={chosen} onUseMenu={onUseMenu} onPhoto={photo} onBack={() => setStage("results")} />;
   } else if (stage === "stop" && stop) {
     screen = (
       <StopScreen
@@ -115,7 +118,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         view={location?.kind === "coords" ? { lat: location.lat, lng: location.lng, radiusM: settings.radiusM } : null}
         onAdjust={() => setStage("where")}
         onRetry={() => (location ? void find(location) : setStage("where"))}
-        onPhoto={onClose}
+        onPhoto={photo}
       />
     );
   } else {
@@ -125,6 +128,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         onSettings={changeSettings}
         onBack={onClose}
         onFind={(at) => void find(at)}
+        onPhoto={photo}
         costText={costText}
         notice={notice}
         getPosition={getPosition}
