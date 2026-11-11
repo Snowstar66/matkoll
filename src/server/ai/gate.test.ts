@@ -27,6 +27,13 @@ describe("the cost cap gate (Tak för AI-kostnad)", () => {
     expect(gate).toHaveBeenCalledTimes(2);
   });
 
+  it("answers the gate's refusal when the cap could not be checked (fails closed)", async () => {
+    const sink = vi.fn();
+    const service = getAiServiceFor(null, sink, vi.fn().mockResolvedValue("ai_cap_check_failed"));
+    expect(await service.parseRecipe(input, AbortSignal.timeout(5_000))).toMatchObject({ ok: false, error: { code: "ai_cap_check_failed" } });
+    expect(sink).not.toHaveBeenCalled();
+  });
+
   it("leaves warmUp alone: it is local and not counted", async () => {
     const gate = vi.fn().mockResolvedValue(false);
     const service = getAiServiceFor(null, undefined, gate);

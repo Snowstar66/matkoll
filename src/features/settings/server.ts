@@ -4,13 +4,14 @@ import { env } from "@/server/env";
 import { loadAiSettingIn } from "./data/ai-setting";
 import { listApiKeysIn } from "./data/api-keys";
 import { SettingsDataError } from "./data/client";
+import { capGateIn, reserveAiCallIn } from "./ai-meter";
 import { loadAiCapStatusIn, loadHouseholdCostsIn } from "./data/ai-cap";
 import { insertAiUsageIn, loadAiUsageIn } from "./data/ai-usage";
 import { insertUserDefaults } from "./data/defaults";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
 import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
 import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
-import { aiCapReached, type HouseholdCost } from "./domain/ai-cap";
+import type { HouseholdCost } from "./domain/ai-cap";
 import { stockholmMonth, usageCostSek, type AiMonthUsage } from "./domain/ai-usage";
 import { compareDomains } from "./domain/domain-name";
 import { compareStores, type Store } from "./domain/store";
@@ -166,31 +167,18 @@ export async function getAiServiceForUser(): Promise<import("@/server/ai").AiSer
   return getAiServiceFor(
     choice,
     (usage) => insertAiUsageIn(db, usage),
-    async () => !(await capReachedIn(db)),
+    // Tak för AI-kostnad (ai-meter.ts): the gate before each call, the reservation before each run.
+    () => capGateIn(db),
+    (estimate) => reserveAiCallIn(db, estimate),
   );
 }
 
 /**
- * Tak för AI-kostnad: whether the signed-in user's household has reached today's cap (an estimate of
- * what its calls cost, against the cap the app's owner sets; the owner's household is exempt). Fails
- * OPEN: a failed read is logged (the reason only) and counts as "not reached", so a database hiccup
- * never takes the AI away from anyone. Never throws.
+ * Tak för AI-kostnad: the same check for code that decides before it starts a run (the morning job
+ * skips a capped household quietly, and one whose cap cannot be checked). Never throws.
  */
-async function capReachedIn(db: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  try {
-    const status = await loadAiCapStatusIn(db);
-    if (!status || !aiCapReached(status)) return false;
-    console.info("ai_cap_reached");
-    return true;
-  } catch (error) {
-    console.error("ai_cap_check_failed", { reason: error instanceof SettingsDataError ? error.detail : "exception" });
-    return false;
-  }
-}
-
-/** Tak för AI-kostnad: the same check for code that decides before it starts a run (the morning job skips a capped household quietly). Never throws. */
 export async function isAiCapReached(): Promise<boolean> {
-  return capReachedIn(await createClient());
+  return (await capGateIn(await createClient())) !== true;
 }
 
 /**
@@ -208,7 +196,9 @@ export async function listApiKeys(): Promise<import("./domain/api-key").ApiKeyVi
 
 /**
  * What is left of today's AI cap for the signed-in user's household, in kronor: `Infinity` for an exempt household
- * and when it cannot be read (fails open, like the gate; the reason is logged). Never throws.
+ * and when it cannot be read (the reason is logged). Only a budget for the restaurant agent's own plan, never the
+ * check: every call it makes still goes through the gate and the reservation of getAiServiceForUser, which fail
+ * closed and answer ai_cap_check_failed. Never throws.
  */
 export async function getAiDayRemainingSek(): Promise<number> {
   try {
