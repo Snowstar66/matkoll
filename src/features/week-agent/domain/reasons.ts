@@ -12,9 +12,15 @@ export function offerReason(offer: OfferHit): string {
   return offer.store ? `Extrapris på ${what} hos ${offer.store}` : `Extrapris på ${what}`;
 }
 
+/**
+ * The facts, worded as what they are: a pantry item's day is an estimate ("Grädde håller till ca fredag", "Grädde bör
+ * ätas idag"); only a date known for sure says "går ut fredag". No day at all (already old): "behöver användas snart".
+ */
 export function useSoonReason(item: UseSoonTag): string {
   const name = capitalize(item.name);
-  return item.expiresWeekday ? `${name} går ut ${dayWord(item.expiresWeekday)}` : `${name} behöver användas snart`;
+  if (!item.expiresWeekday) return `${name} behöver användas snart`;
+  if (item.today) return item.estimated ? `${name} bör ätas idag` : `${name} går ut idag`;
+  return item.estimated ? `${name} håller till ca ${dayWord(item.expiresWeekday)}` : `${name} går ut ${dayWord(item.expiresWeekday)}`;
 }
 
 /** The facts about the days around a proposed day that are fixed or locked ("Efter Pannkaka torsdag"). */
@@ -39,7 +45,7 @@ function neighbourReasons(dayIndex: number, fixedDays: readonly FixedDay[], cand
 export function proposedFacts(candidate: RecipeCandidate, dayIndex: number, input: PlanInput): Pick<ProposalDay, "reasons" | "offerTags" | "useSoonTags"> {
   const { settings } = input;
   const offerTags = settings.favourOffers ? [...(candidate.offers ?? [])] : [];
-  const useSoonTags = settings.useSoonFirst ? (candidate.useSoon ?? []).map((item) => ({ name: item.name, expiresWeekday: item.expiresWeekday })) : [];
+  const useSoonTags = settings.useSoonFirst ? (candidate.useSoon ?? []).map((item) => ({ ...item })) : [];
   const reasons: string[] = [
     ...offerTags.slice(0, 2).map(offerReason),
     ...useSoonTags.slice(0, 2).map(useSoonReason),

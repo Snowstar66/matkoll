@@ -176,6 +176,19 @@ describe("ProposalScreen: Använd veckan", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
+  it("shows how many things to buy when the backend says, and says so when Ångra fails", async () => {
+    const user = userEvent.setup();
+    const actions = fakeActions({ apply: vi.fn(async () => ({ status: "ok" as const, written: [1, 2, 3, 5], skippedOccupied: [], toBuy: 14 })) });
+    actions.undo.mockResolvedValueOnce({ status: "error", message: "Det gick inte att ångra." });
+    render(screenWith({ initialDraft: draft(proposalAroundFixed()), actions }).ui);
+    await user.click(screen.getByTestId("proposal-use"));
+    expect(await screen.findByTestId("toast")).toHaveTextContent("14 varor att köpa.");
+    await user.click(screen.getByRole("button", { name: "Ångra" }));
+    await waitFor(() => expect(actions.undo).toHaveBeenCalled());
+    expect((await screen.findAllByText("Det gick inte att ångra.")).length).toBeGreaterThan(0);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("has no Ångra when the backend has no undo", async () => {
     const user = userEvent.setup();
     render(screenWith({ initialDraft: draft(), actions: fakeActions({}, false) }).ui);
@@ -184,7 +197,7 @@ describe("ProposalScreen: Använd veckan", () => {
     expect(screen.queryByRole("button", { name: "Ångra" })).toBeNull();
   });
 
-  it("asks before it writes over days (a redo of a full week), then sends overwrite", async () => {
+  it("asks before it replaces days (a redo of a full week), then sends replaceAgentDays and never overwrite", async () => {
     const user = userEvent.setup();
     const actions = fakeActions();
     render(screenWith({ initialDraft: draft(proposalAroundFixed()), redo: { ownDays: [4] }, actions }).ui);
@@ -193,7 +206,17 @@ describe("ProposalScreen: Använd veckan", () => {
     expect(actions.apply).not.toHaveBeenCalled();
     expect(question).toHaveTextContent("Din egen rätt ligger kvar.");
     await user.click(within(question).getByRole("button", { name: "Byt ut och använd" }));
-    await waitFor(() => expect(actions.apply).toHaveBeenCalledWith({ draftId, weekStart, overwrite: true }));
+    await waitFor(() => expect(actions.apply).toHaveBeenCalledWith({ draftId, weekStart, replaceAgentDays: true }));
+  });
+
+  it("keeps the redo after the address lost ?gor-om (the page then passes no redo), so Använd veckan still replaces the agent's days", async () => {
+    const user = userEvent.setup();
+    const actions = fakeActions();
+    const { rerender } = render(screenWith({ initialDraft: draft(proposalAroundFixed()), redo: { ownDays: [4] }, actions }).ui);
+    rerender(screenWith({ initialDraft: draft(proposalAroundFixed()), redo: null, actions }).ui);
+    await user.click(screen.getByTestId("proposal-use"));
+    await user.click(within(await screen.findByRole("dialog", { name: "Byta ut 4 rätter i Matsedel?" })).getByRole("button", { name: "Byt ut och använd" }));
+    await waitFor(() => expect(actions.apply).toHaveBeenCalledWith({ draftId, weekStart, replaceAgentDays: true }));
   });
 
   it("when a day was filled meanwhile, keeps it unless the user says Byt till förslaget", async () => {
@@ -246,10 +269,10 @@ describe("ProposalScreen: starting, waiting and stopping", () => {
     expect(await screen.findAllByTestId("proposal-day")).toHaveLength(5);
   });
 
-  it("asks for a redo of a full week with the household's own days locked", async () => {
+  it("asks for a redo of a full week with the agent days open (the backend keeps the household's own)", async () => {
     const actions = fakeActions();
     render(screenWith({ autoStart: true, redo: { ownDays: [1, 4] }, actions }).ui);
-    await waitFor(() => expect(actions.propose).toHaveBeenCalledWith({ weekStart, mode: "plan", lockedDays: [1, 4] }));
+    await waitFor(() => expect(actions.propose).toHaveBeenCalledWith({ weekStart, mode: "plan", replaceAgentDays: true }));
   });
 
   it("does not run by itself when it is only visited", () => {

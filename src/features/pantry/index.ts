@@ -12,6 +12,8 @@ export {
 } from "./domain/pantry-item";
 export {
   oldPantryItems,
+  expiringPantryItems,
+  type ExpiringPantryItem,
   eatFirstTipText,
   usesOldText,
   lainText,
@@ -216,6 +218,7 @@ export {
   oldItemText,
   oldLimitDays,
   daysSinceAdded,
+  stockholmDayKey,
   groupPantryByCategory,
   filterPantry,
   pantrySearchLabel,

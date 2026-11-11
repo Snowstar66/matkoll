@@ -3,8 +3,9 @@ import { addWeeks, currentWeekStart, maxWeeksAhead, weeksBetween } from "@/featu
 import { getWeekDishes, type WeekDish } from "@/features/mealplan/server";
 import { getActiveOffers } from "@/features/offers/server";
 import { getFoodFitPeople } from "@/features/menu-advisor/server";
-import { getStapleRules, listHouseholdOldItems } from "@/features/pantry/server";
-import type { OldPantryItem } from "@/features/pantry";
+import { getStapleRules, listHouseholdExpiringItems } from "@/features/pantry/server";
+import { stockholmDayKey, type ExpiringPantryItem } from "@/features/pantry";
+import { addDays, soonFactsOf } from "./domain/use-soon";
 import { listRecipeRows } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { listStores } from "@/features/settings/server";
@@ -72,18 +73,18 @@ async function offersByRecipe(rows: readonly RecipeListRow[], settings: WeekAgen
   return out;
 }
 
-/** What at home is due or overdue, by catalog ingredient. They are "old" already, so no day of the week: "behöver användas snart". */
-const useSoonOf = (row: RecipeListRow, old: readonly OldPantryItem[]): UseSoonItem[] => {
+const useSoonOf = (row: RecipeListRow, facts: ReadonlyMap<string, UseSoonItem>): UseSoonItem[] => {
   const ids = new Set(row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])));
-  return old.filter((item) => ids.has(item.ingredientId)).slice(0, maxUseSoonPerRecipe).map((item) => ({ name: item.name, expiresWeekday: null }));
+  return [...ids].flatMap((id) => facts.get(id) ?? []).sort((a, b) => (a.expiresWeekday ?? 0) - (b.expiresWeekday ?? 0) || a.name.localeCompare(b.name, "sv")).slice(0, maxUseSoonPerRecipe);
 };
 
 /** Reads everything the planner needs for `weekStart`. The recipes and the week's dishes must be readable (they throw); the rest is left out when it cannot be read. */
 export async function readWeekPool(weekStart: string, settings: WeekAgentSettings): Promise<WeekPool> {
   const [rows, dishes] = await Promise.all([listRecipeRows(), getWeekDishes(weekStart)]);
-  const [people, old, offers, recent] = await Promise.all([
+  const now = new Date();
+  const [people, expiring, offers, recent] = await Promise.all([
     helper("people", [] as FitPerson[], () => getFoodFitPeople()),
-    helper("old_items", [] as OldPantryItem[], () => (settings.useSoonFirst ? listHouseholdOldItems() : Promise.resolve([]))),
+    helper("expiring_items", [] as ExpiringPantryItem[], () => (settings.useSoonFirst ? listHouseholdExpiringItems(addDays(weekStart, 6), now) : Promise.resolve([]))),
     helper("offers", new Map<string, OfferHit[]>(), () => (settings.favourOffers ? offersByRecipe(rows, settings) : Promise.resolve(new Map()))),
     helper("recent", [] as RecentRecipe[], async () => {
       const weeks = await Promise.all(Array.from({ length: recentWeeks }, (_, index) => getWeekDishes(addWeeks(weekStart, -(index + 1)))));
@@ -91,13 +92,14 @@ export async function readWeekPool(weekStart: string, settings: WeekAgentSetting
     }),
   ]);
   const byId = new Map(rows.map((row) => [row.id, row]));
+  const soonFacts = soonFactsOf(expiring, weekStart, stockholmDayKey(now));
   const pool = rows.map((row): RecipeCandidate => ({
     id: row.id,
     title: row.title,
     ingredients: row.lines.map((line) => line.originalText),
     totalMinutes: row.totalMinutes,
     offers: offers.get(row.id) ?? [],
-    useSoon: useSoonOf(row, old),
+    useSoon: useSoonOf(row, soonFacts),
   }));
   return { pool, dishes, people, recent, servingsOf: (id) => byId.get(id)?.originalServings ?? null, linesOf: (id) => (id ? (byId.get(id)?.lines.map((line) => line.originalText) ?? []) : []) };
 }
@@ -105,12 +107,16 @@ export async function readWeekPool(weekStart: string, settings: WeekAgentSetting
 /**
  * The days that stay as they are: every dish on a day of the week's plan (the household's own or an earlier "Använd
  * veckan"), and the draft's days the user locked (`lockedDays`, or all the draft's locked ones with `keepDraftLocks`).
- * A day of the plan wins over a locked draft day.
+ * A day of the plan wins over a locked draft day. With `replaceAgentDays` (a full-week "Gör om") the days whose dish an
+ * earlier "Använd veckan" put there (source 'week_agent') are OPEN again; the household's own days (source user or
+ * null) stay fixed and are never touched. A day that holds both an agent dish and the household's own stays fixed.
  */
-export function fixedDaysOf(pool: WeekPool, draft: StoredProposal | null, lockedDays: readonly number[], keepDraftLocks: boolean): FixedDay[] {
+export function fixedDaysOf(pool: WeekPool, draft: StoredProposal | null, lockedDays: readonly number[], keepDraftLocks: boolean, replaceAgentDays = false): FixedDay[] {
   const fixed = new Map<number, FixedDay>();
+  const ownDays = new Set(pool.dishes.flatMap((dish) => (dish.weekday !== null && dish.source !== "week_agent" ? [dish.weekday] : [])));
   for (const dish of pool.dishes) {
     if (dish.weekday === null || fixed.has(dish.weekday)) continue;
+    if (replaceAgentDays && dish.source === "week_agent" && !ownDays.has(dish.weekday)) continue;
     fixed.set(dish.weekday, { dayIndex: dish.weekday, recipeId: dish.recipeId, title: dish.recipeTitle, ingredients: pool.linesOf(dish.recipeId), source: "fixed", placedBy: dish.source === "week_agent" ? "week_agent" : "user" });
   }
   for (const day of draft?.proposal.days ?? []) {

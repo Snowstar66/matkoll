@@ -26,7 +26,7 @@ import { compareStaples, noStaples, stapleRules, type Staple, type StapleRules }
 import { planMove, type MovedItem } from "./domain/move-amount";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
-import { byOvershoot, oldPantryItems, type OldPantryItem } from "./domain/old-items";
+import { byOvershoot, expiringPantryItems, oldPantryItems, type ExpiringPantryItem, type OldPantryItem } from "./domain/old-items";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
 import type { PlacePhoto, PlacePhotoMediaType } from "./domain/place-photo";
@@ -472,4 +472,13 @@ export async function movePantryAmount(
   else if (plan.replaceId) await removePantryItemIn(db, plan.replaceId);
   for (const set of rest) await setPantryItemsIn(db, [set], null, place);
   return true;
+}
+
+/**
+ * The household's fridge items (Kyl, all places) whose ESTIMATED last day (added + the ingredient's days it keeps)
+ * is on or before `until` (YYYY-MM-DD), overdue ones included, one per ingredient (Veckoagenten's "Håller till ca
+ * fredag"). The app has no best-before dates. Runs as the signed-in member. Throws PantryDataError.
+ */
+export async function listHouseholdExpiringItems(until: string, now: Date = new Date()): Promise<ExpiringPantryItem[]> {
+  return expiringPantryItems(await listOldCandidatesIn(await createClient(), getIngredientSummaries), now, until);
 }

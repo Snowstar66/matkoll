@@ -12,6 +12,7 @@ import {
   saveWeekAgentSettings as realSave,
   setDayLock as realLock,
   swapDay as realSwap,
+  undoWeek as realUndo,
 } from "@/features/week-agent/server";
 import { weekStartSchema } from "@/features/mealplan";
 import type {
@@ -26,6 +27,8 @@ import type {
   ProposeWeekResult,
   SetDayLockInput,
   SwapDayInput,
+  UndoWeekInput,
+  UndoWeekResult,
 } from "@/features/week-agent/ui";
 import type { WeekAgentSettings } from "@/features/week-agent";
 import type { SettingsContext } from "@/features/week-agent/ui";
@@ -47,6 +50,9 @@ export async function setDayLock(input: SetDayLockInput): Promise<DraftResult> {
 }
 export async function applyWeek(input: ApplyWeekInput): Promise<ApplyWeekResult> {
   return realApply(input);
+}
+export async function undoWeek(input: UndoWeekInput): Promise<UndoWeekResult> {
+  return realUndo(input);
 }
 export async function discardDraft(input: DiscardDraftInput): Promise<OkOrError> {
   return realDiscard(input);

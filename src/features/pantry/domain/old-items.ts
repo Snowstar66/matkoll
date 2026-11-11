@@ -1,5 +1,5 @@
 import type { PantryItem } from "./pantry-item";
-import { daysSinceAdded, oldLimitDays } from "./pantry-meta";
+import { daysSinceAdded, oldLimitDays, stockholmDayKey } from "./pantry-meta";
 
 // "Ät det här först" (Story 16.13) and "Ät snart": the items that have reached
 // their limit (oldLimitDays: the ingredient's own days in Kyl, else 7; 60 days
@@ -63,4 +63,34 @@ export function usesOldText(used: readonly { name: string; days: number }[]): st
   if (used.length === 0) return null;
   const longest = Math.max(...used.map((item) => item.days));
   return `Använder ${joinNames(used.map((item) => item.name.trim().toLocaleLowerCase("sv-SE")))} som legat ${lainText(longest)}`;
+}
+
+/**
+ * An item with an ESTIMATED last day: the day it was added plus its limit (oldLimitDays). The app has no best-before
+ * date, so `expiresOn` (YYYY-MM-DD) is never a date from a package. `overdue` is set when the day has passed.
+ */
+export type ExpiringPantryItem = { ingredientId: string; name: string; expiresOn: string; overdue: boolean };
+
+const addDaysKey = (key: string, days: number): string => new Date(Date.parse(`${key}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The items whose estimated last day is on or before `until` (YYYY-MM-DD): overdue ones, the ones due today and the
+ * ones due later up to `until`. One per ingredient, the earliest day counting; the earliest first, then by name.
+ */
+export function expiringPantryItems(
+  items: readonly Pick<PantryItem, "ingredientId" | "name" | "location" | "createdAt" | "keepsDays">[],
+  now: Date,
+  until: string,
+): ExpiringPantryItem[] {
+  const today = stockholmDayKey(now);
+  const byIngredient = new Map<string, ExpiringPantryItem>();
+  for (const item of items) {
+    const limit = oldLimitDays(item.location, item.keepsDays);
+    if (limit === null || !item.createdAt || !Number.isFinite(new Date(item.createdAt).getTime())) continue;
+    const expiresOn = addDaysKey(stockholmDayKey(new Date(item.createdAt)), limit);
+    if (expiresOn > until) continue;
+    const known = byIngredient.get(item.ingredientId);
+    if (!known || expiresOn < known.expiresOn) byIngredient.set(item.ingredientId, { ingredientId: item.ingredientId, name: item.name, expiresOn, overdue: expiresOn < today });
+  }
+  return [...byIngredient.values()].sort((a, b) => a.expiresOn.localeCompare(b.expiresOn) || a.name.localeCompare(b.name, "sv"));
 }

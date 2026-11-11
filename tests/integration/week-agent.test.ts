@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { finishDraftIn, readDraftIn, readSettingsIn, saveDraftIn, saveSettingsIn, updateDraftIn } from "@/features/week-agent/data/week-agent";
+import { finishDraftIn, finishDraftUsedIn, readDraftAnyStatusIn, readDraftIn, reopenUsedDraftIn, readSettingsIn, saveDraftIn, saveSettingsIn, updateDraftIn } from "@/features/week-agent/data/week-agent";
 import { defaultWeekAgentSettings } from "@/features/week-agent/domain/settings";
 import type { WeekProposal } from "@/features/week-agent/domain/types";
 import { adminClient, createTestUser, deleteTestUsers, householdOf, moveToHousehold, type TestUser } from "./support";
@@ -81,6 +81,28 @@ describe("week_agent_proposals", () => {
     expect(await finishDraftIn(a.db, draft.id, "used")).toBe(false);
     expect(await updateDraftIn(a.db, draft.id, proposal(), "haiku")).toBe(false);
     expect(await readDraftIn(a.db, week)).toBeNull();
+  });
+
+  it("keeps what 'Använd veckan' did on the used draft for Ångra, and reopens it once (as a draft, or discarded when the week has a newer draft)", async () => {
+    const wk = "2026-12-07";
+    const applied = { writtenDays: [1, 3], replaced: [{ id: "30000000-0000-4000-8000-000000000001", recipeId: "30000000-0000-4000-8000-000000000002", recipeTitle: "Pannkaka", servings: 4, weekday: 3, source: null }] };
+    const id = await saveDraftIn(a.db, wk, proposal(wk), "haiku");
+    expect(await finishDraftUsedIn(a.db, id, proposal(wk), applied)).toBe(true);
+    expect(await finishDraftUsedIn(a.db, id, proposal(wk), applied)).toBe(false);
+    expect(await readDraftAnyStatusIn(b.db, id)).toBeNull();
+    expect(await readDraftAnyStatusIn(a2.db, id)).toMatchObject({ id, status: "used", weekStart: wk, applied });
+    expect(await readDraftIn(a.db, wk)).toBeNull();
+
+    expect(await reopenUsedDraftIn(b.db, id, proposal(wk))).toBeNull();
+    expect(await reopenUsedDraftIn(a2.db, id, proposal(wk))).toBe("draft");
+    expect(await reopenUsedDraftIn(a2.db, id, proposal(wk))).toBeNull();
+    expect(await readDraftAnyStatusIn(a.db, id)).toMatchObject({ status: "draft", applied: null });
+
+    // Used again, then a newer draft is made for the week: the reopen ends as discarded instead of breaking the one-draft rule.
+    expect(await finishDraftUsedIn(a.db, id, proposal(wk), applied)).toBe(true);
+    const newer = await saveDraftIn(a.db, wk, proposal(wk), "sonnet");
+    expect(await reopenUsedDraftIn(a.db, id, proposal(wk))).toBe("discarded");
+    expect((await readDraftIn(a.db, wk))?.id).toBe(newer);
   });
 
   it("is invisible and untouchable from another household", async () => {

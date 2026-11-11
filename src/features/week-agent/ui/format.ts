@@ -61,10 +61,12 @@ export function summaryText(proposed: number, fixed: number, lockedByUser: numbe
   return `${head}. Inget är sparat förrän du trycker Använd veckan.`;
 }
 
-/** "5 rätter tillagda. Dina 2 låg kvar." */
-export function appliedText(written: number, kept: number): string {
+/** "5 rätter tillagda. Dina 2 låg kvar. 14 varor att köpa." (`toBuy` left out when it is not known) */
+export function appliedText(written: number, kept: number, toBuy?: number | null): string {
   const head = `${written} ${written === 1 ? "rätt tillagd" : "rätter tillagda"}.`;
-  return kept > 0 ? `${head} ${kept === 1 ? "Din 1 låg kvar." : `Dina ${kept} låg kvar.`}` : head;
+  const keptText = kept > 0 ? ` ${kept === 1 ? "Din 1 låg kvar." : `Dina ${kept} låg kvar.`}` : "";
+  const buyText = typeof toBuy === "number" && toBuy > 0 ? ` ${toBuy} ${toBuy === 1 ? "vara" : "varor"} att köpa.` : "";
+  return `${head}${keptText}${buyText}`;
 }
 
 /** Which letter stands in the red ring of an allergy: the first letter of the name in "Kan innehålla laktos (Anna)". */

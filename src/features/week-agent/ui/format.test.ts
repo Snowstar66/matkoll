@@ -38,6 +38,10 @@ describe("week agent texts", () => {
     expect(summaryText(5, 2, 1)).toBe("5 förslag runt dina 2 rätter och 1 du låst. Inget är sparat förrän du trycker Använd veckan.");
     expect(appliedText(5, 2)).toBe("5 rätter tillagda. Dina 2 låg kvar.");
     expect(appliedText(1, 0)).toBe("1 rätt tillagd.");
+    expect(appliedText(5, 2, 14)).toBe("5 rätter tillagda. Dina 2 låg kvar. 14 varor att köpa.");
+    expect(appliedText(1, 0, 1)).toBe("1 rätt tillagd. 1 vara att köpa.");
+    expect(appliedText(5, 0, null)).toBe("5 rätter tillagda.");
+    expect(appliedText(5, 0, 0)).toBe("5 rätter tillagda.");
   });
 
   it("takes the letter of an allergy from the person", () => {

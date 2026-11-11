@@ -217,3 +217,22 @@ export async function addAgentDishes(weekStart: string, dishes: readonly AgentDi
     if (dishes.length > 0) revalidateFor("meal_plan_recipe");
   }
 }
+
+/** A dish "Ångra" of "Använd veckan" puts back (one the agent's dishes replaced); `source` is what the row had (null: the household's own). */
+export type RestoredDish = AgentDish & { source: string | null };
+
+/**
+ * "Ångra" of "Använd veckan" (Veckoagenten): removes the dishes with the ids `removeIds` (the ones it added; an id that
+ * is gone is skipped) and puts `restore` back on their days with the same id (a dish that is already back is returned
+ * as it is), marking those that were the agent's. Safe to run twice. Revalidates Matsedel and the list. Throws MealPlanDataError.
+ */
+export async function undoAgentDishes(weekStart: string, removeIds: readonly string[], restore: readonly RestoredDish[]): Promise<void> {
+  const db = await createClient();
+  try {
+    for (const id of removeIds) await removePlanRecipeIn(db, id);
+    for (const dish of restore) await addToCurrentPlanIn(db, { ...dish, planName: weekName(weekStart), weekStart });
+    await markDishesFromAgentIn(db, restore.filter((dish) => dish.source === "week_agent").map((dish) => dish.id));
+  } finally {
+    if (removeIds.length + restore.length > 0) revalidateFor("meal_plan_recipe");
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byOvershoot, eatFirstTipText, lainText, oldPantryItems, usesOldText } from "./old-items";
+import { byOvershoot, eatFirstTipText, expiringPantryItems, lainText, oldPantryItems, usesOldText } from "./old-items";
 
 // Tuesday 27 October 2026, 10:00 in Stockholm.
 const now = new Date("2026-10-27T09:00:00Z");
@@ -108,5 +108,23 @@ describe("texts", () => {
       "Använder lime, koriander och gurka som legat 4 veckor",
     );
     expect(usesOldText([])).toBeNull();
+  });
+});
+
+describe("expiringPantryItems", () => {
+  it("estimates the last day as added + the days it keeps, and takes what is due by `until`", () => {
+    // now: Tuesday 27 Oct. Added today with 3 days: Friday 30 Oct.
+    const items = [row("grädde", "Kyl", 0, "grädde", 3), row("mjölk", "Kyl", 6), row("lime", "Kyl", 9), row("ost", "Kyl", 0, "ost", 20), row("lax", "Frys", 1), row("pasta", "Skafferi", 5)];
+    const result = expiringPantryItems(items, now, "2026-11-02");
+    expect(result).toEqual([
+      { ingredientId: "lime", name: "lime", expiresOn: "2026-10-25", overdue: true },
+      { ingredientId: "mjölk", name: "mjölk", expiresOn: "2026-10-28", overdue: false },
+      { ingredientId: "grädde", name: "grädde", expiresOn: "2026-10-30", overdue: false },
+    ]);
+  });
+
+  it("keeps the earliest day per ingredient and skips rows without a readable time", () => {
+    const items = [row("mjölk", "Kyl", 1, "m"), row("mjölk", "Kyl", 5, "m"), { ...row("x", "Kyl", null), createdAt: "inte ett datum" }];
+    expect(expiringPantryItems(items, now, "2026-11-10")).toEqual([{ ingredientId: "m", name: "mjölk", expiresOn: "2026-10-29", overdue: false }]);
   });
 });
