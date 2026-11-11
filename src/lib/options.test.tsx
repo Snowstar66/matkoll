@@ -34,4 +34,14 @@ describe("options", () => {
     saveOption("weekAgent", true);
     expect(readOption("weekAgent")).toBe(true);
   });
+
+  it("has Restaurangagenten, off by default, under Äta ute", () => {
+    const option = options.find((entry) => entry.id === "restaurantAgent");
+    expect(option).toMatchObject({ label: "Restaurangagenten", group: "menu", defaultOn: false });
+    expect(optionGroups.map((group) => group.id)).toContain(option?.group);
+    expect(option?.hint).not.toBe("");
+    expect(readOption("restaurantAgent")).toBe(false);
+    saveOption("restaurantAgent", true);
+    expect(readOption("restaurantAgent")).toBe(true);
+  });
 });

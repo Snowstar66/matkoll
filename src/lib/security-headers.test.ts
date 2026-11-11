@@ -18,10 +18,12 @@ describe("security headers", () => {
     expect(csp).not.toContain("default-src");
   });
 
-  it("allow the camera for the app only, and set nosniff and the referrer policy", () => {
+  it("allow the camera and the position for the app only, and set nosniff and the referrer policy", () => {
     const value = (key: string) => securityHeaders.find((header) => header.key === key)?.value;
     expect(value("Permissions-Policy")).toContain("camera=(self)");
     expect(value("Permissions-Policy")).toContain("microphone=()");
+    expect(value("Permissions-Policy")).toContain("geolocation=(self)");
+    expect(value("Permissions-Policy")).not.toContain("geolocation=()");
     expect(value("X-Content-Type-Options")).toBe("nosniff");
     expect(value("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
   });
