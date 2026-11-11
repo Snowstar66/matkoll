@@ -184,6 +184,7 @@ curl -s https://lmstudio.<din domän>/v1/models \
 | `LMSTUDIO_BASE_URL` | `https://lmstudio.<din domän>/v1` (steg 8) | ja | nej |
 | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | tjänstetokenen (steg 8); båda eller ingen | ja | nej |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | bara om `AI_PROVIDER` väljer den leverantören | vid behov | nej |
+| `GOOGLE_PLACES_API_KEY` | nyckel för Places API (New), Restaurangagenten; tomt = sökningen är inte påslagen | vid behov | nej |
 | `AI_MOCK_DELAY_MS` | sätts aldrig (bara mocken läser den, så att AI-kön kan provas i tester) | nej | tomt (e2e-testerna sätter 3000) |
 
 - Supabase-variablerna ligger **bara i Production**, aldrig i Preview (AD-23), så att en förhandsdriftsättning från en gren aldrig når den riktiga databasen. Preview får bara `SITE_URL` och `AI_PROVIDER=mock`, som `next build` kräver. Kontrollerat lokalt 2026-10-26: `SITE_URL=… AI_PROVIDER=mock pnpm build` utan Supabase-variabler, `ALLOWED_EMAILS` och `.env.local` bygger, och servern svarar sedan 503 på sidorna (`supabase_not_configured`) i stället för att nå någon databas. En förhandsversion fungerar alltså bara som byggkontroll. Vill du hellre slippa förhandsversioner helt kan de stängas av under **Settings → Git**; valet står i checklistan.
