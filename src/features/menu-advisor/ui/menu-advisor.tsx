@@ -47,9 +47,10 @@ function readSkipped(): boolean {
 
 /**
  * `members`: the household's members (read on the server), pickable as company from the start; null = not readable.
+ * `startSlot`: something the route layer shows on the start screen only (the card of Restaurangagenten).
  * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
  */
-export function MenuAdvisor({ members = null, profiles = null }: { members?: readonly HouseholdPerson[] | null; profiles?: Person[] | null }) {
+export function MenuAdvisor({ members = null, profiles = null, startSlot }: { members?: readonly HouseholdPerson[] | null; profiles?: Person[] | null; startSlot?: ReactNode }) {
   const enabled = useOption("menuAdvisor");
   // Off on the server and during hydration: nothing flashes for people who have it on.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -320,6 +321,7 @@ export function MenuAdvisor({ members = null, profiles = null }: { members?: rea
         onPhoto={() => pick("help")}
         onExplain={() => pick("explain")}
         onTonight={() => setShowTonight(true)}
+        slot={startSlot}
       />
     );
   }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Chip } from "@/components/chip";
 import { CameraIcon, ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
@@ -22,6 +23,7 @@ export function StartScreen({
   onPhoto,
   onExplain,
   onTonight,
+  slot,
 }: {
   company: readonly Person[];
   error: string | null;
@@ -33,6 +35,8 @@ export function StartScreen({
   onPhoto: () => void;
   onExplain: () => void;
   onTonight: () => void;
+  /** Something the route layer adds under the company row (Restaurangagenten's card); features do not import each other (AD-1). */
+  slot?: ReactNode;
 }) {
   const names = company.map((person) => person.name);
   return (
@@ -67,6 +71,7 @@ export function StartScreen({
           Ikväll
         </Chip>
       ) : null}
+      {slot}
       <StickyFooter>
         <BigButton data-testid="menu-photo" onClick={onPhoto}>
           <CameraIcon size={22} />

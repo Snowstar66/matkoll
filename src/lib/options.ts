@@ -50,7 +50,7 @@ export const options = [
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "宜 vad dagen passar för, 忌 vad du bör undvika", defaultOn: false },
   { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
-  { id: "restaurantAgent", group: "menu", label: "Restaurangagenten", hint: "Hjälper dig hitta ett ställe att äta på i närheten. Under uppbyggnad, händer inget än", defaultOn: false },
+  { id: "restaurantAgent", group: "menu", label: "Restaurangagenten", hint: "Hjälper dig hitta ett ställe att äta på i närheten. Plats frågas först när du trycker och sparas inte. Kostar ungefär en krona per sökning", defaultOn: false },
   { id: "weekAgent", group: "household", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
