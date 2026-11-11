@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSiteGone, PantryDataError, type PantryDb } from "../data/client";
 import {
   photoRowExistsIn,
+  placePhotoRoomIn,
   removePlacePhotoFiles,
   savePantryPhotoIn,
   uploadPlacePhoto,
@@ -149,6 +150,12 @@ export async function savePlacePhoto(
     await uploadPlacePhoto(db, path, image.data, image.mediaType);
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
+    if ((await placePhotoRoomIn(db)) === false) {
+      // S-10: the household has placePhotoHouseholdCap files. Files a sweep would take may hold the room, so it runs now.
+      console.info("pantry_photo_failed", { reason: "photo_cap" });
+      await sweepAfterSave(db, now);
+      return fail("pantry_photo_cap");
+    }
     if (error.detail === uploadUnauthorizedDetail) {
       console.info("pantry_photo_failed", { reason: error.detail });
       return fail("unauthorized");
