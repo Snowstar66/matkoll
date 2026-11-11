@@ -84,7 +84,7 @@ async function withAnna(u: ReturnType<typeof userEvent.setup>) {
   await u.click(screen.getByRole("checkbox", { name: "Anna" }));
 }
 
-const fullMenuTab = () => screen.getByRole("radio", { name: "Hela menyn" });
+const fullMenuTab = () => screen.getByRole("radio", { name: "Hela menyn", exact: true });
 
 describe("the Tillval", () => {
   it("is off by default: the page says so and offers no photo", async () => {
@@ -375,7 +375,7 @@ describe("the answer", () => {
     // One title and one back link; the whole menu is the second tab, not a link in the footer.
     expect(screen.getAllByRole("heading", { level: 1 }).map((heading) => heading.textContent)).toEqual(["Det här passar er"]);
     expect(screen.getByRole("button", { name: "Tolka menyn" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Förslag" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Förslag", exact: true })).toBeChecked();
     expect(fullMenuTab()).not.toBeChecked();
     expect(screen.queryByRole("button", { name: "Se hela menyn" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Skicka till sällskapet/)).not.toBeInTheDocument();
@@ -478,7 +478,7 @@ describe("the whole menu and a dish", () => {
     expect(full).toHaveTextContent("Taverna Mock · översatt från spanska");
     expect(fullMenuTab()).toBeChecked();
     expect(screen.getByTestId("menu-total").textContent).toBe(total);
-    await u.click(screen.getByRole("radio", { name: "Förslag" }));
+    await u.click(screen.getByRole("radio", { name: "Förslag", exact: true }));
     expect(screen.getByTestId("menu-answer")).toBeInTheDocument();
     await u.click(fullMenuTab());
     await u.click(screen.getByRole("button", { name: "Klart" }));

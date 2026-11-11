@@ -152,7 +152,7 @@ async function takePhoto(page: Page, button: Locator = page.getByTestId("menu-ph
 }
 
 /** The tab "Hela menyn" at the top of the answer. */
-const fullMenuTab = (page: Page) => page.getByRole("radio", { name: "Hela menyn" });
+const fullMenuTab = (page: Page) => page.getByRole("radio", { name: "Hela menyn", exact: true });
 
 /** A tap on the card, as a finger does it: the radio itself is hidden inside its label. */
 const tap = (radio: Locator) => radio.locator("xpath=ancestor::label").click();
@@ -180,7 +180,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   // button. Alone first, then with Anna ticked and a guest added in the sheet.
   await expect(page.getByRole("heading", { name: "Tolka menyn", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Menyrådgivare" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Matsedel" })).toBeVisible();
+  await expect(page.getByTestId("menu-start").getByRole("link", { name: "Matsedel" })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Du" })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: "Anna" })).not.toBeChecked();
   await expect(page.getByTestId("menu-company-person").filter({ hasText: "Anna" })).toContainText("Gluten");
@@ -219,7 +219,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
 
   // 4. The answer: a group per person, the best chosen, "Anna älskar paprika" only where it changes something.
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await expect(page.getByRole("radio", { name: "Förslag" })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Förslag", exact: true })).toBeChecked();
   await expect(page.getByRole("button", { name: "Tolka menyn" })).toBeVisible();
   const du = page.getByRole("region", { name: "Du", exact: true });
   const anna = page.getByRole("region", { name: "Anna", exact: true });
@@ -247,7 +247,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   // 5. Ert val: the name as printed, big; the drink can be changed with a tap; the back link says Förslag.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ert val" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Förslag" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Förslag", exact: true })).toBeVisible();
   await expect(page.getByTestId("menu-choice-person")).toHaveCount(3);
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Anna: gluten.");
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Gunnar: nötter.");
@@ -446,7 +446,7 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   await seedCompany();
   const stream = await liveStream(page);
   await page.goto("/matsedel/menyer");
-  await page.getByRole("checkbox", { name: "Anna" }).check();
+  await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await page.screenshot({ path: `${shots}/21-xl-start.png` });
   expect(await noSideScroll(page)).toBe(true);
   await page.getByRole("button", { name: "Lägg till gäst" }).click();
@@ -487,7 +487,7 @@ test("the dark: the start, the guest sheet, the answer with both tabs, Ert val a
   await seedCompany();
   const stream = await liveStream(page);
   await page.goto("/matsedel/menyer");
-  await page.getByRole("checkbox", { name: "Anna" }).check();
+  await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await page.screenshot({ path: `${shots}/30-dark-start.png` });
   await page.getByRole("button", { name: "Lägg till gäst" }).click();
   await page.waitForTimeout(500);
@@ -503,7 +503,7 @@ test("the dark: the start, the guest sheet, the answer with both tabs, Ert val a
   await page.screenshot({ path: `${shots}/34-dark-choice.png` });
   // Alone, nobody has an allergy: the sand box.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
-  await page.getByRole("checkbox", { name: "Anna" }).uncheck();
+  await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await takePhoto(page);
   await expect.poll(async () => (await stream.qualities()).length).toBe(2);
   await stream.push(readerLine, doneLine(menu));
