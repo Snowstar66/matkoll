@@ -34,3 +34,4 @@ export type { Choice, Choices, DishOption, PersonOptions } from "./domain/option
 export { defaultChoices, optionFor, recommendOptions, type RecommendOptionsOptions } from "./domain/recommend-options";
 export { drinkOptions, estimateTotalSek, type DrinkOption, type Totals } from "./domain/drinks";
 export { createMenuStreamParser, formatMenuStreamLine, menuReaderOf, menuReaderText, menuStreamContentType, parseMenuStreamLine, type MenuQualityName, type MenuReader, type MenuReading, type MenuStreamEvent } from "./domain/reading";
+export { cleanMenuText, maxMenuTextChars } from "./domain/menu-text";

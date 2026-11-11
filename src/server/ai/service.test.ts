@@ -37,6 +37,7 @@ import {
   type MergeThingsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
+  isValidReadMenuInput,
   readMenuEscalating,
 } from "./service";
 import {
@@ -1123,6 +1124,20 @@ describe("readMenu on a model (Menyrådgivare)", () => {
   const service = (standard: ReturnType<typeof fakeModel>, careful: ReturnType<typeof fakeModel>) =>
     createModelAiService({ model: standard }, limits, undefined, { standard: { model: standard }, careful: { model: careful } });
   const images = [png(), png(5)];
+
+  it("reads a text: the text prompt, the text as one text part, no file, and refuses a text that is empty, too long or mixed with photos", async () => {
+    const standard = fakeModel(answer(17.95));
+    const result = await service(standard, fakeModel(answer(1))).readMenu({ images: [], text: "Biff 245 kr" }, signal());
+    expect(result).toMatchObject({ ok: true, data: { quality: "standard", escalated: false } });
+    const [system, user] = standard.doGenerateCalls[0].prompt;
+    expect(system).toEqual({ role: "system", content: `${prompts.readMenu}\n\n${prompts.readMenuText}` });
+    expect((user.content as { type: string }[]).map((part) => part.type)).toEqual(["text"]);
+    expect(JSON.stringify(user.content)).toContain("Biff 245 kr");
+    expect(isValidReadMenuInput({ images: [], text: "  " })).toBe(false);
+    expect(isValidReadMenuInput({ images: [], text: "x".repeat(inputLimits.menu.maxTextChars + 1) })).toBe(false);
+    expect(isValidReadMenuInput({ images, text: "Biff" })).toBe(false);
+    expect(isValidReadMenuInput({ images: [], text: "x".repeat(inputLimits.menu.maxTextChars) })).toBe(true);
+  });
 
   it("sends the read-menu prompt and every photo as a file part, with room for a large menu", async () => {
     const standard = fakeModel(answer(17.95, null));
