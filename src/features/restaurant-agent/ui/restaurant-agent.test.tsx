@@ -50,8 +50,8 @@ describe("location step", () => {
     const getPosition = vi.fn(at(59.8586, 17.6389));
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={getPosition} />);
     await waitFor(() => expect(getPosition).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId("restaurant-place-got")).toHaveTextContent("Din plats är hämtad.");
-    expect(screen.getByTestId("restaurant-place-got")).toHaveTextContent("cirka 1 km");
+    expect(screen.getByTestId("restaurant-place-got")).toHaveTextContent("Din plats är hämtad");
+    expect(screen.getByTestId("restaurant-place-got")).not.toHaveTextContent("cirka 1 km");
     expect(getPosition).toHaveBeenCalledTimes(1);
   });
 
@@ -80,13 +80,19 @@ describe("location step", () => {
     expect(actions.findRestaurants.mock.calls[0]![0].location).toEqual({ kind: "coords", lat: 59.86, lng: 17.64 });
   });
 
-  it("explains a refusal, keeps the map button working and asks again on 'Försök igen'", async () => {
+  it("shows a stop screen 'Vi vet inte var du är' on a refusal, keeps the map button working and asks again on 'Försök igen'", async () => {
     const user = userEvent.setup();
     const getPosition = vi.fn(denied);
-    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={getPosition} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Din plats kunde inte hämtas");
-    expect(screen.getByRole("alert")).toHaveTextContent("telefonens inställningar");
-    expect(screen.getByTestId("restaurant-find")).toBeDisabled();
+    const onClose = vi.fn();
+    render(<RestaurantFlow actions={fakeActions()} onClose={onClose} getPosition={getPosition} />);
+    expect(screen.getByRole("heading", { name: "Vi vet inte var du är" })).toBeInTheDocument();
+    expect(screen.getByTestId("restaurant-place-failed")).toHaveTextContent("Google Maps använder då telefonens egen plats");
+    expect(screen.getByTestId("restaurant-place-failed")).toHaveTextContent("slå på plats för Livskoll i telefonens inställningar");
+    expect(screen.queryByTestId("restaurant-find")).toBeNull();
+    expect(screen.queryByTestId("restaurant-radar")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Tolka menyn/ }));
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("direct-map-link")).toHaveAttribute("href", "https://www.google.com/maps/search/?api=1&query=restaurang");
     getPosition.mockImplementation(here);
     await user.click(screen.getByTestId("restaurant-place-retry"));
@@ -94,6 +100,7 @@ describe("location step", () => {
     expect(await screen.findByTestId("restaurant-place-got")).toBeInTheDocument();
     expect(screen.queryByTestId("restaurant-place-retry")).toBeNull();
     expect(screen.getByTestId("restaurant-find")).toBeEnabled();
+    expect(screen.getByTestId("restaurant-radar")).toBeInTheDocument();
   });
 
   it("says so, without a retry button, when the device cannot give a place", () => {
@@ -101,7 +108,8 @@ describe("location step", () => {
     Object.defineProperty(navigator, "geolocation", { configurable: true, value: undefined });
     try {
       render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} />);
-      expect(screen.getByRole("alert")).toHaveTextContent("Den här enheten kan inte ge plats");
+      expect(screen.getByRole("heading", { name: "Vi vet inte var du är" })).toBeInTheDocument();
+      expect(screen.getByTestId("restaurant-place-failed")).not.toHaveTextContent("slå på plats");
       expect(screen.queryByTestId("restaurant-place-retry")).toBeNull();
       expect(screen.getByTestId("direct-map-link")).toBeInTheDocument();
     } finally {
@@ -126,6 +134,28 @@ describe("choices and 'Sugen på'", () => {
     expect(input.settings).toEqual({ radiusM: 1000, when: "evening", party: 3, cuisines: ["pizza", "asiatiskt"], priorities: ["quiet"] });
     expect(input.cuisines).toEqual(["pizza", "asiatiskt"]);
     expect(JSON.parse(window.localStorage.getItem(settingsStorageKey) ?? "{}")).toEqual(input.settings);
+  });
+
+  it("with the web search off shows only how far and 'Sugen på': no När, Vi är or priorities", () => {
+    window.localStorage.clear();
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
+    expect(screen.getByRole("radiogroup", { name: "Hur långt?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pizza" })).toBeInTheDocument();
+    expect(screen.queryByText("När")).toBeNull();
+    expect(screen.queryByText("Vi är")).toBeNull();
+    expect(screen.queryByText("Viktigast för oss")).toBeNull();
+    expect(screen.queryByText("Valen kommer ihåg på den här enheten. Inget sparas hos oss.")).toBeNull();
+    expect(screen.queryByText(/Vi fyller i sökningen åt dig/)).toBeNull();
+    expect(screen.queryByText(/Vad ska väga mest/)).toBeNull();
+  });
+
+  it("with the web search on also shows När, Vi är and 'Viktigast för oss' (högst tre)", () => {
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
+    expect(screen.getByText("När")).toBeInTheDocument();
+    expect(screen.getByText("Vi är")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Viktigast för oss" })).toBeInTheDocument();
+    expect(screen.queryByText(/Vad ska väga mest/)).toBeNull();
+    expect(screen.queryByText(/Det som passar allas mat väger alltid/)).toBeNull();
   });
 
   it("allows at most three 'Sugen på' chips", async () => {
@@ -382,21 +412,25 @@ describe("format", () => {
 describe("Sök i Google Maps", () => {
   const hrefs = () => screen.getAllByTestId("direct-map-link").map((link) => link.getAttribute("href"));
 
-  it("is one Google button that works without a fetched place, follows the choices and never starts the AI search", async () => {
+  it("is one Google button that works without a fetched place and never starts the AI search", async () => {
     const actions = fakeActions();
-    const user = userEvent.setup();
     render(<RestaurantFlow actions={actions} onClose={vi.fn()} getPosition={denied} />);
     const links = screen.getAllByTestId("direct-map-link");
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveTextContent("Sök i Google Maps");
     expect(hrefs()).toEqual(["https://www.google.com/maps/search/?api=1&query=restaurang"]);
-    await user.click(screen.getByRole("button", { name: "Pizza" }));
-    expect(hrefs()).toEqual(["https://www.google.com/maps/search/?api=1&query=pizza%20restaurang"]);
     expect(links[0]).toHaveAttribute("target", "_blank");
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
     expect(within(links[0]!).getByRole("img", { name: "Öppnas utanför appen" })).toBeInTheDocument();
     expect(screen.queryByText(/apple/i)).toBeNull();
     expect(actions.findRestaurants).not.toHaveBeenCalled();
+  });
+
+  it("follows 'Sugen på' once the place is there", async () => {
+    const user = userEvent.setup();
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
+    await user.click(screen.getByRole("button", { name: "Pizza" }));
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang/@59.86,17.64,14z"]));
   });
 
   it("uses the rounded position for the map window once the place is fetched, and the radius chosen", async () => {
@@ -408,10 +442,10 @@ describe("Sök i Google Maps", () => {
 
   it("never puts allergies, names or other profile data in the address", async () => {
     const user = userEvent.setup();
-    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={denied} />);
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
     await user.click(screen.getByRole("button", { name: "Lugnt" }));
     await user.click(screen.getByRole("button", { name: "Fler personer" }));
-    for (const href of hrefs()) expect(href).not.toMatch(/59\.|17\.|@|lat|lng|Lugnt|personer|allerg/i);
+    for (const href of hrefs()) expect(href).not.toMatch(/Lugnt|personer|allerg|lat=|lng=/i);
   });
 
   it("is also on the results screen and on the stops that leave the agent without a way on", async () => {
@@ -443,11 +477,40 @@ describe("the AI web search is a parked Tillval", () => {
     expect(screen.getAllByTestId("direct-map-link")).toHaveLength(1);
   });
   it("shows 'Låt agenten föreslå ställen' under the map button with it on, active only when the place is there", async () => {
-    const view = render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={denied} />);
+    const view = render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={() => {}} />);
     expect(screen.getByTestId("restaurant-find")).toHaveTextContent("Låt agenten föreslå ställen");
     expect(screen.getByTestId("restaurant-find")).toBeDisabled();
     view.unmount();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
     await waitFor(() => expect(screen.getByTestId("restaurant-find")).toBeEnabled());
+  });
+});
+
+describe("the radar and the way on to the photo", () => {
+  it("shows a radar named by the chosen radius, which follows the choice, only when the place is fetched", async () => {
+    const user = userEvent.setup();
+    const view = render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={() => {}} />);
+    expect(screen.queryByTestId("restaurant-radar")).toBeNull();
+    view.unmount();
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
+    expect(screen.getByRole("img", { name: "Sökområde: ungefär 1 km" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "5 km" }));
+    expect(screen.getByRole("img", { name: "Sökområde: ungefär 5 km" })).toBeInTheDocument();
+    expect(screen.getByTestId("restaurant-radar")).toHaveTextContent("Inom cirka 5 km");
+    expect(screen.getByText("Ungefär så stort område visas i kartan.")).toBeInTheDocument();
+  });
+
+  it("'Framme? Fota menyn' calls onPhoto, and falls back to onClose when onPhoto is left out", async () => {
+    const user = userEvent.setup();
+    const onPhoto = vi.fn();
+    const onClose = vi.fn();
+    const view = render(<RestaurantFlow actions={fakeActions()} onClose={onClose} onPhoto={onPhoto} getPosition={here} />);
+    await user.click(screen.getByRole("button", { name: "Framme? Fota menyn" }));
+    expect(onPhoto).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    view.unmount();
+    render(<RestaurantFlow actions={fakeActions()} onClose={onClose} getPosition={here} />);
+    await user.click(screen.getByRole("button", { name: "Framme? Fota menyn" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

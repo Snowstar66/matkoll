@@ -20,6 +20,7 @@ export function MenuWithRestaurants({ members, profiles }: Pick<ComponentProps<t
         actions={restaurantActions}
         costText={restaurantCostText}
         onClose={() => setAgent(false)}
+        onPhoto={() => setAgent(false)}
         onUseMenu={(menu) => {
           const text = cleanMenuText(menu.menuText);
           if (text === "") return setAgent(false);
