@@ -9,7 +9,7 @@
 
 export const contentSecurityPolicy = ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'"].join("; ");
 
-/** The camera for Skafferi's and Förråd's photos and the position for Restaurangagenten ("Använd min plats"), from the app itself only; the rest is off. */
+/** The camera for Skafferi's and Förråd's photos and the position for Restaurangagenten (asked when the question screen opens), from the app itself only; the rest is off. */
 export const permissionsPolicy = ["camera=(self)", "microphone=()", "geolocation=(self)", "payment=()", "usb=()"].join(", ");
 
 export const securityHeaders: { key: string; value: string }[] = [

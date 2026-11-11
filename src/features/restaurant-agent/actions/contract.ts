@@ -41,18 +41,6 @@ export type SuggestionView = {
   flags: string[];
 };
 
-/**
- * What reading a pasted menu link gives: the page's text for Menyrådgivaren, or why not. `image_or_pdf` means the menu
- * is a picture or a PDF, so the person is sent to the photo way.
- */
-export type MenuLinkResult =
-  | { status: "ok"; menuText: string; host: string }
-  | { status: "invalid" }
-  | { status: "unreachable" }
-  | { status: "image_or_pdf" }
-  | { status: "too_short" }
-  | { status: "error"; message: string };
-
 export type FindResult =
   /** `place`: the city or district the search used (the typed text, or the name looked up for a position), for the map link and the headline. */
   | { status: "ok"; suggestions: SuggestionView[]; costSek: number; model: string; place: string }

@@ -3,6 +3,7 @@ import { ClockIcon } from "./icons-local";
 import { PinIcon, SearchIcon, InfoIcon } from "@/components/icons";
 import { buttonClasses } from "@/components/button";
 import type { CuisineId } from "../domain/types";
+import type { MapView } from "./format";
 import { DirectMap } from "./direct-map";
 import { texts } from "./format";
 import { BigButton, StopBody, TextLink } from "./parts";
@@ -15,7 +16,7 @@ export function StopScreen({
   kind,
   message,
   cuisines,
-  place,
+  view,
   onAdjust,
   onRetry,
   onPhoto,
@@ -23,9 +24,9 @@ export function StopScreen({
   kind: StopKind;
   /** What the server said for an error; shown when it is a sentence for people. */
   message?: string;
-  /** The niches and the typed place of this run, for the map search that works when the agent cannot. */
+  /** The niches and the fetched place of this run, for the map search that works when the agent cannot. */
   cuisines: readonly CuisineId[];
-  place: string | null;
+  view: MapView | null;
   onAdjust: () => void;
   onRetry: () => void;
   onPhoto: () => void;
@@ -37,7 +38,7 @@ export function StopScreen({
           <StopBody icon={<PinIcon size={34} />} title={texts.needsLocationTitle}>
             {texts.needsLocationBody}
           </StopBody>
-          <BigButton onClick={onAdjust}>Skriv en plats</BigButton>
+          <BigButton onClick={onAdjust}>{texts.retry}</BigButton>
         </>
       ) : null}
       {kind === "no_results" ? (
@@ -69,7 +70,7 @@ export function StopScreen({
           <TextLink onClick={onAdjust}>{texts.adjust}</TextLink>
         </>
       ) : null}
-      {kind !== "needs_location" ? <DirectMap cuisines={cuisines} place={place} /> : null}
+      {kind !== "needs_location" ? <DirectMap cuisines={cuisines} place={null} view={view} /> : null}
     </div>
   );
 }

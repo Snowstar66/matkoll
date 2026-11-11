@@ -4,27 +4,17 @@ import type { SuggestionView } from "./actions-port";
 // The words of the screens (Swedish, no technical terms) and the small pure helpers behind them.
 
 export const texts = {
-  cardTitle: "Vet inte var ni ska äta?",
-  cardBody: "Sök i kartan med dina val ifyllda, eller klistra in en menylänk.",
-  whereTitle: "Var vill ni äta?",
-  whereSub: "Några val. Resten sköter jag.",
-  useMyPlace: "Använd min plats",
-  askingPlace: "Hämtar platsen …",
-  placeHint: "Telefonen frågar om ni tillåter plats. Platsen görs grövre (cirka 1 km) och används för att öppna kartan runt er. Inget sparas.",
-  placeGot: "Platsen är hämtad. Den görs grövre (cirka 1 km) och används för att öppna kartan runt er.",
+  cardTitle: "Vill ni ha hjälp att välja restaurang?",
+  cardBody: "Sök i Google Maps med dina val ifyllda.",
+  whereTitle: "Sök restauranger",
+  askingPlace: "Hämtar din plats …",
+  placeGot: "Din plats är hämtad.",
+  placeGotHint: "Den görs grövre (cirka 1 km), används bara för att öppna kartan och sparas inte.",
   osmLine: "För agentens sökning slås ortnamnet upp hos OpenStreetMap (© OpenStreetMap-bidragsgivare), bara namnet används.",
-  placeFailed: "Vi fick ingen plats. Telefonen sa nej, eller platsen gick inte att läsa. Skriv en ort eller ett postnummer i stället.",
-  placeUnavailable: "Den här enheten kan inte ge plats. Skriv en ort eller ett postnummer i stället.",
-  textLabel: "Eller skriv ort eller postnummer",
-  textPlaceholder: "Till exempel Uppsala eller 753 20",
-  textInvalid: "Skriv bara en ort eller ett postnummer, till exempel Uppsala eller 753 20.",
-  textTooLong: "Det är för långt. Skriv bara en ort eller ett postnummer.",
+  placeFailed: "Din plats kunde inte hämtas. Slå på plats för appen i telefonens inställningar och försök igen. Kartan fungerar ändå, den använder då telefonens egen plats.",
+  placeUnavailable: "Den här enheten kan inte ge plats. Kartan använder då telefonens egen plats.",
   find: "Låt agenten föreslå ställen",
   mapSearchHint: "Vi fyller i sökningen åt dig. Öppettider och betyg ser du i kartan. Gratis.",
-  menuLinkLabel: "Har du en länk till menyn? Klistra in den",
-  menuLinkHint: "Menyrådgivaren läser sidan och föreslår rätter. Funkar för menyer som är text på en sida, inte för bilder och PDF.",
-  menuLinkRead: "Läs menyn",
-  menuLinkBusy: "Läser menyn …",
   runningTitle: "Letar åt er",
   runningTakes: "Brukar ta 20 till 60 sekunder.",
   cancel: "Avbryt",
@@ -37,7 +27,7 @@ export const texts = {
   webLine: "Hämtat från webben – kontrollera öppettider och meny. Hämtat nu och sparas inte.",
   directTitle: "Hellre se alla ställen i kartan?",
   directBody: "Vi fyller i sökningen åt dig, öppettider och betyg ser du där.",
-  directOpen: "Sök i",
+  directOpen: "Sök i Google Maps",
   radiusLabel: "Ungefär hur långt",
   radiusHint: "Ett önskemål till sökningen, inget uppmätt avstånd.",
   whenLabel: "När",
@@ -45,7 +35,7 @@ export const texts = {
   ratingCaveat: "Omdömen från webben kan vara gamla eller ojämna.",
   addressMissing: "Adress saknas, öppna kartan.",
   hoursMissing: "Öppettider saknas. Ring och kolla.",
-  mapOpen: "Öppna i kartan",
+  mapOpen: "Öppna i Google Maps",
   menuFound: "Meny hittad",
   menuMissing: "Meny saknas",
   menuMissingWhy: "Menyn hittades inte, så jag kan inte säga om det passar alla.",
@@ -66,7 +56,7 @@ export const texts = {
   capBody: "Hushållet har använt dagens AI-pengar. Det nollställs i natt. Ni kan höja taket i Inställningar.",
   capRaise: "Höj taket",
   needsLocationTitle: "Vi vet inte var ni är",
-  needsLocationBody: "Platsen gick inte att läsa av. Skriv en ort eller ett postnummer i stället.",
+  needsLocationBody: "Platsen gick inte att läsa av. Slå på plats för appen i telefonens inställningar och försök igen.",
   errorTitle: "Det gick inte",
   errorBody: "Sökningen på webben eller nätet svarade inte. Försök igen om en stund.",
   handoverFound: "Menyn är hämtad.",
@@ -125,12 +115,11 @@ export const accordingTo = (url: string) => {
 export type MapLink = { label: string; href: string };
 
 /**
- * Links that open the place in the phone's map app: a plain link the person opens themselves (no API, no key, no cost,
+ * The link that opens the place in Google Maps: a plain link the person opens themselves (no API, no key, no cost,
  * nothing fetched by us). Only the restaurant's name and the city go in the address, URL-encoded, never coordinates.
- * Both Apple Kartor and Google Maps are always offered side by side; an iPhone or iPad gets Apple first, the rest Google first.
  */
-export function mapLinks(name: string, place: string, userAgent: string | null, view: MapView | null = null): MapLink[] {
-  return mapLinksFor(`${name} ${place}`.trim(), userAgent, view);
+export function mapLink(name: string, place: string, view: MapView | null = null): MapLink {
+  return mapLinkFor(`${name} ${place}`.trim(), view);
 }
 
 /** The phone's rounded position and how far the person wants to go: a map window around it. Lives only in the link the person opens. */
@@ -139,21 +128,15 @@ export type MapView = { lat: number; lng: number; radiusM: RadiusM };
 /** Google zoom levels for the window: about 15 for 500 m, 14 for 1 km, 13 for 2 km, 12 for 5 km. Approximate. */
 export const mapZoom: Record<RadiusM, number> = { 500: 15, 1000: 14, 2000: 13, 5000: 12 };
 
-/** Apple's span in degrees: about twice the radius, at 111 000 m per degree. Approximate. */
-export const mapSpan = (radiusM: RadiusM) => Math.round(((2 * radiusM) / 111_000) * 10_000) / 10_000;
-
 /**
- * The map links for a ready search text. The host and path are fixed here; only the encoded text varies. With a `view`
- * (the person tapped "Använd min plats") the map opens around that spot; without, the map app uses its own position.
- * The window is approximate and the link form is not verified in the real apps. The user agent only orders the two.
+ * The Google Maps link for a ready search text. The host and path are fixed here; only the encoded text varies. With a
+ * `view` (the phone's place was fetched) the map opens around that spot; without, Google Maps uses the phone's own
+ * position. The window is approximate and the link form is not verified in the real app.
  */
-export function mapLinksFor(text: string, userAgent: string | null, view: MapView | null = null): MapLink[] {
+export function mapLinkFor(text: string, view: MapView | null = null): MapLink {
   const query = encodeURIComponent(text);
-  const at = view ? `${view.lat.toFixed(2)},${view.lng.toFixed(2)}` : null;
-  const apple = { label: "Apple Kartor", href: view && at ? `https://maps.apple.com/?q=${query}&ll=${at}&spn=${mapSpan(view.radiusM)},${mapSpan(view.radiusM)}` : `https://maps.apple.com/?q=${query}` };
-  const google = { label: "Google Maps", href: view && at ? `https://www.google.com/maps/search/${query}/@${at},${mapZoom[view.radiusM]}z` : `https://www.google.com/maps/search/?api=1&query=${query}` };
-  // Both are always offered; the device only decides which comes first.
-  return userAgent && /iPhone|iPad|iPod/.test(userAgent) ? [apple, google] : [google, apple];
+  const href = view ? `https://www.google.com/maps/search/${query}/@${view.lat.toFixed(2)},${view.lng.toFixed(2)},${mapZoom[view.radiusM]}z` : `https://www.google.com/maps/search/?api=1&query=${query}`;
+  return { label: "Google Maps", href };
 }
 
 /** The page of the restaurant to link: its own site when the search returned a page on it, else the first page a reason cites. https only. */
@@ -187,8 +170,8 @@ const cuisineSearchWords: Record<CuisineId, string> = {
 };
 
 /**
- * The search text of "Sök direkt i kartan": the chosen niches (at most three), "restaurang", and the typed place when
- * there is one (without it the map app uses the phone's own position, which we never ask for here). Nothing else: no
+ * The search text of "Sök direkt i kartan": the chosen niches (at most three), "restaurang", and the place name of a search result when
+ * there is one (the map window comes from the link, see mapLinkFor; without a place Google Maps uses the phone's own position). Nothing else: no
  * names, no allergies, nothing from the household's profile and no coordinates.
  */
 export function directMapQuery(cuisines: readonly CuisineId[], place: string | null): string {
