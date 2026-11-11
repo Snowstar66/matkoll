@@ -293,7 +293,11 @@ describe("proposeWeek", () => {
     expect(await proposeWeek({ weekStart: "2026-11-18", mode: "plan" })).toMatchObject({ status: "error" });
     expect(await proposeWeek({ weekStart: week, mode: "nonsense" as never })).toMatchObject({ status: "error" });
     world.dishes = [1, 2, 3, 4, 5].map((day) => dish(day, day));
-    expect(await proposeWeek({ weekStart: week, mode: "plan" })).toMatchObject({ status: "error", message: "Alla dagar har redan en rätt." });
+    // Five dinners already, as the setting says, but Saturday and Sunday are empty and not excluded: it says so.
+    expect(await proposeWeek({ weekStart: week, mode: "plan" })).toMatchObject({
+      status: "error",
+      message: "Veckan har redan 5 middagar, så många som du ställt in. Lördag och söndag har ingen rätt. Höj antalet middagar i Ställ in om agenten ska fylla fler.",
+    });
     world.signedIn = false;
     expect(await proposeWeek({ weekStart: week, mode: "plan" })).toMatchObject({ status: "error" });
     world.signedIn = true;
