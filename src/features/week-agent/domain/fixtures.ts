@@ -12,7 +12,7 @@ export function recipe(title: string, ingredients: string[], extra: Partial<Reci
   return { id: id(n), title, ingredients, totalMinutes: 30, ...extra };
 }
 
-export const settings = (extra: Partial<WeekAgentSettings> = {}): WeekAgentSettings => ({ ...defaultWeekAgentSettings, ...extra });
+export const settings = (extra: Partial<WeekAgentSettings> = {}): WeekAgentSettings => ({ ...defaultWeekAgentSettings, dinners: 5, ...extra });
 
 export const anna: FitPerson = { name: "Anna", allergies: ["laktos"], dislikes: [], likes: ["pasta"] };
 export const bo: FitPerson = { name: "Bo", allergies: [], dislikes: ["svamp"], likes: [] };
