@@ -155,7 +155,7 @@ describe("the start", () => {
     const sheet = within(screen.getByRole("dialog", { name: "Lägg till gäst" }));
     await u.type(screen.getByTestId("menu-guest-name"), "Gunnar");
     await u.click(sheet.getByRole("button", { name: /Nötter/ }));
-    await u.click(sheet.getByRole("button", { name: /^Lägg till$/ }));
+    await u.click(screen.getByTestId("menu-guest-save"));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByRole("checkbox", { name: "Gunnar" })).toBeChecked();
     expect(screen.getAllByTestId("menu-company-person")[2]).toHaveTextContent("Nötter · bara ikväll");
@@ -170,9 +170,26 @@ describe("the start", () => {
     const sheet = within(screen.getByRole("dialog"));
     await u.type(screen.getByTestId("menu-guest-name"), "Greta");
     await u.click(sheet.getByRole("button", { name: "Spara till nästa gång" }));
-    await u.click(sheet.getByRole("button", { name: /^Lägg till$/ }));
+    await u.click(screen.getByTestId("menu-guest-save"));
     expect(localStorage.getItem("livskoll-menu-people-v1")).toContain("Greta");
     expect(await screen.findByRole("checkbox", { name: "Greta" })).toBeChecked();
+  });
+
+  it("a guest's tastes are set in the sheet with the same sliders and kept with the guest", async () => {
+    const u = user();
+    render(<MenuAdvisor />);
+    await u.click(screen.getByRole("button", { name: "Lägg till gäst" }));
+    const sheet = within(screen.getByRole("dialog"));
+    await u.type(screen.getByTestId("menu-guest-name"), "Greta");
+    expect(sheet.getByTestId("menu-taste")).toBeInTheDocument();
+    await u.click(sheet.getAllByRole("button", { expanded: false })[0]!);
+    await u.click(sheet.getAllByRole("slider")[0]!);
+    await u.keyboard("{ArrowRight}");
+    await u.click(sheet.getByRole("button", { name: "Spara till nästa gång" }));
+    await u.click(screen.getByTestId("menu-guest-save"));
+    const stored = JSON.parse(localStorage.getItem("livskoll-menu-people-v1") ?? "[]");
+    const greta = (Array.isArray(stored) ? stored : (stored.people ?? [])).find((p: { name: string }) => p.name === "Greta");
+    expect(Object.keys(greta.tastes).length).toBeGreaterThan(0);
   });
 
   it("from five people four rows show, and the ticked ones, with Visa alla", async () => {

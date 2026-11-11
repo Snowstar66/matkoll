@@ -195,7 +195,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${shots}/02-guest-sheet.png` });
-  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
+  await page.getByTestId("menu-guest-save").click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Gunnar" })).toBeChecked();
   await expect(page.getByTestId("menu-company-person").filter({ hasText: "Gunnar" })).toContainText("Nötter · bara ikväll");
