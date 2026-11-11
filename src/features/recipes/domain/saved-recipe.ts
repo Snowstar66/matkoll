@@ -37,6 +37,8 @@ export type SavedRecipe = {
   servings: number;
   totalMinutes: number | null;
   imageUrl: string | null;
+  /** The folder of the recipe's own copy of the picture (recipe-images), or null/absent while it is only an address. */
+  imagePath?: string | null;
   sourceKind: SourceKind;
   sourceUrl: string | null;
   isFavorite: boolean;

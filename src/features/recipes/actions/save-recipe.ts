@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
 import { saveRecipeIn } from "../data/save";
 import { recipeDraftSchema, type RecipeDraft } from "../domain/recipe-draft";
+import { storeRecipeImage } from "./store-recipe-image";
 
 const recipeIdSchema = z.uuid();
 
@@ -20,7 +21,10 @@ const recipeIdSchema = z.uuid();
  * transaction (AD-1): if the recipe fails, saving again reuses the
  * ingredients already created. `recipeId` is made by the client with the
  * preview, so saving the same preview again (a lost answer, then "Försök
- * igen") returns the recipe already saved instead of a copy. Fails with
+ * igen") returns the recipe already saved instead of a copy. When the recipe
+ * has an image address, its picture is then kept in the app's own storage
+ * (storeRecipeImage); that never changes the text and never fails the save.
+ * Fails with
  * `unauthorized`, `validation` or `recipe_save_failed`.
  */
 export async function saveRecipe(draft: RecipeDraft, recipeId: string): Promise<Result<{ id: string }>> {
@@ -34,7 +38,11 @@ export async function saveRecipe(draft: RecipeDraft, recipeId: string): Promise<
     const ingredientIds = await commitIngredients(
       valid.lines.map((line) => ({ text: line.originalText, ingredient: line.ingredient })),
     );
-    const id = await saveRecipeIn(await createClient(), recipeId, valid, ingredientIds);
+    const db = await createClient();
+    const id = await saveRecipeIn(db, recipeId, valid, ingredientIds);
+    // The recipe is saved: its picture is fetched into the app's own storage now. A picture that cannot
+    // be fetched or kept never fails the save; the recipe keeps its image address (never throws).
+    if (valid.imageUrl) await storeRecipeImage(db, id);
     revalidateFor("recipe");
     return ok({ id });
   } catch (error) {

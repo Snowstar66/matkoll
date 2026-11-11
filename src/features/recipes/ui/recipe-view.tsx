@@ -8,6 +8,7 @@ import { dishKind } from "@/lib/dish-kind";
 import type { PantrySnapshot, SelectedSite, StapleRules } from "@/features/pantry";
 import { offerSavedText } from "../domain/offer-saved";
 import type { LineOffer } from "../domain/line-status";
+import { recipeImageSrc } from "../domain/recipe-image";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { savedByText, sharedByText } from "../domain/shared-recipe";
@@ -134,7 +135,7 @@ export function RecipeView({
 
       <header className="flex items-center gap-3.5">
         <RecipeImage
-          src={recipe.imageUrl}
+          src={recipeImageSrc(recipe, "full")}
           dish={dishKind(recipe.title, recipe.lines.map((line) => line.originalText))}
           artSize={56}
           className="size-[72px] shrink-0 rounded-lg"

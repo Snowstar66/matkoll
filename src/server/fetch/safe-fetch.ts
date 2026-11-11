@@ -93,15 +93,15 @@ function requestHeaders(userAgent: MatkollUserAgent): Readonly<Record<string, st
 }
 
 const htmlTypes = new Set(["text/html", "application/xhtml+xml"]);
-const redirectStatuses = new Set([301, 302, 303, 307, 308]);
+export const redirectStatuses = new Set([301, 302, 303, 307, 308]);
 
-async function systemLookup(hostname: string): Promise<ResolvedAddress[]> {
+export async function systemLookup(hostname: string): Promise<ResolvedAddress[]> {
   const addresses = await dnsLookup(hostname, { all: true, order: "verbatim" });
   return addresses.map(({ address, family }) => ({ address, family: family === 6 ? 6 : 4 }));
 }
 
 /** The lookup a connection uses: every address must be public, or nothing is connected to. */
-function checkedLookup(lookup: Lookup): Lookup {
+export function checkedLookup(lookup: Lookup): Lookup {
   return async (hostname) => {
     const addresses = await lookup(hostname);
     if (addresses.length === 0 || addresses.some(({ address }) => !isPublicAddress(address))) {
@@ -163,7 +163,7 @@ function checkUrl(input: string | URL, allowedDomains: readonly string[], from: 
 }
 
 /** The body, or `null` when it is larger than `limit` bytes. Stops reading at the limit. */
-async function readCapped(body: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array | null> {
+export async function readCapped(body: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array | null> {
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;

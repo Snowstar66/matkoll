@@ -8,6 +8,7 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
 import { deleteRecipeIn } from "../data/update";
+import { recipeImageFolderOf, removeRecipeImages } from "./store-recipe-image";
 
 const recipeIdSchema = z.uuid();
 
@@ -30,7 +31,12 @@ export async function deleteRecipe(id: string): Promise<Result<{ id: string }>> 
     // so a retry after a lost answer ends where Pontus wanted, and another
     // household's recipe is never touched (RLS, Story 21.2a).
     await detachRecipe(id);
-    await deleteRecipeIn(await createClient(), id);
+    const db = await createClient();
+    const folder = await recipeImageFolderOf(db, id);
+    await deleteRecipeIn(db, id);
+    // The recipe's own picture goes with it, with the Storage API (SQL never deletes files);
+    // a file that stays is taken by the orphan sweep (never throws).
+    await removeRecipeImages(db, folder);
     revalidateFor("recipe");
     return ok({ id });
   } catch (error) {

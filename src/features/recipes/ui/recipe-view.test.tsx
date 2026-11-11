@@ -104,6 +104,15 @@ afterEach(() => {
 });
 
 describe("RecipeView", () => {
+  it("shows the full size of the app's own copy of the picture when there is one, else the address on the other site", () => {
+    const external = "https://img.koket.se/gryta.jpg";
+    const { container, unmount } = render(<RecipeView recipe={{ ...recipe, imageUrl: external, imagePath: `h/${recipe.id}` }} snapshot={allHome} />);
+    expect(container.querySelector("img")).toHaveAttribute("src", `/api/recipe-image/${recipe.id}/full`);
+    unmount();
+    const other = render(<RecipeView recipe={{ ...recipe, imageUrl: external, imagePath: null }} snapshot={allHome} />);
+    expect(other.container.querySelector("img")).toHaveAttribute("src", external);
+  });
+
   it("shows the title, the time alone on the meta line, the servings in the portion selector and the source as a link", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     expect(screen.getByRole("heading", { level: 1, name: "Krämig kycklinggryta" })).toBeInTheDocument();

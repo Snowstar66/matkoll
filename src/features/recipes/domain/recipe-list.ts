@@ -18,6 +18,11 @@ import { recipeCategories, type RecipeCategory } from "./recipe-category";
 export type RecipeListItem = {
   id: string;
   title: string;
+  /**
+   * The address to show the picture from: the app's own thumbnail (/api/recipe-image/<id>/thumb) when
+   * the recipe has a copy in recipe-images, otherwise its address on another site, otherwise null.
+   * For showing only: a list row never feeds the edit form or a save.
+   */
   imageUrl: string | null;
   totalMinutes: number | null;
   originalServings: number;

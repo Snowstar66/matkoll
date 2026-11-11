@@ -80,3 +80,11 @@ export {
   type SharedListItem,
   type SharedRecipe,
 } from "./domain/shared-recipe";
+export {
+  recipeImageBucket,
+  recipeImageHouseholdCap,
+  recipeImageSizes,
+  recipeImageRoute,
+  recipeImageSrc,
+  type RecipeImageSize,
+} from "./domain/recipe-image";

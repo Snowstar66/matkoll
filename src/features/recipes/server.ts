@@ -12,6 +12,8 @@ import {
   listRecipes as listRecipesIn,
   type ListOptions,
 } from "./data/queries";
+import { countWithImageIn, countWithoutImageIn, downloadImageIn, imageFolderOf } from "./data/image";
+import type { RecipeImageSize } from "./domain/recipe-image";
 import { missingNames } from "./data/missing-names";
 import { getSharedIn, listSharedIn, saversIn, sharingIn } from "./data/shared";
 import {
@@ -215,4 +217,31 @@ export async function getRecipeSavers(id: string): Promise<string[]> {
 /** Tillval, Delade recept: whether the household shares all its recipes, how many are shared and whether it still has its default name. Throws RecipeDataError. */
 export async function getRecipeSharing(): Promise<{ shareAll: boolean; sharedCount: number; nameIsDefault: boolean }> {
   return sharingIn(await createClient());
+}
+
+/**
+ * A stored picture of the household's recipe `id` for the route src/app/api/recipe-image: the file and its
+ * media type, or `null` for an id that is not a uuid, a recipe that is not the household's, a recipe without
+ * a copy of its own or a file that is missing (all the same answer). Read with the session client, so RLS and
+ * the bucket's policies give only the household's own. Throws RecipeDataError when the recipe cannot be read.
+ */
+export async function readRecipeImage(id: string, size: RecipeImageSize): Promise<{ data: Blob; mediaType: string } | null> {
+  if (!recipeIdSchema.safeParse(id).success) return null;
+  const db = await createClient();
+  const folder = await imageFolderOf(db, id);
+  if (!folder) return null;
+  const data = await downloadImageIn(db, folder, size);
+  // The bucket only holds WebP and JPEG (its allowed types); the type is the file's own, never the request's.
+  return data ? { data, mediaType: data.type === "image/jpeg" ? "image/jpeg" : "image/webp" } : null;
+}
+
+/**
+ * Inställningar, "Spara receptbilder hos oss": how many of the household's recipes have a picture
+ * in the app's own storage, and how many still have only an image address on another site.
+ * Throws RecipeDataError.
+ */
+export async function getRecipeImageStatus(): Promise<{ withCopy: number; missing: number }> {
+  const db = await createClient();
+  const [withCopy, missing] = await Promise.all([countWithImageIn(db), countWithoutImageIn(db)]);
+  return { withCopy, missing };
 }
