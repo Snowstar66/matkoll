@@ -422,6 +422,10 @@ Migreringen `20261102150000_who_did_what.sql`. Bara det **någon annan** i hush�
 - **Kvar som risk:** en medlem kan via `put_thing_changes` lägga in en ändring i en annan *nuvarande* medlems namn i det egna hushållet (Ångra skickar tillbaka historiken från webbläsaren). Aldrig i ett annat hushåll, och aldrig för någon utanför hushållet.
 - Namnen och nyanserna läses en gång per sidvisning (`getOthers`, från `household_members`). Kan de inte läsas markeras inget.
 
+## AI-kostnadstaket (Tak för AI-kostnad)
+
+Varje hushåll utom ägarens har ett dagligt tak (10 kr som standard) för vad AI-anropen uppskattas kosta. Sedan säkerhetsgranskningen 2026-11-11 (migreringen `20261111120000_ai_usage_reservation.sql`) reserverar varje anrop sitt värsta fall i `ai_usage` innan modellen frågas, och reservationen byts mot den verkliga förbrukningen efteråt, även när anropet avbryts, får timeout eller fallerar (då räknas det som skickades och det som hunnit skrivas). Ett hushålls reservationer tas en i taget i databasen, så parallella anrop kan inte passera taket tillsammans. Inga klienter skriver längre `ai_usage` direkt (bara funktionerna `ai_usage_reserve` och `ai_usage_settle`), och spärren släpper inte igenom när kostnaden inte går att läsa ("Det gick inte att kontrollera dagens AI-tak just nu"), utom för ägarens hushåll.
+
 ## Vad som är provat
 
 Provat 2026-10-31 i förberedelsegrenen `prep/molnet`, utan någon molnkontakt:

@@ -11,7 +11,8 @@ import {
 } from "ai";
 import type { z } from "zod";
 import { fail, ok, type Result } from "@/lib/errors";
-import { reportUsage, tokenCount } from "./usage";
+import { estimateInputTokens, writtenTokens } from "./estimate";
+import { holdUsage, tokenCount, type AiUsage } from "./usage";
 
 // Shared execution for every real adapter (AD-9): an optional health check,
 // a time budget per attempt and in total, at most two new attempts when the
@@ -149,6 +150,19 @@ function modelIdOf(target: ModelTarget): string {
 /** Tokens spent so far by one run, over all its attempts (a refused answer costs too). */
 type Tally = { calls: number; inputTokens: number; outputTokens: number };
 
+/**
+ * One attempt's tokens until the provider says: what it sends (estimated before it starts) and what
+ * it has written so far (a streamed answer). Counted once, by `count` with the provider's usage, or
+ * at the estimate when the attempt ends without one (security review S-01).
+ */
+type AttemptMeter = { inputTokens: number; outputTokens: number; counted: boolean };
+
+/** The most one attempt writes when the call sets no limit. */
+const defaultMaxOutputTokens = 8_000;
+
+/** Where a run keeps the way to record what it used, once its reservation is made. */
+type RunMeter = { finish?: (usage: readonly AiUsage[]) => Promise<void> };
+
 export async function runStructured<SCHEMA extends z.ZodType>(
   target: ModelTarget,
   request: StructuredRequest<SCHEMA>,
@@ -156,14 +170,27 @@ export async function runStructured<SCHEMA extends z.ZodType>(
   limits: Limits = defaultLimits,
 ): Promise<Result<z.infer<SCHEMA>>> {
   const tally: Tally = { calls: 0, inputTokens: 0, outputTokens: 0 };
+  const run: RunMeter = {};
   try {
-    return await runStructuredCounting(target, request, signal, limits, tally);
+    return await runStructuredCounting(target, request, signal, limits, tally, run);
   } finally {
-    // Story 17.6: one record per run, when the model was asked at all.
-    if (tally.calls > 0) {
-      await reportUsage({ model: modelIdOf(target), inputTokens: tally.inputTokens, outputTokens: tally.outputTokens });
-    }
+    // Story 17.6: one record per run, when the model was asked at all; S-01: also when the run was
+    // aborted, timed out or failed, at an estimate for the attempts the provider did not report.
+    // No attempt (stopped before the first) releases the reservation.
+    const usage = tally.calls > 0 ? [{ model: modelIdOf(target), inputTokens: tally.inputTokens, outputTokens: tally.outputTokens }] : [];
+    await run.finish?.(usage);
   }
+}
+
+/**
+ * The worst case of a run, reserved against the household's cap before the first attempt (S-02):
+ * every attempt it may make, each sending the request and writing up to its limit.
+ */
+function worstCase<SCHEMA extends z.ZodType>(target: ModelTarget, request: StructuredRequest<SCHEMA>, limits: Limits): AiUsage {
+  const attempts = Math.max(1, limits.maxAttempts);
+  const input = estimateInputTokens(request.system, request.messages, request.schema);
+  const output = (request.maxOutputTokens ?? defaultMaxOutputTokens) + (target.extraOutputTokens ?? 0);
+  return { model: modelIdOf(target), inputTokens: input * attempts, outputTokens: output * attempts };
 }
 
 async function runStructuredCounting<SCHEMA extends z.ZodType>(
@@ -172,6 +199,7 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
   signal: AbortSignal,
   limits: Limits,
   tally: Tally,
+  run: RunMeter,
 ): Promise<Result<z.infer<SCHEMA>>> {
   if (signal.aborted) return failWith("ai_unavailable", "aborted");
   const started = performance.now();
@@ -188,6 +216,15 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
     }
   }
 
+  // Tak för AI-kostnad (S-02): the run's worst case is reserved before the model is asked, so
+  // parallel calls of a household see each other; refused at the cap, or when it cannot be checked.
+  const held = await holdUsage([worstCase(target, request, limits)]);
+  if (!held.ok) {
+    console.info(held.code);
+    return fail(held.code);
+  }
+  run.finish = held.finish;
+
   const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
   const providerOptions = mergeProviderOptions(target.providerOptions, samplingOptions);
 
@@ -197,14 +234,17 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
     // Too little time left for another full answer: report the invalid one now.
     if (attempt > 1 && limits.totalMs - (performance.now() - started) < limits.minRetryMs) break;
     const attemptSignal = AbortSignal.any([total, AbortSignal.timeout(limits.attemptMs)]);
+    const messages = feedback ? [...request.messages, feedback] : request.messages;
+    const meter: AttemptMeter = { inputTokens: estimateInputTokens(request.system, messages, request.schema), outputTokens: 0, counted: false };
     try {
       if (request.stream && target.streaming) {
         const streamed = await streamAttempt(
           target,
           request,
           request.stream,
-          { system: request.system, messages: feedback ? [...request.messages, feedback] : request.messages, providerOptions, sampling, attempt, attemptSignal },
+          { system: request.system, messages, providerOptions, sampling, attempt, attemptSignal },
           tally,
+          meter,
         );
         if (streamed.kind === "answer") return ok(streamed.value);
         // The model answered, but nothing in the answer could be read: tell it and try again.
@@ -214,7 +254,7 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
       const result = await generateText({
         model: target.model,
         system: request.system,
-        messages: feedback ? [...request.messages, feedback] : request.messages,
+        messages,
         output: Output.object({ schema: request.schema }),
         providerOptions,
         maxOutputTokens:
@@ -225,12 +265,16 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
         maxRetries: 0,
         abortSignal: attemptSignal,
       });
-      count(tally, result.usage);
+      count(tally, meter, result.usage);
       if (result.finishReason === "length") request.onTruncated?.();
       return ok(result.output as z.infer<SCHEMA>);
     } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) count(tally, meter, error.usage);
+      // S-01: an attempt that ended without the provider's usage (aborted, timed out, a broken
+      // connection, a 5xx) may still be billed: it counts at what it sent and wrote so far. A
+      // refusal (HTTP 4xx) generated nothing and is not counted.
+      if (!isRefusal(error)) count(tally, meter, undefined);
       if (attemptSignal.aborted) return failWith("ai_unavailable", stopReason());
-      if (NoObjectGeneratedError.isInstance(error)) count(tally, error.usage);
       if (NoObjectGeneratedError.isInstance(error) && error.finishReason === "length") request.onTruncated?.();
       if (APICallError.isInstance(error)) {
         const status = error.statusCode;
@@ -247,6 +291,13 @@ async function runStructuredCounting<SCHEMA extends z.ZodType>(
 
   if (total.aborted) return failWith("ai_unavailable", stopReason());
   return failWith("ai_invalid", "invalid");
+}
+
+/** The provider refused the request (HTTP 4xx): nothing was generated, so nothing is billed. */
+function isRefusal(error: unknown): boolean {
+  if (!APICallError.isInstance(error)) return false;
+  const status = error.statusCode;
+  return status !== undefined && status >= 400 && status < 500;
 }
 
 type StreamAttemptInput = {
@@ -270,6 +321,7 @@ async function streamAttempt<SCHEMA extends z.ZodType>(
   stream: NonNullable<StructuredRequest<SCHEMA>["stream"]>,
   input: StreamAttemptInput,
   tally: Tally,
+  meter: AttemptMeter,
 ): Promise<{ kind: "answer"; value: z.infer<SCHEMA> } | { kind: "unreadable" }> {
   let streamError: unknown;
   const result = streamText({
@@ -294,6 +346,8 @@ async function streamAttempt<SCHEMA extends z.ZodType>(
       // Nothing is reported once the run is stopped.
       if (input.attemptSignal.aborted) break;
       last = partial;
+      // S-01: what is written so far, in case the stream ends without the provider's usage.
+      meter.outputTokens = writtenTokens(partial);
       stream.onPartial(partial);
     }
   } catch (error) {
@@ -302,18 +356,27 @@ async function streamAttempt<SCHEMA extends z.ZodType>(
   if (streamError !== undefined) throw streamError;
   if (input.attemptSignal.aborted) throw new Error("aborted");
   const usage = await Promise.resolve(result.usage).catch(() => undefined);
-  count(tally, usage);
+  count(tally, meter, usage);
   const finishReason = await Promise.resolve(result.finishReason).catch(() => undefined);
   if (finishReason === "length") request.onTruncated?.();
   const value = stream.read(last);
   return value === undefined ? { kind: "unreadable" } : { kind: "answer", value };
 }
 
-/** Adds one attempt's usage; an attempt that failed before an answer (network, timeout) is not counted. */
-function count(tally: Tally, usage: { inputTokens: number | undefined; outputTokens: number | undefined } | undefined): void {
+/**
+ * Adds one attempt's usage, once: the provider's figures, or (when it gave none, S-01) the
+ * attempt's estimate of what it sent and wrote so far. A figure the provider left out is estimated.
+ */
+function count(
+  tally: Tally,
+  meter: AttemptMeter,
+  usage: { inputTokens: number | undefined; outputTokens: number | undefined } | undefined,
+): void {
+  if (meter.counted) return;
+  meter.counted = true;
   tally.calls += 1;
-  tally.inputTokens += tokenCount(usage?.inputTokens);
-  tally.outputTokens += tokenCount(usage?.outputTokens);
+  tally.inputTokens += usage?.inputTokens === undefined ? meter.inputTokens : tokenCount(usage.inputTokens);
+  tally.outputTokens += usage?.outputTokens === undefined ? meter.outputTokens : tokenCount(usage.outputTokens);
 }
 
 /**
