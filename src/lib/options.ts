@@ -50,7 +50,7 @@ export const options = [
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "宜 vad dagen passar för, 忌 vad du bör undvika", defaultOn: false },
   { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
-  { id: "restaurantAgent", group: "menu", label: "Äta ute", hint: "Sök restauranger i kartan med dina val ifyllda, och klistra in en menylänk så föreslår Menyrådgivaren rätter. Gratis. Plats frågas först när du trycker och sparas inte", defaultOn: false },
+  { id: "restaurantAgent", group: "menu", label: "Äta ute", hint: "Sök restauranger i Google Maps med dina val ifyllda. Gratis. Telefonen frågar om plats när du öppnar sidan, och den sparas inte", defaultOn: false },
   { id: "restaurantAgentWeb", group: "menu", label: "Låt agenten söka på webben", hint: "Låt agenten söka restauranger på webben åt dig. Experimentell, kostar Claude-tokens, cirka 1 kr per sökning", defaultOn: false },
   { id: "weekAgent", group: "household", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
