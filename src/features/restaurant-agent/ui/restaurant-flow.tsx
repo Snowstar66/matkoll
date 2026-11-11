@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type RestaurantSettings } from "../domain/types";
 import type { FindResult, LocationQuery, RestaurantAgentActions, SuggestionView } from "./actions-port";
+import { texts } from "./format";
 import { HandoverScreen } from "./handover-screen";
 import { RestaurantSettingsSheet } from "./settings-sheet";
 import { readStoredSettings, writeStoredSettings } from "./settings-store";
@@ -73,7 +74,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
       return setStage("results");
     }
     if (result.status === "needs_location") {
-      setNotice("Vi fick ingen plats. Skriv en ort eller ett postnummer.");
+      setNotice(texts.placeFailed);
       return setStage("where");
     }
     setStop(result.status === "error" ? { kind: "error", message: result.message } : { kind: result.status });
@@ -111,7 +112,7 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         kind={stop.kind}
         message={stop.message}
         cuisines={settings.cuisines}
-        place={location?.kind === "text" ? location.text : null}
+        view={location?.kind === "coords" ? { lat: location.lat, lng: location.lng, radiusM: settings.radiusM } : null}
         onAdjust={() => setStage("where")}
         onRetry={() => (location ? void find(location) : setStage("where"))}
         onPhoto={onClose}
@@ -127,9 +128,6 @@ export function RestaurantFlow({ actions, onClose, onUseMenu, costText, getPosit
         costText={costText}
         notice={notice}
         getPosition={getPosition}
-        readMenuLink={actions.readMenuLink}
-        onMenu={onUseMenu ? (menu) => onUseMenu({ id: "menu-link", name: menu.host, menuText: menu.menuText }) : undefined}
-        onPhoto={onClose}
       />
     );
   }

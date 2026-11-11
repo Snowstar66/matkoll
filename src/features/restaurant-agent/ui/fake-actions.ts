@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { FindResult, MenuLinkResult, RestaurantAgentActions, SuggestionView } from "./actions-port";
+import type { FindResult, RestaurantAgentActions, SuggestionView } from "./actions-port";
 
 // A typed in-memory fake of the backend's action, for the screens' tests (not exported from index). The restaurant
 // names are invented.
@@ -48,6 +48,6 @@ export const wok: SuggestionView = {
 
 export const okResult = (suggestions: SuggestionView[] = [salvia, fyrvaktaren, wok]): FindResult => ({ status: "ok", suggestions, costSek: 0.6, model: "haiku-5.5", place: "Uppsala" });
 
-export function fakeActions(result: FindResult = okResult(), menuLink: MenuLinkResult = { status: "ok", menuText: "Pasta al pomodoro 135 kr\nPizza margherita 125 kr", host: "trattoriasalvia.example" }): RestaurantAgentActions & { findRestaurants: ReturnType<typeof vi.fn>; readMenuLink: ReturnType<typeof vi.fn> } {
-  return { findRestaurants: vi.fn(async () => result), readMenuLink: vi.fn(async () => menuLink) } as never;
+export function fakeActions(result: FindResult = okResult()): RestaurantAgentActions & { findRestaurants: ReturnType<typeof vi.fn> } {
+  return { findRestaurants: vi.fn(async () => result) } as never;
 }
