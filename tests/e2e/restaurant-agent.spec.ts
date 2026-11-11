@@ -59,6 +59,10 @@ for (const size of [undefined, "xl"] as const) {
     await expect(maps).toHaveCount(1);
     await expect(maps).toBeVisible();
     await expect(page.getByTestId("restaurant-find")).toHaveCount(0);
+    // The radius as a radar, the way on to the photo, and no When / Vi är / priorities without the web search.
+    await expect(page.getByRole("img", { name: /Sökområde: ungefär 1 km/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Framme? Fota menyn" })).toBeVisible();
+    await expect(page.getByText("Vi är")).toHaveCount(0);
     await page.getByRole("button", { name: "Pizza" }).click();
     await expect(maps).toHaveAttribute("href", /search\/pizza%20restaurang\/@59\.86,17\.64,14z/);
     expect(await noSideScroll(page)).toBe(true);
@@ -70,8 +74,8 @@ test("the agent button shows only with the web search Tillval on, and needs the 
   await geo(page, "denied");
   await page.goto("/matsedel/menyer");
   await page.getByTestId("restaurant-agent-card").click();
-  await expect(page.getByTestId("restaurant-find")).toBeDisabled();
   await page.getByTestId("restaurant-place-retry").waitFor();
+  await expect(page.getByTestId("restaurant-find")).toHaveCount(0);
   expect(await noSideScroll(page)).toBe(true);
 });
 
@@ -82,7 +86,7 @@ test("the phone's place is asked by itself, and a refusal explains, keeps the ma
   await page.goto("/matsedel/menyer");
   const calls = () => page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls);
   await page.getByTestId("restaurant-agent-card").click();
-  await expect(page.getByText(/Din plats kunde inte hämtas/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Vi vet inte var du är" })).toBeVisible();
   expect(await calls()).toBe(1);
   await expect(page.getByTestId("direct-map-link")).toHaveAttribute("href", /query=restaurang$/);
   await page.getByTestId("restaurant-place-retry").click();
