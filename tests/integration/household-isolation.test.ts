@@ -49,10 +49,11 @@ type Coverage = {
   /** A row for the table as `owner`; foreign keys come from `seed`. */
   row: (seed: Seed, ownerId: string) => Record<string, unknown>;
   /**
-   * The table takes no write from a client (security review S-07: ai_setting is written only through
-   * the owner's functions), so the seed row is made with the service role, as `owner` in their household.
+   * The row is written with the service role for the owner, since no client may insert it (ai_setting: security
+   * review S-07, only the owner's functions write it; ai_usage: S-03, only ai_usage_reserve and ai_usage_settle write it;
+   * security-signup-ai.test.ts and ai-cap.test.ts try them).
    */
-  seededByService?: true;
+  byService?: true;
 };
 
 // Story 20.3: tables that are not one user's own. The owner of a feedback row may
@@ -69,8 +70,9 @@ const coveredInFeedbackTest = ["app_owner", "feedback", "push_event", "eat_soon_
 const coveredInAppInvitesTest = ["app_invite"];
 
 // Tak för AI-kostnad: the owner's one-row daily cap; no client reads or writes it, and the functions
-// around it answer the caller's own household or only the owner (ai-cap.test.ts tries each).
-const coveredInAiCapTest = ["ai_cap"];
+// around it answer the caller's own household or only the owner (ai-cap.test.ts tries each). The
+// reservations of ai_usage rows (security review S-02) are the same: RLS, no policy, no grant.
+const coveredInAiCapTest = ["ai_cap", "ai_usage_reservation"];
 
 // Nutrition values per ingredient name: shared reference data, no user or household; select for
 // authenticated only, nothing writable (nutrition.test.ts tries to read, write and read as anon).
@@ -92,8 +94,8 @@ type IsolatedTable = Exclude<TableName, "feedback">;
 // new table is a type error here too; the live schema check below is the one
 // that names it even when the types were not regenerated.
 const coverage: Record<IsolatedTable, Coverage> = {
-  ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }), seededByService: true },
-  ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }) },
+  ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }), byService: true },
+  ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }), byService: true },
   // Story 17.9: the hash is never granted for reading, so the generic checks below read A's row by id.
   api_key: { row: () => ({ key_hash: sha256(randomUUID()), label: "Siri" }) },
   ai_job: {
@@ -321,7 +323,7 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<IsolatedTa
   const seed = {} as Seed;
   const ids = new Map<IsolatedTable, string>();
   for (const table of seedOrder) {
-    const byService = coverage[table].seededByService === true;
+    const { byService } = coverage[table];
     const payload = byService ? { ...coverage[table].row(seed, ownerId), user_id: ownerId, household_id: await householdOf(ownerId) } : coverage[table].row(seed, ownerId);
     const inserted = await (byService ? adminClient() : owner)
       .from(table)
@@ -974,6 +976,9 @@ describe("household isolation", () => {
       "ai_cap_status", "ai_cap_households", "set_ai_cap",
       // Security review S-07: the owner's AI choice for the caller's own household (security-signup-ai.test.ts tries each).
       "set_ai_setting", "clear_ai_setting",
+      // Security review S-02, S-03: reserving and settling the caller's own household's usage, and whether it is
+      // exempt; ai-cap.test.ts tries B with A's reservation and with rows for A's household.
+      "ai_usage_reserve", "ai_usage_settle", "ai_cap_exempt",
       // Basvaror: Återställ standard, on the caller's own household (household-staple.test.ts tries it).
       "reset_household_staples",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).

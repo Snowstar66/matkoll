@@ -41,7 +41,7 @@ export function StartScreen({
   const names = company.map((person) => person.name);
   return (
     <div className="flex min-h-[calc(100dvh-14rem)] flex-1 flex-col gap-4" data-testid="menu-start">
-      <Headline sub="Ta en bild, så hittar jag något åt alla.">Vad står det på menyn?</Headline>
+      <Headline sub="Ta en bild, så hittar jag något åt alla.">Tolka menyn</Headline>
       {error ? <Notice role="alert">{error}</Notice> : null}
       <button
         type="button"

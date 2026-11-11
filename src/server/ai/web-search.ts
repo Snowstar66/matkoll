@@ -34,20 +34,37 @@ export type WebSearchTurn = {
   outputTokens: number;
 };
 
-export type WebSearchRunner = (request: WebSearchRequest, signal: AbortSignal) => Promise<Result<WebSearchTurn>>;
+/**
+ * What a run used, as far as the responses said: every response's tokens and searches, and whether
+ * a request ended without a response that may still be billed (aborted, timed out, a broken
+ * connection, a 5xx; not a 4xx refusal). Reported once, also when a later request throws
+ * (security review S-01), so the tokens of the earlier ones are not lost.
+ */
+export type WebSearchUsed = { inputTokens: number; outputTokens: number; searches: number; unanswered: boolean };
+
+export type WebSearchRunner = (
+  request: WebSearchRequest,
+  signal: AbortSignal,
+  onUsed?: (used: WebSearchUsed) => void,
+) => Promise<Result<WebSearchTurn>>;
 
 /** A search can pause the turn after its server-side loop; at most this many times the request is sent again to resume. */
 const maxResumes = 2;
+export const webSearchMaxResumes = maxResumes;
+
+/** What one search's results add to the request, for the worst case reserved before a run (about 30 000 tokens for two, as measured). */
+export const webSearchResultTokens = 15_000;
 
 export function createAnthropicWebSearch(config: { apiKey: string; fetch?: typeof fetch }): WebSearchRunner {
   const client = new Anthropic({ apiKey: config.apiKey, fetch: config.fetch, maxRetries: 1 });
-  return async (request, signal) => {
+  return async (request, signal, onUsed) => {
     const messages: Anthropic.MessageParam[] = [{ role: "user", content: request.user }];
     const urls = new Set<string>();
     const texts: string[] = [];
     let searches = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let unanswered = false;
     try {
       for (let turn = 0; turn <= maxResumes; turn += 1) {
         const response = await client.messages.create(
@@ -84,12 +101,16 @@ export function createAnthropicWebSearch(config: { apiKey: string; fetch?: typeo
         texts.length = 0;
       }
     } catch (error) {
+      const status = error instanceof Anthropic.APIError ? error.status : undefined;
+      // A 4xx is a refusal that generated nothing; any other failure may have been billed (S-01).
+      unanswered = !(typeof status === "number" && status >= 400 && status < 500);
       if (signal.aborted) return fail("ai_unavailable");
       // Only a fixed reason and the status are logged, never the prompt or the answer.
-      const status = error instanceof Anthropic.APIError ? error.status : undefined;
       console.error("web_search_failed", { status: status ?? "none" });
       if (typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429) return fail("ai_rejected");
       return fail("ai_unavailable");
+    } finally {
+      onUsed?.({ inputTokens, outputTokens, searches, unanswered });
     }
     return ok({ text: texts.join("\n"), sourceUrls: [...urls], searches, inputTokens, outputTokens });
   };

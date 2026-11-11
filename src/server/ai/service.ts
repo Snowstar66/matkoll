@@ -19,8 +19,17 @@ import {
 } from "@/lib/suggest-input";
 import type { Env } from "@/server/env-schema";
 import { anthropicThinkingRoom, createAnthropicTarget, photoReadingOptionsFor } from "./adapters/anthropic";
-import { createAnthropicWebSearch, parseJsonAnswer, type WebSearchRunner } from "./web-search";
-import { reportUsage, tokenCount } from "./usage";
+import {
+  createAnthropicWebSearch,
+  parseJsonAnswer,
+  webSearchMaxResumes,
+  webSearchResultTokens,
+  type WebSearchRunner,
+  type WebSearchTurn,
+  type WebSearchUsed,
+} from "./web-search";
+import { textTokens } from "./estimate";
+import { holdUsage, tokenCount } from "./usage";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
@@ -1368,25 +1377,54 @@ export function createModelAiService(
       }
       const quality = input.quality ?? "standard";
       const chosen = restaurantWebModels[quality];
-      const turn = await webSearch(
+      const request = {
+        model: chosen.model,
+        effort: chosen.effort,
+        system: prompts.findRestaurantsWeb,
+        user: findRestaurantsWebText(input),
+        city: /\d/.test(input.place) ? null : input.place,
+        maxSearches: inputLimits.findRestaurantsWeb.maxSearches,
+        maxOutputTokens: inputLimits.findRestaurantsWeb.maxOutputTokens + anthropicThinkingRoom,
+        timeoutMs: within.attemptMs,
+      };
+      // Tak för AI-kostnad (S-02): the worst case is reserved first; S-01: what was used is saved
+      // also when a later request of the run throws, and a request without an answer counts at
+      // what it sent. The searches are metered use, saved like a call
+      // (features/settings/domain/ai-usage.ts meteredUnitsUsd): units in inputTokens.
+      const sentTokens = textTokens(request.system) + textTokens(request.user);
+      const held = await holdUsage([
         {
           model: chosen.model,
-          effort: chosen.effort,
-          system: prompts.findRestaurantsWeb,
-          user: findRestaurantsWebText(input),
-          city: /\d/.test(input.place) ? null : input.place,
-          maxSearches: inputLimits.findRestaurantsWeb.maxSearches,
-          maxOutputTokens: inputLimits.findRestaurantsWeb.maxOutputTokens + anthropicThinkingRoom,
-          timeoutMs: within.attemptMs,
+          inputTokens: (sentTokens + request.maxSearches * webSearchResultTokens) * (webSearchMaxResumes + 1),
+          outputTokens: request.maxOutputTokens * (webSearchMaxResumes + 1),
         },
-        signal,
-      );
+        { model: "web-search", inputTokens: request.maxSearches, outputTokens: 0 },
+      ]);
+      if (!held.ok) {
+        console.info(held.code);
+        return fail(held.code);
+      }
+      let used: WebSearchUsed | undefined;
+      let turn: Result<WebSearchTurn> | undefined;
+      try {
+        turn = await webSearch(request, signal, (reported) => {
+          used = reported;
+        });
+      } finally {
+        // A runner that reports nothing (a fake) is taken at its answer's word, or at the estimate when it failed.
+        const spent = used ?? (turn?.ok ? { ...turn.data, unanswered: false } : { inputTokens: 0, outputTokens: 0, searches: 0, unanswered: true });
+        const usage = [
+          {
+            model: chosen.model,
+            inputTokens: tokenCount(spent.inputTokens) + (spent.unanswered ? sentTokens : 0),
+            outputTokens: tokenCount(spent.outputTokens),
+          },
+          ...(spent.searches > 0 ? [{ model: "web-search", inputTokens: tokenCount(spent.searches), outputTokens: 0 }] : []),
+        ].filter((row) => row.model === "web-search" || turn?.ok || row.inputTokens > 0 || row.outputTokens > 0);
+        await held.finish(usage);
+      }
       if (!turn.ok) return turn;
       const { data } = turn;
-      // The tokens of the call go to the day's cost like any call (the searches are counted by the caller).
-      await reportUsage({ model: chosen.model, inputTokens: tokenCount(data.inputTokens), outputTokens: tokenCount(data.outputTokens) });
-      // The searches are metered use, saved like a call (features/settings/domain/ai-usage.ts meteredUnitsUsd): units in inputTokens.
-      if (data.searches > 0) await reportUsage({ model: "web-search", inputTokens: tokenCount(data.searches), outputTokens: 0 });
       const parsed = parseJsonAnswer(data.text, findRestaurantsWebAnswer);
       if (!parsed) {
         console.error("ai_invalid", { reason: "web_answer_shape" });

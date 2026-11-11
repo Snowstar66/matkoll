@@ -170,7 +170,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(page).toHaveURL(/\/matsedel\/menyer$/);
 
   // 1. Start: a question, who is with, one button, a quiet link. Alone first, then with company.
-  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
   await expect(page.getByTestId("menu-company-line")).toHaveText("Bara du");
   await expect(page.getByTestId("menu-first-time")).toHaveCount(0);
   await page.screenshot({ path: `${shots}/01-start-alone.png` });
@@ -279,7 +279,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   // Klart twice ends the journey at the start.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await page.getByRole("button", { name: "Klart", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
 });
 
 test("the answer without company or preferences has no marks, and says allergens are not filtered; Läs noggrannare reads again", async ({ page }) => {
@@ -371,7 +371,7 @@ test("a failed reading says why right under the question, without scrolling", as
   const alert = page.getByRole("alert").filter({ hasText: "Dagens AI-tak är nått" });
   await expect(alert).toBeVisible();
   await expect(alert).toBeInViewport({ ratio: 1 });
-  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
   await page.screenshot({ path: `${shots}/19-error-cap.png` });
 });
 
@@ -404,7 +404,7 @@ test("Avbryt on the reading screen goes back to the start", async ({ page }) => 
   await takePhoto(page);
   await expect(page.getByTestId("menu-reading")).toBeVisible();
   await page.getByRole("button", { name: "Avbryt" }).click();
-  await expect(page.getByRole("heading", { name: "Vad står det på menyn?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
   await expect(page.locator("p[role=alert]")).toHaveCount(0);
 });
 

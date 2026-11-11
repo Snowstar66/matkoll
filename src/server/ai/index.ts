@@ -2,7 +2,7 @@ import "server-only";
 import { fail } from "@/lib/errors";
 import { env } from "@/server/env";
 import { createAiService, type AiChoice, type AiService } from "./service";
-import { withUsageSink, type AiUsageSink } from "./usage";
+import { withUsageSink, type AiCapRefusal, type AiUsageReserver, type AiUsageSink } from "./usage";
 
 // Entry point of the AI port (AD-9). Only src/server/ai imports the AI SDK.
 
@@ -59,7 +59,7 @@ export { nowIdeaKinds } from "./schemas";
 export type { AiListItem, AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
 export { maxListItems, maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
-export type { AiUsage, AiUsageSink } from "./usage";
+export type { AiCapRefusal, AiUsage, AiUsageHold, AiUsageReserver, AiUsageSink } from "./usage";
 
 let service: AiService | undefined;
 
@@ -78,24 +78,30 @@ const choiceServices = new Map<string, AiService>();
  * Story 17.6: with a `sink`, every call of the returned service reports the
  * model and the tokens it used to it (once per call, over all attempts).
  */
-export function getAiServiceFor(choice: AiChoice | null, sink?: AiUsageSink, gate?: AiGate): AiService {
+export function getAiServiceFor(choice: AiChoice | null, sink?: AiUsageSink, gate?: AiGate, reserve?: AiUsageReserver): AiService {
   const base = choiceService(choice);
-  const counted = sink ? withSink(base, sink) : base;
+  const counted = sink || reserve ? withSink(base, sink, reserve) : base;
   return gate ? withGate(counted, gate) : counted;
 }
 
 /**
  * Tak för AI-kostnad: asked before each call of the port; `false` stops the call, which then answers
- * `ai_cap_reached` without reaching the model. Must not throw (a failed check is for the caller to let through).
+ * `ai_cap_reached` without reaching the model, and a refusal code answers that code (the cap could
+ * not be checked: fails closed, security review S-03). Must not throw.
+ * Security review S-02: with a reserver (getAiServiceFor's `reserve`), every run of the call then also
+ * reserves its worst case against the cap before it asks the model (usage.ts holdUsage).
  */
-export type AiGate = () => Promise<boolean>;
+export type AiGate = () => Promise<boolean | AiCapRefusal>;
 
-/** The service whose calls (not warmUp) first ask `gate` and, when it says no, answer `ai_cap_reached`. */
+/** The service whose calls (not warmUp) first ask `gate` and, when it says no, answer `ai_cap_reached` (or its refusal). */
 function withGate(service: AiService, gate: AiGate): AiService {
   const gated =
     <Args extends unknown[], Answer>(call: (...args: Args) => Promise<Answer>) =>
-    async (...args: Args): Promise<Answer | ReturnType<typeof fail>> =>
-      (await gate()) ? call(...args) : fail("ai_cap_reached");
+    async (...args: Args): Promise<Answer | ReturnType<typeof fail>> => {
+      const verdict = await gate();
+      if (verdict === true) return call(...args);
+      return fail(verdict === false ? "ai_cap_reached" : verdict);
+    };
   return {
     parseRecipe: gated(service.parseRecipe),
     suggestDishes: gated(service.suggestDishes),
@@ -128,24 +134,25 @@ function choiceService(choice: AiChoice | null): AiService {
   return chosen;
 }
 
-/** The service with each call run under `sink`. warmUp is left out: it is local and a single token. */
-function withSink(service: AiService, sink: AiUsageSink): AiService {
+/** The service with each call run under `sink` and `reserve`. warmUp is left out: it is local and a single token. */
+function withSink(service: AiService, sink: AiUsageSink | undefined, reserve: AiUsageReserver | undefined): AiService {
+  const metered = <T>(run: () => T): T => withUsageSink(sink, run, reserve);
   return {
-    parseRecipe: (input, signal) => withUsageSink(sink, () => service.parseRecipe(input, signal)),
-    suggestDishes: (input, signal, options) => withUsageSink(sink, () => service.suggestDishes(input, signal, options)),
-    ideasNow: (input, signal, options) => withUsageSink(sink, () => service.ideasNow(input, signal, options)),
-    analyzeImage: (input, signal, options) => withUsageSink(sink, () => service.analyzeImage(input, signal, options)),
-    listThings: (input, signal, options) => withUsageSink(sink, () => service.listThings(input, signal, options)),
-    locateThing: (input, signal, options) => withUsageSink(sink, () => service.locateThing(input, signal, options)),
-    readShoppingList: (input, signal, options) => withUsageSink(sink, () => service.readShoppingList(input, signal, options)),
-    readMenu: (input, signal, options) => withUsageSink(sink, () => service.readMenu(input, signal, options)),
-    askThings: (input, signal, options) => withUsageSink(sink, () => service.askThings(input, signal, options)),
-    mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
-    matchOffers: (input, signal, options) => withUsageSink(sink, () => service.matchOffers(input, signal, options)),
-    planWeek: (input, signal, options) => withUsageSink(sink, () => service.planWeek(input, signal, options)),
-    findRestaurantsWeb: (input, signal, options) => withUsageSink(sink, () => service.findRestaurantsWeb(input, signal, options)),
-    thingSearchTerms: (input, signal, options) => withUsageSink(sink, () => service.thingSearchTerms(input, signal, options)),
-    categorizeThings: (input, signal, options) => withUsageSink(sink, () => service.categorizeThings(input, signal, options)),
+    parseRecipe: (input, signal) => metered(() => service.parseRecipe(input, signal)),
+    suggestDishes: (input, signal, options) => metered(() => service.suggestDishes(input, signal, options)),
+    ideasNow: (input, signal, options) => metered(() => service.ideasNow(input, signal, options)),
+    analyzeImage: (input, signal, options) => metered(() => service.analyzeImage(input, signal, options)),
+    listThings: (input, signal, options) => metered(() => service.listThings(input, signal, options)),
+    locateThing: (input, signal, options) => metered(() => service.locateThing(input, signal, options)),
+    readShoppingList: (input, signal, options) => metered(() => service.readShoppingList(input, signal, options)),
+    readMenu: (input, signal, options) => metered(() => service.readMenu(input, signal, options)),
+    askThings: (input, signal, options) => metered(() => service.askThings(input, signal, options)),
+    mergeThings: (input, signal, options) => metered(() => service.mergeThings(input, signal, options)),
+    matchOffers: (input, signal, options) => metered(() => service.matchOffers(input, signal, options)),
+    planWeek: (input, signal, options) => metered(() => service.planWeek(input, signal, options)),
+    findRestaurantsWeb: (input, signal, options) => metered(() => service.findRestaurantsWeb(input, signal, options)),
+    thingSearchTerms: (input, signal, options) => metered(() => service.thingSearchTerms(input, signal, options)),
+    categorizeThings: (input, signal, options) => metered(() => service.categorizeThings(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),
     warmUpKey: (kind) => service.warmUpKey(kind),
   };

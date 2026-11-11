@@ -652,8 +652,17 @@ describe("ai_setting (Story 17.5)", () => {
 });
 
 describe("ai_usage (Story 17.6)", () => {
-  it("isolates ai_usage", async () => {
-    await expectRlsIsolation("ai_usage", async () => ({ model: "claude-haiku-5-5", input_tokens: 10, output_tokens: 5 }));
+  it("isolates ai_usage: a user's rows, written through the functions, are theirs alone", async () => {
+    // Security review S-03: no client inserts rows any more; ai-cap.test.ts tries the functions and the
+    // refused inserts, household-isolation.test.ts the household's rows against another household and anon.
+    const owner = await createTestUser("ai-usage-iso-owner");
+    const other = await createTestUser("ai-usage-iso-other");
+    await insertAiUsageIn(owner.db, { model: "claude-haiku-5-5", inputTokens: 10, outputTokens: 5 });
+    const own = await owner.db.from("ai_usage").select("id, user_id");
+    expect(own.data).toHaveLength(1);
+    expect(own.data?.[0]?.user_id).toBe(owner.id);
+    expect((await other.db.from("ai_usage").select("id").eq("id", own.data![0]!.id)).data).toEqual([]);
+    expect((await anonClient().from("ai_usage").select("id")).error?.code).toBe("42501");
   });
 
   it("records calls and sums them per model within a month, for the user only", async () => {
@@ -683,9 +692,13 @@ describe("ai_usage (Story 17.6)", () => {
 
   it("refuses negative tokens and an empty model", async () => {
     const user = await createTestUser("ai-usage-bad");
-    const insert = (row: Record<string, unknown>) => user.db.from("ai_usage").insert({ model: "m", input_tokens: 1, output_tokens: 1, ...row });
-    expect((await insert({ input_tokens: -1 })).error?.code).toBe("23514");
-    expect((await insert({ output_tokens: -1 })).error?.code).toBe("23514");
-    expect((await insert({ model: "" })).error?.code).toBe("23514");
+    const reserve = (row: Record<string, unknown>) => user.db.rpc("ai_usage_reserve", { usage: [{ model: "m", input_tokens: 1, output_tokens: 1, ...row }] });
+    expect((await reserve({ input_tokens: -1 })).error?.code).toBe("22023");
+    expect((await reserve({ output_tokens: -1 })).error?.code).toBe("22023");
+    expect((await reserve({ model: "" })).error?.code).toBe("22023");
+    // The table's own checks still hold for a write behind the functions' back.
+    const admin = (row: Record<string, unknown>) => adminClient().from("ai_usage").insert({ user_id: user.id, model: "m", input_tokens: 1, output_tokens: 1, ...row });
+    expect((await admin({ input_tokens: -1 })).error?.code).toBe("23514");
+    expect((await admin({ model: "" })).error?.code).toBe("23514");
   });
 });
