@@ -12,10 +12,13 @@ import {
   listRecipes as listRecipesIn,
   type ListOptions,
 } from "./data/queries";
+import { RecipeDataError } from "./data/client";
 import { countWithImageIn, countWithoutImageIn, downloadImageIn, imageFolderOf } from "./data/image";
 import type { RecipeImageSize } from "./domain/recipe-image";
 import { missingNames } from "./data/missing-names";
 import { getSharedIn, listSharedIn, saversIn, sharingIn } from "./data/shared";
+import { isOwnerIn, listStarterIn, listStarterPackIn, starterCopiesIn, starterImageFolderIn, starterRoomIn } from "./data/starter";
+import type { StarterListRow, StarterPackEntry, StarterRoom } from "./domain/starter-recipe";
 import {
   toLibrary,
   withStatus,
@@ -244,4 +247,59 @@ export async function getRecipeImageStatus(): Promise<{ withCopy: number; missin
   const db = await createClient();
   const [withCopy, missing] = await Promise.all([countWithImageIn(db), countWithoutImageIn(db)]);
   return { withCopy, missing };
+}
+
+/**
+ * Startrecept, the picker (/recept/startrecept): the pack in its order with the household's own copy of
+ * each, how many recipes the household has against the cap, and its starter copies (how many, and how
+ * many are untouched, for "Ta bort startrecepten"). Throws RecipeDataError.
+ */
+export async function getStarterPicker(): Promise<{ rows: StarterListRow[]; room: StarterRoom; copies: { total: number; untouched: number } }> {
+  const db = await createClient();
+  const [rows, room, copies] = await Promise.all([listStarterIn(db), starterRoomIn(db), starterCopiesIn(db)]);
+  return { rows, room, copies: { total: copies.length, untouched: copies.filter((copy) => copy.untouched).length } };
+}
+
+/** Startrecept on Recept: how many pack recipes the household has not added yet. Throws RecipeDataError. */
+export async function getStarterOffer(): Promise<{ available: number; total: number }> {
+  const rows = await listStarterIn(await createClient());
+  return { available: rows.filter((row) => row.copyId === null).length, total: rows.length };
+}
+
+/** The pack as the app's owner manages it (/installningar/startrecept); `null` for anyone else. Throws RecipeDataError. */
+export async function getStarterPack(): Promise<StarterPackEntry[] | null> {
+  return listStarterPackIn(await createClient());
+}
+
+/**
+ * The recipe view's menu, for the app's owner only: whether the recipe `id` is in the pack (its item,
+ * or null). `null` for anyone but the owner, so the menu has no such item for them. Never throws.
+ */
+export async function getStarterMembership(id: string): Promise<{ itemId: string | null } | null> {
+  if (!recipeIdSchema.safeParse(id).success) return null;
+  try {
+    const db = await createClient();
+    if (!(await isOwnerIn(db))) return null;
+    const pack = await listStarterPackIn(db);
+    if (!pack) return null;
+    return { itemId: pack.find((entry) => entry.recipeId === id)?.itemId ?? null };
+  } catch (error) {
+    console.error("starter_membership_unavailable", { reason: error instanceof RecipeDataError ? error.detail : "unexpected" });
+    return null;
+  }
+}
+
+/**
+ * A pack recipe's stored picture for the route src/app/api/starter-image: the file and its media type,
+ * or `null` for an id that is not a uuid, an item that is not in the pack, or a recipe without a stored
+ * picture (all the same answer). Read with the session client: the bucket's policy lets any signed-in
+ * member read a pack recipe's files, and nothing else of another household. Throws RecipeDataError.
+ */
+export async function readStarterImage(itemId: string, size: RecipeImageSize): Promise<{ data: Blob; mediaType: string } | null> {
+  if (!recipeIdSchema.safeParse(itemId).success) return null;
+  const db = await createClient();
+  const folder = await starterImageFolderIn(db, itemId);
+  if (!folder) return null;
+  const data = await downloadImageIn(db, folder, size);
+  return data ? { data, mediaType: data.type === "image/jpeg" ? "image/jpeg" : "image/webp" } : null;
 }

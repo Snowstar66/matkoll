@@ -7,3 +7,4 @@
 
 Föreslagen start i BMAD: låt PM-agenten ta fram PRD från `brief.md`, och låt UX-steget utgå från `ux/`.
 - `molnet.md` – guide för flytten till Vercel och Supabase (Story 17.3) med readiness-rapport; `drift.md` är fördjupningen.
+- `startrecept.md` – Startrecept (Kom igång med recept): ägarens paket, hushållets resa, kopior, borttagning och databasen.

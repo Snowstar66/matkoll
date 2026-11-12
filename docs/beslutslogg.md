@@ -2,6 +2,18 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-11-12 – Startrecept: ett valbart paket av ägarens egna recept
+
+- **Pontus beslut:** startrecepten är **valbara** (aldrig automatiska), bilderna ligger i vår egen lagring, receptens texter skrivs **inte** om, offline är parkerat. Paketet är **inte** hårdkodat: det ligger i databasen och appens ägare sköter det i appen (lägga till eget recept, ta bort, ordning och kort anteckning, förhandsvisning som ett nytt hushåll som inte kopierar något). Allt bakom Tillval *Startrecept* (per enhet, av som standard). Bara tillägg i databasen, radskydd överallt.
+- **Paketet är en lista över ägarens egna recept** (`starter_pack_item`, `20261112120000_starter_recipes.sql`), inte kopior: ändrar ägaren ett recept ser nästa hushåll den nya versionen. Repot har inga recept; paketet är tomt tills ägaren lägger in något. Rätten till texter och bilder är Pontus ansvar (egna recept och foton går bra, sajters recept kan vara skyddade); en kopia från Delade recept går inte att lägga i paketet.
+- **Över hushållsgränsen bara via funktioner**, som Delade recept: tabellen har ingen behörighet för någon klient, medlemmarnas funktioner ger bara receptet (aldrig ägarens hushåll, favoriter, anteckningar eller matsedel), ägarens svarar bara `is_app_owner()`. Bilden: en ny läspolicy på `storage.objects` låter inloggade medlemmar läsa filerna för recept som ligger i paketet, så att servern kan kopiera dem till hushållets egen mapp med hushållets egen session (ingen admin-nyckel). Inget annat i bucketen öppnas. Detta är ett tredje, smalt undantag till AD-15/AD-26: bara filer som ägaren själv lagt i paketet.
+- **Markeringen och "Ta bort startrecepten":** en kopia får `recipe.starter_item_id` och `recipe.starter_fingerprint` (md5 av innehållet när det kopierades). Orörd = samma fingeravtryck, ingen favorit, inte delad, inte på någon matsedel. Bara orörda tas bort; ändrade och egna recept rörs aldrig. `source_kind` ändrades inte (det hade krävt att den befintliga checken ändrades).
+- **Dubbletter:** ett unikt index per hushåll och post och ett lås per hushåll; *Finns redan* i väljaren.
+- **Receptgränsen:** det fanns ingen. Startkopior stoppas vid 400 recept i hushållet (`starter_recipe_household_cap()`, samma antal som bildtaket rymmer). Gränsen gäller **bara** startrecept, så inget befintligt flöde ändras. Öppen fråga till Pontus: ska 400 gälla alla recept?
+- **Allergier:** samma ordmatchning som i Recept (Smak och allergier) märker kort med *Kan innehålla …* och ger chipet *Passar alla*; inget döljs utan att man väljer det. Snabbfiltren är receptkategorierna (Vegetariskt, Fisk, Kött, Snabbt …) räknade ur texterna; *Barnvänligt* och *Glutenfritt* från skissen kräver uppgifter som recepten inte har och byggdes inte.
+- **Var erbjudandet syns:** skissens A (tom lista) och C (raden *Fler recept?* sist i listan). Plusknappen öppnar import som förut (B byggdes inte, så inget befintligt flöde ändras).
+- **Detaljer:** `docs/startrecept.md`.
+
 ## 2026-11-12 – Receptbilder sparas i egen lagring (ändring av AD-15, efter AD-26)
 
 - **Pontus beslut:** "Valbart, och spara bilderna i egen lagring. men skriv inte om receptexter. de ska fortsätta importeras som de är skrivna och sparas." Det här är första delen (bilderna); ett valbart startpaket med recept åt nya hushåll är nästa del och byggs inte här.

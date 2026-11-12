@@ -10,7 +10,7 @@ import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
 import type { SavedRecipe } from "@/features/recipes";
-import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry } from "@/features/recipes/server";
+import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry, getStarterMembership } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -97,11 +97,13 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const [found, offers, listedIds] = await Promise.all([getRecipeWithPantry(id), readLineOffers(), readListedIds()]);
   if (!found) notFound();
   const { recipe, snapshot, site, staples } = found;
-  const [{ weeks, remembered, plan }, savers, nameIsDefault, people] = await Promise.all([
+  const [{ weeks, remembered, plan }, savers, nameIsDefault, people, starterPack] = await Promise.all([
     readPlanWeeks(recipe.id),
     readSavers(recipe),
     readNameIsDefault(recipe),
     getFoodFitPeople(),
+    // Startrecept: only the app's owner gets an answer (whether the recipe is in the pack); null for anyone else.
+    getStarterMembership(recipe.id),
   ]);
   // Hushållets preferenser held against the recipe's ingredient lines; none without preferences.
   const fit = foodFit({ name: recipe.title, ingredients: recipe.lines.map((line) => line.originalText) }, people);
@@ -118,7 +120,15 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       snapshot={snapshot}
       site={site}
       staples={staples}
-      menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} nameIsDefault={nameIsDefault} />}
+      menu={
+        <RecipeMenu
+          recipe={recipe}
+          searchIngredients={searchIngredients}
+          onMenu={onMenu}
+          nameIsDefault={nameIsDefault}
+          starterPack={starterPack ?? undefined}
+        />
+      }
       addToPlan={addToCurrentPlan}
       offers={offers}
       listedIds={listedIds}

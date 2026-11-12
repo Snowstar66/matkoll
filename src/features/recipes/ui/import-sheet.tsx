@@ -957,7 +957,7 @@ export function ImportRecipeProvider({
 }
 
 /** Opens Importera recept: the round "+" for the page header, or a primary button. */
-export function ImportRecipeButton({ variant }: { variant: "icon" | "primary" }) {
+export function ImportRecipeButton({ variant }: { variant: "icon" | "primary" | "text" }) {
   const context = useContext(ImportContext);
   if (!context) throw new Error("ImportRecipeButton needs an ImportRecipeProvider");
   if (variant === "icon") {
@@ -970,6 +970,14 @@ export function ImportRecipeButton({ variant }: { variant: "icon" | "primary" })
       >
         <PlusIcon size={26} />
       </button>
+    );
+  }
+  // Startrecept (the sketch's empty list): the import as the quiet second way, under "Välj startrecept".
+  if (variant === "text") {
+    return (
+      <Button variant="text" onClick={context.openImport}>
+        Importera ett eget recept
+      </Button>
     );
   }
   return <Button onClick={context.openImport}>Importera recept</Button>;

@@ -114,6 +114,11 @@ const routesByTable = {
   ],
   // The household's name, on Medlemmar and the start page of Inställningar.
   household: [{ path: "/installningar", type: "layout" }],
+  // Startrecept: the owner's pack, on the owner's page and in the picker under Recept.
+  starter_pack_item: [
+    { path: "/installningar", type: "layout" },
+    { path: "/recept", type: "layout" },
+  ],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

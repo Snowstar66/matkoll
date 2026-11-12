@@ -52,6 +52,13 @@ export const options = [
   { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
   { id: "restaurantAgent", group: "menu", label: "Äta ute", hint: "Sök restauranger i Google Maps med dina val ifyllda. Gratis. Telefonen frågar om plats när du öppnar sidan, och den sparas inte", defaultOn: false },
   { id: "restaurantAgentWeb", group: "menu", label: "Låt agenten söka på webben", hint: "Låt agenten söka restauranger på webben åt dig. Experimentell, kostar Claude-tokens, cirka 1 kr per sökning", defaultOn: false },
+  {
+    id: "starterRecipes",
+    group: "household",
+    label: "Startrecept",
+    hint: "Välj bland färdiga vardagsrätter med bild och lägg dem i er receptlista. Inget läggs till av sig självt",
+    defaultOn: false,
+  },
   { id: "weekAgent", group: "household", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];

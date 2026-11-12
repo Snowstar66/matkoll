@@ -18,6 +18,12 @@ vi.mock("../actions/update-recipe", () => ({
 const deleteRecipe = vi.fn<(id: string) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/delete-recipe", () => ({ deleteRecipe: (id: string) => deleteRecipe(id) }));
 const setRecipeShared = vi.fn<(change: { id: string; shared: boolean }, householdName?: string) => Promise<Result<{ id: string; shared: boolean }>>>();
+const addToStarterPack = vi.fn<(id: string) => Promise<Result<null>>>();
+const removeFromStarterPack = vi.fn<(id: string) => Promise<Result<null>>>();
+vi.mock("../actions/starter-recipes", () => ({
+  addToStarterPack: (id: string) => addToStarterPack(id),
+  removeFromStarterPack: (id: string) => removeFromStarterPack(id),
+}));
 vi.mock("../actions/share-recipe", () => ({
   setRecipeShared: (change: { id: string; shared: boolean }, householdName?: string) => setRecipeShared(change, householdName),
 }));
@@ -382,6 +388,28 @@ describe("RecipeMenu", () => {
       "Receptet har ändrats någon annanstans. Stäng och öppna det igen.",
     );
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the app's owner Lägg i startpaketet and Ta bort ur startpaketet, and nobody else (Startrecept)", async () => {
+    addToStarterPack.mockResolvedValue(ok(null));
+    removeFromStarterPack.mockResolvedValue(ok(null));
+    const first = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).not.toContain("Lägg i startpaketet");
+    first.unmount();
+
+    const owner = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} starterPack={{ itemId: null }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Lägg i startpaketet" })));
+    expect(addToStarterPack).toHaveBeenCalledWith(recipe.id);
+    expect(screen.getAllByText("Ligger nu i startpaketet.").length).toBeGreaterThan(0);
+    owner.unmount();
+
+    render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} starterPack={{ itemId: "55555555-5555-4555-8555-555555555555" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ändra", "Dela med andra", "Ta bort ur startpaketet", "Ta bort"]);
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Ta bort ur startpaketet" })));
+    expect(removeFromStarterPack).toHaveBeenCalledWith("55555555-5555-4555-8555-555555555555");
   });
 
   it("says why it cannot save when the problem is in something the form does not show", () => {

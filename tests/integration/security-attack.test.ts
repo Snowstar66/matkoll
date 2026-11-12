@@ -50,6 +50,8 @@ const intentionallyNotScoped: Record<string, string> = {
   push_event: "Queue of changes to push. RLS on, no policy, no grant; claimed by household in claim_push_batches (push.test.ts).",
   eat_soon_sent: "The day a household was told about food to eat soon. RLS on, no policy, no grant (eat-soon.test.ts).",
   ai_usage_reservation: "Which ai_usage rows are placeholders of a running AI call (cost cap, S-02). RLS on, no policy, no grant for any client; only the security definer functions ai_usage_reserve and ai_usage_settle touch it (ai-cap.test.ts).",
+  starter_pack_item:
+    "Startrecept: the app owner's pack, rows naming the owner's own recipes (no user or household of its own). RLS on, no policy, no grant for any client; only the owner-gated functions write it and the members' functions read the recipes in it (starter-recipes.test.ts).",
   household: "The household itself: its id is the household id (no household_id column). authenticated may SELECT only their own (id = my_household_id()); every write is refused (household-isolation.test.ts).",
   // Shared recipes (Delade recept) are read through list_shared_recipes()/get_shared_recipe() with explicit
   // rules; the table itself is the household's own (household_id) so it is scoped, not an exception here.

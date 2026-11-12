@@ -347,6 +347,13 @@ export const newsEmail = "e2e-brickor@matkoll.test";
 export const sharedOwnerEmail = "e2e-delade@matkoll.test";
 export const sharedSaverEmail = "e2e-delade-2@matkoll.test";
 /**
+ * The two E2E users of starter-recipes.spec.ts alone (Startrecept): the first is made the app's owner in
+ * app_owner for the spec and puts its own recipes in the pack; the second is a new household that chooses
+ * and copies them, and removes the untouched copies.
+ */
+export const starterOwnerEmail = "e2e-startrecept@matkoll.test";
+export const starterUserEmail = "e2e-startrecept-2@matkoll.test";
+/**
  * AI_SETTINGS_PASSWORD for the E2E server (see playwright.config.ts): there is no built-in password
  * (security review S-08), so the page AI is unlocked with this test value.
  */
@@ -413,6 +420,8 @@ export const e2eEmails = [
   listImportEmail,
   sharedOwnerEmail,
   sharedSaverEmail,
+  starterOwnerEmail,
+  starterUserEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -474,6 +483,8 @@ export const staplesStorageState = "tests/e2e/.auth/staples.json";
 export const listImportStorageState = "tests/e2e/.auth/list-import.json";
 export const sharedOwnerStorageState = "tests/e2e/.auth/shared-owner.json";
 export const sharedSaverStorageState = "tests/e2e/.auth/shared-saver.json";
+export const starterOwnerStorageState = "tests/e2e/.auth/starter-owner.json";
+export const starterUserStorageState = "tests/e2e/.auth/starter-user.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 
