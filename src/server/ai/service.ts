@@ -1721,7 +1721,7 @@ export function planWeekText(input: PlanWeekInput): string {
   lines.push(`Budget: ${input.budget === "low" ? "låg" : "normal"}`);
   lines.push(`Snabba vardagar: ${input.quickWeekdays ? "på" : "av"}`);
   lines.push(`Använd det som går ut snart: ${input.useSoonFirst ? "på" : "av"}`);
-  lines.push(`Gynna extrapriser: ${input.favourOffers ? "på" : "av"}`);
+  lines.push(`Gynna erbjudanden: ${input.favourOffers ? "på" : "av"}`);
   if (input.likes.length > 0) lines.push(`Hushållet gillar: ${input.likes.join(", ")}`);
   if (input.dislikes.length > 0) lines.push(`Hushållet ogillar: ${input.dislikes.join(", ")}`);
   if (input.recent.length > 0) lines.push(`Lagat nyligen: ${input.recent.map((item) => `${item.title} (${item.weeksAgo === 1 ? "förra veckan" : `för ${item.weeksAgo} veckor sedan`})`).join("; ")}`);
@@ -1730,7 +1730,7 @@ export function planWeekText(input: PlanWeekInput): string {
     if (item.minutes !== null) parts.push(`${item.minutes} min`);
     if (item.vegetarian) parts.push("vegetarisk");
     if (item.ingredients.length > 0) parts.push(`Ingredienser: ${item.ingredients.join("; ")}`);
-    if (item.offers.length > 0) parts.push(`Extrapris: ${item.offers.join("; ")}`);
+    if (item.offers.length > 0) parts.push(`Erbjudande: ${item.offers.join("; ")}`);
     if (item.useSoon.length > 0) parts.push(`Går ut snart: ${item.useSoon.join("; ")}`);
     return parts.join(" | ");
   });

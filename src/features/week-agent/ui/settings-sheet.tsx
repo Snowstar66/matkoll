@@ -206,7 +206,7 @@ export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, 
               <span className="text-meta text-ink-2">Hämtas från Hushållet. Allergier tas aldrig bort eller gissas.</span>
             </li>
             <SwitchRow label="Det som snart går ut" hint="Äts först" on={settings.useSoonFirst} onToggle={() => patch({ useSoonFirst: !settings.useSoonFirst })} />
-            <SwitchRow label="Erbjudanden i veckan" hint="Rätter med extrapris väljs oftare" on={settings.favourOffers} onToggle={() => patch({ favourOffers: !settings.favourOffers })} />
+            <SwitchRow label="Erbjudanden i veckan" hint="Rätter på erbjudande väljs oftare" on={settings.favourOffers} onToggle={() => patch({ favourOffers: !settings.favourOffers })} />
           </Group>
           <Group label="Du kan välja">
             <li className="flex min-h-14 items-center justify-between gap-3 px-4 py-2">
