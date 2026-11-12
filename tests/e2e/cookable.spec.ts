@@ -228,7 +228,8 @@ test("Visa vem rätten passar: dots for those who stand out replace the notes, n
   // The recipe page: a dot is a button of at least 32 px that opens a bubble with the sentence.
   await row(soppa).getByRole("link").click();
   const toggle = page.getByTestId("fit-row").filter({ visible: true }).getByRole("button").first();
-  expect((await toggle.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(32);
+  // Polled: the box is read while the page is still settling after the navigation.
+  await expect.poll(async () => (await toggle.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(32);
   await toggle.click();
   await expect(page.getByTestId("fit-bubble")).toContainText(/undviker linser/);
   if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/passar-receptsida.png` });
