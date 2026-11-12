@@ -32,6 +32,8 @@ export type WeekPool = {
   dishes: WeekDish[];
   people: FitPerson[];
   recent: RecentRecipe[];
+  /** The days of `weekStart` that are over (before today in Stockholm). */
+  pastDays: number[];
   /** A recipe's own servings (1 when unknown), for the dish "Använd veckan" writes. */
   servingsOf: (recipeId: string) => number | null;
   /** Ingredient lines by recipe id, for the fixed days. */
@@ -101,7 +103,9 @@ export async function readWeekPool(weekStart: string, settings: WeekAgentSetting
     offers: offers.get(row.id) ?? [],
     useSoon: useSoonOf(row, soonFacts),
   }));
-  return { pool, dishes, people, recent, servingsOf: (id) => byId.get(id)?.originalServings ?? null, linesOf: (id) => (id ? (byId.get(id)?.lines.map((line) => line.originalText) ?? []) : []) };
+  const today = stockholmDayKey(now);
+  const pastDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => addDays(weekStart, day - 1) < today);
+  return { pool, dishes, people, recent, pastDays, servingsOf: (id) => byId.get(id)?.originalServings ?? null, linesOf: (id) => (id ? (byId.get(id)?.lines.map((line) => line.originalText) ?? []) : []) };
 }
 
 /**
