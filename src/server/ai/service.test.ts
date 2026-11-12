@@ -1673,9 +1673,9 @@ describe("planWeek on a model (Veckoagenten)", () => {
   const answer = (dagar: unknown[]) => JSON.stringify({ dagar });
 
   it("sends the plan prompt and the numbered dishes without ids, names or allergies, and maps the numbers back to ids", async () => {
-    const model = fakeModel(answer([{ dag: 1, recept: 1, skal: [" Extrapris på nötfärs "] }, { dag: 2, recept: 2, skal: [] }]));
+    const model = fakeModel(answer([{ dag: 1, recept: 1, skal: [" Erbjudande på nötfärs "] }, { dag: 2, recept: 2, skal: [] }]));
     const result = await createModelAiService({ model }, limits).planWeek(input, signal());
-    expect(result).toEqual({ ok: true, data: { quality: "standard", picks: [{ dayIndex: 1, recipeId: "id-a", reasons: ["Extrapris på nötfärs"] }, { dayIndex: 2, recipeId: "id-b", reasons: [] }] } });
+    expect(result).toEqual({ ok: true, data: { quality: "standard", picks: [{ dayIndex: 1, recipeId: "id-a", reasons: ["Erbjudande på nötfärs"] }, { dayIndex: 2, recipeId: "id-b", reasons: [] }] } });
     const call = model.doGenerateCalls[0];
     expect(call.maxOutputTokens).toBe(inputLimits.planWeek.maxOutputTokens);
     const [system, user] = call.prompt;
@@ -1685,7 +1685,7 @@ describe("planWeek on a model (Veckoagenten)", () => {
     expect(text).toContain("Lediga dagar: måndag, tisdag, onsdag");
     expect(text).toContain("Bestämda dagar: torsdag Pannkakor");
     expect(text).toContain("Vegetariska dagar: tisdag");
-    expect(text).toContain("1. Pasta med köttfärssås | 35 min | Ingredienser: 400 g spaghetti; 500 g nötfärs | Extrapris: Nötfärs 69 kr/kg hos ICA");
+    expect(text).toContain("1. Pasta med köttfärssås | 35 min | Ingredienser: 400 g spaghetti; 500 g nötfärs | Erbjudande: Nötfärs 69 kr/kg hos ICA");
     expect(text).toContain("2. Linssoppa | vegetarisk | Ingredienser: 3 dl röda linser | Går ut snart: grädde, går ut fredag");
     expect(text).not.toContain("id-a");
     expect(prompts.planWeek).toContain("Allergier kontrolleras i kod");

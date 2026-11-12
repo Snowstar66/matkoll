@@ -98,7 +98,7 @@ describe("planDeterministic", () => {
     const result = planDeterministic(input(pool));
     if (result.status !== "ok") throw new Error("ok expected");
     const reasons = result.proposal.days.flatMap((d) => d.reasons);
-    expect(reasons).toContain("Extrapris på Laxfilé (89 kr/kg) hos ICA Nära");
+    expect(reasons).toContain("Erbjudande på Laxfilé (89 kr/kg) hos ICA Nära");
     expect(reasons).toContain("Kyckling går ut fredag");
     const wok = result.proposal.days.find((d) => d.title === "Kycklingwok");
     expect(wok?.useSoonTags).toEqual([{ name: "Kyckling", expiresWeekday: 5 }]);

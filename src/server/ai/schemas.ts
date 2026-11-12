@@ -1165,7 +1165,7 @@ export const planWeekAnswer = z.object({
       z.object({
         dag: z.number().describe("Veckodagens nummer: 1 måndag till 7 söndag, en av de lediga dagarna"),
         recept: z.number().describe("Numret på rätten i listan Rätter"),
-        skal: z.array(z.string()).describe("Högst två korta skäl på svenska, bara fakta ur listan: extrapris, går ut snart, tid, passar vid sidan av en bestämd dag"),
+        skal: z.array(z.string()).describe("Högst två korta skäl på svenska, bara fakta ur listan: erbjudande, går ut snart, tid, passar vid sidan av en bestämd dag"),
       }),
     )
     .describe("En rad per ledig dag, i dagordning"),
