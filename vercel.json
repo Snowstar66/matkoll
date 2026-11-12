@@ -24,5 +24,6 @@
       "dependabot/**": false,
       "claude/**": false
     }
-  }
+  },
+  "installCommand": "mkdir -p node_modules/.pnpm-store/v11 && (pnpm install --frozen-lockfile || pnpm install --frozen-lockfile)"
 }
