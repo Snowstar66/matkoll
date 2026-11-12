@@ -147,32 +147,17 @@ describe("the start", () => {
     expect(screen.getByRole("checkbox", { name: "Du" })).toBeChecked();
   });
 
-  it("Lägg till gäst opens a sheet; the guest is ticked at once and with tonight only, not saved", async () => {
-    const u = user();
-    render(<MenuAdvisor members={[{ id: "u1", name: "Pontus", isMe: true }, { id: "u2", name: "Martina", isMe: false }]} />);
-    await u.click(screen.getByRole("checkbox", { name: "Martina" }));
-    await u.click(screen.getByRole("button", { name: "Lägg till gäst" }));
-    const sheet = within(screen.getByRole("dialog", { name: "Lägg till gäst" }));
-    await u.type(screen.getByTestId("menu-guest-name"), "Gunnar");
-    await u.click(sheet.getByRole("button", { name: /Nötter/ }));
-    await u.click(sheet.getByRole("button", { name: /^Lägg till$/ }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByRole("checkbox", { name: "Gunnar" })).toBeChecked();
-    expect(screen.getAllByTestId("menu-company-person")[2]).toHaveTextContent("Nötter · bara ikväll");
-    expect(screen.getAllByRole("checkbox", { checked: true }).map((box) => box.getAttribute("aria-label"))).toEqual(["Du", "Martina", "Gunnar"]);
-    expect(localStorage.getItem("livskoll-menu-people-v1") ?? "").not.toContain("Gunnar");
-  });
-
-  it("keeps a guest when Spara till nästa gång is chosen", async () => {
-    const u = user();
+  it("Lägg till person is a link to Medlemmar, Utan konto; a person added there is on the list, not ticked", () => {
+    const people = { v: 1, people: [...savedPeople.people, { id: "p-greta", name: "Greta", kind: "guest", allergies: ["notter"], tastes: {}, drink: null }] };
+    const first = render(<MenuAdvisor />);
+    expect(screen.getByRole("link", { name: "Lägg till person" })).toHaveAttribute("href", "/installningar/medlemmar#utan-konto");
+    expect(screen.queryByRole("button", { name: "Lägg till gäst" })).not.toBeInTheDocument();
+    first.unmount();
+    localStorage.setItem("livskoll-menu-people-v1", JSON.stringify(people));
     render(<MenuAdvisor />);
-    await u.click(screen.getByRole("button", { name: "Lägg till gäst" }));
-    const sheet = within(screen.getByRole("dialog"));
-    await u.type(screen.getByTestId("menu-guest-name"), "Greta");
-    await u.click(sheet.getByRole("button", { name: "Spara till nästa gång" }));
-    await u.click(sheet.getByRole("button", { name: /^Lägg till$/ }));
-    expect(localStorage.getItem("livskoll-menu-people-v1")).toContain("Greta");
-    expect(await screen.findByRole("checkbox", { name: "Greta" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Greta" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Du" })).toBeChecked();
+    expect(screen.queryByText(/bara ikväll/)).not.toBeInTheDocument();
   });
 
   it("from five people four rows show, and the ticked ones, with Visa alla", async () => {

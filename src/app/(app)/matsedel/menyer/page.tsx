@@ -6,6 +6,7 @@ import { isAppOwner } from "@/features/feedback/server";
 import { getMemberPeople } from "@/features/household/server";
 import { getSavedFoodPeople } from "@/features/menu-advisor/server";
 import { MenuWithRestaurants } from "./menu-with-restaurants";
+import { RefreshOnShow } from "./refresh-on-show";
 
 export const metadata: Metadata = { title: "Menyrådgivare" };
 
@@ -23,13 +24,26 @@ export default function MenuAdvisorPage() {
 }
 
 async function Advisor() {
-  const [members, profiles, owner] = await Promise.all([getMemberPeople(), getSavedFoodPeople(), isAppOwner().catch(() => false)]);
+  const [members, profiles, owner] = await Promise.all([
+    getMemberPeople(),
+    getSavedFoodPeople(),
+    isAppOwner().catch(() => false),
+  ]);
   return (
-    <MenuWithRestaurants
-      members={members}
-      profiles={profiles}
-      canRaiseCap={owner}
-      agentHeader={<PageHeader title="Menyrådgivare" backHref="/matsedel" backLabel="Matsedel" />}
-    />
+    <>
+      <RefreshOnShow />
+      <MenuWithRestaurants
+        members={members}
+        profiles={profiles}
+        canRaiseCap={owner}
+        agentHeader={
+          <PageHeader
+            title="Menyrådgivare"
+            backHref="/matsedel"
+            backLabel="Matsedel"
+          />
+        }
+      />
+    </>
   );
 }

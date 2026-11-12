@@ -12,9 +12,7 @@ import { BigButton, Headline, StickyFooter, TopBack } from "./journey-parts";
 export function StartScreen({
   people,
   chosenIds,
-  tonightOnly,
   onToggle,
-  onAddGuest,
   tonightCount,
   onPhoto,
   onTonight,
@@ -22,9 +20,7 @@ export function StartScreen({
 }: {
   people: readonly Person[];
   chosenIds: ReadonlySet<string>;
-  tonightOnly: ReadonlySet<string>;
   onToggle: (personId: string) => void;
-  onAddGuest: () => void;
   tonightCount: number;
   onPhoto: () => void;
   onTonight: () => void;
@@ -35,7 +31,7 @@ export function StartScreen({
     <div className="flex min-h-[calc(100dvh-var(--tab-bar-height)-1rem)] flex-1 flex-col gap-4 desktop:min-h-[calc(100dvh-4rem)]" data-testid="menu-start">
       <TopBack href="/matsedel">Matsedel</TopBack>
       <Headline sub="Fota menyn, så förklarar jag rätterna och föreslår något åt var och en.">Tolka menyn</Headline>
-      <CompanyRows people={people} chosenIds={chosenIds} tonightOnly={tonightOnly} onToggle={onToggle} onAdd={onAddGuest} />
+      <CompanyRows people={people} chosenIds={chosenIds} onToggle={onToggle} />
       {tonightCount > 0 ? (
         <Chip selected={false} onClick={onTonight} count={tonightCount} className="self-start">
           Ikväll

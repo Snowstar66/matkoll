@@ -31,10 +31,10 @@ export function ProfileGroups({ members = null, profiles = null }: { members?: r
         Styr förslag och markeringar i hela appen. Allergier = får aldrig föreslås. Undviker = föreslås inte i första hand. Sparas för hushållet och alla i hushållet kan ändra.
       </p>
 
-      <h3 id="profiles-guests-heading" className="mt-4 px-4 text-meta font-medium text-ink-2">
+      <h3 id="utan-konto" className="mt-4 scroll-mt-4 px-4 text-meta font-medium text-ink-2">
         Utan konto
       </h3>
-      {guests.length > 0 ? <PersonRows people={guests} labelledBy="profiles-guests-heading" /> : null}
+      {guests.length > 0 ? <PersonRows people={guests} labelledBy="utan-konto" /> : null}
       <AddPerson full={people.length >= maxPeople} onAdd={save} />
       <p className="mx-1 text-meta text-ink-3">T.ex. barn eller en vän. Sparas för hushållet.</p>
       {notice ? (

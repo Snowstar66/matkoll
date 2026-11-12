@@ -19,7 +19,6 @@ import { readCompanyIds, writeCompanyIds } from "./company-store";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
-import { GuestSheet } from "./guest-sheet";
 import { choose, chooseDrink, emptyReadingView, foldReading, withOption, type ReadingView } from "./journey";
 import { TopBack } from "./journey-parts";
 import { readMenuWithFallback } from "./read-with-fallback";
@@ -82,14 +81,12 @@ export function MenuAdvisor({
   const [journey, setJourney] = useState<{ options: PersonOptions[]; choices: Choices }>({ options: [], choices: {} });
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [drinkOf, setDrinkOf] = useState<string | null>(null);
-  const [guestOpen, setGuestOpen] = useState(false);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
-  const { people, save } = usePeople(members, profiles);
-  // Who is with tonight: ids of saved people plus guests added for tonight only (gone when the page closes). It
-  // starts with whoever was ticked last time on this phone.
+  const { people } = usePeople(members, profiles);
+  // Who is with tonight: ids of the household's people. It starts with whoever was ticked last time on this phone;
+  // a person added since is not ticked until picked.
   const [selectedIds, setSelectedIds] = useState<string[]>(() => readCompanyIds() ?? [meId]);
-  const [tempGuests, setTempGuests] = useState<Person[]>([]);
   const photo = useRef<Blob | null>(null);
   const menuText = useRef<string | null>(null);
   const handedIn = useRef(false);
@@ -100,14 +97,12 @@ export function MenuAdvisor({
 
   useEffect(() => () => request.current?.abort(), []);
 
-  const everyone = useMemo(() => [...people, ...tempGuests], [people, tempGuests]);
   // Never nobody: with all unticked, "Du" is with.
   const company = useMemo(() => {
-    const chosen = everyone.filter((person) => selectedIds.includes(person.id));
-    return chosen.length > 0 ? chosen : everyone.slice(0, 1);
-  }, [everyone, selectedIds]);
+    const chosen = people.filter((person) => selectedIds.includes(person.id));
+    return chosen.length > 0 ? chosen : people.slice(0, 1);
+  }, [people, selectedIds]);
   const chosenIds = useMemo(() => new Set(company.map((person) => person.id)), [company]);
-  const tonightOnly = useMemo(() => new Set(tempGuests.map((guest) => guest.id)), [tempGuests]);
 
   // A menu handed in by the route layer is taken once, when the advisor is on.
   useEffect(() => {
@@ -149,13 +144,6 @@ export function MenuAdvisor({
   function toggle(personId: string) {
     const ids = company.map((person) => person.id);
     setCompany(ids.includes(personId) ? ids.filter((entry) => entry !== personId) : [...ids, personId]);
-  }
-
-  function addGuest(guest: Person, keep: boolean) {
-    if (keep) save(guest);
-    else setTempGuests((current) => [...current, guest]);
-    setCompany([...company.map((person) => person.id), guest.id]);
-    setGuestOpen(false);
   }
 
   function apply(next: MenuReading) {
@@ -402,11 +390,9 @@ export function MenuAdvisor({
   } else {
     content = (
       <StartScreen
-        people={everyone}
+        people={people}
         chosenIds={chosenIds}
-        tonightOnly={tonightOnly}
         onToggle={toggle}
-        onAddGuest={() => setGuestOpen(true)}
         tonightCount={tonight.picks.length}
         onPhoto={pick}
         onTonight={() => setShowTonight(true)}
@@ -417,7 +403,6 @@ export function MenuAdvisor({
   return (
     <>
       {content}
-      <GuestSheet open={guestOpen} onClose={() => setGuestOpen(false)} onAdd={addGuest} />
       {reading && drinkPerson ? (
         <DrinkSheet
           open

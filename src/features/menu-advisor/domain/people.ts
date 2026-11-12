@@ -141,6 +141,8 @@ export function withMembers(saved: readonly Person[], members: readonly Househol
  * selected segment) block prerendering.
  */
 export const profilesHref = "/installningar/medlemmar#smak-och-allergier";
+/** Where a person without an account is added: the "Utan konto" group under Smak och allergier. */
+export const addPersonHref = "/installningar/medlemmar#utan-konto";
 export const profilesBackHref = "/installningar/medlemmar";
 export function profileHref(personId: string): string {
   return `/installningar/medlemmar/smak-och-allergier?person=${encodeURIComponent(personId)}`;
