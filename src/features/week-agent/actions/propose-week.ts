@@ -37,7 +37,8 @@ export async function proposeWeek(input: ProposeWeekInput): Promise<ProposeWeekR
     if (openDays(planInput).length === 0) {
       // Say what is true: the week is full, or it holds as many dinners as the setting says while some days stay empty.
       const taken = new Set(planInput.fixedDays.map((day) => day.dayIndex));
-      const empty = cookableDays(planInput.settings).filter((day) => !taken.has(day));
+      const past = new Set(planInput.pastDays ?? []);
+      const empty = cookableDays(planInput.settings).filter((day) => !taken.has(day) && !past.has(day));
       return { status: "error", message: empty.length > 0 ? messages.dinnersReached(planInput.settings.dinners, empty.map((day) => dayWord(day))) : messages.weekFull };
     }
 

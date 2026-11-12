@@ -17,6 +17,15 @@ describe("dayRoles", () => {
     expect(roles.open).toEqual([1, 2, 3, 5]);
     expect(roles.needed).toBe(4);
   });
+  it("never plans a day that is already over: Wednesday 11 Nov with 5 dinners gives Wed-Sun, not Tue-Sat", () => {
+    const roles = dayRoles(input([], { pastDays: [1, 2] }));
+    expect(roles.open).toEqual([3, 4, 5, 6, 7]);
+  });
+  it("a fixed day on a past day stays fixed and the rest are planned from today", () => {
+    const roles = dayRoles(input([], { pastDays: [1, 2], fixedDays: [pannkaka(2)], settings: settings({ dinners: 5 }) }));
+    expect(roles.fixed.has(2)).toBe(true);
+    expect(roles.open).toEqual([3, 4, 5, 6]);
+  });
   it("skips skip and leftover days; a fixed day wins over a skip day", () => {
     const roles = dayRoles(input([], { settings: settings({ skipDays: [1], leftoverDays: [2], dinners: 4 }), fixedDays: [pannkaka(1)] }));
     expect(roles.open).toEqual([3, 4, 5]);

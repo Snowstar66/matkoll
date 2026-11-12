@@ -18,7 +18,8 @@ type Roles = { fixed: Map<number, FixedDay>; leftover: Set<number>; skip: Set<nu
 export function dayRoles(input: Pick2): Roles {
   const fixed = new Map<number, FixedDay>();
   for (const day of input.fixedDays) if (day.dayIndex >= 1 && day.dayIndex <= 7 && !fixed.has(day.dayIndex)) fixed.set(day.dayIndex, day);
-  const eligible = cookableDays(input.settings).filter((day) => !fixed.has(day));
+  const past = new Set(input.pastDays ?? []);
+  const eligible = cookableDays(input.settings).filter((day) => !fixed.has(day) && !past.has(day));
   const needed = Math.min(eligible.length, Math.max(0, input.settings.dinners - fixed.size));
   return {
     fixed,
@@ -28,7 +29,7 @@ export function dayRoles(input: Pick2): Roles {
     needed,
   };
 }
-type Pick2 = Pick<PlanInput, "settings" | "fixedDays">;
+type Pick2 = Pick<PlanInput, "settings" | "fixedDays" | "pastDays">;
 
 /** The days a dish is still wanted on, in order. */
 export const openDays = (input: Pick2): number[] => dayRoles(input).open;

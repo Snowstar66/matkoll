@@ -67,6 +67,8 @@ export type PlanInput = {
   /** The household's people with allergies, tastes (names are for the household's eyes only, never sent to the model). */
   people: readonly FitPerson[];
   recent: readonly RecentRecipe[];
+  /** Days of the week that are already over (before today, Stockholm): never planned, as the week agent fills what is left. */
+  pastDays?: readonly number[];
 };
 
 /** The pool a shortlist is made from: everything but the shortlist itself. */

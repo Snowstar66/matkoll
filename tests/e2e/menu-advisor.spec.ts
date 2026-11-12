@@ -99,6 +99,25 @@ async function seedCompany() {
   if (error) throw error;
 }
 
+/** Gunnar (nuts), kept for the household like Anna: the person "Lägg till person" would have led to. */
+async function seedGunnar() {
+  const userId = await e2eUserId(e2eEmail);
+  const admin = adminClient();
+  const member = await admin.from("household_member").select("household_id").eq("user_id", userId).single();
+  const { error } = await admin.from("food_profile").insert({
+    household_id: member.data!.household_id,
+    person_key: "p-gunnar",
+    kind: "guest",
+    name: "Gunnar",
+    allergies: ["notter"],
+    tastes: {},
+    dislikes: [],
+    likes: [],
+    drink: null,
+  });
+  if (error) throw error;
+}
+
 /**
  * A stream the test drives: /api/menu/read?stream=1 answers with a body that stays open until `push` writes lines to
  * it, so what the screen shows while the server reads can be looked at.
@@ -170,6 +189,7 @@ test("the shortcut is not there while the option is off, and the page says it is
 test("the whole journey: start, a live reading, the answer, Ert val with another drink, the menu and a dish", async ({ page }) => {
   await optionOn(page);
   await seedCompany();
+  await seedGunnar();
   const stream = await liveStream(page);
 
   await page.goto("/matsedel");
@@ -177,7 +197,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(page).toHaveURL(/\/matsedel\/menyer$/);
 
   // 1–2. Start: one title (no "Menyrådgivare" above it), one back link, who eats as rows with their allergies, one
-  // button. Alone first, then with Anna ticked and a guest added in the sheet.
+  // button. Alone first, then with Anna ticked and a person added under Medlemmar.
   await expect(page.getByRole("heading", { name: "Tolka menyn", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Menyrådgivare" })).toHaveCount(0);
   await expect(page.getByTestId("menu-start").getByRole("link", { name: "Matsedel" })).toBeVisible();
@@ -189,16 +209,19 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.screenshot({ path: `${shots}/01-start-alone.png` });
   await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await expect(page.getByRole("checkbox", { name: "Anna" })).toBeChecked();
-  await page.getByRole("button", { name: "Lägg till gäst" }).click();
-  await expect(page.getByRole("dialog", { name: "Lägg till gäst" })).toBeVisible();
-  await page.getByTestId("menu-guest-name").fill("Gunnar");
-  await page.getByRole("group", { name: "Gästens allergier" }).getByRole("button", { name: /Nötter/ }).click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${shots}/02-guest-sheet.png` });
+  // "Lägg till person" is a link to Inställningar → Medlemmar → Utan konto; the person added there is on the list
+  // when one comes back, not ticked yet.
+  await page.getByRole("link", { name: "Lägg till person" }).click();
+  await expect(page).toHaveURL(/\/installningar\/medlemmar#utan-konto$/);
+  await page.getByTestId("menu-profiles").getByRole("button", { name: "Lägg till person" }).click();
+  await page.getByTestId("menu-person-name").fill("Greta");
   await page.getByRole("button", { name: "Lägg till", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByTestId("menu-profile-row").filter({ hasText: "Greta" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("checkbox", { name: "Greta" })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Anna" })).toBeChecked();
+  await page.getByTestId("menu-company-person").filter({ hasText: "Gunnar" }).click();
   await expect(page.getByRole("checkbox", { name: "Gunnar" })).toBeChecked();
-  await expect(page.getByTestId("menu-company-person").filter({ hasText: "Gunnar" })).toContainText("Nötter · bara ikväll");
   await page.screenshot({ path: `${shots}/03-start-company.png` });
   expect(await noSideScroll(page)).toBe(true);
 
@@ -449,10 +472,6 @@ test("Större text: the start, the reading, the answer and Ert val fit at 375 px
   await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await page.screenshot({ path: `${shots}/21-xl-start.png` });
   expect(await noSideScroll(page)).toBe(true);
-  await page.getByRole("button", { name: "Lägg till gäst" }).click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${shots}/21b-xl-guest-sheet.png` });
-  await page.getByRole("button", { name: "Avbryt" }).click();
   await takePhoto(page);
   await stream.push(readerLine, { type: "dish", index: 0, dish: menu.ratter[0] }, { type: "dish", index: 1, dish: menu.ratter[1] });
   await expect(page.getByTestId("menu-reading-dishes").getByRole("listitem")).toHaveCount(2);
@@ -481,7 +500,7 @@ test("Större text and the dark: the stops fit at 375 px", async ({ page }) => {
   expect(await noSideScroll(page)).toBe(true);
 });
 
-test("the dark: the start, the guest sheet, the answer with both tabs, Ert val and the stops", async ({ page }) => {
+test("the dark: the start, the answer with both tabs, Ert val and the stops", async ({ page }) => {
   await optionOn(page, undefined, true);
   await page.emulateMedia({ colorScheme: "dark" });
   await seedCompany();
@@ -489,10 +508,6 @@ test("the dark: the start, the guest sheet, the answer with both tabs, Ert val a
   await page.goto("/matsedel/menyer");
   await page.getByTestId("menu-company-person").filter({ hasText: "Anna" }).click();
   await page.screenshot({ path: `${shots}/30-dark-start.png` });
-  await page.getByRole("button", { name: "Lägg till gäst" }).click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${shots}/31-dark-guest-sheet.png` });
-  await page.getByRole("button", { name: "Avbryt" }).click();
   await takePhoto(page);
   await stream.push(readerLine, doneLine(menu));
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();

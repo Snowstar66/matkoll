@@ -31,7 +31,7 @@ export const texts = {
   directBody: "Vi fyller i sökningen åt dig, öppettider och betyg ser du där.",
   directOpen: "Sök i Google Maps",
   radiusLabel: "Hur långt?",
-  radiusHint: "Ungefär så stort område visas i kartan.",
+  radiusHint: "Kartan startar i det här området. Google kan ändå visa ställen längre bort.",
   whenLabel: "När",
   siteLink: "Restaurangens sida",
   ratingCaveat: "Omdömen från webben kan vara gamla eller ojämna.",
@@ -127,8 +127,8 @@ export function mapLink(name: string, place: string, view: MapView | null = null
 /** The phone's rounded position and how far the person wants to go: a map window around it. Lives only in the link the person opens. */
 export type MapView = { lat: number; lng: number; radiusM: RadiusM };
 
-/** Google zoom levels for the window: about 15 for 500 m, 14 for 1 km, 13 for 2 km, 12 for 5 km. Approximate. */
-export const mapZoom: Record<RadiusM, number> = { 500: 15, 1000: 14, 2000: 13, 5000: 12 };
+/** Google zoom levels for the window: about 16 for 500 m, 15 for 1 km, 14 for 2 km, 13 for 5 km. Approximate: a map link cannot set a search radius, so Google may still show places further away. */
+export const mapZoom: Record<RadiusM, number> = { 500: 16, 1000: 15, 2000: 14, 5000: 13 };
 
 /**
  * The Google Maps link for a ready search text. The host and path are fixed here; only the encoded text varies. With a

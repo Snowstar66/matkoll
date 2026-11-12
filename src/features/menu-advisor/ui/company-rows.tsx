@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { cx } from "@/components/cx";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { allergenLabels } from "../domain/labels";
-import { profilesHref } from "../domain/people";
+import { addPersonHref, profilesHref } from "../domain/people";
 import type { Person } from "../domain/profile";
 import { PersonAvatar } from "./person-avatar";
 
@@ -22,24 +22,19 @@ export function allergyText(person: Pick<Person, "allergies">): string {
 
 /**
  * Step 2, "Vilka äter?": a white list straight on the start screen, one row per person (a tick, the initial, the name
- * and the allergies under it). The whole row, 60 px at least, ticks and unticks. The last row, "Lägg till gäst", opens
- * a sheet: a person is added once, so the form stays out of the way. From five people four rows show, and the ticked
+ * and the allergies under it). The whole row, 60 px at least, ticks and unticks. The last row, "Lägg till person", is a link
+ * to Inställningar → Medlemmar → Utan konto, where a person is added once for the household. From five people four rows show, and the ticked
  * ones further down, with "Visa alla (n)".
  */
 export function CompanyRows({
   people,
   chosenIds,
-  tonightOnly,
   onToggle,
-  onAdd,
 }: {
-  /** Everyone to pick from: the saved people, "Du" first, then the guests for tonight. */
+  /** Everyone to pick from: "Du" first, then the household's members and the people kept by hand. */
   people: readonly Person[];
   chosenIds: ReadonlySet<string>;
-  /** Guests added for tonight only (not saved). */
-  tonightOnly: ReadonlySet<string>;
   onToggle: (personId: string) => void;
-  onAdd: () => void;
 }) {
   const id = useId();
   const [showAll, setShowAll] = useState(false);
@@ -53,7 +48,6 @@ export function CompanyRows({
       <ul role="list" data-testid="menu-company" className="flex flex-col divide-y divide-hairline overflow-hidden rounded-xl bg-surface">
         {shown.map((person, index) => {
           const chosen = chosenIds.has(person.id);
-          const line = tonightOnly.has(person.id) ? `${allergyText(person)} · bara ikväll` : allergyText(person);
           return (
             <li key={person.id}>
               <label
@@ -81,7 +75,7 @@ export function CompanyRows({
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-headline font-medium text-ink">{person.name}</span>
                   <span id={`${id}-${index}`} className={cx("text-meta", person.allergies.length > 0 ? "text-ink-2" : "text-ink-3")}>
-                    {line}
+                    {allergyText(person)}
                   </span>
                 </span>
               </label>
@@ -96,12 +90,12 @@ export function CompanyRows({
           </li>
         ) : null}
         <li>
-          <button type="button" data-testid="menu-guest-add" onClick={onAdd} className="flex min-h-15 w-full items-center gap-3 px-3.5 py-2 text-left text-headline font-medium text-accent">
+          <Link href={addPersonHref} data-testid="menu-guest-add" className="flex min-h-15 w-full items-center gap-3 px-3.5 py-2 text-left text-headline font-medium text-accent">
             <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-accent">
               <PlusIcon size={18} />
             </span>
-            Lägg till gäst
-          </button>
+            Lägg till person
+          </Link>
         </li>
       </ul>
       <Link href={profilesHref} className="inline-flex min-h-tap items-center gap-1 self-start px-1 text-body font-medium text-accent">
