@@ -314,10 +314,28 @@ describe("store: schema and RLS", () => {
   });
 });
 
+/** The old default (UX-09: ensure_user_defaults no longer adds a store), so the store tests keep their starting point. */
+async function seedDefaults(db: Parameters<typeof insertUserDefaults>[0]): Promise<void> {
+  await insertUserDefaults(db);
+  const { data } = await db.from("store").select("id").limit(1);
+  if (data && data.length > 0) return;
+  const { address: _address, ...row } = defaultStore;
+  const { error } = await db.from("store").insert(row);
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
+
 describe("store: ensure_user_defaults()", () => {
+  it("adds no store: a new household picks its own (UX-09)", async () => {
+    const user = await createTestUser("store-defaults-none");
+    await insertUserDefaults(user.db);
+    await insertUserDefaults(user.db);
+    expect(await storesOf(user.id)).toEqual([]);
+    expect(await loadSelectedStore(user.db)).toBeNull();
+  });
+
   it("still adds the start recipe sites, active, together with the default store", async () => {
     const user = await createTestUser("store-defaults-all");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     expect(await sitesOf(user.id)).toEqual([
       { domain: "arla.se", is_active: true },
       { domain: "ica.se", is_active: true },
@@ -330,17 +348,17 @@ describe("store: ensure_user_defaults()", () => {
 
   it("adds the default store, selected, and a second call changes nothing", async () => {
     const user = await createTestUser("store-defaults");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const first = await storesOf(user.id);
     expect(first).toEqual([{ id: expect.any(String), ...defaultStore }]);
 
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     expect(await storesOf(user.id)).toEqual(first);
   });
 
   it("never replaces or duplicates a default store Pontus has changed", async () => {
     const user = await createTestUser("store-defaults-changed");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const [store] = await storesOf(user.id);
     const changed = await user.db
       .from("store")
@@ -348,7 +366,7 @@ describe("store: ensure_user_defaults()", () => {
       .eq("id", store.id);
     expect(changed.error).toBeNull();
 
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     expect(await storesOf(user.id)).toEqual([
       { ...store, name: "Maxi Östersund", external_store_id: "1003734", address: "Krondikesvägen 97" },
     ]);
@@ -357,13 +375,13 @@ describe("store: ensure_user_defaults()", () => {
   it("adds nothing for a user who has a store, selected or not", async () => {
     const user = await createTestUser("store-defaults-has-one");
     expect((await user.db.from("store").insert({ name: "Willys Lindhagen", chain: "Willys" })).error).toBeNull();
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     expect((await storesOf(user.id)).map((store) => store.name)).toEqual(["Willys Lindhagen"]);
   });
 
   it("gives two sign-ins at once one default store", async () => {
     const user = await createTestUser("store-defaults-race");
-    await Promise.all([insertUserDefaults(user.db), insertUserDefaults(user.db), insertUserDefaults(user.db)]);
+    await Promise.all([seedDefaults(user.db), seedDefaults(user.db), seedDefaults(user.db)]);
     expect(await storesOf(user.id)).toEqual([{ id: expect.any(String), ...defaultStore }]);
   });
 });
@@ -373,8 +391,8 @@ describe("store: reading", () => {
     const user = await createTestUser("store-read");
     const other = await createTestUser("store-read-other");
     expect(await loadSelectedStore(user.db)).toBeNull();
-    await insertUserDefaults(user.db);
-    await insertUserDefaults(other.db);
+    await seedDefaults(user.db);
+    await seedDefaults(other.db);
     const willys = await saved(user.db, storeForm({ address: "Lindhagensgatan 1" }));
 
     const maxi = {
@@ -398,7 +416,7 @@ describe("store: reading", () => {
 describe("store: save_store and select_store", () => {
   it("adds a store without selecting it, and changes it with the same id", async () => {
     const user = await createTestUser("store-save");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const form = storeForm();
     expect(await saved(user.db, form)).toEqual({
       id: form.id,
@@ -419,7 +437,7 @@ describe("store: save_store and select_store", () => {
 
   it("selects a saved store with make_selected, leaving exactly one selected", async () => {
     const user = await createTestUser("store-save-select");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const willys = await saved(user.db, storeForm({ makeSelected: true }));
     expect(willys.isSelected).toBe(true);
     expect(await selectedOf(user.id)).toEqual(["Willys Lindhagen"]);
@@ -431,7 +449,7 @@ describe("store: save_store and select_store", () => {
 
   it("selects another store with select_store, leaving exactly one selected", async () => {
     const user = await createTestUser("store-select");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const [maxi] = await storesOf(user.id);
     const willys = await saved(user.db, storeForm({ makeSelected: true }));
 
@@ -445,7 +463,7 @@ describe("store: save_store and select_store", () => {
 
   it("leaves exactly one store selected after selections at once", async () => {
     const user = await createTestUser("store-select-race");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const stores = [
       (await storesOf(user.id))[0].id,
       (await saved(user.db, storeForm({ name: "Willys Lindhagen" }))).id,
@@ -470,7 +488,7 @@ describe("store: save_store and select_store", () => {
 
   it("lets the last of two selections in a row win", async () => {
     const user = await createTestUser("store-select-last");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const willys = await saved(user.db, storeForm());
     const coop = await saved(user.db, storeForm({ name: "Coop Forum", chain: "Coop" }));
     for (const id of [willys.id, coop.id, willys.id]) expect(await selectStoreIn(user.db, id)).toBe("selected");
@@ -479,7 +497,7 @@ describe("store: save_store and select_store", () => {
 
   it("reports the same chain and store id as another store as duplicate, and two stores without an id are fine", async () => {
     const user = await createTestUser("store-save-duplicate");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const before = await storesOf(user.id);
     expect(await saveStoreIn(user.db, storeForm({ name: "Maxi igen", chain: "ICA", externalStoreId: "1003733" }))).toEqual({
       kind: "duplicate",
@@ -502,8 +520,8 @@ describe("store: save_store and select_store", () => {
   it("never selects or changes another user's store", async () => {
     const owner = await createTestUser("store-foreign-owner");
     const other = await createTestUser("store-foreign-intruder");
-    await insertUserDefaults(owner.db);
-    await insertUserDefaults(other.db);
+    await seedDefaults(owner.db);
+    await seedDefaults(other.db);
     const willys = await saved(owner.db, storeForm());
     const before = await storesOf(owner.id);
 
@@ -538,7 +556,7 @@ describe("store: save_store and select_store", () => {
 
   it("changes only a store that is there with mode change", async () => {
     const user = await createTestUser("store-change");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const before = await storesOf(user.id);
     expect(await saveStoreIn(user.db, storeForm({ mode: "change" }))).toEqual({ kind: "gone" });
     expect(await storesOf(user.id)).toEqual(before);
@@ -599,7 +617,7 @@ describe("store: save_store and select_store", () => {
 
   it("never lets the user delete a store, which v1 does not do", async () => {
     const user = await createTestUser("store-no-delete");
-    await insertUserDefaults(user.db);
+    await seedDefaults(user.db);
     const [maxi] = await storesOf(user.id);
     expect((await user.db.from("store").delete().eq("id", maxi.id)).error?.code).toBe("42501");
     expect(await storesOf(user.id)).toHaveLength(1);

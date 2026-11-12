@@ -571,6 +571,26 @@ export async function recreateE2eUser(email: (typeof e2eEmails)[number]): Promis
   return created.data.user.id;
 }
 
+/**
+ * Gives `userId` the store a new household once got by itself (Maxi ICA Stormarknad Östersund, selected): since UX-09
+ * a new household starts without a store, but the specs of shopping, offers and product choices need one. Not for
+ * a spec that tests the new, empty start (welcomeEmail).
+ */
+export async function seedDefaultStore(userId: string): Promise<void> {
+  const { error } = await adminClient()
+    .from("store")
+    .insert({
+      user_id: userId,
+      name: "Maxi ICA Stormarknad Östersund",
+      chain: "ICA",
+      external_store_id: "1003733",
+      url: "https://handlaprivatkund.ica.se/stores/1003733",
+      offers_url: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
+      is_selected: true,
+    });
+  if (error && error.code !== "23505") throw error;
+}
+
 /** The id of an E2E user; global-setup has created it. */
 /**
  * Takes away every Basvara of `userId`'s household, for a spec that counts the list and

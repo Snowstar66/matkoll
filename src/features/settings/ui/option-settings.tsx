@@ -15,6 +15,7 @@ export function OptionRow({ id, label, hint, disabled = false }: { id: OptionId;
   const option = options.find((entry) => entry.id === id);
   return (
     <SwitchRow
+      id={`tillval-${id}`}
       label={label ?? option?.label ?? id}
       hint={hint ?? option?.hint}
       on={on}

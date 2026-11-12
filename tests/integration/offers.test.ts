@@ -346,11 +346,11 @@ describe("store.offers_url", () => {
     expect(removed.kind === "saved" && removed.store.offersUrl).toBeNull();
   });
 
-  it("gives a new user's default store the link to its offers", async () => {
+  it("gives a new user no store at all (UX-09)", async () => {
     const user = await createTestUser("offers-url-defaults");
     expect((await user.db.rpc("ensure_user_defaults")).error).toBeNull();
     const { data } = await adminClient().from("store").select("external_store_id, offers_url").eq("user_id", user.id);
-    expect(data).toEqual([{ external_store_id: "1003733", offers_url: maxiLink }]);
+    expect(data).toEqual([]);
   });
 
   it("never changes a store the user already has", async () => {

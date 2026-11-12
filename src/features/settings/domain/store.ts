@@ -54,8 +54,10 @@ export function tooLongMessage(max: number): string {
 export const noAddressText = "Ingen adress angiven";
 /** The short confirmation after "Spara" in the sheet. */
 export const storeSavedText = "Butiken är sparad.";
-/** In the section when no store is selected (not possible in v1, but getSelectedStore may give null). */
-export const noSelectedStoreText = "Ingen butik är vald.";
+/** In the section when no store is selected (a new household starts like this, UX-09). */
+export const noSelectedStoreText = "Välj butik";
+/** The sentence under it: what the store is for. */
+export const noSelectedStoreHint = "Butiken styr vilka erbjudanden du ser. Lägg till din butik här under.";
 /** The help text under Kedja when a store is changed: its product choices stay with the row. */
 export const changeChainHint = "Byter du kedja, lägg hellre till en ny butik, så behåller den här sina produktval.";
 

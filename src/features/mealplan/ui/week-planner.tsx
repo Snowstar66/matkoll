@@ -9,6 +9,7 @@ import { OfferTags } from "@/components/offer-tag";
 import { FitRow } from "@/components/fit-row";
 import type { PreferenceNote } from "@/components/preference-notes";
 import { useToast } from "@/components/toast";
+import { useOption } from "@/lib/use-option";
 import { openAddDishesEvent } from "./add-dishes-button";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -97,6 +98,9 @@ export type WeekPlannerProps = {
 export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter, nutrition, fits }: WeekPlannerProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const starterOn = useOption("starterRecipes");
+  // A household with no recipes at all (UX-07): the empty week points at Recept instead of an empty panel.
+  const noRecipes = options !== null && options.length === 0;
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
   const [tab, setTab] = useState<PlanTab>(hasFavorites ? "favorites" : "all");
   /** Dishes just removed, until the plan is read again; "Ångra" takes them off. */
@@ -315,9 +319,27 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
           ) : null}
         </div>
         {shown.length === 0 ? (
-          <p data-testid="week-empty" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
-            Inga rätter än. Välj bland dina recept här under.
-          </p>
+          noRecipes ? (
+            <div data-testid="week-empty" className="flex flex-col items-start gap-3 rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
+              <p>Inga rätter än. Lägg först in ett recept.</p>
+              <Link
+                href="/recept"
+                data-testid="week-empty-recipes"
+                className="inline-flex min-h-tap items-center justify-center rounded-pill bg-accent px-6 text-headline font-semibold text-on-accent"
+              >
+                Gå till Recept
+              </Link>
+              {starterOn ? (
+                <Link href="/recept/startrecept" data-testid="week-empty-starter" className="inline-flex min-h-tap items-center text-control font-semibold text-accent underline">
+                  Eller välj bland startrecepten
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <p data-testid="week-empty" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
+              Inga rätter än. Välj bland dina recept här under.
+            </p>
+          )
         ) : null}
         {rowsOfWeek.length > 0 ? (
           <ul aria-label="Veckans rätter" className="overflow-hidden rounded-lg bg-surface">
@@ -445,7 +467,19 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
               ) : null}
               {rows.length === 0 ? (
                 <p data-testid="options-empty" className="text-body text-ink-2">
-                  {tabRows.length > 0 ? plannedText[tab] : emptyText[tab]}
+                  {tabRows.length > 0 ? (
+                    plannedText[tab]
+                  ) : noRecipes && tab === "all" ? (
+                    <>
+                      Inga recept än.{" "}
+                      <Link href="/recept" className="font-semibold text-accent underline">
+                        Lägg till ett i Recept
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    emptyText[tab]
+                  )}
                 </p>
               ) : (
                 <ul aria-label={tabs.find((candidate) => candidate.value === tab)?.label} className="flex flex-col gap-2">

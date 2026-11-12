@@ -13,16 +13,19 @@ export function SwitchRow({
   on,
   onToggle,
   disabled = false,
+  id,
 }: {
   label: string;
   hint?: string;
   on: boolean;
   onToggle: () => void;
   disabled?: boolean;
+  /** An anchor for a link that leads to this row (#id). */
+  id?: string;
 }) {
   const hintId = useId();
   return (
-    <li>
+    <li id={id} className="scroll-mt-4">
       <button
         type="button"
         role="switch"
