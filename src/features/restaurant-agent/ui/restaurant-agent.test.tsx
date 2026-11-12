@@ -395,17 +395,17 @@ describe("format", () => {
   });
 
   it.each([
-    [500, 15],
-    [1000, 14],
-    [2000, 13],
-    [5000, 12],
+    [500, 16],
+    [1000, 15],
+    [2000, 14],
+    [5000, 13],
   ] as const)("opens the map around the rounded position for %i m: zoom %i", (radiusM, zoom) => {
     expect(mapLinkFor("pizza restaurang", { lat: 59.86, lng: 17.64, radiusM })).toEqual({ label: "Google Maps", href: `https://www.google.com/maps/search/pizza%20restaurang/@59.86,17.64,${zoom}z` });
   });
 
   it("puts no position in the link without one, and rounds the position it has to two decimals", () => {
     expect(/@/.test(mapLinkFor("x").href)).toBe(false);
-    expect(mapLinkFor("x", { lat: 59.858612, lng: 17.638987, radiusM: 1000 }).href).toContain("@59.86,17.64,14z");
+    expect(mapLinkFor("x", { lat: 59.858612, lng: 17.638987, radiusM: 1000 }).href).toContain("@59.86,17.64,15z");
   });
 });
 
@@ -430,14 +430,14 @@ describe("Sök i Google Maps", () => {
     const user = userEvent.setup();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
     await user.click(screen.getByRole("button", { name: "Pizza" }));
-    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang/@59.86,17.64,14z"]));
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang/@59.86,17.64,15z"]));
   });
 
   it("uses the rounded position for the map window once the place is fetched, and the radius chosen", async () => {
     const user = userEvent.setup();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={at(59.858612, 17.638987)} />);
     await user.click(screen.getByRole("radio", { name: "2 km" }));
-    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,13z"]));
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,14z"]));
   });
 
   it("never puts allergies, names or other profile data in the address", async () => {
@@ -460,7 +460,7 @@ describe("Sök i Google Maps", () => {
       const shown = render(<RestaurantFlow actions={fakeActions(result)} onClose={vi.fn()} getPosition={here} />);
       await typePlace(user);
       expect(await screen.findByTestId("restaurant-stop")).toBeInTheDocument();
-      expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,14z"]);
+      expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,15z"]);
       shown.unmount();
     }
   });
@@ -497,7 +497,7 @@ describe("the radar and the way on to the photo", () => {
     await user.click(screen.getByRole("radio", { name: "5 km" }));
     expect(screen.getByRole("img", { name: "Sökområde: ungefär 5 km" })).toBeInTheDocument();
     expect(screen.getByTestId("restaurant-radar")).toHaveTextContent("Inom cirka 5 km");
-    expect(screen.getByText("Ungefär så stort område visas i kartan.")).toBeInTheDocument();
+    expect(screen.getByText("Kartan startar i det här området. Google kan ändå visa ställen längre bort.")).toBeInTheDocument();
   });
 
   it("'Framme? Fota menyn' calls onPhoto, and falls back to onClose when onPhoto is left out", async () => {
