@@ -130,6 +130,8 @@ import {
   starterUserEmail,
   starterUserStorageState,
   markWelcomeTourSeen,
+  e2eUserId,
+  seedDefaultStore,
   welcomeEmail,
   welcomeStorageState,
 } from "./support";
@@ -233,6 +235,8 @@ export default async function globalSetup(config: FullConfig) {
       await page.waitForURL(/\/recept$/);
       await user.storageState({ path });
       await user.close();
+      // UX-09: a new household starts without a store; the specs expect the one it once got, but for the two spec users with a new, empty household.
+      if (email !== welcomeEmail && email !== starterUserEmail) await seedDefaultStore(await e2eUserId(email));
     }
 
     // /auth/confirm refuses to keep a session for the outsider, so it is made

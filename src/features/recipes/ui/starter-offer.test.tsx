@@ -17,7 +17,27 @@ async function show(offer: StarterOffer | undefined, element: (promise: Promise<
 beforeEach(() => localStorage.clear());
 
 describe("Startrecept on Recept", () => {
-  it("shows nothing new with Tillval Startrecept off (the default)", async () => {
+  it("with Tillval Startrecept off, only points at the switch, and only while the pack has recipes", async () => {
+    await show({ available: 20, total: 20 }, (offer) => (
+      <StarterEmptyOffer offer={offer} importButton={importButton}>
+        {empty}
+      </StarterEmptyOffer>
+    ));
+    expect(screen.getByRole("link", { name: "Eller börja med färdiga recept" }).getAttribute("href")).toBe("/installningar/tillval#tillval-starterRecipes");
+    expect(localStorage.getItem("livskoll-option-starterRecipes")).toBeNull();
+  });
+
+  it("shows no link to the switch when the pack is empty or cannot be read", async () => {
+    await show({ available: 0, total: 0 }, (offer) => (
+      <StarterEmptyOffer offer={offer} importButton={importButton}>
+        {empty}
+      </StarterEmptyOffer>
+    ));
+    expect(screen.queryByTestId("starter-switch-link")).toBeNull();
+    expect(screen.getByText("Inga recept än.")).toBeTruthy();
+  });
+
+  it("shows nothing new on a list with recipes with Tillval Startrecept off (the default)", async () => {
     await show({ available: 20, total: 20 }, (offer) => (
       <>
         <StarterEmptyOffer offer={offer} importButton={importButton}>

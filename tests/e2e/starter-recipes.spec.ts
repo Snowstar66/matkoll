@@ -138,6 +138,18 @@ test("a new household meets the offer, opens a recipe, adds both and gets them w
   await off.goto("/recept");
   await expect(off.getByText("Inga recept än.")).toBeVisible();
   await expect(off.getByTestId("starter-offer")).toHaveCount(0);
+  // UX-08: the quiet link under the import leads to the switch in Tillval and switches nothing on.
+  await off.getByTestId("starter-switch-link").click();
+  await expect(off).toHaveURL(/\/installningar\/tillval#tillval-starterRecipes$/);
+  await expect(off.getByRole("switch", { name: /Startrecept/ })).toHaveAttribute("aria-checked", "false");
+  await expect(off.getByRole("switch", { name: /Startrecept/ })).toBeInViewport();
+  // UX-07 and UX-09, the same new household: Matsedel points at Recept, and no store is chosen for it.
+  await off.goto("/matsedel");
+  await expect(off.getByTestId("week-empty")).toContainText("Lägg först in ett recept.");
+  await off.getByRole("link", { name: "Gå till Recept" }).click();
+  await expect(off).toHaveURL(/\/recept$/);
+  await off.goto("/installningar/butiker");
+  await expect(off.getByTestId("no-store")).toContainText("Välj butik");
   await off.context().close();
 
   const page = await (await contextFor(browser, starterUserStorageState, true)).newPage();

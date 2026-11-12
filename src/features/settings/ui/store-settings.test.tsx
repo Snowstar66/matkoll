@@ -83,7 +83,7 @@ describe("StoreSettings", () => {
 
   it("says when no store is selected, and still offers Lägg till butik", () => {
     render([{ ...willys }]);
-    expect(screen.getByText("Ingen butik är vald.")).toBeInTheDocument();
+    expect(screen.getByText("Välj butik")).toBeInTheDocument();
     expect(screen.queryByTestId("selected-store")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Välj Willys Lindhagen" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till butik" })).toBeInTheDocument();
