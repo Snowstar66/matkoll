@@ -64,7 +64,7 @@ for (const size of [undefined, "xl"] as const) {
     await expect(page.getByRole("button", { name: "Framme? Fota menyn" })).toBeVisible();
     await expect(page.getByText("Vi är")).toHaveCount(0);
     await page.getByRole("button", { name: "Pizza" }).click();
-    await expect(maps).toHaveAttribute("href", /search\/pizza%20restaurang\/@59\.86,17\.64,14z/);
+    await expect(maps).toHaveAttribute("href", /search\/pizza%20restaurang\/@59\.86,17\.64,15z/);
     expect(await noSideScroll(page)).toBe(true);
   });
 }
