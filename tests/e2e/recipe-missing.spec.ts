@@ -148,7 +148,7 @@ test("the rows say Saknas and the offer, and Köp det som saknas puts them on th
   // Afterwards: På listan on the rows and Ångra on the button, and only the list was touched.
   await expect(view(page).getByText("På listan", { exact: true })).toHaveCount(3);
   await expect(view(page).getByRole("img", { name: "saknas" })).toHaveCount(0);
-  await expect(view(page).getByTestId("recipe-listed")).toHaveText("3 på inköpslistan");
+  await expect(view(page).getByTestId("recipe-listed")).toHaveCount(0); // UX-01: the rows say På listan, no chip counts them
   await expect(bar(page)).toHaveText("På listan ✓ · Ångra");
   expect(await listedCount()).toBe(3);
   const planned = await adminClient().from("meal_plan_recipe").select("id").eq("user_id", userId);
@@ -169,7 +169,7 @@ test("a reload keeps På listan, since the rows follow the shopping list @flaky"
   await expect(view(page).getByText("På listan", { exact: true })).toHaveCount(3);
   await page.reload();
   await expect(view(page).getByText("På listan", { exact: true })).toHaveCount(3);
-  await expect(view(page).getByTestId("recipe-listed")).toHaveText("3 på inköpslistan");
+  await expect(view(page).getByTestId("recipe-listed")).toHaveCount(0); // UX-01: the rows say På listan, no chip counts them
 });
 
 test("there is no Laga nu any more, and the steps stay in the recipe", async ({ page }) => {

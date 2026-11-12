@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
+import { PlannedProvider, PlannedText } from "./recipe-planned";
 import { FitRow } from "@/components/fit-row";
 import type { PreferenceNote } from "@/components/preference-notes";
 import { RecipeImage } from "@/components/recipe-image";
@@ -118,7 +119,7 @@ export function RecipeView({
   const sharedFrom = sharedBy ?? recipe.sharedFromName ?? null;
   const savedBy = recipe.isShared ? savedByText(savers) : null;
   return (
-    <article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
+    <PlannedProvider><article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
       {/* A compact top bar instead of a big picture (Pontus 2026-11-06): back on the left, the heart and ⋯ on the right.
           Matkoll on the home screen has no browser back button (AD-27): back in history when opened within Matkoll, else to Recept. */}
       <div className="flex items-center justify-between pt-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] desktop:mt-10 desktop:pt-0">
@@ -143,8 +144,8 @@ export function RecipeView({
         <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="min-w-0 text-recipe-title wrap-break-word text-ink">{recipe.title}</h1>
         {/* UX-12: the source is shown only when it is a link; "Inklistrad text" is not something to press. */}
-        {time || (recipe.sourceKind === "url" && recipe.sourceUrl) ? (
-          <p className="text-meta text-ink-2" data-testid="recipe-meta">
+        {/* UX-01: "På matsedeln v. N" is small text on this line (empty:hidden when there is nothing on it). */}
+        <p className="text-meta text-ink-2 empty:hidden" data-testid="recipe-meta">
             {time ? <span>{time}</span> : null}
             {time && recipe.sourceKind === "url" && recipe.sourceUrl ? " · " : ""}
             {recipe.sourceKind === "url" && recipe.sourceUrl ? (
@@ -159,8 +160,8 @@ export function RecipeView({
                 <span className="sr-only"> (öppnas i ny flik)</span>
               </a>
             ) : null}
+            <PlannedText afterOther={Boolean(time) || (recipe.sourceKind === "url" && Boolean(recipe.sourceUrl))} />
           </p>
-        ) : null}
         {sharedFrom ? (
           <p className="text-meta text-ink-2" data-testid="recipe-shared-by">
             {sharedByText(sharedFrom)}
@@ -202,12 +203,11 @@ export function RecipeView({
         defaultWeekStart={defaultWeekStart}
         finish={finish}
         nutritionCard={nutritionCard}
-        shared={recipe.isShared ?? false}
         buyInline={buyInline}
         extraAction={extraAction}
         stackActions={stackActions}
       />
-    </article>
+    </article></PlannedProvider>
   );
 }
 
