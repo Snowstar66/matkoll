@@ -67,3 +67,16 @@ export function heirOf(members: readonly Member[]): Member | null {
   const others = members.filter((member) => !member.isMe);
   return [...others].sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.userId.localeCompare(b.userId))[0] ?? null;
 }
+
+/**
+ * The name to show while the household still has its default name (household.name_is_default), which the
+ * database builds from the start of the owner's e-mail address: "Annas hushåll" from the owner's own name
+ * once they have said it (same rule as household_default_name: a name ending in s, x or z takes no s),
+ * otherwise the plain "Hushållet". Never shows the e-mail start.
+ */
+export function shownDefaultName(members: readonly Pick<Member, "name" | "role" | "named">[]): string {
+  const owner = members.find((member) => member.role === "owner" && member.named) ?? members.find((member) => member.named);
+  if (!owner) return "Hushållet";
+  const name = cleanName(owner.name).slice(0, 40);
+  return name + (/[sxz]$/i.test(name) ? " hushåll" : "s hushåll");
+}

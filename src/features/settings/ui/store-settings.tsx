@@ -11,6 +11,7 @@ import { offersLinkCardText, offersSiteName } from "../domain/offers-link";
 import {
   compareStores,
   noAddressText,
+  noSelectedStoreHint,
   noSelectedStoreText,
   selectedStoreText,
   type Store,
@@ -159,7 +160,10 @@ export function StoreSettings({ stores }: StoreSettingsProps) {
           ) : null}
         </div>
       ) : (
-        <p className="text-body text-ink-2">{noSelectedStoreText}</p>
+        <div data-testid="no-store" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
+          <h3 className="text-row-title text-ink">{noSelectedStoreText}</h3>
+          <p className="text-meta text-ink-2">{noSelectedStoreHint}</p>
+        </div>
       )}
       {others.length > 0 ? (
         <>

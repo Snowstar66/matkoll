@@ -12,6 +12,8 @@ import { useOption } from "@/lib/use-option";
 // ever added without the household choosing it on /recept/startrecept.
 
 export const starterPickerHref = "/recept/startrecept";
+/** Tillval at the Startrecept switch: leads there, switches nothing on (UX-08, decision d4). */
+export const starterSwitchHref = "/installningar/tillval#tillval-starterRecipes";
 
 /** What Recept knows of the pack: how many recipes the household has not added, of how many. */
 export type StarterOffer = { available: number; total: number };
@@ -21,13 +23,35 @@ type OfferPromise = Promise<StarterOffer | undefined>;
 /** The empty list: the offer instead of `children` (the usual empty state) while there is something to choose. */
 export function StarterEmptyOffer({ offer, importButton, children }: { offer: OfferPromise; importButton: ReactNode; children: ReactNode }) {
   const on = useOption("starterRecipes");
-  if (!on) return <>{children}</>;
+  if (!on) {
+    // Switched off: the usual empty state, and a quiet link to the switch while the owner's pack has recipes to choose.
+    return (
+      <>
+        {children}
+        <Suspense fallback={null}>
+          <SwitchLink offer={offer} />
+        </Suspense>
+      </>
+    );
+  }
   return (
     <Suspense fallback={children}>
       <EmptyOffer offer={offer} importButton={importButton}>
         {children}
       </EmptyOffer>
     </Suspense>
+  );
+}
+
+function SwitchLink({ offer: promise }: { offer: OfferPromise }) {
+  const offer = use(promise);
+  if (!offer || offer.available === 0) return null;
+  return (
+    <div className="-mt-8 mb-8 flex justify-center">
+      <Link href={starterSwitchHref} data-testid="starter-switch-link" className="inline-flex min-h-tap items-center px-3 text-control font-semibold text-accent underline">
+        Eller börja med färdiga recept
+      </Link>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/lib/supabase/database.types";
-import { isMemberColor, type Household, type Me, type Member, type MemberColor, type PendingInvite } from "../domain/member";
+import { isMemberColor, shownDefaultName, type Household, type Me, type Member, type MemberColor, type PendingInvite } from "../domain/member";
 
 // The household's functions (Story 21.2b, supabase/migrations/…_household_members.sql).
 // Every call goes through a security definer function; no table is written
@@ -77,7 +77,7 @@ export async function loadMembersIn(db: HouseholdDb): Promise<Member[]> {
 /** The caller's household: its name, members and open invitations. */
 export async function loadHouseholdIn(db: HouseholdDb): Promise<Household> {
   const [household, members, invites] = await Promise.all([
-    db.from("household").select("name").maybeSingle(),
+    db.from("household").select("name, name_is_default").maybeSingle(),
     loadMembersIn(db),
     db.rpc("household_invites"),
   ]);
@@ -89,7 +89,10 @@ export async function loadHouseholdIn(db: HouseholdDb): Promise<Household> {
     createdAt: row.created_at,
     expiresAt: row.expires_at,
   }));
-  return { name: household.data.name, members, invites: pending };
+  // While the household still has the name it got from the e-mail address ("Ux hushåll"), show one from the owner's
+  // own name ("Annas hushåll") once they have said it, or the plain "Hushållet": never part of an address (UX-10).
+  const name = household.data.name_is_default ? shownDefaultName(members) : household.data.name;
+  return { name, members, invites: pending };
 }
 
 export type NewInvite = { id: string; code: string; expiresAt: string };

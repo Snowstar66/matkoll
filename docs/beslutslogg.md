@@ -2,6 +2,13 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-11-12 – Nya hushåll börjar utan vald butik (UX-09, ändring av AD-21)
+
+- **Beslut:** `ensure_user_defaults()` lägger bara in startsajterna för receptimport. Den lägger inte längre in Maxi ICA Stormarknad Östersund som vald butik. Ett nytt hushåll ser raden "Välj butik" under Inställningar, Butiker, med en mening om att butiken styr erbjudandena. Befintliga hushåll och deras butiker ändras inte.
+- **Varför:** standardbutiken var ägarens egen och visade fel butik och fel erbjudanden för hushåll på andra orter, utan att något sa att det var en standard. Appen delas nu.
+- **Hur:** additiv migration (`create or replace` av samma funktion, inga tabell- eller dataändringar). Inköpslista, Erbjudanden och Veckoagenten hanterade redan "ingen butik" (`offers_store_missing`, "Välj en butik i inställningarna först.").
+- **Hushållets namn (UX-10):** medan `household.name_is_default` är sant visas "Annas hushåll" (från ägarens eget namn) eller "Hushållet" i stället för namnet som kom från e-postadressens början. Ingen lagrad rad ändras.
+
 ## 2026-11-12 – Startrecept: ett valbart paket av ägarens egna recept
 
 - **Pontus beslut:** startrecepten är **valbara** (aldrig automatiska), bilderna ligger i vår egen lagring, receptens texter skrivs **inte** om, offline är parkerat. Paketet är **inte** hårdkodat: det ligger i databasen och appens ägare sköter det i appen (lägga till eget recept, ta bort, ordning och kort anteckning, förhandsvisning som ett nytt hushåll som inte kopierar något). Allt bakom Tillval *Startrecept* (per enhet, av som standard). Bara tillägg i databasen, radskydd överallt.

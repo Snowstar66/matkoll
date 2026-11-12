@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanName, heirOf, initialOf, isMemberColor, type Member, memberCountText, memberNamesText } from "./member";
+import { cleanName, heirOf, initialOf, isMemberColor, type Member, memberCountText, memberNamesText, shownDefaultName } from "./member";
 
 const member = (name: string, joinedAt: string, isMe = false): Member => ({
   userId: name.toLowerCase(),
@@ -31,5 +31,16 @@ describe("the members (Story 21.2b)", () => {
     const members = [member("Pontus", "2026-01-01", true), member("Kalle", "2026-03-01"), member("Martina", "2026-02-01")];
     expect(heirOf(members)?.name).toBe("Martina");
     expect(heirOf([members[0]!])).toBeNull();
+  });
+});
+
+describe("shownDefaultName", () => {
+  const member = (name: string, role: "owner" | "member", named: boolean) => ({ name, role, named });
+  it("uses the owner's own name once said", () => {
+    expect(shownDefaultName([member("Anna", "owner", true)])).toBe("Annas hushåll");
+    expect(shownDefaultName([member("Alex", "owner", true)])).toBe("Alex hushåll");
+  });
+  it("says Hushållet until someone has said their name", () => {
+    expect(shownDefaultName([member("Ux", "owner", false)])).toBe("Hushållet");
   });
 });
