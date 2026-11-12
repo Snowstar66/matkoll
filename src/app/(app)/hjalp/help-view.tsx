@@ -175,7 +175,7 @@ export function HelpView({ version, updated, ownerName }: { version: string; upd
             {updated ? ` · uppdaterad ${updated}` : ""}
           </p>
           <p className="mt-1 text-center text-[0.8125rem] leading-[1.125rem]">
-            <Link href={newsHref} className={cx("rounded-sm font-medium text-accent", rowFocus)} data-testid="help-news">
+            <Link href={newsHref} className={cx("inline-flex min-h-tap items-center rounded-sm px-1 font-medium text-accent", rowFocus)} data-testid="help-news">
               Nyheter i {appName}
             </Link>
           </p>
