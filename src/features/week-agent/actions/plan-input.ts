@@ -26,7 +26,7 @@ export async function buildPlanInput(weekStart: string, settings: WeekAgentSetti
     settings = { ...settings, dinners: Math.min(maxDinners, Math.max(settings.dinners, fixedDays.length + freed.size)) };
   }
   const onPlan = new Set(pool.dishes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
-  const context = { weekStart, settings, fixedDays, people: pool.people, recent: pool.recent };
+  const context = { weekStart, settings, fixedDays, people: pool.people, recent: pool.recent, pastDays: pool.pastDays };
   let shortlist = buildShortlist(pool.pool.filter((candidate) => !onPlan.has(candidate.id)), context);
   if (replaceAgentDays && shortlist.candidates.length < openDays(context).length) {
     // A small library: the agent's own earlier dishes may come back rather than leave the redo without enough dishes.
