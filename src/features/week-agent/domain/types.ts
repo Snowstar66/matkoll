@@ -6,7 +6,7 @@ import type { WeekAgentSettings } from "./settings";
 // proposal that is shown and saved, and what a run ends in. A day is `dayIndex` 1 (måndag) to 7 (söndag), the same
 // number as meal_plan_recipe.weekday, so a proposal day maps straight onto Matsedel.
 
-/** An offer on one of the ingredients of a recipe, with the store it is at ("Extrapris på Laxfilé hos ICA"). */
+/** An offer on one of the ingredients of a recipe, with the store it is at ("Erbjudande på Laxfilé hos ICA"). */
 export type OfferHit = OfferTagData & { store: string | null; storeId?: string | null };
 
 /** Something at home that goes out soon and that the recipe uses. `expiresWeekday` is the day of THIS week (1-7), null when it is not in this week (already old, or no date). */
@@ -89,7 +89,7 @@ export type ProposalDay = {
   source: "fixed" | "proposed";
   /** A fixed day is locked; so can a proposed day be, by the user ("Gör om" leaves it). */
   locked: boolean;
-  /** Why, short sentences built from facts ("Extrapris på Laxfilé hos ICA", "Går ut fredag"). */
+  /** Why, short sentences built from facts ("Erbjudande på Laxfilé hos ICA", "Går ut fredag"). */
   reasons: string[];
   offerTags: OfferHit[];
   useSoonTags: UseSoonTag[];

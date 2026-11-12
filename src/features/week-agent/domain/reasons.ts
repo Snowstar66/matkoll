@@ -9,7 +9,7 @@ const maxReasons = 3;
 
 export function offerReason(offer: OfferHit): string {
   const what = offer.price ? `${offer.name} (${offer.price})` : offer.name;
-  return offer.store ? `Extrapris på ${what} hos ${offer.store}` : `Extrapris på ${what}`;
+  return offer.store ? `Erbjudande på ${what} hos ${offer.store}` : `Erbjudande på ${what}`;
 }
 
 /**
