@@ -52,6 +52,7 @@ export function RecipeMenu({
     router.replace("/recept");
   });
   const menuId = useId();
+  const shareStatusId = useId();
   const root = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const firstItem = useRef<HTMLButtonElement>(null);
@@ -190,9 +191,18 @@ export function RecipeMenu({
               type="button"
               role="menuitem"
               onClick={toggleShare}
+              aria-describedby={isShared ? shareStatusId : undefined}
               className="flex min-h-tap items-center justify-between gap-4 px-4 text-left text-body whitespace-nowrap text-ink"
             >
-              <span>{isShared ? "Sluta dela" : "Dela med andra"}</span>
+              {/* UX-01: the "Delat" pill left the top of the page; the menu says the status instead. */}
+              <span className="flex flex-col py-1.5">
+                <span>{isShared ? "Sluta dela" : "Dela med andra"}</span>
+                {isShared ? (
+                  <span id={shareStatusId} aria-hidden="true" className="text-meta text-ink-2" data-testid="recipe-share-status">
+                    Delat med andra
+                  </span>
+                ) : null}
+              </span>
               <ShareIcon size={20} className="shrink-0 text-ink-2" />
             </button>
           ) : null}

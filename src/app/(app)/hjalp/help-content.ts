@@ -45,7 +45,7 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Kan jag ändra antal portioner?", answer: "Ja, med knapparna vid portionerna. Mängderna och vad som saknas räknas om." },
       {
         question: "Hur lägger jag ett recept på matsedeln?",
-        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan du senast tittade på i Matsedel eller Inköpslista (annars denna vecka), under Ingen dag. Meddelandet har Ångra och Byt vecka, och pillen På matsedeln öppnar veckan där du väljer dag.",
+        answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan du senast tittade på i Matsedel eller Inköpslista (annars denna vecka), under Ingen dag. Meddelandet har Ångra och Byt vecka, och den lilla texten På matsedeln under titeln öppnar veckan där du väljer dag.",
       },
       {
         question: "Hur tar jag bort ett recept?",
@@ -77,7 +77,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan jag dela ett recept med andra?",
-        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och receptet får märket Delat. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn. Första gången ni delar frågar appen vad andra ska se att ni heter; hoppar ni över det står det Ett hushåll, och ni kan byta namn senare under Inställningar → Medlemmar. Det nyast delade receptet står först under Delade. En kopia som någon sparar delas aldrig vidare. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
+        answer: `Ja. Öppna receptet, tryck ⋯ och Dela med andra. Då ser alla hushåll i ${appName} det under Delade i Recept, och i menyn ⋯ står det Delat med andra under Sluta dela. Bara receptet delas: bild, ingredienser, steg och källa, aldrig anteckningar, favoriter, matsedel eller vad ni har hemma. De andra ser ert hushålls namn. Första gången ni delar frågar appen vad andra ska se att ni heter; hoppar ni över det står det Ett hushåll, och ni kan byta namn senare under Inställningar → Medlemmar. Det nyast delade receptet står först under Delade. En kopia som någon sparar delas aldrig vidare. Sparar någon en kopia står det Sparat av och hushållets namn under receptet. Sluta dela gör du i samma meny. Kopior som andra redan har sparat finns kvar hos dem.`,
       },
       {
         question: "Hur använder jag ett recept som någon annan delar?",

@@ -115,6 +115,13 @@ describe("RecipeMenu", () => {
     expect(within(question).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
   });
 
+  it("says in the menu that the recipe is shared, since the pill left the top of the page (UX-01)", () => {
+    render(<RecipeMenu recipe={{ ...recipe, isShared: true }} searchIngredients={searchIngredients} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
+    expect(screen.getByRole("menuitem", { name: "Sluta dela" })).toHaveAccessibleDescription("Delat med andra");
+    expect(screen.getByTestId("recipe-share-status")).toHaveTextContent("Delat med andra");
+  });
+
   it("shares at once with Dela med andra, and stops with Sluta dela, without a question (Delade recept)", async () => {
     const { unmount } = render(<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />);
     fireEvent.click(screen.getByRole("button", { name: "Fler val" }));

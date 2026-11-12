@@ -145,8 +145,8 @@ test.beforeAll(async () => {
 
 test("without staples, the stew misses every catalog ingredient with an amount", async ({ page }) => {
   await page.goto(`/recept/${recipeIds[stew]}`);
-  // Eight: "svartpeppar efter smak" is vague, and a vague line never counts in N. The stew is on the plan, so the eight stand on the list.
-  await expect(page.getByTestId("recipe-listed").filter({ visible: true })).toHaveText("8 på inköpslistan");
+  // UX-01: no chip counts them any more; the rows say it. The stew is on the plan, so the eight with an amount stand on the list, and the vague "svartpeppar efter smak" row says På listan too (nine rows).
+  await expect(page.getByTestId("recipe-view-line").filter({ visible: true }).getByText("På listan", { exact: true })).toHaveCount(9);
 });
 
 test("Inställningar → Basvaror: Återställ standard brings the default list, and a staple is added and removed with Ångra", async ({ page }) => {
@@ -175,7 +175,7 @@ test("Inställningar → Basvaror: Återställ standard brings the default list,
 
 test("with the defaults, the stew misses only what has to be bought", async ({ page }) => {
   await page.goto(`/recept/${recipeIds[stew]}`);
-  await expect(page.getByTestId("recipe-listed").filter({ visible: true })).toHaveText("4 på inköpslistan");
+  await expect(page.getByTestId("recipe-view-line").filter({ visible: true }).getByText("På listan", { exact: true })).toHaveCount(4);
   // Neither olivolja nor anything else of the household's staples is on the list.
   const rows = page.getByTestId("recipe-view-line").filter({ visible: true });
   await expect(rows.filter({ hasText: "olivolja" }).getByText("På listan", { exact: true })).toHaveCount(0);
@@ -207,5 +207,5 @@ test("baking: 5 dl vetemjöl, 3 dl socker and 100 g smör go on the list as befo
   // The stew's 2 msk smör is still left out: it is in another unit, a need of its own, within 50 g.
   expect(labels.filter((label) => label.startsWith("Smör"))).toHaveLength(1);
   await page.goto(`/recept/${recipeIds[cake]}`);
-  await expect(page.getByTestId("recipe-listed").filter({ visible: true })).toHaveText("4 på inköpslistan");
+  await expect(page.getByTestId("recipe-view-line").filter({ visible: true }).getByText("På listan", { exact: true })).toHaveCount(4);
 });

@@ -252,12 +252,12 @@ describe("RecipeView", () => {
     expect(screen.queryByTestId("recipe-on-offer")).not.toBeInTheDocument();
   });
 
-  it("says På listan on rows whose ingredient is on the list, and counts them in a chip", () => {
+  it("says På listan on rows whose ingredient is on the list (no chip counts them any more, UX-01)", () => {
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([])} listedIds={[kyckling]} />);
     expect(within(rows()[0]).getByText("På listan")).toBeInTheDocument();
     expect(within(rows()[0]).getByRole("img")).toHaveAccessibleName("på inköpslistan");
     expect(within(rows()[1]).getByRole("img", { name: "saknas" })).toBeInTheDocument();
-    expect(screen.getByTestId("recipe-listed")).toHaveTextContent("1 på inköpslistan");
+    expect(screen.queryByTestId("recipe-listed")).not.toBeInTheDocument();
   });
 
   it("shows everything at home beside a line with too little: every unit of the ingredient", () => {
@@ -567,6 +567,9 @@ describe("RecipeView: the portion selector", () => {
     // The rows flip to På listan, the pill takes the place of the button, and nothing is pinned at the bottom.
     expect(screen.getAllByText("På listan")).toHaveLength(2);
     expect(screen.getByTestId("recipe-planned")).toHaveTextContent("På matsedeln denna vecka");
+    // UX-01: small text on the meta line under the title, not a pill in the status row.
+    expect(screen.getByTestId("recipe-meta")).toContainElement(screen.getByTestId("recipe-planned"));
+    expect(screen.getByTestId("recipe-chips")).not.toContainElement(screen.getByTestId("recipe-planned"));
     expect(screen.queryByRole("button", { name: "Lägg på matsedeln" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Köp det som saknas/ })).not.toBeInTheDocument();
   });
@@ -611,7 +614,7 @@ describe("RecipeView: the portion selector", () => {
       await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
       expect(addToPlan).toHaveBeenLastCalledWith({ recipeId: recipe.id, servings: 4, id: expect.any(String), weekday: null, weekStart: "2026-11-09" });
       expect(await screen.findByTestId("toast")).toHaveTextContent("Lagd på matsedeln v. 46. Kycklinglårfilé och rödlök står på inköpslistan.");
-      const pill = screen.getByTestId("recipe-planned");
+      const pill = screen.getByTestId("recipe-planned"); // small text on the meta line (UX-01), not a pill
       expect(pill).toHaveTextContent("På matsedeln v. 46");
       expect(pill).toHaveAttribute("href", "/matsedel?vecka=2026-W46");
     });
@@ -708,7 +711,7 @@ describe("RecipeView: Köp det som saknas", () => {
     expect(screen.getAllByText("På listan")).toHaveLength(2);
     // Only the vague salt is still ringed; it is never bought.
     expect(screen.getAllByRole("img", { name: "saknas" })).toHaveLength(1);
-    expect(screen.getByTestId("recipe-listed")).toHaveTextContent("2 på inköpslistan");
+    expect(screen.queryByTestId("recipe-listed")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "På listan ✓ · Ångra" }));
     expect(undoBuy).toHaveBeenCalledWith({ keys: [`recipe:${recipe.id}:${kyckling}`, `recipe:${recipe.id}:${rodlok}`] });

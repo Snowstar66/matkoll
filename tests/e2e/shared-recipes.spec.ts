@@ -87,14 +87,17 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   // Lindqvists share from the menu, at once and without a question.
   await lindqvists.goto(`/recept/${recipeId}`);
   await expect(lindqvists.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  await expect(lindqvists.getByTestId("recipe-shared")).toHaveCount(0);
   await lindqvists.getByRole("button", { name: "Fler val" }).click();
   const menu = lindqvists.getByRole("menu");
+  await expect(menu.getByTestId("recipe-share-status")).toHaveCount(0);
   await expect(menu.getByRole("menuitem")).toHaveText(["Ändra", "Dela med andra", "Ta bort"]);
   await shot(lindqvists, "eget-meny");
   await menu.getByRole("menuitem", { name: "Dela med andra" }).click();
-  await expect(lindqvists.getByTestId("recipe-shared")).toHaveText("Delat");
+  // UX-01: "Delat" is no pill at the top any more; the menu says it.
   await expect(lindqvists.getByTestId("recipe-saved-by")).toHaveCount(0);
+  await lindqvists.getByRole("button", { name: "Fler val" }).click();
+  await expect(lindqvists.getByRole("menu").getByTestId("recipe-share-status")).toHaveText("Delat med andra");
+  await lindqvists.keyboard.press("Escape");
 
   // Bergs: the chip Delade first, the card with whose it is, no heart.
   await bergs.goto("/recept");
@@ -144,7 +147,9 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   // Lindqvists see who saved it.
   await lindqvists.reload();
   await expect(lindqvists.getByTestId("recipe-saved-by")).toHaveText("Sparat av Bergs");
-  await expect(lindqvists.getByTestId("recipe-shared")).toBeVisible();
+  await lindqvists.getByRole("button", { name: "Fler val" }).click();
+  await expect(lindqvists.getByRole("menu").getByTestId("recipe-share-status")).toBeVisible();
+  await lindqvists.keyboard.press("Escape");
   await shot(lindqvists, "eget-delat");
 
   // Sluta dela alla in Tillval: asked first, not red; then gone from Delade, and Bergs keep their copy.
@@ -192,8 +197,10 @@ test("the first share asks what others should see the household as, and Bergs se
   await shot(hellgrens, "namnfraga");
   await field.fill("Hellgrens");
   await sheet.getByRole("button", { name: "Spara och dela" }).click();
-  await expect(hellgrens.getByTestId("recipe-shared")).toHaveText("Delat");
   await expect(sheet).toHaveCount(0);
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await expect(hellgrens.getByRole("menuitem", { name: "Sluta dela" })).toBeVisible();
+  await hellgrens.keyboard.press("Escape");
   expect((await admin.from("household").select("name, name_is_default").eq("id", ownerHousehold).single()).data).toEqual({ name: "Hellgrens", name_is_default: false });
 
   await bergs.goto("/recept");
@@ -205,8 +212,9 @@ test("the first share asks what others should see the household as, and Bergs se
   await hellgrens.goto(`/recept/${second}`);
   await hellgrens.getByRole("button", { name: "Fler val" }).click();
   await hellgrens.getByRole("menuitem", { name: "Dela med andra" }).click();
-  await expect(hellgrens.getByTestId("recipe-shared")).toHaveText("Delat");
   await expect(hellgrens.getByRole("dialog")).toHaveCount(0);
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await expect(hellgrens.getByRole("menuitem", { name: "Sluta dela" })).toBeVisible();
 
   // Newest shared first: the recipe shared last is first in Delade.
   await bergs.reload();

@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
-import { CheckIcon, ShareIcon } from "@/components/icons";
+import { CheckIcon } from "@/components/icons";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -28,7 +27,6 @@ import {
   buyKey,
   itemsToBuy,
   lineStates,
-  listedChipText,
   offerChipText,
   plannedChipText,
   plannedToastText,
@@ -41,6 +39,7 @@ import { scaleFactor, scaleLines } from "../domain/scale";
 import { BuyMissingSheet } from "./buy-missing-sheet";
 import { ChooseWeekSheet } from "./choose-week-sheet";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
+import { usePublishPlanned } from "./recipe-planned";
 import { StepText } from "./step-text";
 import { TimerBar } from "./timer-bar";
 import { useStepTimers } from "./use-step-timers";
@@ -130,8 +129,6 @@ export type RecipeBodyProps = {
   finish?: ReactNode;
   /** The nutrition card from the page (AD-1), between the status chips and Ingredienser; it hides itself unless Tillval "Visa näring" is on. */
   nutritionCard?: ReactNode;
-  /** Delade recept: the household shares the recipe; the chip "Delat" comes first among the chips. */
-  shared?: boolean;
   /** "Köp det som saknas (N)" as a text button beside the portion selector instead of in the bottom bar (a shared recipe). */
   buyInline?: boolean;
   /** A button first in the bottom bar ("Spara i mina recept" on a shared recipe). */
@@ -174,7 +171,6 @@ export function RecipeBody({
   removeFromPlan,
   finish,
   nutritionCard,
-  shared = false,
   buyInline = false,
   extraAction,
   stackActions = false,
@@ -210,6 +206,9 @@ export function RecipeBody({
   const onPlan = placed?.dish ?? null;
   const placedWeek = placed?.weekStart ? weeks?.find((candidate) => candidate.weekStart === placed.weekStart) ?? null : null;
   const placedName = placed?.weekStart ? weekShortName(placed.weekStart) : "denna vecka";
+  usePublishPlanned(
+    onPlan ? { href: `/matsedel${placed?.weekStart ? weekQueryAlways(placed.weekStart) : ""}`, text: plannedChipText(placedName) } : null,
+  );
   const [planListed, setPlanListed] = useState<readonly string[]>([]);
   const listed = useMemo(() => new Set([...listedIds, ...added, ...planListed]), [listedIds, added, planListed]);
   const states = useMemo(() => (status ? lineStates(lines, status, listed, offers) : null), [lines, status, listed, offers]);
@@ -390,7 +389,8 @@ export function RecipeBody({
       <div className="flex flex-col gap-5 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start desktop:gap-6">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            {/* UX-01: the portion selector and "N av M hemma" share a row (187 + 8 + about 140 of 343 px); it wraps in Större text. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <Stepper
                 value={servings}
                 onChange={setServings}
@@ -398,43 +398,20 @@ export function RecipeBody({
                 max={maxServings}
                 className="h-10 min-h-10 w-[11rem]! [&>button]:h-11"
               />
-              {inlineBuy}
-            </div>
-            {(status && summary) || shared ? (
-              <ul aria-live="polite" aria-label="Status" className="flex flex-wrap gap-2" data-testid="recipe-chips">
-                {shared ? (
-                  <li className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1.5 text-meta font-semibold text-mint-ink" data-testid="recipe-shared">
-                    <ShareIcon size={16} className="shrink-0" />
-                    Delat
-                  </li>
-                ) : null}
-                {onPlan ? (
-                  <li>
-                    {/* UX-05: a pill, not a button; it leads to the week on Matsedel, where the day is chosen. */}
-                    <Link
-                      href={`/matsedel${placed?.weekStart ? weekQueryAlways(placed.weekStart) : ""}`}
-                      data-testid="recipe-planned"
-                      className="block rounded-full bg-mint px-2.5 py-1.5 text-meta font-semibold text-mint-ink"
-                    >
-                      {plannedChipText(placedName)}
-                    </Link>
-                  </li>
-                ) : null}
-                {status && status.ingredientCount > 0 ? (
+              {status && status.ingredientCount > 0 ? (
+                <ul aria-live="polite" aria-label="Status" className="flex" data-testid="recipe-chips">
                   <Chip tone="mint" testId="recipe-at-home">
                     {atHomeSummaryText(status.atHomeCount, status.ingredientCount, siteName)}
                   </Chip>
-                ) : null}
-                {summary && summary.listed > 0 ? (
-                  <Chip tone="sky" testId="recipe-listed">
-                    {listedChipText(summary.listed)}
-                  </Chip>
-                ) : null}
-                {summary && summary.onOffer > 0 ? (
-                  <Chip tone="deal" testId="recipe-on-offer">
-                    {offerChipText(summary)}
-                  </Chip>
-                ) : null}
+                </ul>
+              ) : null}
+              {inlineBuy ? <span className="ml-auto">{inlineBuy}</span> : null}
+            </div>
+            {summary && summary.onOffer > 0 ? (
+              <ul className="flex flex-wrap gap-2" data-testid="recipe-offer-chips">
+                <Chip tone="deal" testId="recipe-on-offer">
+                  {offerChipText(summary)}
+                </Chip>
               </ul>
             ) : null}
           </div>
@@ -572,7 +549,7 @@ const chipTones = {
 /** A status chip at the top of the recipe: a small pill, text only (status never rests on colour alone). */
 function Chip({ tone, testId, children }: { tone: keyof typeof chipTones; testId: string; children: ReactNode }) {
   return (
-    <li className={cx("rounded-full px-2.5 py-1.5 text-meta font-semibold", chipTones[tone])} data-testid={testId}>
+    <li className={cx("rounded-full px-2.5 py-1.5 text-meta font-semibold whitespace-nowrap", chipTones[tone])} data-testid={testId}>
       {children}
     </li>
   );
