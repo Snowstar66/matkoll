@@ -61,7 +61,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
       - run: pnpm lint
 
   typecheck:
@@ -74,7 +74,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
       - run: pnpm typecheck
 
   test:
@@ -87,7 +87,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
       - run: pnpm test
 
   # Local Supabase (AD-5): generated types must match the schema, then the
@@ -109,7 +109,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
         if: needs.changes.outputs.code == 'true'
       - uses: supabase/setup-cli@v3
         if: needs.changes.outputs.code == 'true'
@@ -144,7 +144,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
       - uses: supabase/setup-cli@v3
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
@@ -182,7 +182,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile || (rm -rf node_modules && pnpm install --frozen-lockfile) # pnpm 12 sometimes fails creating a store slot ("File exists"); one retry from a clean tree
       - uses: supabase/setup-cli@v3
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
