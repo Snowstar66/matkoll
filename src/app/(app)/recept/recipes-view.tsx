@@ -13,12 +13,13 @@ import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { assessKostrad, recipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
-import { listLibraryWithRows, listSharedRecipes } from "@/features/recipes/server";
+import { getStarterOffer, listLibraryWithRows, listSharedRecipes } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library, type LibraryOffers } from "@/features/recipes/ui/library";
 import { EmptyLibrary } from "@/features/recipes/ui/empty-library";
+import { StarterEmptyOffer, StarterMoreRow, type StarterOffer } from "@/features/recipes/ui/starter-offer";
 import type { SharedListItem } from "@/features/recipes";
 import { TodayCard } from "@/features/today";
 import { WarmAi } from "../warm-ai";
@@ -59,6 +60,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   const initialFilter = await filterPromise;
   // Not awaited: Delade streams in, so the own library never waits for it (the device's option is not known here).
   const shared = readShared();
+  // Not awaited either: Startrecept is a Tillval chosen in the browser, so only its offer waits for it.
+  const starter = readStarterOffer();
   const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan, people] = await Promise.all([
     listLibraryWithRows(),
     readLibraryOffers(),
@@ -78,9 +81,11 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       <>
         {dagens}
         <EmptyLibrary shared={shared}>
-          <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
-            Inga recept än.
-          </EmptyState>
+          <StarterEmptyOffer offer={starter} importButton={<ImportRecipeButton variant="text" />}>
+            <EmptyState hint="Klistra in en länk till ett recept du gillar." action={<ImportRecipeButton variant="primary" />}>
+              Inga recept än.
+            </EmptyState>
+          </StarterEmptyOffer>
         </EmptyLibrary>
       </>
     );
@@ -99,6 +104,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       shared={shared}
       fits={fits}
     />
+    <StarterMoreRow offer={starter} />
     </>
   );
 }
@@ -115,6 +121,16 @@ async function readHealthyIds(rows: readonly RecipeListRow[]): Promise<string[] 
     return rows.filter((row) => assessKostrad(recipeNutrition(row.lines, byId, row.originalServings)).follows).map((row) => row.id);
   } catch (error) {
     console.error("recipe_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return undefined;
+  }
+}
+
+/** Startrecept: how many pack recipes the household has not added; `undefined` when it cannot be read (no offer then). */
+async function readStarterOffer(): Promise<StarterOffer | undefined> {
+  try {
+    return await getStarterOffer();
+  } catch (error) {
+    console.error("recipe_starter_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return undefined;
   }
 }

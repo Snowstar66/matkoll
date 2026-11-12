@@ -62,6 +62,16 @@ export const errorMessages = {
   recipe_shared_gone: "Receptet delas inte längre.",
   recipe_shared_changed: "Receptet har ändrats. Försök igen.",
   recipe_shared_save_failed: "Det gick inte att spara receptet. Försök igen.",
+  // Startrecept (Kom igång med recept): the pack the app's owner keeps, and the copies a household picks.
+  recipe_starter_unavailable: "Det gick inte att hämta startrecepten. Försök igen.",
+  recipe_starter_gone: "Receptet finns inte längre bland startrecepten.",
+  recipe_starter_cap: "Receptlistan är full. Ta bort några recept för att kunna lägga till fler.",
+  recipe_starter_failed: "Det gick inte att lägga till receptet. Försök igen.",
+  recipe_starter_remove_failed: "Det gick inte att ta bort startrecepten. Försök igen.",
+  starter_pack_not_owner: "Bara appens ägare kan ändra startpaketet.",
+  starter_pack_copy: "En kopia av ett recept från någon annan kan inte läggas i startpaketet.",
+  starter_pack_full: "Startpaketet är fullt. Ta bort något recept först.",
+  starter_pack_failed: "Det gick inte att ändra startpaketet. Försök igen.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
   // Välkomstturen (Story 20.1): closing it could not be saved, so it may show again at the next start. Logged, never shown.
   welcome_tour_save_failed: "Det gick inte att spara att du sett rundturen.",

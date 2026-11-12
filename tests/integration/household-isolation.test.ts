@@ -78,6 +78,11 @@ const coveredInAiCapTest = ["ai_cap", "ai_usage_reservation"];
 // authenticated only, nothing writable (nutrition.test.ts tries to read, write and read as anon).
 const coveredInNutritionTest = ["ingredient_nutrition"];
 
+// Startrecept: the app owner's pack (no user or household of its own; it names the owner's recipes). RLS on,
+// no policy and no grant for any client: the owner's functions are the only way in, and the members' functions
+// give only the recipes in it (starter-recipes.test.ts tries each as owner, member, another household and anon).
+const coveredInStarterTest = ["starter_pack_item"];
+
 // Story 21.2a: the household itself, its members and its invitations. Covered
 // below in "the household and its members". Story 21.2b: the count of wrong
 // invitation codes, which no client reads or writes (household-members.test.ts).
@@ -299,6 +304,8 @@ function expectedPolicies(): Omit<LivePolicy, "roles">[] {
     `((bucket_id = 'recipe-images'::text) AND (name ~ '^${uuidPattern}/${uuidPattern}/(full|thumb)$'::text) AND recipe_image_folder_in_my_household(name) AND recipe_image_room_in_my_household())`,
   );
   add("storage.objects", "recipe_images_delete", "DELETE", recipeFile, "");
+  // Startrecept (20261112120000_starter_recipes.sql): any member may READ the files of a recipe in the owner's pack, to copy them.
+  add("storage.objects", "recipe_images_starter_select", "SELECT", "((bucket_id = 'recipe-images'::text) AND recipe_image_in_starter_pack(name))", "");
   const key = (row: { tablename: string; policyname: string }) => `${row.tablename} ${row.policyname}`;
   return rows.sort((x, y) => key(x).localeCompare(key(y)));
 }
@@ -416,7 +423,7 @@ describe("household isolation", () => {
     const tables = liveTables();
     const live = tables.map((table) => table.name);
     const covered = Object.keys(coverage).sort();
-    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...coveredInAiCapTest, ...coveredInNutritionTest, ...householdTables];
+    const known = [...covered, ...coveredInFeedbackTest, ...coveredInAppInvitesTest, ...coveredInAiCapTest, ...coveredInNutritionTest, ...coveredInStarterTest, ...householdTables];
     const missing = live.filter((table) => !known.includes(table));
     const gone = known.filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);
@@ -1004,6 +1011,9 @@ describe("household isolation", () => {
       "claim_eat_soon_devices",
       // Delade recept: the caller's own household's dela alla and count (shared-recipes.test.ts tries each).
       "recipe_sharing", "set_recipe_share_all", "stop_sharing_recipes",
+      // Startrecept: the app owner's pack as any member sees it (only recipes in the pack, never another household's
+      // own), the caller's own household's room and starter copies (starter-recipes.test.ts tries each).
+      "starter_pack_list", "starter_recipe_room", "starter_copies",
       // Pure functions of their arguments.
       "catalog_display_name", "ingredient_keeps_days", "household_staple_defaults", "food_tastes_valid", "food_tags_valid", "week_agent_settings_valid", "week_agent_proposal_valid", "meal_plan_week_start", "pantry_added_time", "pantry_photo_points_valid", "pantry_photo_reading_valid",
     ];
@@ -1079,6 +1089,18 @@ describe("household isolation", () => {
         ["photo_file_in_my_household", { bucket: placePhotoBucket, object_name: aPhotoPaths.get(placePhotoBucket)! }],
         ["photo_folder_in_my_household", { bucket: thingPhotoBucket, object_name: photoPath(thingPhotoBucket, a.id, aSeed.placeId) }],
         ["recipe_image_folder_in_my_household", { object_name: `${householdA}/${rowIds.get("recipe")!}/full` }],
+        // Startrecept: A's recipe is not in the pack, and B is not the app's owner.
+        ["get_starter_recipe", { item: aSeed.recipeId }],
+        ["save_starter_recipe", { item: aSeed.recipeId, ingredient_ids: [], expected_version: "x" }],
+        ["starter_image_folder", { item: aSeed.recipeId }],
+        ["starter_recipe_fingerprint", { recipe: aSeed.recipeId }],
+        ["recipe_image_in_starter_pack", { object_name: `${householdA}/${rowIds.get("recipe")!}/full` }],
+        ["delete_untouched_starter_copies", { recipe_ids: [aSeed.recipeId] }],
+        ["starter_pack_items", {}],
+        ["starter_pack_add", { pack_recipe: aSeed.recipeId }],
+        ["starter_pack_remove", { item: randomUUID() }],
+        ["starter_pack_set_note", { item: randomUUID(), item_note: "Kapat" }],
+        ["starter_pack_move", { item: randomUUID(), step: 1 }],
       ];
     }
 

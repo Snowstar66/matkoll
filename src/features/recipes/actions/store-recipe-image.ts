@@ -3,6 +3,7 @@ import { fetchRecipeImage } from "@/server/fetch";
 import { makeRecipePictures } from "@/server/images";
 import { RecipeDataError, type RecipesDb } from "../data/client";
 import {
+  downloadImageIn,
   getImageStateIn,
   imageRoomIn,
   imageUploadRefusedDetail,
@@ -81,6 +82,52 @@ export async function storeRecipeImage(
     if (uploaded.length > 0) await removeImagesIn(db, uploaded).catch(() => {});
     return detail === imageUploadRefusedDetail ? "cap" : "failed";
   }
+}
+
+/**
+ * Startrecept: copies the stored picture of a pack recipe (`sourceFolder`, the owner's folder,
+ * which every signed-in member may read: recipe_images_starter_select) into the household's own
+ * folder for its copy `recipeId`, both sizes as they are (they were made by this server), and points
+ * the copy's image_path at them. Without a stored picture to copy, or when it cannot be read, the
+ * picture is fetched from the copy's image address instead (storeRecipeImage). Never throws, and
+ * never fails the copy: at worst the copy shows its image address or a drawing.
+ */
+export async function copyStarterImage(db: RecipesDb, recipeId: string, sourceFolder: string | null): Promise<StoreImageOutcome> {
+  let uploaded: string[] = [];
+  try {
+    if (sourceFolder) {
+      const state = await getImageStateIn(db, recipeId);
+      if (!state || state.imagePath) return "skipped";
+      if ((await imageRoomIn(db)) === false) {
+        note("cap");
+        return "cap";
+      }
+      const [full, thumb] = await Promise.all([downloadImageIn(db, sourceFolder, "full"), downloadImageIn(db, sourceFolder, "thumb")]);
+      // Only what this server wrote (WebP) is copied as it is; anything else is fetched and made again below.
+      if (full && thumb && full.type === "image/webp" && thumb.type === "image/webp") {
+        const folder = recipeImageFolder(state.householdId, recipeId);
+        const files = [
+          { path: recipeImageFile(folder, "full"), bytes: new Uint8Array(await full.arrayBuffer()) },
+          { path: recipeImageFile(folder, "thumb"), bytes: new Uint8Array(await thumb.arrayBuffer()) },
+        ];
+        await removeImagesIn(db, files.map((file) => file.path));
+        for (const file of files) {
+          await uploadImageIn(db, file.path, file.bytes);
+          uploaded.push(file.path);
+        }
+        await setImagePathIn(db, recipeId, folder);
+        uploaded = [];
+        return "stored";
+      }
+      note("starter_source_unreadable");
+    }
+  } catch (error) {
+    const detail = error instanceof RecipeDataError ? error.detail : "unexpected";
+    note(`starter_${detail}`);
+    if (uploaded.length > 0) await removeImagesIn(db, uploaded).catch(() => {});
+    if (detail === imageUploadRefusedDetail) return "cap";
+  }
+  return storeRecipeImage(db, recipeId);
 }
 
 /**

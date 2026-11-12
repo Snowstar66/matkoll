@@ -649,14 +649,14 @@ isOneToOne: false
                   ]
                 },"recipe": {
                   Row: {
-                    "created_at": string,"household_id": string,"id": string,"image_path": string | null,"image_url": string | null,"is_favorite": boolean,"is_shared": boolean,"offer_names": (string)[],"original_servings": number,"shared_at": string | null,"shared_from_name": string | null,"shared_from_recipe_id": string | null,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string | null
+                    "created_at": string,"household_id": string,"id": string,"image_path": string | null,"image_url": string | null,"is_favorite": boolean,"is_shared": boolean,"offer_names": (string)[],"original_servings": number,"shared_at": string | null,"shared_from_name": string | null,"shared_from_recipe_id": string | null,"source_kind": string,"source_url": string | null,"starter_fingerprint": string | null,"starter_item_id": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_path"?: string | null,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings": number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_path"?: string | null,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings": number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind": string,"source_url"?: string | null,"starter_fingerprint"?: string | null,"starter_item_id"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_path"?: string | null,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings"?: number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"household_id"?: string,"id"?: string,"image_path"?: string | null,"image_url"?: string | null,"is_favorite"?: boolean,"is_shared"?: boolean,"offer_names"?: (string)[],"original_servings"?: number,"shared_at"?: string | null,"shared_from_name"?: string | null,"shared_from_recipe_id"?: string | null,"source_kind"?: string,"source_url"?: string | null,"starter_fingerprint"?: string | null,"starter_item_id"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -833,6 +833,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "meal_plan"
       referencedColumns: ["id","household_id"]
+    }
+                  ]
+                },"starter_pack_item": {
+                  Row: {
+                    "created_at": string,"id": string,"note": string | null,"position": number,"recipe_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"note"?: string | null,"position"?: number,"recipe_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"note"?: string | null,"position"?: number,"recipe_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "starter_pack_item_recipe_id_fkey"
+      columns: ["recipe_id"]
+isOneToOne: true
+      referencedRelation: "recipe"
+      referencedColumns: ["id"]
     }
                   ]
                 },"store": {
@@ -1250,6 +1270,11 @@ isOneToOne: false
 "delete_pantry_site":
 { Args: { "site_id": string }; Returns: boolean
                            },
+"delete_untouched_starter_copies":
+{ Args: { "recipe_ids": (string)[] }; Returns: {
+              "id": string,"image_path": string
+            }[]
+                           },
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
@@ -1282,6 +1307,9 @@ isOneToOne: false
                            },
 "get_shared_recipe":
 { Args: { "shared_recipe_id": string }; Returns: Json
+                           },
+"get_starter_recipe":
+{ Args: { "item": string }; Returns: Json
                            },
 "hide_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: Json
@@ -1452,6 +1480,9 @@ isOneToOne: false
 "recipe_image_household_cap":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"recipe_image_in_starter_pack":
+{ Args: { "object_name": string }; Returns: boolean
+                           },
 "recipe_image_orphans":
 { Args: { "min_age": string }; Returns: string[]
                            },
@@ -1617,6 +1648,9 @@ isOneToOne: false
                            } |
 { Args: { "expected_version": string,"ingredient_ids": (string)[],"shared_recipe_id": string }; Returns: string
                            },
+"save_starter_recipe":
+{ Args: { "expected_version": string,"ingredient_ids": (string)[],"item": string }; Returns: string
+                           },
 "save_store":
 { Args: { "make_selected": boolean,"mode": string,"store": Json }; Returns: {
               "address": string | null,
@@ -1748,6 +1782,50 @@ isOneToOne: false
                            },
 "show_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"starter_copies":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "recipe_id": string,"untouched": boolean
+            }[]
+                           },
+"starter_image_folder":
+{ Args: { "item": string }; Returns: string
+                           },
+"starter_pack_add":
+{ Args: { "pack_recipe": string }; Returns: string
+                           },
+"starter_pack_cap":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"starter_pack_items":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "copies": number,"image_path": string,"image_url": string,"item_id": string,"note": string,"original_servings": number,"position": number,"recipe_id": string,"title": string,"total_minutes": number
+            }[]
+                           },
+"starter_pack_list":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "copy_id": string,"has_image": boolean,"image_url": string,"item_id": string,"line_texts": (string)[],"note": string,"original_servings": number,"title": string,"total_minutes": number
+            }[]
+                           },
+"starter_pack_move":
+{ Args: { "item": string,"step": number }; Returns: boolean
+                           },
+"starter_pack_remove":
+{ Args: { "item": string }; Returns: boolean
+                           },
+"starter_pack_set_note":
+{ Args: { "item": string,"item_note": string }; Returns: boolean
+                           },
+"starter_recipe_fingerprint":
+{ Args: { "recipe": string }; Returns: string
+                           },
+"starter_recipe_household_cap":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"starter_recipe_room":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "recipe_cap": number,"recipe_count": number
+            }[]
                            },
 "stop_sharing_recipes":
 { Args: Record<PropertyKey, never>; Returns: number

@@ -32,6 +32,8 @@ export const settingsPages = [
   "inbjudningar",
   // Tak för AI-kostnad: the daily cap per household and each household's cost; its row shows only for the owner.
   "ai-kostnad",
+  // Startrecept: the owner's pack of starter recipes; its row shows only for the owner.
+  "startrecept",
 ] as const;
 
 export type SettingsPage = (typeof settingsPages)[number];

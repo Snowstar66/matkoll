@@ -6,6 +6,7 @@ import { MoreIcon, ShareIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
 import { setRecipeShared } from "../actions/share-recipe";
+import { addToStarterPack, removeFromStarterPack } from "../actions/starter-recipes";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
 import { useRecipeDelete } from "./recipe-delete";
@@ -23,6 +24,7 @@ export function RecipeMenu({
   searchIngredients,
   onMenu = false,
   nameIsDefault = false,
+  starterPack,
   className,
 }: {
   recipe: SavedRecipe;
@@ -31,6 +33,11 @@ export function RecipeMenu({
   onMenu?: boolean;
   /** The household still has the name it got with the account: the first share asks for a name. */
   nameIsDefault?: boolean;
+  /**
+   * Startrecept, for the app's owner only (undefined for anyone else): whether the recipe is in the pack
+   * (its item), for "Lägg i startpaketet" / "Ta bort ur startpaketet".
+   */
+  starterPack?: { itemId: string | null };
   className?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -118,6 +125,25 @@ export function RecipeMenu({
     return result.error.fields?.name ?? result.error.message;
   }
 
+  // Startrecept: the owner puts an own recipe in the pack, or takes it out; never on a copy saved from another household.
+  const withStarter = starterPack !== undefined && !recipe.sharedFromName;
+  async function toggleStarter() {
+    closeMenu();
+    if (!starterPack) return;
+    let result: Result<unknown>;
+    try {
+      result = starterPack.itemId ? await removeFromStarterPack(starterPack.itemId) : await addToStarterPack(recipe.id);
+    } catch {
+      result = fail("starter_pack_failed");
+    }
+    if (result.ok) {
+      showToast(starterPack.itemId ? "Togs bort ur startpaketet." : "Ligger nu i startpaketet.");
+      router.refresh();
+    } else {
+      showToast(result.error.message, { role: "alert" });
+    }
+  }
+
   function remove() {
     // Focus on ⋯ first, so the confirmation gives it back when it closes.
     closeMenu();
@@ -168,6 +194,16 @@ export function RecipeMenu({
             >
               <span>{isShared ? "Sluta dela" : "Dela med andra"}</span>
               <ShareIcon size={20} className="shrink-0 text-ink-2" />
+            </button>
+          ) : null}
+          {withStarter ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={toggleStarter}
+              className="min-h-tap px-4 text-left text-body whitespace-nowrap text-ink"
+            >
+              {starterPack?.itemId ? "Ta bort ur startpaketet" : "Lägg i startpaketet"}
             </button>
           ) : null}
           {/* Story 19.4: Ta bort is last in the menu, in muted red, not a bin next to the heart. */}

@@ -125,6 +125,10 @@ import {
   suggestionsEmail,
   suggestionsStorageState,
   userStorageState,
+  starterOwnerEmail,
+  starterOwnerStorageState,
+  starterUserEmail,
+  starterUserStorageState,
   markWelcomeTourSeen,
   welcomeEmail,
   welcomeStorageState,
@@ -220,6 +224,8 @@ export default async function globalSetup(config: FullConfig) {
       [listImportEmail, listImportStorageState],
       [sharedOwnerEmail, sharedOwnerStorageState],
       [sharedSaverEmail, sharedSaverStorageState],
+      [starterOwnerEmail, starterOwnerStorageState],
+      [starterUserEmail, starterUserStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

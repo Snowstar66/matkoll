@@ -84,6 +84,8 @@ export async function SettingsMenuContent() {
               { href: settingsPageHref("inbjudningar"), icon: "users", tile: "mint", title: "Inbjudningar" },
               // Tak för AI-kostnad: the daily cap per household and what each has cost; to the owner only.
               { href: settingsPageHref("ai-kostnad"), icon: "coin", tile: "sand", title: "AI-kostnad" },
+              // Startrecept: the pack of the owner's own recipes that households may choose from; to the owner only.
+              { href: settingsPageHref("startrecept"), icon: "sparkle", tile: "mint", title: "Startrecept" },
             ],
           } satisfies SettingsGroupData,
         ]
