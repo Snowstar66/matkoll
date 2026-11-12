@@ -2,6 +2,7 @@ import "server-only";
 import { unitSchema } from "@/features/catalog";
 import { containsPattern } from "@/lib/like-pattern";
 import { sourceKindSchema } from "../domain/recipe-draft";
+import { recipeImageSrc } from "../domain/recipe-image";
 import type { RecipeListRow, RecipeRowLine } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { RecipeDataError, type RecipesDb } from "./client";
@@ -26,7 +27,7 @@ export async function getRecipe(
   const [recipe, steps, lines] = await Promise.all([
     db
       .from("recipe")
-      .select("id, title, original_servings, total_minutes, image_url, source_kind, source_url, offer_names, is_favorite, updated_at, is_shared, shared_from_name")
+      .select("id, title, original_servings, total_minutes, image_url, image_path, source_kind, source_url, offer_names, is_favorite, updated_at, is_shared, shared_from_name")
       .eq("id", id)
       .maybeSingle(),
     db.from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position"),
@@ -57,6 +58,7 @@ export async function getRecipe(
     servings: row.original_servings,
     totalMinutes: row.total_minutes,
     imageUrl: row.image_url,
+    imagePath: row.image_path,
     sourceKind: sourceKind.data,
     sourceUrl: row.source_url,
     offerNames: row.offer_names,
@@ -82,7 +84,7 @@ export async function getRecipe(
 }
 
 /** The library row's own columns. */
-const listColumns = "id, title, image_url, total_minutes, original_servings, is_favorite, created_at";
+const listColumns = "id, title, image_url, image_path, total_minutes, original_servings, is_favorite, created_at";
 /** A recipe line's columns for the status (pantry.recipeStatus) and the shopping list. */
 const lineColumns = "id, position, ingredient_id, amount, unit, is_vague, original_text";
 
@@ -100,6 +102,7 @@ type ListRow = {
   id: string;
   title: string;
   image_url: string | null;
+  image_path: string | null;
   total_minutes: number | null;
   original_servings: number;
   is_favorite: boolean;
@@ -139,7 +142,8 @@ function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
   return {
     id: row.id,
     title: row.title,
-    imageUrl: row.image_url,
+    // The address to show in a list: the thumbnail of the app's own copy when there is one, else the address on the other site.
+    imageUrl: recipeImageSrc({ id: row.id, imagePath: row.image_path, imageUrl: row.image_url }, "thumb"),
     totalMinutes: row.total_minutes,
     originalServings: row.original_servings,
     isFavorite: row.is_favorite,
@@ -264,8 +268,8 @@ export async function searchRecipesIn(
   const found = new Map<string, ListRow>();
   for (const rows of results) {
     for (const row of rows) {
-      const { id, title, image_url, total_minutes, original_servings, is_favorite, created_at } = row;
-      found.set(id, { id, title, image_url, total_minutes, original_servings, is_favorite, created_at });
+      const { id, title, image_url, image_path, total_minutes, original_servings, is_favorite, created_at } = row;
+      found.set(id, { id, title, image_url, image_path, total_minutes, original_servings, is_favorite, created_at });
     }
   }
   if (found.size === 0) return [];

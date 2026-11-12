@@ -78,6 +78,13 @@ const definerWithoutIdentity: Record<string, string> = { ...anonCallable };
 /** Photo buckets: every bucket in the database must be listed here (and so be attacked below). */
 const buckets = ["pantry-photo", "thing-photo"];
 
+/**
+ * The bucket of the recipes' own copies of their pictures (20261112100000_recipe_images.sql): its names are
+ * <household>/<recipe>/full|thumb, not a user's folder, so it has its own attack below and is listed
+ * here for the audit. tests/integration/recipe-images.test.ts goes further (the cap, the column, the orphans).
+ */
+const recipeBucket = "recipe-images";
+
 const identityMarker = /auth\.uid\s*\(|auth\.jwt\s*\(|auth\.role\s*\(|my_household_id\s*\(|is_app_owner\s*\(|is_household_member\s*\(|current_user|session_user/;
 
 // ---------------------------------------------------------------------------
@@ -197,7 +204,7 @@ describe("catalog audit", () => {
   it("has only the known private buckets, each of which is attacked below", () => {
     const live = localSql<{ id: string; public: boolean }>(`select id, public from storage.buckets order by 1`);
     expect(live.filter((bucket) => bucket.public).map((bucket) => bucket.id), "public buckets").toEqual([]);
-    expect(live.map((bucket) => bucket.id).sort(), "buckets without attack coverage in security-attack.test.ts").toEqual([...buckets].sort());
+    expect(live.map((bucket) => bucket.id).sort(), "buckets without attack coverage in security-attack.test.ts").toEqual([...buckets, recipeBucket].sort());
   });
 });
 
@@ -515,6 +522,75 @@ describe("photo buckets, B's file attacked by A and anon", () => {
       const forged = paths[bucket]!.inB(randomUUID());
       expect((await files.upload(forged, bytes, { contentType: "image/png" })).error, `${bucket}: A uploads as B`).not.toBeNull();
     }
+  });
+});
+
+describe("recipe-images, B's recipe picture attacked by A and anon", () => {
+  const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 9, 9, 9, 9]);
+  let recipeB: string;
+  let recipeA: string;
+  let pathB: string;
+  const attackers = (): [string, Db][] => [["A", a.db], ["anon", anonClient()]];
+
+  beforeAll(async () => {
+    const make = async (user: TestUser) => {
+      const row = await user.db.from("recipe").insert({ title: "Bild", original_servings: 2, source_kind: "text" }).select("id").single();
+      expect(row.error).toBeNull();
+      return row.data!.id;
+    };
+    recipeA = await make(a);
+    recipeB = await make(b);
+    pathB = `${householdB}/${recipeB}/full`;
+    const up = await b.db.storage.from(recipeBucket).upload(pathB, bytes, { contentType: "image/webp" });
+    expect(up.error, "B uploads under own recipe").toBeNull();
+  });
+
+  afterAll(async () => {
+    await adminClient().storage.from(recipeBucket).remove([pathB]);
+  });
+
+  it("refuses reading, listing, signing and copying B's picture", async () => {
+    expect((await b.db.storage.from(recipeBucket).download(pathB)).error, "B reads own").toBeNull();
+    for (const [who, db] of attackers()) {
+      const files = db.storage.from(recipeBucket);
+      expect((await files.download(pathB)).error, `${who} downloads`).not.toBeNull();
+      expect((await files.createSignedUrl(pathB, 60)).error, `${who} signs`).not.toBeNull();
+      expect((await files.list(householdB)).data ?? [], `${who} lists B's household folder`).toEqual([]);
+      expect((await files.list(`${householdB}/${recipeB}`)).data ?? [], `${who} lists B's recipe folder`).toEqual([]);
+      expect((await files.copy(pathB, `${householdA}/${recipeA}/full`)).error, `${who} copies B's picture under A's recipe`).not.toBeNull();
+      expect((await fetch(files.getPublicUrl(pathB).data.publicUrl)).status, `${who} fetches the public URL`).not.toBe(200);
+    }
+    const session = (await a.db.auth.getSession()).data.session!;
+    const direct = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/authenticated/${recipeBucket}/${pathB}`, {
+      headers: { Authorization: `Bearer ${session.access_token}`, apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! },
+    });
+    expect(direct.status, "A fetches B's picture with a token over HTTP").not.toBe(200);
+  });
+
+  it("refuses writing over, into or out of B's picture, and forging a path as B", async () => {
+    for (const [who, db] of attackers()) {
+      const files = db.storage.from(recipeBucket);
+      expect((await files.upload(pathB, bytes, { contentType: "image/webp", upsert: true })).error, `${who} overwrites`).not.toBeNull();
+      expect((await files.upload(`${householdB}/${recipeB}/thumb`, bytes, { contentType: "image/webp" })).error, `${who} adds to B's recipe`).not.toBeNull();
+      expect((await files.upload(`${householdB}/${recipeA}/full`, bytes, { contentType: "image/webp" })).error, `${who} adds under A's recipe in B's folder`).not.toBeNull();
+      expect((await files.upload(`${householdA}/${recipeB}/full`, bytes, { contentType: "image/webp" })).error, `${who} adds under B's recipe in A's folder`).not.toBeNull();
+      expect((await files.move(pathB, `${householdA}/${recipeA}/full`)).error, `${who} moves B's picture`).not.toBeNull();
+      expect((await files.remove([pathB])).data ?? [], `${who} removes`).toEqual([]);
+      expect((await files.remove([`${householdB}/%`, "%"])).data ?? [], `${who} removes with wildcards`).toEqual([]);
+      expect((await files.createSignedUploadUrl(pathB, { upsert: true })).error, `${who} gets an upload URL for B's picture`).not.toBeNull();
+    }
+    const after = await adminClient().storage.from(recipeBucket).download(pathB);
+    expect(after.error, "B's picture is still there").toBeNull();
+    expect(new Uint8Array(await after.data!.arrayBuffer())).toEqual(bytes);
+    const folder = await adminClient().storage.from(recipeBucket).list(householdB, { limit: 100 });
+    expect(folder.data?.map((entry) => entry.name), "B's folder holds only B's recipe").toEqual([recipeB]);
+    expect((await adminClient().storage.from(recipeBucket).list(householdA, { limit: 100 })).data ?? [], "nothing was written into A's folder").toEqual([]);
+  });
+
+  it("refuses A pointing a recipe's image_path at B's folder", async () => {
+    const attempt = await a.db.from("recipe").update({ image_path: `${householdB}/${recipeB}` }).eq("id", recipeA);
+    expect(attempt.error?.code).toBe("23514");
+    expect((await b.db.from("recipe").update({ image_path: `${householdB}/${recipeB}` }).eq("id", recipeA).select("id")).data ?? []).toEqual([]);
   });
 });
 

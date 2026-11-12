@@ -22,10 +22,15 @@ export type RecipeImageProps = {
 };
 
 /**
- * The recipe's picture from its address (AD-15): loaded straight from the
- * recipe site without a referrer, and never stored. Without an address, or
- * when the image cannot be loaded, a drawing of the kind of dish on a plate in
- * its tone takes its place (UX-13b): a site's photo always wins.
+ * The recipe's picture from its address. `src` is the app's own copy
+ * (/api/recipe-image/<id>/thumb or /full, a same-site route that only the
+ * household's members can read; AD-15 changed for recipe images) when the
+ * recipe has one, otherwise its address on the recipe site, loaded straight
+ * from there without a referrer as before (recipeImageSrc picks). Without an
+ * address, or when the image cannot be loaded, a drawing of the kind of dish
+ * on a plate in its tone takes its place (UX-13b): a photo always wins. The
+ * box's size comes from `className` (every caller gives it a fixed size or
+ * height), and the image fills it, so the layout never jumps when it loads.
  */
 export function RecipeImage({ src, artSize = 48, dish, title, className }: RecipeImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -42,7 +47,8 @@ export function RecipeImage({ src, artSize = 48, dish, title, className }: Recip
   return (
     <div className={cx("relative overflow-hidden", showImage ? "bg-mint" : dishTone[fallback], className)}>
       {showImage ? (
-        // A plain <img>: the address is on another site and must load without a referrer (AD-15).
+        // A plain <img>: the address may be on another site and must load without a referrer (AD-15);
+        // the app's own route is already optimised (WebP, at most 1 200 px), so next/image has nothing to add.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={imageRef}

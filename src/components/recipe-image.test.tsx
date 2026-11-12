@@ -17,6 +17,23 @@ describe("RecipeImage", () => {
     expect(screen.queryByTestId("recipe-illustration")).not.toBeInTheDocument();
   });
 
+  it("shows the app's own copy from its route (a thumbnail or the full size) the same way", () => {
+    const own = "/api/recipe-image/66666666-6666-4666-8666-666666666666/thumb";
+    const { container } = render(<RecipeImage src={own} title="Fiskgratäng" className="h-card-image" />);
+    expect(image(container)).toHaveAttribute("src", own);
+    expect(image(container)).toHaveClass("size-full", "object-cover");
+    // The box has the caller's size, so the layout is the same before and after the image loads.
+    expect(container.firstElementChild).toHaveClass("h-card-image");
+  });
+
+  it("falls back to the drawing when the app's own copy cannot be read (a 404 from the route)", () => {
+    const own = "/api/recipe-image/66666666-6666-4666-8666-666666666666/full";
+    const { container } = render(<RecipeImage src={own} title="Fiskgratäng" />);
+    fireEvent.error(image(container)!);
+    expect(image(container)).toBeNull();
+    expect(screen.getByTestId("recipe-image-placeholder")).toBeInTheDocument();
+  });
+
   it("shows the drawing when the image cannot be loaded", () => {
     const { container } = render(<RecipeImage src={src} title="Fiskgratäng" />);
     fireEvent.error(image(container)!);

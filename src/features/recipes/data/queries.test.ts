@@ -53,3 +53,29 @@ describe("a line whose unit does not parse", () => {
     expect(rows[0].lines.map(({ ingredientId }) => ingredientId)).toEqual(["agg", null]);
   });
 });
+
+describe("a recipe's picture in the library", () => {
+  const external = "https://img.koket.se/pannkakor.jpg";
+  const path = "household-1/recipe-1";
+
+  it("is the app's own thumbnail when the recipe has a copy, else the address on the other site, else none", async () => {
+    const rows = await listRecipes(
+      fakeDb({
+        recipe: [
+          { ...recipe, id: "own", image_url: external, image_path: path, lines: [] },
+          { ...recipe, id: "site", image_url: external, image_path: null, lines: [] },
+          { ...recipe, id: "none", image_url: null, image_path: null, lines: [] },
+        ],
+      }),
+    );
+    expect(rows.map((row) => row.imageUrl)).toEqual(["/api/recipe-image/own/thumb", external, null]);
+  });
+
+  it("is the same in a search", async () => {
+    const rows = await searchRecipesIn(fakeDb({ recipe: [{ ...recipe, image_url: external, image_path: path }], recipe_ingredient: [] }), {
+      text: "pannkakor",
+      ingredientIds: [],
+    });
+    expect(rows[0].imageUrl).toBe("/api/recipe-image/recipe-1/thumb");
+  });
+});

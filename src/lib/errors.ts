@@ -51,6 +51,7 @@ export const errorMessages = {
   suggest_empty_pantry: "Matvarorna är tomma. Lägg till varor i Matvaror, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
+  recipe_images_failed: "Det gick inte att spara receptbilderna. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",
   recipe_conflict: "Receptet har ändrats någon annanstans. Stäng och öppna det igen.",
   recipe_conflicting_links: "Två rader med samma text kan inte kopplas till olika ingredienser.",

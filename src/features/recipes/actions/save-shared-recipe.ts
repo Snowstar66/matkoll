@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
 import { copyLinesIn, getSharedIn, saveSharedIn } from "../data/shared";
 import { copyLineIngredients, sharedChoices, sharedMatchItems } from "../domain/shared-recipe";
+import { storeRecipeImage } from "./store-recipe-image";
 
 const idSchema = z.guid();
 const versionSchema = z.string().max(100).optional();
@@ -40,6 +41,8 @@ export async function saveSharedRecipe(id: string, version?: string): Promise<Re
     if (!shared) return fail("recipe_shared_gone");
     if (version !== undefined && version !== shared.version) return fail("recipe_shared_changed");
     if (shared.savedCopyId) {
+      // A copy saved before the pictures were kept (or whose picture could not be fetched) gets its own copy now.
+      await storeRecipeImage(db, shared.savedCopyId);
       const ingredientIds = copyLineIngredients(shared.lines, await copyLinesIn(db, shared.savedCopyId));
       return ok({ id: shared.savedCopyId, ingredientIds });
     }
@@ -48,6 +51,10 @@ export async function saveSharedRecipe(id: string, version?: string): Promise<Re
     const saved = await saveSharedIn(db, id, ingredientIds, shared.version);
     if (saved === "gone") return fail("recipe_shared_gone");
     if (saved === "changed") return fail("recipe_shared_changed");
+    // The copy has the original's image address (https only): its picture is fetched into this
+    // household's own storage, never read from the other household's folder (the bucket is closed
+    // to other households). A picture that cannot be fetched never fails the save (never throws).
+    await storeRecipeImage(db, saved.id);
     revalidateFor("recipe");
     return ok({ id: saved.id, ingredientIds });
   } catch (error) {

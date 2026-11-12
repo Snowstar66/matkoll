@@ -287,6 +287,18 @@ function expectedPolicies(): Omit<LivePolicy, "roles">[] {
     add("storage.objects", `${prefix}_insert`, "INSERT", "", uploadRule(bucket, shape));
     add("storage.objects", `${prefix}_delete`, "DELETE", fileRule(bucket), "");
   }
+  // Recipe pictures (20261112100000_recipe_images.sql): files under the household's own folder, added under a recipe of it, within the cap.
+  const recipeFolder = "((storage.foldername(name))[1] = (( SELECT my_household_id() AS my_household_id))::text)";
+  const recipeFile = `((bucket_id = 'recipe-images'::text) AND ${recipeFolder})`;
+  add("storage.objects", "recipe_images_select", "SELECT", recipeFile, "");
+  add(
+    "storage.objects",
+    "recipe_images_insert",
+    "INSERT",
+    "",
+    `((bucket_id = 'recipe-images'::text) AND (name ~ '^${uuidPattern}/${uuidPattern}/(full|thumb)$'::text) AND recipe_image_folder_in_my_household(name) AND recipe_image_room_in_my_household())`,
+  );
+  add("storage.objects", "recipe_images_delete", "DELETE", recipeFile, "");
   const key = (row: { tablename: string; policyname: string }) => `${row.tablename} ${row.policyname}`;
   return rows.sort((x, y) => key(x).localeCompare(key(y)));
 }
@@ -983,6 +995,9 @@ describe("household isolation", () => {
       "reset_household_staples",
       // S-10: whether the caller's own household is under its photo cap (photo-caps.test.ts tries it).
       "photo_room_in_my_household",
+      // Recipe pictures: whether the caller's own household is under its cap, and the files of its own folder that
+      // no recipe points at (recipe-images.test.ts and security-attack.test.ts try each).
+      "recipe_image_room_in_my_household", "recipe_image_orphans",
       // Story 23.3: the caller's own household's queue and devices (push.test.ts tries each).
       "claim_push_batches", "save_push_subscription", "drop_push_subscriptions",
       // Ät snart: the caller's own household's devices that want the daily push (eat-soon.test.ts tries it).
@@ -1063,6 +1078,7 @@ describe("household isolation", () => {
         ["thing_room_stats", { site }],
         ["photo_file_in_my_household", { bucket: placePhotoBucket, object_name: aPhotoPaths.get(placePhotoBucket)! }],
         ["photo_folder_in_my_household", { bucket: thingPhotoBucket, object_name: photoPath(thingPhotoBucket, a.id, aSeed.placeId) }],
+        ["recipe_image_folder_in_my_household", { object_name: `${householdA}/${rowIds.get("recipe")!}/full` }],
       ];
     }
 

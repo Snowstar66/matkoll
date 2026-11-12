@@ -30,6 +30,9 @@ vi.mock("../data/shared", () => ({
   copyLinesIn: (...args: unknown[]) => copyLinesIn(...args),
 }));
 
+const storeRecipeImage = vi.fn();
+vi.mock("./store-recipe-image", () => ({ storeRecipeImage: (...args: unknown[]) => storeRecipeImage(...args) }));
+
 const { saveSharedRecipe } = await import("./save-shared-recipe");
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -62,6 +65,7 @@ beforeEach(() => {
   commitIngredients.mockReset().mockResolvedValue([chicken, null]);
   saveSharedIn.mockReset().mockResolvedValue({ id: copyId });
   copyLinesIn.mockReset();
+  storeRecipeImage.mockReset().mockResolvedValue("stored");
 });
 
 describe("saveSharedRecipe", () => {
@@ -75,6 +79,27 @@ describe("saveSharedRecipe", () => {
     expect(revalidateFor).toHaveBeenCalledWith("recipe");
   });
 
+  it("gives the new copy its own picture in the household's own storage, never read from the other household", async () => {
+    expect(await saveSharedRecipe(id, "v1")).toEqual(ok({ id: copyId, ingredientIds: [chicken, null] }));
+    expect(storeRecipeImage).toHaveBeenCalledTimes(1);
+    expect(storeRecipeImage).toHaveBeenCalledWith(db, copyId);
+  });
+
+  it("saves the copy even when its picture cannot be kept", async () => {
+    storeRecipeImage.mockResolvedValue("failed");
+    expect(await saveSharedRecipe(id, "v1")).toEqual(ok({ id: copyId, ingredientIds: [chicken, null] }));
+    storeRecipeImage.mockResolvedValue("cap");
+    expect(await saveSharedRecipe(id, "v1")).toEqual(ok({ id: copyId, ingredientIds: [chicken, null] }));
+  });
+
+  it("does not make a picture for a recipe that is gone or changed", async () => {
+    saveSharedIn.mockResolvedValue("gone");
+    await saveSharedRecipe(id, "v1");
+    saveSharedIn.mockResolvedValue("changed");
+    await saveSharedRecipe(id, "v1");
+    expect(storeRecipeImage).not.toHaveBeenCalled();
+  });
+
   it("gives a copy saved before with its own lines' ingredients, and writes nothing", async () => {
     getSharedIn.mockResolvedValue({ ...shared, savedCopyId: copyId });
     copyLinesIn.mockResolvedValue([
@@ -86,6 +111,8 @@ describe("saveSharedRecipe", () => {
     expect(matchIngredients).not.toHaveBeenCalled();
     expect(commitIngredients).not.toHaveBeenCalled();
     expect(saveSharedIn).not.toHaveBeenCalled();
+    // A copy from before the pictures were kept gets its own picture now (nothing is done when it has one).
+    expect(storeRecipeImage).toHaveBeenCalledWith(db, copyId);
   });
 
   it("says the recipe is gone when it is no longer shared, read or saved", async () => {

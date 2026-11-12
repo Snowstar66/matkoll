@@ -3,6 +3,7 @@ import type { Result } from "@/lib/errors";
 import type { Env } from "@/server/env-schema";
 import { env } from "@/server/env";
 import { fixtureSites } from "./fixture-sites";
+import { fetchImageBytes, type ImageFetchResult } from "./image-fetch";
 import { fetchOfferPageWith, type OfferPageFetch } from "./offer-page";
 import { safeFetch, type FetchImpl, type FetchedPage, type Lookup } from "./safe-fetch";
 
@@ -50,6 +51,18 @@ export function fetchRecipePage(
   options: { allowedDomains: readonly string[]; signal: AbortSignal },
 ): Promise<Result<FetchedPage>> {
   return safeFetch(url, { ...options, ...siteSource(env) });
+}
+
+export { checkImageUrl, imageFetchLimits, type ImageFetchFailure, type ImageFetchResult } from "./image-fetch";
+
+/**
+ * A recipe's picture from its image address, for saving it in the app's own
+ * storage (recipe-images): fetchImageBytes with the site source above, so the
+ * test pages' hosts answer in tests and the real internet otherwise. The bytes
+ * are not yet known to be a picture; src/server/images decodes them.
+ */
+export function fetchRecipeImage(url: string, options: { signal?: AbortSignal } = {}): Promise<ImageFetchResult> {
+  return fetchImageBytes(url, { ...options, ...siteSource(env) });
 }
 
 export type { OfferPageFetch } from "./offer-page";
