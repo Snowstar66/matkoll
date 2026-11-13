@@ -169,6 +169,30 @@ export function fetchedAtText(at: Date, now: Date): string {
   return `hämtade ${when} ${swedishTime.format(at)}`;
 }
 
+/** After this many days without a fetch, the cloud's morning job is taken to have failed (it runs every day). */
+export const offersStaleAfterDays = 2;
+
+/** Whether the last fetch is more than two days old; `null` (never fetched) is not stale, it has no time to show. */
+export function offersFetchIsStale(fetchedAt: Date | null, now: Date): boolean {
+  return fetchedAt !== null && now.getTime() - fetchedAt.getTime() > offersStaleAfterDays * 86_400_000;
+}
+
+/**
+ * In the cloud the store's site refuses the app's servers, so the offers are fetched by a job and the sheet has no
+ * fetch button. The calm line: "Erbjudandena hämtas automatiskt varje morgon. Senast hämtade: idag 07:12" (the time as
+ * "idag", "igår" or "26 okt", so the reader sees for themselves if it is old).
+ */
+export function scheduledOffersText(fetchedAt: Date | null, now: Date): string {
+  const base = "Erbjudandena hämtas automatiskt varje morgon.";
+  if (!fetchedAt) return base;
+  return `${base} Senast hämtade: ${fetchedAtText(fetchedAt, now).replace(/^hämtade /, "")}`;
+}
+
+/** When the morning job seems to have failed: "Erbjudandena har inte uppdaterats sedan 10 nov". */
+export function offersStaleText(fetchedAt: Date): string {
+  return `Erbjudandena har inte uppdaterats sedan ${dayText(swedishToday(fetchedAt))}`;
+}
+
 /** "7 erbjudanden · hämtade idag 07:12", or only the count when the time is not known. */
 export function offersSummaryText(count: number, fetchedAt: Date | null, now: Date): string {
   return fetchedAt ? `${offersCountWords(count)} · ${fetchedAtText(fetchedAt, now)}` : offersCountWords(count);
