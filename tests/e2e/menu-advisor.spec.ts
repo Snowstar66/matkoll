@@ -552,7 +552,29 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitl�
   await page.keyboard.press("Home");
   await expect(garlic).toHaveAttribute("aria-valuetext", "Ogillar");
   await expect(page.getByTestId("taste-summary")).toContainText("undviker vitlök");
+  // Nothing is saved before Spara: the bar says how much and for whom.
+  await expect(page.getByTestId("profile-draft-count")).toHaveText("1 osparad ändring för dig");
+  // The bar stands above the tab bar, and the end of the page can still be scrolled out from under it.
+  const bar = (await page.getByTestId("profile-draft-bar").boundingBox())!;
+  const tabs = await page.getByRole("navigation", { name: "Huvudmeny" }).boundingBox();
+  if (tabs) expect(bar.y + bar.height).toBeLessThanOrEqual(tabs.y);
+  for (const button of [page.getByTestId("profile-undo"), page.getByTestId("profile-save")]) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const last = (await page.getByTestId("menu-profile").locator("p").last().boundingBox())!;
+  expect(last.y + last.height).toBeLessThanOrEqual(bar.y);
   await page.screenshot({ path: "test-results/shots/smak-profil.png", fullPage: true });
+  // Leaving with a change asks first; Avbryt stays with the change.
+  let question = "";
+  page.once("dialog", (dialog) => {
+    question = dialog.message();
+    void dialog.dismiss();
+  });
+  await page.getByRole("link", { name: "Medlemmar" }).first().click();
+  await expect.poll(() => question).toBe("Du har ändringar för dig som inte är sparade. Lämna sidan utan att spara?");
+  await expect(page).toHaveURL(/\/installningar\/medlemmar\/smak-och-allergier\?person=me$/);
+  await expect(page.getByTestId("profile-draft-count")).toBeVisible();
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-draft-bar")).toHaveCount(0);
   await expect.poll(async () => (await savedRows()).find((row) => row.person_key.startsWith("m-"))?.tastes).toMatchObject({ vitlok: -2 });
   await page.reload();
   await page.getByRole("button", { name: /Smaker och råvaror/ }).click();
@@ -570,6 +592,29 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitl�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("Större text and the dark: the Spara bar of Smak och allergier fits at 375 px above the tab bar, and Ångra puts it back", async ({ page }) => {
+  await optionOn(page, "xl");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/installningar/medlemmar/smak-och-allergier?person=me");
+  await page.getByRole("button", { name: /Protein/ }).click();
+  await expect(page.getByRole("slider")).toHaveCount(6);
+  const chicken = page.getByRole("slider", { name: "Kyckling" });
+  await chicken.focus();
+  await page.keyboard.press("End");
+  await page.getByRole("slider", { name: "Rött kött" }).focus();
+  await page.keyboard.press("Home");
+  await expect(page.getByTestId("profile-draft-count")).toHaveText("2 osparade ändringar för dig");
+  const bar = (await page.getByTestId("profile-draft-bar").boundingBox())!;
+  const tabs = await page.getByRole("navigation", { name: "Huvudmeny" }).boundingBox();
+  if (tabs) expect(bar.y + bar.height).toBeLessThanOrEqual(tabs.y);
+  expect(await noSideScroll(page)).toBe(true);
+  await page.screenshot({ path: "test-results/shots/smak-spara-xl-dark.png" });
+  await page.getByTestId("profile-undo").click();
+  await expect(page.getByTestId("profile-draft-bar")).toHaveCount(0);
+  await expect(chicken).toHaveAttribute("aria-valuetext", "Okej");
+  expect((await savedRows()).find((row) => row.person_key.startsWith("m-"))?.tastes ?? {}).toEqual({});
+});
+
 test("what is filled in is the household's: it stays after a reload and shows on another phone", async ({ page, browser }) => {
   await optionOn(page);
   await page.goto("/installningar/medlemmar");
@@ -582,6 +627,8 @@ test("what is filled in is the household's: it stays after a reload and shows on
   await profile.getByRole("button", { name: /Smaker och råvaror/ }).click();
   await profile.getByRole("slider", { name: "Koriander" }).focus();
   await page.keyboard.press("Home");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-draft-bar")).toHaveCount(0);
   await expect(page.getByTestId("menu-profiles-notice")).toHaveCount(0);
   await expect(profile.getByRole("slider", { name: "Koriander" })).toHaveAttribute("aria-valuetext", "Ogillar");
 

@@ -10,6 +10,7 @@ import {
   me,
   meId,
   newPerson,
+  personChanges,
   parsePeople,
   removePerson,
   serializePeople,
@@ -175,5 +176,19 @@ describe("profileSummary", () => {
 describe("profileHref", () => {
   it("is the person's page under Medlemmar", () => {
     expect(profileHref("m-abc")).toBe("/installningar/medlemmar/smak-och-allergier?person=m-abc");
+  });
+});
+
+describe("personChanges", () => {
+  const saved = { ...newPerson("p-1", "Anna", "member"), allergies: ["gluten" as const], tastes: { fisk: 2 as const }, drink: "vin" as const };
+
+  it("is 0 for the same person, also after a slider is moved back", () => {
+    expect(personChanges(saved, { ...saved })).toBe(0);
+    expect(personChanges(saved, withTaste(withTaste(saved, "fisk", -1), "fisk", 2))).toBe(0);
+  });
+
+  it("counts the name, each allergy, each taste and the drink once", () => {
+    const draft = { ...withTaste(withTaste(saved, "fisk", 0), "kyckling", -2), name: "Annie", allergies: ["notter" as const], drink: null };
+    expect(personChanges(saved, draft)).toBe(1 + 2 + 2 + 1);
   });
 });

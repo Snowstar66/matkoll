@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
+import Link from "next/link";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { newPerson, parsePeople, serializePeople } from "../domain/people";
@@ -66,7 +67,10 @@ describe("ProfilesScreen with the household's profiles", () => {
     render(<ProfilesPages members={members} profiles={[]} />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
     await user.click(within(await screen.findByTestId("menu-profile")).getByRole("button", { name: /Kaffe/ }));
+    expect(saveFoodProfile).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(saveFoodProfile).toHaveBeenCalledWith(expect.objectContaining({ id: "me", drink: "kaffe" })));
+    expect((await screen.findAllByText("Sparat för dig.")).length).toBeGreaterThan(0);
     expect(local().some((person) => person.drink === "kaffe")).toBe(false);
     expect(screen.queryByTestId("menu-profiles-notice")).not.toBeInTheDocument();
   });
@@ -98,6 +102,7 @@ describe("ProfilesScreen with the household's profiles", () => {
     render(<ProfilesPages members={members} profiles={[]} />);
     await user.click((await screen.findAllByTestId("menu-profile-row"))[0]);
     await user.click(within(await screen.findByTestId("menu-profile")).getByRole("button", { name: /Vin/ }));
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(await screen.findByTestId("menu-profiles-notice")).toHaveTextContent(localOnlyNote);
     expect(local().find((person) => person.id === "me")?.drink).toBe("vin");
     expect(localStorage.getItem(importedStorageKey)).toBeNull();
@@ -122,6 +127,106 @@ describe("ProfilesScreen with the household's profiles", () => {
     expect(rows[0]).toHaveTextContent("Öl");
     expect(screen.getByTestId("menu-profiles-notice")).toHaveTextContent(localOnlyNote);
     expect(importLocalProfiles).not.toHaveBeenCalled();
+  });
+});
+
+describe("Spara and Ångra on a person's page", () => {
+  const anna: Person = { ...annaOnServer, tastes: { fisk: 2 } };
+
+  it("holds every change as a draft, says how many and for whom, and writes them in one save", async () => {
+    const user = userEvent.setup();
+    render(<ProfilesPages members={members} profiles={[anna]} />);
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[1]);
+    expect(screen.getByTestId("menu-profile-name")).toHaveTextContent("Anna");
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Protein/ }));
+    screen.getByRole("slider", { name: "Kyckling" }).focus();
+    await user.keyboard("{Home}");
+    screen.getByRole("slider", { name: "Fisk" }).focus();
+    await user.keyboard("{ArrowLeft}");
+    await user.click(screen.getByRole("button", { name: /Kaffe/ }));
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("3 osparade ändringar för Anna");
+    expect(saveFoodProfile).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(saveFoodProfile).toHaveBeenCalledTimes(1));
+    expect(saveFoodProfile).toHaveBeenCalledWith(expect.objectContaining({ id: "m-u2", drink: "kaffe", tastes: { fisk: 1, kyckling: -2 } }));
+    expect((await screen.findAllByText("Sparat för Anna.")).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+  });
+
+  it("puts back what was saved with Ångra, the allergies too, and writes nothing", async () => {
+    const user = userEvent.setup();
+    render(<ProfilesPages members={members} profiles={[anna]} />);
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[1]);
+    await user.click(screen.getByRole("button", { name: /Protein/ }));
+    screen.getByRole("slider", { name: "Fisk" }).focus();
+    await user.keyboard("{Home}");
+    await user.click(screen.getByTestId("menu-allergies-open"));
+    await user.click(within(await screen.findByTestId("menu-allergies")).getByRole("button", { name: /Gluten/ }));
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("2 osparade ändringar för Anna");
+    await user.click(screen.getByRole("button", { name: "Ångra" }));
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("menu-allergies")).getByRole("button", { name: /Gluten/ })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "Tillbaka" }));
+    await user.click(screen.getByRole("button", { name: /Protein/ }));
+    expect(screen.getByRole("slider", { name: "Fisk" })).toHaveAttribute("aria-valuetext", "Älskar");
+    expect(saveFoodProfile).not.toHaveBeenCalled();
+  });
+
+  it("puts the name of a person without an account back with Ångra", async () => {
+    const user = userEvent.setup();
+    render(<ProfilesPages members={members} profiles={[newPerson("p-g1", "Maja", "member")]} />);
+    await user.click(await screen.findByText("Maja"));
+    const field = screen.getByLabelText("Namn");
+    await user.clear(field);
+    await user.type(field, "Majken");
+    expect(screen.getByTestId("menu-profile-name")).toHaveTextContent("Majken");
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("1 osparad ändring för Majken");
+    await user.click(screen.getByRole("button", { name: "Ångra" }));
+    expect(screen.getByLabelText("Namn")).toHaveValue("Maja");
+    expect(screen.getByTestId("menu-profile-name")).toHaveTextContent("Maja");
+  });
+
+  it("asks before a link leaves the page with changes, stays on Avbryt and leaves without saving on OK", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    // The mocked next/link dispatches test-navigate: only reached when the question lets it through.
+    const followed = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <>
+        <ProfilesPages members={members} profiles={[anna]} />
+        <Link href="/recept">Recept</Link>
+      </>,
+    );
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[1]);
+    await user.click(screen.getByRole("button", { name: /Vin/ }));
+    window.addEventListener("test-navigate", followed);
+    await user.click(screen.getByRole("link", { name: "Recept" }));
+    expect(confirm).toHaveBeenLastCalledWith("Du har ändringar för Anna som inte är sparade. Lämna sidan utan att spara?");
+    expect(screen.getByTestId("profile-draft-bar")).toBeInTheDocument();
+    expect(followed).toHaveBeenCalledTimes(0);
+    await user.click(screen.getByRole("link", { name: "Recept" }));
+    expect(followed).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+    expect(saveFoodProfile).not.toHaveBeenCalled();
+    window.removeEventListener("test-navigate", followed);
+    confirm.mockRestore();
+  });
+
+  it("does not ask without changes", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    const user = userEvent.setup();
+    render(
+      <>
+        <ProfilesPages members={members} profiles={[anna]} />
+        <Link href="/recept">Recept</Link>
+      </>,
+    );
+    await user.click((await screen.findAllByTestId("menu-profile-row"))[1]);
+    await user.click(screen.getByRole("link", { name: "Recept" }));
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });
 

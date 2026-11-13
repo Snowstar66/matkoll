@@ -28,10 +28,12 @@ describe("the presets", () => {
   it("are grouped (Protein, Maträtter, Smaker och råvaror), each key valid and unique, the original eight among them", () => {
     expect(tasteGroups.map((group) => group.title)).toEqual(["Protein", "Maträtter", "Smaker och råvaror"]);
     expect(new Set(presetKeys).size).toBe(presetKeys.length);
-    expect(presetKeys).toHaveLength(23);
+    expect(presetKeys).toHaveLength(25);
     expect(presetKeys.every((key) => tasteKeyPattern.test(key))).toBe(true);
     for (const key of ["kott", "fisk", "skaldjur", "vegetariskt", "pasta", "pizza", "starkt", "sott"]) expect(isPresetKey(key)).toBe(true);
-    expect(maxTastes).toBe(23 + maxOwnTastes);
+    expect(maxTastes).toBe(25 + maxOwnTastes);
+    // What the database accepts (food_tastes_valid in 20261110100000_food_tastes_own.sql): at most 70 keys.
+    expect(maxTastes).toBeLessThanOrEqual(70);
   });
 
   it("have labels with Swedish letters, and an own key gets a capital", () => {
@@ -103,7 +105,7 @@ describe("withTaste and tasteLists", () => {
 
   it("derives the lists every caller has always had: -2 and -1 are Undviker, 1 and 2 Älskar, with the strong ends marked", () => {
     const lists = tasteLists({ vitlok: -2, ost: -1, "nasi goreng": 2, paprika: 1, kott: 1 });
-    expect(lists).toEqual({ dislikes: ["ost", "vitlök"], likes: ["kött", "paprika", "nasi goreng"], strongDislikes: ["vitlök"], strongLikes: ["nasi goreng"] });
+    expect(lists).toEqual({ dislikes: ["ost", "vitlök"], likes: ["rött kött", "paprika", "nasi goreng"], strongDislikes: ["vitlök"], strongLikes: ["nasi goreng"] });
   });
 
   it("can leave out the original eight, which a dish's category scores directly", () => {
@@ -162,10 +164,11 @@ describe("matching the new presets (sv, en, es)", () => {
 
 describe("softFitFor and softHits", () => {
   it("names what each person avoids and loves in a dish, the original eight included for softFitFor", () => {
-    const anna = person({ id: "a", name: "Anna", tastes: { vitlok: -2, paprika: 1, kott: -1 } });
+    const anna = person({ id: "a", name: "Anna", tastes: { vitlok: -2, paprika: 1, kott: -1, kyckling: -1 } });
     const bo = person({ id: "b", name: "Bo" });
     const food = d({ originalnamn: "Paprikagryta", huvudingredienser: ["vitlök", "kyckling"] });
-    expect(softFitFor(food, [anna, bo])).toEqual([{ person: anna, dislikes: ["kött", "vitlök"], likes: ["paprika"] }]);
+    // Kyckling is not red meat any more: "kott" (Rött kött) does not match a chicken stew, "kyckling" does.
+    expect(softFitFor(food, [anna, bo])).toEqual([{ person: anna, dislikes: ["kyckling", "vitlök"], likes: ["paprika"] }]);
   });
 
   it("leaves the original eight out of softHits (rank scores them by category) and counts the strong ones", () => {

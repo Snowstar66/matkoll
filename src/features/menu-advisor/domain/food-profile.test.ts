@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { combineFoodPreferences, type FoodProfileRow, hasContent, peopleToImport, personFromRow, personInputSchema, personKeyOf, rowFromPerson } from "./food-profile";
 import { newPerson } from "./people";
+import { maxTastes } from "./tastes";
 import type { Person } from "./profile";
 
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -55,7 +56,7 @@ describe("personInputSchema", () => {
     expect(personInputSchema.safeParse({ ...anna, tastes: { "<b>": 1 } }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, tastes: { Sten: 1 } }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, tastes: { [`x${"y".repeat(40)}`]: 1 } }).success).toBe(false);
-    expect(personInputSchema.safeParse({ ...anna, tastes: Object.fromEntries(Array.from({ length: 64 }, (_, i) => [`sak ${i}`, 1])) }).success).toBe(false);
+    expect(personInputSchema.safeParse({ ...anna, tastes: Object.fromEntries(Array.from({ length: maxTastes + 1 }, (_, i) => [`sak ${i}`, 1])) }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, allergies: ["pollen"] }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, drink: "mjölk" }).success).toBe(false);
     expect(personInputSchema.safeParse({ ...anna, likes: ["x".repeat(41)] }).success).toBe(false);

@@ -6,18 +6,29 @@ import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
 import { Input } from "@/components/field";
+import { FixedAction } from "@/components/fixed-action";
 import { ChevronRightIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
+import { useToast } from "@/components/toast";
+import { useLeaveGuard } from "@/components/use-leave-guard";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import { allergenIcons, allergenLabels } from "../domain/labels";
-import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, meId, toggleAllergy } from "../domain/people";
+import { drinkIcons, drinkLabels, type HouseholdPerson, isHouseholdPerson, maxNameLength, meId, personChanges, toggleAllergy } from "../domain/people";
 import { drinkKinds, type Person } from "../domain/profile";
 import { TasteSection } from "./preference-section";
 import { menuAllergens } from "../domain/types";
 import { usePeople } from "./use-people";
 
 // Smak och allergier (Inställningar → Medlemmar): per person the allergies (a row that opens its own page, registered once), a two-way
-// slider per taste (nothing filled in = eats anything) and the drink they usually order. Saved for the household as you go (this device's own list when the household's cannot be reached).
+// slider per taste (nothing filled in = eats anything) and the drink they usually order. What is changed is a draft
+// until Spara (Pontus 2026-11-13: a slider is easy to touch by mistake, and it may be someone else's): a bar pinned
+// above the tab bar says how many changes there are and for whom, with Ångra and Spara; leaving the page asks first.
+// Saved for the household (this device's own list when the household's cannot be reached).
+
+/** "dig" for the one holding the phone, else the name: "2 osparade ändringar för Anna". */
+const forWhom = (person: Person) => (person.id === meId ? "dig" : person.name);
+
+export const leaveQuestion = (person: Person) => `Du har ändringar för ${forWhom(person)} som inte är sparade. Lämna sidan utan att spara?`;
 
 /**
  * One person's profile (Inställningar → Medlemmar → Smak och allergier): taste, usual drink and allergies, and the
@@ -38,9 +49,35 @@ export function ProfilesScreen({
   backHref: string;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const { people, save, remove, notice } = usePeople(members, profiles);
   const [allergies, setAllergies] = useState(false);
-  const current = people.find((person) => person.id === personId);
+  // The changes not saved yet, for one person (a draft for another person, kept by the page in the background, is not used).
+  const [draft, setDraft] = useState<Person | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Bumped by Ångra, so the name field starts again from what is saved.
+  const [revision, setRevision] = useState(0);
+  const saved = people.find((person) => person.id === personId);
+  const current = saved && draft?.id === saved.id ? draft : saved;
+  const changes = saved && current ? personChanges(saved, current) : 0;
+
+  useLeaveGuard(changes > 0 && current ? leaveQuestion(current) : null, () => setDraft(null));
+
+  function undo() {
+    setDraft(null);
+    setRevision((value) => value + 1);
+  }
+
+  async function commit() {
+    if (!current || saving) return;
+    const sent = current;
+    setSaving(true);
+    const where = await save(sent);
+    setSaving(false);
+    // A change made while it was being saved stays a draft.
+    setDraft((now) => (now === sent ? null : now));
+    showToast(where === "household" ? `Sparat för ${forWhom(sent)}.` : `Sparat bara på den här enheten, för ${forWhom(sent)}.`);
+  }
 
   let screen: ReactNode;
   if (!current) {
@@ -53,12 +90,13 @@ export function ProfilesScreen({
       </div>
     );
   } else if (allergies) {
-    screen = <AllergiesView person={current} onChange={save} onBack={() => setAllergies(false)} />;
+    screen = <AllergiesView person={current} onChange={setDraft} onBack={() => setAllergies(false)} />;
   } else {
     screen = (
       <PersonView
+        revision={revision}
         person={current}
-        onChange={save}
+        onChange={setDraft}
         onAllergies={() => setAllergies(true)}
         onRemove={() => {
           void remove(current.id).then((gone) => {
@@ -76,16 +114,36 @@ export function ProfilesScreen({
           {notice}
         </p>
       ) : null}
+      {changes > 0 && current ? (
+        <FixedAction glass>
+          <div data-testid="profile-draft-bar" className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
+            <p role="status" data-testid="profile-draft-count" className="min-w-40 flex-1 text-meta text-ink-2">
+              <span className="font-semibold text-ink">{changes}</span> {changes === 1 ? "osparad ändring" : "osparade ändringar"} för{" "}
+              <span className="font-semibold text-ink">{forWhom(current)}</span>
+            </p>
+            <div className="ml-auto flex gap-2">
+              <Button variant="secondary" data-testid="profile-undo" disabled={saving} onClick={undo}>
+                Ångra
+              </Button>
+              <Button data-testid="profile-save" disabled={saving} onClick={() => void commit()}>
+                {saving ? "Sparar…" : "Spara"}
+              </Button>
+            </div>
+          </div>
+        </FixedAction>
+      ) : null}
     </>
   );
 }
 
 function PersonView({
+  revision,
   person,
   onChange,
   onAllergies,
   onRemove,
 }: {
+  revision: number;
   person: Person;
   onChange: (person: Person) => void;
   onAllergies: () => void;
@@ -95,14 +153,16 @@ function PersonView({
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="flex flex-col gap-5" data-testid="menu-profile">
-      {isHouseholdPerson(person) ? (
-        <h2 className="text-section-title text-ink">{person.name}</h2>
-      ) : (
-        <div className="flex flex-col gap-1">
+      {/* Whose page this is, for a person without an account too: a change is easy to make on someone else's. */}
+      <h2 data-testid="menu-profile-name" className="text-section-title text-ink">
+        {person.name}
+      </h2>
+      {isHouseholdPerson(person) ? null : (
+        <div className="-mt-3 flex flex-col gap-1">
           <label htmlFor={`${id}-name`} className="text-control text-ink">
             Namn
           </label>
-          <NameField id={`${id}-name`} person={person} onChange={onChange} />
+          <NameField key={revision} id={`${id}-name`} person={person} onChange={onChange} />
         </div>
       )}
 
@@ -132,7 +192,7 @@ function PersonView({
       </section>
 
       {isHouseholdPerson(person) ? (
-        <p className="text-meta text-ink-3">Sparas för hushållet och syns på alla era telefoner. Alla i hushållet kan ändra.</p>
+        <p className="text-meta text-ink-3">{savedNote}</p>
       ) : confirming ? (
         <div className="flex flex-col gap-2 rounded-lg bg-surface p-4">
           <p className="text-body text-ink">Ta bort {person.name}? Det går inte att ångra.</p>
@@ -147,7 +207,7 @@ function PersonView({
         </div>
       ) : (
         <>
-          <p className="text-meta text-ink-3">Sparas för hushållet och syns på alla era telefoner. Alla i hushållet kan ändra.</p>
+          <p className="text-meta text-ink-3">{savedNote}</p>
           <Button variant="danger" className="self-start" onClick={() => setConfirming(true)}>
             Ta bort {person.name}
           </Button>
@@ -156,6 +216,8 @@ function PersonView({
     </div>
   );
 }
+
+const savedNote = "Ändringar sparas när du trycker Spara, för hushållet, och syns på alla era telefoner. Alla i hushållet kan ändra.";
 
 function AllergiesRow({ person, onAllergies }: { person: Person; onAllergies: () => void }) {
   return (
