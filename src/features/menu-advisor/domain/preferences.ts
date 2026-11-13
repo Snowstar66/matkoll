@@ -70,7 +70,31 @@ export function tokens(text: string): readonly string[] {
   return remember(tokenized, text, () => normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 }
 
-type Group = { terms: readonly string[]; not?: readonly string[]; category?: MenuCategory | readonly MenuCategory[] };
+type Group = {
+  terms: readonly string[];
+  not?: readonly string[];
+  category?: MenuCategory | readonly MenuCategory[];
+  /** The dish's category only counts when none of these words is in the dish (a "kött" dish with kyckling is not red meat). */
+  categoryUnless?: readonly string[];
+};
+
+// Meat, in three groups since "Kött" was split (2026-11-13): rött kött (the preset key stays "kott", so what is saved
+// keeps its meaning for beef, lamb and game), fläskkött ("flask") and kyckling ("kyckling", poultry: kalkon too).
+// Köttbullar and plain "kött"/"köttfärs" are red meat; blandfärs is both red meat and pork (it is both). Korv, bacon,
+// skinka and the cured Spanish and Italian kinds are pork only, so whoever avoids red meat still gets Korv stroganoff
+// and Pasta med bacon. A menu dish the reading put in the category "kott" counts as red meat unless it names pork or
+// poultry.
+const redMeat = [
+  "rött kött", "kött", "meat", "carne", "nötkött", "nötfärs", "nötfilé", "nötbiff", "nötstek", "nötgryta", "nötkorv", "biff", "beef",
+  "rostbiff", "oxfilé", "oxbringa", "entrecôte", "högrev", "flankstek", "bringa", "lamm", "lamb", "cordero", "kalv", "veal", "ternera",
+  "vilt", "hjort", "rådjur", "älg", "renskav", "renstek", "vildsvin", "köttfärs", "köttbull", "blandfärs",
+];
+const pork = [
+  "fläskkött", "fläsk", "sidfläsk", "stekfläsk", "pork", "cerdo", "bacon", "skink", "julskinka", "jamón", "serrano", "prosciutto", "pancetta",
+  "guanciale", "karré", "kassler", "kotlett", "flintastek", "revben", "spareribs", "ribs", "porchetta", "carnitas", "korv", "falukorv",
+  "prinskorv", "isterband", "chorizo", "salami", "mortadella", "salsiccia", "bratwurst", "blandfärs",
+];
+const poultry = ["kyckling", "majskyckling", "chicken", "pollo", "kalkon", "turkey", "pavo", "fågel", "höns", "broiler"];
 
 const groups: readonly Group[] = [
   { terms: ["koriander", "cilantro", "coriander", "culantro"] },
@@ -86,7 +110,9 @@ const groups: readonly Group[] = [
   { terms: ["räkor", "räka", "shrimp", "prawn", "gambas", "camarones"] },
   { terms: ["skaldjur", "shellfish", "mariscos", "räk", "hummer", "lobster", "krabba", "crab", "musslor", "mussels", "mejillones", "bläckfisk", "calamar", "pulpo", "ostron", "oyster"], category: "skaldjur" },
   { terms: ["fisk", "fish", "pescado", "lax", "salmon", "torsk", "cod", "bacalao", "pescatore"], category: "fisk" },
-  { terms: ["kött", "meat", "carne", "biff", "beef", "fläsk", "pork", "cerdo", "kyckling", "chicken", "pollo", "köttbull", "bacon", "skinka", "korv", "köttfärs"], category: "kott" },
+  { terms: redMeat, not: ["köttfri", "köttbuljong", "köttfond"], category: "kott", categoryUnless: [...pork.filter((term) => term !== "blandfärs"), ...poultry] },
+  { terms: pork, not: ["korvbröd"] },
+  { terms: poultry, not: ["pollock", "fågelbo"] },
   { terms: ["vegetariskt", "vegetarisk", "vegetarian", "vegetariano", "veggie", "veganskt", "vegansk", "vegan"], category: ["vegetariskt", "veganskt"] },
   { terms: ["ris", "rice", "arroz", "risotto", "paella"] },
   { terms: ["soppa", "soup", "sopa", "gazpacho", "bisque"] },
@@ -107,10 +133,15 @@ const groups: readonly Group[] = [
   { terms: ["nasi goreng"] },
 ];
 
-const prepared = groups.map((group) => ({ ...group, terms: group.terms.map(normalizeText), not: (group.not ?? []).map(normalizeText) }));
+const prepared = groups.map((group) => ({
+  ...group,
+  terms: group.terms.map(normalizeText),
+  not: (group.not ?? []).map(normalizeText),
+  categoryUnless: (group.categoryUnless ?? []).map(normalizeText),
+}));
 
 /** The words a tag stands for: its synonym group(s) when it is one of their words, else just itself. */
-type TagTerms = { terms: string[]; not: string[]; categories: MenuCategory[] };
+type TagTerms = { terms: string[]; not: string[]; categories: MenuCategory[]; categoryUnless: string[] };
 const termsOfTag = new Map<string, TagTerms>();
 
 function termsFor(tag: string): TagTerms {
@@ -122,11 +153,13 @@ function buildTermsFor(tag: string): TagTerms {
   // The group the tag heads wins (chili is not "kryddstarkt"); else every group that has the word.
   const heads = prepared.filter((group) => group.terms[0] === wanted);
   const found = heads.length > 0 ? heads : prepared.filter((group) => group.terms.includes(wanted));
-  if (found.length === 0) return { terms: wanted === "" ? [] : [wanted], not: [], categories: [] };
+  if (found.length === 0) return { terms: wanted === "" ? [] : [wanted], not: [], categories: [], categoryUnless: [] };
+  const heading = found.filter((group) => group.category && group.terms[0] === wanted);
   return {
     terms: [...new Set(found.flatMap((group) => group.terms))],
     not: found.flatMap((group) => group.not),
-    categories: found.flatMap((group) => (group.category && group.terms[0] === wanted ? [group.category].flat() : [])),
+    categories: heading.flatMap((group) => [group.category!].flat()),
+    categoryUnless: heading.flatMap((group) => group.categoryUnless),
   };
 }
 
@@ -154,7 +187,8 @@ export function hasTerm(textTokens: readonly string[], term: string, not: readon
 /**
  * Whether the dish is what the tag names: its printed name, main ingredients or explanation has the tag (or a
  * synonym) as a word or the start of a compound word. A soft match: "paprika" also finds "paprikapulver". The
- * broad groups (fisk, skaldjur, kött) also count the dish's own category.
+ * broad groups (fisk, skaldjur, rött kött) also count the dish's own category; rött kött only when the dish names no
+ * pork or poultry.
  */
 export function matchPreference(tag: string, dish: Pick<MenuDish, "originalnamn" | "huvudingredienser" | "forklaring" | "kategori">): boolean {
   return matchPreferenceTokens(tag, dishTokens(dish), dish.kategori);
@@ -167,8 +201,8 @@ export function dishTokens(dish: Pick<MenuDish, "originalnamn" | "huvudingredien
 
 /** matchPreference for a dish whose words are already known (dishTokens), so a list of tags does not read the dish again. */
 export function matchPreferenceTokens(tag: string, textTokens: readonly string[], kategori: MenuDish["kategori"]): boolean {
-  const { terms, not, categories } = termsFor(tag);
-  if (categories.includes(kategori)) return true;
+  const { terms, not, categories, categoryUnless } = termsFor(tag);
+  if (categories.includes(kategori) && !categoryUnless.some((term) => hasTerm(textTokens, term, []))) return true;
   return terms.some((term) => hasTerm(textTokens, term, not));
 }
 

@@ -48,7 +48,7 @@ describe("ProfilesScreen", () => {
     expect(rows[0]).toHaveTextContent("Inget ifyllt: äter allt");
   });
 
-  it("adds a person, saves taste and drink as you go, and registers allergies in a box of their own", async () => {
+  it("adds a person, keeps taste and drink as a draft until Spara, and registers allergies in a box of their own", async () => {
     const user = userEvent.setup();
     render(<ProfilesPages />);
     await user.click(await screen.findByTestId("menu-person-add"));
@@ -66,11 +66,19 @@ describe("ProfilesScreen", () => {
     fisk.focus();
     await user.keyboard("{Home}");
     await user.click(within(profile).getByRole("button", { name: /Vin/ }));
+    // Nothing is saved before Spara, and the bar says how much and for whom.
+    expect(saved().find((person) => person.name === "Anna")).toMatchObject({ drink: null, tastes: {} });
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("2 osparade ändringar för Anna");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved().find((person) => person.name === "Anna")).toMatchObject({ kind: "member", drink: "vin", tastes: { fisk: -2 } });
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+    expect((await screen.findAllByText("Sparat bara på den här enheten, för Anna.")).length).toBeGreaterThan(0);
 
     await user.click(within(profile).getByTestId("menu-allergies-open"));
     const box = await screen.findByTestId("menu-allergies");
     await user.click(within(box).getByRole("button", { name: /Nötter/ }));
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("1 osparad ändring för Anna");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved().find((person) => person.name === "Anna")?.allergies).toEqual(["notter"]);
     await user.click(within(box).getByRole("button", { name: "Tillbaka" }));
     expect(screen.getByTestId("menu-allergies-open")).toHaveTextContent("nötter");
@@ -88,9 +96,14 @@ describe("ProfilesScreen", () => {
     const pasta = screen.getByRole("slider", { name: "Pasta" });
     pasta.focus();
     await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved().find((person) => person.name === "Bo")?.tastes).toEqual({ pasta: -2 });
     await user.keyboard("{End}{Home}");
+    // Back where it was saved: nothing to save.
+    expect(screen.queryByTestId("profile-draft-bar")).not.toBeInTheDocument();
+    pasta.focus();
     await user.keyboard("{ArrowRight}{ArrowRight}");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved().find((person) => person.name === "Bo")?.tastes).toEqual({});
 
     await user.click(screen.getByRole("button", { name: "Ta bort Bo" }));
@@ -112,7 +125,10 @@ describe("ProfilesScreen", () => {
     const profile = await screen.findByTestId("menu-profile");
     expect(within(profile).queryByRole("button", { name: /Ta bort/ })).not.toBeInTheDocument();
     expect(within(profile).queryByLabelText("Namn")).not.toBeInTheDocument();
+    expect(within(profile).getByTestId("menu-profile-name")).toHaveTextContent("Martina");
     await user.click(within(profile).getByRole("button", { name: /Öl/ }));
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("1 osparad ändring för Martina");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved().find((person) => person.id === "m-u2")).toMatchObject({ name: "Martina", drink: "ol" });
   });
 
@@ -131,10 +147,13 @@ describe("ProfilesScreen", () => {
     expect(saved()[0]?.tastes ?? {}).toEqual({});
     slider.focus();
     await user.keyboard("{End}");
-    expect(saved()[0].tastes).toEqual({ "nasi goreng": 2 });
     expect(screen.getByTestId("taste-summary")).toHaveTextContent("Du älskar nasi goreng.");
+    expect(screen.getByTestId("profile-draft-count")).toHaveTextContent("1 osparad ändring för dig");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
+    expect(saved()[0].tastes).toEqual({ "nasi goreng": 2 });
 
     await user.click(screen.getByRole("button", { name: "Ta bort nasi goreng" }));
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved()[0].tastes).toEqual({});
     expect(screen.queryByRole("slider", { name: "Nasi goreng" })).not.toBeInTheDocument();
   });
@@ -167,6 +186,7 @@ describe("ProfilesScreen", () => {
     expect(garlic).toHaveAttribute("aria-valuetext", "Ogillar");
     garlic.focus();
     await user.keyboard("{ArrowRight}");
+    await user.click(screen.getByRole("button", { name: "Spara" }));
     expect(saved()[0].tastes).toEqual({ vitlok: -1, "nasi goreng": 2 });
     expect(JSON.parse(localStorage.getItem(peopleStorageKey)!).people[0]).not.toHaveProperty("dislikes");
   });

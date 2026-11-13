@@ -8,8 +8,8 @@ import { type HouseholdPerson, parsePeople, removePerson, serializePeople, upser
 import type { Person } from "../domain/profile";
 
 // The saved profiles (household members and guests kept on purpose) are the household's: they live in the database
-// and follow every phone. The page reads them on the server and hands them over as `profiles`; changes are shown at
-// once and saved through server actions. This device's localStorage is the fallback: it is all there is when the
+// and follow every phone. The page reads them on the server and hands them over as `profiles`; a saved change is
+// shown at once and written through server actions (the person's page holds its changes as a draft until Spara). This device's localStorage is the fallback: it is all there is when the
 // household's list cannot be read or a save fails ("sparas bara på den här enheten just nu"), and what an older
 // version kept there is moved up once. Broken or blocked storage reads as "nobody saved".
 
@@ -57,9 +57,15 @@ function subscribe(listener: () => void) {
   };
 }
 
+export type SavedWhere = "household" | "device";
+
 export type PeopleState = {
   people: Person[];
-  save: (person: Person) => void;
+  /**
+   * Adds or changes a person: shown at once, written once. Resolves "household" when the household's list took it,
+   * "device" when it is kept on this phone only (the household cannot be reached, or did not take it).
+   */
+  save: (person: Person) => Promise<SavedWhere>;
   /** Resolves true when the person is gone (for the household, or from this device), false when it did not go through (they are back, with a notice). */
   remove: (id: string) => Promise<boolean>;
   /** A discreet line to show under the list, or null: where it is kept now, or why the last change did not go through. */
@@ -94,20 +100,26 @@ export function usePeople(members: readonly HouseholdPerson[] | null = null, pro
   }, []);
 
   const save = useCallback(
-    (person: Person) => {
+    (person: Person): Promise<SavedWhere> => {
       setProblem(null);
       if (!shared) {
         write(upsertPerson(parsePeople(read()), person));
-        return;
+        return Promise.resolve("device");
       }
       setRemote((current) => upsertPerson(current ?? [], person));
-      later(async () => {
-        const result = await saveFoodProfile(person).catch(() => null);
-        if (result?.ok) return;
-        // The household's list did not take it: keep it on this device and move it up next time.
-        write(upsertPerson(parsePeople(read()), person));
-        flag(false);
-        setSavedLocally(true);
+      return new Promise<SavedWhere>((done) => {
+        later(async () => {
+          const result = await saveFoodProfile(person).catch(() => null);
+          if (result?.ok) {
+            done("household");
+            return;
+          }
+          // The household's list did not take it: keep it on this device and move it up next time.
+          write(upsertPerson(parsePeople(read()), person));
+          flag(false);
+          setSavedLocally(true);
+          done("device");
+        });
       });
     },
     [shared, later],

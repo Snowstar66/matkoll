@@ -3,8 +3,8 @@
 // "nothing in the profile rules it out", always shown with the allergy disclaimer.
 import { allergenHits } from "./allergens";
 import { allergenLabels } from "./labels";
-import { whoName } from "./preferences";
-import { softHits } from "./tastes";
+import { matchPreference, whoName } from "./preferences";
+import { softHits, tasteWord } from "./tastes";
 import type { Person, Taste, TasteKey } from "./profile";
 import type { Menu, MenuDish, MenuGroup } from "./types";
 import { dishSek } from "./view";
@@ -41,7 +41,7 @@ export type PersonSuggestions = {
 };
 
 const tasteNames: Readonly<Record<TasteKey, { like: string; group: string }>> = {
-  kott: { like: "kött", group: "kötträtter" },
+  kott: { like: "rött kött", group: "rätter med rött kött" },
   fisk: { like: "fisk", group: "fiskrätter" },
   skaldjur: { like: "skaldjur", group: "skaldjursrätter" },
   vegetariskt: { like: "vegetariskt", group: "vegetariska" },
@@ -67,10 +67,15 @@ function words(text: string): string[] {
     .filter(Boolean);
 }
 
-/** The taste keys a dish belongs to: its category plus word-list hits; desserts count as sweet. */
+/**
+ * The taste keys a dish belongs to: its category plus word-list hits; desserts count as sweet. A dish in the category
+ * "kott" is red meat ("kott") unless it names pork or poultry and no red meat (preferences.ts): Fläskkött and Kyckling
+ * are word-matched tastes, scored with the person's own things (softHits).
+ */
 export function dishTasteKeys(dish: MenuDish): TasteKey[] {
   const found = new Set<TasteKey>();
-  if (dish.kategori === "kott" || dish.kategori === "fisk" || dish.kategori === "skaldjur") found.add(dish.kategori);
+  if (dish.kategori === "kott" && matchPreference(tasteWord("kott"), dish)) found.add("kott");
+  if (dish.kategori === "fisk" || dish.kategori === "skaldjur") found.add(dish.kategori);
   if (dish.kategori === "vegetariskt" || dish.kategori === "veganskt") found.add("vegetariskt");
   if (dish.grupp === "Efterrätt") found.add("sott");
   const tokens = [dish.originalnamn, ...dish.huvudingredienser].flatMap(words);
@@ -152,7 +157,7 @@ export function rank(dish: MenuDish, person: Person, ctx: RankContext): Suggesti
 
   // Free-text preferences: a clear deduction and a note for what is avoided, a bonus and a reason for what is loved.
   // Never an exclusion: only allergies leave a dish out.
-  // The original eight (kött, fisk, pasta ...) are scored above through the dish's category; the rest are matched by words.
+  // The original eight (rött kött, fisk, pasta ...) are scored above through the dish's category; the rest are matched by words.
   const { avoided, loved, strongAvoided, strongLoved } = softHits(person, dish);
   const concerns = avoided.length > 0 ? [`Innehåller ${avoided.join(", ").toLocaleLowerCase("sv-SE")}. ${whoName(person) === "du" ? "Du undviker" : `${person.name} undviker`} ${avoided.length > 1 ? "dem" : "det"}.`] : [];
   score -= Math.min(dislikeCap + strongAvoided * strongExtra, avoided.length * dislikePenalty + strongAvoided * strongExtra);

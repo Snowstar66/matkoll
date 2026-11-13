@@ -13,7 +13,7 @@ export const maxPeople = 20;
 export const maxNameLength = 40;
 
 export const tasteLabels: Readonly<Record<TasteKey, string>> = {
-  kott: "Kött",
+  kott: "Rött kött",
   fisk: "Fisk",
   skaldjur: "Skaldjur",
   vegetariskt: "Vegetariskt",
@@ -173,6 +173,19 @@ export function removePerson(people: readonly Person[], id: string): Person[] {
 export function toggleAllergy(person: Person, allergen: MenuAllergen): Person {
   const allergies = person.allergies.includes(allergen) ? person.allergies.filter((entry) => entry !== allergen) : [...person.allergies, allergen];
   return { ...person, allergies: menuAllergens.filter((entry) => allergies.includes(entry)) };
+}
+
+/**
+ * How many things differ between what is saved for a person and the draft on the screen (Spara / Ångra): the name,
+ * each allergy, each taste and the drink count one each. 0 = nothing to save, also after moving a slider back.
+ */
+export function personChanges(saved: Person, draft: Person): number {
+  let changes = saved.name === draft.name ? 0 : 1;
+  changes += menuAllergens.filter((allergen) => saved.allergies.includes(allergen) !== draft.allergies.includes(allergen)).length;
+  const keys = new Set([...Object.keys(saved.tastes), ...Object.keys(draft.tastes)]);
+  for (const key of keys) if ((saved.tastes[key] ?? 0) !== (draft.tastes[key] ?? 0)) changes += 1;
+  if (saved.drink !== draft.drink) changes += 1;
+  return changes;
 }
 
 /** Who a dish does not suit: the people whose allergies the dish has or may have, with the hits. */

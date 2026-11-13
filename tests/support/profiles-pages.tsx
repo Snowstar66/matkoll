@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ToastProvider } from "@/components/toast";
 import type { HouseholdPerson } from "@/features/menu-advisor";
 import type { Person } from "@/features/menu-advisor/domain/profile";
 import { ProfileGroups } from "@/features/menu-advisor/ui/profile-groups";
@@ -23,9 +24,13 @@ export function ProfilesPages({ members, profiles }: { members?: readonly Househ
     window.addEventListener(navigateEvent, listener);
     return () => window.removeEventListener(navigateEvent, listener);
   }, []);
-  return personId === null ? (
-    <ProfileGroups members={members} profiles={profiles} />
-  ) : (
-    <ProfilesScreen personId={personId} members={members} profiles={profiles} backHref="/installningar/medlemmar" />
+  return (
+    <ToastProvider>
+      {personId === null ? (
+        <ProfileGroups members={members} profiles={profiles} />
+      ) : (
+        <ProfilesScreen personId={personId} members={members} profiles={profiles} backHref="/installningar/medlemmar" />
+      )}
+    </ToastProvider>
   );
 }

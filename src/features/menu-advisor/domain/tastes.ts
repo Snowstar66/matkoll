@@ -10,13 +10,19 @@ import { tasteKeys } from "./profile";
 export type TasteItem = { key: string; label: string };
 export type TasteGroup = { id: string; title: string; items: readonly TasteItem[] };
 
-/** The presets, as groups. Keys are plain ASCII ids (the first eight are the original TasteKey). */
+/**
+ * The presets, as groups. Keys are plain ASCII ids (eight of them are the original TasteKey). "kott" is shown as
+ * "Rött kött" since 2026-11-13, when Fläskkött and Kyckling got sliders of their own: the key stays, so what was saved
+ * for "Kött" keeps steering beef, lamb and game, and pork and chicken start at Okej (preferences.ts has the words).
+ */
 export const tasteGroups: readonly TasteGroup[] = [
   {
     id: "protein",
     title: "Protein",
     items: [
-      { key: "kott", label: "Kött" },
+      { key: "kott", label: "Rött kött" },
+      { key: "flask", label: "Fläskkött" },
+      { key: "kyckling", label: "Kyckling" },
       { key: "fisk", label: "Fisk" },
       { key: "skaldjur", label: "Skaldjur" },
       { key: "vegetariskt", label: "Vegetariskt" },
@@ -82,7 +88,15 @@ export function tasteLabel(key: string): string {
 /** The thing in running text ("vitlök", "nasi goreng"): how the notes, the reasons and the AI prompt name it. */
 export const tasteWord = (key: string) => tasteLabel(key).toLocaleLowerCase("sv-SE");
 
-const presetByText: ReadonlyMap<string, string> = new Map(presets.flatMap((item) => [[normalizeText(item.label), item.key] as const, [item.key, item.key] as const]));
+/** Older or shorter names that still mean a preset: "kött" was the label of "kott" until 2026-11-13. */
+const presetAliases: readonly (readonly [string, string])[] = [
+  ["kött", "kott"],
+  ["fläsk", "flask"],
+];
+const presetByText: ReadonlyMap<string, string> = new Map([
+  ...presets.flatMap((item) => [[normalizeText(item.label), item.key] as const, [item.key, item.key] as const]),
+  ...presetAliases.map(([text, key]) => [normalizeText(text), key] as const),
+]);
 
 /** The key a typed text stands for: a preset when it names one ("Vitlök" → vitlok), else an own key. Null when there is no usable word. */
 export function tasteKeyFor(text: string): string | null {
