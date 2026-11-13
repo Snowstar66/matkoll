@@ -28,10 +28,10 @@ describe("the presets", () => {
   it("are grouped (Protein, Maträtter, Smaker och råvaror), each key valid and unique, the original eight among them", () => {
     expect(tasteGroups.map((group) => group.title)).toEqual(["Protein", "Maträtter", "Smaker och råvaror"]);
     expect(new Set(presetKeys).size).toBe(presetKeys.length);
-    expect(presetKeys).toHaveLength(25);
+    expect(presetKeys).toHaveLength(27);
     expect(presetKeys.every((key) => tasteKeyPattern.test(key))).toBe(true);
     for (const key of ["kott", "fisk", "skaldjur", "vegetariskt", "pasta", "pizza", "starkt", "sott"]) expect(isPresetKey(key)).toBe(true);
-    expect(maxTastes).toBe(25 + maxOwnTastes);
+    expect(maxTastes).toBe(27 + maxOwnTastes);
     // What the database accepts (food_tastes_valid in 20261110100000_food_tastes_own.sql): at most 70 keys.
     expect(maxTastes).toBeLessThanOrEqual(70);
   });

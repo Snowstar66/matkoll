@@ -117,7 +117,7 @@ describe("TasteSection", () => {
     const protein = screen.getByRole("button", { name: /Protein/ });
     await user.click(protein);
     expect(protein).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getAllByRole("slider").map((slider) => slider.getAttribute("aria-label"))).toEqual(["Rött kött", "Fläskkött", "Kyckling", "Fisk", "Skaldjur", "Vegetariskt"]);
+    expect(screen.getAllByRole("slider").map((slider) => slider.getAttribute("aria-label"))).toEqual(["Rött kött", "Fläskkött", "Kyckling", "Köttfärs", "Blandfärs", "Fisk", "Skaldjur", "Vegetariskt"]);
     for (const row of screen.getAllByTestId("taste-row")) {
       expect(row).toHaveAttribute("data-set", "false");
       expect(row).toHaveTextContent("Okej");
@@ -146,8 +146,8 @@ describe("TasteSection", () => {
     expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ tastes: { fisk: 2, skaldjur: -1 } }));
     expect(screen.getByTestId("taste-group-protein-summary")).toHaveTextContent("2 inställda");
     expect(screen.getByTestId("taste-summary")).toHaveTextContent("Anna älskar fisk. Undviker skaldjur.");
-    expect(within(screen.getAllByTestId("taste-row")[3]!).getByText("Älskar")).toBeInTheDocument();
-    expect(screen.getAllByTestId("taste-row")[3]).toHaveAttribute("data-set", "true");
+    expect(within(screen.getAllByTestId("taste-row")[5]!).getByText("Älskar")).toBeInTheDocument();
+    expect(screen.getAllByTestId("taste-row")[5]).toHaveAttribute("data-set", "true");
   });
 
   it("says 1 inställd for one, and moving back to Okej stores nothing", async () => {
