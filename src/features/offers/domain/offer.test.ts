@@ -9,6 +9,9 @@ import {
   noOffersText,
   offerMetaText,
   offersFetchedText,
+  offersFetchIsStale,
+  offersStaleText,
+  scheduledOffersText,
   offersSheetSubtitle,
   offersSkippedText,
   offersSummaryText,
@@ -104,6 +107,19 @@ describe("texts", () => {
     expect(fetchedAtText(new Date("2026-10-26T07:05:00+01:00"), now)).toBe("hämtade 26 okt 07:05");
     expect(offersSummaryText(7, new Date("2026-10-28T07:12:00+01:00"), now)).toBe("7 erbjudanden · hämtade idag 07:12");
     expect(offersSummaryText(1, null, now)).toBe("1 erbjudande");
+  });
+
+  it("gives the cloud's calm line with the last fetch, and warns after two days", () => {
+    const now = new Date("2026-11-13T12:00:00+01:00");
+    const today = new Date("2026-11-13T07:12:00+01:00");
+    expect(scheduledOffersText(today, now)).toBe("Erbjudandena hämtas automatiskt varje morgon. Senast hämtade: idag 07:12");
+    expect(scheduledOffersText(new Date("2026-11-12T07:12:00+01:00"), now)).toBe("Erbjudandena hämtas automatiskt varje morgon. Senast hämtade: igår 07:12");
+    expect(scheduledOffersText(null, now)).toBe("Erbjudandena hämtas automatiskt varje morgon.");
+    expect(offersFetchIsStale(today, now)).toBe(false);
+    expect(offersFetchIsStale(new Date("2026-11-11T12:00:00+01:00"), now)).toBe(false);
+    expect(offersFetchIsStale(new Date("2026-11-11T11:59:00+01:00"), now)).toBe(true);
+    expect(offersFetchIsStale(null, now)).toBe(false);
+    expect(offersStaleText(new Date("2026-11-10T07:12:00+01:00"))).toBe("Erbjudandena har inte uppdaterats sedan 10 nov");
   });
 });
 
