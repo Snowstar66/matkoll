@@ -231,6 +231,8 @@ export type SharedListRow = {
   sharedAt: string;
   savedCopyId: string | null;
   lineTexts: readonly string[];
+  /** The household's own shared recipe (not a row of list_shared_recipes): "Delat av oss". */
+  mine?: boolean;
 };
 
 /** A recipe in Delade: a library row (no favourite, no status) with whose it is and whether it is saved. */
@@ -240,6 +242,8 @@ export type SharedListItem = RecipeListItem & {
   savedCopyId: string | null;
   /** The lines as written, for the search. */
   lineTexts: readonly string[];
+  /** The household's own shared recipe: it opens the own recipe page and carries no "från". */
+  mine: boolean;
 };
 
 /** The Delade rows as library items, with categories and the drawing worked out like an own recipe's. */
@@ -259,8 +263,25 @@ export function toSharedListItems(rows: readonly SharedListRow[]): SharedListIte
     householdName: row.householdName,
     savedCopyId: row.savedCopyId,
     lineTexts: row.lineTexts,
+    mine: row.mine ?? false,
   }));
 }
+
+/** Where a recipe in Delade opens: the own recipe page for the household's own, else the shared view. */
+export function sharedItemHref(item: Pick<SharedListItem, "id" | "mine">): string {
+  return item.mine ? `/recept/${item.id}` : `/recept/delade/${item.id}`;
+}
+
+/** The two sections of Delade, each in the order given: what others share, and what the household shares. */
+export function splitShared<T extends Pick<SharedListItem, "mine">>(items: readonly T[]): { others: T[]; mine: T[] } {
+  return { others: items.filter((item) => !item.mine), mine: items.filter((item) => item.mine) };
+}
+
+/** The headings of Delade's sections. */
+export const sharedByOthersHeading = "Delat av andra";
+export const sharedByUsHeading = "Delat av oss";
+/** The small text on the household's own row. */
+export const sharedByYouText = "Delat av dig";
 
 /** The shared recipes whose title or a line contains `query` (any case); all of them for blank text. */
 export function searchShared<T extends Pick<SharedListItem, "title" | "lineTexts">>(items: readonly T[], query: string): T[] {

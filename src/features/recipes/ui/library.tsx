@@ -35,7 +35,7 @@ import { RecipeFilterChips } from "./recipe-filter-chips";
 import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
 import { RecipeSortSheet } from "./recipe-sort-sheet";
-import { SharedRecipeCompactList, SharedRecipeList } from "./shared-recipe-list";
+import { SharedSections } from "./shared-recipe-list";
 import { useRecipeCategory, useRecipeSort, useRecipeView } from "./recipe-view-stores";
 import { useFavorites } from "./use-favorites";
 
@@ -303,7 +303,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     if (sharedLoading) {
       content = <Skeleton rows={4} />;
     } else if (sharedVisible.length > 0) {
-      content = compact ? <SharedRecipeCompactList recipes={sharedVisible} /> : <SharedRecipeList recipes={sharedVisible} />;
+      content = <SharedSections recipes={sharedVisible} compact={compact} />;
     } else if (query) {
       content = (
         <EmptyState

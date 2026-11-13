@@ -13,7 +13,7 @@ import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { assessKostrad, recipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
-import { getStarterOffer, listLibraryWithRows, listSharedRecipes } from "@/features/recipes/server";
+import { getStarterOffer, listLibraryWithRows, listSharedRecipesWithOwn } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
@@ -135,10 +135,10 @@ async function readStarterOffer(): Promise<StarterOffer | undefined> {
   }
 }
 
-/** Delade recept: what other households share; `undefined` when it cannot be read, and the chip Delade is left out. */
+/** Delade recept: what other households share and what the household shares itself; `undefined` when it cannot be read, and the chip Delade is left out. */
 async function readShared(): Promise<SharedListItem[] | undefined> {
   try {
-    return await listSharedRecipes();
+    return await listSharedRecipesWithOwn();
   } catch (error) {
     console.error("recipe_shared_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return undefined;
