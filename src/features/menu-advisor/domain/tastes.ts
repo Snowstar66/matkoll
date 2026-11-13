@@ -14,6 +14,7 @@ export type TasteGroup = { id: string; title: string; items: readonly TasteItem[
  * The presets, as groups. Keys are plain ASCII ids (eight of them are the original TasteKey). "kott" is shown as
  * "Rött kött" since 2026-11-13, when Fläskkött and Kyckling got sliders of their own: the key stays, so what was saved
  * for "Kött" keeps steering beef, lamb and game, and pork and chicken start at Okej (preferences.ts has the words).
+ * Köttfärs (with köttbullar) and Blandfärs followed the same day: mince is no longer Rött kött or Fläskkött.
  */
 export const tasteGroups: readonly TasteGroup[] = [
   {
@@ -23,6 +24,8 @@ export const tasteGroups: readonly TasteGroup[] = [
       { key: "kott", label: "Rött kött" },
       { key: "flask", label: "Fläskkött" },
       { key: "kyckling", label: "Kyckling" },
+      { key: "kottfars", label: "Köttfärs" },
+      { key: "blandfars", label: "Blandfärs" },
       { key: "fisk", label: "Fisk" },
       { key: "skaldjur", label: "Skaldjur" },
       { key: "vegetariskt", label: "Vegetariskt" },
@@ -92,6 +95,7 @@ export const tasteWord = (key: string) => tasteLabel(key).toLocaleLowerCase("sv-
 const presetAliases: readonly (readonly [string, string])[] = [
   ["kött", "kott"],
   ["fläsk", "flask"],
+  ["nötfärs", "kottfars"],
 ];
 const presetByText: ReadonlyMap<string, string> = new Map([
   ...presets.flatMap((item) => [[normalizeText(item.label), item.key] as const, [item.key, item.key] as const]),

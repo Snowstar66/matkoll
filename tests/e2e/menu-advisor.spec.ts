@@ -597,7 +597,7 @@ test("Större text and the dark: the Spara bar of Smak och allergier fits at 375
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/installningar/medlemmar/smak-och-allergier?person=me");
   await page.getByRole("button", { name: /Protein/ }).click();
-  await expect(page.getByRole("slider")).toHaveCount(6);
+  await expect(page.getByRole("slider")).toHaveCount(8);
   const chicken = page.getByRole("slider", { name: "Kyckling" });
   await chicken.focus();
   await page.keyboard.press("End");

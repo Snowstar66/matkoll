@@ -76,23 +76,31 @@ type Group = {
   category?: MenuCategory | readonly MenuCategory[];
   /** The dish's category only counts when none of these words is in the dish (a "kött" dish with kyckling is not red meat). */
   categoryUnless?: readonly string[];
+  /** The group does not count when any of these words is in the text (Köttbullar made of blandfärs are Blandfärs, not Köttfärs). */
+  unless?: readonly string[];
 };
 
 // Meat, in three groups since "Kött" was split (2026-11-13): rött kött (the preset key stays "kott", so what is saved
 // keeps its meaning for beef, lamb and game), fläskkött ("flask") and kyckling ("kyckling", poultry: kalkon too).
-// Köttbullar and plain "kött"/"köttfärs" are red meat; blandfärs is both red meat and pork (it is both). Korv, bacon,
+// Köttfärs and köttbullar (Köttfärs) and blandfärs (Blandfärs) are presets of their own, see beefMince below. Korv, bacon,
 // skinka and the cured Spanish and Italian kinds are pork only, so whoever avoids red meat still gets Korv stroganoff
 // and Pasta med bacon. A menu dish the reading put in the category "kott" counts as red meat unless it names pork or
 // poultry.
 const redMeat = [
   "rött kött", "kött", "meat", "carne", "nötkött", "nötfärs", "nötfilé", "nötbiff", "nötstek", "nötgryta", "nötkorv", "biff", "beef",
   "rostbiff", "oxfilé", "oxbringa", "entrecôte", "högrev", "flankstek", "bringa", "lamm", "lamb", "cordero", "kalv", "veal", "ternera",
-  "vilt", "hjort", "rådjur", "älg", "renskav", "renstek", "vildsvin", "köttfärs", "köttbull", "blandfärs",
+  "vilt", "hjort", "rådjur", "älg", "renskav", "renstek", "vildsvin",
 ];
+// Mince has two presets of its own since 2026-11-13 (köttfärs, blandfärs), so it is no longer counted as red meat or pork.
+// Köttfärs is beef mince: köttfärs, nötfärs and köttbullar (unless the text says blandfärs, then it is Blandfärs).
+// A bare "färs" is not a word here: "färsk" (fresh) begins with it, and it can be any kind. Hamburgare stays as before
+// (the Burgare preset only), since the name does not say what the patty is.
+const beefMince = ["köttfärs", "nötfärs", "köttbull"];
+const mixedMince = ["blandfärs", "halvfärs"];
 const pork = [
   "fläskkött", "fläsk", "sidfläsk", "stekfläsk", "pork", "cerdo", "bacon", "skink", "julskinka", "jamón", "serrano", "prosciutto", "pancetta",
   "guanciale", "karré", "kassler", "kotlett", "flintastek", "revben", "spareribs", "ribs", "porchetta", "carnitas", "korv", "falukorv",
-  "prinskorv", "isterband", "chorizo", "salami", "mortadella", "salsiccia", "bratwurst", "blandfärs",
+  "prinskorv", "isterband", "chorizo", "salami", "mortadella", "salsiccia", "bratwurst",
 ];
 const poultry = ["kyckling", "majskyckling", "chicken", "pollo", "kalkon", "turkey", "pavo", "fågel", "höns", "broiler"];
 
@@ -110,7 +118,9 @@ const groups: readonly Group[] = [
   { terms: ["räkor", "räka", "shrimp", "prawn", "gambas", "camarones"] },
   { terms: ["skaldjur", "shellfish", "mariscos", "räk", "hummer", "lobster", "krabba", "crab", "musslor", "mussels", "mejillones", "bläckfisk", "calamar", "pulpo", "ostron", "oyster"], category: "skaldjur" },
   { terms: ["fisk", "fish", "pescado", "lax", "salmon", "torsk", "cod", "bacalao", "pescatore"], category: "fisk" },
-  { terms: redMeat, not: ["köttfri", "köttbuljong", "köttfond"], category: "kott", categoryUnless: [...pork.filter((term) => term !== "blandfärs"), ...poultry] },
+  { terms: redMeat, not: ["köttfri", "köttbuljong", "köttfond", ...beefMince, ...mixedMince], category: "kott", categoryUnless: [...pork, ...poultry, ...beefMince, ...mixedMince] },
+  { terms: beefMince, unless: mixedMince },
+  { terms: mixedMince },
   { terms: pork, not: ["korvbröd"] },
   { terms: poultry, not: ["pollock", "fågelbo"] },
   { terms: ["vegetariskt", "vegetarisk", "vegetarian", "vegetariano", "veggie", "veganskt", "vegansk", "vegan"], category: ["vegetariskt", "veganskt"] },
@@ -138,10 +148,11 @@ const prepared = groups.map((group) => ({
   terms: group.terms.map(normalizeText),
   not: (group.not ?? []).map(normalizeText),
   categoryUnless: (group.categoryUnless ?? []).map(normalizeText),
+  unless: (group.unless ?? []).map(normalizeText),
 }));
 
 /** The words a tag stands for: its synonym group(s) when it is one of their words, else just itself. */
-type TagTerms = { terms: string[]; not: string[]; categories: MenuCategory[]; categoryUnless: string[] };
+type TagTerms = { terms: string[]; not: string[]; categories: MenuCategory[]; categoryUnless: string[]; unless: string[] };
 const termsOfTag = new Map<string, TagTerms>();
 
 function termsFor(tag: string): TagTerms {
@@ -153,13 +164,14 @@ function buildTermsFor(tag: string): TagTerms {
   // The group the tag heads wins (chili is not "kryddstarkt"); else every group that has the word.
   const heads = prepared.filter((group) => group.terms[0] === wanted);
   const found = heads.length > 0 ? heads : prepared.filter((group) => group.terms.includes(wanted));
-  if (found.length === 0) return { terms: wanted === "" ? [] : [wanted], not: [], categories: [], categoryUnless: [] };
+  if (found.length === 0) return { terms: wanted === "" ? [] : [wanted], not: [], categories: [], categoryUnless: [], unless: [] };
   const heading = found.filter((group) => group.category && group.terms[0] === wanted);
   return {
     terms: [...new Set(found.flatMap((group) => group.terms))],
     not: found.flatMap((group) => group.not),
     categories: heading.flatMap((group) => [group.category!].flat()),
     categoryUnless: heading.flatMap((group) => group.categoryUnless),
+    unless: found.every((group) => group.unless.length > 0) ? found.flatMap((group) => group.unless) : [],
   };
 }
 
@@ -201,7 +213,8 @@ export function dishTokens(dish: Pick<MenuDish, "originalnamn" | "huvudingredien
 
 /** matchPreference for a dish whose words are already known (dishTokens), so a list of tags does not read the dish again. */
 export function matchPreferenceTokens(tag: string, textTokens: readonly string[], kategori: MenuDish["kategori"]): boolean {
-  const { terms, not, categories, categoryUnless } = termsFor(tag);
+  const { terms, not, categories, categoryUnless, unless } = termsFor(tag);
+  if (unless.some((term) => hasTerm(textTokens, term, []))) return false;
   if (categories.includes(kategori) && !categoryUnless.some((term) => hasTerm(textTokens, term, []))) return true;
   return terms.some((term) => hasTerm(textTokens, term, not));
 }
