@@ -11,7 +11,9 @@ import {
   sharedChoices,
   sharedCountText,
   sharedFromText,
+  sharedItemHref,
   sharedMatchItems,
+  splitShared,
   stopSharingDetail,
   toSharedListItems,
   toSharedView,
@@ -168,6 +170,19 @@ describe("the Delade list", () => {
     const [stew, soup] = toSharedListItems(rows);
     expect(stew.createdAt).toBe("2026-11-08T10:00:00Z");
     expect(soup.createdAt).toBe("2026-11-07T10:00:00Z");
+  });
+
+  it("marks the household's own rows, opens them as own recipes and splits the two sections in order", () => {
+    const items = toSharedListItems([
+      ...rows,
+      { id: "c", title: "Vår gryta", originalServings: 4, totalMinutes: 30, imageUrl: null, householdName: "", createdAt: "2026-10-01T10:00:00Z", sharedAt: "2026-11-09T10:00:00Z", savedCopyId: null, lineTexts: [], mine: true },
+    ]);
+    const { others, mine } = splitShared(items);
+    expect(others.map((item) => item.id)).toEqual(["a", "b"]);
+    expect(mine.map((item) => item.id)).toEqual(["c"]);
+    expect(sharedItemHref(mine[0])).toBe("/recept/c");
+    expect(sharedItemHref(others[0])).toBe("/recept/delade/a");
+    expect(mine[0].createdAt).toBe("2026-11-09T10:00:00Z");
   });
 
   it("searches titles and lines, in any case", () => {

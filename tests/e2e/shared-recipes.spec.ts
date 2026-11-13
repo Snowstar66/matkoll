@@ -112,6 +112,21 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   await expect(card.getByRole("button", { name: /^Favorit/ })).toHaveCount(0);
   await expect(bergs.getByTestId("shared-recipe-card").filter({ hasText: "Bergs kycklinggryta" })).toHaveCount(0);
 
+  // Lindqvists see their own shared recipe under "Delat av oss", with the small text, opening the own recipe.
+  await lindqvists.goto("/recept");
+  await lindqvists.getByTestId("recipe-filters").getByRole("button", { name: "Delade" }).click();
+  await expect(lindqvists.getByRole("heading", { level: 2, name: "Delat av oss" })).toBeVisible();
+  // Never their own recipe among the others' (other households' leftovers may be there).
+  await expect(lindqvists.getByTestId("shared-section-others").getByTestId("shared-recipe-card").filter({ hasText: title })).toHaveCount(0);
+  const ownCard = lindqvists.getByTestId("shared-section-mine").getByTestId("shared-recipe-card").filter({ hasText: title });
+  await expect(ownCard.getByTestId("recipe-card-byline")).toHaveText("Delat av dig");
+  await shot(lindqvists, "delat-av-oss");
+  // Bergs see it under "Delat av andra" only.
+  await expect(bergs.getByRole("heading", { level: 2, name: "Delat av andra" })).toBeVisible();
+  await expect(bergs.getByRole("heading", { name: "Delat av oss" })).toHaveCount(0);
+  await ownCard.getByRole("link", { name: title }).click();
+  await expect(lindqvists).toHaveURL(new RegExp(`/recept/${recipeId}$`));
+
   // Opened: usable, whose it is, no heart or menu; Spara makes the copy.
   await card.getByRole("link", { name: title }).click();
   await expect(bergs).toHaveURL(new RegExp(`/recept/delade/${recipeId}$`));
@@ -171,6 +186,10 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   await expect(bergs.getByTestId("recipe-card").filter({ hasText: title })).toBeVisible();
   await bergs.goto(`/recept/delade/${recipeId}`);
   await expect(bergs.getByText("Sidan finns inte.")).toBeVisible();
+  // ... and from Lindqvists' own section too.
+  await lindqvists.goto("/recept");
+  await expect(lindqvists.getByTestId("shared-recipe-card").filter({ hasText: title })).toHaveCount(0);
+  await expect(lindqvists.getByRole("heading", { name: "Delat av oss" })).toHaveCount(0);
 });
 
 // The first share of a household that still has the name it got with its account asks for a name,
@@ -235,4 +254,33 @@ test("the first share asks what others should see the household as, and Bergs se
   await question.getByRole("button", { name: "Behåll dem" }).click();
   await expect(all).toHaveAttribute("aria-checked", "false");
   await expect(group.getByTestId("shared-count")).toHaveText("2 recept");
+});
+
+// Stopping to share one recipe takes it out of "Delat av oss" and out of the others' "Delat av andra".
+test("Hellgrens see both recipes under Delat av oss, newest first, and Sluta dela takes one out for everyone", async ({ browser }) => {
+  const hellgrens = await (await contextFor(browser, sharedOwnerStorageState)).newPage();
+  const bergs = await (await contextFor(browser, sharedSaverStorageState)).newPage();
+  await hellgrens.goto("/recept");
+  await expect(hellgrens.getByTestId("recipe-filters").getByRole("button", { name: "Delade" })).toBeVisible();
+  const delade = hellgrens.getByTestId("recipe-filters").getByRole("button", { name: "Delade" });
+  if ((await delade.getAttribute("aria-pressed")) !== "true") await delade.click();
+  const mine = hellgrens.getByTestId("shared-section-mine").getByTestId("shared-recipe-card");
+  await expect(mine).toHaveCount(2);
+  await expect(mine.first()).toContainText("Hellgrens soppa");
+  const soppa = await adminClient().from("recipe").select("id").eq("household_id", ownerHousehold).eq("title", "Hellgrens soppa").single();
+  const soppaId = (soppa.data as { id: string }).id;
+  await hellgrens.goto(`/recept/${soppaId}`);
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await hellgrens.getByRole("menuitem", { name: "Sluta dela" }).click();
+  await hellgrens.getByRole("button", { name: "Fler val" }).click();
+  await expect(hellgrens.getByRole("menuitem", { name: "Dela med andra" })).toBeVisible();
+  await hellgrens.keyboard.press("Escape");
+  await hellgrens.goto("/recept");
+  await expect(mine).toHaveCount(1);
+  await expect(mine.first()).toContainText("Hellgrens paj");
+  await bergs.goto("/recept");
+  await bergs.getByTestId("recipe-filters").getByRole("button", { name: "Delade" }).click();
+  const others = bergs.getByTestId("shared-section-others").getByTestId("shared-recipe-card");
+  await expect(others.filter({ hasText: "Hellgrens paj" })).toHaveCount(1);
+  await expect(others.filter({ hasText: "Hellgrens soppa" })).toHaveCount(0);
 });

@@ -1,4 +1,5 @@
 import "server-only";
+import { recipeImageSrc } from "../domain/recipe-image";
 import { parseSharedRecipe, type SharedListRow, type SharedRecipe } from "../domain/shared-recipe";
 import { RecipeDataError, type RecipesDb } from "./client";
 
@@ -101,4 +102,38 @@ export async function stopSharingIn(db: RecipesDb): Promise<number> {
   const { data, error } = await db.rpc("stop_sharing_recipes");
   if (error) throw new RecipeDataError(`stop_sharing_failed ${error.code}`);
   return data;
+}
+
+/**
+ * The household's own shared recipes (is_shared), newest shared first, as Delade rows with `mine` set. A plain
+ * read of own rows under RLS (no database function); the lines come in one second read, for the search.
+ * Throws RecipeDataError.
+ */
+export async function listOwnSharedIn(db: RecipesDb): Promise<SharedListRow[]> {
+  const { data, error } = await db
+    .from("recipe")
+    .select("id, title, original_servings, total_minutes, image_url, image_path, created_at, shared_at")
+    .eq("is_shared", true)
+    .order("shared_at", { ascending: false, nullsFirst: false })
+    .order("id")
+    .limit(500);
+  if (error) throw new RecipeDataError(`own_shared_failed ${error.code}`);
+  if (data.length === 0) return [];
+  const lines = await db.from("recipe_ingredient").select("recipe_id, original_text").in("recipe_id", data.map((row) => row.id)).order("position");
+  if (lines.error) throw new RecipeDataError(`own_shared_failed ${lines.error.code}`);
+  const texts = new Map<string, string[]>();
+  for (const line of lines.data) texts.set(line.recipe_id, [...(texts.get(line.recipe_id) ?? []), line.original_text]);
+  return data.map((row) => ({
+    id: row.id,
+    title: row.title,
+    originalServings: row.original_servings,
+    totalMinutes: row.total_minutes,
+    imageUrl: recipeImageSrc({ id: row.id, imagePath: row.image_path, imageUrl: row.image_url }, "thumb"),
+    householdName: "",
+    createdAt: row.created_at,
+    sharedAt: row.shared_at ?? row.created_at,
+    savedCopyId: null,
+    lineTexts: texts.get(row.id) ?? [],
+    mine: true,
+  }));
 }

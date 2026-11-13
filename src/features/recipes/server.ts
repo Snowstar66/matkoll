@@ -16,7 +16,7 @@ import { RecipeDataError } from "./data/client";
 import { countWithImageIn, countWithoutImageIn, downloadImageIn, imageFolderOf } from "./data/image";
 import type { RecipeImageSize } from "./domain/recipe-image";
 import { missingNames } from "./data/missing-names";
-import { getSharedIn, listSharedIn, saversIn, sharingIn } from "./data/shared";
+import { getSharedIn, listOwnSharedIn, listSharedIn, saversIn, sharingIn } from "./data/shared";
 import { isOwnerIn, listStarterIn, listStarterPackIn, starterCopiesIn, starterImageFolderIn, starterRoomIn } from "./data/starter";
 import type { StarterListRow, StarterPackEntry, StarterRoom } from "./domain/starter-recipe";
 import {
@@ -171,6 +171,23 @@ export async function listRecipeTitles(): Promise<{ id: string; title: string }[
  */
 export async function listSharedRecipes(): Promise<SharedListItem[]> {
   return toSharedListItems(await listSharedIn(await createClient()));
+}
+
+/**
+ * Delade, both sections: the recipes other households share and the household's own shared ones
+ * (`mine`), each newest shared first. Own ones that cannot be read are left out, not failing Delade.
+ * Throws RecipeDataError when the others cannot be read.
+ */
+export async function listSharedRecipesWithOwn(): Promise<SharedListItem[]> {
+  const db = await createClient();
+  const [others, own] = await Promise.all([
+    listSharedIn(db),
+    listOwnSharedIn(db).catch((error: unknown) => {
+      console.error("recipe_own_shared_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+      return [];
+    }),
+  ]);
+  return toSharedListItems([...others, ...own]);
 }
 
 /**

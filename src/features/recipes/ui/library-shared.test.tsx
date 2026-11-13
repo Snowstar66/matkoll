@@ -63,6 +63,22 @@ const shared: SharedListItem[] = toSharedListItems([
   },
 ]);
 
+const ownShared: SharedListItem[] = toSharedListItems([
+  {
+    id: "30000000-0000-4000-8000-000000000001",
+    title: "Vår köttbullsgryta",
+    originalServings: 4,
+    totalMinutes: 40,
+    imageUrl: null,
+    householdName: "",
+    createdAt: "2026-11-01T08:00:00+00:00",
+    sharedAt: "2026-11-09T08:00:00+00:00",
+    savedCopyId: null,
+    lineTexts: ["500 g köttfärs"],
+    mine: true,
+  },
+]);
+
 /** The page's promise of the shared recipes: with them, with undefined (not readable), or never in. */
 async function renderLibrary(sharedItems: SharedListItem[] | null | "pending" = shared) {
   const promise =
@@ -107,6 +123,33 @@ describe("Library, Delade", () => {
     expect(screen.queryByRole("button", { name: /^Favorit,/ })).toBeNull();
     expect(screen.queryByText(/Saknar/)).toBeNull();
     expect(screen.queryByText("Spagettipumpa")).toBeNull();
+  });
+
+  it("shows the household's own shared recipes under Delat av oss, after Delat av andra, and opens them as own recipes", async () => {
+    const user = userEvent.setup();
+    await renderLibrary([...ownShared, ...shared]);
+    await user.click(screen.getByRole("button", { name: "Delade" }));
+    const headings = await screen.findAllByRole("heading", { level: 2 });
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Delat av andra", "Delat av oss"]);
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("3 delade recept");
+    const mineSection = screen.getByTestId("shared-section-mine");
+    const row = within(mineSection).getByTestId("shared-recipe-card");
+    expect(within(row).getByRole("link")).toHaveAttribute("href", "/recept/30000000-0000-4000-8000-000000000001");
+    expect(within(row).getByTestId("recipe-card-byline")).toHaveTextContent("Delat av dig");
+    expect(within(row).queryByTestId("shared-saved")).toBeNull();
+    expect(within(screen.getByTestId("shared-section-others")).getAllByTestId("shared-recipe-card")).toHaveLength(2);
+    // The search reaches both sections; a section with no hit is left out.
+    await user.type(screen.getByRole("searchbox"), "köttfärs");
+    await waitFor(() => expect(screen.queryByTestId("shared-section-others")).toBeNull());
+    expect(screen.getByTestId("shared-section-mine")).toBeInTheDocument();
+  });
+
+  it("leaves a section out when it has no recipes", async () => {
+    const user = userEvent.setup();
+    await renderLibrary(ownShared);
+    await user.click(screen.getByRole("button", { name: "Delade" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Delat av oss" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Delat av andra" })).toBeNull();
   });
 
   it("leaves Delade for an own filter, and combines it with a category", async () => {
