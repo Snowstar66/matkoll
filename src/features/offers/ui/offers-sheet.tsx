@@ -26,6 +26,9 @@ import {
   offersFetchedManyText,
   offersFetchedStoreText,
   offersFetchedText,
+  offersFetchIsStale,
+  offersStaleText,
+  scheduledOffersText,
   offersSheetSubtitle,
   offersSkippedText,
   offerListItem,
@@ -80,6 +83,11 @@ export type OffersSheetProps = {
   now: string;
   /** The offers could not be read. */
   unavailable: boolean;
+  /**
+   * In the cloud (the server reads env.VERCEL) the store's site refuses the app's servers and a job fetches the offers
+   * every morning: the sheet then has no fetch button, only "hämtas automatiskt varje morgon" and the time of the last fetch.
+   */
+  scheduled?: boolean;
   /** Picking offers for the shopping list (Story 9.12); absent or `null` shows the list only. */
   listing?: OffersListing | null;
   /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home (same rule as `best`); their rows say "Passar dig". */
@@ -155,6 +163,7 @@ export function OffersSheet({
   weekStart,
   now,
   unavailable,
+  scheduled = false,
   listing = null,
   fitIds,
   dishes,
@@ -177,6 +186,12 @@ export function OffersSheet({
   const [progress, setProgress] = useState<{ store: OffersStore; at: number; of: number } | null>(null);
   const attempts = useRef(0);
   const pending = progress !== null;
+  /** Notices of a fetch or an add belong to that visit: the next time the sheet opens they are gone. */
+  const close = () => {
+    setRuns([]);
+    setAddError(null);
+    onClose();
+  };
 
   const withLink = useMemo(() => stores.filter((store) => store.offersUrl), [stores]);
   const many = withLink.length > 1;
@@ -284,6 +299,17 @@ export function OffersSheet({
   const siteName = withLink[0]?.siteName ?? "ica.se";
   const lastFetch = latestFetch(withLink);
   const single = withLink[0];
+  // In the cloud no button: the calm line with the time of the last fetch, or a warning when that is more than two days old.
+  const nowDate = new Date(now);
+  const scheduledNote = scheduled ? (
+    lastFetch && offersFetchIsStale(lastFetch, nowDate) ? (
+      <Notice role="status">{offersStaleText(lastFetch)}</Notice>
+    ) : (
+      <p data-testid="offers-scheduled" className="text-meta text-ink-2">
+        {scheduledOffersText(lastFetch, nowDate)}
+      </p>
+    )
+  ) : null;
   // UX-29: after a failed fetch with a way on, the notice's own link is the only one (and an empty week needs no line of its own).
   const pageFailure =
     !pending &&
@@ -325,16 +351,16 @@ export function OffersSheet({
         {offers.length === 0 ? (
           <div className="flex flex-col gap-4">
             {pageFailure ? null : <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>}
-            {many ? fetchPanel : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
+            {scheduled ? scheduledNote : many ? fetchPanel : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
           </div>
         ) : (
           <>
             {/* UX-18: the sheet reads top to bottom as where and when (the two lines under the title), the dishes, then the offers in white cards. */}
             <p data-testid="offers-fetched" className="-mt-2 text-meta text-ink-2">
               <span data-testid="offers-meta">{offersCountWords(offers.length)}</span>
-              {" \u00B7 "}
-              {lastFetch ? `${fetchedLineText(lastFetch, new Date(now))} \u00B7 ` : null}
-              {many ? (
+              {scheduled ? null : " \u00B7 "}
+              {lastFetch && !scheduled ? `${fetchedLineText(lastFetch, nowDate)} \u00B7 ` : null}
+              {scheduled ? null : many ? (
                 <button
                   type="button"
                   className={inlineLinkClasses}
@@ -348,7 +374,8 @@ export function OffersSheet({
                 <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="link" pending={pending} />
               )}
             </p>
-            {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
+            {scheduledNote}
+            {many && panel === "fetch" && !scheduled ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
             {dishes}
             {filterStores ? (
               <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
@@ -418,7 +445,7 @@ export function OffersSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Veckans erbjudanden"
       closeLabel="Klar"
       subtitle={
@@ -457,6 +484,7 @@ export function OffersSheet({
                   key={`${run.storeId}-${run.attempt}`}
                   // Story 17.11: in the cloud a refused fetch is expected (a job fetches every morning), so it is news, not an alert.
                   role={error.code === "offers_fetch_scheduled" ? "status" : "alert"}
+                  onDismiss={() => setRuns((before) => before.filter((candidate) => candidate !== run))}
                   action={
                     settingsActions.has(error.code) ? (
                       <SettingsLink />
@@ -472,7 +500,7 @@ export function OffersSheet({
             })
           : null}
         {addError ? (
-          <Notice key={addError.attempt} role="alert">
+          <Notice key={addError.attempt} role="alert" onDismiss={() => setAddError(null)}>
             {addError.message}
           </Notice>
         ) : null}

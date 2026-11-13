@@ -203,6 +203,45 @@ describe("OffersSheet", () => {
     await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
   });
 
+  it("lets the calm notice be closed with Stäng, and it is gone the next time the sheet opens", async () => {
+    fetchStoreOffers.mockResolvedValue(fail("offers_fetch_scheduled"));
+    render();
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Stäng" }));
+    expect(within(dialog).queryByText(/hämtas automatiskt varje morgon/)).not.toBeInTheDocument();
+    // A second one, left open, is gone after closing and opening the sheet again.
+    await user.click(within(dialog).getByRole("button", { name: "Hämta veckans erbjudanden" }));
+    await within(dialog).findByText(/hämtas automatiskt varje morgon/);
+    await user.click(within(dialog).getByRole("button", { name: "Klar" }));
+    const again = (await open()).dialog;
+    expect(within(again).queryByText(/hämtas automatiskt varje morgon/)).not.toBeInTheDocument();
+    expect(within(again).queryByRole("button", { name: "Stäng" })).not.toBeInTheDocument();
+  });
+
+  it("in the cloud has no fetch button, only the calm line with the last fetch (empty week)", async () => {
+    render({ scheduled: true, stores: [{ ...store, fetchedAt: "2026-10-28T05:12:00Z" }] });
+    const { dialog } = await open();
+    expect(within(dialog).queryByRole("button", { name: /Hämta/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("offers-scheduled")).toHaveTextContent("Erbjudandena hämtas automatiskt varje morgon. Senast hämtade: idag 06:12");
+    expect(fetchStoreOffers).not.toHaveBeenCalled();
+  });
+
+  it("in the cloud shows the count and the line, but no Hämta igen, when there are offers", async () => {
+    render({ scheduled: true, offers, stores: [{ ...store, fetchedAt: "2026-10-28T05:12:00Z" }] });
+    const { dialog } = await open();
+    expect(within(dialog).queryByRole("button", { name: /Hämta/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("offers-meta")).toHaveTextContent("3 erbjudanden");
+    expect(within(dialog).getByTestId("offers-scheduled")).toHaveTextContent("Senast hämtade: idag 06:12");
+  });
+
+  it("in the cloud warns when the last fetch is more than two days old", async () => {
+    render({ scheduled: true, offers, stores: [{ ...store, fetchedAt: "2026-10-25T05:12:00Z" }] });
+    const { dialog } = await open();
+    expect(within(dialog).getByText("Erbjudandena har inte uppdaterats sedan 25 okt")).toHaveAttribute("role", "status");
+    expect(within(dialog).queryByTestId("offers-scheduled")).not.toBeInTheDocument();
+  });
+
   it("UX-29: after a failed fetch shows one page link and no empty-week line", async () => {
     fetchStoreOffers.mockResolvedValue(fail("offers_fetch_failed"));
     render();

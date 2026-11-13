@@ -10,6 +10,7 @@ import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getIngredientRecipeCounts, RecipeDataError } from "@/features/recipes/server";
 import { listStores, SettingsDataError } from "@/features/settings/server";
 import { prepareOfferIdeas } from "@/features/suggestions/server";
+import { env } from "@/server/env";
 
 /**
  * What the sheet Veckans erbjudanden needs, read for a page (route → ui, AD-1):
@@ -97,6 +98,8 @@ export async function loadOffersSheetData(): Promise<{ props: OffersSheetProps; 
       weekStart: offers.map((offer) => offer.weekStart).sort().at(-1) ?? weekStartOf(now),
       now: now.toISOString(),
       unavailable,
+      // In the cloud the store's site refuses the app's servers (a job fetches instead), so the sheet has no fetch button. Only a yes/no leaves the server.
+      scheduled: Boolean(env.VERCEL),
       listing,
       fitIds,
       dishes,
