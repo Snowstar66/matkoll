@@ -205,3 +205,46 @@ describe("optionFor: a dish added from the whole menu", () => {
     expect(optionFor(menu, 3, person({ tastes: { paprika: 1 } }))?.reasons).toEqual(["Anna älskar paprika"]);
   });
 });
+
+// Pontus 2026-11-14: Martina avoids red meat and was proposed oxkind. The dish says oxkött only in its text.
+describe("recommendOptions: someone who avoids red meat", () => {
+  const martina = person({ id: "martina", name: "Martina", tastes: { kott: -2 } });
+  const menu = menuOf([
+    dish({ originalnamn: "Braiserad oxkind", forklaring: "Långkokt oxkött med rödvinssås.", pris: 289 }),
+    dish({ originalnamn: "Laxfilé", forklaring: "Ugnsbakad lax.", kategori: "fisk", pris: 245 }),
+    dish({ originalnamn: "Kycklingfilé", forklaring: "Grillad kyckling.", pris: 219 }),
+    dish({ originalnamn: "Pasta pomodoro", forklaring: "Tomat och basilika.", kategori: "vegetariskt", pris: 169 }),
+  ]);
+
+  it("the red-meat dish is not proposed while other dishes fit, and says so when it is the only one", () => {
+    const options = recommendOptions(menu, [martina])[0]!.options;
+    expect(options.map((option) => option.dish.originalnamn)).not.toContain("Braiserad oxkind");
+    expect(defaultChoices(recommendOptions(menu, [martina])).martina?.dishIndex).not.toBe(0);
+    const added = optionFor(menu, 0, martina)!;
+    expect(added.reasons.join(" ")).toMatch(/Martina undviker rött kött/);
+  });
+
+  it("a dish named only by the cut or the animal is caught as well", () => {
+    for (const name of ["Ox i rödvinssås", "Oxsvanssoppa", "Älgkött med lingon", "Ryggbiff"]) {
+      const single = menuOf([dish({ originalnamn: name, forklaring: "Husets specialitet.", pris: 250 })]);
+      expect(recommendOptions(single, [martina])[0]!.options[0]!.reasons.join(" "), name).toMatch(/undviker/i);
+    }
+  });
+});
+
+// Pontus 2026-11-14: one proposal per person only. With a single Varmrätt the other places are filled with the best
+// of the other dishes (not desserts or drinks), after it.
+describe("recommendOptions: a thin menu", () => {
+  const thin = menuOf([
+    dish({ originalnamn: "Laxfilé", pris: 245, kategori: "fisk" }),
+    dish({ originalnamn: "Toast Skagen", grupp: "Förrätt", pris: 145 }),
+    dish({ originalnamn: "Dagens soppa", grupp: "Övrigt", pris: 120 }),
+    dish({ originalnamn: "Chokladfondant", grupp: "Efterrätt", pris: 115 }),
+    dish({ originalnamn: "Husets vin", grupp: "Drycker", pris: 95 }),
+  ]);
+  it("fills up to three, the main course first, never a dessert or a drink", () => {
+    expect(names(thin)).toEqual(expect.arrayContaining(["Laxfilé", "Toast Skagen", "Dagens soppa"]));
+    expect(names(thin)[0]).toBe("Laxfilé");
+    expect(names(thin)).toHaveLength(3);
+  });
+});
