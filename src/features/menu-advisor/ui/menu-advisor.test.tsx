@@ -617,9 +617,10 @@ describe("the whole menu and a dish", () => {
     await u.click(sheet.getByRole("radio", { name: "Anna" }));
     await u.click(sheet.getByRole("button", { name: "Lägg till åt Anna" }));
     expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
-    // Never silent: the dish she cannot eat is shown red with the reason.
+    // Never silent: the dish she cannot eat is shown red with the reason. A dessert is added on top of her main course.
     expect(document.querySelector("[data-tone='danger']")).toHaveTextContent("Innehåller nötter. Fråga personalen.");
-    expect(within(screen.getByRole("radiogroup", { name: "Rätt åt Anna" })).getByRole("radio", { name: /Tarta de Santiago/ })).toBeChecked();
+    expect(within(screen.getByRole("region", { name: "Anna" })).getByTestId("menu-extra")).toHaveTextContent("Tarta de Santiago");
+    expect(within(screen.getByRole("radiogroup", { name: "Rätt åt Anna" })).getAllByRole("radio", { checked: true })).toHaveLength(1);
   });
 
   it("'Fler rätter åt Anna' opens the menu with Anna already chosen", async () => {
@@ -653,6 +654,141 @@ describe("the whole menu and a dish", () => {
     expect(screen.getByTestId("menu-tonight-total")).toHaveTextContent("Totalt ca 277 kr");
     await u.click(screen.getByRole("button", { name: "Rensa listan" }));
     expect(screen.getByText("Inga rätter valda än")).toBeInTheDocument();
+  });
+});
+
+// Pontus 2026-11-14: "Fler rätter" from the answer did not seem to add anything, and the sum did not move. "Lägg till
+// åt" replaced the person's dish instead of adding to it. A realistic table: Du, Anna with a gluten allergy, Greta
+// without an account; dishes with and without a price.
+describe("adding more dishes from the menu", () => {
+  const bistro: Menu = {
+    restaurang: "Bistro Mock",
+    sprak: "sv",
+    osakert: [],
+    ratter: [
+      dish({ originalnamn: "Toast Skagen", grupp: "Förrätt", forklaring: "Räkröra på smörstekt bröd.", kategori: "skaldjur", allergener: ["gluten", "skaldjur"], pris: 145 }),
+      dish({ originalnamn: "Dagens soppa", grupp: "Förrätt", forklaring: "Fråga personalen.", kategori: "vegetariskt", pris: null }),
+      dish({ originalnamn: "Pasta carbonara", forklaring: "Pasta med bacon och äggula.", allergener: ["gluten", "agg"], pris: 189 }),
+      dish({ originalnamn: "Entrecote", forklaring: "Grillad entrecote med bearnaise.", pris: 295 }),
+      dish({ originalnamn: "Laxfilé", forklaring: "Ugnsbakad lax med potatis.", kategori: "fisk", allergener: ["fisk"], pris: 245 }),
+      dish({ originalnamn: "Dagens fisk", forklaring: "Fråga personalen.", kategori: "fisk", pris: null }),
+      dish({ originalnamn: "Chokladfondant", grupp: "Efterrätt", forklaring: "Varm chokladkaka med glass.", allergener: ["agg"], pris: 115 }),
+      dish({ originalnamn: "Husets vin", grupp: "Drycker", forklaring: "Ett glas.", kategori: "ej_tillampligt", pris: 95 }),
+    ],
+  };
+  const table = {
+    v: 1,
+    people: [
+      { id: "me", name: "Du", kind: "member", allergies: [], tastes: {}, drink: null },
+      { id: "a", name: "Anna", kind: "member", allergies: ["gluten"], tastes: {}, drink: null },
+      { id: "p-greta", name: "Greta", kind: "guest", allergies: [], tastes: {}, drink: null },
+    ],
+  };
+  const kr = (text: string | null | undefined) => Number((text ?? "").replace(/\D/g, ""));
+  const total = () => kr(screen.getByTestId("menu-total").textContent);
+  const region = (name: string) => within(screen.getByRole("region", { name }));
+
+  async function atTheTable(u: ReturnType<typeof userEvent.setup>) {
+    fetchMock.mockImplementation(() => Promise.resolve(reading(bistro)));
+    localStorage.setItem("livskoll-menu-people-v1", JSON.stringify(table));
+    localStorage.setItem("livskoll-menu-company-v1", JSON.stringify(["me", "a", "p-greta"]));
+    render(<MenuAdvisor />);
+    await toAnswer(u);
+  }
+
+  /** "Fler rätter åt <who>", the dish, "Lägg till åt <who>". */
+  async function addFor(u: ReturnType<typeof userEvent.setup>, who: string, name: string) {
+    await u.click(screen.getByRole("button", { name: `Fler rätter åt ${who}` }));
+    await u.click(screen.getByRole("button", { name: new RegExp(name) }));
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: `Lägg till åt ${who}` }));
+    await screen.findByTestId("menu-answer");
+  }
+
+  it("a starter added from Hela menyn for someone else than the first is added on top: under her, in the sum and in Ert val", async () => {
+    const u = user();
+    await atTheTable(u);
+    const main = region("Greta").getByRole("radio", { checked: true }).getAttribute("value");
+    const before = total();
+    await u.click(fullMenuTab());
+    await u.click(screen.getByRole("button", { name: /Toast Skagen/ }));
+    const sheet = within(screen.getByRole("dialog", { name: "Toast Skagen" }));
+    await u.click(sheet.getByRole("radio", { name: "Greta" }));
+    await u.click(sheet.getByRole("button", { name: "Lägg till åt Greta" }));
+    expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
+    // Her main course is still chosen, and the starter is with her, not with Du.
+    expect(region("Greta").getByRole("radio", { checked: true })).toHaveAttribute("value", main);
+    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Toast Skagen");
+    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("ca 145 kr");
+    expect(region("Du").queryByTestId("menu-extra")).not.toBeInTheDocument();
+    expect(region("Greta").getByRole("status")).toHaveTextContent("Greta får också Toast Skagen.");
+    expect(total()).toBe(before + 145);
+    await u.click(screen.getByRole("button", { name: "Klart" }));
+    const greta = within(screen.getByRole("region", { name: "Greta" }));
+    expect(greta.getByTestId("menu-choice-extra")).toHaveTextContent("Toast Skagen");
+    expect(total()).toBe(before + 145);
+  });
+
+  it("a dessert for Du and a starter Anna cannot eat: both counted, hers red with the reason; Ta bort takes one away again", async () => {
+    const u = user();
+    await atTheTable(u);
+    const before = total();
+    await addFor(u, "dig", "Chokladfondant");
+    expect(region("Du").getByTestId("menu-extra")).toHaveTextContent("Chokladfondant");
+    expect(total()).toBe(before + 115);
+    await addFor(u, "Anna", "Toast Skagen");
+    const extra = region("Anna").getByTestId("menu-extra");
+    expect(extra).toHaveTextContent("Innehåller gluten. Fråga personalen.");
+    expect(within(extra).getByText("Innehåller gluten. Fråga personalen.")).toHaveAttribute("data-tone", "danger");
+    expect(total()).toBe(before + 115 + 145);
+    await u.click(region("Du").getByRole("button", { name: "Ta bort Chokladfondant" }));
+    expect(region("Du").queryByTestId("menu-extra")).not.toBeInTheDocument();
+    expect(total()).toBe(before + 145);
+  });
+
+  it("a dish without a price is added and says that the sum does not change", async () => {
+    const u = user();
+    await atTheTable(u);
+    const before = total();
+    await u.click(screen.getByRole("button", { name: "Fler rätter åt Greta" }));
+    await u.click(screen.getByRole("button", { name: /Dagens soppa/ }));
+    expect(within(screen.getByRole("dialog")).getByTestId("menu-dish-unpriced")).toHaveTextContent("Pris saknas, så den räknas inte med i summan.");
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till åt Greta" }));
+    await screen.findByTestId("menu-answer");
+    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Dagens soppaPris saknas");
+    expect(region("Greta").getByRole("status")).toHaveTextContent("Greta får också Dagens soppa. Pris saknas, så summan ändras inte.");
+    expect(total()).toBe(before);
+    expect(screen.getByTestId("menu-footer")).toHaveTextContent("1 rätt saknar pris och räknas inte med");
+  });
+
+  it("a dish the person already has says Redan med and cannot be added twice", async () => {
+    const u = user();
+    await atTheTable(u);
+    await addFor(u, "Greta", "Toast Skagen");
+    const after = total();
+    const chosen = region("Greta").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent!;
+    for (const name of ["Toast Skagen", chosen]) {
+      await u.click(screen.getByRole("button", { name: "Fler rätter åt Greta" }));
+      await u.click(screen.getByRole("button", { name: new RegExp(name) }));
+      expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Redan med åt Greta" })).toBeDisabled();
+      await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Klar" }));
+      await u.click(screen.getByRole("radio", { name: "Förslag" }));
+    }
+    expect(region("Greta").getAllByTestId("menu-extra")).toHaveLength(1);
+    expect(total()).toBe(after);
+  });
+
+  it("another main course from the menu takes the place of the chosen one, and says so; an allergen of hers is red", async () => {
+    const u = user();
+    await atTheTable(u);
+    const before = total();
+    const was = region("Anna").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent!;
+    const wasSek = kr(region("Anna").getByRole("radio", { checked: true }).closest("label")!.textContent!.match(/ca \d+ kr/)?.[0]);
+    await addFor(u, "Anna", "Pasta carbonara");
+    expect(region("Anna").getByRole("radio", { name: /Pasta carbonara/ })).toBeChecked();
+    expect(region("Anna").getAllByRole("radio", { checked: true })).toHaveLength(1);
+    expect(region("Anna").getByRole("status")).toHaveTextContent(`Anna får Pasta carbonara i stället för ${was}.`);
+    expect(region("Anna").getByText("Innehåller gluten. Fråga personalen.")).toHaveAttribute("data-tone", "danger");
+    expect(total()).toBe(before - wasSek + 189);
   });
 });
 

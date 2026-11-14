@@ -8,10 +8,12 @@ import { allergyLine, approxKr, drinkFor } from "./journey";
 import { BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 import { PersonAvatar } from "./person-avatar";
 import { dishSek } from "../domain/view";
+import { optionFor } from "../domain/recommend-options";
 
 /**
  * Step 4, "Ert val": a clean summary to show the waiter. Per person the dish with its name as printed, large, and
- * a short Swedish description, the drink (tap it to change) and the price; one line on allergies and the total.
+ * a short Swedish description, the drink (tap it to change) and the price, then what was added on top (a starter, a
+ * dessert) with its price; one line on allergies and the total.
  * It never promises that anything is safe.
  */
 export function YourChoiceScreen({
@@ -46,6 +48,7 @@ export function YourChoiceScreen({
           const option = options.find((entry) => entry.personId === person.id)?.options.find((entry) => entry.dishIndex === dishIndex);
           const drink = drinkFor(person, choices);
           const total = totals.perPerson.find((entry) => entry.personId === person.id);
+          const extras = (choices[person.id]?.extras ?? []).flatMap((index) => optionFor(menu, index, person) ?? []);
           return (
             <section key={person.id} aria-label={person.name} data-testid="menu-choice-person" className="flex flex-col gap-2 rounded-xl bg-surface px-4 py-4">
               <span className="flex items-center gap-2 text-body font-semibold text-ink-2">
@@ -72,9 +75,21 @@ export function YourChoiceScreen({
                     <span className="text-headline font-semibold text-ink">{approxKr(dishSek(dish))}</span>
                   </div>
                 </>
-              ) : (
+              ) : extras.length === 0 ? (
                 <p className="text-body text-ink-2">Ingen rätt vald.</p>
-              )}
+              ) : null}
+              {extras.map((extra) => (
+                <div key={extra.dishIndex} data-testid="menu-choice-extra" className="flex flex-col gap-0.5 border-t border-hairline pt-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-headline font-bold text-ink">{extra.dish.originalnamn}</p>
+                    <span className={dishSek(extra.dish) === null ? "shrink-0 text-meta text-ink-3" : "shrink-0 text-headline font-semibold text-ink"}>
+                      {dishSek(extra.dish) === null ? "Pris saknas" : approxKr(dishSek(extra.dish))}
+                    </span>
+                  </div>
+                  {extra.dish.forklaring ? <p className="text-body text-ink-2">{extra.dish.forklaring}</p> : null}
+                  {extra.warning === "allergy" && extra.reasons[0] ? <p className="text-body font-semibold text-danger">{extra.reasons[0]}</p> : null}
+                </div>
+              ))}
             </section>
           );
         })}

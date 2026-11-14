@@ -380,9 +380,15 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(sheet.getByTestId("menu-dish-fit")).toHaveText("Passar Du och Anna. Gunnar kan inte (nötter).");
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${shots}/11-dish-sheet.png` });
+  const beforeDessert = Number((await page.getByTestId("menu-total").innerText()).replace(/\D/g, ""));
   await sheet.getByRole("button", { name: "Lägg till åt dig" }).click();
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await expect(du.getByRole("radio", { name: /Tarta de Santiago/, checked: true })).toBeVisible();
+  // A dessert is added on top of the main course: under Du, in the sum, and said in words.
+  await expect(du.getByTestId("menu-extra")).toContainText("Tarta de Santiago");
+  await expect(du.getByRole("radio", { checked: true })).toHaveCount(1);
+  await expect(du.getByRole("status")).toHaveText("Du får också Tarta de Santiago.");
+  await expect(du.getByRole("status")).toBeInViewport();
+  await expect(page.getByTestId("menu-total")).toHaveText(`ca ${beforeDessert + 66} kr`);
 
   // "Fler rätter åt Anna" opens the menu with Anna chosen.
   await page.getByRole("button", { name: "Fler rätter åt Anna" }).click();

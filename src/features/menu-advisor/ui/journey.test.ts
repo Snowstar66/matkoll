@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { allergyLine, approxKr, cardSek, choose, chooseDrink, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
+import { addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, hasDish, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -14,6 +14,24 @@ const anna = person({ id: "a", name: "Anna", drink: "vin" });
 const du = person({ id: "me", name: "Du", drink: "ol" });
 
 describe("choosing and counting", () => {
+  it("an extra is added on top of the chosen dish and counted; twice changes nothing; a new main or drink keeps it", () => {
+    let choices: Choices = { me: { dishIndex: 0, drink: null } };
+    choices = addExtra(choices, "me", 1);
+    expect(choices.me).toEqual({ dishIndex: 0, drink: null, extras: [1] });
+    expect(addExtra(choices, "me", 1)).toBe(choices);
+    expect(addExtra(choices, "me", 0)).toBe(choices);
+    expect(hasDish(choices, "me", 1)).toBe(true);
+    expect(hasDish(choices, "a", 1)).toBe(false);
+    // Du: 200 + 90 + beer 60, counted once.
+    expect(estimateTotalSek(choices, menu, [du]).totalSek).toBe(200 + 90 + 60);
+    expect(chooseDrink(choices, "me", "vatten").me?.extras).toEqual([1]);
+    // Choosing the extra as the main dish moves it there, not twice.
+    expect(choose(choices, "me", 1).me).toEqual({ dishIndex: 1, drink: null });
+    expect(removeExtra(choices, "me", 1).me).toEqual({ dishIndex: 0, drink: null });
+    expect(estimateTotalSek(addExtra({}, "me", 1), menu, [du]).totalSek).toBe(90 + 60);
+  });
+
+
   it("one tap changes the dish and keeps the drink; the total follows", () => {
     let choices: Choices = { me: { dishIndex: 0, drink: null }, a: { dishIndex: 0, drink: null } };
     // Du: 200 + beer 60 (the menu's price), Anna: 200 + wine (table, 95).

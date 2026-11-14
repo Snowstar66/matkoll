@@ -87,7 +87,7 @@ export type Totals = {
 
 /**
  * The dishes (converted to kronor) plus each eating person's drink, itemised per person. Takes the old `Selection`, or
- * `Choices` (the dish is menu.ratter[dishIndex]; the drink is the choice's own or else the person's usual). A person
+ * `Choices` (the dish is menu.ratter[dishIndex], plus the extras added from the menu; the drink is the choice's own or else the person's usual). A person
  * without a chosen dish is not counted and has no drink.
  */
 export function estimateTotalSek(selection: Selection | Choices, menu: Menu, people: readonly Person[]): Totals {
@@ -124,7 +124,10 @@ export function estimateTotalSek(selection: Selection | Choices, menu: Menu, peo
 
 function chosenFor(selection: Selection | Choices, menu: Menu, personId: string): { dish: MenuDish }[] {
   if (Array.isArray(selection)) return selection.filter((entry) => entry.personId === personId);
-  const index = selection[personId]?.dishIndex ?? null;
-  const dish = index === null ? undefined : menu.ratter[index];
-  return dish ? [{ dish }] : [];
+  const choice = selection[personId];
+  const indices = [choice?.dishIndex ?? null, ...(choice?.extras ?? [])];
+  return indices.flatMap((index) => {
+    const dish = index === null ? undefined : menu.ratter[index];
+    return dish ? [{ dish }] : [];
+  });
 }

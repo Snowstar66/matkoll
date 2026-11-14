@@ -9,7 +9,7 @@ import { maxMenuPages } from "@/lib/images";
 import { useOption } from "@/lib/use-option";
 import { fitMenuPhotos, prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
 import { readMenuText } from "../actions/read-menu-text";
-import { defaultChoices, drinkOptions, estimateTotalSek, optionFor, recommendOptions } from "../index";
+import { defaultChoices, drinkOptions, estimateTotalSek, isMainCourse, optionFor, recommendOptions } from "../index";
 import type { Choices, PersonOptions } from "../domain/options";
 import { type HouseholdPerson, meId } from "../domain/people";
 import type { Person } from "../domain/profile";
@@ -21,7 +21,8 @@ import { readCompanyIds, writeCompanyIds } from "./company-store";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
-import { choose, chooseDrink, emptyReadingView, foldReading, withOption, type ReadingView } from "./journey";
+import { addExtra, choose, chooseDrink, emptyReadingView, foldReading, hasDish, removeExtra, withOption, type ReadingView } from "./journey";
+import type { AddedNote } from "./answer-screen";
 import { TextLink, TopBack } from "./journey-parts";
 import { type MenuPage, PagesScreen } from "./pages-screen";
 import { readMenuWithFallback } from "./read-with-fallback";
@@ -105,6 +106,8 @@ export function MenuAdvisor({
   const [view, setView] = useState<ReadingView>(emptyReadingView);
   const [journey, setJourney] = useState<{ options: PersonOptions[]; choices: Choices }>({ options: [], choices: {} });
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // What the last "Lägg till åt" did, said under that person on the answer (never silent: added, replaced, already there, no price).
+  const [added, setAdded] = useState<AddedNote | null>(null);
   const [drinkOf, setDrinkOf] = useState<string | null>(null);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
@@ -196,6 +199,7 @@ export function MenuAdvisor({
     const options = recommendOptions(next.menu, company);
     setReading(next);
     setJourney({ options, choices: defaultChoices(options) });
+    setAdded(null);
     setMenuFor(null);
     setStage("answer");
   }
@@ -394,17 +398,38 @@ export function MenuAdvisor({
     menuText.current = null;
     setReading(null);
     setJourney({ options: [], choices: {} });
+    setAdded(null);
     setError(null);
     setStop(null);
     setStage("start");
   }
 
+  /**
+   * "Lägg till åt Anna": a main course (what the options are made of) becomes her choice, in place of the one before;
+   * anything else (a starter, a dessert) is added on top and counted in the total. A dish she already has changes
+   * nothing. Either way the answer says what happened, under her, and the price when there is none.
+   */
   function addDish(personId: string, dishIndex: number) {
     const person = company.find((entry) => entry.id === personId);
-    if (!reading || !person) return;
+    const dish = reading?.menu.ratter[dishIndex];
+    if (!reading || !person || !dish) return;
     const option = optionFor(reading.menu, dishIndex, person);
     if (!option) return;
-    setJourney((current) => ({ options: withOption(current.options, personId, option), choices: choose(current.choices, personId, dishIndex) }));
+    const name = dish.originalnamn;
+    const unpriced = dishSek(dish) === null;
+    let text: string;
+    if (hasDish(journey.choices, personId, dishIndex)) {
+      text = `${person.name} har redan ${name}.`;
+    } else if (isMainCourse(reading.menu, dishIndex)) {
+      const before = journey.choices[personId]?.dishIndex ?? null;
+      const beforeName = before === null ? null : (reading.menu.ratter[before]?.originalnamn ?? null);
+      text = `${person.name} får ${name}${beforeName ? ` i stället för ${beforeName}` : ""}.${unpriced ? " Pris saknas och räknas inte med i summan." : ""}`;
+      setJourney((current) => ({ options: withOption(current.options, personId, option), choices: choose(current.choices, personId, dishIndex) }));
+    } else {
+      text = `${person.name} får också ${name}.${unpriced ? " Pris saknas, så summan ändras inte." : ""}`;
+      setJourney((current) => ({ ...current, choices: addExtra(current.choices, personId, dishIndex) }));
+    }
+    setAdded({ personId, text });
     setMenuFor(null);
     setStage("answer");
   }
@@ -517,19 +542,32 @@ export function MenuAdvisor({
         options={journey.options}
         choices={journey.choices}
         totals={totals}
+        added={added}
         filtered={company.some((person) => person.allergies.length > 0)}
         uncertain={reading.menu.osakert}
         pagesNotice={unreadableNotice}
         reader={reader}
         canReadCarefully={canReadCarefully}
         error={error}
-        onChoose={(personId, dishIndex) => setJourney((current) => ({ ...current, choices: choose(current.choices, personId, dishIndex) }))}
+        onChoose={(personId, dishIndex) => {
+          setAdded(null);
+          setJourney((current) => ({ ...current, choices: choose(current.choices, personId, dishIndex) }));
+        }}
+        onRemoveExtra={(personId, dishIndex) => {
+          setAdded(null);
+          setJourney((current) => ({ ...current, choices: removeExtra(current.choices, personId, dishIndex) }));
+        }}
         onMore={(personId) => {
+          setAdded(null);
           setMenuFor(personId);
           setStage("menu");
         }}
-        onDone={() => setStage("choice")}
+        onDone={() => {
+          setAdded(null);
+          setStage("choice");
+        }}
         onFullMenu={() => {
+          setAdded(null);
           setMenuFor(null);
           setStage("menu");
         }}
@@ -562,6 +600,7 @@ export function MenuAdvisor({
         reader={reader}
         canReadCarefully={canReadCarefully}
         error={error}
+        hasDish={(personId, dishIndex) => hasDish(journey.choices, personId, dishIndex)}
         onAdd={addDish}
         onStar={starDish}
         onTonight={() => setShowTonight(true)}

@@ -1,15 +1,17 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { cx } from "@/components/cx";
-import { InfoIcon } from "@/components/icons";
+import { CloseIcon, InfoIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { profilesHref } from "../domain/people";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
 import type { Person } from "../domain/profile";
 import type { Totals } from "../domain/drinks";
 import type { Menu } from "../domain/types";
+import { optionFor } from "../domain/recommend-options";
+import { dishSek } from "../domain/view";
 import { menuReaderText, type MenuReader } from "../domain/reading";
-import { approxKr, cardSek, drinkFor, drinkPhrase, reasonTone, unpricedNote, type ReasonTone } from "./journey";
+import { approxKr, cardSek, drinkFor, drinkPhrase, reasonTone, toWhom, unpricedNote, type ReasonTone } from "./journey";
 import { AnswerTabs, BigButton, Headline, RadioCard, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 import { PersonAvatar } from "./person-avatar";
 
@@ -37,6 +39,9 @@ function Reasons({ option }: { option: DishOption }) {
   );
 }
 
+/** What the last "Lägg till åt" did, said under that person: "Greta får också Toast Skagen." */
+export type AddedNote = { personId: string; text: string };
+
 /**
  * Step 4, "Det här passar er", the first tab beside Hela menyn: a group per person with two or three cards (the best one chosen, the others toned);
  * one tap changes the choice and the sum below. The total and "Klart" stay at the bottom while the list scrolls.
@@ -48,6 +53,7 @@ export function AnswerScreen({
   options,
   choices,
   totals,
+  added = null,
   filtered,
   uncertain,
   pagesNotice,
@@ -55,6 +61,7 @@ export function AnswerScreen({
   canReadCarefully,
   error,
   onChoose,
+  onRemoveExtra,
   onMore,
   onDone,
   onFullMenu,
@@ -66,6 +73,8 @@ export function AnswerScreen({
   options: readonly PersonOptions[];
   choices: Choices;
   totals: Totals;
+  /** What the last "Lägg till åt" did; shown under that person, who is scrolled into view. */
+  added?: AddedNote | null;
   /** Someone ticked has an allergy: false shows the sand box that nothing is sorted out, with a way to add one. */
   filtered: boolean;
   uncertain: readonly string[];
@@ -75,6 +84,8 @@ export function AnswerScreen({
   canReadCarefully: boolean;
   error: string | null;
   onChoose: (personId: string, dishIndex: number) => void;
+  /** Takes away a dish added on top (a starter, a dessert). */
+  onRemoveExtra?: (personId: string, dishIndex: number) => void;
   /** "Fler rätter åt Anna": the whole menu with that person chosen. */
   onMore: (personId: string) => void;
   onDone: () => void;
@@ -82,6 +93,11 @@ export function AnswerScreen({
   onCareful: () => void;
   onBack: () => void;
 }) {
+  const note = useRef<HTMLParagraphElement>(null);
+  // Back from the whole menu: the person the dish was added for is in view, with the note.
+  useEffect(() => {
+    note.current?.scrollIntoView?.({ block: "center" });
+  }, [added]);
   return (
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-answer">
       <TopBack onClick={onBack}>Tolka menyn</TopBack>
@@ -106,6 +122,7 @@ export function AnswerScreen({
           const drink = drinkFor(person, choices);
           const phrase = drinkPhrase(drink);
           const chosen = choices[person.id]?.dishIndex ?? null;
+          const extras = (choices[person.id]?.extras ?? []).flatMap((dishIndex) => optionFor(menu, dishIndex, person) ?? []);
           return (
             <section key={person.id} aria-label={person.name} data-testid="menu-person" className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3 px-1">
@@ -133,8 +150,39 @@ export function AnswerScreen({
                   </RadioCard>
                 ))}
               </div>
+              {extras.length > 0 ? (
+                <ul aria-label={`Också åt ${toWhom(person)}`} className="flex flex-col rounded-xl bg-surface px-4 py-1">
+                  {extras.map((extra) => {
+                    const sek = dishSek(extra.dish);
+                    return (
+                      <li key={extra.dishIndex} data-testid="menu-extra" className="flex items-start gap-3 border-t border-hairline py-2 first:border-t-0">
+                        <span className="flex min-w-0 flex-1 flex-col py-1">
+                          <span className="text-row-title font-semibold text-ink">{extra.dish.originalnamn}</span>
+                          <Reasons option={extra} />
+                        </span>
+                        <span className={cx("shrink-0 py-1", sek === null ? "text-meta text-ink-3" : "text-row-title text-ink")}>{sek === null ? "Pris saknas" : approxKr(sek)}</span>
+                        {onRemoveExtra ? (
+                          <button
+                            type="button"
+                            aria-label={`Ta bort ${extra.dish.originalnamn}`}
+                            onClick={() => onRemoveExtra(person.id, extra.dishIndex)}
+                            className="-mr-2 flex size-tap shrink-0 items-center justify-center rounded-pill text-ink-3"
+                          >
+                            <CloseIcon size={18} />
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+              {added?.personId === person.id ? (
+                <p ref={note} role="status" data-testid="menu-added" className="px-1 text-body text-ink-2">
+                  {added.text}
+                </p>
+              ) : null}
               <TextLink onClick={() => onMore(person.id)} className="self-start text-meta">
-                {`Fler rätter åt ${person.name === "Du" ? "dig" : person.name}`}
+                {`Fler rätter åt ${toWhom(person)}`}
               </TextLink>
             </section>
           );

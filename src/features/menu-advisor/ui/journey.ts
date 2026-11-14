@@ -57,14 +57,41 @@ export function drinkFor(person: Person, choices: Choices): DrinkKind | null {
   return choices[person.id]?.drink ?? person.drink;
 }
 
-/** One tap on a card: this dish for this person. */
+/** "Anna", and "dig" for Du: who something is added for ("Lägg till åt dig"). */
+export const toWhom = (person: Pick<Person, "name">) => (person.name === "Du" ? "dig" : person.name);
+
+/** One tap on a card: this dish for this person (the drink and the extras stay; a dish that was an extra is now the main one). */
 export function choose(choices: Choices, personId: string, dishIndex: number): Choices {
-  return { ...choices, [personId]: { drink: choices[personId]?.drink ?? null, dishIndex } };
+  const current = choices[personId];
+  const extras = current?.extras?.filter((index) => index !== dishIndex);
+  return { ...choices, [personId]: { drink: current?.drink ?? null, dishIndex, ...(extras && extras.length > 0 ? { extras } : {}) } };
 }
 
-/** One tap on a drink: this drink for this person (the dish stays). */
+/** One tap on a drink: this drink for this person (the dish and the extras stay). */
 export function chooseDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
-  return { ...choices, [personId]: { dishIndex: choices[personId]?.dishIndex ?? null, drink } };
+  const current = choices[personId];
+  return { ...choices, [personId]: { dishIndex: current?.dishIndex ?? null, drink, ...(current?.extras ? { extras: current.extras } : {}) } };
+}
+
+/** Whether the person already has the dish: as the chosen one or as an extra. */
+export function hasDish(choices: Choices, personId: string, dishIndex: number): boolean {
+  const current = choices[personId];
+  return current?.dishIndex === dishIndex || (current?.extras ?? []).includes(dishIndex);
+}
+
+/** A dish added on top for the person (a starter, a dessert), last; nothing changes when the person already has it. */
+export function addExtra(choices: Choices, personId: string, dishIndex: number): Choices {
+  if (hasDish(choices, personId, dishIndex)) return choices;
+  const current = choices[personId];
+  return { ...choices, [personId]: { dishIndex: current?.dishIndex ?? null, drink: current?.drink ?? null, extras: [...(current?.extras ?? []), dishIndex] } };
+}
+
+/** An extra taken away again. */
+export function removeExtra(choices: Choices, personId: string, dishIndex: number): Choices {
+  const current = choices[personId];
+  if (!current?.extras?.includes(dishIndex)) return choices;
+  const extras = current.extras.filter((index) => index !== dishIndex);
+  return { ...choices, [personId]: { dishIndex: current.dishIndex, drink: current.drink, ...(extras.length > 0 ? { extras } : {}) } };
 }
 
 /** What a person lands on with this dish: the dish plus their drink, in kronor; null when the dish has no price (the drink alone is not a price). */
