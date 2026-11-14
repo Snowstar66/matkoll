@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropUsualDrink, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
+import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropAllDrinks, dropUsualDrink, hasNoDrink, receiptLines, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -12,6 +12,27 @@ const menu = menuOf([
 ]);
 const anna = person({ id: "a", name: "Anna", drink: "vin" });
 const du = person({ id: "me", name: "Du", drink: "ol" });
+
+describe("the nota and Utan dryck", () => {
+  it("the nota lines are what the sum is made of: dishes, then the usual drink and the added ones, priced; the usual drink needs a dish", () => {
+    const choices: Choices = { me: { dishIndex: 0, drink: null, extras: [1], drinks: ["cocktail"] } };
+    const lines = receiptLines(menu, du, choices);
+    expect(lines.map((line) => [line.label, line.sek])).toEqual([["Paella", 200], ["Tortilla", 90], ["Öl", 60], ["Cocktail", 140]]);
+    expect(lines.reduce((sum, line) => sum + (line.sek ?? 0), 0)).toBe(estimateTotalSek(choices, menu, [du]).totalSek);
+    expect(receiptLines(menu, du, { me: { dishIndex: null, drink: null } })).toEqual([]);
+    expect(receiptLines(menu, du, { me: { dishIndex: null, drink: null, drinks: ["kaffe"] } }).map((line) => line.label)).toEqual(["Kaffe"]);
+  });
+
+  it("Utan dryck takes the usual drink and every added one away; a drink can be added again after", () => {
+    const choices: Choices = { me: { dishIndex: 0, drink: null, drinks: ["cocktail", "kaffe"] } };
+    expect(hasNoDrink(choices, du)).toBe(false);
+    const none = dropAllDrinks(choices, "me");
+    expect(none.me).toEqual({ dishIndex: 0, drink: "ingen" });
+    expect(hasNoDrink(none, du)).toBe(true);
+    expect(estimateTotalSek(none, menu, [du]).totalSek).toBe(200);
+    expect(hasNoDrink(addDrink(none, "me", "vatten"), du)).toBe(false);
+  });
+});
 
 describe("choosing and counting", () => {
   it("an extra is added on top of the chosen dish and counted; twice changes nothing; a new main or drink keeps it", () => {

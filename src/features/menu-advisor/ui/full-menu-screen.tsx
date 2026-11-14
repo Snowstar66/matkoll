@@ -11,7 +11,7 @@ import { unfitFor } from "../domain/people";
 import { filterDishes, groupDishes, noFilter } from "../domain/view";
 import { DishSheet } from "./dish-sheet";
 import { listPrice, unpricedNote } from "./journey";
-import { AnswerTabs, BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
+import { BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 
 type Indexed = MenuDish & { index: number };
 
@@ -29,7 +29,6 @@ export function menuSubline(menu: Pick<Menu, "restaurang" | "sprak">): string {
 export function FullMenuScreen({
   menu,
   company,
-  forPerson,
   totals,
   isStarred,
   tonightCount,
@@ -41,15 +40,12 @@ export function FullMenuScreen({
   onStar,
   onTonight,
   onCareful,
-  onBack,
   onAnswer,
   onDone,
   onNext,
 }: {
   menu: Menu;
   company: readonly Person[];
-  /** Opened from "Fler rätter åt Anna". */
-  forPerson: Person | null;
   totals: Totals;
   isStarred: (dish: MenuDish) => boolean;
   tonightCount: number;
@@ -62,8 +58,7 @@ export function FullMenuScreen({
   onStar: (dish: MenuDish) => void;
   onTonight: () => void;
   onCareful: () => void;
-  onBack: () => void;
-  /** The tab "Förslag". */
+  /** Back to "Det här passar er". */
   onAnswer: () => void;
   /** "Klart": on to Ert val. */
   onDone: () => void;
@@ -74,11 +69,10 @@ export function FullMenuScreen({
   const indexed = useMemo<Indexed[]>(() => menu.ratter.map((dish, index) => ({ ...dish, index })), [menu.ratter]);
   const groups = useMemo(() => groupDishes(filterDishes(indexed, { ...noFilter, query })), [indexed, query]);
   const openDish = open === null ? null : (menu.ratter[open] ?? null);
-  const sub = forPerson ? `Välj en rätt att lägga till åt ${forPerson.name === "Du" ? "dig" : forPerson.name}` : menuSubline(menu);
+  const sub = menuSubline(menu);
   return (
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-full">
-      <TopBack onClick={onBack}>Tolka menyn</TopBack>
-      <AnswerTabs value="menu" onChange={(tab) => tab === "answer" && onAnswer()} />
+      <TopBack onClick={onAnswer}>Förslag</TopBack>
       <Headline sub={sub || undefined}>Hela menyn</Headline>
       {error ? <Notice role="alert">{error}</Notice> : null}
       <SearchField label="Sök rätt" placeholder="Sök rätt" delayMs={0} onSearch={setQuery} />
@@ -92,7 +86,12 @@ export function FullMenuScreen({
               const price = listPrice(dish);
               return (
                 <li key={dish.index} className="border-t border-hairline first:border-t-0">
-                  <button type="button" data-testid="menu-dish" onClick={() => setOpen(dish.index)} className="flex min-h-tap w-full items-start justify-between gap-3 py-3 text-left">
+                  <button
+                    type="button"
+                    data-testid="menu-dish"
+                    onClick={() => setOpen(dish.index)}
+                    className="flex min-h-tap w-full items-start justify-between gap-3 py-3 text-left"
+                  >
                     <span className={cx("flex min-w-0 flex-col", cannot.length > 0 && "opacity-60")}>
                       <span className="text-row-title font-semibold text-ink">{dish.originalnamn}</span>
                       {dish.forklaring ? <span className="line-clamp-1 text-meta text-ink-2">{dish.forklaring}</span> : null}
@@ -121,8 +120,14 @@ export function FullMenuScreen({
       <div className="flex flex-col items-center gap-1 pb-2 text-meta text-ink-3">
         {reader ? <p data-testid="menu-reader">{menuReaderText(reader)}</p> : null}
         <div className="flex flex-wrap justify-center">
-          {canReadCarefully ? <TextLink onClick={onCareful} className="text-meta">Läs noggrannare</TextLink> : null}
-          <TextLink onClick={onNext} className="text-meta">Fota nästa meny</TextLink>
+          {canReadCarefully ? (
+            <TextLink onClick={onCareful} className="text-meta">
+              Läs noggrannare
+            </TextLink>
+          ) : null}
+          <TextLink onClick={onNext} className="text-meta">
+            Fota nästa meny
+          </TextLink>
           {tonightCount > 0 ? (
             <TextLink onClick={onTonight} data-testid="menu-tonight-open" className="text-meta">
               {`Ikväll (${tonightCount})`}
@@ -138,7 +143,7 @@ export function FullMenuScreen({
         key={open ?? "none"}
         dish={openDish}
         company={company}
-        fromPersonId={forPerson?.id ?? null}
+        fromPersonId={null}
         has={(personId) => open !== null && (hasDish?.(personId, open) ?? false)}
         starred={openDish ? isStarred(openDish) : false}
         onAdd={(personId) => {

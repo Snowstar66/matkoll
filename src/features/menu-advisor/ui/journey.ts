@@ -1,5 +1,6 @@
 // The logic of "En enkel resa" that lives in the UI layer: what is chosen, what it adds up to, how a reason or a
 // reading is worded. Pure, so it is tested without a screen.
+import { drinkLabels } from "../domain/people";
 import { allergenLabels } from "../domain/labels";
 import { toSek } from "../domain/currency";
 import { drinkPrice, type Totals } from "../domain/drinks";
@@ -71,7 +72,10 @@ function patch(choices: Choices, personId: string, change: Partial<Choice>): Cho
 
 /** One tap on a card: this is the person's proposed dish (the drinks and the dishes added on top stay; a dish that was added is now this one). */
 export function choose(choices: Choices, personId: string, dishIndex: number): Choices {
-  return patch(choices, personId, { dishIndex, extras: choices[personId]?.extras?.filter((index) => index !== dishIndex) });
+  return patch(choices, personId, {
+    dishIndex,
+    extras: choices[personId]?.extras?.filter((index) => index !== dishIndex),
+  });
 }
 
 /** Takes the proposed dish away (the soptunna on it); what was added on top stays. */
@@ -82,6 +86,17 @@ export function clearDish(choices: Choices, personId: string): Choices {
 /** Takes the usual drink away for this evening ("utan dryck"); drinks added on top stay. */
 export function dropUsualDrink(choices: Choices, personId: string): Choices {
   return patch(choices, personId, { drink: "ingen" });
+}
+
+/** "Utan dryck": the usual drink and every added one are gone for this evening. */
+export function dropAllDrinks(choices: Choices, personId: string): Choices {
+  return patch(choices, personId, { drink: "ingen", drinks: [] });
+}
+
+/** Whether the person ends up with no drink at all: the usual one is taken away or never set, and none was added. */
+export function hasNoDrink(choices: Choices, person: Person): boolean {
+  const usual = drinkFor(person, choices);
+  return (usual === null || usual === "ingen") && (choices[person.id]?.drinks ?? []).length === 0;
 }
 
 /** One more drink for the person, last; nothing changes when it is already added. */
@@ -95,7 +110,9 @@ export function addDrink(choices: Choices, personId: string, drink: DrinkKind): 
 export function removeDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
   const current = choices[personId]?.drinks ?? [];
   if (!current.includes(drink)) return choices;
-  return patch(choices, personId, { drinks: current.filter((kind) => kind !== drink) });
+  return patch(choices, personId, {
+    drinks: current.filter((kind) => kind !== drink),
+  });
 }
 
 /** Whether the person has the drink already: the usual one that still counts, or an added one. */
@@ -113,13 +130,17 @@ export function hasDish(choices: Choices, personId: string, dishIndex: number): 
 /** A dish added on top for the person, last: the menu grows. Nothing changes when the person already has it. */
 export function addExtra(choices: Choices, personId: string, dishIndex: number): Choices {
   if (hasDish(choices, personId, dishIndex)) return choices;
-  return patch(choices, personId, { extras: [...(choices[personId]?.extras ?? []), dishIndex] });
+  return patch(choices, personId, {
+    extras: [...(choices[personId]?.extras ?? []), dishIndex],
+  });
 }
 
 /** A dish added on top, taken away again. */
 export function removeExtra(choices: Choices, personId: string, dishIndex: number): Choices {
   if (!choices[personId]?.extras?.includes(dishIndex)) return choices;
-  return patch(choices, personId, { extras: choices[personId]!.extras!.filter((index) => index !== dishIndex) });
+  return patch(choices, personId, {
+    extras: choices[personId]!.extras!.filter((index) => index !== dishIndex),
+  });
 }
 
 /** One tap on a drink in the old single-drink flow: this drink replaces the usual one. */
@@ -134,10 +155,47 @@ export function cardSek(menu: Menu, dish: MenuDish, drink: DrinkKind | null): nu
   return sek + (drink === null ? 0 : drinkPrice(menu, drink).sek);
 }
 
+/** One line of a person's part of the nota: a dish or a drink with its price in kronor, null when the dish has none. */
+export type ReceiptLine = {
+  key: string;
+  kind: "dish" | "drink";
+  label: string;
+  sek: number | null;
+};
+
+/** What a person has, in the order the card shows it, as the lines the sum is made of (the usual drink counts only with a dish, as in the total). */
+export function receiptLines(menu: Menu, person: Person, choices: Choices): ReceiptLine[] {
+  const choice = choices[person.id];
+  const dishes = [choice?.dishIndex ?? null, ...(choice?.extras ?? [])].flatMap((index) => {
+    const dish = index === null ? undefined : menu.ratter[index];
+    return dish && index !== null
+      ? [
+          {
+            key: `dish-${index}`,
+            kind: "dish" as const,
+            label: dish.originalnamn,
+            sek: dishSek(dish),
+          },
+        ]
+      : [];
+  });
+  const usual = drinkFor(person, choices);
+  const kinds = [...(usual !== null && usual !== "ingen" && dishes.length > 0 ? [usual] : []), ...(choice?.drinks ?? [])];
+  const drinks = kinds.map((kind) => ({
+    key: `drink-${kind}`,
+    kind: "drink" as const,
+    label: drinkLabels[kind],
+    sek: drinkPrice(menu, kind).sek,
+  }));
+  return [...dishes, ...drinks];
+}
+
 /** Adds the option to the person's list (last) when it is not there; the list of the others is as it was. */
 export function withOption(options: readonly PersonOptions[], personId: string, option: DishOption): PersonOptions[] {
   return options.map((entry) =>
-    entry.personId !== personId || entry.options.some((existing) => existing.dishIndex === option.dishIndex) ? entry : { ...entry, options: [...entry.options, option] },
+    entry.personId !== personId || entry.options.some((existing) => existing.dishIndex === option.dishIndex)
+      ? entry
+      : { ...entry, options: [...entry.options, option] },
   );
 }
 
@@ -174,13 +232,21 @@ export type ReadingView = {
   dishes: MenuDish[];
 };
 
-export const emptyReadingView: ReadingView = { reader: null, language: null, dishes: [] };
+export const emptyReadingView: ReadingView = {
+  reader: null,
+  language: null,
+  dishes: [],
+};
 
 /** A stream line folded into what is shown: `restart` empties the list, `done` replaces it with the whole menu. */
 export function foldReading(view: ReadingView, event: MenuStreamEvent): ReadingView {
   switch (event.type) {
     case "reading":
-      return { reader: { model: event.model, effort: event.effort }, language: event.restart ? null : view.language, dishes: event.restart ? [] : view.dishes };
+      return {
+        reader: { model: event.model, effort: event.effort },
+        language: event.restart ? null : view.language,
+        dishes: event.restart ? [] : view.dishes,
+      };
     case "language":
       return { ...view, language: event.sprak };
     case "dish": {
@@ -189,7 +255,11 @@ export function foldReading(view: ReadingView, event: MenuStreamEvent): ReadingV
       return { ...view, dishes: dishes.filter(Boolean) };
     }
     case "done":
-      return { reader: { model: event.model, effort: event.effort }, language: event.menu.sprak, dishes: event.menu.ratter };
+      return {
+        reader: { model: event.model, effort: event.effort },
+        language: event.menu.sprak,
+        dishes: event.menu.ratter,
+      };
     default:
       return view;
   }

@@ -86,7 +86,10 @@ async function withAnna(u: ReturnType<typeof userEvent.setup>) {
   await u.click(screen.getByRole("checkbox", { name: "Anna" }));
 }
 
-const fullMenuTab = () => screen.getByRole("radio", { name: "Hela menyn" });
+/** The quiet link "Hela menyn" under the answer; the whole menu is also reached from "Lägg till rätt". */
+const openFullMenu = (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getByRole("button", { name: "Hela menyn" }));
+/** The back link of the whole menu. */
+const backToAnswer = (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getByRole("button", { name: "Förslag" }));
 
 describe("the Tillval", () => {
   it("is off by default: the page says so and offers no photo", async () => {
@@ -473,12 +476,14 @@ describe("the answer", () => {
     // The dish is explained under its name.
     expect(screen.getByText("Risgryta med skaldjur, saffran och musslor.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Klart" })).toBeInTheDocument();
-    // One title and one back link; the whole menu is the second tab, not a link in the footer.
+    // One title and one back link; no tabs, no "Byt rätt" sheet: the proposals are right there.
     expect(screen.getAllByRole("heading", { level: 1 }).map((heading) => heading.textContent)).toEqual(["Det här passar er"]);
     expect(screen.getByRole("button", { name: "Tolka menyn" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Förslag" })).toBeChecked();
-    expect(fullMenuTab()).not.toBeChecked();
-    expect(screen.queryByRole("button", { name: "Se hela menyn" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Förslag" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Byt rätt/ })).not.toBeInTheDocument();
+    // Two clear buttons for what is added on top.
+    expect(within(screen.getByTestId("menu-person")).getByRole("button", { name: "Lägg till rätt åt dig" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("menu-person")).getByRole("button", { name: "Lägg till dryck åt dig" })).toBeInTheDocument();
     expect(screen.queryByText(/Skicka till sällskapet/)).not.toBeInTheDocument();
   });
 
@@ -554,8 +559,13 @@ describe("the answer", () => {
     expect(me().getByTestId("menu-drink-row")).toHaveTextContent("55 kr");
     await u.click(me().getByTestId("menu-add-drink"));
     const sheet = within(screen.getByRole("dialog", { name: "Lägg till dryck åt Du" }));
-    expect(sheet.getByRole("radio", { name: /Cocktail/ }).closest("label")).toHaveTextContent("ca 140 kr");
-    await u.click(sheet.getByRole("radio", { name: /Cocktail/ }));
+    expect(sheet.getByRole("button", { name: "Lägg till cocktail" })).toHaveTextContent("ca 140 kr");
+    await u.click(sheet.getByRole("button", { name: "Lägg till cocktail" }));
+    // The sheet stays open for the next one, and says what happened.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(sheet.getByRole("button", { name: "Cocktail, tillagd" })).toHaveTextContent("Tillagd");
+    expect(sheet.getByTestId("menu-drink-line")).toHaveTextContent("Cocktail lades till åt Du.");
+    await u.click(sheet.getAllByRole("button", { name: "Klar" })[0]!);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(me().getAllByTestId("menu-drink-row")).toHaveLength(2);
     expect(total()).toBe(before + 140);
@@ -570,6 +580,120 @@ describe("the answer", () => {
     expect(mine).not.toHaveTextContent("Öl");
   });
 
+  it("the drink sheet adds several drinks, answers a drink the person has with a line, and Utan dryck takes them all away", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    const me = () => within(screen.getAllByTestId("menu-person")[0]!);
+    await u.click(me().getByTestId("menu-add-drink"));
+    const sheet = within(screen.getByRole("dialog", { name: "Lägg till dryck åt Du" }));
+    // The usual one says Redan med, and a tap on it is answered, not ignored.
+    expect(sheet.getByRole("button", { name: "Öl, redan med" })).toHaveTextContent("Redan med");
+    await u.click(sheet.getByRole("button", { name: "Öl, redan med" }));
+    expect(sheet.getByTestId("menu-drink-line")).toHaveTextContent("Du har redan öl.");
+    expect(me().getAllByTestId("menu-drink-row")).toHaveLength(1);
+    await u.click(sheet.getByRole("button", { name: "Lägg till cocktail" }));
+    await u.click(sheet.getByRole("button", { name: "Lägg till kaffe" }));
+    expect(me().getAllByTestId("menu-drink-row")).toHaveLength(3);
+    // Utan dryck is the last choice, with no price, and leaves one plain row.
+    expect(sheet.getByRole("button", { name: "Lägg till utan dryck" })).not.toHaveTextContent("kr");
+    await u.click(sheet.getByRole("button", { name: "Lägg till utan dryck" }));
+    expect(sheet.getByTestId("menu-drink-line")).toHaveTextContent("Du är utan dryck.");
+    expect(me().queryAllByTestId("menu-drink-row")).toHaveLength(0);
+    expect(me().getByTestId("menu-no-drink")).toHaveTextContent("Utan dryck");
+  });
+
+  it("each person is a card of their own with avatar, name and what they land on, and the proposals are right in it", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    const cards = screen.getAllByTestId("menu-person");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(within(card).getAllByRole("radio").length).toBeGreaterThanOrEqual(1);
+      expect(within(card).getByTestId("menu-person-total")).toHaveTextContent(/^ca \d+ kr$/);
+      expect(within(card).getByTestId("menu-remove-dish")).toBeInTheDocument();
+      expect(card).not.toHaveAttribute("data-folded");
+    }
+    expect(cards[0]).toHaveTextContent("Du");
+    expect(cards[1]).toHaveTextContent("Anna");
+    // The person's sum is the dish plus the drink; the two sums are the total.
+    const kr = (text: string | null | undefined) => Number((text ?? "").replace(/\D/g, ""));
+    const sums = cards.map((card) => kr(within(card).getByTestId("menu-person-total").textContent));
+    expect(sums[0]! + sums[1]!).toBe(kr(screen.getByTestId("menu-total").textContent));
+  });
+
+  it("the nota: folded it is the sum and Klart; a tap on the sum unfolds every dish and drink per person, and it grows with an addition", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    expect(screen.queryByTestId("menu-receipt")).not.toBeInTheDocument();
+    const toggle = screen.getByTestId("menu-receipt-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await u.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const receipt = within(screen.getByTestId("menu-receipt"));
+    expect(receipt.getByRole("region", { name: "Nota Du" })).toHaveTextContent("Ölca 55 kr");
+    expect(receipt.getByRole("region", { name: "Nota Anna" })).toHaveTextContent("Vin");
+    const lines = receipt.getAllByTestId("menu-receipt-line").length;
+    await u.click(screen.getByRole("button", { name: "Lägg till dryck åt dig" }));
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till cocktail" }));
+    await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(within(screen.getByTestId("menu-receipt")).getAllByTestId("menu-receipt-line")).toHaveLength(lines + 1);
+    expect(within(screen.getByTestId("menu-receipt")).getByRole("region", { name: "Nota Du" })).toHaveTextContent("Cocktail");
+    expect(screen.getByRole("button", { name: "Klart" })).toBeInTheDocument();
+    await u.click(toggle);
+    expect(screen.queryByTestId("menu-receipt")).not.toBeInTheDocument();
+  });
+
+  it("from four people the cards start folded to one row; the one touched opens and the one before folds", async () => {
+    const u = user();
+    const people = ["Du", "Anna", "Bo", "Cia", "Dan"].map((name, i) => ({ id: i === 0 ? "me" : `g${i}`, name, kind: i === 0 ? "member" : "guest", allergies: [], tastes: {}, dislikes: [], likes: [], drink: i === 1 ? "vin" : null }));
+    localStorage.setItem("livskoll-menu-people-v1", JSON.stringify({ v: 1, people }));
+    localStorage.setItem("livskoll-menu-company-v1", JSON.stringify(people.map((person) => person.id)));
+    render(<MenuAdvisor />);
+    await toAnswer(u);
+    const cards = () => screen.getAllByTestId("menu-person");
+    expect(cards()).toHaveLength(5);
+    expect(cards().every((card) => card.getAttribute("data-folded") === "true")).toBe(true);
+    // One row: name, a short summary, the sum; no radio cards until it opens.
+    expect(within(cards()[1]!).getByTestId("menu-person-summary")).toHaveTextContent("Vin");
+    expect(within(cards()[1]!).queryByRole("radio")).not.toBeInTheDocument();
+    await u.click(within(cards()[1]!).getByRole("button", { expanded: false }));
+    expect(cards()[1]).not.toHaveAttribute("data-folded");
+    expect(within(cards()[1]!).getAllByRole("radio").length).toBeGreaterThan(0);
+    await u.click(within(cards()[2]!).getByRole("button", { expanded: false }));
+    expect(cards()[2]).not.toHaveAttribute("data-folded");
+    expect(cards()[1]).toHaveAttribute("data-folded", "true");
+  });
+
+  it("Ert val: a card per person with every dish large, the drinks as one row, the person's sum; a person without a dish says so", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Anna" }));
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till Pimientos de padrón" }));
+    await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
+    await u.click(screen.getByRole("button", { name: "Lägg till dryck åt Anna" }));
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till cocktail" }));
+    await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
+    await u.click(within(screen.getAllByTestId("menu-person")[1]!).getByTestId("menu-remove-dish"));
+    await u.click(screen.getByRole("button", { name: "Klart" }));
+    const anna = within(screen.getAllByTestId("menu-choice-person")[1]!);
+    expect(anna.queryByTestId("menu-choice-main")).not.toBeInTheDocument();
+    expect(anna.getByTestId("menu-choice-extra")).toHaveTextContent("Pimientos de padrón");
+    expect(anna.getByTestId("menu-drink-line")).toHaveTextContent("Cocktail");
+    expect(anna.getByTestId("menu-drink-line")).toHaveTextContent("ca 235 kr");
+    // The person's own sum is in the card's head.
+    expect(screen.getAllByTestId("menu-choice-person")[1]).toHaveTextContent(/ca \d+ kr/);
+    expect(within(screen.getAllByTestId("menu-choice-person")[0]!).getByTestId("menu-choice-main")).toBeInTheDocument();
+  });
+
   it("Klart in Ert val ends the journey at the start", async () => {
     const u = user();
     render(<MenuAdvisor />);
@@ -581,20 +705,19 @@ describe("the answer", () => {
 });
 
 describe("the whole menu and a dish", () => {
-  it("the tab Hela menyn: the place and the language, the same footer, and Förslag goes back", async () => {
+  it("the whole menu, reached by a link under the answer: the place and the language, the same footer, and Förslag goes back", async () => {
     const u = user();
     render(<MenuAdvisor />);
     await toAnswer(u);
     const total = screen.getByTestId("menu-total").textContent;
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     const full = screen.getByTestId("menu-full");
     expect(within(full).getByRole("heading", { name: "Hela menyn", level: 1 })).toBeInTheDocument();
     expect(full).toHaveTextContent("Taverna Mock · översatt från spanska");
-    expect(fullMenuTab()).toBeChecked();
     expect(screen.getByTestId("menu-total").textContent).toBe(total);
-    await u.click(screen.getByRole("radio", { name: "Förslag" }));
+    await backToAnswer(u);
     expect(screen.getByTestId("menu-answer")).toBeInTheDocument();
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     await u.click(screen.getByRole("button", { name: "Klart" }));
     expect(screen.getByTestId("menu-choice")).toBeInTheDocument();
   });
@@ -604,7 +727,7 @@ describe("the whole menu and a dish", () => {
     await withAnna(u);
     await readPhoto(u);
     await screen.findByTestId("menu-answer");
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Förrätt", "Varmrätt", "Efterrätt", "Drycker"]);
     expect(screen.getByTestId("menu-unfit")).toHaveTextContent("Anna");
     expect(screen.getAllByTestId("menu-dish")).toHaveLength(6);
@@ -619,7 +742,7 @@ describe("the whole menu and a dish", () => {
     await withAnna(u);
     await readPhoto(u);
     await screen.findByTestId("menu-answer");
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     await u.type(screen.getByRole("searchbox", { name: "Sök rätt" }), "tarta");
     await u.click(screen.getByTestId("menu-dish"));
     const sheet = within(screen.getByRole("dialog", { name: "Tarta de Santiago" }));
@@ -636,26 +759,67 @@ describe("the whole menu and a dish", () => {
     expect(within(screen.getByRole("radiogroup", { name: "Rätt åt Anna" })).getAllByRole("radio", { checked: true })).toHaveLength(1);
   });
 
-  it("'Fler rätter åt Anna' opens the menu with Anna already chosen", async () => {
+  it("'Lägg till rätt' opens the whole menu for Anna in a sheet; a tap adds at once and the sheet stays open for more", async () => {
     const u = user();
     await withAnna(u);
     await readPhoto(u);
     await screen.findByTestId("menu-answer");
-    await u.click(screen.getByRole("button", { name: "Fler rätter åt Anna" }));
-    expect(screen.getByText("Välj en rätt att lägga till åt Anna")).toBeInTheDocument();
-    await u.type(screen.getByRole("searchbox", { name: "Sök rätt" }), "tortilla");
-    await u.click(screen.getByTestId("menu-dish"));
-    const sheet = within(screen.getByRole("dialog"));
-    expect(sheet.queryByRole("radiogroup", { name: "Lägg till åt" })).not.toBeInTheDocument();
-    await u.click(sheet.getByRole("button", { name: "Lägg till åt Anna" }));
-    expect(within(screen.getByRole("region", { name: "Anna" })).getByTestId("menu-extra")).toHaveTextContent("Tortilla");
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Anna" }));
+    const sheet = within(screen.getByRole("dialog", { name: "Lägg till åt Anna" }));
+    // Groups in the menu's order, no drinks, and a price on every row that has one.
+    expect(sheet.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Förrätt", "Varmrätt", "Efterrätt"]);
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("Tryck på en rätt");
+    await u.click(sheet.getByRole("button", { name: "Lägg till Tortilla española" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(sheet.getByRole("button", { name: "Tortilla española, tillagd åt Anna" })).toHaveTextContent("Tillagd");
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("1 tillagd");
+    await u.click(sheet.getByRole("button", { name: "Lägg till Pimientos de padrón" }));
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("2 tillagda");
+    // A search narrows the list.
+    await u.type(sheet.getByRole("searchbox", { name: "Sök rätt" }), "paella");
+    expect(sheet.getAllByTestId("menu-add-row")).toHaveLength(1);
+    await u.click(sheet.getAllByRole("button", { name: "Klar" }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const extras = within(screen.getByRole("region", { name: "Anna" })).getAllByTestId("menu-extra");
+    expect(extras.map((extra) => extra.textContent)).toEqual([expect.stringContaining("Tortilla"), expect.stringContaining("Pimientos")]);
+  });
+
+  it("a dish with an allergen of the person is a red row that needs a second tap, 'Lägg till ändå'", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Anna" }));
+    const sheet = within(screen.getByRole("dialog", { name: "Lägg till åt Anna" }));
+    expect(sheet.getByTestId("menu-add-allergy")).toHaveTextContent("Innehåller nötter");
+    await u.click(sheet.getByRole("button", { name: "Lägg till Tarta de Santiago" }));
+    // The first tap only asks: nothing is added yet.
+    expect(within(screen.getByRole("region", { name: "Anna" })).queryByTestId("menu-extra")).not.toBeInTheDocument();
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("Tryck på en rätt");
+    await u.click(sheet.getByRole("button", { name: "Lägg till ändå Tarta de Santiago" }));
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("1 tillagd");
+    await u.click(sheet.getAllByRole("button", { name: "Klar" })[0]!);
+    expect(within(screen.getByRole("region", { name: "Anna" })).getByTestId("menu-extra")).toHaveTextContent("Tarta de Santiago");
+  });
+
+  it("a dish the person already has says Redan med in the sheet and a tap on it adds nothing", async () => {
+    const u = user();
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    const chosen = within(screen.getByRole("radiogroup", { name: "Rätt åt Du" })).getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent!;
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt dig" }));
+    const sheet = within(screen.getByRole("dialog", { name: "Lägg till åt Du" }));
+    expect(sheet.getByRole("button", { name: `${chosen}, redan med` })).toHaveTextContent("Redan med");
+    await u.click(sheet.getByRole("button", { name: `${chosen}, redan med` }));
+    expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("Tryck på en rätt");
   });
 
   it("Ikväll: a dish is added in its sheet, the sum counts the priced ones, and the list clears", async () => {
     const u = user();
     render(<MenuAdvisor />);
     await toAnswer(u);
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     for (const name of ["Pimientos de padrón", "Paella de marisco"]) {
       await u.click(screen.getByRole("button", { name: new RegExp(name) }));
       await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till Ikväll" }));
@@ -709,12 +873,15 @@ describe("adding more dishes from the menu", () => {
     await toAnswer(u);
   }
 
-  /** "Fler rätter åt <who>", the dish, "Lägg till åt <who>". */
+  /** "Lägg till rätt åt <who>", the dish (a second tap when it has her allergen), Klar. */
   async function addFor(u: ReturnType<typeof userEvent.setup>, who: string, name: string) {
-    await u.click(screen.getByRole("button", { name: `Fler rätter åt ${who}` }));
-    await u.click(screen.getByRole("button", { name: new RegExp(name) }));
-    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: `Lägg till åt ${who}` }));
-    await screen.findByTestId("menu-answer");
+    await u.click(screen.getByRole("button", { name: `Lägg till rätt åt ${who}` }));
+    const sheet = within(screen.getByRole("dialog"));
+    await u.click(sheet.getByRole("button", { name: new RegExp(`^Lägg till ${name}`) }));
+    const again = sheet.queryByRole("button", { name: new RegExp(`^Lägg till ändå ${name}`) });
+    if (again) await u.click(again);
+    await u.click(sheet.getAllByRole("button", { name: "Klar" })[0]!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   }
 
   it("a starter added from Hela menyn for someone else than the first is added on top: under her, in the sum and in Ert val", async () => {
@@ -722,7 +889,7 @@ describe("adding more dishes from the menu", () => {
     await atTheTable(u);
     const main = region("Greta").getByRole("radio", { checked: true }).getAttribute("value");
     const before = total();
-    await u.click(fullMenuTab());
+    await openFullMenu(u);
     await u.click(screen.getByRole("button", { name: /Toast Skagen/ }));
     const sheet = within(screen.getByRole("dialog", { name: "Toast Skagen" }));
     await u.click(sheet.getByRole("radio", { name: "Greta" }));
@@ -762,30 +929,25 @@ describe("adding more dishes from the menu", () => {
     const u = user();
     await atTheTable(u);
     const before = total();
-    await u.click(screen.getByRole("button", { name: "Fler rätter åt Greta" }));
-    await u.click(screen.getByRole("button", { name: /Dagens soppa/ }));
-    expect(within(screen.getByRole("dialog")).getByTestId("menu-dish-unpriced")).toHaveTextContent("Pris saknas, så den räknas inte med i summan.");
-    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till åt Greta" }));
-    await screen.findByTestId("menu-answer");
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Greta" }));
+    // Said before the tap, not after.
+    expect(within(screen.getByRole("dialog")).getAllByText("Pris saknas, räknas inte med")).toHaveLength(2);
+    await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
+    await addFor(u, "Greta", "Dagens soppa");
     expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Dagens soppaPris saknas");
-    expect(region("Greta").getByRole("status")).toHaveTextContent("Greta får också Dagens soppa. Pris saknas, så summan ändras inte.");
     expect(total()).toBe(before);
     expect(screen.getByTestId("menu-footer")).toHaveTextContent("1 rätt saknar pris och räknas inte med");
   });
 
-  it("a dish the person already has says Redan med and cannot be added twice", async () => {
+  it("a dish added twice stays one row, and the sum counts it once", async () => {
     const u = user();
     await atTheTable(u);
     await addFor(u, "Greta", "Toast Skagen");
     const after = total();
-    const chosen = region("Greta").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent!;
-    for (const name of ["Toast Skagen", chosen]) {
-      await u.click(screen.getByRole("button", { name: "Fler rätter åt Greta" }));
-      await u.click(screen.getByRole("button", { name: new RegExp(name) }));
-      expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Redan med åt Greta" })).toBeDisabled();
-      await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Klar" }));
-      await u.click(screen.getByRole("radio", { name: "Förslag" }));
-    }
+    await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Greta" }));
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Toast Skagen, redan med" })).toBeInTheDocument();
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Toast Skagen, redan med" }));
+    await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
     expect(region("Greta").getAllByTestId("menu-extra")).toHaveLength(1);
     expect(total()).toBe(after);
   });
@@ -810,7 +972,6 @@ describe("adding more dishes from the menu", () => {
     // The proposed dish is still chosen; the carbonara is with her on top and counted.
     expect(region("Anna").getByRole("radio", { checked: true }).closest("label")).toHaveTextContent(was);
     expect(region("Anna").getByTestId("menu-extra")).toHaveTextContent("Pasta carbonara");
-    expect(region("Anna").getByRole("status")).toHaveTextContent("Anna får också Pasta carbonara.");
     expect(region("Anna").getByText("Innehåller gluten. Fråga personalen.")).toHaveAttribute("data-tone", "danger");
     expect(total()).toBe(before + 189);
     // Two main courses: the proposed one can be taken away with its soptunna.
