@@ -3,7 +3,7 @@
 import { allergenLabels } from "../domain/labels";
 import { toSek } from "../domain/currency";
 import { drinkPrice, type Totals } from "../domain/drinks";
-import type { Choices, DishOption, PersonOptions } from "../domain/options";
+import type { Choice, Choices, DishOption, PersonOptions } from "../domain/options";
 import type { DrinkKind, Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
 import { languageName } from "../domain/labels";
@@ -60,38 +60,71 @@ export function drinkFor(person: Person, choices: Choices): DrinkKind | null {
 /** "Anna", and "dig" for Du: who something is added for ("Lägg till åt dig"). */
 export const toWhom = (person: Pick<Person, "name">) => (person.name === "Du" ? "dig" : person.name);
 
-/** One tap on a card: this dish for this person (the drink and the extras stay; a dish that was an extra is now the main one). */
+/** One person's choice changed in one or two fields; everything else (extras, added drinks) stays as it was. */
+function patch(choices: Choices, personId: string, change: Partial<Choice>): Choices {
+  const current: Choice = choices[personId] ?? { dishIndex: null, drink: null };
+  const next: Choice = { ...current, ...change };
+  if (next.extras?.length === 0) delete next.extras;
+  if (next.drinks?.length === 0) delete next.drinks;
+  return { ...choices, [personId]: next };
+}
+
+/** One tap on a card: this is the person's proposed dish (the drinks and the dishes added on top stay; a dish that was added is now this one). */
 export function choose(choices: Choices, personId: string, dishIndex: number): Choices {
-  const current = choices[personId];
-  const extras = current?.extras?.filter((index) => index !== dishIndex);
-  return { ...choices, [personId]: { drink: current?.drink ?? null, dishIndex, ...(extras && extras.length > 0 ? { extras } : {}) } };
+  return patch(choices, personId, { dishIndex, extras: choices[personId]?.extras?.filter((index) => index !== dishIndex) });
 }
 
-/** One tap on a drink: this drink for this person (the dish and the extras stay). */
-export function chooseDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
-  const current = choices[personId];
-  return { ...choices, [personId]: { dishIndex: current?.dishIndex ?? null, drink, ...(current?.extras ? { extras: current.extras } : {}) } };
+/** Takes the proposed dish away (the soptunna on it); what was added on top stays. */
+export function clearDish(choices: Choices, personId: string): Choices {
+  return patch(choices, personId, { dishIndex: null });
 }
 
-/** Whether the person already has the dish: as the chosen one or as an extra. */
+/** Takes the usual drink away for this evening ("utan dryck"); drinks added on top stay. */
+export function dropUsualDrink(choices: Choices, personId: string): Choices {
+  return patch(choices, personId, { drink: "ingen" });
+}
+
+/** One more drink for the person, last; nothing changes when it is already added. */
+export function addDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
+  const current = choices[personId]?.drinks ?? [];
+  if (current.includes(drink)) return choices;
+  return patch(choices, personId, { drinks: [...current, drink] });
+}
+
+/** An added drink taken away again. */
+export function removeDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
+  const current = choices[personId]?.drinks ?? [];
+  if (!current.includes(drink)) return choices;
+  return patch(choices, personId, { drinks: current.filter((kind) => kind !== drink) });
+}
+
+/** Whether the person has the drink already: the usual one that still counts, or an added one. */
+export function hasDrink(choices: Choices, person: Person, drink: DrinkKind): boolean {
+  const usual = drinkFor(person, choices);
+  return (usual === drink && usual !== "ingen") || (choices[person.id]?.drinks ?? []).includes(drink);
+}
+
+/** Whether the person already has the dish: as the proposed one or as one added on top. */
 export function hasDish(choices: Choices, personId: string, dishIndex: number): boolean {
   const current = choices[personId];
   return current?.dishIndex === dishIndex || (current?.extras ?? []).includes(dishIndex);
 }
 
-/** A dish added on top for the person (a starter, a dessert), last; nothing changes when the person already has it. */
+/** A dish added on top for the person, last: the menu grows. Nothing changes when the person already has it. */
 export function addExtra(choices: Choices, personId: string, dishIndex: number): Choices {
   if (hasDish(choices, personId, dishIndex)) return choices;
-  const current = choices[personId];
-  return { ...choices, [personId]: { dishIndex: current?.dishIndex ?? null, drink: current?.drink ?? null, extras: [...(current?.extras ?? []), dishIndex] } };
+  return patch(choices, personId, { extras: [...(choices[personId]?.extras ?? []), dishIndex] });
 }
 
-/** An extra taken away again. */
+/** A dish added on top, taken away again. */
 export function removeExtra(choices: Choices, personId: string, dishIndex: number): Choices {
-  const current = choices[personId];
-  if (!current?.extras?.includes(dishIndex)) return choices;
-  const extras = current.extras.filter((index) => index !== dishIndex);
-  return { ...choices, [personId]: { dishIndex: current.dishIndex, drink: current.drink, ...(extras.length > 0 ? { extras } : {}) } };
+  if (!choices[personId]?.extras?.includes(dishIndex)) return choices;
+  return patch(choices, personId, { extras: choices[personId]!.extras!.filter((index) => index !== dishIndex) });
+}
+
+/** One tap on a drink in the old single-drink flow: this drink replaces the usual one. */
+export function chooseDrink(choices: Choices, personId: string, drink: DrinkKind): Choices {
+  return patch(choices, personId, { drink });
 }
 
 /** What a person lands on with this dish: the dish plus their drink, in kronor; null when the dish has no price (the drink alone is not a price). */

@@ -19,7 +19,7 @@ export type PersonOptions = { personId: string; options: DishOption[] };
 
 /**
  * What has been chosen: one main dish per person (one of the options), optionally another drink than the person's
- * usual, and `extras`: dishes added on top from the whole menu ("Fler rätter åt Anna": a starter, a dessert), counted in the total.
+ * usual ("ingen" takes the usual one away), `drinks` added on top, and `extras`: dishes added on top from the whole menu ("Fler rätter åt Anna": a starter, a dessert), counted in the total.
  */
-export type Choice = { dishIndex: number | null; drink: DrinkKind | null; extras?: number[] };
+export type Choice = { dishIndex: number | null; drink: DrinkKind | null; extras?: number[]; /** Drinks added on top of the usual one ("Lägg till dryck"). */ drinks?: DrinkKind[] };
 export type Choices = Record<string, Choice>;

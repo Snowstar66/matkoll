@@ -9,7 +9,7 @@ import { maxMenuPages } from "@/lib/images";
 import { useOption } from "@/lib/use-option";
 import { fitMenuPhotos, prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
 import { readMenuText } from "../actions/read-menu-text";
-import { defaultChoices, drinkOptions, estimateTotalSek, isMainCourse, optionFor, recommendOptions } from "../index";
+import { defaultChoices, drinkOptions, estimateTotalSek, recommendOptions } from "../index";
 import type { Choices, PersonOptions } from "../domain/options";
 import { type HouseholdPerson, meId } from "../domain/people";
 import type { Person } from "../domain/profile";
@@ -21,7 +21,7 @@ import { readCompanyIds, writeCompanyIds } from "./company-store";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
-import { addExtra, choose, chooseDrink, emptyReadingView, foldReading, hasDish, removeExtra, withOption, type ReadingView } from "./journey";
+import { addDrink, addExtra, choose, clearDish, dropUsualDrink, emptyReadingView, foldReading, hasDish, hasDrink, removeDrink, removeExtra, type ReadingView } from "./journey";
 import type { AddedNote } from "./answer-screen";
 import { TextLink, TopBack } from "./journey-parts";
 import { type MenuPage, PagesScreen } from "./pages-screen";
@@ -405,28 +405,20 @@ export function MenuAdvisor({
   }
 
   /**
-   * "Lägg till åt Anna": a main course (what the options are made of) becomes her choice, in place of the one before;
-   * anything else (a starter, a dessert) is added on top and counted in the total. A dish she already has changes
-   * nothing. Either way the answer says what happened, under her, and the price when there is none.
+   * "Lägg till åt Anna": the dish is added to what Anna has, whatever kind it is (the menu only grows; the soptunna
+   * takes one away). A dish she already has changes nothing. The answer says what happened, under her, and says
+   * so when the dish has no price (it is left out of the sum).
    */
   function addDish(personId: string, dishIndex: number) {
     const person = company.find((entry) => entry.id === personId);
     const dish = reading?.menu.ratter[dishIndex];
     if (!reading || !person || !dish) return;
-    const option = optionFor(reading.menu, dishIndex, person);
-    if (!option) return;
     const name = dish.originalnamn;
-    const unpriced = dishSek(dish) === null;
     let text: string;
     if (hasDish(journey.choices, personId, dishIndex)) {
       text = `${person.name} har redan ${name}.`;
-    } else if (isMainCourse(reading.menu, dishIndex)) {
-      const before = journey.choices[personId]?.dishIndex ?? null;
-      const beforeName = before === null ? null : (reading.menu.ratter[before]?.originalnamn ?? null);
-      text = `${person.name} får ${name}${beforeName ? ` i stället för ${beforeName}` : ""}.${unpriced ? " Pris saknas och räknas inte med i summan." : ""}`;
-      setJourney((current) => ({ options: withOption(current.options, personId, option), choices: choose(current.choices, personId, dishIndex) }));
     } else {
-      text = `${person.name} får också ${name}.${unpriced ? " Pris saknas, så summan ändras inte." : ""}`;
+      text = `${person.name} får också ${name}.${dishSek(dish) === null ? " Pris saknas, så summan ändras inte." : ""}`;
       setJourney((current) => ({ ...current, choices: addExtra(current.choices, personId, dishIndex) }));
     }
     setAdded({ personId, text });
@@ -482,7 +474,6 @@ export function MenuAdvisor({
   const reader = reading?.model && reading.effort ? { model: reading.model, effort: reading.effort } : null;
   const totals = reading ? estimateTotalSek(journey.choices, reading.menu, company) : null;
   const drinkPerson = company.find((person) => person.id === drinkOf);
-  const drinkNow = drinkPerson ? (journey.choices[drinkPerson.id]?.drink ?? drinkPerson.drink) : null;
 
   let content: ReactNode;
   if (showTonight) {
@@ -557,6 +548,13 @@ export function MenuAdvisor({
           setAdded(null);
           setJourney((current) => ({ ...current, choices: removeExtra(current.choices, personId, dishIndex) }));
         }}
+        onRemoveDish={(personId) => {
+          setAdded(null);
+          setJourney((current) => ({ ...current, choices: clearDish(current.choices, personId) }));
+        }}
+        onRemoveUsualDrink={(personId) => setJourney((current) => ({ ...current, choices: dropUsualDrink(current.choices, personId) }))}
+        onRemoveDrink={(personId, kind) => setJourney((current) => ({ ...current, choices: removeDrink(current.choices, personId, kind) }))}
+        onAddDrink={setDrinkOf}
         onMore={(personId) => {
           setAdded(null);
           setMenuFor(personId);
@@ -583,7 +581,6 @@ export function MenuAdvisor({
         options={journey.options}
         choices={journey.choices}
         totals={totals}
-        onDrink={setDrinkOf}
         onDone={finish}
         onChange={() => setStage("answer")}
       />
@@ -638,10 +635,10 @@ export function MenuAdvisor({
         <DrinkSheet
           open
           personName={drinkPerson.name}
-          current={drinkNow}
-          options={drinkOptions(reading.menu)}
+          has={(kind) => hasDrink(journey.choices, drinkPerson, kind)}
+          options={drinkOptions(reading.menu).filter((option) => option.kind !== "ingen")}
           onPick={(kind) => {
-            setJourney((current) => ({ ...current, choices: chooseDrink(current.choices, drinkPerson.id, kind) }));
+            setJourney((current) => ({ ...current, choices: addDrink(current.choices, drinkPerson.id, kind) }));
             setDrinkOf(null);
           }}
           onClose={() => setDrinkOf(null)}

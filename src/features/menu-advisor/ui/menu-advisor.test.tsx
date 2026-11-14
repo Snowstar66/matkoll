@@ -497,8 +497,9 @@ describe("the answer", () => {
     await screen.findByTestId("menu-answer");
     const groups = screen.getAllByTestId("menu-person");
     expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual(["Du", "Anna"]);
-    expect(within(groups[0]).getByText("med öl")).toBeInTheDocument();
-    expect(within(groups[1]).getByText("med vin")).toBeInTheDocument();
+    expect(within(groups[0]).getByTestId("menu-drink-row")).toHaveTextContent("Öl");
+    expect(within(groups[0]).getByTestId("menu-drink-row")).toHaveTextContent("Din vanliga dryck");
+    expect(within(groups[1]).getByTestId("menu-drink-row")).toHaveTextContent("Vin");
     expect(screen.queryByTestId("menu-unfiltered")).not.toBeInTheDocument();
     // Anna's nut allergy: the tarta is a dessert and not offered; nothing is red.
     expect(document.querySelector("[data-tone='danger']")).toBeNull();
@@ -539,22 +540,34 @@ describe("the answer", () => {
     expect(screen.getByTestId("menu-answer")).toBeInTheDocument();
   });
 
-  it("the drink can be changed in Ert val, and the total follows", async () => {
+  it("the usual drink is a row of its own with a price; another drink is added, the usual one can be taken away, and the total follows", async () => {
     const u = user();
-    render(<MenuAdvisor />);
-    await toAnswer(u);
-    await u.click(screen.getByRole("button", { name: "Klart" }));
-    const total = screen.getByTestId("menu-total").textContent;
-    await u.click(screen.getByTestId("menu-drink-button"));
-    const sheet = within(screen.getByRole("dialog", { name: "Dryck åt Du" }));
-    // The menu's own price for beer (55) comes before the estimate.
-    expect(sheet.getByRole("radio", { name: /Öl/ }).closest("label")).toHaveTextContent("55 kr");
+    await withAnna(u);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    const kr = (text: string | null | undefined) => Number((text ?? "").replace(/\D/g, ""));
+    const total = () => kr(screen.getByTestId("menu-total").textContent);
+    const me = () => within(screen.getAllByTestId("menu-person")[0]!);
+    const before = total();
+    // The usual drink (öl, 55 kr on the menu) is visible and counted.
+    expect(me().getByTestId("menu-drink-row")).toHaveTextContent("Din vanliga dryck");
+    expect(me().getByTestId("menu-drink-row")).toHaveTextContent("55 kr");
+    await u.click(me().getByTestId("menu-add-drink"));
+    const sheet = within(screen.getByRole("dialog", { name: "Lägg till dryck åt Du" }));
     expect(sheet.getByRole("radio", { name: /Cocktail/ }).closest("label")).toHaveTextContent("ca 140 kr");
     await u.click(sheet.getByRole("radio", { name: /Cocktail/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByTestId("menu-choice-person")).toHaveTextContent("Cocktail");
-    expect(screen.getByTestId("menu-total").textContent).not.toBe(total);
-    expect(screen.getByTestId("menu-total")).toHaveTextContent(/ca \d+ kr/);
+    expect(me().getAllByTestId("menu-drink-row")).toHaveLength(2);
+    expect(total()).toBe(before + 140);
+    // Taking the usual one away leaves the cocktail.
+    await u.click(me().getByRole("button", { name: "Ta bort öl" }));
+    expect(me().getAllByTestId("menu-drink-row")).toHaveLength(1);
+    expect(me().getByTestId("menu-drink-row")).toHaveTextContent("Cocktail");
+    expect(total()).toBe(before + 140 - 55);
+    await u.click(screen.getByRole("button", { name: "Klart" }));
+    const mine = screen.getAllByTestId("menu-choice-person")[0]!;
+    expect(mine).toHaveTextContent("Cocktail");
+    expect(mine).not.toHaveTextContent("Öl");
   });
 
   it("Klart in Ert val ends the journey at the start", async () => {
@@ -635,7 +648,7 @@ describe("the whole menu and a dish", () => {
     const sheet = within(screen.getByRole("dialog"));
     expect(sheet.queryByRole("radiogroup", { name: "Lägg till åt" })).not.toBeInTheDocument();
     await u.click(sheet.getByRole("button", { name: "Lägg till åt Anna" }));
-    expect(within(screen.getByRole("radiogroup", { name: "Rätt åt Anna" })).getByRole("radio", { name: /Tortilla/ })).toBeChecked();
+    expect(within(screen.getByRole("region", { name: "Anna" })).getByTestId("menu-extra")).toHaveTextContent("Tortilla");
   });
 
   it("Ikväll: a dish is added in its sheet, the sum counts the priced ones, and the list clears", async () => {
@@ -777,18 +790,24 @@ describe("adding more dishes from the menu", () => {
     expect(total()).toBe(after);
   });
 
-  it("another main course from the menu takes the place of the chosen one, and says so; an allergen of hers is red", async () => {
+  it("another main course is added too, nothing is replaced; the soptunna takes one away; an allergen of hers is red", async () => {
     const u = user();
     await atTheTable(u);
     const before = total();
     const was = region("Anna").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent!;
-    const wasSek = kr(region("Anna").getByRole("radio", { checked: true }).closest("label")!.textContent!.match(/ca \d+ kr/)?.[0]);
     await addFor(u, "Anna", "Pasta carbonara");
-    expect(region("Anna").getByRole("radio", { name: /Pasta carbonara/ })).toBeChecked();
-    expect(region("Anna").getAllByRole("radio", { checked: true })).toHaveLength(1);
-    expect(region("Anna").getByRole("status")).toHaveTextContent(`Anna får Pasta carbonara i stället för ${was}.`);
+    // The proposed dish is still chosen; the carbonara is with her on top and counted.
+    expect(region("Anna").getByRole("radio", { checked: true }).closest("label")).toHaveTextContent(was);
+    expect(region("Anna").getByTestId("menu-extra")).toHaveTextContent("Pasta carbonara");
+    expect(region("Anna").getByRole("status")).toHaveTextContent("Anna får också Pasta carbonara.");
     expect(region("Anna").getByText("Innehåller gluten. Fråga personalen.")).toHaveAttribute("data-tone", "danger");
-    expect(total()).toBe(before - wasSek + 189);
+    expect(total()).toBe(before + 189);
+    // Two main courses: the proposed one can be taken away with its soptunna.
+    const wasSek = kr(region("Anna").getByRole("radio", { checked: true }).closest("label")!.textContent!.match(/ca \d+ kr/)?.[0]);
+    await u.click(region("Anna").getByTestId("menu-remove-dish"));
+    expect(region("Anna").queryByRole("radio", { checked: true })).not.toBeInTheDocument();
+    expect(region("Anna").getByTestId("menu-extra")).toHaveTextContent("Pasta carbonara");
+    expect(total()).toBe(before + 189 - wasSek);
   });
 });
 
