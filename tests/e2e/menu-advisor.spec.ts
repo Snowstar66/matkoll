@@ -800,7 +800,7 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitl�
   await expect(page.getByTestId("menu-profiles-link")).toHaveCount(0);
   // Menyrådgivare itself is still off: no way into it from Matsedel.
   await page.goto("/matsedel");
-  await expect(page.getByText("Äter ute?")).toHaveCount(0);
+  await expect(page.getByText("Äter ni ute?")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

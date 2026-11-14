@@ -87,6 +87,17 @@ export function BoxIcon(props: IconProps) {
   );
 }
 
+/** A plate with a fork and a knife: eating out. */
+export function RestaurantIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="5" />
+      <path d="M3.5 4v5a1.5 1.5 0 0 0 1.5 1.5M6.5 4v5a1.5 1.5 0 0 1-1.5 1.5M5 4v16" />
+      <path d="M20.5 20V4c-2 1-3 4-3 7h3" />
+    </Icon>
+  );
+}
+
 export function SlidersIcon(props: IconProps) {
   return (
     <Icon {...props}>
