@@ -17,6 +17,9 @@ export type DishOption = {
 /** The options for one person, best first. */
 export type PersonOptions = { personId: string; options: DishOption[] };
 
-/** What has been chosen: one dish index per person, and optionally another drink than the person's usual. */
-export type Choice = { dishIndex: number | null; drink: DrinkKind | null };
+/**
+ * What has been chosen: one main dish per person (one of the options), optionally another drink than the person's
+ * usual, and `extras`: dishes added on top from the whole menu ("Fler rätter åt Anna": a starter, a dessert), counted in the total.
+ */
+export type Choice = { dishIndex: number | null; drink: DrinkKind | null; extras?: number[] };
 export type Choices = Record<string, Choice>;

@@ -8,7 +8,7 @@ import { allergenLabels } from "../domain/labels";
 import { meId } from "../domain/people";
 import type { Person } from "../domain/profile";
 import type { MenuDish } from "../domain/types";
-import { certainAllergens, joinNames, listPrice } from "./journey";
+import { certainAllergens, joinNames, listPrice, toWhom } from "./journey";
 import { PersonAvatar } from "./person-avatar";
 
 /** Who the dish suits, said plainly, in parts: "Passar Du och Anna." and (bad) "Gunnar kan inte (nötter)."; none without company. */
@@ -47,6 +47,7 @@ export function DishSheet({
   dish,
   company,
   fromPersonId,
+  has,
   starred,
   onAdd,
   onStar,
@@ -56,6 +57,8 @@ export function DishSheet({
   company: readonly Person[];
   /** Opened from "Fler rätter åt Anna": that person is chosen. */
   fromPersonId: string | null;
+  /** Whether the person already has this dish: then the button says "Redan med åt Anna" and adds nothing. */
+  has?: (personId: string) => boolean;
   starred: boolean;
   onAdd: (personId: string) => void;
   onStar: () => void;
@@ -64,6 +67,7 @@ export function DishSheet({
   const [picked, setPicked] = useState<string | null>(null);
   const target = company.find((person) => person.id === (fromPersonId ?? picked)) ?? company[0];
   const canAdd = dish !== null && dish.grupp !== "Drycker" && target !== undefined;
+  const already = canAdd && (has?.(target.id) ?? false);
   const fit = dish ? fitParts(dish, company) : [];
   const maybe = dish ? maybeSentence(dish, company) : "";
   const price = dish ? listPrice(dish) : "";
@@ -78,8 +82,8 @@ export function DishSheet({
         dish ? (
           <>
             {canAdd ? (
-              <Button data-testid="menu-dish-add" fullWidth onClick={() => onAdd(target.id)}>
-                {`Lägg till åt ${target.name === "Du" ? "dig" : target.name}`}
+              <Button data-testid="menu-dish-add" fullWidth disabled={already} onClick={() => onAdd(target.id)}>
+                {already ? `Redan med åt ${toWhom(target)}` : `Lägg till åt ${toWhom(target)}`}
               </Button>
             ) : null}
             <Button variant={canAdd ? "text" : "primary"} fullWidth onClick={onStar} data-testid="menu-dish-tonight">
@@ -92,7 +96,13 @@ export function DishSheet({
       {dish ? (
         <div className="flex flex-col gap-3 pb-2" data-testid="menu-dish-sheet">
           {dish.forklaring ? <p className="text-headline text-ink-2">{dish.forklaring}</p> : null}
-          {price ? <p className="text-[1.75rem] leading-8 font-bold text-ink">{price}</p> : null}
+          {price ? (
+            <p className="text-[1.75rem] leading-8 font-bold text-ink">{price}</p>
+          ) : canAdd ? (
+            <p data-testid="menu-dish-unpriced" className="text-body text-ink-2">
+              Pris saknas, så den räknas inte med i summan.
+            </p>
+          ) : null}
           {ingredients ? (
             <div className="flex flex-col">
               <span className="text-meta font-semibold text-ink-3">Innehåller</span>

@@ -36,6 +36,7 @@ export function FullMenuScreen({
   reader,
   canReadCarefully,
   error,
+  hasDish,
   onAdd,
   onStar,
   onTonight,
@@ -55,6 +56,8 @@ export function FullMenuScreen({
   reader: MenuReader | null;
   canReadCarefully: boolean;
   error: string | null;
+  /** Whether the person already has the dish (chosen or added): the sheet says "Redan med" instead of adding it twice. */
+  hasDish?: (personId: string, dishIndex: number) => boolean;
   onAdd: (personId: string, dishIndex: number) => void;
   onStar: (dish: MenuDish) => void;
   onTonight: () => void;
@@ -136,6 +139,7 @@ export function FullMenuScreen({
         dish={openDish}
         company={company}
         fromPersonId={forPerson?.id ?? null}
+        has={(personId) => open !== null && (hasDish?.(personId, open) ?? false)}
         starred={openDish ? isStarred(openDish) : false}
         onAdd={(personId) => {
           if (open !== null) onAdd(personId, open);

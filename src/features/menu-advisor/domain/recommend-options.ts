@@ -31,6 +31,11 @@ function mainCandidates(menu: Menu): { dish: MenuDish; index: number }[] {
   return mains.length > 0 ? mains : indexed.filter((entry) => entry.dish.grupp === "Förrätt");
 }
 
+/** Whether the dish is one of the main courses the options are made of: one per person, so choosing another replaces it. A starter or a dessert next to them is added on top. */
+export function isMainCourse(menu: Menu, dishIndex: number): boolean {
+  return mainCandidates(menu).some((entry) => entry.index === dishIndex);
+}
+
 type Candidate = { dish: MenuDish; index: number; score: number; warning: DishOption["warning"]; reasons: string[]; priceSek: number | null; allergenCount: number };
 
 function candidate(entry: { dish: MenuDish; index: number }, person: Person, ctx: ReturnType<typeof rankContext>): Candidate {
