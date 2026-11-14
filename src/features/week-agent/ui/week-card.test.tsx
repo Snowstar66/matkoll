@@ -129,7 +129,7 @@ describe("WeekAgentCard", () => {
   it("has targets that can be reached: the link and the button name what they do", () => {
     render(<WeekAgentCard href="/x" weekNumber={47} filledDays={[]} emptyDays={all} settings={settings()} />);
     expect(screen.getByRole("link", { name: /Föreslå veckan/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ställ in" }).className).toContain("min-h-tap");
+    expect(screen.getByRole("button", { name: "Veckans inriktning" }).className).toContain("min-h-tap");
   });
 });
 
