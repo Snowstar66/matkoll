@@ -790,6 +790,17 @@ describe("adding more dishes from the menu", () => {
     expect(total()).toBe(after);
   });
 
+  it("the proposed dish can be taken away even when nothing was added, and chosen again with a tap", async () => {
+    const u = user();
+    await atTheTable(u);
+    const before = total();
+    await u.click(region("Greta").getByTestId("menu-remove-dish"));
+    expect(region("Greta").queryByRole("radio", { checked: true })).not.toBeInTheDocument();
+    expect(total()).toBeLessThan(before);
+    await u.click(region("Greta").getAllByRole("radio")[0]!);
+    expect(region("Greta").getAllByRole("radio", { checked: true })).toHaveLength(1);
+  });
+
   it("another main course is added too, nothing is replaced; the soptunna takes one away; an allergen of hers is red", async () => {
     const u = user();
     await atTheTable(u);

@@ -114,7 +114,7 @@ export function AnswerScreen({
   onChoose: (personId: string, dishIndex: number) => void;
   /** Takes away a dish added on top (a starter, a dessert). */
   onRemoveExtra?: (personId: string, dishIndex: number) => void;
-  /** Takes away the proposed dish (when other dishes were added, the soptunna on it). */
+  /** Takes away the proposed dish (the soptunna on it, also when nothing was added). */
   onRemoveDish?: (personId: string) => void;
   /** Takes away the person's usual drink for this evening. */
   onRemoveUsualDrink?: (personId: string) => void;
@@ -186,7 +186,7 @@ export function AnswerScreen({
                   </RadioCard>
                 ))}
               </div>
-              {extras.length > 0 && chosen !== null && onRemoveDish ? (
+              {chosen !== null && onRemoveDish ? (
                 <button
                   type="button"
                   data-testid="menu-remove-dish"
