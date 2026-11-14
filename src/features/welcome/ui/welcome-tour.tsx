@@ -18,7 +18,7 @@ import { markTourSeen } from "../actions/mark-tour-seen";
 import { clampTourPage, isLastTourPage, pageAfterSwipe, tourPageCount, tourPageLabel, type TourExit } from "../domain/tour";
 import { TourArt, type TourArtName } from "./tour-art";
 
-// Välkomsttur (Story 20.1, hjalp-valkomst.html, "1. Välkomsttur"): six pages
+// Välkomsttur (Story 20.1, hjalp-valkomst.html, "1. Välkomsttur"): seven pages
 // with a large line drawing, a light title and one sentence. Full screen on a
 // phone (no tab bar); a 560 px dialog over the dimmed app on a desktop. Built on
 // the native modal <dialog>, so focus stays inside and the app behind is inert.
@@ -29,7 +29,7 @@ import { TourArt, type TourArtName } from "./tour-art";
 // tour has been seen. The pages slide 460 ms; the drawing is drawn out (1.1 s)
 // and the title and sentence rise 12 px. With "Minska rörelse" the page only
 // fades in. The screen reader gets the dialog named by the page's title and
-// "Sida N av 6" on every change.
+// "Sida N av 7" on every change.
 
 type Page = {
   art: TourArtName | null;
@@ -80,6 +80,11 @@ const pages: Page[] = [
     art: "shelf",
     title: "Hitta sakerna igen",
     text: "Fota en hylla eller en låda. Sedan frågar du bara: var är passen?",
+  },
+  {
+    art: "menu",
+    title: "Äter ni ute?",
+    text: `Fota restaurangens meny. ${appName} läser och översätter den och föreslår rätter åt var och en efter allergier och smak. Hitta ett ställe att äta på gör du också här. Slås på under Tillval.`,
   },
   { art: null, title: "Var vill du börja?", text: "Rundturen finns kvar under Hjälp och tips." },
 ];
@@ -335,7 +340,7 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
           </Button>
         </div>
 
-        {/* "Sida 2 av 6" on every change of page. */}
+        {/* "Sida 2 av 7" on every change of page. */}
         <p aria-live="polite" className="sr-only">
           {shown ? tourPageLabel(index) : ""}
         </p>

@@ -7,7 +7,7 @@ import { cx } from "@/components/cx";
 // (.tour-art); lines marked `d` are drawn out on the page that shows, which is
 // why they have pathLength 1. No photos, no emoji.
 
-export type TourArtName = "home" | "recipe" | "plan" | "fridge" | "shelf";
+export type TourArtName = "home" | "recipe" | "plan" | "fridge" | "shelf" | "menu";
 
 /** Drawn out on the page that shows: pathLength 1 makes the dash the whole line. */
 const drawn = { pathLength: 1 } as const;
@@ -102,6 +102,18 @@ const art: Record<TourArtName, ReactNode> = {
         d="M170 22 h84 a10 10 0 0 1 10 10 v30 a10 10 0 0 1-10 10 h-46 l-14 13 v-13 h-24 a10 10 0 0 1-10-10 v-30 a10 10 0 0 1 10-10z"
       />
       <path className="g d" {...drawn} d="M178 40h62 M178 54h40" />
+    </>
+  ),
+  menu: (
+    <>
+      <circle className="bgc" cx="140" cy="112" r="96" />
+      <rect className="g d paper" {...drawn} x="70" y="36" width="104" height="146" rx="12" />
+      <path className="g d" {...drawn} d="M86 62h72 M86 82h56 M86 102h64 M86 122h48 M86 142h60" />
+      <path className="w d" {...drawn} d="M150 82h16 M158 102h8 M150 142h16" />
+      <circle className="g d paper" {...drawn} cx="204" cy="132" r="30" />
+      <circle className="g d" {...drawn} cx="204" cy="132" r="18" />
+      <path className="w d" {...drawn} d="M242 100v64 M236 100v18a6 6 0 0 0 12 0v-18" />
+      <path className="w d" {...drawn} d="M214 52 v16 M206 60 h16" />
     </>
   ),
 };
