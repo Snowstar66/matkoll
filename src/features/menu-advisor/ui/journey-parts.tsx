@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cx } from "@/components/cx";
-import { CheckIcon, ChevronLeftIcon } from "@/components/icons";
-import { Segment } from "@/components/segment";
+import { CheckIcon, ChevronLeftIcon, PlusIcon } from "@/components/icons";
 
 // Pieces the screens of "En enkel resa" share: the one back link at the top, the big headline (the screen's only
 // title), a card you choose with one tap (a real radio underneath, so the keyboard and screen readers work), the
@@ -47,23 +46,6 @@ export function TopBack({ href, onClick, children }: { href?: string; onClick?: 
   );
 }
 
-export type AnswerTab = "answer" | "menu";
-
-/** "Förslag | Hela menyn" at the top of the answer: one photo gives both, the whole menu is the second tab. */
-export function AnswerTabs({ value, onChange }: { value: AnswerTab; onChange: (tab: AnswerTab) => void }) {
-  return (
-    <Segment
-      label="Visa"
-      value={value}
-      onChange={onChange}
-      options={[
-        { value: "answer", label: "Förslag" },
-        { value: "menu", label: "Hela menyn" },
-      ]}
-    />
-  );
-}
-
 /** A stop: an icon on a round mint plate, the title centred, one sentence. Never red. */
 export function StopBody({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {
   return (
@@ -80,7 +62,14 @@ export function StopBody({ icon, title, children }: { icon: ReactNode; title: st
 /** A quiet text link-button, 44 px tall. */
 export function TextLink({ children, className, type = "button", ...props }: ComponentPropsWithRef<"button">) {
   return (
-    <button type={type} className={cx("inline-flex min-h-tap items-center justify-center rounded-md px-3 text-body font-medium text-ink-2 underline-offset-4 hover:underline", className)} {...props}>
+    <button
+      type={type}
+      className={cx(
+        "inline-flex min-h-tap items-center justify-center rounded-md px-3 text-body font-medium text-ink-2 underline-offset-4 hover:underline",
+        className,
+      )}
+      {...props}
+    >
       {children}
     </button>
   );
@@ -96,6 +85,7 @@ export function RadioCard({
   checked,
   onSelect,
   tone = "default",
+  onCard = false,
   children,
   aside,
 }: {
@@ -104,6 +94,8 @@ export function RadioCard({
   checked: boolean;
   onSelect: () => void;
   tone?: "default" | "danger";
+  /** Lies on a white card (a person's card): the unchosen ones take the page's grey so they stay apart. */
+  onCard?: boolean;
   children: ReactNode;
   /** The price, on the right. */
   aside?: ReactNode;
@@ -112,8 +104,8 @@ export function RadioCard({
   return (
     <label
       className={cx(
-        "relative flex min-h-tap cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
-        danger ? "bg-danger-tint" : "bg-surface",
+        "relative flex min-h-tap cursor-pointer items-start gap-3 rounded-xl border-2 px-3 py-2.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
+        danger ? "bg-danger-tint" : onCard && !checked ? "bg-bg" : "bg-surface",
         checked ? (danger ? "border-danger" : "border-accent") : danger ? "border-danger/40" : "border-transparent",
         !checked && !danger && "text-ink-2",
       )}
@@ -131,6 +123,23 @@ export function RadioCard({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">{children}</span>
       {aside ? <span className={cx("shrink-0 text-row-title", checked ? "text-ink" : "text-ink-2")}>{aside}</span> : null}
     </label>
+  );
+}
+
+/** A secondary action inside a card ("Lägg till rätt"): a grey pill, 48 px tall, with a plus. */
+export function PillButton({ children, className, type = "button", ...props }: ComponentPropsWithRef<"button">) {
+  return (
+    <button
+      type={type}
+      className={cx(
+        "inline-flex min-h-12 flex-1 items-center justify-center gap-1 rounded-pill bg-fill px-2 text-meta font-semibold whitespace-nowrap text-ink select-none",
+        className,
+      )}
+      {...props}
+    >
+      <PlusIcon size={18} />
+      {children}
+    </button>
   );
 }
 
@@ -166,7 +175,10 @@ export function TotalRow({ label = "Ni landar på", sek, note }: { label?: strin
 /** What stays at the bottom while the page above scrolls: just above the tab bar. */
 export function StickyFooter({ children }: { children: ReactNode }) {
   return (
-    <div data-testid="menu-footer" className="sticky bottom-[var(--tab-bar-height)] z-10 -mx-page mt-auto flex flex-col gap-1 bg-bg px-page pt-3 pb-2 desktop:bottom-0">
+    <div
+      data-testid="menu-footer"
+      className="sticky bottom-[var(--tab-bar-height)] z-10 -mx-page mt-auto flex flex-col gap-1 bg-bg px-page pt-3 pb-2 desktop:bottom-0"
+    >
       {children}
     </div>
   );

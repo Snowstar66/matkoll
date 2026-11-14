@@ -198,8 +198,8 @@ async function takePhoto(page: Page, button: Locator = page.getByTestId("menu-ph
   await page.getByTestId("menu-read").click();
 }
 
-/** The tab "Hela menyn" at the top of the answer. */
-const fullMenuTab = (page: Page) => page.getByRole("radio", { name: "Hela menyn", exact: true });
+/** The quiet link "Hela menyn" under the answer. */
+const fullMenuTab = (page: Page) => page.getByRole("button", { name: "Hela menyn", exact: true });
 
 /** A tap on the card, as a finger does it: the radio itself is hidden inside its label. */
 const tap = (radio: Locator) => radio.locator("xpath=ancestor::label").click();
@@ -318,7 +318,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
 
   // 4. The answer: a group per person, the best chosen, "Anna älskar paprika" only where it changes something.
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await expect(page.getByRole("radio", { name: "Förslag", exact: true })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Förslag", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Tolka menyn" })).toBeVisible();
   const du = page.getByRole("region", { name: "Du", exact: true });
   const anna = page.getByRole("region", { name: "Anna", exact: true });
@@ -347,25 +347,38 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   // 4b. Drinks: another one is added from the answer (the usual one stays and is counted), then Ert val.
   const drinkTotal = await page.getByTestId("menu-total").innerText();
   await page.getByTestId("menu-add-drink").first().click();
-  await expect(page.getByRole("dialog", { name: "Lägg till dryck åt Du" })).toBeVisible();
+  const drinkSheet = page.getByRole("dialog", { name: "Lägg till dryck åt Du" });
+  await expect(drinkSheet).toBeVisible();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${shots}/09-drink-sheet.png` });
-  await tap(page.getByRole("radio", { name: /Vin/ }));
+  await drinkSheet.getByRole("button", { name: "Lägg till vin" }).click();
+  // The sheet stays open and says what happened; the usual beer answers a tap with a line.
+  await expect(drinkSheet).toBeVisible();
+  await expect(drinkSheet.getByTestId("menu-drink-line")).toHaveText("Vin lades till åt Du.");
+  await drinkSheet.getByRole("button", { name: "Öl, redan med" }).click();
+  await expect(drinkSheet.getByTestId("menu-drink-line")).toHaveText("Du har redan öl.");
+  await drinkSheet.getByRole("button", { name: "Klar", exact: true }).first().click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("menu-total")).not.toHaveText(drinkTotal);
+  // The nota unfolds to every dish and drink per person.
+  await page.getByTestId("menu-receipt-toggle").click();
+  await expect(page.getByTestId("menu-receipt")).toContainText("Vin");
+  await page.screenshot({ path: `${shots}/09b-receipt.png` });
+  await page.getByTestId("menu-receipt-toggle").click();
 
   // 5. Ert val: the name as printed, big; the drinks in a line; the back link says Förslag.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ert val" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Förslag", exact: true })).toBeVisible();
   await expect(page.getByTestId("menu-choice-person")).toHaveCount(3);
+  await expect(page.getByTestId("menu-choice-person").first().getByTestId("menu-choice-main")).toBeVisible();
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Anna: gluten.");
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Gunnar: nötter.");
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Fråga alltid personalen");
   await page.screenshot({ path: `${shots}/08-your-choice.png` });
   await expect(page.getByTestId("menu-choice-person").first()).toContainText("Vin");
 
-  // Back with "Ändra", then the tab Hela menyn: only dishes someone cannot eat are marked.
+  // Back with "Ändra", then the link Hela menyn: only dishes someone cannot eat are marked.
   await page.getByRole("button", { name: "Ändra" }).click();
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
   await fullMenuTab(page).click();
@@ -393,13 +406,16 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(du.getByRole("status")).toBeInViewport();
   await expect(page.getByTestId("menu-total")).toHaveText(`ca ${beforeDessert + 66} kr`);
 
-  // "Fler rätter åt Anna" opens the menu with Anna chosen.
-  await page.getByRole("button", { name: "Fler rätter åt Anna" }).click();
-  await expect(page.getByText("Välj en rätt att lägga till åt Anna")).toBeVisible();
-  await page.screenshot({ path: `${shots}/12-full-menu-for-anna.png` });
-  await page.getByRole("searchbox", { name: "Sök rätt" }).fill("pulpo");
-  await page.getByTestId("menu-dish").click();
-  await page.getByRole("button", { name: "Lägg till åt Anna" }).click();
+  // "Lägg till rätt" on Anna's card: the whole menu in a sheet, a tap adds at once and the sheet stays for more.
+  await anna.getByTestId("menu-add-dish").click();
+  const addSheet = page.getByRole("dialog", { name: "Lägg till åt Anna" });
+  await expect(addSheet).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/12-add-dish-sheet.png` });
+  await addSheet.getByRole("button", { name: "Lägg till Pulpo a la gallega" }).click();
+  await expect(addSheet.getByTestId("menu-add-count")).toHaveText("1 tillagd");
+  await expect(addSheet).toBeVisible();
+  await addSheet.getByRole("button", { name: "Klar", exact: true }).first().click();
   await expect(anna.getByTestId("menu-extra")).toContainText("Pulpo a la gallega");
   expect(await noSideScroll(page)).toBe(true);
 

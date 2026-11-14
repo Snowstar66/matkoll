@@ -18,10 +18,26 @@ import type { Menu, MenuDish } from "../domain/types";
 import { dishSek } from "../domain/view";
 import { AnswerScreen } from "./answer-screen";
 import { readCompanyIds, writeCompanyIds } from "./company-store";
+import { AddDishSheet } from "./add-dish-sheet";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
-import { addDrink, addExtra, choose, clearDish, dropUsualDrink, emptyReadingView, foldReading, hasDish, hasDrink, removeDrink, removeExtra, type ReadingView } from "./journey";
+import {
+  addDrink,
+  addExtra,
+  choose,
+  clearDish,
+  dropAllDrinks,
+  dropUsualDrink,
+  emptyReadingView,
+  foldReading,
+  hasDish,
+  hasDrink,
+  hasNoDrink,
+  removeDrink,
+  removeExtra,
+  type ReadingView,
+} from "./journey";
 import type { AddedNote } from "./answer-screen";
 import { TextLink, TopBack } from "./journey-parts";
 import { type MenuPage, PagesScreen } from "./pages-screen";
@@ -97,7 +113,11 @@ export function MenuAdvisor({
 }) {
   const enabled = useOption("menuAdvisor");
   // Off on the server and during hydration: nothing flashes for people who have it on.
-  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const mounted = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const [stage, setStage] = useState<Stage>("start");
   const [careful, setCareful] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,10 +125,11 @@ export function MenuAdvisor({
   const [reading, setReading] = useState<MenuReading | null>(null);
   const [view, setView] = useState<ReadingView>(emptyReadingView);
   const [journey, setJourney] = useState<{ options: PersonOptions[]; choices: Choices }>({ options: [], choices: {} });
-  const [menuFor, setMenuFor] = useState<string | null>(null);
   // What the last "Lägg till åt" did, said under that person on the answer (never silent: added, replaced, already there, no price).
   const [added, setAdded] = useState<AddedNote | null>(null);
   const [drinkOf, setDrinkOf] = useState<string | null>(null);
+  // Who the sheet "Lägg till åt" with the whole menu is open for.
+  const [dishOf, setDishOf] = useState<string | null>(null);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
   const { people } = usePeople(members, profiles);
@@ -200,7 +221,6 @@ export function MenuAdvisor({
     setReading(next);
     setJourney({ options, choices: defaultChoices(options) });
     setAdded(null);
-    setMenuFor(null);
     setStage("answer");
   }
 
@@ -422,13 +442,18 @@ export function MenuAdvisor({
       setJourney((current) => ({ ...current, choices: addExtra(current.choices, personId, dishIndex) }));
     }
     setAdded({ personId, text });
-    setMenuFor(null);
     setStage("answer");
   }
 
   function starDish(dish: MenuDish) {
     if (!reading) return;
-    tonight.toggle({ id: pickId(reading.menu.restaurang, dish.originalnamn), name: dish.originalnamn, explanation: dish.forklaring, restaurant: reading.menu.restaurang, sek: dishSek(dish) });
+    tonight.toggle({
+      id: pickId(reading.menu.restaurang, dish.originalnamn),
+      name: dish.originalnamn,
+      explanation: dish.forklaring,
+      restaurant: reading.menu.restaurang,
+      sek: dishSek(dish),
+    });
   }
 
   const onChosen = (event: ChangeEvent<HTMLInputElement>) => {
@@ -445,9 +470,29 @@ export function MenuAdvisor({
   const fileInputs = (
     <>
       {touch ? (
-        <input ref={camera} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true" data-testid="menu-camera" className="sr-only" onChange={onChosen} />
+        <input
+          ref={camera}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="menu-camera"
+          className="sr-only"
+          onChange={onChosen}
+        />
       ) : null}
-      <input ref={picker} type="file" accept="image/*" multiple tabIndex={-1} aria-hidden="true" data-testid="menu-file" className="sr-only" onChange={onChosen} />
+      <input
+        ref={picker}
+        type="file"
+        accept="image/*"
+        multiple
+        tabIndex={-1}
+        aria-hidden="true"
+        data-testid="menu-file"
+        className="sr-only"
+        onChange={onChosen}
+      />
     </>
   );
 
@@ -474,6 +519,7 @@ export function MenuAdvisor({
   const reader = reading?.model && reading.effort ? { model: reading.model, effort: reading.effort } : null;
   const totals = reading ? estimateTotalSek(journey.choices, reading.menu, company) : null;
   const drinkPerson = company.find((person) => person.id === drinkOf);
+  const dishPerson = company.find((person) => person.id === dishOf);
 
   let content: ReactNode;
   if (showTonight) {
@@ -555,10 +601,9 @@ export function MenuAdvisor({
         onRemoveUsualDrink={(personId) => setJourney((current) => ({ ...current, choices: dropUsualDrink(current.choices, personId) }))}
         onRemoveDrink={(personId, kind) => setJourney((current) => ({ ...current, choices: removeDrink(current.choices, personId, kind) }))}
         onAddDrink={setDrinkOf}
-        onMore={(personId) => {
+        onAddDish={(personId) => {
           setAdded(null);
-          setMenuFor(personId);
-          setStage("menu");
+          setDishOf(personId);
         }}
         onDone={() => {
           setAdded(null);
@@ -566,7 +611,6 @@ export function MenuAdvisor({
         }}
         onFullMenu={() => {
           setAdded(null);
-          setMenuFor(null);
           setStage("menu");
         }}
         onCareful={readAgainCarefully}
@@ -590,7 +634,6 @@ export function MenuAdvisor({
       <FullMenuScreen
         menu={reading.menu}
         company={company}
-        forPerson={menuFor ? (company.find((person) => person.id === menuFor) ?? null) : null}
         totals={totals}
         isStarred={(dish) => tonight.picks.some((entry) => entry.id === pickId(reading.menu.restaurang, dish.originalnamn))}
         tonightCount={tonight.picks.length}
@@ -602,13 +645,8 @@ export function MenuAdvisor({
         onStar={starDish}
         onTonight={() => setShowTonight(true)}
         onCareful={readAgainCarefully}
-        onBack={finish}
-        onAnswer={() => {
-          setMenuFor(null);
-          setStage("answer");
-        }}
+        onAnswer={() => setStage("answer")}
         onDone={() => {
-          setMenuFor(null);
           setStage("choice");
         }}
         onNext={pick}
@@ -631,16 +669,24 @@ export function MenuAdvisor({
   return (
     <>
       {content}
-      {reading && drinkPerson ? (
+      {reading && stage === "answer" && dishPerson ? (
+        <AddDishSheet
+          key={dishPerson.id}
+          person={dishPerson}
+          menu={reading.menu}
+          has={(dishIndex) => hasDish(journey.choices, dishPerson.id, dishIndex)}
+          onAdd={(dishIndex) => setJourney((current) => ({ ...current, choices: addExtra(current.choices, dishPerson.id, dishIndex) }))}
+          onClose={() => setDishOf(null)}
+        />
+      ) : null}
+      {reading && stage === "answer" && drinkPerson ? (
         <DrinkSheet
-          open
+          key={drinkPerson.id}
           personName={drinkPerson.name}
-          has={(kind) => hasDrink(journey.choices, drinkPerson, kind)}
-          options={drinkOptions(reading.menu).filter((option) => option.kind !== "ingen")}
-          onPick={(kind) => {
-            setJourney((current) => ({ ...current, choices: addDrink(current.choices, drinkPerson.id, kind) }));
-            setDrinkOf(null);
-          }}
+          has={(kind) => (kind === "ingen" ? hasNoDrink(journey.choices, drinkPerson) : hasDrink(journey.choices, drinkPerson, kind))}
+          options={drinkOptions(reading.menu)}
+          onPick={(kind) => setJourney((current) => ({ ...current, choices: addDrink(current.choices, drinkPerson.id, kind) }))}
+          onNone={() => setJourney((current) => ({ ...current, choices: dropAllDrinks(current.choices, drinkPerson.id) }))}
           onClose={() => setDrinkOf(null)}
         />
       ) : null}
