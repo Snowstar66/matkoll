@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, hasDish, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
+import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropUsualDrink, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -68,6 +68,31 @@ describe("choosing and counting", () => {
     expect(next[0]!.options.map((entry) => entry.dishIndex)).toEqual([0, 1]);
     expect(next[1]!.options).toHaveLength(1);
     expect(withOption(next, "a", option(1))[0]!.options).toHaveLength(2);
+  });
+});
+
+describe("a menu that only grows", () => {
+  const menu = menuOf([dish({ originalnamn: "Soppa", pris: 100 }), dish({ originalnamn: "Biff", pris: 200 }), dish({ originalnamn: "Fika", grupp: "Efterrätt", pris: 50 })]);
+  const me = person({ id: "me", drink: "ol" });
+  const start: Choices = { me: { dishIndex: 1, drink: null } };
+
+  it("a second dish is added, never replacing; the proposed one can be cleared; nothing else is lost", () => {
+    const two = addExtra(addExtra(start, "me", 0), "me", 2);
+    expect(two.me).toEqual({ dishIndex: 1, drink: null, extras: [0, 2] });
+    const cleared = clearDish(two, "me");
+    expect(cleared.me).toEqual({ dishIndex: null, drink: null, extras: [0, 2] });
+    expect(estimateTotalSek(cleared, menu, [me]).dishesSek).toBe(150);
+  });
+
+  it("drinks: the usual one counts, can be dropped, and added ones come on top and count", () => {
+    const usual = estimateTotalSek(start, menu, [me]);
+    const more = addDrink(start, "me", "vin");
+    expect(estimateTotalSek(more, menu, [me]).drinksSek).toBe(usual.drinksSek + 95);
+    expect(addDrink(more, "me", "vin")).toBe(more);
+    const dropped = dropUsualDrink(more, "me");
+    expect(estimateTotalSek(dropped, menu, [me]).drinksSek).toBe(95);
+    expect(estimateTotalSek(removeDrink(dropped, "me", "vin"), menu, [me]).drinksSek).toBe(0);
+    expect(removeDrink(dropped, "me", "vin").me?.drinks).toBeUndefined();
   });
 });
 

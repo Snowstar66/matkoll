@@ -12,7 +12,7 @@ import { optionFor } from "../domain/recommend-options";
 
 /**
  * Step 4, "Ert val": a clean summary to show the waiter. Per person the dish with its name as printed, large, and
- * a short Swedish description, the drink (tap it to change) and the price, then what was added on top (a starter, a
+ * a short Swedish description, the drinks and the price, then what was added on top (a starter, a
  * dessert) with its price; one line on allergies and the total.
  * It never promises that anything is safe.
  */
@@ -22,7 +22,6 @@ export function YourChoiceScreen({
   options,
   choices,
   totals,
-  onDrink,
   onDone,
   onChange,
 }: {
@@ -31,8 +30,6 @@ export function YourChoiceScreen({
   options: readonly PersonOptions[];
   choices: Choices;
   totals: Totals;
-  /** Opens the sheet for this person's drink. */
-  onDrink: (personId: string) => void;
   onDone: () => void;
   onChange: () => void;
 }) {
@@ -46,7 +43,8 @@ export function YourChoiceScreen({
           const dishIndex = choices[person.id]?.dishIndex ?? null;
           const dish = dishIndex === null ? undefined : menu.ratter[dishIndex];
           const option = options.find((entry) => entry.personId === person.id)?.options.find((entry) => entry.dishIndex === dishIndex);
-          const drink = drinkFor(person, choices);
+          const usual = drinkFor(person, choices);
+          const kinds = [...(usual !== null && usual !== "ingen" ? [usual] : []), ...(choices[person.id]?.drinks ?? [])];
           const total = totals.perPerson.find((entry) => entry.personId === person.id);
           const extras = (choices[person.id]?.extras ?? []).flatMap((index) => optionFor(menu, index, person) ?? []);
           return (
@@ -61,17 +59,10 @@ export function YourChoiceScreen({
                   {dish.forklaring ? <p className="text-body text-ink-2">{dish.forklaring}</p> : null}
                   {option?.warning === "allergy" && option.reasons[0] ? <p className="text-body font-semibold text-danger">{option.reasons[0]}</p> : null}
                   <div className="mt-1 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      data-testid="menu-drink-button"
-                      aria-label={`Dryck åt ${person.name}: ${drink ? drinkLabels[drink] : "ingen vald"}. Byt dryck`}
-                      onClick={() => onDrink(person.id)}
-                      className="flex min-h-tap items-center gap-2 rounded-pill bg-fill px-4 text-body font-medium text-ink"
-                    >
-                      <span aria-hidden="true">{drink ? drinkIcons[drink] : "🥤"}</span>
-                      {drink ? drinkLabels[drink] : "Välj dryck"}
-                      {total && total.drinkSek > 0 ? <span className="text-ink-2">{approxKr(total.drinkSek)}</span> : null}
-                    </button>
+                    <span data-testid="menu-drink-line" className="text-body font-medium text-ink-2">
+                      {kinds.length === 0 ? "Utan dryck" : kinds.map((kind) => `${drinkIcons[kind]} ${drinkLabels[kind]}`).join("  ")}
+                      {total && total.drinkSek > 0 ? ` ${approxKr(total.drinkSek)}` : ""}
+                    </span>
                     <span className="text-headline font-semibold text-ink">{approxKr(dishSek(dish))}</span>
                   </div>
                 </>
