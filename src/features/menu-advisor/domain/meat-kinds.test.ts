@@ -32,6 +32,20 @@ describe("which meat a dish is (recipes, cook-now, Matsedel: the Undviker marks)
     ["Pasta med bacon", ["flask"]],
     ["Lammgryta", ["kott"]],
     ["Kalkonburgare", ["kyckling"]],
+    // Pontus 2026-11-14: oxkind was proposed to someone who avoids red meat.
+    ["Oxkind", ["kott"]],
+    ["Braiserad oxkind med rödvinssås", ["kott"]],
+    ["Oxsvanssoppa", ["kott"]],
+    ["Ox i rödvinssås", ["kott"]],
+    ["Älgkött med lingon", ["kott"]],
+    ["Renkött med potatismos", ["kott"]],
+    ["Hjortkött", ["kott"]],
+    ["Ryggbiff med pommes", ["kott"]],
+    ["Ribeye 300 g", ["kott"]],
+    ["Fläskkött i gryta", ["flask"]],
+    ["Griskött", ["flask"]],
+    ["Kycklingkött", ["kyckling"]],
+    ["Oxalis-sallad", []],
   ])("%s is %j", (name, expected) => {
     expect(recipeMeat(name)).toEqual(expected);
   });
@@ -48,6 +62,8 @@ describe("which meat a dish is (recipes, cook-now, Matsedel: the Undviker marks)
     expect(recipeMeat("Revbensspjäll")).toEqual(["flask"]);
     expect(recipeMeat("Kycklingkorv med mos")).toEqual(["kyckling"]);
     expect(recipeMeat("Pollock med potatis")).toEqual([]);
+    expect(recipeMeat("Gryta", ["500 g oxkött", "2 lök"])).toEqual(["kott"]);
+    expect(recipeMeat("Gryta", ["500 g fläskkött"])).toEqual(["flask"]);
   });
 
   it("does not mark mince for someone who only avoids red meat, and the other way round", () => {

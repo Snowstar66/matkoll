@@ -31,6 +31,11 @@ function mainCandidates(menu: Menu): { dish: MenuDish; index: number }[] {
   return mains.length > 0 ? mains : indexed.filter((entry) => entry.dish.grupp === "Förrätt");
 }
 
+/** Dishes that can fill the places a thin menu leaves (fewer main courses than options asked for): everything but desserts, drinks and the main courses already there. */
+function fillerCandidates(menu: Menu, taken: readonly { index: number }[]): { dish: MenuDish; index: number }[] {
+  return menu.ratter.flatMap((dish, index) => (dish.grupp === "Efterrätt" || dish.grupp === "Drycker" || taken.some((entry) => entry.index === index) ? [] : [{ dish, index }]));
+}
+
 /** Whether the dish is one of the main courses the options are made of: one per person, so choosing another replaces it. A starter or a dessert next to them is added on top. */
 export function isMainCourse(menu: Menu, dishIndex: number): boolean {
   return mainCandidates(menu).some((entry) => entry.index === dishIndex);
@@ -45,7 +50,8 @@ function candidate(entry: { dish: MenuDish; index: number }, person: Person, ctx
   const warning: DishOption["warning"] = certain.length > 0 ? "allergy" : hits.length > 0 ? "maybe" : null;
   const who = whoName(person);
   const reasons: string[] = [];
-  const { avoided, loved } = softHits(person, entry.dish);
+  // Every taste the person has says so on the card, the original eight (rött kött, fisk ...) too; the score counts them elsewhere.
+  const { avoided, loved } = softHits(person, entry.dish, { withOriginals: true });
   if (loved.length > 0) reasons.push(capital(`${who} älskar ${loved.map(lower).join(", ")}`));
   if (avoided.length > 0) reasons.push(capital(`${who} undviker ${avoided.map(lower).join(", ")}`));
   if (warning === "allergy") reasons.push(`Innehåller ${certain.map((hit) => allergenLabels[hit.allergen].toLocaleLowerCase("sv-SE")).join(", ")}. Fråga personalen.`);
@@ -64,6 +70,7 @@ export function recommendOptions(menu: Menu, people: readonly Person[], opts: Re
   const perPerson = Math.max(1, opts.perPerson ?? 3);
   const mains = mainCandidates(menu);
   const ctx = rankContext(mains.map((entry) => entry.dish), opts.budget ?? "normalt");
+  const fillers = mains.length < perPerson ? fillerCandidates(menu, mains) : [];
   const taken = new Set<number>();
   return people.map((person): PersonOptions => {
     const all = mains.map((entry) => candidate(entry, person, ctx));
@@ -74,11 +81,18 @@ export function recommendOptions(menu: Menu, people: readonly Person[], opts: Re
     const flagged = all
       .filter((entry) => entry.warning === "allergy")
       .sort((a, b) => a.allergenCount - b.allergenCount || b.score - a.score || a.index - b.index);
-    const ordered = safe
+    const picked = safe
       .map((entry) => ({ entry, adjusted: entry.score - (taken.has(entry.index) ? spreadPenalty : 0) }))
       .sort((a, b) => b.adjusted - a.adjusted || a.entry.index - b.entry.index)
       .slice(0, perPerson)
       .map(({ entry }) => entry);
+    // A thin menu (few main courses): the places left are filled with the best of the other dishes, after the main courses.
+    const extras = fillers
+      .map((entry) => candidate(entry, person, ctx))
+      .filter((entry) => entry.warning !== "allergy")
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, Math.max(0, perPerson - picked.length));
+    const ordered = [...picked, ...extras];
     const fill = flagged.slice(0, Math.max(0, perPerson - ordered.length));
     if (ordered.length === 0) {
       const [first, ...rest] = fill;

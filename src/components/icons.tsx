@@ -89,11 +89,12 @@ export function BoxIcon(props: IconProps) {
 
 /** A plate with a fork and a knife: eating out. */
 export function RestaurantIcon(props: IconProps) {
+  // The plate is small and the fork and the knife stand well apart from it, so the three read as three at 22 px.
   return (
     <Icon {...props}>
-      <circle cx="12" cy="12" r="5" />
-      <path d="M3.5 4v5a1.5 1.5 0 0 0 1.5 1.5M6.5 4v5a1.5 1.5 0 0 1-1.5 1.5M5 4v16" />
-      <path d="M20.5 20V4c-2 1-3 4-3 7h3" />
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M2.8 3.5v5a1.5 1.5 0 0 0 3 0v-5M4.3 9.8v10.7" />
+      <path d="M21 20.5V3.5c-1.8 1.2-2.5 3.7-2.5 6.5H21" />
     </Icon>
   );
 }

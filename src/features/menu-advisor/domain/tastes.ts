@@ -211,8 +211,8 @@ export function softFitFor(dish: Parameters<typeof matchPreference>[1], company:
  */
 export type SoftHits = { avoided: string[]; loved: string[]; strongAvoided: number; strongLoved: number };
 
-export function softHits(person: Pick<Person, "tastes">, dish: Parameters<typeof matchPreference>[1]): SoftHits {
-  const lists = tasteLists(person.tastes, { withOriginals: false });
+export function softHits(person: Pick<Person, "tastes">, dish: Parameters<typeof matchPreference>[1], opts: { withOriginals?: boolean } = {}): SoftHits {
+  const lists = tasteLists(person.tastes, { withOriginals: opts.withOriginals ?? false });
   const avoided = lists.dislikes.filter((word) => matchPreference(word, dish));
   const loved = lists.likes.filter((word) => matchPreference(word, dish) && !avoided.includes(word));
   return {
