@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { adminClient, clearFoodProfiles, e2eEmail, e2eUserId, seedFoodProfile, userStorageState } from "./support";
 
 // Menyrådgivare (Tillval, off by default), "En enkel resa": "Äter ute?" under Matsedel shows only when the option is on.
-// Fota menyn (POST /api/menu/read?stream=1, mocked here: the lines of the live reading are pushed by the test), a few
-// dishes per person, one tap to choose, "Ert val" to show the waiter, the whole menu and the dish in a sheet.
+// Fota menyn adds the first page, "Läs menyn" reads all pages (POST /api/menu/read?stream=1, mocked here: the lines of
+// the live reading are pushed by the test), a few dishes per person, one tap to choose, "Ert val" to show the waiter,
+// the whole menu and the dish in a sheet. One test reads several pages through the real route and the mock AI.
 
 const mobile = { width: 375, height: 812 };
 const photo = "tests/fixtures/ai/kyl.png";
@@ -124,14 +126,26 @@ async function seedGunnar() {
  */
 async function liveStream(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __menuControl?: ReadableStreamDefaultController<Uint8Array>; __menuQueue: string[]; __menuQualities: string[]; __menuEnded?: boolean };
+    const w = window as unknown as {
+      __menuControl?: ReadableStreamDefaultController<Uint8Array>;
+      __menuQueue: string[];
+      __menuQualities: string[];
+      __menuPages: number[];
+      __menuBodies: Promise<number>[];
+      __menuEnded?: boolean;
+    };
     w.__menuQueue = [];
     w.__menuQualities = [];
+    w.__menuPages = [];
+    w.__menuBodies = [];
     const original = window.fetch.bind(window);
     window.fetch = (input, init) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
       if (!url.includes("/api/menu/read?stream=1")) return original(input, init);
       w.__menuQualities.push(init?.body instanceof FormData ? String(init.body.get("quality")) : "");
+      w.__menuPages.push(init?.body instanceof FormData ? init.body.getAll("image").length : 0);
+      // The request's size as it would be sent: the multipart body written out.
+      w.__menuBodies.push(init?.body instanceof FormData ? new Response(init.body).arrayBuffer().then((bytes) => bytes.byteLength) : Promise.resolve(0));
       const encoder = new TextEncoder();
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
@@ -161,13 +175,27 @@ async function liveStream(page: Page) {
         }
       }, events.map(lineOf)),
     qualities: () => page.evaluate(() => (window as unknown as { __menuQualities: string[] }).__menuQualities),
+    /** How many pages each reading sent. */
+    pages: () => page.evaluate(() => (window as unknown as { __menuPages: number[] }).__menuPages),
+    /** How many bytes each reading's request body was. */
+    bodies: () => page.evaluate(() => Promise.all((window as unknown as { __menuBodies: Promise<number>[] }).__menuBodies)),
   };
 }
 
-async function takePhoto(page: Page, button: Locator = page.getByTestId("menu-photo")) {
+type Upload = string | { name: string; mimeType: string; buffer: Buffer };
+
+/** Fota menyn (or another photo button) and the photos chosen: they only become pages, nothing is read. */
+async function addPages(page: Page, files: Upload | Upload[], button: Locator = page.getByTestId("menu-photo")) {
   const chooser = page.waitForEvent("filechooser");
   await button.click();
-  await (await chooser).setFiles(photo);
+  await (await chooser).setFiles(files as Parameters<Awaited<typeof chooser>["setFiles"]>[0]);
+}
+
+/** One photo as the menu's only page, and Läs menyn: the reading starts. */
+async function takePhoto(page: Page, button: Locator = page.getByTestId("menu-photo")) {
+  await addPages(page, photo, button);
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 1"]);
+  await page.getByTestId("menu-read").click();
 }
 
 /** The tab "Hela menyn" at the top of the answer. */
@@ -175,6 +203,54 @@ const fullMenuTab = (page: Page) => page.getByRole("radio", { name: "Hela menyn"
 
 /** A tap on the card, as a finger does it: the radio itself is hidden inside its label. */
 const tap = (radio: Locator) => radio.locator("xpath=ancestor::label").click();
+
+/**
+ * Photos as large as a phone's (3024 × 4032 JPEG, 12 MP): a drawn menu of small print in two columns on paper, with
+ * sensor-like noise so the JPEG is about as heavy as a real photo. Drawn in the page, never a real photo.
+ */
+async function phonePhotos(page: Page, count: number): Promise<{ name: string; mimeType: string; buffer: Buffer }[]> {
+  const encoded = await page.evaluate(async (pages) => {
+    const out: string[] = [];
+    for (let index = 0; index < pages; index++) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 3024;
+      canvas.height = 4032;
+      const context = canvas.getContext("2d")!;
+      const light = context.createLinearGradient(0, 0, 3024, 4032);
+      light.addColorStop(0, "#f4efe4");
+      light.addColorStop(1, "#d9d1c0");
+      context.fillStyle = light;
+      context.fillRect(0, 0, 3024, 4032);
+      context.fillStyle = "#2b2622";
+      context.font = "bold 120px serif";
+      context.fillText(`Meny sida ${index + 1}`, 300, 300);
+      context.font = "58px serif";
+      for (let row = 0; row < 48; row++) {
+        for (const column of [200, 1600]) {
+          context.fillText(`Plato ${row + 1}, con salsa de la casa`, column, 500 + row * 72);
+          context.fillText(`${(9 + ((row * 7 + index) % 30)).toFixed(2)} €`, column + 1080, 500 + row * 72);
+        }
+      }
+      const image = context.getImageData(0, 0, 3024, 4032);
+      let seed = 12_345 + index;
+      for (let at = 0; at < image.data.length; at += 4) {
+        seed = (seed * 1_103_515_245 + 12_345) & 0x7fffffff;
+        const noise = ((seed >> 8) % 25) - 12;
+        image.data[at] += noise;
+        image.data[at + 1] += noise;
+        image.data[at + 2] += noise;
+      }
+      context.putImageData(image, 0, 0);
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((made) => resolve(made!), "image/jpeg", 0.92));
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = "";
+      for (let at = 0; at < bytes.length; at += 0x8000) binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+      out.push(btoa(binary));
+    }
+    return out;
+  }, count);
+  return encoded.map((base64, index) => ({ name: `sida-${index + 1}.jpg`, mimeType: "image/jpeg", buffer: Buffer.from(base64, "base64") }));
+}
 
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
@@ -453,15 +529,145 @@ test("a reading with no dishes says so and gives tips", async ({ page }) => {
   await page.screenshot({ path: `${shots}/20-empty.png` });
 });
 
-test("Avbryt on the reading screen goes back to the start", async ({ page }) => {
+test("Avbryt on the reading screen goes back to the pages, with the photo still there", async ({ page }) => {
   await optionOn(page);
   await liveStream(page);
   await page.goto("/matsedel/menyer");
   await takePhoto(page);
   await expect(page.getByTestId("menu-reading")).toBeVisible();
   await page.getByRole("button", { name: "Avbryt" }).click();
-  await expect(page.getByRole("heading", { name: "Tolka menyn" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menyns sidor" })).toBeVisible();
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 1"]);
   await expect(page.locator("p[role=alert]")).toHaveCount(0);
+});
+
+test("several pages: a photo only adds a page, Läs menyn sends them all in one request, and the answer is one list", async ({ page }) => {
+  await optionOn(page);
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await addPages(page, photo);
+  // Nothing is read yet: the photo is page 1, and the main button is Läs menyn.
+  await expect(page.getByRole("heading", { name: "Menyns sidor", level: 1 })).toBeVisible();
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 1"]);
+  await expect(page.getByRole("img", { name: "Sida 1" })).toBeVisible();
+  await expect(page.getByTestId("menu-read")).toBeEnabled();
+  expect(await stream.pages()).toEqual([]);
+  await expect(page.getByTestId("menu-pages-cost")).toHaveText(/^Kostar ca 0,0\d kr för 1 sida\./);
+  // Two more from "Lägg till sida" (the file window takes several on a computer).
+  await addPages(page, ["tests/fixtures/ai/kyl-dorr.png", "tests/fixtures/ai/forrad.png"], page.getByTestId("menu-add-page"));
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 3", "Sida 2 av 3", "Sida 3 av 3"]);
+  await expect(page.getByTestId("menu-pages-cost")).toHaveText(/för 3 sidor/);
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
+  await page.screenshot({ path: `${shots}/06-pages-three.png` });
+  expect(await noSideScroll(page)).toBe(true);
+  // Move the last page first and back, remove one, add it again.
+  await page.getByRole("button", { name: "Flytta sida 3 bakåt" }).click();
+  await page.getByRole("button", { name: "Ta bort sida 1" }).click();
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 2", "Sida 2 av 2"]);
+  await addPages(page, photo, page.getByTestId("menu-add-page"));
+  await expect(page.getByTestId("menu-page-label")).toHaveCount(3);
+  expect(await stream.pages()).toEqual([]);
+  await page.getByTestId("menu-read").click();
+  await stream.push(readerLine, ...menu.ratter.slice(0, 3).map((dish, index) => ({ type: "dish", index, dish })), doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  expect(await stream.pages()).toEqual([3]);
+  await fullMenuTab(page).click();
+  await expect(page.getByText("Paella de marisco")).toHaveCount(1);
+});
+
+test("a page the reading could not read is named, and Ta om replaces just that page before Läs menyn reads again", async ({ page }) => {
+  await optionOn(page);
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await addPages(page, [photo, "tests/fixtures/ai/kyl-dorr.png", "tests/fixtures/ai/forrad.png"]);
+  await expect(page.getByTestId("menu-page-label")).toHaveCount(3);
+  await page.getByTestId("menu-read").click();
+  await stream.push(readerLine, doneLine({ ...menu, olasbara_sidor: [2] }));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(page.getByText("Sida 2 gick inte att läsa, så rätterna där saknas.")).toBeVisible();
+  await page.screenshot({ path: `${shots}/07-page-unreadable.png` });
+  await addPages(page, photo, page.getByRole("button", { name: "Ta om sida 2" }));
+  await expect(page.getByTestId("menu-page")).toHaveCount(3);
+  await expect(page.getByTestId("menu-page").nth(1)).toHaveAttribute("data-status", "ready");
+  expect(await stream.pages()).toEqual([3]);
+  await page.getByTestId("menu-read").click();
+  await expect.poll(stream.pages).toEqual([3, 3]);
+  await stream.push(readerLine, doneLine(menu));
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+  await expect(page.getByText(/gick inte att läsa/)).toHaveCount(0);
+});
+
+test("at most six pages: the seventh photo is left out with a word, and Lägg till sida is gone", async ({ page }) => {
+  await optionOn(page);
+  await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  const seven = ["kyl.png", "kyl-dorr.png", "forrad.png", "linas-kyckling.png", "kyl.png", "kyl-dorr.png", "forrad.png"].map((name, index) => ({
+    name: `sida-${index + 1}.png`,
+    mimeType: "image/png",
+    buffer: readFileSync(`tests/fixtures/ai/${name}`),
+  }));
+  await addPages(page, seven);
+  await expect(page.getByTestId("menu-page")).toHaveCount(6);
+  await expect(page.getByTestId("menu-pages").getByRole("alert")).toHaveText("Högst 6 sidor. En bild kom inte med.");
+  await expect(page.getByTestId("menu-add-page")).toHaveCount(0);
+  await expect(page.getByTestId("menu-pages-full")).toHaveText("Högst 6 sidor");
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
+  expect(await noSideScroll(page)).toBe(true);
+});
+
+test("Större text and the dark: Menyns sidor fits at 375 px, with 44 px buttons", async ({ page }) => {
+  await optionOn(page, "xl");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  await addPages(page, [photo, "tests/fixtures/ai/kyl-dorr.png", "tests/fixtures/ai/forrad.png"]);
+  await expect(page.getByTestId("menu-page-label")).toHaveText(["Sida 1 av 3", "Sida 2 av 3", "Sida 3 av 3"]);
+  await expect(page.getByTestId("menu-footer")).toBeInViewport();
+  await page.screenshot({ path: `${shots}/26-xl-dark-pages.png` });
+  expect(await noSideScroll(page)).toBe(true);
+  for (const name of ["Flytta sida 2 bakåt", "Flytta sida 2 framåt", "Ta bort sida 2"]) {
+    const box = await page.getByRole("button", { name }).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+  }
+  expect((await page.getByTestId("menu-add-page").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
+
+test("six phone-sized photos fit one request under the limit (4 MiB, Vercel's is 4.5 MB)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await optionOn(page);
+  const stream = await liveStream(page);
+  await page.goto("/matsedel/menyer");
+  const photos = await phonePhotos(page, 6);
+  const rounds = [[1, photos.slice(0, 1)], [3, photos.slice(0, 3)], [6, photos]] as const;
+  for (const [round, [count, files]] of rounds.entries()) {
+    await addPages(page, [...files]);
+    await expect(page.getByTestId("menu-read")).toBeEnabled({ timeout: 30_000 });
+    await expect(page.getByTestId("menu-page-label")).toHaveCount(count);
+    await page.getByTestId("menu-read").click();
+    await expect.poll(async () => (await stream.pages()).length, { timeout: 30_000 }).toBe(round + 1);
+    await stream.push(readerLine, doneLine(menu));
+    await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
+    await page.getByRole("button", { name: "Tolka menyn" }).click();
+  }
+  const bodies = await stream.bodies();
+  expect(await stream.pages()).toEqual([1, 3, 6]);
+  console.info("menu request bytes for 1, 3 and 6 pages", bodies, "photo bytes", photos.map((file) => file.buffer.length));
+  for (const bytes of bodies) expect(bytes).toBeLessThanOrEqual(4 * 1024 * 1024);
+});
+
+test("the real route and the mock AI: three pages are read in one go, and a page that could not be read is named", async ({ page }) => {
+  await optionOn(page);
+  await page.goto("/matsedel/menyer");
+  // The mock reads a later page that is a reserved image as unreadable, and gives its one menu for the rest.
+  await addPages(page, [photo, "tests/fixtures/ai/reserved-ai_invalid.png", "tests/fixtures/ai/forrad.png"]);
+  await expect(page.getByTestId("menu-page-label")).toHaveCount(3);
+  const answered = page.waitForResponse((response) => response.url().includes("/api/menu/read"));
+  await page.getByTestId("menu-read").click();
+  expect((await answered).status()).toBe(200);
+  // Page 2 can only be named when the server got all three pages, in order.
+  await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Sida 2 gick inte att läsa, så rätterna där saknas.")).toBeVisible();
 });
 
 test("Större text: the start, the reading, the answer and Ert val fit at 375 px", async ({ page }) => {

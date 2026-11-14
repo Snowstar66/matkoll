@@ -9,18 +9,18 @@ import type { MenuStreamEvent } from "../domain/reading";
  * reading is never paid for twice. A stream that is buffered along the way still ends in the final `done` line.
  */
 export async function readMenuWithFallback(
-  photo: Blob,
+  photos: readonly Blob[],
   quality: "standard" | "careful",
   signal: AbortSignal,
   onEvent: (event: MenuStreamEvent) => void,
 ): Promise<AiCallResult<MenuReading>> {
   let started = false;
-  const live = await readMenuPhotoLive(photo, quality, signal, (event) => {
+  const live = await readMenuPhotoLive(photos, quality, signal, (event) => {
     started = true;
     onEvent(event);
   });
   if (live.ok || started) return live;
   if ("aborted" in live || signal.aborted) return live;
   if (live.error?.code !== "ai_unavailable") return live;
-  return readMenuPhoto(photo, quality, signal);
+  return readMenuPhoto(photos, quality, signal);
 }

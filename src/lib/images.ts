@@ -36,6 +36,22 @@ export const imageSideTolerance = 16;
 /** Largest photo the server takes: 1.5 MB. */
 export const maxImageBytes = 1.5 * 1024 * 1024;
 
+/**
+ * Tolka menyn: a menu is read from one to this many photos (its pages), all sent in one request and read in one
+ * AI call. Six covers a menu of a few folded sheets; more is rarely one menu.
+ */
+export const maxMenuPages = 6;
+
+/**
+ * Tolka menyn: the largest request with the pages of a menu. Vercel refuses a function's request body over 4.5 MB
+ * (FUNCTION_PAYLOAD_TOO_LARGE, before the route runs), so the route takes at most 4 MiB (4 194 304 bytes) and the
+ * client fits the photos to menuPhotosBudgetBytes, which leaves room for the form's own headers and fields.
+ */
+export const maxMenuBodyBytes = 4 * 1024 * 1024;
+
+/** What the photos of one menu reading may weigh together; the client makes larger pages smaller to fit. */
+export const menuPhotosBudgetBytes = maxMenuBodyBytes - 64 * 1024;
+
 /** The image types the AI port takes. */
 export const imageMediaTypes = ["image/jpeg", "image/png", "image/webp"] as const;
 export type ImageMediaType = (typeof imageMediaTypes)[number];

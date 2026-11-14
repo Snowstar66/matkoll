@@ -2,13 +2,16 @@ import { requireUserForRoute } from "@/features/auth/server";
 import { formatMenuStreamLine, menuReaderOf, menuStreamContentType, normalizeMenu, type MenuReading, type MenuStreamEvent } from "@/features/menu-advisor";
 import { getAiServiceForUser } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
-import { maxPlacePhotoSide } from "@/lib/images";
+import { maxMenuBodyBytes, maxMenuPages, maxPlacePhotoSide } from "@/lib/images";
 import type { MenuProgress, ReadMenuInput } from "@/server/ai";
-import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../ai/route-support";
+import { isCrossSite, mediaTypeOf, readImagesForm, respond } from "../../ai/route-support";
 
-// Menyrådgivare: a photo of a restaurant menu, read by the AI port's readMenu (AD-9). multipart/form-data with the
-// resized photo in the field `image` (one photo for now: readImageForm reads one; the port takes up to three) and
-// optionally the text field `quality` ("standard" or "careful"). The answer is the menu after normalizeMenu (the
+// Menyrådgivare: photos of a restaurant menu, read by the AI port's readMenu (AD-9). multipart/form-data with one to
+// maxMenuPages resized photos, each in a field `image`, in page order (the pages of one menu, read together in ONE
+// AI call that gives one list of dishes), and optionally the text field `quality` ("standard" or "careful"). The
+// whole body is at most maxMenuBodyBytes (4 MiB, under Vercel's 4.5 MB); every photo is checked as one is elsewhere
+// (type by its bytes, at most 1.5 MB and 2048 px). A page the model could not read at all is named in the menu's
+// `olasbara_sidor` (1 = the first photo); the other pages are read all the same. The answer is the menu after normalizeMenu (the
 // currency symbol on the menu wins over the model's currency): `{ menu, quality, escalated, model, effort }` (model
 // and effort say who read it: "Haiku 5.5" · "låg"). The call goes through getAiServiceForUser, so the household's
 // daily cap is asked first (`ai_cap_reached`) and the usage is counted. The photo is only held in memory: never
@@ -32,11 +35,11 @@ export async function POST(request: Request): Promise<Response> {
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
   // Small print needs more pixels than a list: the same side as a photo of a place.
-  const form = await readImageForm(request, ["quality"], { maxSide: maxPlacePhotoSide });
+  const form = await readImagesForm(request, ["quality"], { maxSide: maxPlacePhotoSide, maxBodyBytes: maxMenuBodyBytes, maxImages: maxMenuPages });
   if (!form.ok) return form.response;
   const { quality } = form.fields;
   if (quality !== null && quality !== "standard" && quality !== "careful") return respond(fail("validation"), 400);
-  const input: ReadMenuInput = { images: [form.image], quality: quality === "careful" ? "careful" : quality === "standard" ? "standard" : undefined };
+  const input: ReadMenuInput = { images: form.images, quality: quality === "careful" ? "careful" : quality === "standard" ? "standard" : undefined };
 
   if (new URL(request.url).searchParams.get("stream") === "1") return streamReading(request, input);
 

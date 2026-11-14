@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { cx } from "@/components/cx";
 import { InfoIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
@@ -49,6 +50,7 @@ export function AnswerScreen({
   totals,
   filtered,
   uncertain,
+  pagesNotice,
   reader,
   canReadCarefully,
   error,
@@ -67,6 +69,8 @@ export function AnswerScreen({
   /** Someone ticked has an allergy: false shows the sand box that nothing is sorted out, with a way to add one. */
   filtered: boolean;
   uncertain: readonly string[];
+  /** A menu on several photos: which pages could not be read, with "Ta om" (the advisor makes it). */
+  pagesNotice?: ReactNode;
   reader: MenuReader | null;
   canReadCarefully: boolean;
   error: string | null;
@@ -95,6 +99,7 @@ export function AnswerScreen({
         </div>
       )}
       {error ? <Notice role="alert">{error}</Notice> : null}
+      {pagesNotice}
       <div className="flex flex-col gap-5">
         {company.map((person, index) => {
           const mine = options.find((entry) => entry.personId === person.id)?.options ?? [];

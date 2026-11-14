@@ -1100,7 +1100,7 @@ export const maxMenuDishes = 150;
 const menuAllergenList = ["gluten", "laktos", "notter", "skaldjur", "agg", "fisk", "soja", "sesam"] as const;
 
 /**
- * What the model answers to readMenu: a restaurant menu on one to three photos, dish by dish. The field names are
+ * What the model answers to readMenu: a restaurant menu on one to six photos (its pages), dish by dish. The field names are
  * Swedish, as the prompt asks. The currency code of a row is checked against `valutasymbol_pa_menyn` by the
  * caller (the menu-advisor domain), not here.
  */
@@ -1122,6 +1122,11 @@ export const menuAnswer = z.object({
   valutasymbol_pa_menyn: z.string().nullable().describe('Symbolen priserna står med på menyn: "€", "kr", "£", "$"; null om ingen syns'),
   ratter: z.array(menuDishAnswer),
   osakert: z.array(z.string()),
+  // Tolka menyn with several photos: the pages that could not be read at all, so the person can take them again.
+  olasbara_sidor: z
+    .array(z.number())
+    .default([])
+    .describe("Numren (1 = första bilden) på bilder som inte gick att läsa alls: för suddiga, för mörka eller ingen meny. Tom lista om alla gick att läsa"),
 });
 
 export type MenuAnswer = z.output<typeof menuAnswer>;
@@ -1137,17 +1142,45 @@ export function cleanMenuDish(dish: MenuDishAnswer): MenuDishAnswer {
   };
 }
 
-/** The answer with at most maxMenuDishes dishes, those without a name dropped, and every text cleaned. */
-export function parseMenu(answer: MenuAnswer): MenuAnswer {
+/** What makes two rows the same dish: the name (case, accents and spacing aside), the group and the price. */
+function menuDishKey(dish: MenuDishAnswer): string {
+  const name = dish.originalnamn.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase("sv").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return `${name}|${dish.grupp}|${dish.pris ?? ""}`;
+}
+
+/**
+ * The dishes with a row that repeats an earlier one dropped (the same dish on two photos: a page taken twice, or
+ * two photos that overlap). The first is kept, so the list read so far never changes as more is written; the same
+ * name at another price or in another group (a glass and a bottle) is another row.
+ */
+export function uniqueMenuDishes(dishes: readonly MenuDishAnswer[]): MenuDishAnswer[] {
+  const seen = new Set<string>();
+  return dishes.filter((dish) => {
+    const key = menuDishKey(dish);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** The page numbers as whole numbers from 1 (to `pages` when given), once each, in order. */
+export function unreadablePages(numbers: readonly number[], pages?: number): number[] {
+  const valid = numbers.filter((page) => Number.isInteger(page) && page >= 1 && (pages === undefined || page <= pages));
+  return [...new Set(valid)].sort((a, b) => a - b);
+}
+
+/**
+ * The answer with at most maxMenuDishes dishes, those without a name dropped, a dish seen twice kept once
+ * (uniqueMenuDishes), every text cleaned, and the unreadable pages as whole page numbers (up to `pages`).
+ */
+export function parseMenu(answer: MenuAnswer, pages?: number): MenuAnswer {
   const clean = (value: string) => cleanModelText(value);
   return {
     ...answer,
     restaurang: answer.restaurang === null ? null : clean(answer.restaurang) || null,
     osakert: answer.osakert.map(clean).filter((note) => note !== ""),
-    ratter: answer.ratter
-      .map(cleanMenuDish)
-      .filter((dish) => dish.originalnamn !== "")
-      .slice(0, maxMenuDishes),
+    ratter: uniqueMenuDishes(answer.ratter.map(cleanMenuDish).filter((dish) => dish.originalnamn !== "")).slice(0, maxMenuDishes),
+    olasbara_sidor: unreadablePages(answer.olasbara_sidor ?? [], pages),
   };
 }
 
