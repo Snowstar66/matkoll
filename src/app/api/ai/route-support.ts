@@ -157,23 +157,72 @@ export async function readImageForm<Field extends string>(
   } catch {
     return failed(respond(fail("validation")));
   }
-  const file = form.get("image");
-  if (!(file instanceof Blob) || file.size === 0) return failed(respond(fail("validation")));
-  if (file.size > maxImageBytes) return failed(respond(fail("image_too_large")));
+  const image = await checkedImage(form.get("image"), maxSide);
+  if (!image.ok) return failed(image.response);
+  return { ok: true, image: image.image, fields: fieldsOf(form, fields) };
+}
 
-  const data = new Uint8Array(await file.arrayBuffer());
-  // The type and the size in pixels come from the bytes, whatever the client says.
-  const mediaType = imageTypeOf(data);
-  const size = imageSizeOf(data);
-  if (!mediaType || !size) return failed(respond(fail("image_unsupported")));
-  // The client resizes to maxSide; a larger image did not come through it.
-  if (Math.max(size.width, size.height) > maxSide + imageSideTolerance) return failed(respond(fail("image_too_large")));
-
-  const values = Object.fromEntries(
+/** The text `fields` of a form (`null` when missing or not text). */
+function fieldsOf<Field extends string>(form: FormData, fields: readonly Field[]): Record<Field, string | null> {
+  return Object.fromEntries(
     fields.map((field) => {
       const value = form.get(field);
       return [field, typeof value === "string" ? value : null];
     }),
   ) as Record<Field, string | null>;
-  return { ok: true, image: { data, mediaType }, fields: values };
+}
+
+/**
+ * One photo of a form, checked as readImageForm checks it (AD-15): a non-empty file (400 `validation`), at most
+ * 1.5 MB (413), a JPEG, PNG or WebP by its first bytes (415) and at most `maxSide` (with imageSideTolerance) on its
+ * longest side by its header (413).
+ */
+async function checkedImage(file: FormDataEntryValue | null, maxSide: number): Promise<{ ok: true; image: FormImage } | { ok: false; response: Response }> {
+  if (!(file instanceof Blob) || file.size === 0) return { ok: false, response: respond(fail("validation")) };
+  if (file.size > maxImageBytes) return { ok: false, response: respond(fail("image_too_large")) };
+
+  const data = new Uint8Array(await file.arrayBuffer());
+  // The type and the size in pixels come from the bytes, whatever the client says.
+  const mediaType = imageTypeOf(data);
+  const size = imageSizeOf(data);
+  if (!mediaType || !size) return { ok: false, response: respond(fail("image_unsupported")) };
+  // The client resizes to maxSide; a larger image did not come through it.
+  if (Math.max(size.width, size.height) > maxSide + imageSideTolerance) return { ok: false, response: respond(fail("image_too_large")) };
+  return { ok: true, image: { data, mediaType } };
+}
+
+export type ImagesForm<Field extends string> =
+  | { ok: true; images: FormImage[]; fields: Record<Field, string | null> }
+  | { ok: false; response: Response };
+
+/**
+ * Tolka menyn: a multipart/form-data body with one to `maxImages` photos, each in a field `image`, in the order the
+ * client put them (the pages of one menu). The body is at most `maxBodyBytes` (413 `image_too_large`); no photo, or
+ * more than `maxImages`, is 400 `validation`; every photo is checked as readImageForm checks its one. Gives the
+ * photos and the text `fields`, or the error response to send. The photos are only held in memory.
+ */
+export async function readImagesForm<Field extends string>(
+  request: Request,
+  fields: readonly Field[],
+  { maxSide, maxBodyBytes, maxImages }: { maxSide: number; maxBodyBytes: number; maxImages: number },
+): Promise<ImagesForm<Field>> {
+  const failed = (response: Response) => ({ ok: false as const, response });
+  const read = await readCapped(request, maxBodyBytes);
+  if (!read.ok) return failed(read.reason === "too_large" ? respond(fail("image_too_large")) : unreadBody(read.reason));
+
+  let form: FormData;
+  try {
+    form = await new Response(read.bytes, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+  } catch {
+    return failed(respond(fail("validation")));
+  }
+  const files = form.getAll("image");
+  if (files.length === 0 || files.length > maxImages) return failed(respond(fail("validation")));
+  const images: FormImage[] = [];
+  for (const file of files) {
+    const image = await checkedImage(file, maxSide);
+    if (!image.ok) return failed(image.response);
+    images.push(image.image);
+  }
+  return { ok: true, images, fields: fieldsOf(form, fields) };
 }

@@ -3,11 +3,13 @@ import { Chip } from "@/components/chip";
 import { CameraIcon } from "@/components/icons";
 import type { Person } from "../domain/profile";
 import { CompanyRows } from "./company-rows";
-import { BigButton, Headline, StickyFooter, TopBack } from "./journey-parts";
+import { BigButton, Headline, StickyFooter, TextLink, TopBack } from "./journey-parts";
 
 /**
  * Steps 1 and 2, "Tolka menyn": the back link to Matsedel, the title and one sentence, who eats (the rows straight on
- * the page), and at the bottom one button, Fota menyn. Errors are not shown here: they have screens of their own.
+ * the page), and at the bottom one button, Fota menyn (the camera on a phone), with "Välj från album" under it on a
+ * phone. A photo only becomes the menu's first page; nothing is read until "Läs menyn". Errors are not shown here:
+ * they have screens of their own.
  */
 export function StartScreen({
   people,
@@ -15,6 +17,7 @@ export function StartScreen({
   onToggle,
   tonightCount,
   onPhoto,
+  onAlbum,
   onTonight,
   slot,
 }: {
@@ -23,6 +26,8 @@ export function StartScreen({
   onToggle: (personId: string) => void;
   tonightCount: number;
   onPhoto: () => void;
+  /** "Välj från album": one or several photos from the library (a phone only; on a computer Fota menyn is the file window). */
+  onAlbum?: () => void;
   onTonight: () => void;
   /** A quiet link the route layer puts under the button ("Inte på plats än? Sök restauranger"); features do not import each other (AD-1). */
   slot?: ReactNode;
@@ -42,6 +47,11 @@ export function StartScreen({
           <CameraIcon size={22} />
           Fota menyn
         </BigButton>
+        {onAlbum ? (
+          <TextLink data-testid="menu-album" onClick={onAlbum}>
+            Välj från album
+          </TextLink>
+        ) : null}
         {slot}
       </StickyFooter>
     </div>

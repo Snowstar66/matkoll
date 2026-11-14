@@ -6,9 +6,11 @@ import { useOption } from "@/lib/use-option";
 import { cleanMenuText } from "@/features/menu-advisor";
 import { MenuAdvisor } from "@/features/menu-advisor/ui/menu-advisor";
 import { RestaurantFlow } from "@/features/restaurant-agent/ui";
+import { menuReadCostText } from "./menu-read-cost";
 import { restaurantActions, restaurantCostText } from "./restaurant-agent-actions";
 
-// The route layer's composition (AD-1): Menyrådgivaren with a quiet link to Sök restauranger under its photo button.
+// The route layer's composition (AD-1): Menyrådgivaren with a quiet link to Sök restauranger under its photo button,
+// and what a reading of the photographed pages costs (menuReadCostText, from the price table in Inställningar).
 // The link shows only with the Tillval Äta ute on; one tap swaps the screen for the agent's journey. "Ta bild" there
 // comes back to the advisor's start (the photo way). A menu found as text goes on to the advisor, which reads it as it
 // would a photo; nothing but that text (cleaned and cut to the advisor's limit) is handed over, never the place.
@@ -68,6 +70,7 @@ export function MenuWithRestaurants({
       profiles={profiles}
       canRaiseCap={canRaiseCap}
       startWithMenuText={menuText ?? undefined}
+      costText={menuReadCostText}
       startSlot={<RestaurantSearchLink onOpen={() => (setMenuText(null), setAgent(true))} />}
     />
   );

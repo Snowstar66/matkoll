@@ -85,6 +85,43 @@ describe("POST /api/menu/read", () => {
     expect((await POST(request({ body: new FormData() }))).status).toBe(400);
     expect(readMenu).not.toHaveBeenCalled();
   });
+
+  it("reads the pages of one menu in one call, in order, and passes the unreadable pages on", async () => {
+    readMenu.mockResolvedValue(ok({ ...answer, menu: { ...answer.menu, olasbara_sidor: [2] } }));
+    const form = new FormData();
+    for (let page = 0; page < 3; page++) form.append("image", new Blob([png as BlobPart], { type: "image/png" }), `menu-${page + 1}.png`);
+    const response = await POST(request({ body: form }));
+    expect(response.status).toBe(200);
+    expect(readMenu).toHaveBeenCalledTimes(1);
+    expect(readMenu.mock.calls[0]![0].images).toHaveLength(3);
+    expect(await response.json()).toMatchObject({ ok: true, data: { menu: { olasbara_sidor: [2] } } });
+  });
+
+  it("takes six pages, refuses a seventh and a page that is not an image, without asking the AI", async () => {
+    const pages = (count: number, last?: Blob) => {
+      const form = new FormData();
+      for (let page = 0; page < count; page++) form.append("image", new Blob([png as BlobPart], { type: "image/png" }), "menu.png");
+      if (last) form.append("image", last, "x.png");
+      return form;
+    };
+    expect((await POST(request({ body: pages(6) }))).status).toBe(200);
+    expect(readMenu).toHaveBeenCalledTimes(1);
+    expect((await POST(request({ body: pages(7) }))).status).toBe(400);
+    expect((await POST(request({ body: pages(2, new Blob(["not an image"], { type: "image/png" })) }))).status).toBe(415);
+    expect(readMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a body over 4 MiB (Vercel's limit is 4.5 MB) as image_too_large", async () => {
+    const form = new FormData();
+    for (let page = 0; page < 3; page++) form.append("image", new Blob([new Uint8Array(1_450_000)], { type: "image/jpeg" }), "menu.jpg");
+    // Written out first, so the body is one piece (a FormData stream cut off mid-way upsets undici in a test).
+    const encoded = new Response(form);
+    const bytes = new Uint8Array(await encoded.arrayBuffer());
+    const response = await POST(new Request(url, { method: "POST", body: bytes, headers: { "content-type": encoded.headers.get("content-type")! } }));
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ ok: false, error: { code: "image_too_large" } });
+    expect(readMenu).not.toHaveBeenCalled();
+  });
 });
 
 async function lines(response: Response): Promise<{ type: string; [key: string]: unknown }[]> {

@@ -264,7 +264,7 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 /**
  * The photo as it is sent: a JPEG of at most `maxSide` px on the longest side
  * (maxImageSide, 1600, unless given) and
- * at most 1.5 MB, from `quality` (0.85 unless given) down to lower ones until it fits. A PNG that already
+ * at most 1.5 MB (or `maxBytes`, when smaller), from `quality` (0.85 unless given) down to lower ones until it fits. A PNG that already
  * fits, and that the browser shows at the size in its header (no rotation),
  * is sent with only its image chunks (stripPngMetadata: no text, EXIF or
  * time), since re-encoding only loses detail; one whose chunks cannot be
@@ -275,8 +275,10 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
  */
 export async function downscaleImage(
   file: Blob,
-  { maxSide = maxImageSide, quality }: { maxSide?: number; quality?: number } = {},
+  { maxSide = maxImageSide, quality, maxBytes = maxImageBytes }: { maxSide?: number; quality?: number; maxBytes?: number } = {},
 ): Promise<Result<Blob>> {
+  // A smaller limit may be asked for (the pages of one menu share one request); never a larger one.
+  const limit = Math.min(maxBytes, maxImageBytes);
   const head = new Uint8Array(await file.slice(0, headerBytes).arrayBuffer());
   const type = imageTypeOf(head);
   const stored = imageSizeOf(head);
@@ -306,7 +308,7 @@ export async function downscaleImage(
 
     const unturnedPng =
       type === "image/png" && stored !== null && stored.width === decoded.width && stored.height === decoded.height;
-    if (unturnedPng && target.width === width && target.height === height && file.size <= maxImageBytes) {
+    if (unturnedPng && target.width === width && target.height === height && file.size <= limit) {
       const stripped = stripPngMetadata(new Uint8Array(await file.arrayBuffer()));
       if (stripped) return ok(new Blob([stripped as BlobPart], { type: "image/png" }));
     }
@@ -324,7 +326,7 @@ export async function downscaleImage(
     for (const tried of qualitiesFrom(quality)) {
       const blob = await toJpeg(canvas, tried);
       if (!blob) return fail("image_too_large");
-      if (blob.size <= maxImageBytes) return ok(blob);
+      if (blob.size <= limit) return ok(blob);
     }
     return fail("image_too_large");
   } finally {

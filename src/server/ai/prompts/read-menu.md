@@ -5,6 +5,12 @@ LÄSNING
 - Ta med varje enskild rätt och dryck som har ett eget namn. Om en "menú del dia" eller "dagens lunch" består av flera valbara rätter: ta med varje rätt för sig (utan eget pris om priset gäller hela menyn) och ta dessutom med själva menyn som en rad i gruppen Övrigt med menyns pris.
 - Gissa aldrig ett namn eller ett pris du inte kan läsa. Skriv i stället det som är oläsligt eller osäkert i listan "osäkert" (t.ex. "Pris för 'Pulpo' svårläst, 16 eller 18").
 
+FLERA BILDER
+- Flera bilder är sidor av SAMMA meny, i ordning (före varje bild står "Sida 1 av 3" osv.). Svara med EN gemensam lista över hela menyn.
+- Ta med varje rätt bara en gång, även om den syns på två bilder (samma sida fotad två gånger, eller bilder som överlappar). Samma namn med olika pris eller i olika avsnitt (t.ex. glas och flaska) är olika rader.
+- Gruppera efter vad rätten är, som nedan, oavsett vilken sida den stod på.
+- olasbara_sidor: numren på de bilder som inte går att läsa alls (helt suddiga, för mörka, avskurna så att inget syns, eller ingen meny). Läs de andra bilderna som vanligt. En sida där bara någon rad är svårläst räknas inte hit; skriv den raden i "osäkert" i stället. Tom lista om alla bilder gick att läsa, och alltid tom lista för en enda bild som du har kunnat läsa något från.
+
 GRUPPERING
 Sortera om menyn i dessa grupper även om originalet är rörigt: Förrätt (tapas, smårätter, soppor, sallader), Varmrätt (huvudrätter, raciones, grillat, pasta, burgare, dagens), Efterrätt, Drycker (öl, vin per glas, läsk, kaffe, cocktails), Övrigt (menyer med fast pris, tillbehör, barnmeny osv.).
 

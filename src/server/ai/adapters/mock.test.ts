@@ -638,6 +638,14 @@ describe("mock readMenu (Menyrådgivare)", () => {
     expect(await service.readMenu({ images: [photo(`reserved-${code}.png`)] }, signal())).toMatchObject({ ok: false, error: { code } });
   });
 
+  it("reads several pages as one menu, and names a later page that is a reserved image as unreadable", async () => {
+    const result = await service.readMenu({ images: [photo("kyl.png"), photo("reserved-ai_invalid.png"), photo("forrad.png")] }, signal());
+    expect(result.ok && result.data.menu.ratter).toHaveLength(4);
+    expect(result.ok && result.data.menu.olasbara_sidor).toEqual([2]);
+    const clear = await service.readMenu({ images: [photo("kyl.png"), photo("forrad.png")] }, signal());
+    expect(clear.ok && clear.data.menu.olasbara_sidor).toEqual([]);
+  });
+
   it("is ai_unavailable for a call that is stopped", async () => {
     const controller = new AbortController();
     controller.abort();

@@ -27,6 +27,8 @@ export type Menu = {
   sprak: "sv" | "en" | "es" | "annat";
   ratter: MenuDish[];
   osakert: string[];
+  /** A menu read from several photos: the pages (1 = the first photo) that could not be read at all. Missing or empty when every page was read. */
+  olasbara_sidor?: number[];
 };
 
 /** A reading as the AI port answers it: before normalizeMenu. */

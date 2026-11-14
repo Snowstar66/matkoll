@@ -31,22 +31,34 @@ describe("readMenuPhotoLive", () => {
     const fetchMock = vi.fn<typeof fetch>(async () => streamOf([lines[0]!, lines[1]!.slice(0, 15), lines[1]!.slice(15) + lines[2]!]));
     vi.stubGlobal("fetch", fetchMock);
     const seen: MenuStreamEvent[] = [];
-    const result = await readMenuPhotoLive(photo, "standard", new AbortController().signal, (event) => seen.push(event));
+    const result = await readMenuPhotoLive([photo], "standard", new AbortController().signal, (event) => seen.push(event));
     expect(seen.map((event) => event.type)).toEqual(["reading", "dish", "done"]);
     expect(result).toMatchObject({ ok: true, data: { quality: "standard", model: "Haiku 5.5", effort: "låg", menu: { ratter: [{ originalnamn: "Pulpo" }] } } });
     expect(fetchMock.mock.calls[0]![0]).toBe("/api/menu/read?stream=1");
   });
 
+  it("sends every page as a field image, in order, with the quality", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => streamOf([formatMenuStreamLine({ type: "done", menu, quality: "careful", escalated: false, model: "Sonnet 5.5", effort: "medel" })]));
+    vi.stubGlobal("fetch", fetchMock);
+    const pages = [new Blob(["a"], { type: "image/jpeg" }), new Blob(["bb"], { type: "image/jpeg" }), new Blob(["ccc"], { type: "image/jpeg" })];
+    await readMenuPhotoLive(pages, "careful", new AbortController().signal, () => {});
+    const body = fetchMock.mock.calls[0]![1]!.body as FormData;
+    const sent = body.getAll("image") as File[];
+    expect(sent.map((file) => file.size)).toEqual([1, 2, 3]);
+    expect(sent.map((file) => file.name)).toEqual(["menu-1.jpg", "menu-2.jpg", "menu-3.jpg"]);
+    expect(body.get("quality")).toBe("careful");
+  });
+
   it("fails with the code of an error line, and with ai_unavailable when the stream stops without an end", async () => {
     vi.stubGlobal("fetch", async () => streamOf([formatMenuStreamLine({ type: "error", code: "ai_invalid" })]));
-    expect(await readMenuPhotoLive(photo, "standard", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(await readMenuPhotoLive([photo], "standard", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
     vi.stubGlobal("fetch", async () => streamOf([formatMenuStreamLine({ type: "language", sprak: "es" })]));
-    expect(await readMenuPhotoLive(photo, "standard", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(await readMenuPhotoLive([photo], "standard", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
   });
 
   it("reads a plain JSON failure (the cap) as the usual result", async () => {
     vi.stubGlobal("fetch", async () => Response.json({ ok: false, error: { code: "ai_cap_reached", message: "x" } }, { status: 429 }));
-    expect(await readMenuPhotoLive(photo, "careful", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
+    expect(await readMenuPhotoLive([photo], "careful", new AbortController().signal, () => {})).toMatchObject({ ok: false, error: { code: "ai_cap_reached" } });
   });
 
   it("is aborted when the caller stops it", async () => {
@@ -55,6 +67,6 @@ describe("readMenuPhotoLive", () => {
       controller.abort();
       throw new DOMException("aborted", "AbortError");
     });
-    expect(await readMenuPhotoLive(photo, "standard", controller.signal, () => {})).toEqual({ ok: false, aborted: true });
+    expect(await readMenuPhotoLive([photo], "standard", controller.signal, () => {})).toEqual({ ok: false, aborted: true });
   });
 });

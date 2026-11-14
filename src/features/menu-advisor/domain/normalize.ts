@@ -30,7 +30,8 @@ function dominantCurrency(dishes: readonly MenuDish[]): string | null {
  * Cleans a reading: the currency comes from the symbol printed on the menu when the model saw one (the symbol
  * wins over a row's own currency: a menu with €17.95 has been read as SEK), else from the row, else from the
  * menu's most common one; a row without a price has no currency. Prices that are not finite and positive become
- * null. Allergens are deduplicated, and one in `allergener` is not repeated in `kan_innehalla`.
+ * null. Allergens are deduplicated, and one in `allergener` is not repeated in `kan_innehalla`. The unreadable pages
+ * of a reading from several photos are kept (left out when there are none).
  */
 export function normalizeMenu(raw: RawMenu): Menu {
   const symbolCurrency = currencyFromText(raw.valutasymbol_pa_menyn);
@@ -47,5 +48,6 @@ export function normalizeMenu(raw: RawMenu): Menu {
       valuta: pris === null ? null : (symbolCurrency ?? own ?? fallback),
     };
   });
-  return { restaurang: raw.restaurang, sprak: raw.sprak, ratter, osakert: raw.osakert };
+  const unreadable = raw.olasbara_sidor ?? [];
+  return { restaurang: raw.restaurang, sprak: raw.sprak, ratter, osakert: raw.osakert, ...(unreadable.length > 0 ? { olasbara_sidor: [...unreadable] } : {}) };
 }

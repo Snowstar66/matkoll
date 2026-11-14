@@ -61,8 +61,10 @@ afterEach(() => vi.unstubAllGlobals());
 const user = () => userEvent.setup();
 const photoFile = () => new File(["x"], "menu.jpg", { type: "image/jpeg" });
 
+/** A photo only adds a page: "Läs menyn" starts the reading. */
 async function readPhoto(u: ReturnType<typeof userEvent.setup>) {
   await u.upload(screen.getByTestId("menu-file"), photoFile());
+  await u.click(await screen.findByRole("button", { name: "Läs menyn" }));
 }
 
 async function toAnswer(u: ReturnType<typeof userEvent.setup>) {
@@ -282,19 +284,22 @@ describe("a reading", () => {
     render(<MenuAdvisor />);
     await readPhoto(u);
     await u.click(await screen.findByRole("button", { name: "Avbryt" }));
-    expect(await screen.findByTestId("menu-photo")).toBeInTheDocument();
+    // Back to the pages it was started from, with the photo still there.
+    expect(await screen.findByTestId("menu-pages")).toBeInTheDocument();
+    expect(screen.getAllByTestId("menu-page")).toHaveLength(1);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("fails with the photo's own error when it cannot be decoded", async () => {
+  it("a photo that cannot be decoded is a page with its own error and Ta om; nothing is read", async () => {
     downscaleImage.mockResolvedValue(fail("image_unsupported"));
     const u = user();
     render(<MenuAdvisor />);
-    await readPhoto(u);
-    const stop = await screen.findByTestId("menu-stop");
-    expect(stop).toHaveTextContent(errorMessages.image_unsupported);
-    expect(within(stop).queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
-    expect(within(stop).getByRole("button", { name: "Fota om" })).toBeInTheDocument();
+    await u.upload(screen.getByTestId("menu-file"), photoFile());
+    const page = await screen.findByTestId("menu-page");
+    await waitFor(() => expect(page).toHaveAttribute("data-status", "trouble"));
+    expect(page).toHaveTextContent(errorMessages.image_unsupported);
+    expect(within(page).getByRole("button", { name: "Ta om sida 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Läs menyn" })).toBeDisabled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -336,6 +341,117 @@ describe("a reading", () => {
     await u.click(screen.getByRole("button", { name: "Läs noggrannare" }));
     await u.click(await screen.findByRole("button", { name: "Avbryt" }));
     expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
+  });
+});
+
+describe("the pages of a menu", () => {
+  // Each photo's bytes say which file it was, so the order sent can be read back.
+  beforeEach(() => {
+    downscaleImage.mockImplementation(async (file) => ok(new Blob([(file as File).name], { type: "image/jpeg" })));
+  });
+  const files = (...names: string[]) => names.map((name) => new File(["x"], name, { type: "image/jpeg" }));
+  const sentNames = async (call: number) => Promise.all(((fetchMock.mock.calls[call]![1].body as FormData).getAll("image") as Blob[]).map((blob) => blob.text()));
+  const labels = () => screen.getAllByTestId("menu-page-label").map((label) => label.textContent);
+
+  it("a photo only adds a page: nothing is read until Läs menyn, which sends every page in order in one call", async () => {
+    const u = user();
+    render(<MenuAdvisor costText={(pages) => `Kostar ca 0,01 kr för ${pages} sidor`} />);
+    await u.upload(screen.getByTestId("menu-file"), files("a.jpg"));
+    expect(await screen.findByRole("heading", { name: "Menyns sidor", level: 1 })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Läs menyn" })).toBeEnabled());
+    expect(labels()).toEqual(["Sida 1 av 1"]);
+    expect(screen.getByRole("img", { name: "Sida 1" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("menu-add-page")).toHaveTextContent("Lägg till sida");
+    // The next pages: Lägg till sida opens the same input; two at once from the album.
+    await u.click(screen.getByTestId("menu-add-page"));
+    await u.upload(screen.getByTestId("menu-file"), files("b.jpg", "c.jpg"));
+    await waitFor(() => expect(labels()).toEqual(["Sida 1 av 3", "Sida 2 av 3", "Sida 3 av 3"]));
+    await waitFor(() => expect(screen.getByTestId("menu-pages-cost")).toHaveTextContent("Kostar ca 0,01 kr för 3 sidor"));
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Move the last page first, then remove the (now) second.
+    await u.click(screen.getByRole("button", { name: "Flytta sida 3 bakåt" }));
+    await u.click(screen.getByRole("button", { name: "Flytta sida 2 bakåt" }));
+    expect(screen.getByRole("button", { name: "Flytta sida 1 bakåt" })).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Ta bort sida 2" }));
+    expect(labels()).toEqual(["Sida 1 av 2", "Sida 2 av 2"]);
+    await u.click(screen.getByRole("button", { name: "Läs menyn" }));
+    await screen.findByTestId("menu-answer");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await sentNames(0)).toEqual(["c.jpg", "b.jpg"]);
+  });
+
+  it("takes at most six pages and says how many were left out; Läs noggrannare reads all pages again", async () => {
+    const u = user();
+    render(<MenuAdvisor />);
+    await u.upload(screen.getByTestId("menu-file"), files("1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg", "7.jpg"));
+    await waitFor(() => expect(screen.getAllByTestId("menu-page")).toHaveLength(6));
+    expect(screen.getByRole("alert")).toHaveTextContent("Högst 6 sidor. En bild kom inte med.");
+    expect(screen.queryByTestId("menu-add-page")).not.toBeInTheDocument();
+    expect(screen.getByTestId("menu-pages-full")).toHaveTextContent("Högst 6 sidor");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Läs menyn" })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: "Läs menyn" }));
+    await screen.findByTestId("menu-answer");
+    expect(await sentNames(0)).toEqual(["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"]);
+    await u.click(screen.getByRole("button", { name: "Läs noggrannare" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect((fetchMock.mock.calls[1]![1].body as FormData).get("quality")).toBe("careful");
+    expect(await sentNames(1)).toHaveLength(6);
+  });
+
+  it("a page the reading could not read is named on the answer; Ta om replaces just that page and Läs menyn reads again", async () => {
+    fetchMock.mockImplementationOnce(() => Promise.resolve(reading({ ...menu, olasbara_sidor: [2] })));
+    const u = user();
+    render(<MenuAdvisor />);
+    await u.upload(screen.getByTestId("menu-file"), files("a.jpg", "b.jpg", "c.jpg"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Läs menyn" })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: "Läs menyn" }));
+    const answerScreen = await screen.findByTestId("menu-answer");
+    // The dishes of the other pages are there all the same.
+    expect(within(answerScreen).getAllByTestId("menu-person")).toHaveLength(1);
+    expect(answerScreen).toHaveTextContent("Sida 2 gick inte att läsa, så rätterna där saknas.");
+    await u.click(screen.getByRole("button", { name: "Ta om sida 2" }));
+    const pages = await screen.findAllByTestId("menu-page");
+    expect(pages[1]).toHaveAttribute("data-status", "trouble");
+    expect(pages[1]).toHaveTextContent("Sidan gick inte att läsa.");
+    await u.upload(screen.getByTestId("menu-file"), files("b2.jpg"));
+    await waitFor(() => expect(screen.getAllByTestId("menu-page").map((page) => page.dataset.status)).toEqual(["ready", "ready", "ready"]));
+    expect(labels()).toEqual(["Sida 1 av 3", "Sida 2 av 3", "Sida 3 av 3"]);
+    await u.click(screen.getByRole("button", { name: "Läs menyn" }));
+    await screen.findByTestId("menu-answer");
+    expect(await sentNames(1)).toEqual(["a.jpg", "b2.jpg", "c.jpg"]);
+    expect(screen.queryByText(/gick inte att läsa/)).not.toBeInTheDocument();
+  });
+
+  it("on a phone Fota menyn and Lägg till sida open the back camera, and Välj från album picks several from the library", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(pointer: coarse)", addEventListener: () => {}, removeEventListener: () => {} }));
+    const u = user();
+    render(<MenuAdvisor />);
+    const camera = screen.getByTestId("menu-camera");
+    expect(camera).toHaveAttribute("capture", "environment");
+    expect(camera).not.toHaveAttribute("multiple");
+    expect(screen.getByTestId("menu-file")).toHaveAttribute("multiple");
+    const opened = vi.spyOn(camera, "click");
+    await u.click(screen.getByTestId("menu-photo"));
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("menu-album")).toHaveTextContent("Välj från album");
+    await u.upload(camera, files("a.jpg"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Läs menyn" })).toBeEnabled());
+    await u.click(screen.getByTestId("menu-add-page"));
+    expect(opened).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Välj från album" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Tolka menyn on the pages ends it at the start, and the next photo starts a new menu", async () => {
+    const u = user();
+    render(<MenuAdvisor />);
+    await u.upload(screen.getByTestId("menu-file"), files("a.jpg", "b.jpg"));
+    await waitFor(() => expect(screen.getAllByTestId("menu-page")).toHaveLength(2));
+    await u.click(screen.getByRole("button", { name: "Tolka menyn" }));
+    expect(screen.getByTestId("menu-start")).toBeInTheDocument();
+    await u.upload(screen.getByTestId("menu-file"), files("c.jpg"));
+    await waitFor(() => expect(labels()).toEqual(["Sida 1 av 1"]));
   });
 });
 

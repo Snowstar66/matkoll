@@ -1146,10 +1146,48 @@ describe("readMenu on a model (Menyrådgivare)", () => {
     expect(result).toMatchObject({ ok: true, data: { quality: "standard", escalated: false, menu: { valutasymbol_pa_menyn: "€" } } });
     expect(careful.doGenerateCalls).toHaveLength(0);
     const call = standard.doGenerateCalls[0];
-    expect(call.maxOutputTokens).toBe(inputLimits.menu.maxOutputTokens);
+    // Two pages: 2 000 more tokens of answer than for one.
+    expect(call.maxOutputTokens).toBe(inputLimits.menu.maxOutputTokens + inputLimits.menu.maxOutputTokensPerExtraPage);
     const [system, user] = call.prompt;
     expect(system).toEqual({ role: "system", content: prompts.readMenu });
-    expect((user.content as { type: string }[]).filter((part) => part.type === "file")).toHaveLength(2);
+    const parts = user.content as { type: string; text?: string }[];
+    expect(parts.filter((part) => part.type === "file")).toHaveLength(2);
+    // The pages of one menu, each named before its photo.
+    expect(parts.map((part) => part.type)).toEqual(["text", "text", "file", "text", "file"]);
+    expect(parts[0]!.text).toContain("sidor av SAMMA restaurangmeny");
+    expect(parts[1]!.text).toBe("Sida 1 av 2:");
+    expect(parts[3]!.text).toBe("Sida 2 av 2:");
+  });
+
+  it("one photo is one line and the photo, with the answer limit of one page", async () => {
+    const standard = fakeModel(answer(17.95));
+    await service(standard, fakeModel(answer(1))).readMenu({ images: [png()] }, signal());
+    const call = standard.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.menu.maxOutputTokens);
+    expect((call.prompt[1]!.content as { type: string }[]).map((part) => part.type)).toEqual(["text", "file"]);
+  });
+
+  it("six pages in one call: one list where a dish seen on two pages is kept once, and the unreadable pages named", async () => {
+    const twice = JSON.stringify({
+      restaurang: null,
+      sprak: "es",
+      valutasymbol_pa_menyn: "€",
+      ratter: [dish(12), { ...dish(12), originalnamn: "  PULPO " }, dish(14), { ...dish(12), originalnamn: "Gambas" }],
+      osakert: [],
+      olasbara_sidor: [3, 3, 9, 0, 1.5],
+    });
+    const standard = fakeModel(twice);
+    const six = [png(), png(2), png(3), png(4), png(5), png(6)];
+    const result = await service(standard, fakeModel(answer(1))).readMenu({ images: six }, signal());
+    expect(standard.doGenerateCalls).toHaveLength(1);
+    expect((standard.doGenerateCalls[0].prompt[1]!.content as { type: string }[]).filter((part) => part.type === "file")).toHaveLength(6);
+    expect(standard.doGenerateCalls[0].maxOutputTokens).toBe(inputLimits.menu.maxOutputTokensAll);
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    // Pulpo at 12 once (the second spelling is the same dish), Pulpo at 14 is another row, Gambas stays.
+    expect(result.data.menu.ratter.map((entry) => [entry.originalnamn, entry.pris])).toEqual([["Pulpo", 12], ["Pulpo", 14], ["Gambas", 12]]);
+    // Whole page numbers within the six, once each.
+    expect(result.data.menu.olasbara_sidor).toEqual([3]);
   });
 
   it("asks again once for an answer that is not valid, and gives ai_invalid when the new attempt fails too (no third)", async () => {
@@ -1181,9 +1219,10 @@ describe("readMenu on a model (Menyrådgivare)", () => {
     expect(careful.doGenerateCalls).toHaveLength(0);
   });
 
-  it("is validation for no photo, more than three and a quality that is not one", async () => {
+  it("is validation for no photo, more than six and a quality that is not one", async () => {
     const wrapped = withInputValidation(service(fakeModel(answer(1)), fakeModel(answer(1))));
-    for (const bad of [{ images: [] }, { images: [png(), png(), png(), png()] }, { images, quality: "ultra" as "standard" }]) {
+    expect(isValidReadMenuInput({ images: [png(), png(), png(), png(), png(), png()] })).toBe(true);
+    for (const bad of [{ images: [] }, { images: [png(), png(), png(), png(), png(), png(), png()] }, { images, quality: "ultra" as "standard" }]) {
       expect(await wrapped.readMenu(bad, signal()), JSON.stringify(Object.keys(bad))).toMatchObject({ ok: false, error: { code: "validation" } });
     }
   });
@@ -1196,7 +1235,7 @@ describe("readMenu on a model (Menyrådgivare)", () => {
 
 describe("readMenuEscalating", () => {
   const menu = (...prices: (number | null)[]) =>
-    ok({ restaurang: null, sprak: "en" as const, valutasymbol_pa_menyn: null, osakert: [], ratter: prices.map((pris) => ({ ...dishBase, pris })) });
+    ok({ restaurang: null, sprak: "en" as const, valutasymbol_pa_menyn: null, osakert: [], olasbara_sidor: [], ratter: prices.map((pris) => ({ ...dishBase, pris })) });
   const dishBase = {
     originalnamn: "X", grupp: "Övrigt" as const, forklaring: "", huvudingredienser: [], kategori: "ej_tillampligt" as const,
     allergener: [], kan_innehalla: [], valuta: null,

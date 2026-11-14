@@ -244,6 +244,16 @@ describe("downscaleImage", () => {
     expect(result.ok && result.data.size).toBe(maxImageBytes);
   });
 
+  it("fits a smaller limit when one is asked for (a page of a menu), and never a larger one than 1.5 MB", async () => {
+    jpegSizeFor = (quality) => (quality >= 0.75 ? 700_000 : 500_000);
+    const result = await downscaleImage(cameraJpeg(), { maxSide: maxPlacePhotoSide, quality: 0.75, maxBytes: 600_000 });
+    expect(qualities).toEqual([0.75, 0.65]);
+    expect(result.ok && result.data.size).toBe(500_000);
+    qualities.length = 0;
+    jpegSizeFor = () => maxImageBytes + 1;
+    expect(await downscaleImage(cameraJpeg(), { maxBytes: 10 * maxImageBytes })).toEqual(fail("image_too_large"));
+  });
+
   it("gives image_too_large when even the lowest quality is over 1.5 MB", async () => {
     jpegSizeFor = () => maxImageBytes + 1;
     expect(await downscaleImage(cameraJpeg())).toEqual(fail("image_too_large"));

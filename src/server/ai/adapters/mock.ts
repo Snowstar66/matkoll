@@ -649,12 +649,15 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (signal.aborted) return fail("ai_unavailable");
       const current = logged(menuFixtures());
       if (!current) return fail("ai_unavailable");
-      // The first photo decides: a reserved image gives its code.
+      // The first photo decides: a reserved image there gives its code.
       const code = current.errors.get(sha256(input.images[0]?.data ?? new Uint8Array(0)));
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
       const quality = input.quality ?? "standard";
-      const menu = structuredClone(current.answer);
+      // Tolka menyn with several photos: a later page that is a reserved image is a page that could not be read, so
+      // the rest is read all the same (as a model does); the fixture's dishes are the one list of the whole menu.
+      const unreadable = input.images.flatMap((image, index) => (index > 0 && current.errors.has(sha256(image.data)) ? [index + 1] : []));
+      const menu = { ...structuredClone(current.answer), olasbara_sidor: unreadable };
       // A live reading in the mock: the dishes come together once the delay has passed (a real model sends them one by one).
       options?.onMenu?.({ stage: "reading", quality, escalated: false });
       options?.onMenu?.({ stage: "language", sprak: menu.sprak, symbol: menu.valutasymbol_pa_menyn });

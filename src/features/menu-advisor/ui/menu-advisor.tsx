@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Notice } from "@/components/notice";
+import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { ErrorCode } from "@/lib/errors";
+import { maxMenuPages } from "@/lib/images";
 import { useOption } from "@/lib/use-option";
-import { prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
+import { fitMenuPhotos, prepareMenuPhoto, type MenuReading } from "../actions/read-menu";
 import { readMenuText } from "../actions/read-menu-text";
 import { defaultChoices, drinkOptions, estimateTotalSek, optionFor, recommendOptions } from "../index";
 import type { Choices, PersonOptions } from "../domain/options";
@@ -20,7 +22,8 @@ import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
 import { choose, chooseDrink, emptyReadingView, foldReading, withOption, type ReadingView } from "./journey";
-import { TopBack } from "./journey-parts";
+import { TextLink, TopBack } from "./journey-parts";
+import { type MenuPage, PagesScreen } from "./pages-screen";
 import { readMenuWithFallback } from "./read-with-fallback";
 import { ReadingScreen } from "./reading-screen";
 import { StartScreen } from "./start-screen";
@@ -31,19 +34,38 @@ import { useTonight } from "./use-tonight";
 import { YourChoiceScreen } from "./your-choice-screen";
 
 // Menyrådgivare (Tillval, off by default), "Tolka menyn": one thing per screen. Who eats is ticked on the start, Fota
-// menyn, the app reads it live (POST /api/menu/read?stream=1, the dishes come in one by one), proposes two or three
-// dishes per person, you choose, and "Ert val" is a clean summary to show the waiter. The whole menu is the second tab
-// of the answer. A reading that stops has a screen of its own. Kept on this phone: who was ticked last time, and
-// "Ikväll" (the dishes starred in this session). The photo stays in memory only.
+// menyn takes the first page, "Menyns sidor" collects the rest (a menu is often several pages: one photo each, at
+// most maxMenuPages), and only "Läs menyn" starts the reading: the app reads all pages live in one call
+// (POST /api/menu/read?stream=1, the dishes come in one by one), proposes two or three dishes per person, you choose,
+// and "Ert val" is a clean summary to show the waiter. The whole menu is the second tab of the answer. A page the
+// reading could not read is named on the answer, with "Ta om". A reading that stops has a screen of its own. Kept on
+// this phone: who was ticked last time, and "Ikväll" (the dishes starred in this session). The photos stay in this
+// tab's memory only, until the journey ends.
 
-type Stage = "start" | "reading" | "answer" | "choice" | "menu" | "stop";
+type Stage = "start" | "pages" | "reading" | "answer" | "choice" | "menu" | "stop";
 
 const noopSubscribe = () => () => {};
 
 /** What the stop says when the reading could not be run (the dev text of ai_unavailable is not for someone at a restaurant). */
-function stopMessage(code: ErrorCode, message: string, hasPhoto: boolean): string {
+function stopMessage(code: ErrorCode, message: string, photos: number): string {
   if (code !== "ai_unavailable") return message;
-  return hasPhoto ? "Menyn kunde inte läsas. Kontrollera nätet och försök igen. Fotot finns kvar." : "Menyn kunde inte läsas. Kontrollera nätet och försök igen.";
+  if (photos === 0) return "Menyn kunde inte läsas. Kontrollera nätet och försök igen.";
+  return `Menyn kunde inte läsas. Kontrollera nätet och försök igen. ${photos === 1 ? "Fotot finns kvar." : "Sidorna finns kvar."}`;
+}
+
+/** "Sida 2", "Sida 2 och 3", "Sida 1, 2 och 4". */
+function pagesPhrase(numbers: readonly number[]): string {
+  if (numbers.length === 1) return `Sida ${numbers[0]}`;
+  return `Sida ${numbers.slice(0, -1).join(", ")} och ${numbers[numbers.length - 1]}`;
+}
+
+/** An object URL for a thumbnail, where the browser has them. */
+function thumbnailOf(photo: Blob): string | null {
+  return typeof URL.createObjectURL === "function" ? URL.createObjectURL(photo) : null;
+}
+
+function letGo(page: MenuPage) {
+  if (page.url && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(page.url);
 }
 
 /**
@@ -51,6 +73,7 @@ function stopMessage(code: ErrorCode, message: string, hasPhoto: boolean): strin
  * `startSlot`: a quiet link the route layer shows under Fota menyn on the start screen only (Sök restauranger).
  * `profiles`: the household's saved profiles (read on the server); null = not readable, so this device's own list.
  * `canRaiseCap`: the signed-in user is the app's owner, so the AI-cap stop offers "Höj taket".
+ * `costText`: what a reading of that many pages costs, in words, for "Menyns sidor" (the route layer knows the prices).
  */
 export function MenuAdvisor({
   members = null,
@@ -59,6 +82,7 @@ export function MenuAdvisor({
   canRaiseCap = false,
   initialMenu,
   startWithMenuText,
+  costText,
 }: {
   members?: readonly HouseholdPerson[] | null;
   profiles?: Person[] | null;
@@ -68,6 +92,7 @@ export function MenuAdvisor({
   initialMenu?: Menu;
   /** Plain menu text (from a restaurant's own website): the advisor reads it (readMenuText) and goes on as with a photo. `initialMenu` wins when both are given. */
   startWithMenuText?: string;
+  costText?: (pages: number) => string | null;
 }) {
   const enabled = useOption("menuAdvisor");
   // Off on the server and during hydration: nothing flashes for people who have it on.
@@ -87,15 +112,33 @@ export function MenuAdvisor({
   // Who is with tonight: ids of the household's people. It starts with whoever was ticked last time on this phone;
   // a person added since is not ticked until picked.
   const [selectedIds, setSelectedIds] = useState<string[]>(() => readCompanyIds() ?? [meId]);
-  const photo = useRef<Blob | null>(null);
+  // The pages of the menu being photographed (MenuPage), in order; the ref is the truth for the async steps.
+  const [pages, setPagesState] = useState<MenuPage[]>([]);
+  const pagesRef = useRef<MenuPage[]>([]);
+  const [pagesNotice, setPagesNotice] = useState<string | null>(null);
+  const pageCount = useRef(0);
+  // The page "Ta om" replaces with the next photo, when one was asked for.
+  const replaceId = useRef<string | null>(null);
+  // The photos of the last reading as they were sent (fitted to one request), and the pages they were: for
+  // "Läs noggrannare" and "Försök igen", and to name a page the reading could not read.
+  const photos = useRef<Blob[] | null>(null);
+  const sentIds = useRef<string[]>([]);
   const menuText = useRef<string | null>(null);
   const handedIn = useRef(false);
   const request = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const touch = useCoarsePointer();
   // Where a stopped or failed reading goes back to: the screen it was started from.
   const backStage = useRef<Stage>("start");
 
-  useEffect(() => () => request.current?.abort(), []);
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      pagesRef.current.forEach(letGo);
+    },
+    [],
+  );
 
   // Never nobody: with all unticked, "Du" is with.
   const company = useMemo(() => {
@@ -147,6 +190,9 @@ export function MenuAdvisor({
   }
 
   function apply(next: MenuReading) {
+    // The pages the reading could not read are marked, for the answer's notice and "Ta om".
+    const unreadable = new Set((next.menu.olasbara_sidor ?? []).flatMap((number) => sentIds.current[number - 1] ?? []));
+    if (unreadable.size > 0) setPages(pagesRef.current.map((page) => (unreadable.has(page.id) ? { ...page, unreadable: true } : page)));
     const options = recommendOptions(next.menu, company);
     setReading(next);
     setJourney({ options, choices: defaultChoices(options) });
@@ -156,17 +202,120 @@ export function MenuAdvisor({
 
   /** A reading that failed: from the start it is a stop of its own; from the answer (Läs noggrannare) a notice there. */
   function failed(code: ErrorCode, message: string) {
-    if (backStage.current !== "start") {
+    if (backStage.current !== "start" && backStage.current !== "pages") {
       setError(code === "ai_unavailable" ? "Det gick inte att läsa menyn just nu. Försök igen." : message);
       setStage(backStage.current);
       return;
     }
-    const canRetry = photo.current !== null || menuText.current !== null;
-    setStop(code === "ai_cap_reached" ? { kind: "cap" } : { kind: "error", message: stopMessage(code, message, photo.current !== null), canRetry });
+    const canRetry = photos.current !== null || menuText.current !== null;
+    setStop(code === "ai_cap_reached" ? { kind: "cap" } : { kind: "error", message: stopMessage(code, message, photos.current?.length ?? 0), canRetry });
     setStage("stop");
   }
 
-  async function run(blob: Blob, isCareful: boolean) {
+  function setPages(next: MenuPage[]) {
+    pagesRef.current = next;
+    setPagesState(next);
+  }
+
+  function clearPages() {
+    pagesRef.current.forEach(letGo);
+    setPages([]);
+    setPagesNotice(null);
+    replaceId.current = null;
+  }
+
+  /** Opens the camera (a phone) or the file window (a computer) in this very tap: iOS opens no input a tap did not. */
+  function openCamera() {
+    (touch && camera.current ? camera : picker).current?.click();
+  }
+
+  /**
+   * Photos chosen: each becomes a page (or the first replaces the page "Ta om" was for), made small one at a time.
+   * Nothing is read: that waits for "Läs menyn". Photos over maxMenuPages are left out, and the notice says so.
+   */
+  async function addPhotos(files: File[]) {
+    const target = replaceId.current;
+    replaceId.current = null;
+    const current = pagesRef.current;
+    const replacing = target !== null && current.some((page) => page.id === target);
+    const room = maxMenuPages - current.length + (replacing ? 1 : 0);
+    const taken = files.slice(0, Math.max(0, room));
+    const left = files.length - taken.length;
+    setError(null);
+    setPagesNotice(left > 0 ? `Högst ${maxMenuPages} sidor. ${left === 1 ? "En bild" : `${left} bilder`} kom inte med.` : null);
+    setStage("pages");
+    if (taken.length === 0) return;
+    const added = taken.map((file) => {
+      pageCount.current += 1;
+      const page: MenuPage = { id: `page-${pageCount.current}`, status: "preparing", photo: null, url: null, message: null, unreadable: false };
+      return { page, file };
+    });
+    const fresh = added.map((entry) => entry.page);
+    if (replacing) {
+      const at = current.findIndex((page) => page.id === target);
+      letGo(current[at]!);
+      setPages([...current.slice(0, at), fresh[0]!, ...current.slice(at + 1), ...fresh.slice(1)]);
+    } else {
+      setPages([...current, ...fresh]);
+    }
+    for (const { page, file } of added) {
+      const prepared = await prepareMenuPhoto(file);
+      // Removed (or the journey ended) while it was made small: nothing to show.
+      if (!pagesRef.current.some((entry) => entry.id === page.id)) continue;
+      const done: MenuPage = prepared.ok
+        ? { ...page, status: "ready", photo: prepared.data, url: thumbnailOf(prepared.data) }
+        : { ...page, status: "failed", message: prepared.error.message };
+      setPages(pagesRef.current.map((entry) => (entry.id === page.id ? done : entry)));
+    }
+  }
+
+  function removePage(id: string) {
+    const page = pagesRef.current.find((entry) => entry.id === id);
+    if (page) letGo(page);
+    setPagesNotice(null);
+    setPages(pagesRef.current.filter((entry) => entry.id !== id));
+  }
+
+  function movePage(id: string, step: -1 | 1) {
+    const list = [...pagesRef.current];
+    const at = list.findIndex((entry) => entry.id === id);
+    const to = at + step;
+    if (at < 0 || to < 0 || to >= list.length) return;
+    [list[at], list[to]] = [list[to]!, list[at]!];
+    setPages(list);
+  }
+
+  /** "Ta om": the next photo takes this page's place. */
+  function retakePage(id: string) {
+    replaceId.current = id;
+    setStage("pages");
+    openCamera();
+  }
+
+  /** "Läs menyn": every usable page, fitted to one request, read in one go. */
+  async function readPages() {
+    const ready = pagesRef.current.filter((page) => page.status === "ready" && page.photo !== null);
+    if (ready.length === 0) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    backStage.current = "pages";
+    menuText.current = null;
+    setError(null);
+    setCareful(false);
+    setView(emptyReadingView);
+    setStage("reading");
+    const fitted = await fitMenuPhotos(ready.map((page) => page.photo!));
+    if (request.current !== controller) return;
+    request.current = null;
+    if (!fitted.ok) return failed(fitted.error.code, fitted.error.message);
+    photos.current = fitted.data;
+    sentIds.current = ready.map((page) => page.id);
+    setPages(pagesRef.current.map((page) => (page.unreadable ? { ...page, unreadable: false } : page)));
+    await run(fitted.data, false);
+  }
+
+  async function run(blobs: Blob[], isCareful: boolean) {
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -174,7 +323,7 @@ export function MenuAdvisor({
     setCareful(isCareful);
     setView(emptyReadingView);
     setStage("reading");
-    const answer = await readMenuWithFallback(blob, isCareful ? "careful" : "standard", controller.signal, (event) => {
+    const answer = await readMenuWithFallback(blobs, isCareful ? "careful" : "standard", controller.signal, (event) => {
       if (request.current === controller) setView((current) => foldReading(current, event));
     });
     if (request.current !== controller) return;
@@ -191,7 +340,7 @@ export function MenuAdvisor({
     const controller = new AbortController();
     request.current = controller;
     menuText.current = text;
-    photo.current = null;
+    photos.current = null;
     setError(null);
     setCareful(isCareful);
     setView(emptyReadingView);
@@ -203,25 +352,6 @@ export function MenuAdvisor({
     failed(answer.error.code, answer.error.message);
   }
 
-  async function takePhoto(file: File) {
-    request.current?.abort();
-    const controller = new AbortController();
-    request.current = controller;
-    backStage.current = "start";
-    photo.current = null;
-    menuText.current = null;
-    setError(null);
-    setCareful(false);
-    setView(emptyReadingView);
-    setStage("reading");
-    const prepared = await prepareMenuPhoto(file);
-    if (request.current !== controller) return;
-    request.current = null;
-    if (!prepared.ok) return failed(prepared.error.code, prepared.error.message);
-    photo.current = prepared.data;
-    await run(prepared.data, false);
-  }
-
   function cancel() {
     request.current?.abort();
     request.current = null;
@@ -230,24 +360,37 @@ export function MenuAdvisor({
 
   function readAgainCarefully() {
     backStage.current = stage;
-    if (photo.current) void run(photo.current, true);
+    if (photos.current) void run(photos.current, true);
     else if (menuText.current) void runText(menuText.current, true);
   }
 
-  /** "Försök igen" on a stop: the same photo (or text) once more, as it was asked for. */
+  /** "Försök igen" on a stop: the same pages (or text) once more, as it was asked for. */
   function retry() {
-    backStage.current = "start";
-    if (photo.current) void run(photo.current, careful);
+    backStage.current = photos.current ? "pages" : "start";
+    if (photos.current) void run(photos.current, careful);
     else if (menuText.current) void runText(menuText.current, careful);
   }
 
+  /** Fota menyn (and Fota om, Nästa meny): a new menu, so the pages from before go; the photo only adds a page. */
   function pick() {
     backStage.current = "start";
+    clearPages();
+    photos.current = null;
+    openCamera();
+  }
+
+  /** "Välj från album" on the start: as pick, one or several photos from the library. */
+  function pickAlbum() {
+    backStage.current = "start";
+    clearPages();
+    photos.current = null;
     picker.current?.click();
   }
 
   function finish() {
-    photo.current = null;
+    clearPages();
+    photos.current = null;
+    sentIds.current = [];
     menuText.current = null;
     setReading(null);
     setJourney({ options: [], choices: {} });
@@ -271,25 +414,46 @@ export function MenuAdvisor({
     tonight.toggle({ id: pickId(reading.menu.restaurang, dish.originalnamn), name: dish.originalnamn, explanation: dish.forklaring, restaurant: reading.menu.restaurang, sek: dishSek(dish) });
   }
 
-  const fileInput = (
-    // No `capture`: the phone offers the camera and the album in one tap.
-    <input
-      ref={picker}
-      type="file"
-      accept="image/*"
-      tabIndex={-1}
-      aria-hidden="true"
-      data-testid="menu-file"
-      className="sr-only"
-      onChange={(event) => {
-        const file = event.currentTarget.files?.[0];
-        event.currentTarget.value = "";
-        if (file) void takePhoto(file);
-      }}
-    />
+  const onChosen = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    // A photo only adds a page; "Läs menyn" starts the reading.
+    if (files.length > 0) void addPhotos(files);
+    else replaceId.current = null;
+  };
+  // As Förråd's Ta kort: on a phone "Fota menyn" and "Lägg till sida" open the back camera straight away (one photo,
+  // the camera's own "Använd foto"), and "Välj från album" takes one or several from the library (a camera input
+  // takes one photo, and a picker for several may not offer the camera on every phone). On a computer the one input
+  // is the file window, several at a time. Both are always in the page and clicked in the tap itself.
+  const fileInputs = (
+    <>
+      {touch ? (
+        <input ref={camera} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true" data-testid="menu-camera" className="sr-only" onChange={onChosen} />
+      ) : null}
+      <input ref={picker} type="file" accept="image/*" multiple tabIndex={-1} aria-hidden="true" data-testid="menu-file" className="sr-only" onChange={onChosen} />
+    </>
   );
 
   const canReadCarefully = reading !== null && reading.quality !== "careful";
+  const unreadablePages = pages.flatMap((page, index) => (page.unreadable ? [{ id: page.id, number: index + 1 }] : []));
+  const unreadableNotice =
+    unreadablePages.length > 0 ? (
+      <Notice
+        role="alert"
+        action={
+          <TextLink
+            data-testid="menu-retake-page"
+            className="font-semibold text-sky-ink underline"
+            onClick={() => (unreadablePages.length === 1 ? retakePage(unreadablePages[0]!.id) : setStage("pages"))}
+          >
+            {unreadablePages.length === 1 ? `Ta om sida ${unreadablePages[0]!.number}` : "Ta om sidorna"}
+          </TextLink>
+        }
+      >
+        {`${pagesPhrase(unreadablePages.map((page) => page.number))} gick inte att läsa, så rätterna där saknas.`}
+      </Notice>
+    ) : null;
+  const readyCount = pages.filter((page) => page.status === "ready").length;
   const reader = reading?.model && reading.effort ? { model: reading.model, effort: reading.effort } : null;
   const totals = reading ? estimateTotalSek(journey.choices, reading.menu, company) : null;
   const drinkPerson = company.find((person) => person.id === drinkOf);
@@ -313,6 +477,32 @@ export function MenuAdvisor({
         />
       </div>
     );
+  } else if (stage === "pages") {
+    content = (
+      <PagesScreen
+        pages={pages}
+        maxPages={maxMenuPages}
+        costText={costText ? costText(Math.max(1, readyCount)) : null}
+        notice={pagesNotice}
+        onBack={finish}
+        onAdd={() => {
+          replaceId.current = null;
+          openCamera();
+        }}
+        onAlbum={
+          touch
+            ? () => {
+                replaceId.current = null;
+                picker.current?.click();
+              }
+            : undefined
+        }
+        onRemove={removePage}
+        onMove={movePage}
+        onRetake={retakePage}
+        onRead={() => void readPages()}
+      />
+    );
   } else if (stage === "reading") {
     content = <ReadingScreen view={view} careful={careful} onCancel={cancel} />;
   } else if (stage === "stop" && stop) {
@@ -329,6 +519,7 @@ export function MenuAdvisor({
         totals={totals}
         filtered={company.some((person) => person.allergies.length > 0)}
         uncertain={reading.menu.osakert}
+        pagesNotice={unreadableNotice}
         reader={reader}
         canReadCarefully={canReadCarefully}
         error={error}
@@ -395,6 +586,7 @@ export function MenuAdvisor({
         onToggle={toggle}
         tonightCount={tonight.picks.length}
         onPhoto={pick}
+        onAlbum={touch ? pickAlbum : undefined}
         onTonight={() => setShowTonight(true)}
         slot={startSlot}
       />
@@ -416,7 +608,7 @@ export function MenuAdvisor({
           onClose={() => setDrinkOf(null)}
         />
       ) : null}
-      {fileInput}
+      {fileInputs}
     </>
   );
 }
