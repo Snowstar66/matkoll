@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef } from "react";
 import { cx } from "@/components/cx";
-import { CloseIcon, InfoIcon } from "@/components/icons";
+import { InfoIcon, TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
-import { profilesHref } from "../domain/people";
+import { drinkIcons, drinkLabels, profilesHref } from "../domain/people";
+import { drinkPrice } from "../domain/drinks";
+import type { DrinkKind } from "../domain/profile";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
 import type { Person } from "../domain/profile";
 import type { Totals } from "../domain/drinks";
@@ -11,7 +13,7 @@ import type { Menu } from "../domain/types";
 import { optionFor } from "../domain/recommend-options";
 import { dishSek } from "../domain/view";
 import { menuReaderText, type MenuReader } from "../domain/reading";
-import { approxKr, cardSek, drinkFor, drinkPhrase, reasonTone, toWhom, unpricedNote, type ReasonTone } from "./journey";
+import { approxKr, cardSek, drinkFor, reasonTone, toWhom, unpricedNote, type ReasonTone } from "./journey";
 import { AnswerTabs, BigButton, Headline, RadioCard, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
 import { PersonAvatar } from "./person-avatar";
 
@@ -39,6 +41,28 @@ function Reasons({ option }: { option: DishOption }) {
   );
 }
 
+/** One drink of a person with its price; the usual one says so. The soptunna takes it away. */
+function DrinkRow({ kind, menu, usual = false, onRemove }: { kind: DrinkKind; menu: Menu; usual?: boolean; onRemove?: () => void }) {
+  const price = drinkPrice(menu, kind);
+  return (
+    <li data-testid="menu-drink-row" data-usual={usual ? "true" : undefined} className="flex items-center gap-3 border-t border-hairline first:border-t-0">
+      <span className="flex min-w-0 flex-1 flex-col py-2">
+        <span className="flex items-center gap-2 text-row-title font-semibold text-ink">
+          <span aria-hidden="true">{drinkIcons[kind]}</span>
+          {drinkLabels[kind]}
+        </span>
+        {usual ? <span className="text-meta text-ink-3">Din vanliga dryck</span> : null}
+      </span>
+      <span className="shrink-0 text-row-title text-ink">{price.sek > 0 ? `${price.source === "uppskattning" ? "ca " : ""}${price.sek} kr` : "0 kr"}</span>
+      {onRemove ? (
+        <button type="button" aria-label={`Ta bort ${drinkLabels[kind].toLocaleLowerCase("sv-SE")}`} onClick={onRemove} className="-mr-2 flex size-tap shrink-0 items-center justify-center rounded-pill text-ink-3">
+          <TrashIcon size={18} />
+        </button>
+      ) : null}
+    </li>
+  );
+}
+
 /** What the last "Lägg till åt" did, said under that person: "Greta får också Toast Skagen." */
 export type AddedNote = { personId: string; text: string };
 
@@ -62,6 +86,10 @@ export function AnswerScreen({
   error,
   onChoose,
   onRemoveExtra,
+  onRemoveDish,
+  onRemoveUsualDrink,
+  onRemoveDrink,
+  onAddDrink,
   onMore,
   onDone,
   onFullMenu,
@@ -86,6 +114,14 @@ export function AnswerScreen({
   onChoose: (personId: string, dishIndex: number) => void;
   /** Takes away a dish added on top (a starter, a dessert). */
   onRemoveExtra?: (personId: string, dishIndex: number) => void;
+  /** Takes away the proposed dish (the soptunna on it, also when nothing was added). */
+  onRemoveDish?: (personId: string) => void;
+  /** Takes away the person's usual drink for this evening. */
+  onRemoveUsualDrink?: (personId: string) => void;
+  /** Takes away a drink that was added. */
+  onRemoveDrink?: (personId: string, kind: DrinkKind) => void;
+  /** "Lägg till dryck åt Anna": opens the drink sheet. */
+  onAddDrink?: (personId: string) => void;
   /** "Fler rätter åt Anna": the whole menu with that person chosen. */
   onMore: (personId: string) => void;
   onDone: () => void;
@@ -120,7 +156,8 @@ export function AnswerScreen({
         {company.map((person, index) => {
           const mine = options.find((entry) => entry.personId === person.id)?.options ?? [];
           const drink = drinkFor(person, choices);
-          const phrase = drinkPhrase(drink);
+          const addedDrinks = choices[person.id]?.drinks ?? [];
+          const usualDrink = drink !== null && drink !== "ingen" ? drink : null;
           const chosen = choices[person.id]?.dishIndex ?? null;
           const extras = (choices[person.id]?.extras ?? []).flatMap((dishIndex) => optionFor(menu, dishIndex, person) ?? []);
           return (
@@ -130,7 +167,6 @@ export function AnswerScreen({
                   <PersonAvatar name={person.name} index={index} size="sm" />
                   {person.name}
                 </span>
-                {phrase ? <span className="text-body text-ink-2">{phrase}</span> : null}
               </div>
               <div role="radiogroup" aria-label={`Rätt åt ${person.name}`} className="flex flex-col gap-2.5">
                 {mine.length === 0 ? <p className="rounded-xl bg-surface px-4 py-3 text-body text-ink-2">Jag hittade ingen rätt att föreslå. Titta i hela menyn.</p> : null}
@@ -150,6 +186,17 @@ export function AnswerScreen({
                   </RadioCard>
                 ))}
               </div>
+              {chosen !== null && onRemoveDish ? (
+                <button
+                  type="button"
+                  data-testid="menu-remove-dish"
+                  onClick={() => onRemoveDish(person.id)}
+                  className="flex min-h-tap items-center gap-2 self-start px-1 text-meta font-medium text-ink-2"
+                >
+                  <TrashIcon size={18} />
+                  {`Ta bort ${menu.ratter[chosen]?.originalnamn ?? "rätten"}`}
+                </button>
+              ) : null}
               {extras.length > 0 ? (
                 <ul aria-label={`Också åt ${toWhom(person)}`} className="flex flex-col rounded-xl bg-surface px-4 py-1">
                   {extras.map((extra) => {
@@ -168,7 +215,7 @@ export function AnswerScreen({
                             onClick={() => onRemoveExtra(person.id, extra.dishIndex)}
                             className="-mr-2 flex size-tap shrink-0 items-center justify-center rounded-pill text-ink-3"
                           >
-                            <CloseIcon size={18} />
+                            <TrashIcon size={18} />
                           </button>
                         ) : null}
                       </li>
@@ -176,14 +223,35 @@ export function AnswerScreen({
                   })}
                 </ul>
               ) : null}
+              {usualDrink !== null || addedDrinks.length > 0 || drink === "ingen" ? (
+                <ul aria-label={`Dryck åt ${toWhom(person)}`} data-testid="menu-drinks" className="flex flex-col rounded-xl bg-surface px-4 py-1">
+                  {usualDrink !== null ? (
+                    <DrinkRow kind={usualDrink} menu={menu} usual onRemove={onRemoveUsualDrink ? () => onRemoveUsualDrink(person.id) : undefined} />
+                  ) : addedDrinks.length === 0 ? (
+                    <li data-testid="menu-no-drink" className="py-2 text-body text-ink-2">
+                      Utan dryck
+                    </li>
+                  ) : null}
+                  {addedDrinks.map((kind) => (
+                    <DrinkRow key={kind} kind={kind} menu={menu} onRemove={onRemoveDrink ? () => onRemoveDrink(person.id, kind) : undefined} />
+                  ))}
+                </ul>
+              ) : null}
               {added?.personId === person.id ? (
                 <p ref={note} role="status" data-testid="menu-added" className="px-1 text-body text-ink-2">
                   {added.text}
                 </p>
               ) : null}
-              <TextLink onClick={() => onMore(person.id)} className="self-start text-meta">
-                {`Fler rätter åt ${toWhom(person)}`}
-              </TextLink>
+              <div className="flex flex-wrap gap-x-5">
+                <TextLink onClick={() => onMore(person.id)} className="self-start text-meta">
+                  {`Fler rätter åt ${toWhom(person)}`}
+                </TextLink>
+                {onAddDrink ? (
+                  <TextLink onClick={() => onAddDrink(person.id)} className="self-start text-meta" data-testid="menu-add-drink">
+                    {`Lägg till dryck åt ${toWhom(person)}`}
+                  </TextLink>
+                ) : null}
+              </div>
             </section>
           );
         })}

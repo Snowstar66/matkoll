@@ -69,12 +69,13 @@ function words(text: string): string[] {
 
 /**
  * The taste keys a dish belongs to: its category plus word-list hits; desserts count as sweet. A dish in the category
- * "kott" is red meat ("kott") unless it names pork or poultry and no red meat (preferences.ts): Fläskkött and Kyckling
+ * "kott", or one with a red-meat word, is red meat ("kott") unless it names pork or poultry and no red meat (preferences.ts): Fläskkött and Kyckling
  * are word-matched tastes, scored with the person's own things (softHits).
  */
 export function dishTasteKeys(dish: MenuDish): TasteKey[] {
   const found = new Set<TasteKey>();
-  if (dish.kategori === "kott" && matchPreference(tasteWord("kott"), dish)) found.add("kott");
+  // By category and by words (oxkind, älgkött, entrecôte ...): the reading's category is not always "kott" (Pontus 2026-11-14).
+  if (matchPreference(tasteWord("kott"), dish)) found.add("kott");
   if (dish.kategori === "fisk" || dish.kategori === "skaldjur") found.add(dish.kategori);
   if (dish.kategori === "vegetariskt" || dish.kategori === "veganskt") found.add("vegetariskt");
   if (dish.grupp === "Efterrätt") found.add("sott");

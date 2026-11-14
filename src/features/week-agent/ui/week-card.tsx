@@ -7,7 +7,7 @@ import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { ChevronRightIcon, SparkleIcon } from "@/components/icons";
+import { ChevronRightIcon, SettingsIcon, SparkleIcon } from "@/components/icons";
 import { useOption } from "@/lib/use-option";
 import type { DiscardDraftInput, OkOrError } from "../actions/contract";
 import type { CostTexts, SettingsActions } from "./actions";
@@ -129,8 +129,9 @@ export function WeekAgentCard({ href, weekNumber, filledDays, emptyDays, setting
         </span>
         <ChevronRightIcon size={20} className="shrink-0 self-center" />
       </Link>
-      <div className="flex flex-wrap items-center">
-        <button type="button" onClick={() => setSettingsOpen(true)} className="min-h-tap self-start rounded-lg px-3.5 text-control font-semibold underline" data-testid="week-agent-card-settings">
+      <div className="mx-3.5 flex flex-wrap items-center justify-between border-t border-mint-ink/15">
+        <button type="button" onClick={() => setSettingsOpen(true)} className="flex min-h-tap items-center gap-2 rounded-lg text-control font-semibold" data-testid="week-agent-card-settings">
+          <SettingsIcon size={20} className="shrink-0" />
           {cardTexts.settings}
         </button>
         {discardButton}

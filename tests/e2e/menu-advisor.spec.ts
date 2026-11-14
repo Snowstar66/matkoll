@@ -324,8 +324,9 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   const anna = page.getByRole("region", { name: "Anna", exact: true });
   const gunnar = page.getByRole("region", { name: "Gunnar", exact: true });
   await expect(du.getByRole("radio")).toHaveCount(3);
-  await expect(du.getByText("med öl")).toBeVisible();
-  await expect(anna.getByText("med vin")).toBeVisible();
+  await expect(du.getByTestId("menu-drink-row")).toContainText("Din vanliga dryck");
+  await expect(du.getByTestId("menu-drink-row")).toContainText("Öl");
+  await expect(anna.getByTestId("menu-drink-row")).toContainText("Vin");
   await expect(anna.getByText("Anna älskar paprika").first()).toBeVisible();
   await expect(du.getByRole("radio", { checked: true })).toHaveCount(1);
   await expect(page.getByTestId("menu-unfiltered")).toHaveCount(0);
@@ -343,7 +344,17 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.screenshot({ path: `${shots}/07-answer-scrolled.png` });
   expect(await noSideScroll(page)).toBe(true);
 
-  // 5. Ert val: the name as printed, big; the drink can be changed with a tap; the back link says Förslag.
+  // 4b. Drinks: another one is added from the answer (the usual one stays and is counted), then Ert val.
+  const drinkTotal = await page.getByTestId("menu-total").innerText();
+  await page.getByTestId("menu-add-drink").first().click();
+  await expect(page.getByRole("dialog", { name: "Lägg till dryck åt Du" })).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/09-drink-sheet.png` });
+  await tap(page.getByRole("radio", { name: /Vin/ }));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByTestId("menu-total")).not.toHaveText(drinkTotal);
+
+  // 5. Ert val: the name as printed, big; the drinks in a line; the back link says Förslag.
   await page.getByRole("button", { name: "Klart", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ert val" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Förslag", exact: true })).toBeVisible();
@@ -352,14 +363,6 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Gunnar: nötter.");
   await expect(page.getByTestId("menu-allergy-line")).toContainText("Fråga alltid personalen");
   await page.screenshot({ path: `${shots}/08-your-choice.png` });
-  const total = await page.getByTestId("menu-total").innerText();
-  await page.getByTestId("menu-drink-button").first().click();
-  await expect(page.getByRole("dialog", { name: "Dryck åt Du" })).toBeVisible();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${shots}/09-drink-sheet.png` });
-  await tap(page.getByRole("radio", { name: /Vin/ }));
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByTestId("menu-total")).not.toHaveText(total);
   await expect(page.getByTestId("menu-choice-person").first()).toContainText("Vin");
 
   // Back with "Ändra", then the tab Hela menyn: only dishes someone cannot eat are marked.
@@ -397,7 +400,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
   await page.getByRole("searchbox", { name: "Sök rätt" }).fill("pulpo");
   await page.getByTestId("menu-dish").click();
   await page.getByRole("button", { name: "Lägg till åt Anna" }).click();
-  await expect(anna.getByRole("radio", { name: /Pulpo a la gallega/, checked: true })).toBeVisible();
+  await expect(anna.getByTestId("menu-extra")).toContainText("Pulpo a la gallega");
   expect(await noSideScroll(page)).toBe(true);
 
   // Klart twice ends the journey at the start.
@@ -800,7 +803,7 @@ test("Smak och allergier is on Medlemmar without Menyrådgivare: open, set vitl�
   await expect(page.getByTestId("menu-profiles-link")).toHaveCount(0);
   // Menyrådgivare itself is still off: no way into it from Matsedel.
   await page.goto("/matsedel");
-  await expect(page.getByText("Äter ute?")).toHaveCount(0);
+  await expect(page.getByText("Äter ni ute?")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

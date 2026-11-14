@@ -103,10 +103,12 @@ export function estimateTotalSek(selection: Selection | Choices, menu: Menu, peo
       if (sek === null) unpriced += 1;
       else dishesSek += sek;
     }
+    // The usual drink goes with a dish; drinks added on purpose count either way.
+    const kinds = [...(drink !== null && drink !== "ingen" && mine.length > 0 ? [drink] : []), ...(choice?.drinks ?? [])];
     let drinkSek = 0;
-    if (drink !== null && mine.length > 0) {
-      const price = drinkPrice(menu, drink);
-      drinkSek = price.sek;
+    for (const kind of kinds) {
+      const price = drinkPrice(menu, kind);
+      drinkSek += price.sek;
       if (price.source === "uppskattning" && price.sek > 0) drinksEstimated = true;
     }
     return { personId: person.id, name: person.name, dishesSek, unpriced, drink, drinkSek, totalSek: dishesSek + drinkSek };

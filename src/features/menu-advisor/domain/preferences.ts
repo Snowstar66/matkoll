@@ -67,7 +67,18 @@ export function normalizeText(text: string): string {
 
 /** The words of a text, normalised. The list is shared between calls: do not change it. */
 export function tokens(text: string): readonly string[] {
-  return remember(tokenized, text, () => normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  return remember(tokenized, text, () => withMeatWord(normalizeText(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean)));
+}
+
+// Swedish makes the kind of meat the start of a compound: oxkött, älgkött, renkött, hjortkött. Whatever the first part
+// is, the word is meat; it is red meat unless the first part names pork, poultry or such (fläskkött, kycklingkött), which
+// have their own presets. So a word ending in "kött" also counts as the word "kött" (Pontus 2026-11-14: oxkind (oxkött)
+// was proposed to someone who avoids red meat). "köttfri" and "köttbuljong" never end in it.
+const notRedMeatStarts = ["fläsk", "gris", "svin", "kyckling", "kalkon", "fågel", "höns", "anka", "ank", "gås", "fisk", "vegetar", "soja", "växt"];
+
+function withMeatWord(list: string[]): readonly string[] {
+  const extra = list.filter((token) => token.length > 4 && token.endsWith("kött") && !notRedMeatStarts.some((start) => token.startsWith(start)));
+  return extra.length === 0 ? list : [...list, ...extra.map(() => "kött")];
 }
 
 type Group = {
@@ -88,7 +99,8 @@ type Group = {
 // poultry.
 const redMeat = [
   "rött kött", "kött", "meat", "carne", "nötkött", "nötfärs", "nötfilé", "nötbiff", "nötstek", "nötgryta", "nötkorv", "biff", "beef",
-  "rostbiff", "oxfilé", "oxbringa", "entrecôte", "högrev", "flankstek", "bringa", "lamm", "lamb", "cordero", "kalv", "veal", "ternera",
+  "rostbiff", "ox", "oxe", "oxkind", "oxkött", "oxsvans", "oxstek", "oxrulle", "oxtunga", "oxrib", "oxtail", "oxfilé", "oxbringa", "ribeye", "sirloin",
+  "tournedos", "ryggbiff", "ytterfilé", "innanlår", "bavette", "wagyu", "renfilé", "kalvkött", "nötkind", "nötlever", "entrecôte", "högrev", "flankstek", "bringa", "lamm", "lamb", "cordero", "kalv", "veal", "ternera",
   "vilt", "hjort", "rådjur", "älg", "renskav", "renstek", "vildsvin",
 ];
 // Mince has two presets of its own since 2026-11-13 (köttfärs, blandfärs), so it is no longer counted as red meat or pork.
@@ -100,7 +112,7 @@ const mixedMince = ["blandfärs", "halvfärs"];
 const pork = [
   "fläskkött", "fläsk", "sidfläsk", "stekfläsk", "pork", "cerdo", "bacon", "skink", "julskinka", "jamón", "serrano", "prosciutto", "pancetta",
   "guanciale", "karré", "kassler", "kotlett", "flintastek", "revben", "spareribs", "ribs", "porchetta", "carnitas", "korv", "falukorv",
-  "prinskorv", "isterband", "chorizo", "salami", "mortadella", "salsiccia", "bratwurst",
+  "prinskorv", "isterband", "griskött", "svinkött", "grisnacke", "svinnacke", "grisfilé", "svinfilé", "chorizo", "salami", "mortadella", "salsiccia", "bratwurst",
 ];
 const poultry = ["kyckling", "majskyckling", "chicken", "pollo", "kalkon", "turkey", "pavo", "fågel", "höns", "broiler"];
 

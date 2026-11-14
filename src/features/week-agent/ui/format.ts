@@ -51,7 +51,7 @@ export const cardTexts = {
   discardBody: "Inget ändras i Matsedel.",
   discardKeep: "Behåll",
   discarded: "Förslaget förkastades.",
-  settings: "Ställ in",
+  settings: "Veckans inriktning",
 } as const;
 
 /** The menu item that redoes a full week: only the days the agent put there change; with none of the user's own, the whole week. */
