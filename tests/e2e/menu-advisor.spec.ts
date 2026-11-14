@@ -346,7 +346,7 @@ test("the whole journey: start, a live reading, the answer, Ert val with another
 
   // 4b. Drinks: another one is added from the answer (the usual one stays and is counted), then Ert val.
   const drinkTotal = await page.getByTestId("menu-total").innerText();
-  await tap(page.getByTestId("menu-add-drink").first());
+  await page.getByTestId("menu-add-drink").first().click();
   await expect(page.getByRole("dialog", { name: "Lägg till dryck åt Du" })).toBeVisible();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${shots}/09-drink-sheet.png` });
