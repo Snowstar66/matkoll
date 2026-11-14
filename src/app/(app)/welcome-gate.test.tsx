@@ -64,14 +64,14 @@ describe("WelcomeGate", () => {
 
   it("opens Medlemmar for Bjud in någon i hushållet", async () => {
     await renderGate(false);
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     await userEvent.click(screen.getByRole("button", { name: /Bjud in någon i hushållet/ }));
     expect(push).toHaveBeenCalledWith("/installningar/medlemmar");
   });
 
   it("says who sees the data on the last page, with Läs mer to Hjälp at Konto", async () => {
     await renderGate(false);
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     expect(screen.getByText(/syns bara för ditt hushåll och lagras i EU/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Läs mer" }));
     expect(push).toHaveBeenCalledWith("/hjalp#konto");
@@ -79,7 +79,7 @@ describe("WelcomeGate", () => {
 
   it("opens Importera recept on Recept for Lägg till ett recept", async () => {
     await renderGate(false);
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     await userEvent.click(screen.getByRole("button", { name: /Lägg till ett recept/ }));
     expect(requestImportSheet).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith("/recept");
@@ -87,7 +87,7 @@ describe("WelcomeGate", () => {
 
   it("hands the photo to Matvaror's Kyl for Fotografera kylen", async () => {
     await renderGate(false);
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     const photo = new File(["x"], "kylen.jpg", { type: "image/jpeg" });
     await userEvent.upload(screen.getByTestId("welcome-tour-camera"), photo);
     expect(handOverPlacePhoto).toHaveBeenCalledWith(photo, "Kyl");
@@ -96,7 +96,7 @@ describe("WelcomeGate", () => {
 
   it("opens Recept for Titta runt själv", async () => {
     await renderGate(false);
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     await userEvent.click(screen.getByRole("button", { name: /Titta runt själv/ }));
     expect(push).toHaveBeenCalledWith("/recept");
     expect(requestImportSheet).not.toHaveBeenCalled();

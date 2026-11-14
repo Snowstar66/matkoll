@@ -1,15 +1,15 @@
-// Välkomstturen (Story 20.1): six pages, the last one with four choices.
+// Välkomstturen (Story 20.1): seven pages, the last one with four choices.
 // Plain data and rules; the pictures and the dialog are in ui/.
 
 /** The number of pages in the tour. */
-export const tourPageCount = 6;
+export const tourPageCount = 7;
 
 /** The page index `n` kept inside the tour: never before the first page or after the last. */
 export function clampTourPage(n: number): number {
   return Math.max(0, Math.min(tourPageCount - 1, Math.round(n)));
 }
 
-/** "Sida 2 av 6", for the screen reader on every change of page. */
+/** "Sida 2 av 7", for the screen reader on every change of page. */
 export function tourPageLabel(index: number): string {
   return `Sida ${clampTourPage(index) + 1} av ${tourPageCount}`;
 }

@@ -34,24 +34,25 @@ describe("WelcomeTour", () => {
     expect(dialog).toHaveAccessibleName("Välkommen till Livskoll");
     expect(screen.getByText("Maten och sakerna hemma, på ett ställe.")).toBeInTheDocument();
     for (const title of ["Recept och matsedel", "Matvaror", "Förråd"]) expect(screen.getByText(title)).toBeInTheDocument();
-    expect(live(dialog)).toHaveTextContent("Sida 1 av 6");
-    expect(screen.getByRole("button", { name: "Sida 1 av 6" })).toHaveAttribute("aria-current", "step");
+    expect(live(dialog)).toHaveTextContent("Sida 1 av 7");
+    expect(screen.getByRole("button", { name: "Sida 1 av 7" })).toHaveAttribute("aria-current", "step");
   });
 
-  it("goes through the six pages with Fortsätt, saying the page each time, to the choices", async () => {
+  it("goes through the seven pages with Fortsätt, saying the page each time, to the choices", async () => {
     const { dialog } = await renderTour();
     const titles = [
       "Spara recept var du än hittar dem",
       "Planera veckan. Listan skriver sig själv.",
       "Vet vad som finns hemma",
       "Hitta sakerna igen",
+      "Äter ni ute?",
       "Var vill du börja?",
     ];
     for (const [i, title] of titles.entries()) {
       await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
       expect(heading()).toHaveTextContent(title);
       expect(dialog).toHaveAccessibleName(title);
-      expect(live(dialog)).toHaveTextContent(`Sida ${i + 2} av 6`);
+      expect(live(dialog)).toHaveTextContent(`Sida ${i + 2} av 7`);
     }
     // On the last page Fortsätt and Hoppa över give way to the choices.
     expect(screen.getByRole("button", { name: "Fortsätt" })).toHaveAttribute("inert");
@@ -65,16 +66,16 @@ describe("WelcomeTour", () => {
   it("changes page with the arrow keys and the dots, and never goes past the ends", async () => {
     const { dialog } = await renderTour();
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
-    expect(live(dialog)).toHaveTextContent("Sida 1 av 6");
+    expect(live(dialog)).toHaveTextContent("Sida 1 av 7");
     fireEvent.keyDown(dialog, { key: "ArrowRight" });
-    expect(live(dialog)).toHaveTextContent("Sida 2 av 6");
-    await userEvent.click(screen.getByRole("button", { name: "Sida 5 av 6" }));
+    expect(live(dialog)).toHaveTextContent("Sida 2 av 7");
+    await userEvent.click(screen.getByRole("button", { name: "Sida 5 av 7" }));
     expect(heading()).toHaveTextContent("Hitta sakerna igen");
     fireEvent.keyDown(dialog, { key: "ArrowRight" });
     fireEvent.keyDown(dialog, { key: "ArrowRight" });
-    expect(live(dialog)).toHaveTextContent("Sida 6 av 6");
+    expect(live(dialog)).toHaveTextContent("Sida 7 av 7");
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
-    expect(heading()).toHaveTextContent("Hitta sakerna igen");
+    expect(heading()).toHaveTextContent("Äter ni ute?");
   });
 
   it("changes page with a swipe longer than 40 px", async () => {
@@ -82,13 +83,13 @@ describe("WelcomeTour", () => {
     const track = dialog.querySelector("section")!.parentElement!;
     fireEvent.pointerDown(track, { clientX: 300 });
     fireEvent.pointerUp(track, { clientX: 200 });
-    expect(live(dialog)).toHaveTextContent("Sida 2 av 6");
+    expect(live(dialog)).toHaveTextContent("Sida 2 av 7");
     fireEvent.pointerDown(track, { clientX: 200 });
     fireEvent.pointerUp(track, { clientX: 230 });
-    expect(live(dialog)).toHaveTextContent("Sida 2 av 6");
+    expect(live(dialog)).toHaveTextContent("Sida 2 av 7");
     fireEvent.pointerDown(track, { clientX: 200 });
     fireEvent.pointerUp(track, { clientX: 300 });
-    expect(live(dialog)).toHaveTextContent("Sida 1 av 6");
+    expect(live(dialog)).toHaveTextContent("Sida 1 av 7");
   });
 
   it("closes with Hoppa över, records it as seen, and closes only once", async () => {
@@ -109,7 +110,7 @@ describe("WelcomeTour", () => {
 
   it("leads Lägg till ett recept and Titta runt själv on, as seen", async () => {
     const { onExit } = await renderTour();
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     await userEvent.click(screen.getByRole("button", { name: /Lägg till ett recept/ }));
     expect(onExit).toHaveBeenCalledWith("add-recipe", undefined);
     expect(markTourSeen).toHaveBeenCalledTimes(1);
@@ -117,7 +118,7 @@ describe("WelcomeTour", () => {
 
   it("opens the camera from Fota kylen and hands the photo on", async () => {
     const { onExit, dialog } = await renderTour();
-    await userEvent.click(screen.getByRole("button", { name: "Sida 6 av 6" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sida 7 av 7" }));
     const input = within(dialog).getByTestId("welcome-tour-camera") as HTMLInputElement;
     const click = vi.spyOn(input, "click");
     await userEvent.click(screen.getByRole("button", { name: /Fota kylen/ }));
@@ -140,7 +141,7 @@ describe("WelcomeTour", () => {
 
   it("moves focus to the first choice when Fortsätt gives way on the last page", async () => {
     await renderTour();
-    for (let i = 0; i < 5; i++) await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+    for (let i = 0; i < 6; i++) await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
     expect(screen.getByRole("button", { name: /Lägg till ett recept/ })).toHaveFocus();
   });
 });
