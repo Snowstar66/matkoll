@@ -1111,7 +1111,7 @@ export const menuDishAnswer = z.object({
     .optional()
     .describe('Rättens namn översatt till svenska när menyn är på ett annat språk, t.ex. "Kokt bläckfisk på galicisk vis" för "Pulpo a la gallega". Tom sträng när namnet redan är svenskt eller ett egennamn ("Margherita", "Caesarsallad")'),
   grupp: z.enum(["Förrätt", "Varmrätt", "Efterrätt", "Drycker", "Övrigt"]),
-  forklaring: z.string().describe('Ett till två korta meningar (ca 80-170 tecken) på klar svenska om vad man får: huvudråvara, tillagning, tillbehör och gärna hur stor eller stark rätten är, utan marknadsföring. Kryptiska menynamn förklaras: "Bläckfisk i vitlök och persilja med inlagd lök och klyftpotatis"'),
+  forklaring: z.string().describe('Ett till två korta meningar (ca 70-140 tecken) på klar svenska om vad man får: huvudråvara, tillagning, tillbehör och gärna hur stor eller stark rätten är, utan marknadsföring. Kryptiska menynamn förklaras: "Bläckfisk i vitlök och persilja med inlagd lök och klyftpotatis"'),
   huvudingredienser: z.array(z.string()),
   kategori: z.enum(["kott", "fisk", "skaldjur", "vegetariskt", "veganskt", "ej_tillampligt"]),
   allergener: z.array(z.enum(menuAllergenList)),

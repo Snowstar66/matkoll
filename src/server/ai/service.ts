@@ -702,8 +702,8 @@ export const inputLimits = {
   /** readShoppingList: an item is about 15 tokens of answer, so 60 are about 900; 3 000 leave room for a model that writes around them. */
   shoppingList: { maxOutputTokens: 3_000 },
   /**
-   * readMenu: a dish is about 105 tokens of answer (with its Swedish name and a two-sentence explanation), so 80 dishes
-   * are about 8 400; 10 000 leave room for the notes. A menu on several photos has more dishes: 2 500 more per extra
+   * readMenu: a dish is about 100 tokens of answer (with its Swedish name and an explanation of one or two short
+   * sentences), so 80 dishes are about 8 000; 10 000 leave room for the notes. A menu on several photos has more dishes: 2 500 more per extra
    * page, at most 20 000 (menuOutputTokens). Up to maxMenuPages photos (6), all in one call.
    */
   menu: { maxOutputTokens: 10_000, maxOutputTokensPerExtraPage: 2_500, maxOutputTokensAll: 20_000, maxImages: maxMenuPages, maxTextChars: 12_000 },
@@ -977,6 +977,20 @@ export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
 
 /** Less time than this left before the deadline: the model is not asked. */
 export const minRunMs = 10_000;
+
+/**
+ * The budget of a menu reading. A menu of 77 dishes is about 8 000 tokens of answer, more than the 100 s one attempt
+ * of defaultLimits allows, and a run that is cut off at the end fails although every dish was read. So the defaults are
+ * stretched to 150 s for the one attempt and 160 s in all (the route's deadline is 165 s). Limits that were set on
+ * purpose (a test, a provider) are left as they are.
+ */
+export function menuReadLimits(limits: Limits): Limits {
+  return {
+    ...limits,
+    attemptMs: limits.attemptMs === defaultLimits.attemptMs ? 150_000 : limits.attemptMs,
+    totalMs: limits.totalMs === defaultLimits.totalMs ? 160_000 : limits.totalMs,
+  };
+}
 
 /** The run's budget within the deadline, or `null` when too little time is left. */
 export function limitsWithin(limits: Limits, deadline: number | undefined): Limits | null {
@@ -1257,7 +1271,7 @@ export function createModelAiService(
     },
     async readMenu(input, signal, options = {}) {
       const read = async (quality: MenuQuality, escalated: boolean): Promise<Result<MenuAnswer>> => {
-        const within = limitsWithin(limits, options.deadline);
+        const within = limitsWithin(menuReadLimits(limits), options.deadline);
         if (!within) {
           console.error("ai_unavailable", { reason: "deadline" });
           return fail("ai_unavailable");
