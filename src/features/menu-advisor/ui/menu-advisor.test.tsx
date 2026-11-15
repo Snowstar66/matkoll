@@ -5,6 +5,7 @@ import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { saveOption } from "@/lib/options";
 import { allergyDisclaimer } from "../domain/disclaimer";
 import type { Menu } from "../domain/types";
+import { forgetExplanations } from "./dish-more";
 import { MenuAdvisor } from "./menu-advisor";
 
 // The journey: off without the Tillval, then start, a live reading, the answer, Ert val, the whole menu and a dish.
@@ -12,6 +13,9 @@ import { MenuAdvisor } from "./menu-advisor";
 
 const readMenuText = vi.fn();
 vi.mock("../actions/read-menu-text", () => ({ readMenuText: (input: unknown) => readMenuText(input) }));
+
+const explainDish = vi.fn();
+vi.mock("../actions/explain-dish", () => ({ explainDish: (input: unknown) => explainDish(input) }));
 
 const downscaleImage = vi.fn<(file: Blob) => Promise<Result<Blob>>>();
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: (file: Blob) => downscaleImage(file) }));
@@ -925,6 +929,66 @@ describe("adding more dishes from the menu", () => {
     expect(total()).toBe(before + 145);
   });
 
+  describe("more about a dish on the answer", () => {
+    beforeEach(() => {
+      explainDish.mockReset();
+    forgetExplanations();
+    });
+
+    it("every proposal has a button that opens the dish without choosing it", async () => {
+      const u = user();
+      await atTheTable(u);
+      const before = total();
+      const buttons = screen.getAllByRole("button", { name: /^Mer om / });
+      expect(buttons.length).toBeGreaterThanOrEqual(3);
+      const name = buttons[0]!.getAttribute("aria-label")!.replace(/^Mer om /, "");
+      await u.click(buttons[0]!);
+      const sheet = within(screen.getByRole("dialog"));
+      expect(sheet.getByTestId("menu-dish-sheet")).toHaveTextContent(allergyDisclaimer);
+      expect(sheet.getByTestId("menu-dish-more-button")).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toHaveTextContent(name);
+      // Only told about: nothing to add and nothing starred.
+      expect(sheet.queryByTestId("menu-dish-add")).toBeNull();
+      expect(sheet.queryByTestId("menu-dish-tonight")).toBeNull();
+      expect(total()).toBe(before);
+    });
+
+    it("Mer om rätten asks once for the dish and shows the Swedish text", async () => {
+      explainDish.mockResolvedValue(
+        ok({ svenskt_namn: "Översatt rätt", beskrivning: "En varm rätt med potatis.", smak_och_storlek: "Mild och mättande.", ursprung: "Från Spanien.", osakert: "Såsen kan skilja." }),
+      );
+      const u = user();
+      await atTheTable(u);
+      await u.click(screen.getAllByRole("button", { name: /^Mer om / })[0]!);
+      await u.click(within(screen.getByRole("dialog")).getByTestId("menu-dish-more-button"));
+      const more = await within(screen.getByRole("dialog")).findByTestId("menu-dish-more");
+      expect(more).toHaveTextContent("En varm rätt med potatis.");
+      expect(more).toHaveTextContent("Mild och mättande.");
+      expect(more).toHaveTextContent("Från Spanien.");
+      expect(more).toHaveTextContent("Såsen kan skilja.");
+      expect(more).toHaveTextContent("Restaurangen kan göra den annorlunda");
+      expect(explainDish).toHaveBeenCalledTimes(1);
+      const sent = explainDish.mock.calls[0]![0] as Record<string, unknown>;
+      expect(sent).toMatchObject({ language: bistro.sprak, restaurant: bistro.restaurang });
+      expect(Object.keys(sent).sort()).toEqual(["ingredients", "language", "name", "restaurant", "summary"]);
+    });
+
+    it("a failed explanation says so and can be tried again", async () => {
+      explainDish.mockResolvedValueOnce(fail("ai_unavailable")).mockResolvedValueOnce(
+        ok({ svenskt_namn: "", beskrivning: "Andra försöket gick bra.", smak_och_storlek: "", ursprung: "", osakert: "" }),
+      );
+      const u = user();
+      await atTheTable(u);
+      await u.click(screen.getAllByRole("button", { name: /^Mer om / })[0]!);
+      const dialog = within(screen.getByRole("dialog"));
+      await u.click(dialog.getByTestId("menu-dish-more-button"));
+      expect(await dialog.findByRole("alert")).toHaveTextContent("Det gick inte att hämta mer om rätten just nu.");
+      expect(dialog.getByTestId("menu-dish-more-button")).toHaveTextContent("Försök igen");
+      await u.click(dialog.getByTestId("menu-dish-more-button"));
+      expect(await dialog.findByTestId("menu-dish-more")).toHaveTextContent("Andra försöket gick bra.");
+    });
+  });
+
   it("a dish without a price is added and says that the sum does not change", async () => {
     const u = user();
     await atTheTable(u);
@@ -934,7 +998,8 @@ describe("adding more dishes from the menu", () => {
     expect(within(screen.getByRole("dialog")).getAllByText("Pris saknas, räknas inte med")).toHaveLength(2);
     await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
     await addFor(u, "Greta", "Dagens soppa");
-    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Dagens soppaPris saknas");
+    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Dagens soppa");
+    expect(region("Greta").getByTestId("menu-extra")).toHaveTextContent("Pris saknas");
     expect(total()).toBe(before);
     expect(screen.getByTestId("menu-footer")).toHaveTextContent("1 rätt saknar pris och räknas inte med");
   });

@@ -11,6 +11,8 @@ export type MenuGroup = (typeof menuGroups)[number];
 
 export type MenuDish = {
   originalnamn: string;
+  /** The name in Swedish when the menu is in another language; empty or missing when the name is already Swedish. */
+  svenskt_namn?: string;
   grupp: MenuGroup;
   forklaring: string;
   huvudingredienser: string[];
@@ -20,6 +22,15 @@ export type MenuDish = {
   pris: number | null;
   /** ISO-like code (SEK, EUR, GBP, USD); null when there is no price. */
   valuta: string | null;
+};
+
+/** One dish explained in Swedish ("Mer om rätten"): every text is plain sentences, and one that does not apply is empty. */
+export type DishExplanation = {
+  svenskt_namn: string;
+  beskrivning: string;
+  smak_och_storlek: string;
+  ursprung: string;
+  osakert: string;
 };
 
 export type Menu = {

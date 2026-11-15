@@ -50,6 +50,9 @@ import {
   analyzeImageAnswer,
   askThingsAnswer,
   categorizeThingsAnswer,
+  explainDishAnswer,
+  parseDishExplanation,
+  type DishExplanation,
   parseCategories,
   parseSearchTerms,
   parseThingIntent,
@@ -347,6 +350,21 @@ export type CategorizeThingsInput = { names: string[] };
 /** One category per name, in the order of the names. */
 export type CategorizeThingsResult = { categories: ThingCategory[] };
 
+/** What explainDish gets: one dish of a menu, as text. Data for the model, never instructions. */
+export type ExplainDishInput = {
+  /** The dish as printed on the menu. */
+  name: string;
+  /** The language of the menu. */
+  language: "sv" | "en" | "es" | "annat";
+  restaurant: string | null;
+  /** The short explanation the reading already gave (empty when none). */
+  summary: string;
+  ingredients: string[];
+};
+
+/** The dish explained in Swedish, in plain sentences. */
+export type ExplainDishResult = DishExplanation;
+
 /** What askThings answers: a short text and the places it is about, as indexes into `places` (zero-based). */
 export type AskThingsResult = { answer: string; places: number[] };
 
@@ -608,6 +626,12 @@ export interface AiService {
    */
   categorizeThings(input: CategorizeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<CategorizeThingsResult>>;
   /**
+   * One dish of a menu explained in Swedish (Tolka menyn, "Mer om rätten"): its Swedish name, what it is, how it tastes
+   * and where it comes from. One short text call, no image. Fails with `validation` (outside inputLimits.explain),
+   * `ai_unavailable` (also when the deadline leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  explainDish(input: ExplainDishInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ExplainDishResult>>;
+  /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
    * for `text`), a minimal message without any data of Pontus's (a grey
@@ -678,11 +702,11 @@ export const inputLimits = {
   /** readShoppingList: an item is about 15 tokens of answer, so 60 are about 900; 3 000 leave room for a model that writes around them. */
   shoppingList: { maxOutputTokens: 3_000 },
   /**
-   * readMenu: a dish is about 80 tokens of answer, so 80 dishes are about 6 400; 8 000 leave room for the notes. A
-   * menu on several photos has more dishes: 2 000 more per extra page, at most 16 000 (menuOutputTokens). Up to
-   * maxMenuPages photos (6), all in one call.
+   * readMenu: a dish is about 105 tokens of answer (with its Swedish name and a two-sentence explanation), so 80 dishes
+   * are about 8 400; 10 000 leave room for the notes. A menu on several photos has more dishes: 2 500 more per extra
+   * page, at most 20 000 (menuOutputTokens). Up to maxMenuPages photos (6), all in one call.
    */
-  menu: { maxOutputTokens: 8_000, maxOutputTokensPerExtraPage: 2_000, maxOutputTokensAll: 16_000, maxImages: maxMenuPages, maxTextChars: 12_000 },
+  menu: { maxOutputTokens: 10_000, maxOutputTokensPerExtraPage: 2_500, maxOutputTokensAll: 20_000, maxImages: maxMenuPages, maxTextChars: 12_000 },
   /**
    * locateThing (Story 18.7): a name of at most 80 characters and a "where" of
    * at most 120 (as thing_item holds them) with the photo; the answer is a flag
@@ -716,6 +740,11 @@ export const inputLimits = {
    * 100 are 500 and 1 000 leave room for a model that writes around them.
    */
   categorize: { maxNames: 100, maxNameChars: 80, maxChars: 8_000, maxOutputTokens: 1_000 },
+  /**
+   * explainDish: a dish name, the restaurant, the short explanation and up to 12 ingredients are under 1 500
+   * characters (about 500 tokens in); the answer is five short texts of about 350 tokens in all, so 800 leave room.
+   */
+  explain: { maxNameChars: 120, maxRestaurantChars: 80, maxSummaryChars: 400, maxIngredients: 12, maxIngredientChars: 40, maxChars: 1_500, maxOutputTokens: 800 },
   /**
    * mergeThings (Story 18.6): the lists are names, categories and where on
    * the card, about 15 tokens a thing. A storage room of nine cards had 258
@@ -821,6 +850,18 @@ export function isValidCategorizeThingsInput(input: CategorizeThingsInput): bool
   const { names } = input;
   if (names.length === 0 || names.length > limits.maxNames) return false;
   return names.every((name) => name !== "" && name === cleanModelText(name) && name.length <= limits.maxNameChars) && categorizeThingsText(input).length <= limits.maxChars;
+}
+
+/** True for a dish within inputLimits.explain: every text on one line and within its length. */
+export function isValidExplainDishInput(input: ExplainDishInput): boolean {
+  const limits = inputLimits.explain;
+  const oneLine = (text: string) => text === cleanModelText(text);
+  if (input.name === "" || !oneLine(input.name) || input.name.length > limits.maxNameChars) return false;
+  if (!["sv", "en", "es", "annat"].includes(input.language)) return false;
+  if (input.restaurant !== null && (input.restaurant === "" || !oneLine(input.restaurant) || input.restaurant.length > limits.maxRestaurantChars)) return false;
+  if (!oneLine(input.summary) || input.summary.length > limits.maxSummaryChars) return false;
+  if (input.ingredients.length > limits.maxIngredients || !input.ingredients.every((item) => item !== "" && oneLine(item) && item.length <= limits.maxIngredientChars)) return false;
+  return explainDishText(input).length <= limits.maxChars;
 }
 
 /** True for lists within inputLimits.merge: something on the new card and in the room, every text on one line. */
@@ -1008,6 +1049,10 @@ export function withInputValidation(service: AiService): AiService {
     async categorizeThings(input, signal, options) {
       if (!isValidCategorizeThingsInput(input)) return fail("validation");
       return service.categorizeThings(input, signal, options);
+    },
+    async explainDish(input, signal, options) {
+      if (!isValidExplainDishInput(input)) return fail("validation");
+      return service.explainDish(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -1470,6 +1515,27 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok({ terms: parseSearchTerms(answer.data), ...parseThingIntent(answer.data) });
     },
+    async explainDish(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: explainDishAnswer,
+          system: prompts.explainDish,
+          messages: [{ role: "user", content: explainDishText(input) }],
+          maxOutputTokens: inputLimits.explain.maxOutputTokens,
+          onTruncated: () => console.info("explain_dish_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok(parseDishExplanation(answer.data));
+    },
     async categorizeThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1708,6 +1774,19 @@ export function thingSearchTermsText(input: ThingSearchTermsInput): string {
 /** The user message for categorizeThings (Story 18.13): "Prylar:" and a numbered line per name. */
 export function categorizeThingsText(input: CategorizeThingsInput): string {
   return `${thingNounCap.plural}:\n${input.names.map((name, index) => `${index + 1}. ${name}`).join("\n")}`;
+}
+
+const menuLanguageNames: Record<ExplainDishInput["language"], string> = { sv: "svenska", en: "engelska", es: "spanska", annat: "ett annat språk" };
+
+/** The user message for explainDish: one labelled line per fact, so none can start a section of its own. */
+export function explainDishText(input: ExplainDishInput): string {
+  return [
+    `Rätt: ${input.name}`,
+    `Menyns språk: ${menuLanguageNames[input.language]}`,
+    ...(input.restaurant ? [`Restaurang: ${input.restaurant}`] : []),
+    ...(input.summary ? [`Appens korta förklaring: ${input.summary}`] : []),
+    ...(input.ingredients.length > 0 ? [`Huvudingredienser: ${input.ingredients.join(", ")}`] : []),
+  ].join("\n");
 }
 
 /**

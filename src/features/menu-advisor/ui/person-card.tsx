@@ -1,5 +1,5 @@
 import { cx } from "@/components/cx";
-import { ChevronDownIcon, TrashIcon } from "@/components/icons";
+import { ChevronDownIcon, InfoIcon, TrashIcon } from "@/components/icons";
 import { drinkIcons, drinkLabels } from "../domain/people";
 import { drinkPrice } from "../domain/drinks";
 import type { DrinkKind, Person } from "../domain/profile";
@@ -9,6 +9,7 @@ import { optionFor } from "../domain/recommend-options";
 import { dishSek } from "../domain/view";
 import { approxKr, drinkFor, reasonTone, toWhom, type ReasonTone } from "./journey";
 import { PillButton, RadioCard } from "./journey-parts";
+import { DishBlurb } from "./dish-more";
 import { PersonAvatar } from "./person-avatar";
 
 const toneClass: Record<ReasonTone, string> = {
@@ -32,6 +33,26 @@ function Reasons({ option }: { option: DishOption }) {
         );
       })}
     </span>
+  );
+}
+
+/** "Mer om rätten" under a dish: opens the sheet that tells about it. Inside a choice card it must not choose the card. */
+function InfoButton({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      data-testid="menu-dish-info"
+      aria-label={`Mer om ${name}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+      className="-ml-1 mt-0.5 inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-1 text-meta font-semibold text-accent"
+    >
+      <InfoIcon size={16} />
+      Mer om rätten
+    </button>
   );
 }
 
@@ -94,6 +115,7 @@ export function PersonCard({
   onRemoveDrink,
   onAddDish,
   onAddDrink,
+  onInfo,
 }: {
   menu: Menu;
   person: Person;
@@ -115,6 +137,8 @@ export function PersonCard({
   onRemoveDrink?: (kind: DrinkKind) => void;
   onAddDish: () => void;
   onAddDrink?: () => void;
+  /** "Mer om rätten" on a dish: opens the sheet that tells about it. Left out: no such button. */
+  onInfo?: (dishIndex: number) => void;
 }) {
   const drink = drinkFor(person, choice ? { [person.id]: choice } : {});
   const addedDrinks = choice?.drinks ?? [];
@@ -176,8 +200,9 @@ export function PersonCard({
                 <span className={cx("text-headline font-bold", chosen === option.dishIndex || option.warning === "allergy" ? "text-ink" : "text-ink-2")}>
                   {option.dish.originalnamn}
                 </span>
-                {option.dish.forklaring ? <span className="line-clamp-1 text-meta text-ink-2">{option.dish.forklaring}</span> : null}
+                <DishBlurb dish={option.dish} />
                 <Reasons option={option} />
+                {onInfo ? <InfoButton name={option.dish.originalnamn} onClick={() => onInfo(option.dishIndex)} /> : null}
               </RadioCard>
             ))}
           </div>
@@ -203,7 +228,9 @@ export function PersonCard({
                       <li key={extra.dishIndex} data-testid="menu-extra" className="flex items-start gap-3 border-t border-hairline py-1 first:border-t-0">
                         <span className="flex min-w-0 flex-1 flex-col py-2">
                           <span className="text-row-title font-semibold text-ink">{extra.dish.originalnamn}</span>
+                          <DishBlurb dish={extra.dish} lines={2} />
                           <Reasons option={extra} />
+                          {onInfo ? <InfoButton name={extra.dish.originalnamn} onClick={() => onInfo(extra.dishIndex)} /> : null}
                         </span>
                         <span className={cx("shrink-0 py-2", price === null ? "text-meta text-ink-3" : "text-row-title text-ink")}>
                           {price === null ? "Pris saknas" : approxKr(price)}

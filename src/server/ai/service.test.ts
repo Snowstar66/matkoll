@@ -9,6 +9,7 @@ import type { Limits } from "./run";
 import {
   askThingsText,
   categorizeThingsText,
+  explainDishText,
   thingSearchTermsText,
   createAiService,
   createModelAiService,
@@ -31,6 +32,7 @@ import {
   type AnalyzeImageInput,
   type AskThingsInput,
   type CategorizeThingsInput,
+  type ExplainDishInput,
   type ThingSearchTermsInput,
   type MatchOffersInput,
   type PlanWeekInput,
@@ -1640,6 +1642,65 @@ describe("categorizeThings on a model (Story 18.13)", () => {
     expect((await code({ names: Array.from({ length: 101 }, (_, index) => `Föremål ${index}`) })).error?.code).toBe("validation");
     expect((await code({ names: ["x".repeat(81)] })).error?.code).toBe("validation");
     expect((await code({ names: ["två\nrader"] })).error?.code).toBe("validation");
+  });
+});
+
+describe("explainDish on a model", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const input: ExplainDishInput = {
+    name: "Carpaccio de presa ibérica con virutas de foie",
+    language: "es",
+    restaurant: "Taverna Mock",
+    summary: "Tunt skivad svinnacke med foie gras.",
+    ingredients: ["svinnacke", "foie gras"],
+  };
+  const answer = {
+    svenskt_namn: "Carpaccio av iberisk presa med spån av foie gras",
+    beskrivning: "Tunt skivat, rått eller lätt saltat fläskkött av ibericogris.",
+    smak_och_storlek: "Rik och len. En förrätt att dela.",
+    ursprung: "Presa är en styckdel från Spanien.",
+    osakert: "",
+  };
+
+  it("sends the explain prompt and one labelled line per fact, and gives the cleaned Swedish texts", async () => {
+    const model = fakeModel(JSON.stringify(answer));
+    const result = await createModelAiService({ model }, limits).explainDish(input, signal());
+    expect(result).toEqual({ ok: true, data: answer });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.explain.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.explainDish });
+    expect(user.content).toEqual([{ type: "text", text: explainDishText(input) }]);
+    expect(explainDishText(input)).toBe(
+      "Rätt: Carpaccio de presa ibérica con virutas de foie\nMenyns språk: spanska\nRestaurang: Taverna Mock\nAppens korta förklaring: Tunt skivad svinnacke med foie gras.\nHuvudingredienser: svinnacke, foie gras",
+    );
+  });
+
+  it("cuts a text that is too long and leaves out lines that are empty", async () => {
+    const model = fakeModel(JSON.stringify({ ...answer, beskrivning: "ord ".repeat(300), ursprung: "" }));
+    const result = await createModelAiService({ model }, limits).explainDish({ ...input, restaurant: null, summary: "", ingredients: [] }, signal());
+    expect(result).toMatchObject({ ok: true, data: { ursprung: "" } });
+    if (result.ok) expect(result.data.beskrivning.length).toBeLessThanOrEqual(450);
+    expect(explainDishText({ ...input, restaurant: null, summary: "", ingredients: [] })).toBe("Rätt: Carpaccio de presa ibérica con virutas de foie\nMenyns språk: spanska");
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(JSON.stringify(answer));
+    const result = await createModelAiService({ model }, limits).explainDish(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for a name that is empty, on two lines or too long, a text too long or an unknown language", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify(answer)) }, limits));
+    const code = async (next: ExplainDishInput) => (await wrapped.explainDish(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect((await code(input)).ok).toBe(true);
+    expect((await code({ ...input, name: "" })).error?.code).toBe("validation");
+    expect((await code({ ...input, name: "två\nrader" })).error?.code).toBe("validation");
+    expect((await code({ ...input, name: "x".repeat(121) })).error?.code).toBe("validation");
+    expect((await code({ ...input, summary: "x".repeat(401) })).error?.code).toBe("validation");
+    expect((await code({ ...input, ingredients: Array.from({ length: 13 }, () => "ost") })).error?.code).toBe("validation");
+    expect((await code({ ...input, language: "fr" as ExplainDishInput["language"] })).error?.code).toBe("validation");
   });
 });
 

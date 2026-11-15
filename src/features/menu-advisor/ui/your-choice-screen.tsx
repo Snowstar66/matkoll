@@ -6,6 +6,7 @@ import type { Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
 import { allergyLine, approxKr, drinkFor } from "./journey";
 import { BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
+import { swedishName } from "./dish-more";
 import { PersonAvatar } from "./person-avatar";
 import { dishSek } from "../domain/view";
 import { optionFor } from "../domain/recommend-options";
@@ -21,6 +22,11 @@ function ChoiceDish({ dish, warning, testid }: { dish: MenuDish; warning?: strin
           {sek === null ? "Pris saknas" : approxKr(sek)}
         </span>
       </div>
+      {swedishName(dish) ? (
+        <p data-testid="menu-dish-swedish" className="text-headline font-medium text-ink">
+          {swedishName(dish)}
+        </p>
+      ) : null}
       {dish.forklaring ? <p className="text-body text-ink-2">{dish.forklaring}</p> : null}
       {warning ? <p className="text-body font-semibold text-danger">{warning}</p> : null}
     </div>

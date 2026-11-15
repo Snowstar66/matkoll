@@ -7,7 +7,8 @@ import { allergenHits } from "../domain/allergens";
 import { allergenLabels } from "../domain/labels";
 import { meId } from "../domain/people";
 import type { Person } from "../domain/profile";
-import type { MenuDish } from "../domain/types";
+import type { Menu, MenuDish } from "../domain/types";
+import { MoreAboutDish, swedishName } from "./dish-more";
 import { certainAllergens, joinNames, listPrice, toWhom } from "./journey";
 import { PersonAvatar } from "./person-avatar";
 
@@ -45,28 +46,33 @@ export function maybeSentence(dish: MenuDish, company: readonly Person[]): strin
  */
 export function DishSheet({
   dish,
+  menu,
   company,
   fromPersonId,
   has,
-  starred,
+  starred = false,
   onAdd,
   onStar,
   onClose,
 }: {
   dish: MenuDish | null;
+  /** The menu the dish is on: its language and restaurant go into "Mer om rätten". */
+  menu: Pick<Menu, "restaurang" | "sprak">;
   company: readonly Person[];
   /** Opened from "Fler rätter åt Anna": that person is chosen. */
   fromPersonId: string | null;
   /** Whether the person already has this dish: then the button says "Redan med åt Anna" and adds nothing. */
   has?: (personId: string) => boolean;
-  starred: boolean;
-  onAdd: (personId: string) => void;
-  onStar: () => void;
+  starred?: boolean;
+  /** Left out when the sheet only tells about the dish (opened from a proposal): then there is no "Lägg till". */
+  onAdd?: (personId: string) => void;
+  /** Left out together with onAdd: no "Lägg till Ikväll". */
+  onStar?: () => void;
   onClose: () => void;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const target = company.find((person) => person.id === (fromPersonId ?? picked)) ?? company[0];
-  const canAdd = dish !== null && dish.grupp !== "Drycker" && target !== undefined;
+  const canAdd = dish !== null && onAdd !== undefined && dish.grupp !== "Drycker" && target !== undefined;
   const already = canAdd && (has?.(target.id) ?? false);
   const fit = dish ? fitParts(dish, company) : [];
   const maybe = dish ? maybeSentence(dish, company) : "";
@@ -79,22 +85,29 @@ export function DishSheet({
       title={dish?.originalnamn ?? "Rätt"}
       closeLabel="Klar"
       footer={
-        dish ? (
+        dish && (canAdd || onStar) ? (
           <>
             {canAdd ? (
               <Button data-testid="menu-dish-add" fullWidth disabled={already} onClick={() => onAdd(target.id)}>
                 {already ? `Redan med åt ${toWhom(target)}` : `Lägg till åt ${toWhom(target)}`}
               </Button>
             ) : null}
-            <Button variant={canAdd ? "text" : "primary"} fullWidth onClick={onStar} data-testid="menu-dish-tonight">
-              {starred ? "Ta bort från Ikväll" : "Lägg till Ikväll"}
-            </Button>
+            {onStar ? (
+              <Button variant={canAdd ? "text" : "primary"} fullWidth onClick={onStar} data-testid="menu-dish-tonight">
+                {starred ? "Ta bort från Ikväll" : "Lägg till Ikväll"}
+              </Button>
+            ) : null}
           </>
         ) : null
       }
     >
       {dish ? (
         <div className="flex flex-col gap-3 pb-2" data-testid="menu-dish-sheet">
+          {swedishName(dish) ? (
+            <p data-testid="menu-dish-swedish" className="text-section-title font-bold text-ink">
+              {swedishName(dish)}
+            </p>
+          ) : null}
           {dish.forklaring ? <p className="text-headline text-ink-2">{dish.forklaring}</p> : null}
           {price ? (
             <p className="text-[1.75rem] leading-8 font-bold text-ink">{price}</p>
@@ -109,6 +122,7 @@ export function DishSheet({
               <p className="text-body text-ink">{ingredients}</p>
             </div>
           ) : null}
+          <MoreAboutDish key={dish.originalnamn} dish={dish} menu={menu} />
           {fit.length > 0 ? (
             <div className="flex flex-col gap-1">
               <p data-testid="menu-dish-fit" className="text-body text-ink">

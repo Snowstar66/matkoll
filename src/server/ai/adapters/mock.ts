@@ -21,7 +21,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, ReadShoppingListResult, SuggestDishesInput, SuggestedDish } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ExplainDishInput, ExplainDishResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, ReadShoppingListResult, SuggestDishesInput, SuggestedDish } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -388,6 +388,17 @@ const mockCategoryWords: [RegExp, CategorizeThingsResult["categories"][number]][
   [/plank|spik|bräd|cement|färg/, "Byggmaterial"],
 ];
 
+/** explainDish without a model: fixed Swedish sentences around the name, so the sheet and its states can be tried. */
+function mockDishExplanation(input: ExplainDishInput): ExplainDishResult {
+  return {
+    svenskt_namn: input.language === "sv" ? "" : `${input.name} på svenska`,
+    beskrivning: `${input.name} är en rätt som brukar serveras varm med ett par tillbehör. ${input.summary || "Menyn säger inte mer."}`,
+    smak_och_storlek: "Brukar vara mild och passar som egen portion.",
+    ursprung: input.language === "es" ? "Rätten kommer ursprungligen från Spanien." : "",
+    osakert: "Restaurangen kan ha gjort rätten på ett annat sätt.",
+  };
+}
+
 function mockCategories(input: CategorizeThingsInput): CategorizeThingsResult {
   return {
     categories: input.names.map((name) => {
@@ -535,6 +546,7 @@ function countingCalls(service: AiService): AiService {
     findRestaurantsWeb: counted(service.findRestaurantsWeb),
     thingSearchTerms: counted(service.thingSearchTerms),
     categorizeThings: counted(service.categorizeThings),
+    explainDish: counted(service.explainDish),
   };
 }
 
@@ -722,6 +734,15 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const names = normalizeInputText({ text: input.names.join(" ") });
       for (const [text, code] of errors) if (names.includes(text)) return fail(code);
       return ok(mockCategories(input));
+    },
+    async explainDish(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const errors = logged(askErrors());
+      if (!errors) return fail("ai_unavailable");
+      // A name that holds a reserved text fails with its code, so "AI svarar inte" can be tried.
+      const name = normalizeInputText({ text: input.name });
+      for (const [text, code] of errors) if (name.includes(text)) return fail(code);
+      return ok(mockDishExplanation(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {
