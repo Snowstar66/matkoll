@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { InfoIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
-import { profilesHref } from "../domain/people";
 import type { DrinkKind } from "../domain/profile";
 import type { Choices, PersonOptions } from "../domain/options";
 import type { Person } from "../domain/profile";
@@ -39,7 +36,6 @@ export function AnswerScreen({
   choices,
   totals,
   added = null,
-  filtered,
   uncertain,
   pagesNotice,
   reader,
@@ -65,8 +61,6 @@ export function AnswerScreen({
   totals: Totals;
   /** What the last "Lägg till åt" from the whole menu did; shown under that person, who is scrolled into view. */
   added?: AddedNote | null;
-  /** Someone ticked has an allergy: false shows the sand box that nothing is sorted out, with a way to add one. */
-  filtered: boolean;
   uncertain: readonly string[];
   /** A menu on several photos: which pages could not be read, with "Ta om" (the advisor makes it). */
   pagesNotice?: ReactNode;
@@ -110,17 +104,6 @@ export function AnswerScreen({
     <div className="flex flex-1 flex-col gap-4" data-testid="menu-answer">
       <TopBack onClick={onBack}>Tolka menyn</TopBack>
       <Headline>Det här passar er</Headline>
-      {filtered ? null : (
-        <div data-testid="menu-unfiltered" className="flex gap-2.5 rounded-xl bg-sand px-3.5 py-3 text-body text-sand-ink">
-          <InfoIcon size={20} className="mt-0.5 shrink-0" />
-          <p>
-            Ingen av er har angett allergier, så inget är bortsorterat.{" "}
-            <Link href={profilesHref} className="font-semibold underline underline-offset-4">
-              Lägg till allergi
-            </Link>
-          </p>
-        </div>
-      )}
       {error ? <Notice role="alert">{error}</Notice> : null}
       {pagesNotice}
       <div ref={list} className={folding ? "flex flex-col gap-2.5" : "flex flex-col gap-5"}>

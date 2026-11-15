@@ -59,8 +59,9 @@ for (const size of [undefined, "xl"] as const) {
     await expect(maps).toHaveCount(1);
     await expect(maps).toBeVisible();
     await expect(page.getByTestId("restaurant-find")).toHaveCount(0);
-    // The radius as a radar, the way on to the photo, and no When / Vi är / priorities without the web search.
-    await expect(page.getByRole("img", { name: /Sökområde: ungefär 1 km/ })).toBeVisible();
+    // No radius (the map link cannot take one), the way on to the photo, and no When / Vi är / priorities without the web search.
+    await expect(page.getByRole("img", { name: /Sökområde/ })).toHaveCount(0);
+    await expect(page.getByTestId("restaurant-radius")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Framme? Fota menyn" })).toBeVisible();
     await expect(page.getByText("Vi är")).toHaveCount(0);
     await page.getByRole("button", { name: "Pizza" }).click();
