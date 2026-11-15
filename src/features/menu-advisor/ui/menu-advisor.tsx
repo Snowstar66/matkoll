@@ -27,7 +27,9 @@ import {
   addDrink,
   addExtra,
   choose,
-  clearDish,
+  dismissProposal,
+  isDismissed,
+  restoreProposal,
   dropAllDrinks,
   dropUsualDrink,
   emptyReadingView,
@@ -629,9 +631,18 @@ export function MenuAdvisor({
           setAdded(null);
           setJourney((current) => ({ ...current, choices: removeExtra(current.choices, personId, dishIndex) }));
         }}
-        onRemoveDish={(personId) => {
-          setAdded(null);
-          setJourney((current) => ({ ...current, choices: clearDish(current.choices, personId) }));
+        onDismiss={(personId, dishIndex) => {
+          const name = reading.menu.ratter[dishIndex]?.originalnamn ?? "förslaget";
+          setJourney((current) => ({ ...current, choices: dismissProposal(current.choices, personId, dishIndex) }));
+          setAdded({
+            personId,
+            text: `Tog bort ${name}.`,
+            quiet: true,
+            undo: () => {
+              setJourney((current) => ({ ...current, choices: restoreProposal(current.choices, personId, dishIndex) }));
+              setAdded(null);
+            },
+          });
         }}
         onRemoveUsualDrink={(personId) => setJourney((current) => ({ ...current, choices: dropUsualDrink(current.choices, personId) }))}
         onRemoveDrink={(personId, kind) => setJourney((current) => ({ ...current, choices: removeDrink(current.choices, personId, kind) }))}
@@ -712,6 +723,8 @@ export function MenuAdvisor({
           menu={reading.menu}
           has={(dishIndex) => hasDish(journey.choices, dishPerson.id, dishIndex)}
           onAdd={(dishIndex) => setJourney((current) => ({ ...current, choices: addExtra(current.choices, dishPerson.id, dishIndex) }))}
+          dismissed={(dishIndex) => isDismissed(journey.choices, dishPerson.id, dishIndex)}
+          onRestore={(dishIndex) => setJourney((current) => ({ ...current, choices: restoreProposal(current.choices, dishPerson.id, dishIndex) }))}
           onClose={() => setDishOf(null)}
         />
       ) : null}

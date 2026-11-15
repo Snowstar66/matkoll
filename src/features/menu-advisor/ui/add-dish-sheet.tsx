@@ -22,6 +22,8 @@ export function AddDishSheet({
   menu,
   has,
   onAdd,
+  dismissed,
+  onRestore,
   onClose,
 }: {
   person: Person;
@@ -29,11 +31,16 @@ export function AddDishSheet({
   /** Whether the person has the dish already (the proposed one or one added): "Redan med", nothing is added twice. */
   has: (dishIndex: number) => boolean;
   onAdd: (dishIndex: number) => void;
+  /** Whether the person took this proposal away: the row says so, and a tap puts it back among the proposals. */
+  dismissed: (dishIndex: number) => boolean;
+  onRestore: (dishIndex: number) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
   // The dishes added while the sheet is open (they say "Tillagd"; the ones from before say "Redan med").
   const [just, setJust] = useState<number[]>([]);
+  // The ones among them that came back as proposals (they say "Tillbaka", not "Tillagd").
+  const [back, setBack] = useState<number[]>([]);
   // The dish with an allergen that waits for its second tap.
   const [asking, setAsking] = useState<number | null>(null);
   const indexed = useMemo<Indexed[]>(() => menu.ratter.map((dish, index) => ({ ...dish, index })).filter((dish) => dish.grupp !== "Drycker"), [menu.ratter]);
@@ -42,6 +49,12 @@ export function AddDishSheet({
 
   function tap(dish: Indexed, allergens: string[]) {
     if (has(dish.index) || just.includes(dish.index)) return;
+    if (dismissed(dish.index)) {
+      setJust((current) => [...current, dish.index]);
+      setBack((current) => [...current, dish.index]);
+      onRestore(dish.index);
+      return;
+    }
     if (allergens.length > 0 && asking !== dish.index) {
       setAsking(dish.index);
       return;
@@ -77,6 +90,8 @@ export function AddDishSheet({
                 const allergens = certainAllergens(dish, person);
                 const done = just.includes(dish.index);
                 const had = !done && has(dish.index);
+                const wasProposal = !done && !had && dismissed(dish.index);
+                const cameBack = done && back.includes(dish.index);
                 const price = listPrice(dish);
                 const sure = asking === dish.index;
                 return (
@@ -84,11 +99,15 @@ export function AddDishSheet({
                     <button
                       type="button"
                       aria-label={
-                        done
-                          ? `${dish.originalnamn}, tillagd åt ${name}`
-                          : had
-                            ? `${dish.originalnamn}, redan med`
-                            : `${sure ? "Lägg till ändå" : "Lägg till"} ${dish.originalnamn}`
+                        cameBack
+                          ? `${dish.originalnamn}, tillbaka bland förslagen åt ${name}`
+                          : done
+                            ? `${dish.originalnamn}, tillagd åt ${name}`
+                            : had
+                              ? `${dish.originalnamn}, redan med`
+                              : wasProposal
+                                ? `Ta tillbaka ${dish.originalnamn} bland förslagen`
+                                : `${sure ? "Lägg till ändå" : "Lägg till"} ${dish.originalnamn}`
                       }
                       aria-disabled={done || had}
                       onClick={() => tap(dish, allergens)}
@@ -103,19 +122,22 @@ export function AddDishSheet({
                             {`Innehåller ${allergens.join(", ")}`}
                           </span>
                         ) : null}
+                        {wasProposal ? <span className="text-meta font-semibold text-ink-3">Förslag du tog bort</span> : null}
                         {price === "" ? <span className="text-meta text-ink-3">Pris saknas, räknas inte med</span> : null}
                       </span>
                       {price ? <span className="shrink-0 text-body text-ink-2">{price}</span> : null}
                       {done ? (
                         <span className="flex shrink-0 items-center gap-1 rounded-pill bg-accent px-2.5 py-1.5 text-meta font-semibold text-on-accent">
                           <CheckIcon size={14} />
-                          Tillagd
+                          {cameBack ? "Tillbaka" : "Tillagd"}
                         </span>
                       ) : had ? (
                         <span className="flex shrink-0 items-center gap-1 rounded-pill bg-fill px-2.5 py-1.5 text-meta font-semibold text-ink-2">
                           <CheckIcon size={14} />
                           Redan med
                         </span>
+                      ) : wasProposal ? (
+                        <span className="shrink-0 rounded-pill bg-fill px-3 py-2 text-meta font-semibold text-ink">Ta tillbaka</span>
                       ) : sure ? (
                         <span className="shrink-0 rounded-pill bg-danger-tint px-3 py-2 text-meta font-semibold text-danger">Lägg till ändå</span>
                       ) : (

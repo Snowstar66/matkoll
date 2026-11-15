@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropAllDrinks, dropUsualDrink, hasNoDrink, receiptLines, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, salvageReading, minSalvagedDishes, reasonTone, unpricedNote, withOption } from "./journey";
+import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, dismissProposal, restoreProposal, isDismissed, dropAllDrinks, dropUsualDrink, hasNoDrink, receiptLines, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, salvageReading, minSalvagedDishes, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -97,12 +97,28 @@ describe("a menu that only grows", () => {
   const me = person({ id: "me", drink: "ol" });
   const start: Choices = { me: { dishIndex: 1, drink: null } };
 
-  it("a second dish is added, never replacing; the proposed one can be cleared; nothing else is lost", () => {
+  it("a second dish is added, never replacing; the proposed one can be taken away; nothing else is lost", () => {
     const two = addExtra(addExtra(start, "me", 0), "me", 2);
     expect(two.me).toEqual({ dishIndex: 1, drink: null, extras: [0, 2] });
-    const cleared = clearDish(two, "me");
-    expect(cleared.me).toEqual({ dishIndex: null, drink: null, extras: [0, 2] });
+    const cleared = dismissProposal(two, "me", 1);
+    expect(cleared.me).toEqual({ dishIndex: null, drink: null, extras: [0, 2], dismissed: [1] });
     expect(estimateTotalSek(cleared, menu, [me]).dishesSek).toBe(150);
+  });
+
+  it("a proposal taken away is hidden, is not chosen, and comes back with restoreProposal", () => {
+    const aside = dismissProposal(start, "me", 0);
+    expect(aside.me).toEqual({ dishIndex: 1, drink: null, dismissed: [0] });
+    expect(isDismissed(aside, "me", 0)).toBe(true);
+    expect(isDismissed(aside, "me", 1)).toBe(false);
+    expect(dismissProposal(aside, "me", 0)).toBe(aside);
+    expect(estimateTotalSek(aside, menu, [me]).dishesSek).toBe(200);
+    // Put back: when a dish is chosen it stays, and the list of taken-away ones empties out.
+    expect(restoreProposal(aside, "me", 0).me).toEqual({ dishIndex: 1, drink: null });
+    expect(restoreProposal(aside, "me", 2)).toBe(aside);
+    // When nothing is chosen the dish that comes back is the chosen one.
+    const none = dismissProposal(start, "me", 1);
+    expect(restoreProposal(none, "me", 1).me).toEqual({ dishIndex: 1, drink: null });
+    expect(restoreProposal(dismissProposal(none, "me", 0), "me", 0).me).toEqual({ dishIndex: 0, drink: null, dismissed: [1] });
   });
 
   it("drinks: the usual one counts, can be dropped, and added ones come on top and count", () => {

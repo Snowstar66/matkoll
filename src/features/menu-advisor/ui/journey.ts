@@ -67,6 +67,7 @@ function patch(choices: Choices, personId: string, change: Partial<Choice>): Cho
   const next: Choice = { ...current, ...change };
   if (next.extras?.length === 0) delete next.extras;
   if (next.drinks?.length === 0) delete next.drinks;
+  if (next.dismissed?.length === 0) delete next.dismissed;
   return { ...choices, [personId]: next };
 }
 
@@ -78,9 +79,32 @@ export function choose(choices: Choices, personId: string, dishIndex: number): C
   });
 }
 
-/** Takes the proposed dish away (the soptunna on it); what was added on top stays. */
-export function clearDish(choices: Choices, personId: string): Choices {
-  return patch(choices, personId, { dishIndex: null });
+/**
+ * Takes a proposal away (the soptunna or a swipe on its card): it is not shown again. When it was the chosen dish,
+ * nothing is chosen; what was added on top stays. It comes back with restoreProposal ("Lägg till rätt", or Ångra).
+ */
+export function dismissProposal(choices: Choices, personId: string, dishIndex: number): Choices {
+  const current = choices[personId];
+  if (current?.dismissed?.includes(dishIndex)) return choices;
+  return patch(choices, personId, {
+    dishIndex: current?.dishIndex === dishIndex ? null : (current?.dishIndex ?? null),
+    dismissed: [...(current?.dismissed ?? []), dishIndex],
+  });
+}
+
+/** Puts a taken-away proposal back among the proposals; when nothing is chosen, it is the chosen one. */
+export function restoreProposal(choices: Choices, personId: string, dishIndex: number): Choices {
+  const current = choices[personId];
+  if (!current?.dismissed?.includes(dishIndex)) return choices;
+  return patch(choices, personId, {
+    dishIndex: current.dishIndex ?? dishIndex,
+    dismissed: current.dismissed.filter((index) => index !== dishIndex),
+  });
+}
+
+/** Whether the person has taken this proposal away. */
+export function isDismissed(choices: Choices, personId: string, dishIndex: number): boolean {
+  return choices[personId]?.dismissed?.includes(dishIndex) ?? false;
 }
 
 /** Takes the usual drink away for this evening ("utan dryck"); drinks added on top stay. */
