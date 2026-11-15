@@ -95,7 +95,8 @@ export function AnswerScreen({
     if (!added) return;
     const who = company.find((person) => person.id === added.personId);
     const card = who ? Array.from(list.current?.children ?? []).find((child) => child.getAttribute("aria-label") === who.name) : undefined;
-    card?.scrollIntoView?.({ block: "center" });
+    // The note itself, not the card: with the explanations the card can be taller than the screen, and the note stands at its foot.
+    (card?.querySelector("[data-testid=menu-added]") ?? card)?.scrollIntoView?.({ block: "center" });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new note moves the page
   }, [added]);
   return (
