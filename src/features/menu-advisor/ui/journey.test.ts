@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { estimateTotalSek } from "../domain/drinks";
 import { dish, menuOf, person } from "../domain/fixtures";
 import type { Choices, DishOption, PersonOptions } from "../domain/options";
-import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropAllDrinks, dropUsualDrink, hasNoDrink, receiptLines, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, reasonTone, unpricedNote, withOption } from "./journey";
+import { addDrink, addExtra, allergyLine, approxKr, cardSek, choose, chooseDrink, clearDish, dropAllDrinks, dropUsualDrink, hasNoDrink, receiptLines, hasDish, removeDrink, removeExtra, drinkFor, drinkPhrase, emptyReadingView, foldReading, hasProfileInfo, joinNames, listPrice, readingStatus, salvageReading, minSalvagedDishes, reasonTone, unpricedNote, withOption } from "./journey";
 import { fitParts, fitSentence, maybeSentence } from "./dish-sheet";
 
 const menu = menuOf([
@@ -214,5 +214,36 @@ describe("who a dish suits", () => {
   it("a 'may contain' is a separate, calm sentence", () => {
     expect(maybeSentence(maybeGluten, [person({ id: "a", name: "Anna", allergies: ["gluten"] }), du])).toBe("Anna: kan innehålla gluten. Fråga personalen.");
     expect(fitSentence(maybeGluten, [person({ name: "Anna", allergies: ["gluten"] })])).toBe("Passar Anna.");
+  });
+});
+
+describe("salvageReading", () => {
+  const read = (count: number, language: "es" | null = "es") => {
+    let view = foldReading(emptyReadingView, { type: "reading", quality: "standard", restart: false, model: "Haiku 5.5", effort: "låg" });
+    if (language) view = foldReading(view, { type: "language", sprak: language });
+    for (let index = 0; index < count; index++) view = foldReading(view, { type: "dish", index, dish: dish({ originalnamn: `Rätt ${index + 1}` }) });
+    return view;
+  };
+
+  it("keeps the dishes a reading had sent when it stopped for time or a cut-off answer, with its reader and language", () => {
+    for (const code of ["ai_unavailable", "ai_invalid"]) {
+      const kept = salvageReading(read(minSalvagedDishes), code, false);
+      expect(kept).toMatchObject({ quality: "standard", escalated: false, model: "Haiku 5.5", effort: "låg", menu: { restaurang: null, sprak: "es", osakert: [] } });
+      expect(kept?.menu.ratter.map((entry) => entry.originalnamn)).toEqual(["Rätt 1", "Rätt 2", "Rätt 3"]);
+    }
+  });
+
+  it("is nothing for fewer dishes than minSalvagedDishes, for other codes and for a reading with none", () => {
+    expect(salvageReading(read(minSalvagedDishes - 1), "ai_unavailable", false)).toBeNull();
+    expect(salvageReading(read(minSalvagedDishes + 5), "ai_cap_reached", false)).toBeNull();
+    expect(salvageReading(read(minSalvagedDishes + 5), "validation", false)).toBeNull();
+    expect(salvageReading(emptyReadingView, "ai_unavailable", false)).toBeNull();
+  });
+
+  it("calls the language other when none was told, and reads the quality from who read", () => {
+    expect(salvageReading(read(3, null), "ai_unavailable", false)?.menu.sprak).toBe("annat");
+    let careful = foldReading(emptyReadingView, { type: "reading", quality: "careful", restart: false, model: "Sonnet 5.5", effort: "medel" });
+    for (let index = 0; index < 3; index++) careful = foldReading(careful, { type: "dish", index, dish: dish({}) });
+    expect(salvageReading(careful, "ai_unavailable", true)).toMatchObject({ quality: "careful", model: "Sonnet 5.5", effort: "medel" });
   });
 });
