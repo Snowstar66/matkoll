@@ -35,6 +35,7 @@ import {
   hasDish,
   hasDrink,
   hasNoDrink,
+  salvageReading,
   removeDrink,
   removeExtra,
   type ReadingView,
@@ -125,6 +126,10 @@ export function MenuAdvisor({
   const [stop, setStop] = useState<MenuStop | null>(null);
   const [reading, setReading] = useState<MenuReading | null>(null);
   const [view, setView] = useState<ReadingView>(emptyReadingView);
+  // What the live reading has sent so far, also for the moment it fails: then the dishes that came are kept.
+  const viewRef = useRef<ReadingView>(emptyReadingView);
+  // The number of dishes when the answer comes from a reading that stopped early (a notice with "Läs om" says so); else null.
+  const [partial, setPartial] = useState<number | null>(null);
   const [journey, setJourney] = useState<{ options: PersonOptions[]; choices: Choices }>({ options: [], choices: {} });
   // What the last "Lägg till åt" did, said under that person on the answer (never silent: added, replaced, already there, no price).
   const [added, setAdded] = useState<AddedNote | null>(null);
@@ -216,7 +221,8 @@ export function MenuAdvisor({
     setCompany(ids.includes(personId) ? ids.filter((entry) => entry !== personId) : [...ids, personId]);
   }
 
-  function apply(next: MenuReading) {
+  function apply(next: MenuReading, partialCount: number | null = null) {
+    setPartial(partialCount);
     // The pages the reading could not read are marked, for the answer's notice and "Ta om".
     const unreadable = new Set((next.menu.olasbara_sidor ?? []).flatMap((number) => sentIds.current[number - 1] ?? []));
     if (unreadable.size > 0) setPages(pagesRef.current.map((page) => (unreadable.has(page.id) ? { ...page, unreadable: true } : page)));
@@ -348,16 +354,23 @@ export function MenuAdvisor({
     request.current = controller;
     setError(null);
     setCareful(isCareful);
+    viewRef.current = emptyReadingView;
     setView(emptyReadingView);
     setStage("reading");
     const answer = await readMenuWithFallback(blobs, isCareful ? "careful" : "standard", controller.signal, (event) => {
-      if (request.current === controller) setView((current) => foldReading(current, event));
+      if (request.current !== controller) return;
+      viewRef.current = foldReading(viewRef.current, event);
+      setView(viewRef.current);
     });
     if (request.current !== controller) return;
     request.current = null;
     if (answer.ok) return apply(answer.data);
     // Stopped by "Avbryt": back to where it was.
     if (answer.error === undefined) return setStage(backStage.current);
+    // A first reading that stopped after most of the dishes had come (a big menu that ran out of time): keep them, say so.
+    const firstReading = backStage.current === "start" || backStage.current === "pages";
+    const kept = firstReading ? salvageReading(viewRef.current, answer.error.code, isCareful) : null;
+    if (kept) return apply(kept, kept.menu.ratter.length);
     failed(answer.error.code, answer.error.message);
   }
 
@@ -420,6 +433,7 @@ export function MenuAdvisor({
     sentIds.current = [];
     menuText.current = null;
     setReading(null);
+    setPartial(null);
     setJourney({ options: [], choices: {} });
     setAdded(null);
     setError(null);
@@ -518,6 +532,19 @@ export function MenuAdvisor({
         {`${pagesPhrase(unreadablePages.map((page) => page.number))} gick inte att läsa, så rätterna där saknas.`}
       </Notice>
     ) : null;
+  const partialNotice =
+    partial !== null ? (
+      <Notice
+        role="status"
+        action={
+          <TextLink data-testid="menu-read-again" className="font-semibold text-sky-ink underline" onClick={retry}>
+            Läs om
+          </TextLink>
+        }
+      >
+        {`Läsningen avbröts efter ${partial} rätter, så några rätter kan saknas.`}
+      </Notice>
+    ) : null;
   const readyCount = pages.filter((page) => page.status === "ready").length;
   const reader = reading?.model && reading.effort ? { model: reading.model, effort: reading.effort } : null;
   const totals = reading ? estimateTotalSek(journey.choices, reading.menu, company) : null;
@@ -585,7 +612,12 @@ export function MenuAdvisor({
         added={added}
         filtered={company.some((person) => person.allergies.length > 0)}
         uncertain={reading.menu.osakert}
-        pagesNotice={unreadableNotice}
+        pagesNotice={
+          <>
+            {partialNotice}
+            {unreadableNotice}
+          </>
+        }
         reader={reader}
         canReadCarefully={canReadCarefully}
         error={error}
