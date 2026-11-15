@@ -11,7 +11,7 @@ import { approxKr, drinkFor, reasonTone, toWhom, type ReasonTone } from "./journ
 import { PillButton, RadioCard } from "./journey-parts";
 import { DishBlurb } from "./dish-more";
 import { PersonAvatar } from "./person-avatar";
-import { SwipeRow } from "./swipe-row";
+import { ProposalRow } from "./proposal-row";
 
 const toneClass: Record<ReasonTone, string> = {
   mint: "rounded-pill bg-mint px-3 py-0.5 text-mint-ink font-medium",
@@ -136,7 +136,7 @@ export function PersonCard({
   onToggle?: () => void;
   onChoose: (dishIndex: number) => void;
   onRemoveExtra?: (dishIndex: number) => void;
-  /** The soptunna or a swipe on a proposal: it leaves the card (and can be put back from "Lägg till rätt"). */
+  /** The soptunna on a proposal: it leaves the card (and can be put back from "Lägg till rätt"). */
   onDismiss?: (dishIndex: number) => void;
   onRemoveUsualDrink?: () => void;
   onRemoveDrink?: (kind: DrinkKind) => void;
@@ -216,9 +216,9 @@ export function PersonCard({
                 </RadioCard>
               );
               return onDismiss ? (
-                <SwipeRow key={option.dishIndex} removeLabel={`Ta bort förslaget ${option.dish.originalnamn}`} onRemove={() => onDismiss(option.dishIndex)}>
+                <ProposalRow key={option.dishIndex} removeLabel={`Ta bort förslaget ${option.dish.originalnamn}`} onRemove={() => onDismiss(option.dishIndex)}>
                   {card}
-                </SwipeRow>
+                </ProposalRow>
               ) : (
                 card
               );

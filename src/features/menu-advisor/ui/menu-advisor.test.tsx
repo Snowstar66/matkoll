@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { BoundFunctions, queries } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,13 +68,6 @@ type Scope = BoundFunctions<typeof queries>;
 /** The row (the card with its soptunna) of the dish that is chosen for the person. */
 const chosenRow = (card: Scope) => card.getByRole("radio", { checked: true }).closest<HTMLElement>("[data-testid=menu-proposal-row]")!;
 const names = (card: Scope) => card.getAllByRole("radio").map((radio) => radio.closest("label")!.querySelector(".font-bold")!.textContent);
-const swipe = (row: HTMLElement, dx: number, dy = 0) => {
-  const target = within(row).getByTestId("menu-proposal-swipe");
-  const at = (type: string, x: number, y: number) => fireEvent(target, new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
-  at("pointerdown", 300, 100);
-  at("pointermove", 300 + dx, 100 + dy);
-  at("pointerup", 300 + dx, 100 + dy);
-};
 
 const user = () => userEvent.setup();
 const photoFile = () => new File(["x"], "menu.jpg", { type: "image/jpeg" });
@@ -1117,21 +1110,6 @@ describe("adding more dishes from the menu", () => {
       await u.click(region("Greta").getByTestId("menu-undo"));
       expect(names(region("Greta"))).toEqual(all);
       expect(region("Greta").queryByTestId("menu-added")).toBeNull();
-    });
-
-    it("a swipe to the left takes a proposal away; a short swipe, a swipe up or down and a tap do not", async () => {
-      const u = user();
-      await atTheTable(u);
-      const all = names(region("Greta"));
-      // The last proposal: the first is the chosen one.
-      const row = () => region("Greta").getAllByTestId("menu-proposal-row").at(-1)!;
-      swipe(row(), -30);
-      swipe(row(), -150, 160);
-      expect(names(region("Greta"))).toEqual(all);
-      swipe(row(), -120);
-      expect(names(region("Greta"))).toEqual(all.slice(0, -1));
-      // The swipe was not a tap on the card behind it.
-      expect(region("Greta").getAllByRole("radio", { checked: true })).toHaveLength(1);
     });
 
     it("when every proposal is taken away the card says so, and Lägg till rätt shows them as taken away and puts one back", async () => {
