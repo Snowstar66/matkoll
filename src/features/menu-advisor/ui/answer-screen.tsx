@@ -15,7 +15,14 @@ import { PersonCard } from "./person-card";
 import { Receipt } from "./receipt";
 
 /** What the last "Lägg till" did, said under that person: "Greta får också Toast Skagen." */
-export type AddedNote = { personId: string; text: string };
+export type AddedNote = {
+  personId: string;
+  text: string;
+  /** "Ångra" beside the note. */
+  undo?: () => void;
+  /** Said where it is: the page does not move to the note (a proposal taken away stays where the finger is). */
+  quiet?: boolean;
+};
 
 /** From this many people the cards start folded to one row each. */
 export const foldFrom = 4;
@@ -40,7 +47,7 @@ export function AnswerScreen({
   error,
   onChoose,
   onRemoveExtra,
-  onRemoveDish,
+  onDismiss,
   onRemoveUsualDrink,
   onRemoveDrink,
   onAddDrink,
@@ -69,8 +76,8 @@ export function AnswerScreen({
   onChoose: (personId: string, dishIndex: number) => void;
   /** Takes away a dish added on top (a starter, a dessert). */
   onRemoveExtra?: (personId: string, dishIndex: number) => void;
-  /** Takes away the proposed dish (the soptunna on it, also when nothing was added). */
-  onRemoveDish?: (personId: string) => void;
+  /** The soptunna or a swipe on a proposal: it leaves the card, and can be put back from "Lägg till rätt". */
+  onDismiss?: (personId: string, dishIndex: number) => void;
   /** Takes away the person's usual drink for this evening. */
   onRemoveUsualDrink?: (personId: string) => void;
   /** Takes away a drink that was added. */
@@ -92,7 +99,7 @@ export function AnswerScreen({
   const [openId, setOpenId] = useState<string | null>(null);
   // Back from the whole menu: the person the dish was added for is in view, with the note.
   useEffect(() => {
-    if (!added) return;
+    if (!added || added.quiet) return;
     const who = company.find((person) => person.id === added.personId);
     const card = who ? Array.from(list.current?.children ?? []).find((child) => child.getAttribute("aria-label") === who.name) : undefined;
     // The note itself, not the card: with the explanations the card can be taller than the screen, and the note stands at its foot.
@@ -137,7 +144,8 @@ export function AnswerScreen({
               onToggle={folding ? () => setOpenId(openId === person.id ? null : person.id) : undefined}
               onChoose={(dishIndex) => onChoose(person.id, dishIndex)}
               onRemoveExtra={onRemoveExtra ? (dishIndex) => onRemoveExtra(person.id, dishIndex) : undefined}
-              onRemoveDish={onRemoveDish ? () => onRemoveDish(person.id) : undefined}
+              onDismiss={onDismiss ? (dishIndex) => onDismiss(person.id, dishIndex) : undefined}
+              onUndo={added?.personId === person.id ? added.undo : undefined}
               onRemoveUsualDrink={onRemoveUsualDrink ? () => onRemoveUsualDrink(person.id) : undefined}
               onRemoveDrink={onRemoveDrink ? (kind) => onRemoveDrink(person.id, kind) : undefined}
               onAddDish={() => onAddDish(person.id)}

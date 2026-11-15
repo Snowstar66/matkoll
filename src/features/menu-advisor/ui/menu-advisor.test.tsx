@@ -1,4 +1,5 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { BoundFunctions, queries } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
@@ -61,6 +62,19 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => vi.unstubAllGlobals());
+
+type Scope = BoundFunctions<typeof queries>;
+
+/** The row (the card with its soptunna) of the dish that is chosen for the person. */
+const chosenRow = (card: Scope) => card.getByRole("radio", { checked: true }).closest<HTMLElement>("[data-testid=menu-proposal-row]")!;
+const names = (card: Scope) => card.getAllByRole("radio").map((radio) => radio.closest("label")!.querySelector(".font-bold")!.textContent);
+const swipe = (row: HTMLElement, dx: number, dy = 0) => {
+  const target = within(row).getByTestId("menu-proposal-swipe");
+  const at = (type: string, x: number, y: number) => fireEvent(target, new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
+  at("pointerdown", 300, 100);
+  at("pointermove", 300 + dx, 100 + dy);
+  at("pointerup", 300 + dx, 100 + dy);
+};
 
 const user = () => userEvent.setup();
 const photoFile = () => new File(["x"], "menu.jpg", { type: "image/jpeg" });
@@ -674,7 +688,7 @@ describe("the answer", () => {
     for (const card of cards) {
       expect(within(card).getAllByRole("radio").length).toBeGreaterThanOrEqual(1);
       expect(within(card).getByTestId("menu-person-total")).toHaveTextContent(/^ca \d+ kr$/);
-      expect(within(card).getByTestId("menu-remove-dish")).toBeInTheDocument();
+      expect(within(card).getAllByTestId("menu-dismiss-proposal").length).toBe(within(card).getAllByRole("radio").length);
       expect(card).not.toHaveAttribute("data-folded");
     }
     expect(cards[0]).toHaveTextContent("Du");
@@ -742,7 +756,7 @@ describe("the answer", () => {
     await u.click(screen.getByRole("button", { name: "Lägg till dryck åt Anna" }));
     await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lägg till cocktail" }));
     await u.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Klar" })[0]!);
-    await u.click(within(screen.getAllByTestId("menu-person")[1]!).getByTestId("menu-remove-dish"));
+    await u.click(within(chosenRow(within(screen.getAllByTestId("menu-person")[1]!))).getByTestId("menu-dismiss-proposal"));
     await u.click(screen.getByRole("button", { name: "Klart" }));
     const anna = within(screen.getAllByTestId("menu-choice-person")[1]!);
     expect(anna.queryByTestId("menu-choice-main")).not.toBeInTheDocument();
@@ -1077,11 +1091,68 @@ describe("adding more dishes from the menu", () => {
     const u = user();
     await atTheTable(u);
     const before = total();
-    await u.click(region("Greta").getByTestId("menu-remove-dish"));
+    const count = region("Greta").getAllByRole("radio").length;
+    await u.click(within(chosenRow(region("Greta"))).getByTestId("menu-dismiss-proposal"));
     expect(region("Greta").queryByRole("radio", { checked: true })).not.toBeInTheDocument();
+    expect(region("Greta").getAllByRole("radio")).toHaveLength(count - 1);
     expect(total()).toBeLessThan(before);
     await u.click(region("Greta").getAllByRole("radio")[0]!);
     expect(region("Greta").getAllByRole("radio", { checked: true })).toHaveLength(1);
+  });
+
+  describe("taking proposals away", () => {
+    it("the soptunna on a proposal you do not like takes it away without touching what is chosen, and Ångra puts it back", async () => {
+      const u = user();
+      await atTheTable(u);
+      const before = total();
+      const all = names(region("Greta"));
+      const chosen = region("Greta").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent;
+      const other = region("Greta").getAllByRole("radio").find((radio) => !(radio as HTMLInputElement).checked)!;
+      const otherName = other.closest("label")!.querySelector(".font-bold")!.textContent!;
+      await u.click(within(other.closest<HTMLElement>("[data-testid=menu-proposal-row]")!).getByTestId("menu-dismiss-proposal"));
+      expect(names(region("Greta"))).toEqual(all.filter((name) => name !== otherName));
+      expect(region("Greta").getByRole("radio", { checked: true }).closest("label")).toHaveTextContent(chosen!);
+      expect(total()).toBe(before);
+      expect(region("Greta").getByTestId("menu-added")).toHaveTextContent(`Tog bort ${otherName}.`);
+      await u.click(region("Greta").getByTestId("menu-undo"));
+      expect(names(region("Greta"))).toEqual(all);
+      expect(region("Greta").queryByTestId("menu-added")).toBeNull();
+    });
+
+    it("a swipe to the left takes a proposal away; a short swipe, a swipe up or down and a tap do not", async () => {
+      const u = user();
+      await atTheTable(u);
+      const all = names(region("Greta"));
+      // The last proposal: the first is the chosen one.
+      const row = () => region("Greta").getAllByTestId("menu-proposal-row").at(-1)!;
+      swipe(row(), -30);
+      swipe(row(), -150, 160);
+      expect(names(region("Greta"))).toEqual(all);
+      swipe(row(), -120);
+      expect(names(region("Greta"))).toEqual(all.slice(0, -1));
+      // The swipe was not a tap on the card behind it.
+      expect(region("Greta").getAllByRole("radio", { checked: true })).toHaveLength(1);
+    });
+
+    it("when every proposal is taken away the card says so, and Lägg till rätt shows them as taken away and puts one back", async () => {
+      const u = user();
+      await atTheTable(u);
+      const all = names(region("Greta"));
+      while (region("Greta").queryAllByRole("radio").length > 0) await u.click(region("Greta").getAllByTestId("menu-dismiss-proposal")[0]!);
+      expect(region("Greta").getByTestId("menu-no-proposals")).toHaveTextContent("Du har tagit bort alla förslag.");
+      await u.click(screen.getByRole("button", { name: "Lägg till rätt åt Greta" }));
+      const sheet = within(screen.getByRole("dialog"));
+      const back = sheet.getByRole("button", { name: `Ta tillbaka ${all[0]} bland förslagen` });
+      expect(back.closest("li")).toHaveTextContent("Förslag du tog bort");
+      await u.click(back);
+      expect(sheet.getByRole("button", { name: new RegExp(`^${all[0]}, tillbaka bland förslagen`) })).toBeInTheDocument();
+      expect(sheet.getByTestId("menu-add-count")).toHaveTextContent("1 tillagd");
+      await u.click(sheet.getAllByRole("button", { name: "Klar" })[0]!);
+      // It is a proposal again, and with nothing chosen it is the chosen one; it is not also an extra.
+      expect(names(region("Greta"))).toEqual([all[0]]);
+      expect(region("Greta").getByRole("radio", { checked: true })).toBeInTheDocument();
+      expect(region("Greta").queryByTestId("menu-extra")).toBeNull();
+    });
   });
 
   it("another main course is added too, nothing is replaced; the soptunna takes one away; an allergen of hers is red", async () => {
@@ -1097,7 +1168,7 @@ describe("adding more dishes from the menu", () => {
     expect(total()).toBe(before + 189);
     // Two main courses: the proposed one can be taken away with its soptunna.
     const wasSek = kr(region("Anna").getByRole("radio", { checked: true }).closest("label")!.textContent!.match(/ca \d+ kr/)?.[0]);
-    await u.click(region("Anna").getByTestId("menu-remove-dish"));
+    await u.click(within(chosenRow(region("Anna"))).getByTestId("menu-dismiss-proposal"));
     expect(region("Anna").queryByRole("radio", { checked: true })).not.toBeInTheDocument();
     expect(region("Anna").getByTestId("menu-extra")).toHaveTextContent("Pasta carbonara");
     expect(total()).toBe(before + 189 - wasSek);

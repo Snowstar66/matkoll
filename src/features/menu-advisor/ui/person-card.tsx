@@ -11,6 +11,7 @@ import { approxKr, drinkFor, reasonTone, toWhom, type ReasonTone } from "./journ
 import { PillButton, RadioCard } from "./journey-parts";
 import { DishBlurb } from "./dish-more";
 import { PersonAvatar } from "./person-avatar";
+import { SwipeRow } from "./swipe-row";
 
 const toneClass: Record<ReasonTone, string> = {
   mint: "rounded-pill bg-mint px-3 py-0.5 text-mint-ink font-medium",
@@ -110,7 +111,8 @@ export function PersonCard({
   onToggle,
   onChoose,
   onRemoveExtra,
-  onRemoveDish,
+  onDismiss,
+  onUndo,
   onRemoveUsualDrink,
   onRemoveDrink,
   onAddDish,
@@ -129,10 +131,13 @@ export function PersonCard({
   /** The chosen dish has a certain allergen of the person: a red dot on the folded row. */
   danger: boolean;
   added: string | null;
+  /** "Ångra" beside the note: puts back what the note says was taken away. */
+  onUndo?: () => void;
   onToggle?: () => void;
   onChoose: (dishIndex: number) => void;
   onRemoveExtra?: (dishIndex: number) => void;
-  onRemoveDish?: () => void;
+  /** The soptunna or a swipe on a proposal: it leaves the card (and can be put back from "Lägg till rätt"). */
+  onDismiss?: (dishIndex: number) => void;
   onRemoveUsualDrink?: () => void;
   onRemoveDrink?: (kind: DrinkKind) => void;
   onAddDish: () => void;
@@ -144,6 +149,8 @@ export function PersonCard({
   const addedDrinks = choice?.drinks ?? [];
   const usualDrink = drink !== null && drink !== "ingen" ? drink : null;
   const chosen = choice?.dishIndex ?? null;
+  const dismissed = choice?.dismissed ?? [];
+  const visible = options.filter((option) => !dismissed.includes(option.dishIndex));
   const extras = (choice?.extras ?? []).flatMap((dishIndex) => optionFor(menu, dishIndex, person) ?? []);
   const sum = sek > 0 ? approxKr(sek) : "";
   const head = (
@@ -183,40 +190,40 @@ export function PersonCard({
       {folded ? null : (
         <div className="flex flex-col gap-2 px-3 pt-2 pb-3">
           <div role="radiogroup" aria-label={`Rätt åt ${person.name}`} className="flex flex-col gap-2">
-            {options.length === 0 ? (
-              <p className="rounded-xl bg-bg px-4 py-3 text-body text-ink-2">Jag hittade ingen rätt att föreslå. Lägg till en själv.</p>
+            {visible.length === 0 ? (
+              <p data-testid="menu-no-proposals" className="rounded-xl bg-bg px-4 py-3 text-body text-ink-2">
+                {options.length === 0 ? "Jag hittade ingen rätt att föreslå. Lägg till en själv." : "Du har tagit bort alla förslag. Lägg till rätt för att välja själv."}
+              </p>
             ) : null}
-            {options.map((option) => (
-              <RadioCard
-                key={option.dishIndex}
-                name={`dish-${person.id}`}
-                value={String(option.dishIndex)}
-                checked={chosen === option.dishIndex}
-                tone={option.warning === "allergy" ? "danger" : "default"}
-                onCard
-                onSelect={() => onChoose(option.dishIndex)}
-                aside={approxKr(dishSek(option.dish))}
-              >
-                <span className={cx("text-headline font-bold", chosen === option.dishIndex || option.warning === "allergy" ? "text-ink" : "text-ink-2")}>
-                  {option.dish.originalnamn}
-                </span>
-                <DishBlurb dish={option.dish} />
-                <Reasons option={option} />
-                {onInfo ? <InfoButton name={option.dish.originalnamn} onClick={() => onInfo(option.dishIndex)} /> : null}
-              </RadioCard>
-            ))}
+            {visible.map((option) => {
+              const card = (
+                <RadioCard
+                  key={option.dishIndex}
+                  name={`dish-${person.id}`}
+                  value={String(option.dishIndex)}
+                  checked={chosen === option.dishIndex}
+                  tone={option.warning === "allergy" ? "danger" : "default"}
+                  onCard
+                  onSelect={() => onChoose(option.dishIndex)}
+                  aside={approxKr(dishSek(option.dish))}
+                >
+                  <span className={cx("text-headline font-bold", chosen === option.dishIndex || option.warning === "allergy" ? "text-ink" : "text-ink-2")}>
+                    {option.dish.originalnamn}
+                  </span>
+                  <DishBlurb dish={option.dish} />
+                  <Reasons option={option} />
+                  {onInfo ? <InfoButton name={option.dish.originalnamn} onClick={() => onInfo(option.dishIndex)} /> : null}
+                </RadioCard>
+              );
+              return onDismiss ? (
+                <SwipeRow key={option.dishIndex} removeLabel={`Ta bort förslaget ${option.dish.originalnamn}`} onRemove={() => onDismiss(option.dishIndex)}>
+                  {card}
+                </SwipeRow>
+              ) : (
+                card
+              );
+            })}
           </div>
-          {chosen !== null && onRemoveDish ? (
-            <button
-              type="button"
-              data-testid="menu-remove-dish"
-              onClick={onRemoveDish}
-              className="flex min-h-tap items-center gap-2 self-start px-1 text-meta font-medium text-ink-2"
-            >
-              <TrashIcon size={18} />
-              {`Ta bort ${menu.ratter[chosen]?.originalnamn ?? "rätten"}`}
-            </button>
-          ) : null}
           {extras.length > 0 || usualDrink !== null || addedDrinks.length > 0 || drink === "ingen" ? (
             <div data-testid="menu-extras-box" className="flex flex-col rounded-lg bg-bg px-3 pt-2 pb-1">
               <p className="text-meta font-semibold text-ink-3">Tillägg</p>
@@ -270,8 +277,13 @@ export function PersonCard({
             </div>
           ) : null}
           {added ? (
-            <p role="status" data-testid="menu-added" className="px-1 text-body text-ink-2">
+            <p role="status" data-testid="menu-added" className="flex flex-wrap items-center gap-x-2 px-1 text-body text-ink-2">
               {added}
+              {onUndo ? (
+                <button type="button" data-testid="menu-undo" onClick={onUndo} className="min-h-9 font-semibold text-accent underline underline-offset-4">
+                  Ångra
+                </button>
+              ) : null}
             </p>
           ) : null}
           <div className="flex gap-2.5">
