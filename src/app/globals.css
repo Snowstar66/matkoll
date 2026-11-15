@@ -573,9 +573,60 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #3e7c62, #8fd3b0, #e9b872, #3e7c62);
-  -webkit-mask: radial-gradient(closest-side, rgb(0 0 0 / 0.18) 56%, #000 60%);
-  mask: radial-gradient(closest-side, rgb(0 0 0 / 0.18) 56%, #000 60%);
+  /* A comet: a tail that fades in from nothing to a bright head, so that the turning can be seen. */
+  background: conic-gradient(from 0deg, transparent 0deg, #3e7c62 140deg, #8fd3b0 290deg, #e9b872 345deg, #fff6e0 360deg);
+  -webkit-mask: radial-gradient(closest-side, rgb(0 0 0 / 0.14) 62%, #000 66%);
+  mask: radial-gradient(closest-side, rgb(0 0 0 / 0.14) 62%, #000 66%);
+}
+.ai-orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  opacity: 0;
+}
+/* The line that runs while the AI reads: a light that moves along a thin track. */
+.ai-track {
+  position: relative;
+  height: 3px;
+  width: 100%;
+  max-width: 16rem;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.ai-track::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--accent), #e9b872, transparent);
+}
+/* The step trail of a reading: a dot per step that is done, running or waiting. */
+.ai-step-dot {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.ai-step-dot[data-state="done"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.ai-step-dot[data-state="active"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.ai-fresh {
+  border-radius: 0.5rem;
 }
 .ai-shimmer {
   font-weight: 600;
@@ -586,7 +637,19 @@
     animation: ai-breathe 3s ease-in-out infinite;
   }
   .ai-orb::before {
-    animation: ai-spin 4s linear infinite;
+    animation: ai-spin 1.3s linear infinite;
+  }
+  .ai-orb::after {
+    animation: ai-ping 2.2s ease-out infinite;
+  }
+  .ai-track::before {
+    animation: ai-run 1.5s ease-in-out infinite;
+  }
+  .ai-step-dot[data-state="active"] {
+    animation: ai-dot-pulse 1.4s ease-out infinite;
+  }
+  .ai-fresh {
+    animation: ai-fresh 1.4s ease-out;
   }
   .ai-shimmer {
     background: linear-gradient(90deg, var(--ink-2) 0%, var(--ink-2) 40%, var(--accent) 50%, var(--ink-2) 60%, var(--ink-2) 100%);
@@ -595,6 +658,37 @@
     background-clip: text;
     color: transparent;
     animation: ai-sweep 2.2s linear infinite;
+  }
+}
+@keyframes ai-ping {
+  0% {
+    opacity: 0.55;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.7;
+  }
+}
+@keyframes ai-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@keyframes ai-dot-pulse {
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@keyframes ai-fresh {
+  from {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  to {
+    background-color: transparent;
   }
 }
 @keyframes ai-spin {
