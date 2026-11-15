@@ -11,7 +11,6 @@ import { approxKr, drinkFor, reasonTone, toWhom, type ReasonTone } from "./journ
 import { PillButton, RadioCard } from "./journey-parts";
 import { DishBlurb } from "./dish-more";
 import { PersonAvatar } from "./person-avatar";
-import { ProposalRow } from "./proposal-row";
 
 const toneClass: Record<ReasonTone, string> = {
   mint: "rounded-pill bg-mint px-3 py-0.5 text-mint-ink font-medium",
@@ -53,6 +52,25 @@ function InfoButton({ name, onClick }: { name: string; onClick: () => void }) {
     >
       <InfoIcon size={16} />
       Mer om rätten
+    </button>
+  );
+}
+
+/** The soptunna on a proposal, small, under its price inside the card. Inside a choice card it must not choose the card. */
+function DismissButton({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      data-testid="menu-dismiss-proposal"
+      aria-label={`Ta bort förslaget ${name}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+      className="-mr-1.5 flex size-10 items-center justify-center rounded-pill text-ink-3"
+    >
+      <TrashIcon size={18} />
     </button>
   );
 }
@@ -195,34 +213,26 @@ export function PersonCard({
                 {options.length === 0 ? "Jag hittade ingen rätt att föreslå. Lägg till en själv." : "Du har tagit bort alla förslag. Lägg till rätt för att välja själv."}
               </p>
             ) : null}
-            {visible.map((option) => {
-              const card = (
-                <RadioCard
-                  key={option.dishIndex}
-                  name={`dish-${person.id}`}
-                  value={String(option.dishIndex)}
-                  checked={chosen === option.dishIndex}
-                  tone={option.warning === "allergy" ? "danger" : "default"}
-                  onCard
-                  onSelect={() => onChoose(option.dishIndex)}
-                  aside={approxKr(dishSek(option.dish))}
-                >
-                  <span className={cx("text-headline font-bold", chosen === option.dishIndex || option.warning === "allergy" ? "text-ink" : "text-ink-2")}>
-                    {option.dish.originalnamn}
-                  </span>
-                  <DishBlurb dish={option.dish} />
-                  <Reasons option={option} />
-                  {onInfo ? <InfoButton name={option.dish.originalnamn} onClick={() => onInfo(option.dishIndex)} /> : null}
-                </RadioCard>
-              );
-              return onDismiss ? (
-                <ProposalRow key={option.dishIndex} removeLabel={`Ta bort förslaget ${option.dish.originalnamn}`} onRemove={() => onDismiss(option.dishIndex)}>
-                  {card}
-                </ProposalRow>
-              ) : (
-                card
-              );
-            })}
+            {visible.map((option) => (
+              <RadioCard
+                key={option.dishIndex}
+                name={`dish-${person.id}`}
+                value={String(option.dishIndex)}
+                checked={chosen === option.dishIndex}
+                tone={option.warning === "allergy" ? "danger" : "default"}
+                onCard
+                onSelect={() => onChoose(option.dishIndex)}
+                aside={approxKr(dishSek(option.dish))}
+                corner={onDismiss ? <DismissButton name={option.dish.originalnamn} onClick={() => onDismiss(option.dishIndex)} /> : undefined}
+              >
+                <span className={cx("text-headline font-bold", chosen === option.dishIndex || option.warning === "allergy" ? "text-ink" : "text-ink-2")}>
+                  {option.dish.originalnamn}
+                </span>
+                <DishBlurb dish={option.dish} />
+                <Reasons option={option} />
+                {onInfo ? <InfoButton name={option.dish.originalnamn} onClick={() => onInfo(option.dishIndex)} /> : null}
+              </RadioCard>
+            ))}
           </div>
           {extras.length > 0 || usualDrink !== null || addedDrinks.length > 0 || drink === "ingen" ? (
             <div data-testid="menu-extras-box" className="flex flex-col rounded-lg bg-bg px-3 pt-2 pb-1">
