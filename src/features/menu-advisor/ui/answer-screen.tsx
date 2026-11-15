@@ -44,6 +44,7 @@ export function AnswerScreen({
   onRemoveUsualDrink,
   onRemoveDrink,
   onAddDrink,
+  onInfo,
   onAddDish,
   onDone,
   onFullMenu,
@@ -78,6 +79,8 @@ export function AnswerScreen({
   onAddDrink?: (personId: string) => void;
   /** "Lägg till rätt": opens the sheet with the whole menu for that person. */
   onAddDish: (personId: string) => void;
+  /** "Mer om rätten" on a dish: opens the sheet that tells about it. */
+  onInfo?: (dishIndex: number) => void;
   onDone: () => void;
   onFullMenu: () => void;
   onCareful: () => void;
@@ -138,6 +141,7 @@ export function AnswerScreen({
               onRemoveDrink={onRemoveDrink ? (kind) => onRemoveDrink(person.id, kind) : undefined}
               onAddDish={() => onAddDish(person.id)}
               onAddDrink={onAddDrink ? () => onAddDrink(person.id) : undefined}
+              onInfo={onInfo}
             />
           );
         })}

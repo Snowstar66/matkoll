@@ -1106,8 +1106,12 @@ const menuAllergenList = ["gluten", "laktos", "notter", "skaldjur", "agg", "fisk
  */
 export const menuDishAnswer = z.object({
   originalnamn: z.string(),
+  svenskt_namn: z
+    .string()
+    .optional()
+    .describe('Rättens namn översatt till svenska när menyn är på ett annat språk, t.ex. "Kokt bläckfisk på galicisk vis" för "Pulpo a la gallega". Tom sträng när namnet redan är svenskt eller ett egennamn ("Margherita", "Caesarsallad")'),
   grupp: z.enum(["Förrätt", "Varmrätt", "Efterrätt", "Drycker", "Övrigt"]),
-  forklaring: z.string().describe('EN kort mening (ca 60-110 tecken) på klar svenska om vad man får: huvudråvara, tillagning och viktiga tillbehör, utan marknadsföring. Kryptiska menynamn förklaras: "Bläckfisk i vitlök och persilja med inlagd lök och klyftpotatis"'),
+  forklaring: z.string().describe('Ett till två korta meningar (ca 80-170 tecken) på klar svenska om vad man får: huvudråvara, tillagning, tillbehör och gärna hur stor eller stark rätten är, utan marknadsföring. Kryptiska menynamn förklaras: "Bläckfisk i vitlök och persilja med inlagd lök och klyftpotatis"'),
   huvudingredienser: z.array(z.string()),
   kategori: z.enum(["kott", "fisk", "skaldjur", "vegetariskt", "veganskt", "ej_tillampligt"]),
   allergener: z.array(z.enum(menuAllergenList)),
@@ -1130,6 +1134,44 @@ export const menuAnswer = z.object({
 });
 
 export type MenuAnswer = z.output<typeof menuAnswer>;
+
+/** explainDish: the longest each text of the explanation is kept (characters). */
+export const dishExplanationChars = { name: 100, description: 450, taste: 300, origin: 220, uncertain: 220 } as const;
+
+/**
+ * What the model answers to explainDish: one dish from a menu, explained in Swedish for someone at the table who does
+ * not know it. The texts are plain sentences; a field that does not apply is an empty string.
+ */
+export const explainDishAnswer = z.object({
+  svenskt_namn: z.string().describe('Rättens namn på svenska ("Kokt bläckfisk på galicisk vis"); tom sträng när namnet redan är svenskt eller ett egennamn'),
+  beskrivning: z.string().describe("Två till tre meningar på klar svenska: vad rätten är, hur den vanligen görs, huvudråvara, tillagning och vad den serveras med"),
+  smak_och_storlek: z.string().describe("En till två meningar: hur den brukar smaka (mild, het, fet, fräsch, söt), hur stor den brukar vara och hur man äter den (att dela eller egen portion)"),
+  ursprung: z.string().describe("En mening om var rätten kommer ifrån eller dess tradition; tom sträng om det inte är känt eller inte säger något"),
+  osakert: z.string().describe("Tom sträng, eller en mening om vad menyn inte säger och som restaurangen kan ha gjort annorlunda"),
+});
+
+export type DishExplanation = {
+  svenskt_namn: string;
+  beskrivning: string;
+  smak_och_storlek: string;
+  ursprung: string;
+  osakert: string;
+};
+
+/** The explanation with every text cleaned and cut to its length; the port's answer for explainDish. */
+export function parseDishExplanation(answer: z.output<typeof explainDishAnswer>): DishExplanation {
+  const clip = (text: string, max: number) => {
+    const cleaned = cleanModelText(text);
+    return cleaned.length <= max ? cleaned : `${cleaned.slice(0, max - 1).trimEnd()}…`;
+  };
+  return {
+    svenskt_namn: clip(answer.svenskt_namn, dishExplanationChars.name),
+    beskrivning: clip(answer.beskrivning, dishExplanationChars.description),
+    smak_och_storlek: clip(answer.smak_och_storlek, dishExplanationChars.taste),
+    ursprung: clip(answer.ursprung, dishExplanationChars.origin),
+    osakert: clip(answer.osakert, dishExplanationChars.uncertain),
+  };
+}
 export type MenuDishAnswer = z.output<typeof menuDishAnswer>;
 
 /** One dish with its texts cleaned. */
@@ -1137,6 +1179,7 @@ export function cleanMenuDish(dish: MenuDishAnswer): MenuDishAnswer {
   return {
     ...dish,
     originalnamn: cleanModelText(dish.originalnamn),
+    svenskt_namn: dish.svenskt_namn === undefined ? undefined : cleanModelText(dish.svenskt_namn),
     forklaring: cleanModelText(dish.forklaring),
     huvudingredienser: dish.huvudingredienser.map(cleanModelText).filter((name) => name !== ""),
   };

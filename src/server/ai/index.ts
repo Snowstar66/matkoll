@@ -15,6 +15,8 @@ export type {
   AskThingsResult,
   CategorizeThingsInput,
   CategorizeThingsResult,
+  ExplainDishInput,
+  ExplainDishResult,
   ThingSearchTermsInput,
   ThingSearchTermsResult,
   AnalyzePlace,
@@ -54,7 +56,7 @@ export type {
 } from "./service";
 export { aiEfforts, menuModels, planWeekModels, askThingsText, categorizeThingsText, thingSearchTermsText, inputLimits, matchOffersText, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
-export type { MenuAnswer, MenuDishAnswer, NowIdea, NowIdeaKind } from "./schemas";
+export type { DishExplanation, MenuAnswer, MenuDishAnswer, NowIdea, NowIdeaKind } from "./schemas";
 export { nowIdeaKinds } from "./schemas";
 export type { AiListItem, AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPoint, PhotoItem, ThingCategory, ThingConfidence, ThingIntent, ThingToRefill, ThingToRemember } from "./schemas";
 export { maxListItems, maxThings, thingCategories, thingConfidences } from "./schemas";
@@ -118,6 +120,7 @@ function withGate(service: AiService, gate: AiGate): AiService {
     findRestaurantsWeb: gated(service.findRestaurantsWeb),
     thingSearchTerms: gated(service.thingSearchTerms),
     categorizeThings: gated(service.categorizeThings),
+    explainDish: gated(service.explainDish),
     warmUp: service.warmUp,
     warmUpKey: service.warmUpKey,
   };
@@ -153,6 +156,7 @@ function withSink(service: AiService, sink: AiUsageSink | undefined, reserve: Ai
     findRestaurantsWeb: (input, signal, options) => metered(() => service.findRestaurantsWeb(input, signal, options)),
     thingSearchTerms: (input, signal, options) => metered(() => service.thingSearchTerms(input, signal, options)),
     categorizeThings: (input, signal, options) => metered(() => service.categorizeThings(input, signal, options)),
+    explainDish: (input, signal, options) => metered(() => service.explainDish(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),
     warmUpKey: (kind) => service.warmUpKey(kind),
   };

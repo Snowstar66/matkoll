@@ -7,6 +7,7 @@ import type { Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
 import { filterDishes, groupDishes, noFilter } from "../domain/view";
 import { certainAllergens, listPrice, toWhom } from "./journey";
+import { DishBlurb } from "./dish-more";
 import { BigButton } from "./journey-parts";
 
 type Indexed = MenuDish & { index: number };
@@ -95,7 +96,7 @@ export function AddDishSheet({
                     >
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="text-row-title font-semibold text-ink">{dish.originalnamn}</span>
-                        {dish.forklaring ? <span className="line-clamp-1 text-meta text-ink-2">{dish.forklaring}</span> : null}
+                        <DishBlurb dish={dish} lines={2} />
                         {allergens.length > 0 ? (
                           <span data-testid="menu-add-allergy" className="mt-0.5 flex gap-2 text-meta leading-snug font-semibold text-danger">
                             <i aria-hidden="true" className="mt-1.5 size-2.5 shrink-0 rounded-pill bg-danger" />

@@ -19,6 +19,7 @@ import { dishSek } from "../domain/view";
 import { AnswerScreen } from "./answer-screen";
 import { readCompanyIds, writeCompanyIds } from "./company-store";
 import { AddDishSheet } from "./add-dish-sheet";
+import { DishSheet } from "./dish-sheet";
 import { DrinkSheet } from "./drink-sheet";
 import { EmptyReading } from "./empty-reading";
 import { FullMenuScreen } from "./full-menu-screen";
@@ -130,6 +131,8 @@ export function MenuAdvisor({
   const [drinkOf, setDrinkOf] = useState<string | null>(null);
   // Who the sheet "Lägg till åt" with the whole menu is open for.
   const [dishOf, setDishOf] = useState<string | null>(null);
+  // "Mer om rätten" on a proposal: the dish (an index into the menu) whose sheet is open.
+  const [infoIndex, setInfoIndex] = useState<number | null>(null);
   const [showTonight, setShowTonight] = useState(false);
   const tonight = useTonight();
   const { people } = usePeople(members, profiles);
@@ -601,6 +604,7 @@ export function MenuAdvisor({
         onRemoveUsualDrink={(personId) => setJourney((current) => ({ ...current, choices: dropUsualDrink(current.choices, personId) }))}
         onRemoveDrink={(personId, kind) => setJourney((current) => ({ ...current, choices: removeDrink(current.choices, personId, kind) }))}
         onAddDrink={setDrinkOf}
+        onInfo={setInfoIndex}
         onAddDish={(personId) => {
           setAdded(null);
           setDishOf(personId);
@@ -677,6 +681,16 @@ export function MenuAdvisor({
           has={(dishIndex) => hasDish(journey.choices, dishPerson.id, dishIndex)}
           onAdd={(dishIndex) => setJourney((current) => ({ ...current, choices: addExtra(current.choices, dishPerson.id, dishIndex) }))}
           onClose={() => setDishOf(null)}
+        />
+      ) : null}
+      {reading && stage === "answer" ? (
+        <DishSheet
+          key={infoIndex ?? "none"}
+          dish={infoIndex === null ? null : (reading.menu.ratter[infoIndex] ?? null)}
+          menu={reading.menu}
+          company={company}
+          fromPersonId={null}
+          onClose={() => setInfoIndex(null)}
         />
       ) : null}
       {reading && stage === "answer" && drinkPerson ? (

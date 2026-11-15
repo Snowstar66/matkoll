@@ -9,6 +9,7 @@ import type { Menu, MenuDish } from "../domain/types";
 import { menuReaderText, type MenuReader } from "../domain/reading";
 import { unfitFor } from "../domain/people";
 import { filterDishes, groupDishes, noFilter } from "../domain/view";
+import { DishBlurb } from "./dish-more";
 import { DishSheet } from "./dish-sheet";
 import { listPrice, unpricedNote } from "./journey";
 import { BigButton, Headline, StickyFooter, TextLink, TopBack, TotalRow } from "./journey-parts";
@@ -94,7 +95,7 @@ export function FullMenuScreen({
                   >
                     <span className={cx("flex min-w-0 flex-col", cannot.length > 0 && "opacity-60")}>
                       <span className="text-row-title font-semibold text-ink">{dish.originalnamn}</span>
-                      {dish.forklaring ? <span className="line-clamp-1 text-meta text-ink-2">{dish.forklaring}</span> : null}
+                      <DishBlurb dish={dish} lines={2} />
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">
                       {price ? <span className={cx("text-row-title font-semibold text-ink", cannot.length > 0 && "opacity-60")}>{price}</span> : null}
@@ -142,6 +143,7 @@ export function FullMenuScreen({
       <DishSheet
         key={open ?? "none"}
         dish={openDish}
+        menu={menu}
         company={company}
         fromPersonId={null}
         has={(personId) => open !== null && (hasDish?.(personId, open) ?? false)}

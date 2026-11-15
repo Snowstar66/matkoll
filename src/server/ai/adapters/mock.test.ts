@@ -750,6 +750,20 @@ describe("mock mergeThings (Story 18.6)", () => {
   });
 });
 
+describe("mock explainDish", () => {
+  const service = createMockAiService();
+  const input = { name: "Pulpo a la gallega", language: "es" as const, restaurant: null, summary: "Kokt bläckfisk.", ingredients: [] };
+
+  it("gives a Swedish explanation with a translated name for a menu in another language, and none for a Swedish one", async () => {
+    expect(await service.explainDish(input, signal())).toMatchObject({ ok: true, data: { svenskt_namn: "Pulpo a la gallega på svenska", ursprung: "Rätten kommer ursprungligen från Spanien." } });
+    expect(await service.explainDish({ ...input, language: "sv" }, signal())).toMatchObject({ ok: true, data: { svenskt_namn: "", ursprung: "" } });
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a name with its reserved text", async (code) => {
+    expect(await service.explainDish({ ...input, name: `Hej matkoll-mock: ${code}` }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+});
+
 describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)", () => {
   const service = createMockAiService();
 
