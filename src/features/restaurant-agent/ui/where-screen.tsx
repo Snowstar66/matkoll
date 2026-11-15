@@ -78,7 +78,8 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, onPhoto, cos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const view = coords ? { ...coords, radiusM: settings.radiusM } : null;
+  // The map link cannot take a radius, so the map has one fixed window (about 1 km); only the web search has a radius to choose.
+  const view = coords ? { ...coords, radiusM: webSearch ? settings.radiusM : 1000 } : null;
   const photo = onPhoto ? (
     <TextLink onClick={onPhoto} data-testid="restaurant-photo-link">
       <CameraIcon size={20} className="mr-2 shrink-0" />
@@ -130,8 +131,8 @@ export function WhereScreen({ settings, onSettings, onBack, onFind, onPhoto, cos
           </div>
         ) : null}
       </section>
-      <SettingsFields value={settings} onChange={onSettings} part="map" radar={geo === "got" ? <Radar radiusM={settings.radiusM} /> : undefined} />
-      {webSearch ? <SettingsFields value={settings} onChange={onSettings} part="agent" /> : null}
+      <SettingsFields value={settings} onChange={onSettings} part="map" />
+      {webSearch ? <SettingsFields value={settings} onChange={onSettings} part="agent" radar={geo === "got" ? <Radar radiusM={settings.radiusM} /> : undefined} /> : null}
       <StickyFooter>
         <DirectMap primary cuisines={settings.cuisines} place={null} view={view} />
         {photo}

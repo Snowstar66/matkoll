@@ -120,7 +120,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur fungerar allergier och personer vid menyn?",
-        answer: "Varje person har en rad med sina allergier; tryck på raden för att bocka i eller ur. De som var med förra gången är förbockade. Lägg till person tar dig till Inställningar, Medlemmar, Utan konto, där du lägger till personen (barn, vänner); hen sparas för hushållet och står på listan nästa gång, inte ibockad förrän du trycker på raden. Allergier och smak fyller du i under Inställningar, Medlemmar, Smak och allergier, och det går även om Menyrådgivare är av. Det sparas för hushållet, så det syns på alla era telefoner, och alla i hushållet kan ändra. Har ingen av er angett allergier står det överst i förslagen, med en länk för att lägga till. Rätter där någon kan vara allergisk visas inte bort utan flaggas i rött, med vem det gäller; i rättens ark står till exempel Anna: kan innehålla gluten. Fråga personalen. Allergiraden är en gissning utifrån fotot och kan vara fel: fråga alltid personalen.",
+        answer: "Varje person har en rad med sina allergier; tryck på raden för att bocka i eller ur. De som var med förra gången är förbockade. Lägg till person tar dig till Inställningar, Medlemmar, Utan konto, där du lägger till personen (barn, vänner); hen sparas för hushållet och står på listan nästa gång, inte ibockad förrän du trycker på raden. Allergier och smak fyller du i under Inställningar, Medlemmar, Smak och allergier, och det går även om Menyrådgivare är av. Det sparas för hushållet, så det syns på alla era telefoner, och alla i hushållet kan ändra.Rätter där någon kan vara allergisk visas inte bort utan flaggas i rött, med vem det gäller; i rättens ark står till exempel Anna: kan innehålla gluten. Fråga personalen. Allergiraden är en gissning utifrån fotot och kan vara fel: fråga alltid personalen.",
       },
       {
         question: "Vad betyder prickarna på recepten?",
@@ -140,7 +140,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Kan appen hjälpa mig hitta ett ställe att äta på?",
-        answer: "Ja, med Äta ute (Tillval, av från början: slå på Äta ute under Inställningar, Tillval; reglaget gäller bara den här telefonen). Då står ett kort överst i Menyrådgivaren: Vill ni ha hjälp att välja restaurang? Där öppnas Sök restauranger. Telefonen frågar om plats när sidan visas. Välj ungefär hur långt (500 m till 5 km) och högst tre sorter under Sugen på, och tryck Sök i Google Maps. Kartan öppnas utanför appen med en färdig sökning, och där ser du alla ställen, öppettider och betyg. Det kostar ingenting och ingen AI behövs. Är du redan framme finns länken Framme? Fota menyn under knappen. Allergi gissas aldrig: en meny kan inte bevisa att en rätt är säker. Valen kommer ihåg på den här telefonen, ingenting sparas hos oss.",
+        answer: "Ja, med Äta ute (Tillval, av från början: slå på Äta ute under Inställningar, Tillval; reglaget gäller bara den här telefonen). Då står ett kort överst i Menyrådgivaren: Vill ni ha hjälp att välja restaurang? Där öppnas Sök restauranger. Telefonen frågar om plats när sidan visas. Välj högst tre sorter under Sugen på, och tryck Sök i Google Maps. Kartan öppnas runt din plats; en kartlänk kan inte ange hur långt du vill gå, så Google kan visa ställen längre bort. Kartan öppnas utanför appen med en färdig sökning, och där ser du alla ställen, öppettider och betyg. Det kostar ingenting och ingen AI behövs. Är du redan framme finns länken Framme? Fota menyn under knappen. Allergi gissas aldrig: en meny kan inte bevisa att en rätt är säker. Valen kommer ihåg på den här telefonen, ingenting sparas hos oss.",
       },
       {
         question: "Vad händer om jag nekar plats?",
@@ -152,7 +152,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Vad händer med min plats?",
-        answer: "Telefonen ger appen din plats när du öppnar Sök restauranger. Appen gör den grövre (cirka 1 km) innan den används, och den används bara för att öppna kartan runt dig. Den sparas aldrig, varken i appen eller hos oss. Valen du gör (hur långt och Sugen på) kommer ihåg på den här telefonen, ingenting sparas hos oss. Vill du inte dela plats fungerar kartan ändå: Google Maps använder då telefonens egen plats.",
+        answer: "Telefonen ger appen din plats när du öppnar Sök restauranger. Appen gör den grövre (cirka 1 km) innan den används, och den används bara för att öppna kartan runt dig. Den sparas aldrig, varken i appen eller hos oss. Valet du gör (Sugen på) kommer ihåg på den här telefonen, ingenting sparas hos oss. Vill du inte dela plats fungerar kartan ändå: Google Maps använder då telefonens egen plats.",
       },
       { question: "Är matsedeln samma i alla boenden?", answer: "Ja. Recept och matsedel är gemensamma; maten hemma hör till boendet." },
     ],

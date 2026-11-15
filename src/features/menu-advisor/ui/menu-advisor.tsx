@@ -612,7 +612,6 @@ export function MenuAdvisor({
         choices={journey.choices}
         totals={totals}
         added={added}
-        filtered={company.some((person) => person.allergies.length > 0)}
         uncertain={reading.menu.osakert}
         pagesNotice={
           <>

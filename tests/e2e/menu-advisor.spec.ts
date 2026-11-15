@@ -437,8 +437,7 @@ test("the answer without company or preferences has no marks, and a sand box say
   await takePhoto(page);
   await stream.push(readerLine, doneLine(menu));
   await expect(page.getByRole("heading", { name: "Det här passar er" })).toBeVisible();
-  await expect(page.getByTestId("menu-unfiltered")).toHaveText("Ingen av er har angett allergier, så inget är bortsorterat. Lägg till allergi");
-  await expect(page.getByTestId("menu-unfiltered")).toBeInViewport();
+  await expect(page.getByTestId("menu-unfiltered")).toHaveCount(0);
   await expect(page.locator("[data-tone='mint'], [data-tone='sand'], [data-tone='danger']")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Du" }).getByRole("radio")).toHaveCount(3);
   await page.screenshot({ path: `${shots}/14-answer-alone.png` });
@@ -753,7 +752,7 @@ test("the dark: the start, the answer with both tabs, Ert val and the stops", as
   await takePhoto(page);
   await expect.poll(async () => (await stream.qualities()).length).toBe(2);
   await stream.push(readerLine, doneLine(menu));
-  await expect(page.getByTestId("menu-unfiltered")).toBeVisible();
+  await expect(page.getByTestId("menu-unfiltered")).toHaveCount(0);
   await page.screenshot({ path: `${shots}/35-dark-answer-no-allergy.png` });
   await page.getByRole("button", { name: "Tolka menyn" }).click();
   await takePhoto(page);
