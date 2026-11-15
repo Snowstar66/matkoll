@@ -5,7 +5,7 @@ import { parseEnv } from "@/server/env-schema";
 import { fail, ok } from "@/lib/errors";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { prompts } from "./prompts";
-import type { Limits } from "./run";
+import { defaultLimits, type Limits } from "./run";
 import {
   askThingsText,
   categorizeThingsText,
@@ -19,6 +19,7 @@ import {
   suggestDishesContent,
   foodPrefsText,
   limitsWithin,
+  menuReadLimits,
   minRunMs,
   isValidAnalyzeImageInput,
   matchOffersText,
@@ -1908,5 +1909,17 @@ describe("ideasNow on a model (Story 25.4)", () => {
     expect(models[0]).toBe(ideasModel);
     expect(models[models.length - 1]).toBe("claude-opus-5-5");
     expect(ideasModel).toBe("claude-haiku-5-5");
+  });
+});
+
+describe("menuReadLimits", () => {
+  it("stretches the default limits so a menu of about 80 dishes is not cut off, and leaves limits that were set on purpose", () => {
+    expect(menuReadLimits(defaultLimits)).toEqual({ ...defaultLimits, attemptMs: 150_000, totalMs: 160_000 });
+    const tight = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+    expect(menuReadLimits(tight)).toEqual(tight);
+  });
+
+  it("stays within the route's deadline of 165 s", () => {
+    expect(menuReadLimits(defaultLimits).totalMs).toBeLessThan(165_000);
   });
 });
