@@ -699,11 +699,15 @@ describe("the answer", () => {
     await screen.findByTestId("menu-answer");
     expect(screen.queryByTestId("menu-receipt")).not.toBeInTheDocument();
     const toggle = screen.getByTestId("menu-receipt-toggle");
+    expect(toggle).toHaveTextContent("Se notan i förväg");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await u.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     const receipt = within(screen.getByTestId("menu-receipt"));
     expect(receipt.getByRole("region", { name: "Nota Du" })).toHaveTextContent("Ölca 55 kr");
+    // A receipt: the restaurant at the top, the sum at the foot.
+    expect(screen.getByTestId("menu-receipt")).toHaveTextContent("Taverna Mock");
+    expect(screen.getByTestId("menu-receipt")).toHaveTextContent(/SUMMA\s*ca \d+ kr/);
     expect(receipt.getByRole("region", { name: "Nota Anna" })).toHaveTextContent("Vin");
     const lines = receipt.getAllByTestId("menu-receipt-line").length;
     await u.click(screen.getByRole("button", { name: "Lägg till dryck åt dig" }));
