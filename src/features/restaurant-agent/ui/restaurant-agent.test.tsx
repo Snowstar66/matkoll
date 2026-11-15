@@ -93,7 +93,7 @@ describe("location step", () => {
     expect(screen.queryByRole("radio")).toBeNull();
     await user.click(screen.getByRole("button", { name: /Tolka menyn/ }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("direct-map-link")).toHaveAttribute("href", "https://www.google.com/maps/search/?api=1&query=restaurang");
+    expect(screen.getByTestId("direct-map-link")).toHaveAttribute("href", "https://www.google.com/maps/search/?api=1&query=restaurang%20n%C3%A4ra%20mig");
     getPosition.mockImplementation(here);
     await user.click(screen.getByTestId("restaurant-place-retry"));
     expect(getPosition).toHaveBeenCalledTimes(2);
@@ -389,8 +389,8 @@ describe("format", () => {
 
   it("builds the direct map search from the niches and the typed place only", () => {
     expect(directMapQuery(["pizza", "asiatiskt", "italienskt"], "Uppsala")).toBe("pizza asiatisk italiensk restaurang Uppsala");
-    expect(directMapQuery([], null)).toBe("restaurang");
-    expect(directMapQuery(["fisk"], "  ")).toBe("fisk restaurang");
+    expect(directMapQuery([], null)).toBe("restaurang nära mig");
+    expect(directMapQuery(["fisk"], "  ")).toBe("fisk restaurang nära mig");
     expect(directMapQuery(["pizza", "sushi", "fisk", "indiskt"], "Lund")).toBe("pizza sushi fisk restaurang Lund");
   });
 
@@ -418,7 +418,7 @@ describe("Sök i Google Maps", () => {
     const links = screen.getAllByTestId("direct-map-link");
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveTextContent("Sök i Google Maps");
-    expect(hrefs()).toEqual(["https://www.google.com/maps/search/?api=1&query=restaurang"]);
+    expect(hrefs()).toEqual(["https://www.google.com/maps/search/?api=1&query=restaurang%20n%C3%A4ra%20mig"]);
     expect(links[0]).toHaveAttribute("target", "_blank");
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
     expect(within(links[0]!).getByRole("img", { name: "Öppnas utanför appen" })).toBeInTheDocument();
@@ -430,14 +430,14 @@ describe("Sök i Google Maps", () => {
     const user = userEvent.setup();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
     await user.click(screen.getByRole("button", { name: "Pizza" }));
-    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang/@59.86,17.64,15z"]));
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang%20n%C3%A4ra%20mig/@59.86,17.64,15z"]));
   });
 
   it("uses the rounded position for the map window once the place is fetched, and the radius chosen", async () => {
     const user = userEvent.setup();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={at(59.858612, 17.638987)} />);
     await user.click(screen.getByRole("radio", { name: "2 km" }));
-    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,14z"]));
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang%20n%C3%A4ra%20mig/@59.86,17.64,14z"]));
   });
 
   it("never puts allergies, names or other profile data in the address", async () => {
@@ -460,7 +460,7 @@ describe("Sök i Google Maps", () => {
       const shown = render(<RestaurantFlow actions={fakeActions(result)} onClose={vi.fn()} getPosition={here} />);
       await typePlace(user);
       expect(await screen.findByTestId("restaurant-stop")).toBeInTheDocument();
-      expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang/@59.86,17.64,15z"]);
+      expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang%20n%C3%A4ra%20mig/@59.86,17.64,15z"]);
       shown.unmount();
     }
   });

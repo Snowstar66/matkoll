@@ -64,7 +64,7 @@ for (const size of [undefined, "xl"] as const) {
     await expect(page.getByRole("button", { name: "Framme? Fota menyn" })).toBeVisible();
     await expect(page.getByText("Vi är")).toHaveCount(0);
     await page.getByRole("button", { name: "Pizza" }).click();
-    await expect(maps).toHaveAttribute("href", /search\/pizza%20restaurang\/@59\.86,17\.64,15z/);
+    await expect(maps).toHaveAttribute("href", /search\/pizza%20restaurang%20n%C3%A4ra%20mig\/@59\.86,17\.64,15z/);
     expect(await noSideScroll(page)).toBe(true);
   });
 }
@@ -88,7 +88,7 @@ test("the phone's place is asked by itself, and a refusal explains, keeps the ma
   await page.getByTestId("restaurant-agent-card").click();
   await expect(page.getByRole("heading", { name: "Vi vet inte var du är" })).toBeVisible();
   expect(await calls()).toBe(1);
-  await expect(page.getByTestId("direct-map-link")).toHaveAttribute("href", /query=restaurang$/);
+  await expect(page.getByTestId("direct-map-link")).toHaveAttribute("href", /query=restaurang%20n%C3%A4ra%20mig$/);
   await page.getByTestId("restaurant-place-retry").click();
   await expect.poll(calls).toBe(2);
 });

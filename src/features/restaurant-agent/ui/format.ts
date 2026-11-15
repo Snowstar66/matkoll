@@ -178,5 +178,6 @@ const cuisineSearchWords: Record<CuisineId, string> = {
  */
 export function directMapQuery(cuisines: readonly CuisineId[], place: string | null): string {
   const words = cuisines.slice(0, maxCuisines).map((id) => cuisineSearchWords[id]).filter((word): word is string => Boolean(word));
-  return [...words, "restaurang", ...(place && place.trim() !== "" ? [place.trim()] : [])].join(" ");
+  // Without a place name "nära mig" makes Google weigh distance more (a map link cannot set a radius or a sort order).
+  return [...words, "restaurang", place && place.trim() !== "" ? place.trim() : "nära mig"].join(" ");
 }
