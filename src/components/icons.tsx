@@ -87,14 +87,15 @@ export function BoxIcon(props: IconProps) {
   );
 }
 
-/** A plate with a fork and a knife: eating out. */
+/**
+ * A fork and a knife: eating out. No plate: with one, the three shapes ran into each other at 22 px. The fork is a round U on a
+ * stem, the knife a rounded blade on a straight handle, and they stand five units apart.
+ */
 export function RestaurantIcon(props: IconProps) {
-  // The plate is small and the fork and the knife stand well apart from it, so the three read as three at 22 px.
   return (
     <Icon {...props}>
-      <circle cx="12" cy="12" r="4.5" />
-      <path d="M2.8 3.5v5a1.5 1.5 0 0 0 3 0v-5M4.3 9.8v10.7" />
-      <path d="M21 20.5V3.5c-1.8 1.2-2.5 3.7-2.5 6.5H21" />
+      <path d="M5 3v6M5 9a2.5 2.5 0 0 0 5 0V3M7.5 11.5V21" />
+      <path d="M19.5 21V3c-2.7 1.2-4.5 3.7-4.5 7v2.5a1.5 1.5 0 0 0 1.5 1.5h3" />
     </Icon>
   );
 }
