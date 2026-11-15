@@ -88,6 +88,7 @@ export function RadioCard({
   onCard = false,
   children,
   aside,
+  corner,
 }: {
   name: string;
   value: string;
@@ -99,6 +100,8 @@ export function RadioCard({
   children: ReactNode;
   /** The price, on the right. */
   aside?: ReactNode;
+  /** A small control under the price, inside the card (the soptunna). It never chooses the card. */
+  corner?: ReactNode;
 }) {
   const danger = tone === "danger";
   return (
@@ -121,7 +124,12 @@ export function RadioCard({
         {checked ? danger ? <span className="size-2.5 rounded-pill bg-danger" /> : <CheckIcon size={14} /> : null}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">{children}</span>
-      {aside ? <span className={cx("shrink-0 text-row-title", checked ? "text-ink" : "text-ink-2")}>{aside}</span> : null}
+      {aside || corner ? (
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          {aside ? <span className={cx("text-row-title", checked ? "text-ink" : "text-ink-2")}>{aside}</span> : null}
+          {corner}
+        </span>
+      ) : null}
     </label>
   );
 }

@@ -66,7 +66,7 @@ afterEach(() => vi.unstubAllGlobals());
 type Scope = BoundFunctions<typeof queries>;
 
 /** The row (the card with its soptunna) of the dish that is chosen for the person. */
-const chosenRow = (card: Scope) => card.getByRole("radio", { checked: true }).closest<HTMLElement>("[data-testid=menu-proposal-row]")!;
+const chosenRow = (card: Scope) => card.getByRole("radio", { checked: true }).closest<HTMLElement>("label")!;
 const names = (card: Scope) => card.getAllByRole("radio").map((radio) => radio.closest("label")!.querySelector(".font-bold")!.textContent);
 
 const user = () => userEvent.setup();
@@ -1102,7 +1102,7 @@ describe("adding more dishes from the menu", () => {
       const chosen = region("Greta").getByRole("radio", { checked: true }).closest("label")!.querySelector(".font-bold")!.textContent;
       const other = region("Greta").getAllByRole("radio").find((radio) => !(radio as HTMLInputElement).checked)!;
       const otherName = other.closest("label")!.querySelector(".font-bold")!.textContent!;
-      await u.click(within(other.closest<HTMLElement>("[data-testid=menu-proposal-row]")!).getByTestId("menu-dismiss-proposal"));
+      await u.click(within(other.closest<HTMLElement>("label")!).getByTestId("menu-dismiss-proposal"));
       expect(names(region("Greta"))).toEqual(all.filter((name) => name !== otherName));
       expect(region("Greta").getByRole("radio", { checked: true }).closest("label")).toHaveTextContent(chosen!);
       expect(total()).toBe(before);
