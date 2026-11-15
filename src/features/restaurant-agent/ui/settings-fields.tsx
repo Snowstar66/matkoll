@@ -22,14 +22,6 @@ export function SettingsFields({ value, onChange, part = "all", radar }: { value
   return (
     <div className="flex flex-col gap-5" data-testid="restaurant-fields">
       {map ? (
-        <section className="flex flex-col gap-2" data-testid="restaurant-radius">
-          <h3 className="text-meta font-semibold tracking-wide text-ink-3 uppercase">{texts.radiusLabel}</h3>
-          {radar}
-          <Segment label={texts.radiusLabel} value={String(value.radiusM)} onChange={(radius) => onChange({ ...value, radiusM: Number(radius) as RestaurantSettings["radiusM"] })} options={radiiM.map((radius) => ({ value: String(radius), label: radiusLabels[radius] }))} />
-          <p className="text-meta text-ink-2">{texts.radiusHint}</p>
-        </section>
-      ) : null}
-      {map ? (
         <section className="flex flex-col gap-2">
           <h3 className="text-meta font-semibold tracking-wide text-ink-3 uppercase">{texts.cuisinesLabel}</h3>
           <div role="group" aria-label={texts.cuisinesLabel} className="flex flex-wrap gap-2">
@@ -40,6 +32,14 @@ export function SettingsFields({ value, onChange, part = "all", radar }: { value
             ))}
           </div>
           <p className="text-meta text-ink-2">{texts.cuisinesHint}</p>
+        </section>
+      ) : null}
+      {agent ? (
+        <section className="flex flex-col gap-2" data-testid="restaurant-radius">
+          <h3 className="text-meta font-semibold tracking-wide text-ink-3 uppercase">{texts.radiusLabel}</h3>
+          {radar}
+          <Segment label={texts.radiusLabel} value={String(value.radiusM)} onChange={(radius) => onChange({ ...value, radiusM: Number(radius) as RestaurantSettings["radiusM"] })} options={radiiM.map((radius) => ({ value: String(radius), label: radiusLabels[radius] }))} />
+          <p className="text-meta text-ink-2">{texts.radiusHint}</p>
         </section>
       ) : null}
       {agent ? (

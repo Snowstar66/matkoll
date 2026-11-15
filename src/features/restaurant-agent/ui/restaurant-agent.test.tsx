@@ -136,10 +136,10 @@ describe("choices and 'Sugen på'", () => {
     expect(JSON.parse(window.localStorage.getItem(settingsStorageKey) ?? "{}")).toEqual(input.settings);
   });
 
-  it("with the web search off shows only how far and 'Sugen på': no När, Vi är or priorities", () => {
+  it("with the web search off shows only 'Sugen på': no radius, När, Vi är or priorities", () => {
     window.localStorage.clear();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
-    expect(screen.getByRole("radiogroup", { name: "Hur långt?" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Hur långt?" })).toBeNull();
     expect(screen.getByRole("button", { name: "Pizza" })).toBeInTheDocument();
     expect(screen.queryByText("När")).toBeNull();
     expect(screen.queryByText("Vi är")).toBeNull();
@@ -433,7 +433,16 @@ describe("Sök i Google Maps", () => {
     await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/pizza%20restaurang%20n%C3%A4ra%20mig/@59.86,17.64,15z"]));
   });
 
-  it("uses the rounded position for the map window once the place is fetched, and the radius chosen", async () => {
+  it("has no radius to choose for the map (a map link cannot take one): one fixed window around the rounded position", async () => {
+    saveOption("restaurantAgentWeb", false);
+    render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={at(59.858612, 17.638987)} />);
+    expect(screen.queryByTestId("restaurant-radius")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "2 km" })).toBeNull();
+    await waitFor(() => expect(hrefs()).toEqual(["https://www.google.com/maps/search/restaurang%20n%C3%A4ra%20mig/@59.86,17.64,15z"]));
+  });
+
+  it("with the web search on, the radius is chosen and follows into the map window", async () => {
+    saveOption("restaurantAgentWeb", true);
     const user = userEvent.setup();
     render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={at(59.858612, 17.638987)} />);
     await user.click(screen.getByRole("radio", { name: "2 km" }));
@@ -487,8 +496,14 @@ describe("the AI web search is a parked Tillval", () => {
 });
 
 describe("the radar and the way on to the photo", () => {
-  it("shows a radar named by the chosen radius, which follows the choice, only when the place is fetched", async () => {
+  it("shows a radar named by the chosen radius only with the web search on and the place fetched, and none for the map", async () => {
     const user = userEvent.setup();
+    saveOption("restaurantAgentWeb", false);
+    const off = render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={here} />);
+    expect(screen.queryByTestId("restaurant-radar")).toBeNull();
+    expect(screen.queryByRole("img", { name: /Sökområde/ })).toBeNull();
+    off.unmount();
+    saveOption("restaurantAgentWeb", true);
     const view = render(<RestaurantFlow actions={fakeActions()} onClose={vi.fn()} getPosition={() => {}} />);
     expect(screen.queryByTestId("restaurant-radar")).toBeNull();
     view.unmount();

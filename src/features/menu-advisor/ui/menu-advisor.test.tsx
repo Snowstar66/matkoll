@@ -526,7 +526,7 @@ describe("the pages of a menu", () => {
 });
 
 describe("the answer", () => {
-  it("alone and without preferences: three cards for the person, the best chosen, no marks, and a sand box that nothing is sorted out", async () => {
+  it("alone and without preferences: three cards for the person, the best chosen, no marks, and no notice about allergies", async () => {
     const u = user();
     render(<MenuAdvisor />);
     await toAnswer(u);
@@ -535,11 +535,9 @@ describe("the answer", () => {
     expect(cards).toHaveLength(3);
     expect(cards.filter((card) => (card as HTMLInputElement).checked)).toHaveLength(1);
     expect(document.querySelector("[data-tone='mint'], [data-tone='sand'], [data-tone='danger']")).toBeNull();
-    const box = screen.getByTestId("menu-unfiltered");
-    expect(box).toHaveTextContent("Ingen av er har angett allergier, så inget är bortsorterat.");
-    expect(within(box).getByRole("link", { name: "Lägg till allergi" })).toHaveAttribute("href", "/installningar/medlemmar#smak-och-allergier");
-    // Above the people, under the title.
-    expect(box.compareDocumentPosition(mine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // No notice about missing allergies: filling them in is the person's own responsibility.
+    expect(screen.queryByTestId("menu-unfiltered")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ingen av er har angett allergier/)).not.toBeInTheDocument();
     // The dish is explained under its name.
     expect(screen.getByText("Risgryta med skaldjur, saffran och musslor.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Klart" })).toBeInTheDocument();
