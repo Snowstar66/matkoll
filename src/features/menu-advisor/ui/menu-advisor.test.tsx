@@ -252,6 +252,62 @@ describe("a reading", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  /** A live reading that sends `count` dishes of the menu and then fails. */
+  const failingStream = (count: number, code = "ai_unavailable") =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          const lines = [
+            { type: "reading", quality: "standard", restart: false, model: "Haiku 5.5", effort: "låg" },
+            { type: "language", sprak: "es" },
+            ...menu.ratter.slice(0, count).map((entry, index) => ({ type: "dish", index, dish: entry })),
+            { type: "error", code },
+          ];
+          controller.enqueue(new TextEncoder().encode(lines.map((line) => `${JSON.stringify(line)}\n`).join("")));
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/x-ndjson" } },
+    );
+
+  it("keeps the dishes that came when the reading stops late: the answer with a notice, not a stop", async () => {
+    fetchMock.mockResolvedValueOnce(failingStream(4));
+    const u = user();
+    render(<MenuAdvisor />);
+    await readPhoto(u);
+    expect(await screen.findByTestId("menu-answer")).toBeInTheDocument();
+    expect(screen.queryByTestId("menu-stop")).toBeNull();
+    expect(screen.getByText("Läsningen avbröts efter 4 rätter, så några rätter kan saknas.")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-reader")).toHaveTextContent("Läst av Haiku 5.5 · låg");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("is still a stop when too few dishes came, and for a daily cap", async () => {
+    fetchMock.mockResolvedValueOnce(failingStream(2));
+    const u = user();
+    const { unmount } = render(<MenuAdvisor />);
+    await readPhoto(u);
+    expect(await screen.findByTestId("menu-stop")).toHaveAttribute("data-kind", "error");
+    unmount();
+    fetchMock.mockResolvedValueOnce(failingStream(5, "ai_cap_reached"));
+    render(<MenuAdvisor />);
+    await readPhoto(u);
+    expect(await screen.findByTestId("menu-stop")).toHaveAttribute("data-kind", "cap");
+  });
+
+  it("Läs om reads the same photo again and takes the notice away when the whole menu comes", async () => {
+    fetchMock.mockResolvedValueOnce(failingStream(4));
+    const u = user();
+    render(<MenuAdvisor />);
+    await readPhoto(u);
+    await screen.findByTestId("menu-answer");
+    fetchMock.mockImplementationOnce(() => Promise.resolve(reading()));
+    await u.click(screen.getByTestId("menu-read-again"));
+    await waitFor(() => expect(screen.queryByText(/Läsningen avbröts/)).toBeNull());
+    expect(screen.getByTestId("menu-answer")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("Försök igen on the stop reads the same photo once more, without asking for a new one", async () => {
     fetchMock.mockImplementationOnce(() => Promise.resolve(answer({ ok: false, error: { code: "ai_unavailable" } })));
     fetchMock.mockImplementationOnce(() => Promise.resolve(answer({ ok: false, error: { code: "ai_unavailable" } })));

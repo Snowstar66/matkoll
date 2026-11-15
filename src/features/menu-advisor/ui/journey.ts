@@ -8,7 +8,7 @@ import type { Choice, Choices, DishOption, PersonOptions } from "../domain/optio
 import type { DrinkKind, Person } from "../domain/profile";
 import type { Menu, MenuDish } from "../domain/types";
 import { languageName } from "../domain/labels";
-import type { MenuReader, MenuStreamEvent } from "../domain/reading";
+import { type MenuReader, type MenuReading, type MenuStreamEvent, menuReaderOf } from "../domain/reading";
 import { dishSek } from "../domain/view";
 import { allergenHits } from "../domain/allergens";
 
@@ -263,6 +263,29 @@ export function foldReading(view: ReadingView, event: MenuStreamEvent): ReadingV
     default:
       return view;
   }
+}
+
+/** A reading that stopped is kept when it had sent at least this many dishes. */
+export const minSalvagedDishes = 3;
+
+/** The codes a reading can stop with after it has started and still be worth keeping what it sent (a time-out, a cut-off answer). */
+const salvageCodes: readonly string[] = ["ai_unavailable", "ai_invalid"];
+
+/**
+ * What a reading that failed after it started had already sent, as a reading to show: the dishes (already normalised,
+ * one at a time as they were read) and the language. Null when the code is not one of a time-out or a cut-off answer,
+ * or when fewer than minSalvagedDishes came, so a reading that never got going is still a stop. The restaurant's name
+ * comes only with the whole menu, so it is missing here.
+ */
+export function salvageReading(view: ReadingView, code: string, careful: boolean): MenuReading | null {
+  if (!salvageCodes.includes(code) || view.dishes.length < minSalvagedDishes) return null;
+  const quality = view.reader ? (view.reader.model === "Sonnet 5.5" ? "careful" : "standard") : careful ? "careful" : "standard";
+  return {
+    menu: { restaurang: null, sprak: view.language ?? "annat", ratter: view.dishes, osakert: [] },
+    quality,
+    escalated: false,
+    ...(view.reader ?? menuReaderOf(quality)),
+  };
 }
 
 /** The one line the reading screen says: "Läser menyn…", "Översätter från spanska…", "Hittade 4 rätter". */
