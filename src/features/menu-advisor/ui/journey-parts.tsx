@@ -167,13 +167,13 @@ export function BigButton({ children, className, type = "button", ...props }: Co
   );
 }
 
-/** "Ni landar på" and the sum, big. */
-export function TotalRow({ label = "Ni landar på", sek, note }: { label?: string; sek: number; note?: string | null }) {
+/** "Notan i förväg" and the sum, big, in a typewriter face. */
+export function TotalRow({ label = "Notan i förväg", sek, note }: { label?: string; sek: number; note?: string | null }) {
   return (
     <div className="mb-1 flex flex-col">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-body text-ink-2">{label}</span>
-        <b data-testid="menu-total" className="text-[1.75rem] leading-8 font-bold text-ink">{`ca ${Math.round(sek)} kr`}</b>
+        <b data-testid="menu-total" className="font-mono text-[1.75rem] leading-8 font-bold text-ink">{`ca ${Math.round(sek)} kr`}</b>
       </div>
       {note ? <span className="text-right text-meta text-ink-3">{note}</span> : null}
     </div>
