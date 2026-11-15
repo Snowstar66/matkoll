@@ -76,7 +76,7 @@ export function AnswerScreen({
   onChoose: (personId: string, dishIndex: number) => void;
   /** Takes away a dish added on top (a starter, a dessert). */
   onRemoveExtra?: (personId: string, dishIndex: number) => void;
-  /** The soptunna or a swipe on a proposal: it leaves the card, and can be put back from "Lägg till rätt". */
+  /** The soptunna on a proposal: it leaves the card, and can be put back from "Lägg till rätt". */
   onDismiss?: (personId: string, dishIndex: number) => void;
   /** Takes away the person's usual drink for this evening. */
   onRemoveUsualDrink?: (personId: string) => void;
