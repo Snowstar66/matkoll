@@ -87,9 +87,16 @@ const routesByTable = {
     { path: "/recept", type: "layout" },
   ],
   // The checks on the shopping list (Story 3.4); only the list shows them.
-  shopping_check: [{ path: "/lista", type: "page" }],
+  // Veckans erbjudanden in the recipe library marks what is on the list ("På listan"), and a checked-off item is no longer on it, so /recept follows too.
+  shopping_check: [
+    { path: "/lista", type: "page" },
+    { path: "/recept", type: "layout" },
+  ],
   // Pontus's own items on the shopping list (Story 3.5); only the list shows them.
-  shopping_custom_item: [{ path: "/lista", type: "page" }],
+  shopping_custom_item: [
+    { path: "/lista", type: "page" },
+    { path: "/recept", type: "layout" },
+  ],
   // Corrected amounts and hidden lines on the shopping list (Story 3.6); only the list shows them.
   shopping_line_override: [{ path: "/lista", type: "page" }],
   // Product choices per catalog ingredient and store (Story 7.2); the list's

@@ -115,8 +115,11 @@ describe("revalidateFor", () => {
     ]);
   });
 
-  it.each(["shopping_check", "shopping_custom_item"] as const)("revalidates only the shopping list after a write to %s", (table) => {
+  it.each(["shopping_check", "shopping_custom_item"] as const)("revalidates the shopping list and the recipe library (the offers sheet marks what is on the list) after a write to %s", (table) => {
     revalidateFor(table);
-    expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
+    expect(revalidatePath.mock.calls).toEqual([
+      ["/lista", "page"],
+      ["/recept", "layout"],
+    ]);
   });
 });
