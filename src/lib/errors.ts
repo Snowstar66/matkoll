@@ -57,6 +57,7 @@ export const errorMessages = {
   recipe_conflicting_links: "Två rader med samma text kan inte kopplas till olika ingredienser.",
   recipe_search_failed: "Det gick inte att söka bland recepten. Försök igen.",
   recipe_favorite_failed: "Det gick inte att spara favoriten.",
+  recipe_line_failed: "Det gick inte att ändra raden. Försök igen.",
   // Delade recept: sharing one's own recipe, saving another household's, and the household's switches in Tillval.
   recipe_share_failed: "Det gick inte att ändra delningen. Försök igen.",
   recipe_shared_gone: "Receptet delas inte längre.",

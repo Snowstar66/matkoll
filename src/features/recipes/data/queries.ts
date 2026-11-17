@@ -33,7 +33,7 @@ export async function getRecipe(
     db.from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position"),
     db
       .from("recipe_ingredient")
-      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked")
+      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked, is_struck")
       .eq("recipe_id", id)
       .order("position"),
   ]);
@@ -79,6 +79,7 @@ export async function getRecipe(
       stepId: line.step_id,
       group: line.section,
       isStapleMarked: line.is_staple_marked,
+      isStruck: line.is_struck,
     })),
   };
 }
@@ -86,7 +87,7 @@ export async function getRecipe(
 /** The library row's own columns. */
 const listColumns = "id, title, image_url, image_path, total_minutes, original_servings, is_favorite, created_at";
 /** A recipe line's columns for the status (pantry.recipeStatus) and the shopping list. */
-const lineColumns = "id, position, ingredient_id, amount, unit, is_vague, original_text";
+const lineColumns = "id, position, ingredient_id, amount, unit, is_vague, original_text, is_struck";
 
 type LineRow = {
   id: string;
@@ -96,6 +97,7 @@ type LineRow = {
   unit: string | null;
   is_vague: boolean;
   original_text: string;
+  is_struck: boolean;
 };
 
 type ListRow = {
@@ -149,7 +151,8 @@ function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
     isFavorite: row.is_favorite,
     createdAt: row.created_at,
     // In the recipe's order, so whatever reads "the first line" reads the same one every time.
-    lines: [...lines].sort((a, b) => a.position - b.position).map(toStatusLine),
+    // Stryk ingrediens: a struck line counts for nothing, so it never reaches the status or the shopping list.
+    lines: [...lines].filter((line) => !line.is_struck).sort((a, b) => a.position - b.position).map(toStatusLine),
   };
 }
 

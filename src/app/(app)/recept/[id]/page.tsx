@@ -9,8 +9,8 @@ import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
-import type { SavedRecipe } from "@/features/recipes";
-import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry, getStarterMembership } from "@/features/recipes/server";
+import { recipeFitInput, withoutStruck, type SavedRecipe } from "@/features/recipes";
+import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry, getStarterMembership, setLineAmount, setLineStruck } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -33,8 +33,10 @@ export async function generateMetadata({ params }: PageProps<"/recept/[id]">): P
  */
 async function readNutrition(recipe: SavedRecipe): Promise<RecipeNutrition | null> {
   try {
-    const ids = [...new Set(recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))];
-    return recipeNutrition(recipe.lines, await getIngredientNutrition(ids), recipe.servings);
+    // Stryk ingrediens: a struck line is not counted.
+    const lines = withoutStruck(recipe.lines);
+    const ids = [...new Set(lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))];
+    return recipeNutrition(lines, await getIngredientNutrition(ids), recipe.servings);
   } catch (error) {
     console.error("recipe_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return null;
@@ -106,7 +108,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
     getStarterMembership(recipe.id),
   ]);
   // Hushållets preferenser held against the recipe's ingredient lines; none without preferences.
-  const fit = foodFit({ name: recipe.title, ingredients: recipe.lines.map((line) => line.originalText) }, people);
+  const fit = foodFit(recipeFitInput(recipe), people);
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   // The dish that is not cooked yet: "Markera som lagad" under the steps (Story 13.4).
@@ -139,6 +141,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       removeFromPlan={removePlanRecipe}
       savers={savers}
       fit={fit}
+      lineActions={{ setStruck: setLineStruck, setAmount: setLineAmount }}
       nutritionCard={
         <Suspense fallback={null}>
           <NutritionCardLoader recipe={recipe} />
@@ -150,7 +153,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
             dish={{ id: dish.id, title: dish.recipeTitle, servings: dish.servings }}
             recipeId={recipe.id}
             originalServings={recipe.servings}
-            lines={recipe.lines}
+            lines={withoutStruck(recipe.lines)}
             snapshot={snapshot}
             siteId={site?.id ?? null}
             names={names}

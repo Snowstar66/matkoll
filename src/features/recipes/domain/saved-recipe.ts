@@ -29,6 +29,8 @@ export type SavedRecipeLine = {
   group?: string | null;
   /** The source marked the line as a staple (•). */
   isStapleMarked?: boolean;
+  /** Stryk ingrediens: the household struck the line; it stays in the recipe but counts for nothing (withoutStruck). Missing is not struck. */
+  isStruck?: boolean;
 };
 
 export type SavedRecipe = {

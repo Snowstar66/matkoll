@@ -48,6 +48,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på veckan du senast tittade på i Matsedel eller Inköpslista (annars denna vecka), under Ingen dag. Meddelandet har Ångra och Byt vecka, och den lilla texten På matsedeln under titeln öppnar veckan där du väljer dag.",
       },
       {
+        question: "Kan jag stryka en ingrediens i ett recept, eller ändra en mängd?",
+        answer: "Ja. Tryck på en rad i ingredienslistan, så kommer två knappar under den: Ändra mängd och Stryk. En struken rad står kvar med genomstruken text och räknas inte med: inte mot det ni har hemma, inte i Saknas, Köp det som saknas eller inköpslistan, inte i näringen och inte i prickarna för allergi och smak. Under receptets tid står hur många rader som är strukna, och ett steg som nämner den strukna ingrediensen får en liten rad om det. Stegets text ändras inte. Ta tillbaka på raden ångrar strykningen. Ändra mängd räknar tillbaka till receptets egna portioner. Allt annat ändrar du med Ändra recept i menyn ⋯. En kopia som någon sparar av ett delat recept får med strykningarna.",
+      },
+      {
         question: "Hur tar jag bort ett recept?",
         answer: "Öppna receptet och välj Ta bort i menyn ⋯ uppe till höger. Du får en fråga först, eftersom det inte går att ångra.",
       },
