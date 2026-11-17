@@ -275,6 +275,8 @@ export const MAPPING = [
   [["ciabatta"], 202, "raffinerad", 250, null, 40],
   [["limpa"], 202, "raffinerad", 700, null, 35],
   [["tortilla", "tortillabröd", "tortillas", "wraps"], 5974, "raffinerad", 60, null],
+  // Corn tortilla: LMV has no corn one, so the gluten-free tortilla (6878) stands in; 50 g is the size the recipe gave ("à 50 g").
+  [["majstortilla", "majstortillor", "majstortillas"], 6878, "raffinerad", 50, null],
   [["pitabröd", "pita"], 193, "raffinerad", 60, null],
   [["hamburgerbröd", "korvbröd"], 3818, "raffinerad", 60, null],
   [["ströbröd", "skorpmjöl"], 188, "raffinerad", null, 50],
@@ -412,6 +414,7 @@ export const MAPPING = [
   [["kebabsås", "tzatzikidressing"], 45, "fett", null, 95],
   [["aioli", "vitlöksmajonnäs"], 50, "fett", null, 95],
   [["tomatsås", "pastasås", "pastasås tomat", "tomatsås på burk"], 2008, "ovrigt", null, 100],
+  [["pizzasås", "pizzasås tomat"], 5726, "ovrigt", null, 100],
   [["bbq-sås", "bbqsås", "barbecuesås", "grillsås", "hp-sås", "steaksås"], 1969, "socker", null, 110],
   [["chilisås", "sriracha", "srirachasås"], 1968, "ovrigt", null, 110],
   [["teriyaki", "teriyakisås"], 2012, "ovrigt", null, 115],

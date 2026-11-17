@@ -245,7 +245,47 @@ describe("fromAiRecipe", () => {
     for (const [name, ai] of Object.entries(answers)) {
       const draft = fromAiRecipe(ai, ai.ingredients.map(() => match), { kind: "text" });
       expect(recipeDraftSchema.safeParse(draft).success, name).toBe(true);
-      expect(draft.lines).toHaveLength(ai.ingredients.length);
+      // Only lines without an amount that repeat an earlier one are dropped ("salt och peppar" twice in kycklinggryta).
+      const dropped = ai.ingredients.length - draft.lines.length;
+      expect(dropped, name).toBe(name === "kycklinggryta" ? 1 : 0);
     }
+  });
+});
+
+describe("repeated vague lines", () => {
+  const vague = (originalText: string, stepIndexes = [0]) => line({ originalText, amount: null, unit: null, isVague: true, stepIndexes });
+  const textsOf = (ingredients: AiRecipeLike["ingredients"][number][]) =>
+    fromAiRecipe(recipe({ ingredients }), ingredients.map(() => match), { kind: "text" }).lines.map((l) => l.originalText);
+
+  it("keeps the first of identical lines without an amount", () => {
+    expect(textsOf([vague("salt"), vague("peppar"), vague("Salt"), vague("peppar"), vague("salt och peppar"), vague("salt och peppar")])).toEqual([
+      "salt",
+      "peppar",
+      "salt och peppar",
+    ]);
+  });
+
+  it("keeps the real page's lines once (recept.se, Tortillapizza med kalkon och vitlökssås)", () => {
+    const page = [
+      line({ originalText: "2 majstortillor (à 50 g)", amount: 2, unit: "st" }),
+      vague("salt och peppar"),
+      line({ originalText: "1 dl lätt crème fraiche", amount: 1, unit: "dl" }),
+      vague("salt och peppar"),
+    ];
+    expect(textsOf(page)).toEqual(["2 majstortillor (à 50 g)", "salt och peppar", "1 dl lätt crème fraiche"]);
+  });
+
+  it("keeps each dish's own salt on a card with groups, and drops a repeat inside one group", () => {
+    const grouped = (text: string, group: string) => ({ ...vague(text), group });
+    expect(textsOf([grouped("salt", "Kyckling"), grouped("salt", "Ris"), grouped("salt", "Ris")])).toEqual(["salt", "salt"]);
+  });
+
+  it("does not merge lines with an amount, or lines with different texts", () => {
+    expect(textsOf([line({ originalText: "1 tsk salt", amount: 1, unit: "tsk" }), line({ originalText: "1 tsk salt", amount: 1, unit: "tsk" }), vague("salt"), vague("salt och peppar")])).toEqual([
+      "1 tsk salt",
+      "1 tsk salt",
+      "salt",
+      "salt och peppar",
+    ]);
   });
 });

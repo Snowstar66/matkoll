@@ -25,6 +25,7 @@ const jsonPath = fileURLToPath(new URL("./nutrition-data/livsmedelsverket.json",
 const migrationStamp = "20261108120000";
 const baseSqlPath = fileURLToPath(new URL(`../supabase/migrations/${migrationStamp}_ingredient_nutrition.sql`, import.meta.url));
 const thaiAdditionsPath = fileURLToPath(new URL("../supabase/migrations/20261110120000_ingredient_nutrition_thai.sql", import.meta.url));
+const cornTortillaPath = fileURLToPath(new URL("../supabase/migrations/20261117120000_ingredient_nutrition_corn_tortilla_pizza_sauce.sql", import.meta.url));
 const firstAdditionsPath = fileURLToPath(new URL("../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql", import.meta.url));
 const sqlPath = fileURLToPath(new URL("../supabase/migrations/20261108220000_ingredient_nutrition_package_weights.sql", import.meta.url));
 const offline = process.argv.includes("--offline");
@@ -128,11 +129,11 @@ const packageLine = (row) => `${valueLine(row).slice(0, -1)}, ${num(row.perPacka
 /** The package-weights migration: the column, and an upsert of every row that is not in the applied migrations as is, or has a package weight. */
 function buildAdditionsSql(rows) {
   const base = new Set(
-    [baseSqlPath, firstAdditionsPath, thaiAdditionsPath].flatMap((path) =>
+    [baseSqlPath, firstAdditionsPath, thaiAdditionsPath, cornTortillaPath].flatMap((path) =>
       readFileSync(path, "utf8")
         .split("\n")
-        // The thai file's rows carry a package weight; the value lines compared against do not.
-        .map((line) => (path === thaiAdditionsPath ? line.replace(/, (?:null|[\d.]+)\)([,;]?)$/, ")$1") : line).replace(/[,;]$/, "")),
+        // The thai and corn tortilla files' rows carry a package weight; the value lines compared against do not.
+        .map((line) => (path === thaiAdditionsPath || path === cornTortillaPath ? line.replace(/, (?:null|[\d.]+)\)([,;]?)$/, ")$1") : line).replace(/[,;]$/, "")),
     ),
   );
   const changed = rows.filter((row) => row.perPackage !== null || !base.has(valueLine(row)));

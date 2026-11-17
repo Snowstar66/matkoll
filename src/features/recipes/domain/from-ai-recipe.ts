@@ -1,4 +1,4 @@
-import { importAmount, unitInNoun, unitOfNoun, type IngredientMatch, type Unit } from "@/features/catalog";
+import { importAmount, normalizeIngredientText, unitInNoun, unitOfNoun, type IngredientMatch, type Unit } from "@/features/catalog";
 import { draftLimits, type LineHint, type RecipeDraft, type RecipeLine, type RecipeStep } from "./recipe-draft";
 
 // The only mapping from the AI port's answer to a RecipeDraft (AD-10), for
@@ -113,6 +113,25 @@ function toLine(
 }
 
 /**
+ * Lines without an amount that repeat an earlier one in the same group ("salt och peppar" read twice from the page)
+ * are kept once, the first. A card with separate dishes keeps each dish's own salt: the group is part of the key.
+ * The same normalised text only: lines with an amount and lines with other texts ("salt" and "salt och peppar") are
+ * never merged.
+ */
+export function withoutRepeatedVagueLines(lines: readonly RecipeLine[]): RecipeLine[] {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    if (line.amount !== null) return true;
+    const text = normalizeIngredientText(line.originalText);
+    if (text === "") return true;
+    const key = `${line.group ?? ""}\u0000${text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * The draft for an AI answer. `matches[i]` is the catalog match for
  * `aiRecipe.ingredients[i]` (from matchIngredients). Step indexes that do not
  * point at a step are removed.
@@ -147,6 +166,6 @@ export function fromAiRecipe(
     sourceKind: source.kind,
     sourceUrl: source.kind === "url" ? source.url : null,
     steps,
-    lines: aiRecipe.ingredients.map((line, index) => toLine(line, matches[index], stepIndex)),
+    lines: withoutRepeatedVagueLines(aiRecipe.ingredients.map((line, index) => toLine(line, matches[index], stepIndex))),
   };
 }
