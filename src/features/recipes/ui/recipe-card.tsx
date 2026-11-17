@@ -47,6 +47,8 @@ type LinkCardProps = CardBase & {
   onDelete?: never;
   /** Planning mode (Story 13.8): a button under the text, lifted above the link like the heart. */
   quickAction?: ReactNode;
+  /** The chip "<500 kcal": "ca 470 kcal" under the time line, or "kcal saknas" for `null`; left out elsewhere. */
+  kcal?: number | null;
   /** Story 9.3: the offers the recipe uses, as small tags under the time line (the filter Erbjudanden). */
   offerTags?: ReactNode;
   /** Hushållets preferenser: "Anna undviker koriander" (grey), "Kan innehålla gluten (Anna)" (red), "Anna älskar paprika" (green); at most two lines on a tile. */
@@ -63,6 +65,7 @@ type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
   quickAction?: never;
+  kcal?: never;
   offerTags?: never;
   fit?: never;
   /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
@@ -99,6 +102,7 @@ export function RecipeCard({
   onDelete,
   deleteLabel,
   quickAction,
+  kcal,
   offerTags,
   fit,
   children,
@@ -125,6 +129,7 @@ export function RecipeCard({
               {byline}
             </p>
           ) : null}
+          {kcal !== undefined ? <KcalLine kcal={kcal} /> : null}
           {offerTags}
           <FitRow notes={fit} maxNotes={2} />
         </div>
@@ -162,5 +167,18 @@ export function RecipeCard({
       {quickAction ? <div className="relative z-10 order-last flex flex-col items-start gap-2 px-3 pb-3">{quickAction}</div> : null}
       {hasChildren ? <div className="order-last flex flex-col items-start gap-2 px-3 pb-3">{children}</div> : null}
     </li>
+  );
+}
+
+/** "ca 470 kcal" (the number in medium weight), or the grey "kcal saknas" when it cannot be worked out. */
+export function KcalLine({ kcal }: { kcal: number | null }) {
+  return kcal === null ? (
+    <p className="text-[0.8125rem]/[18px] text-ink-3" data-testid="kcal-line">
+      kcal saknas
+    </p>
+  ) : (
+    <p className="text-[0.8125rem]/[18px] text-ink-2" data-testid="kcal-line">
+      <span className="font-semibold text-ink">ca {kcal}</span> kcal
+    </p>
   );
 }

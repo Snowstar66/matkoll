@@ -68,7 +68,7 @@ describe("OptionSettings", () => {
     await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
     expect(readOption("showNutrition")).toBe(true);
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeEnabled();
-    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("kcal och gram per portion");
+    expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toHaveAccessibleDescription("kcal och gram per portion och chippet <500 kcal i Recept");
     expect(within(screen.getByTestId("nutrition-source")).getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", expect.stringContaining("creativecommons.org"));
     expect(screen.getByText("Gäller bara den här enheten.")).toBeInTheDocument();
   });

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { roundedKcal } from "@/features/nutrition";
 import { toSnapshot, type StatusLine } from "@/features/pantry";
 import {
   favoriteChangeSchema,
   filterByCategory,
   filterRecipes,
+  kcalLeadText,
   nearlyCookable,
   parseRecipeFilter,
   parseRecipeSort,
@@ -14,6 +16,7 @@ import {
   recipeTimeText,
   recipeSearchSchema,
   sortRecipes,
+  splitByKcal,
   toLibrary,
   withStatus,
   type RecipeListRow,
@@ -40,7 +43,7 @@ describe("recipeTimeText", () => {
 
 describe("parseRecipeFilter", () => {
   it("knows Favoriter, Kan lagas nu and Erbjudanden and makes everything else Alla", () => {
-    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers", "healthy", "shared"]);
+    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable", "offers", "healthy", "kcal", "shared"]);
     expect(parseRecipeFilter("offers")).toBe("offers");
     expect(parseRecipeFilter("shared")).toBe("shared");
     expect(parseRecipeFilter("favorites")).toBe("favorites");
@@ -323,5 +326,31 @@ describe("filterRecipes for Nyttigt", () => {
     const healthy = new Set(["a", "c"]);
     expect(filterRecipes(recipes, "healthy", () => false, (recipe) => healthy.has(recipe.id)).map(({ id }) => id)).toEqual(["a", "c"]);
     expect(filterRecipes(recipes, "healthy", () => false)).toEqual([]);
+  });
+});
+
+describe("splitByKcal (the chip <500 kcal)", () => {
+  const recipes = ["a", "b", "c", "d", "e"].map((id) => ({ id }));
+
+  it("keeps only recipes strictly under 500 on the rounded figure, in the given order", () => {
+    // 499 rounds to "ca 500", which is not under 500; 494 rounds to 490, which is.
+    const kcal = { a: roundedKcal(499), b: roundedKcal(494), c: 500, d: 10, e: 1200 };
+    expect(kcal.a).toBe(500);
+    expect(splitByKcal(recipes, kcal).under.map(({ id }) => id)).toEqual(["b", "d"]);
+    expect(splitByKcal(recipes, { a: 490, b: 500, c: 510, d: 0, e: 20 }).under.map(({ id }) => id)).toEqual(["a", "d", "e"]);
+  });
+
+  it("puts recipes without a figure (null or not in the map) in missing, in order, and not in under", () => {
+    const { under, missing } = splitByKcal(recipes, { a: 300, b: null, d: null });
+    expect(under.map(({ id }) => id)).toEqual(["a"]);
+    expect(missing.map(({ id }) => id)).toEqual(["b", "c", "d", "e"]);
+  });
+
+  it("is empty for nothing", () => {
+    expect(splitByKcal([], {})).toEqual({ under: [], missing: [] });
+  });
+
+  it("says the limit per portion", () => {
+    expect(kcalLeadText).toBe("Under 500 kcal per portion");
   });
 });

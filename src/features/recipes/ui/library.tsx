@@ -20,8 +20,10 @@ import {
   filterByCategory,
   filterRecipes,
   nearlyCookable,
+  kcalLeadText,
   rankByOffers,
   sortRecipes,
+  splitByKcal,
   type RecipeLibrary,
   type RecipeListItem,
 } from "../domain/recipe-list";
@@ -117,6 +119,12 @@ export type LibraryProps = {
    */
   healthyIds?: Promise<readonly string[] | undefined>;
   /**
+   * The chip "<500 kcal": the rounded kcal per portion of each recipe, `null` where the calculation is not reliable
+   * (nutrition.isTrustworthy), worked out by the same nutrition read as `healthyIds`; a promise that is not waited for,
+   * `undefined` inside it when it could not be read. The chip needs it and Tillval "Visa näring" and "Visa kcal" on.
+   */
+  kcal?: Promise<Readonly<Record<string, number | null>> | undefined>;
+  /**
    * Delade recept: the recipes other households share (recipes.listSharedRecipes), as a promise
    * that is not waited for, so the own library never waits for it; `undefined` inside it when it
    * could not be read, and then the chip Delade goes. The chip is there with Tillval "Visa delade
@@ -143,14 +151,14 @@ function SharedLoader({
   return null;
 }
 
-/** Waits for the page's nutrition promise under Suspense, so only this renders late; hands the ids on. */
-function HealthyLoader({ promise, onLoaded }: { promise: Promise<readonly string[] | undefined>; onLoaded: (ids: readonly string[] | undefined) => void }) {
-  const ids = use(promise);
-  useEffect(() => onLoaded(ids), [ids, onLoaded]);
+/** Waits for one of the page's nutrition promises under Suspense, so only this renders late; hands the value on. */
+function NutritionLoader<T>({ promise, onLoaded }: { promise: Promise<T | undefined>; onLoaded: (value: T | undefined) => void }) {
+  const value = use(promise);
+  useEffect(() => onLoaded(value), [value, onLoaded]);
   return null;
 }
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, shared: sharedPromise, fits }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, kcal: kcalPromise, shared: sharedPromise, fits }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   // Delade (on by default; on the server and while hydrating the option is its default, so nothing jumps). The chip
@@ -166,6 +174,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
   const [healthyIds, setHealthyIds] = useState<readonly string[] | undefined>(undefined);
   const withHealthy = useOption("showNutrition") && healthyIds !== undefined;
   const healthySet = useMemo(() => new Set(healthyIds ?? []), [healthyIds]);
+  // "<500 kcal" needs "Visa näring" and "Visa kcal" on and the kcal read; a saved choice without them shows everything.
+  const [kcalById, setKcalById] = useState<Readonly<Record<string, number | null>> | undefined>(undefined);
+  const showNutrition = useOption("showNutrition");
+  const showKcal = useOption("showKcal");
+  const withKcal = showNutrition && showKcal && kcalById !== undefined;
   const [view, setView] = useRecipeView();
   const [sort, setSort] = useRecipeSort();
   const [category, setCategory] = useRecipeCategory();
@@ -271,12 +284,18 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
     // Story 9.3: Erbjudanden has its own order (most offers first, then fewest missing), whatever the sort.
     if (filter === "offers") return rankByOffers(inCategory, offers?.tags ?? {});
-    const pill = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) ? "all" : filter;
+    if (filter === "kcal" && withKcal) return splitByKcal(sorted, kcalById).under;
+    const pill = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) || filter === "kcal" ? "all" : filter;
     const filtered = filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite, (recipe) => healthySet.has(recipe.id));
     // Hushållets preferenser: in the usual order (newest first) what has an "Älskar" comes first and what has an "Undviker" or
     // may hold an allergen last, the rest as it was; a sort Pontus chose himself is left alone. No preferences, no change.
     return fits && sort === "newest" ? rankByFit(filtered, (recipe) => fits[recipe.id] ?? []) : filtered;
-  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet, fits]);
+  }, [inCategory, filter, sort, statusUnavailable, favorites, offers?.tags, withHealthy, healthySet, fits, withKcal, kcalById]);
+  // "<500 kcal": the recipes without a reliable figure come last under a divider, not hidden (same sort and category).
+  const kcalMissing = useMemo(() => {
+    if (filter !== "kcal" || !withKcal || sort === undefined || category === undefined) return [];
+    return splitByKcal(sort === "newest" ? inCategory : sortRecipes(inCategory, sort), kcalById).missing;
+  }, [filter, withKcal, kcalById, inCategory, sort, category]);
 
   // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
@@ -284,6 +303,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
 
   const cookable = filter === "cookable";
   const onOffers = filter === "offers" && offers !== undefined;
+  const onKcal = filter === "kcal" && withKcal;
   const compact = view === "compact";
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
   // Missing one or two items, under "Nästan (N)"; only with a status.
@@ -348,6 +368,31 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         {retry ? errorMessages.recipe_search_failed : search.error.message}
       </Notice>
     );
+  } else if (onKcal && (visible.length > 0 || kcalMissing.length > 0)) {
+    const kcalFigures = kcalById ?? {};
+    const list = (items: RecipeListItem[]) =>
+      compact ? (
+        <RecipeCompactList recipes={items} favorites={favorites} onFavoriteChange={setFavorite} ranked={false} onMenuIds={onMenuIds} fits={fits} kcal={kcalFigures} />
+      ) : (
+        <RecipeList recipes={items} favorites={favorites} onFavoriteChange={setFavorite} ranked={false} fits={fits} kcal={kcalFigures} />
+      );
+    content = (
+      <>
+        {visible.length > 0 ? (
+          list(visible)
+        ) : (
+          <EmptyState hint="Kcal räknas ut från ingredienserna. Fler recept får kcal när alla rader går att väga.">Inga recept under 500 kcal ännu.</EmptyState>
+        )}
+        {kcalMissing.length > 0 ? (
+          <section aria-labelledby="kcal-missing-heading" className="mt-4 flex flex-col gap-3" data-testid="kcal-missing">
+            <h2 id="kcal-missing-heading" className="flex items-center gap-2.5 px-1 text-[0.8125rem] font-medium tracking-wide text-ink-3 uppercase after:h-px after:flex-1 after:bg-hairline">
+              Kcal saknas · {kcalMissing.length}
+            </h2>
+            {list(kcalMissing)}
+          </section>
+        ) : null}
+      </>
+    );
   } else if (visible.length > 0) {
     const ranked = false;
     content = compact ? (
@@ -400,6 +445,19 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
         Inget kan lagas helt just nu.
       </EmptyState>
     );
+  } else if (onKcal && search.kind === "none") {
+    content = (
+      <EmptyState
+        hint="Kcal räknas ut från ingredienserna. Fler recept får kcal när alla rader går att väga."
+        action={
+          <Button variant="text" onClick={() => (category !== null ? setCategory(null) : setFilter("all"))}>
+            Visa alla
+          </Button>
+        }
+      >
+        Inga recept under 500 kcal ännu.
+      </EmptyState>
+    );
   } else if (filter === "healthy" && withHealthy && search.kind === "none") {
     content = (
       <EmptyState
@@ -432,7 +490,12 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
     <div className="flex flex-col gap-3">
       {healthyPromise ? (
         <Suspense fallback={null}>
-          <HealthyLoader promise={healthyPromise} onLoaded={setHealthyIds} />
+          <NutritionLoader promise={healthyPromise} onLoaded={setHealthyIds} />
+        </Suspense>
+      ) : null}
+      {kcalPromise ? (
+        <Suspense fallback={null}>
+          <NutritionLoader promise={kcalPromise} onLoaded={setKcalById} />
         </Suspense>
       ) : null}
       {sharedPromise ? (
@@ -460,6 +523,7 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
           available={availableCategories}
           withOffers={offers !== undefined}
           withHealthy={withHealthy}
+          withKcal={withKcal}
           withShared={withShared}
         />
         </div>
@@ -468,6 +532,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
       {siteLine ? (
         <p className="text-meta break-words text-ink-2" data-testid="site-line">
           {siteLine}
+        </p>
+      ) : null}
+      {onKcal ? (
+        <p className="text-meta break-words text-ink-2" data-testid="kcal-line">
+          {kcalLeadText}
         </p>
       ) : null}
       {onOffers ? (

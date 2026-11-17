@@ -28,3 +28,26 @@ describe("RecipeFilterChips, Nyttigt", () => {
     expect(onFilterChange).toHaveBeenCalledWith("all");
   });
 });
+
+describe("RecipeFilterChips, <500 kcal", () => {
+  const props = { filter: "all" as const, onFilterChange: vi.fn(), category: null, onCategoryChange: vi.fn() };
+
+  it("has no <500 kcal chip unless the page asks for it", () => {
+    render(<RecipeFilterChips {...props} withHealthy withOffers />);
+    expect(screen.queryByRole("button", { name: "<500 kcal" })).not.toBeInTheDocument();
+  });
+
+  it("puts the chip after Nyttigt and before Erbjudanden; pressing chooses and lets go", async () => {
+    const onFilterChange = vi.fn();
+    const { rerender } = render(<RecipeFilterChips {...props} onFilterChange={onFilterChange} withHealthy withKcal withOffers />);
+    const names = screen.getAllByRole("button").map((button) => button.textContent);
+    expect(names.indexOf("<500 kcal")).toBe(names.indexOf("Nyttigt") + 1);
+    expect(names.indexOf("Erbjudanden")).toBe(names.indexOf("<500 kcal") + 1);
+    await userEvent.click(screen.getByRole("button", { name: "<500 kcal" }));
+    expect(onFilterChange).toHaveBeenCalledWith("kcal");
+    rerender(<RecipeFilterChips {...props} filter="kcal" onFilterChange={onFilterChange} withKcal />);
+    expect(screen.getByRole("button", { name: "<500 kcal" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "<500 kcal" }));
+    expect(onFilterChange).toHaveBeenLastCalledWith("all");
+  });
+});

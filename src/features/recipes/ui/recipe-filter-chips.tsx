@@ -2,7 +2,7 @@
 
 import { Chip, ChipRow, ChipSeparator } from "@/components/chip";
 import { RECIPE_CATEGORIES, recipeCategoryIcons, recipeCategoryLabels, type RecipeCategory } from "../domain/recipe-category";
-import type { RecipeFilter } from "../domain/recipe-list";
+import { kcalChipLabel, type RecipeFilter } from "../domain/recipe-list";
 
 export type RecipeFilterChipsProps = {
   /** The chosen filter; `all` is the default and has no chip: nothing chosen shows every recipe. */
@@ -21,6 +21,8 @@ export type RecipeFilterChipsProps = {
   withOffers?: boolean;
   /** Näring: the chip Nyttigt, there only when "Visa näring" is on and the page has worked the recipes out. */
   withHealthy?: boolean;
+  /** The chip "<500 kcal", after Nyttigt: there only when "Visa kcal" is on and the page has worked the kcal out. */
+  withKcal?: boolean;
   /** Delade recept: the chip Delade, first in the row, there only with Tillval "Visa delade recept" on. */
   withShared?: boolean;
 };
@@ -31,7 +33,7 @@ export type RecipeFilterChipsProps = {
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
-export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false, withShared = false }: RecipeFilterChipsProps) {
+export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false, withKcal = false, withShared = false }: RecipeFilterChipsProps) {
   const categories = RECIPE_CATEGORIES.filter((entry) => entry === category || !available || available.has(entry));
   return (
     <ChipRow role="group" aria-label="Filter" data-testid="recipe-filters">
@@ -49,6 +51,11 @@ export function RecipeFilterChips({ filter, onFilterChange, category, onCategory
       {withHealthy ? (
         <Chip className="snap-start" aria-pressed={filter === "healthy"} selected={filter === "healthy"} onClick={() => onFilterChange(filter === "healthy" ? "all" : "healthy")}>
           Nyttigt
+        </Chip>
+      ) : null}
+      {withKcal ? (
+        <Chip className="snap-start" aria-pressed={filter === "kcal"} selected={filter === "kcal"} onClick={() => onFilterChange(filter === "kcal" ? "all" : "kcal")}>
+          {kcalChipLabel}
         </Chip>
       ) : null}
       {withOffers ? (

@@ -42,7 +42,7 @@ export const options = [
     defaultOn: true,
   },
   { id: "showNutrition", group: "nutrition", label: "Visa näring", hint: "Tallriken, märken och veckans rad", defaultOn: false },
-  { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion", defaultOn: false },
+  { id: "showKcal", group: "nutrition", label: "Visa kcal", hint: "kcal och gram per portion och chippet <500 kcal i Recept", defaultOn: false },
   { id: "dagensShow", group: "dagens", label: "Visa Dagens", hint: "Ett kort överst i Recept", defaultOn: true },
   // "dagensFood" keeps its id from when it also covered the season, so a saved choice still means Matdagar.
   { id: "dagensFood", group: "dagens", label: "Matdagar", hint: "Kanelbullens dag, semmeldagen och andra", defaultOn: true },
