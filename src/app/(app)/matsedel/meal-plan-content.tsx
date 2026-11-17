@@ -5,8 +5,8 @@ import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, re
 import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday, weekNumber, weekQueryAlways } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
-import { recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
-import { getIngredientNutrition } from "@/features/nutrition/server";
+import { namedLines, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
+import { getIngredientNutritionWithNames } from "@/features/nutrition/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
@@ -108,8 +108,8 @@ async function weekNutrition(dishes: MealPlanView["dishes"]): Promise<Record<str
   try {
     const recipes = new Map(dishes.flatMap((dish) => (dish.recipeId && dish.recipe ? [[dish.recipeId, dish.recipe] as const] : [])));
     const ids = [...new Set([...recipes.values()].flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
-    const byId = await getIngredientNutrition(ids);
-    return Object.fromEntries([...recipes].map(([id, recipe]) => [id, recipeNutrition(recipe.lines, byId, recipe.originalServings)]));
+    const { byId, names } = await getIngredientNutritionWithNames(ids);
+    return Object.fromEntries([...recipes].map(([id, recipe]) => [id, recipeNutrition(namedLines(recipe.lines, names), byId, recipe.originalServings)]));
   } catch (error) {
     console.error("mealplan_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return {};

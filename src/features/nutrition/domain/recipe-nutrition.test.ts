@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { food, line, per } from "./fixtures";
-import { isTrustworthy, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
+import { isTrustworthy, namedLines, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE, type NutritionLine } from "./recipe-nutrition";
 
 const rows = {
   pasta: food("pasta", "raffinerad", per(358, 12, 1.3, 71.5, 4), { gramsPerDl: 40 }),
@@ -324,5 +324,25 @@ describe("cooking fat, lengths and negligible ingredients", () => {
     const kcal = 75 * 3.54 + 90 * 3.58 + 5 * 9 + 6.25 * 0.63 + 150 * 1.04 + 100 * 0.22;
     expect(result.perServing.kcal).toBeCloseTo(kcal);
     expect(roundedKcal(result.perServing.kcal)).toBeGreaterThan(600);
+  });
+});
+
+describe("namedLines", () => {
+  it("puts the ingredient name on each line, so a list counts a recipe as its own page does", () => {
+    const lines: NutritionLine[] = [
+      { amount: 2, unit: "dl", isVague: false, ingredientId: "a" },
+      { amount: null, unit: null, isVague: true, ingredientId: "b" },
+      { amount: 1, unit: "st", isVague: false, ingredientId: null },
+    ];
+    expect(namedLines(lines, { a: "mjölk", b: "vitlök" }).map((line) => line.ingredientName)).toEqual(["mjölk", "vitlök", null]);
+  });
+  it("lets a list leave out the garlic and herbs that cannot be weighed, as the recipe page does", () => {
+    const table = { m: food("mjölk", "mejeri", per(60), { gramsPerDl: 100 }) };
+    // One counted line and one vague "vitlök" (3 of 4 lines in the old count would fail the 80 % gate).
+    const lines = [line("m", 4, "dl"), line("v", 2, "klyfta"), line("v", 1, "kruka"), line("v", 3, "tsk")];
+    const bare = recipeNutrition(lines, table, 2);
+    const named = recipeNutrition(namedLines(lines, { v: "vitlök" }), table, 2);
+    expect(isTrustworthy(bare.coverage)).toBe(false);
+    expect(isTrustworthy(named.coverage)).toBe(true);
   });
 });
