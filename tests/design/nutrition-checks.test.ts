@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
-import { KOSTRAD_GROUPS } from "@/features/nutrition";
+import { KOSTRAD_GROUPS, isTrustworthy, nameCandidates, recipeNutrition, type IngredientNutrition, type NutritionLine } from "@/features/nutrition";
 import { MAPPING, PACKAGE_GRAMS } from "../../scripts/nutrition-mapping.mjs";
 
 // The nutrition data is generated (scripts/nutrition-data.mjs) from a curated
@@ -19,7 +19,8 @@ const sql =
   readFileSync(path("../../supabase/migrations/20261108120000_ingredient_nutrition.sql"), "utf8") +
   readFileSync(path("../../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql"), "utf8") +
   packageSql +
-  readFileSync(path("../../supabase/migrations/20261110120000_ingredient_nutrition_thai.sql"), "utf8");
+  readFileSync(path("../../supabase/migrations/20261110120000_ingredient_nutrition_thai.sql"), "utf8") +
+  readFileSync(path("../../supabase/migrations/20261117120000_ingredient_nutrition_corn_tortilla_pizza_sauce.sql"), "utf8");
 const data = JSON.parse(readFileSync(path("../../scripts/nutrition-data/livsmedelsverket.json"), "utf8")) as {
   license: string;
   foods: Record<string, { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number }>;
@@ -106,6 +107,9 @@ describe("nutrition mapping", () => {
     expect([find("bröd")[5], find("bacon")[5], find("skinka")[5], find("salami")[5], find("riven ost")[5]]).toEqual([30, 12, 15, 5, 10]);
     expect(find("vitlöksklyfta")[3]).toBe(4);
     expect(names.includes("tortellini")).toBe(false);
+    // Corn tortilla: no corn one in LMV, so 6878 (gluten-free tortilla) stands in, 50 g as the recipe says; pizza sauce: 5726.
+    expect([find("majstortilla")[1], find("majstortillor")[3], find("majstortillas")[2]]).toEqual([6878, 50, "raffinerad"]);
+    expect([find("pizzasås")[1], find("pizzasås")[4], find("pizzasås tomat")[1]]).toEqual([5726, 100, 5726]);
   });
 
   it("has sane piece weights and densities", () => {
@@ -130,5 +134,66 @@ describe("nutrition mapping", () => {
       if (food.name.includes("vol. %")) continue; // wine and beer: the energy of the alcohol is not in the macros
       expect(Math.abs(atwater - food.kcal) / food.kcal, `${mapped[0]} (${food.name})`).toBeLessThan(0.25);
     }
+  });
+});
+
+// "Tortillapizza med kalkon och vitlökssås" (recept.se): "2 majstortillor (à 50 g)" and "1 dl pizzasås, tomat" were
+// "unknown ingredient", so the recipe showed no kcal. Built from the mapping and the committed data, as the table is seeded.
+describe("Tortillapizza med kalkon och vitlökssås", () => {
+  const table: Record<string, IngredientNutrition> = {};
+  for (const [names_, lmv, group, perPiece, perDl, perSlice] of mapping) {
+    const food = lmv === null ? null : data.foods[lmv];
+    for (const name of names_) {
+      table[name] = {
+        name,
+        group: group as IngredientNutrition["group"],
+        lmvNumber: lmv,
+        per100g: food ? { kcal: food.kcal, proteinG: food.protein_g, fatG: food.fat_g, carbsG: food.carbs_g, fiberG: food.fiber_g } : null,
+        gramsPerPiece: perPiece,
+        gramsPerSlice: perSlice ?? null,
+        gramsPerDl: perDl,
+        gramsPerPackage: (PACKAGE_GRAMS as Record<string, number>)[name] ?? null,
+      };
+    }
+  }
+  // The page's lines (2 portioner) with the names the page itself gives the ingredients.
+  const lines: readonly [string, string, number | null, string | null, boolean][] = [
+    ["2 majstortillor (à 50 g)", "majstortillor", 2, "st", false],
+    ["1 dl pizzasås, tomat", "pizzasås", 1, "dl", false],
+    ["½ rödlök", "rödlök", 0.5, "st", false],
+    ["100 g körsbärstomater", "körsbärstomater", 100, "g", false],
+    ["2 dl riven ost, 17%", "riven ost", 2, "dl", false],
+    ["1 dl lätt crème fraiche", "lätt crème fraiche", 1, "dl", false],
+    ["½ vitlöksklyfta", "vitlöksklyfta", 0.5, "klyfta", false],
+    ["1 dl finhackade färska örter, t ex basilika, timjan, persilja", "färska örter", 1, "dl", false],
+    ["salt och peppar", "salt och peppar", null, null, true],
+    ["6 skivor rökt kalkon", "rökt kalkon", 6, "skiva", false],
+    ["35 g rucola", "rucola", 35, "g", false],
+  ];
+  const run = (rows: typeof lines, from: Record<string, IngredientNutrition> = table) => {
+    const byId: Record<string, IngredientNutrition> = {};
+    const input: NutritionLine[] = rows.map(([text, name, amount, unit, isVague], index) => {
+      const hit = nameCandidates(normalizeIngredientText(name)).find((candidate) => Object.hasOwn(from, candidate));
+      if (hit !== undefined) byId[String(index)] = from[hit];
+      return { amount, unit, isVague, ingredientId: String(index), originalText: text, ingredientName: name };
+    });
+    return recipeNutrition(input, byId, 2);
+  };
+
+  it("counts the corn tortillas and the pizza sauce, and the recipe gets its kcal", () => {
+    const result = run(lines);
+    expect(result.uncounted.filter((line) => line.reason === "unknown_ingredient").map((line) => line.name)).toEqual([]);
+    expect(run([lines[0]]).coverage.counted).toBe(1);
+    expect(run([lines[0]]).gramsPerServing).toBe(50); // 2 x 50 g for 2 portions
+    expect(run([lines[1]]).coverage.counted).toBe(1);
+    expect(run([lines[1]]).gramsPerServing).toBe(50); // 100 g for 2 portions
+    expect(isTrustworthy(result.coverage)).toBe(true);
+    expect(result.perServing.kcal).toBeGreaterThan(300);
+  });
+
+  it("was not trustworthy without the two rows: those lines are unknown ingredients", () => {
+    const without = Object.fromEntries(Object.entries(table).filter(([name]) => !/^(majstortill|pizzasås)/.test(name)));
+    const result = run(lines, without);
+    expect(result.uncounted.map((line) => line.name)).toEqual(["majstortillor", "pizzasås"]);
   });
 });

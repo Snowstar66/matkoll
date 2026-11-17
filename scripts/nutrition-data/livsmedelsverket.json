@@ -3,7 +3,7 @@
   "sourceUrl": "https://dataportal.livsmedelsverket.se/livsmedel",
   "license": "CC BY 4.0",
   "licenseUrl": "https://creativecommons.org/licenses/by/4.0/deed.sv",
-  "fetchedAt": "2026-11-08",
+  "fetchedAt": "2026-11-17",
   "note": "Per 100 g edible part. kcal is the ENERC value in kcal.",
   "foods": {
     "26": {
@@ -2706,6 +2706,15 @@
       "carbs_g": 3.5,
       "fiber_g": 0.2
     },
+    "5726": {
+      "name": "Tomatsås till pizza hemlagad",
+      "version": "2026-06-29T02:05:54.557",
+      "kcal": 100,
+      "protein_g": 1.4,
+      "fat_g": 6.8,
+      "carbs_g": 7.7,
+      "fiber_g": 1.8
+    },
     "5860": {
       "name": "Sojabönor färska förvällda u. skal",
       "version": "2026-06-29T01:57:27.62",
@@ -2813,6 +2822,15 @@
       "fat_g": 2.1,
       "carbs_g": 68.3,
       "fiber_g": 7.2
+    },
+    "6878": {
+      "name": "Bröd vitt tortilla glutenfritt",
+      "version": "2026-06-29T11:16:37.5",
+      "kcal": 252,
+      "protein_g": 6.4,
+      "fat_g": 4.3,
+      "carbs_g": 41.1,
+      "fiber_g": 11.2
     },
     "6907": {
       "name": "Mörk choklad kakao 70%",
