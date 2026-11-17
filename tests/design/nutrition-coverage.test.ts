@@ -96,7 +96,7 @@ describe("the name aliases", () => {
     for (const [name, target] of Object.entries(NAME_ALIASES)) expect(table[target], `${name} -> ${target}`).toBeDefined();
   });
   it("count the pulses, lettuces and potatoes Pontus found uncounted", () => {
-    for (const name of ["delikatesspotatis", "machesallad", "kikärt", "vit böna", "kidneyböna", "grön oliv", "smetana", "pistagenöt"]) expect(resolveName(table, name), name).not.toBeNull();
+    for (const name of ["delikatesspotatis", "machesallad", "kikärt", "vit böna", "kidneyböna", "grön oliv", "smetana", "pistagenöt", "fullkornsmakaron", "ricotta"]) expect(resolveName(table, name), name).not.toBeNull();
     expect(resolveName(table, "sötpotatis")?.lmvNumber).toBe(3765);
   });
 });
