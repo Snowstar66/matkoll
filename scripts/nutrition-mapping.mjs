@@ -228,6 +228,8 @@ export const MAPPING = [
   [["grekisk yoghurt", "turkisk yoghurt"], 6113, "mejeri", null, 103],
   [["kvarg", "naturell kvarg"], 3243, "mejeri", null, 105],
   [["gräddfil"], 1713, "mejeri", null, 100],
+  // Smetana: LMV has none, so Gräddfil 12 % (1713) stands in (smetana is 12-17 % fat; the figure is a little low for the richer ones). No package weight.
+  [["smetana"], 1713, "mejeri", null, 100],
   [["crème fraiche", "creme fraiche", "crème fraîche"], 7137, "mejeri", null, 100],
   [["lätt crème fraiche", "lätt creme fraiche", "lätt crème fraîche"], 7139, "mejeri", null, 100],
   [["vispgrädde", "grädde"], 1715, "mejeri", null, 100],

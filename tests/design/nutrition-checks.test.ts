@@ -20,7 +20,8 @@ const sql =
   readFileSync(path("../../supabase/migrations/20261108180000_ingredient_nutrition_additions.sql"), "utf8") +
   packageSql +
   readFileSync(path("../../supabase/migrations/20261110120000_ingredient_nutrition_thai.sql"), "utf8") +
-  readFileSync(path("../../supabase/migrations/20261117120000_ingredient_nutrition_corn_tortilla_pizza_sauce.sql"), "utf8");
+  readFileSync(path("../../supabase/migrations/20261117120000_ingredient_nutrition_corn_tortilla_pizza_sauce.sql"), "utf8") +
+  readFileSync(path("../../supabase/migrations/20261117140000_ingredient_nutrition_smetana.sql"), "utf8");
 const data = JSON.parse(readFileSync(path("../../scripts/nutrition-data/livsmedelsverket.json"), "utf8")) as {
   license: string;
   foods: Record<string, { name: string; kcal: number; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number }>;
