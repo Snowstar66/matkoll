@@ -25,6 +25,8 @@ export type RecipeCompactListProps = {
   offerTags?: Readonly<Record<string, readonly OfferTagData[]>>;
   /** The ids of the recipes on the current meal plan, which "Ta bort X?" says (Story 13.2). */
   onMenuIds?: readonly string[];
+  /** The chip "<500 kcal": the rounded kcal per portion by id (`null` when it cannot be worked out), after the portions; left out elsewhere. */
+  kcal?: Readonly<Record<string, number | null>>;
   /** Hushållets preferenser: the notes of each recipe that has any, by id; one line each under the row's meta (the first, an allergy when there is one). */
   fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
 };
@@ -41,7 +43,7 @@ function portionsText(servings: number): string {
  * 4 port. · Kan lagas nu" (or "Saknar 2") and the heart in a 44 px area. A tap
  * on the row opens the recipe.
  */
-export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags, onMenuIds, fits }: RecipeCompactListProps) {
+export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked = false, offerTags, onMenuIds, fits, kcal }: RecipeCompactListProps) {
   const router = useRouter();
   // A recipe that is gone leaves the list at once; the server's list follows after the refresh.
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
@@ -79,6 +81,7 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
               <>
                 {time ? `${time} · ` : ""}
                 {portionsText(recipe.originalServings)}
+                {kcal ? ((kcal[recipe.id] ?? null) !== null ? ` · ca ${kcal[recipe.id]} kcal` : " · kcal saknas") : ""}
                 {status ? " · " : ""}
                 {status}
                 {offerTags && offerTags[recipe.id]?.length ? (

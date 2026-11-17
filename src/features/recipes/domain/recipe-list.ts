@@ -148,9 +148,9 @@ export function recipeMetaText(totalMinutes: number | null, servings: number): s
  * The library's one chosen filter. "shared" (Delade recept) shows the recipes other households share
  * instead of the household's own, so it is one of these rather than a separate switch: Favoriter,
  * Kan lagas nu, Nyttigt and Erbjudanden apply to own recipes only, and choosing one of them leaves
- * Delade (the categories still combine with it).
+ * Delade (the categories still combine with it). "kcal" is the chip "<500 kcal" (splitByKcal, not filterRecipes).
  */
-export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers", "healthy", "shared"] as const;
+export const RECIPE_FILTERS = ["all", "favorites", "cookable", "offers", "healthy", "kcal", "shared"] as const;
 export type RecipeFilter = (typeof RECIPE_FILTERS)[number];
 
 /** A stored filter choice; anything else, or nothing, is Alla. */
@@ -183,6 +183,33 @@ export function filterRecipes<T extends FilterableRecipe>(
   if (filter === "favorites") return recipes.filter(isFavorite);
   if (filter === "cookable") return recipes.filter((recipe) => rankOf(recipe.missingCount) === 0);
   return [...recipes];
+}
+
+/** The chip "<500 kcal": recipes strictly under this many kcal per portion (on the rounded figure the recipe shows). */
+export const KCAL_LIMIT = 500;
+
+/** The chip's name and the line under the filter row when it is chosen. */
+export const kcalChipLabel = "<500 kcal";
+export const kcalLeadText = `Under ${KCAL_LIMIT} kcal per portion`;
+
+/**
+ * The chip "<500 kcal": `kcalById` is the rounded kcal per portion of each recipe, or `null` when the
+ * calculation is not reliable (nutrition.isTrustworthy, worked out by the page). `under` keeps the recipes
+ * strictly under the limit, in the given order ("ca 500" is not included); `missing` the recipes without a
+ * figure (or not in the map), in the given order, which are listed last and not hidden.
+ */
+export function splitByKcal<T extends { id: string }>(
+  recipes: readonly T[],
+  kcalById: Readonly<Record<string, number | null>>,
+): { under: T[]; missing: T[] } {
+  const kcalOf = (recipe: T) => (Object.hasOwn(kcalById, recipe.id) ? kcalById[recipe.id] : null);
+  return {
+    under: recipes.filter((recipe) => {
+      const kcal = kcalOf(recipe);
+      return kcal !== null && kcal < KCAL_LIMIT;
+    }),
+    missing: recipes.filter((recipe) => kcalOf(recipe) === null),
+  };
 }
 
 /** The most items a recipe may miss and still be listed under "Nästan" in Kan lagas nu. */
