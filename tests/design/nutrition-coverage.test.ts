@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COMPOUND_HEADS,
+  NAME_ALIASES,
   isTrustworthy,
   nutritionCheck,
   recipeNutrition,
@@ -87,6 +88,16 @@ describe("package weights", () => {
   });
   it("are not given to things counted as not counted", () => {
     for (const name of Object.keys(PACKAGE_GRAMS)) expect(table[name].group, name).not.toBe("ej_raknad");
+  });
+});
+
+describe("the name aliases", () => {
+  it("point at rows of their own", () => {
+    for (const [name, target] of Object.entries(NAME_ALIASES)) expect(table[target], `${name} -> ${target}`).toBeDefined();
+  });
+  it("count the pulses, lettuces and potatoes Pontus found uncounted", () => {
+    for (const name of ["delikatesspotatis", "machesallad", "kikärt", "vit böna", "kidneyböna"]) expect(resolveName(table, name), name).not.toBeNull();
+    expect(resolveName(table, "sötpotatis")?.lmvNumber).toBe(3765);
   });
 });
 

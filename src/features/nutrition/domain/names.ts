@@ -34,7 +34,42 @@ export const COMPOUND_HEADS: readonly string[] = [
   "bröd",
   "korv",
   "ost",
+  // Every kind of potato is a potato for the count (delikatesspotatis, mandelpotatis, ugnspotatis). Sötpotatis has a row of its own, found first.
+  "potatis",
 ].sort((a, b) => b.length - a.length);
+
+/**
+ * Names that mean a food the table has under another name: the singular of a pulse ("kikärt", "vit böna"), and the lettuces
+ * that are plain lettuce. The target is a row name (a design test checks it); tried right after the name itself.
+ */
+export const NAME_ALIASES: Readonly<Record<string, string>> = {
+  kikärta: "kikärtor",
+  kikärt: "kikärtor",
+  "vit böna": "vita bönor",
+  "vita böna": "vita bönor",
+  "stor vit böna": "stora vita bönor",
+  cannellinibön: "cannellinibönor",
+  kidneyböna: "kidneybönor",
+  "röd böna": "röda bönor",
+  "röd kidneyböna": "kidneybönor",
+  "svart böna": "svarta bönor",
+  "brun böna": "bruna bönor",
+  "röd lins": "röda linser",
+  "grön lins": "gröna linser",
+  "brun lins": "bruna linser",
+  lins: "linser",
+  "gul ärt": "gula ärtor",
+  machesallad: "sallad",
+  mâchesallad: "sallad",
+  mache: "sallad",
+  mâche: "sallad",
+  lambsallad: "sallad",
+  frisésallad: "sallad",
+  "lollo rosso": "sallad",
+  bladsallad: "sallad",
+  eikbladssallad: "sallad",
+  salladsblad: "sallad",
+};
 
 /** Shortest ending and shortest front part a compound is cut at ("kost" is not "k" + "ost"). */
 const MIN_HEAD = 3;
@@ -55,7 +90,10 @@ export function compoundHead(word: string): string | null {
 export function nameCandidates(name: string): string[] {
   const out: string[] = [];
   const add = (candidate: string) => {
-    if (candidate && !out.includes(candidate)) out.push(candidate);
+    if (!candidate || out.includes(candidate)) return;
+    out.push(candidate);
+    const alias = Object.hasOwn(NAME_ALIASES, candidate) ? NAME_ALIASES[candidate] : undefined;
+    if (alias !== undefined && !out.includes(alias)) out.push(alias);
   };
   add(name.trim().split(/\s+/).filter(Boolean).join(" "));
   // A remark in brackets is not part of the food ("ägg (stora)").

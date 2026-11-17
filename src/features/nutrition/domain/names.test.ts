@@ -63,3 +63,20 @@ describe("compound fallback", () => {
     expect(compoundHead("getost")).toBe("ost");
   });
 });
+
+describe("aliases and potato compounds", () => {
+  it("finds the plural row of a singular pulse", () => {
+    expect(nameCandidates("kikärt")).toEqual(["kikärt", "kikärtor"]);
+    expect(nameCandidates("vit böna")).toEqual(["vit böna", "vita bönor", "böna"]);
+    expect(nameCandidates("kidneyböna")).toEqual(["kidneyböna", "kidneybönor"]);
+    expect(nameCandidates("kokt svart böna")).toContain("svarta bönor");
+  });
+  it("counts the lettuces that are plain lettuce as sallad", () => {
+    expect(nameCandidates("machesallad")).toEqual(["machesallad", "sallad"]);
+  });
+  it("cuts a kind of potato down to potatis, but not a dish", () => {
+    expect(nameCandidates("delikatesspotatis")).toEqual(["delikatesspotatis", "potatis"]);
+    expect(nameCandidates("mandelpotatis")).toEqual(["mandelpotatis", "potatis"]);
+    expect(nameCandidates("potatissallad")).toEqual(["potatissallad"]);
+  });
+});

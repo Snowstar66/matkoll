@@ -9,7 +9,7 @@ export {
   type KostradGroup,
   type Per100g,
 } from "./domain/groups";
-export { nameCandidates, compoundHead, COMPOUND_HEADS } from "./domain/names";
+export { nameCandidates, compoundHead, COMPOUND_HEADS, NAME_ALIASES } from "./domain/names";
 export { toGrams, GARLIC_CLOVE_G } from "./domain/grams";
 export { isNegligible } from "./domain/negligible";
 export { defaultPortionGrams, lengthGrams } from "./domain/portion-defaults";
