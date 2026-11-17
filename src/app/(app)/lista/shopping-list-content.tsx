@@ -5,7 +5,7 @@ import Link from "next/link";
 import { buttonClasses } from "@/components/button";
 import { addWeeks, currentWeekStart, overviewWeeks, weekQueryAlways, weeksBetween } from "@/features/mealplan";
 import { resolveViewedWeek } from "@/features/mealplan/server";
-import { WeekNav } from "@/features/mealplan/ui/week-nav";
+import { CompactWeekNav } from "@/features/mealplan/ui/week-nav";
 import { matchIngredientNames, searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
@@ -108,7 +108,7 @@ export async function ShoppingListContent({
         sites={sites}
         loadCounts={loadBoendeCounts}
         weekNav={
-          <WeekNav
+          <CompactWeekNav
             weekStart={weekStart}
             counts={counts}
             now={now}
