@@ -31,6 +31,8 @@ export type SavedRecipeLine = {
   isStapleMarked?: boolean;
   /** Stryk ingrediens: the household struck the line; it stays in the recipe but counts for nothing (withoutStruck). Missing is not struck. */
   isStruck?: boolean;
+  /** Byt ut ingrediens: the text the line had before it was replaced ("1 knippe koriander"), or null when it never was. */
+  replacedFrom?: string | null;
 };
 
 export type SavedRecipe = {

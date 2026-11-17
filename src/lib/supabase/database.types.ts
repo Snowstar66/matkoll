@@ -669,14 +669,14 @@ isOneToOne: false
                   ]
                 },"recipe_ingredient": {
                   Row: {
-                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"is_staple_marked": boolean,"is_struck": boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"section": string | null,"step_id": string | null,"unit": string | null,"user_id": string | null
+                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string | null,"is_staple_marked": boolean,"is_struck": boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"replaced_from_ingredient_id": string | null,"replaced_from_text": string | null,"section": string | null,"step_id": string | null,"unit": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_struck"?: boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_struck"?: boolean,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"replaced_from_ingredient_id"?: string | null,"replaced_from_text"?: string | null,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_struck"?: boolean,"is_vague"?: boolean,"original_text"?: string,"position"?: number,"recipe_id"?: string,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string | null,"is_staple_marked"?: boolean,"is_struck"?: boolean,"is_vague"?: boolean,"original_text"?: string,"position"?: number,"recipe_id"?: string,"replaced_from_ingredient_id"?: string | null,"replaced_from_text"?: string | null,"section"?: string | null,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1535,6 +1535,9 @@ isOneToOne: false
                            },
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
+                           },
+"replace_recipe_line":
+{ Args: { "expected_updated_at": string,"new_ingredient": string,"new_text": string,"target_line": string,"target_recipe": string }; Returns: string
                            },
 "reset_household_staples":
 { Args: Record<PropertyKey, never>; Returns: undefined

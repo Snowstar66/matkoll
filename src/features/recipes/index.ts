@@ -73,7 +73,7 @@ export {
 } from "./domain/saved-recipe";
 export { scaleFactor, scaleLines, factorText, type ScalableLine } from "./domain/scale";
 export { lineOffers, type LineOffer } from "./domain/line-status";
-export { withoutStruck, recipeFitInput, struckSummaryText, struckStepWarning, amountForRecipe } from "./domain/struck-lines";
+export { withoutStruck, replacedFromName, recipeFitInput, struckSummaryText, struckStepWarning, amountForRecipe } from "./domain/struck-lines";
 export {
   savedByText,
   sharedByText,

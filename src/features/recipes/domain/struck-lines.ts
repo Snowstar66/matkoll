@@ -29,11 +29,12 @@ function words(text: string): string[] {
 }
 
 /**
- * The warning under a step that mentions a struck ingredient: "Nämner koriander, som du har strukit.", or `null`.
+ * The warning under a step that mentions a struck ingredient: "Nämner koriander, som du har strukit.", or `null`
+ * (`done` "bytt ut" for an ingredient that was replaced: "Nämner koriander, som du har bytt ut.").
  * A plain word comparison: every word of the ingredient's name must start some word of the step ("koriander"
  * matches "koriandern"). A struck line without a catalog name never matches. The step's text is not changed.
  */
-export function struckStepWarning(stepText: string, struckNames: readonly string[]): string | null {
+export function struckStepWarning(stepText: string, struckNames: readonly string[], done: "strukit" | "bytt ut" = "strukit"): string | null {
   const stepWords = words(stepText);
   const named = struckNames.filter((name) => {
     const nameWords = words(name);
@@ -42,7 +43,7 @@ export function struckStepWarning(stepText: string, struckNames: readonly string
   if (named.length === 0) return null;
   const list = named.map((name) => name.toLocaleLowerCase("sv"));
   const text = list.length === 1 ? list[0] : `${list.slice(0, -1).join(", ")} och ${list[list.length - 1]}`;
-  return `Nämner ${text}, som du har strukit.`;
+  return `Nämner ${text}, som du har ${done}.`;
 }
 
 /**
@@ -54,4 +55,10 @@ export function amountForRecipe(typed: string, factor: number): number | null {
   if (!typed.trim() || !Number.isFinite(value) || value <= 0 || !Number.isFinite(factor) || factor <= 0) return null;
   const stored = Math.round((value / factor) * 10000) / 10000;
   return stored > 0 ? stored : null;
+}
+
+/** "1 knippe färsk koriander" as a short name for "i stället för …": the text without a leading amount and unit. */
+export function replacedFromName(text: string): string {
+  const stripped = text.replace(/^[\d\s.,/½¼¾-]+(?:(?:dl|cl|ml|l|msk|tsk|krm|g|kg|st|knippe|klyfta|klyftor|burk|förp|påse|kruka|nypa)\b\.?\s*)?/i, "").trim();
+  return (stripped || text).toLocaleLowerCase("sv");
 }
