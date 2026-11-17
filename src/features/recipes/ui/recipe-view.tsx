@@ -13,9 +13,10 @@ import { recipeImageSrc } from "../domain/recipe-image";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { savedByText, sharedByText } from "../domain/shared-recipe";
+import { struckSummaryText } from "../domain/struck-lines";
 import { sourceLabel } from "../domain/source-label";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeBody, type AddToPlan, type BuyMissing, type PlanDishInfo, type RecipeWeek, type RemoveFromPlan, type UndoBuy } from "./recipe-body";
+import { RecipeBody, type AddToPlan, type BuyMissing, type LineActions, type PlanDishInfo, type RecipeWeek, type RemoveFromPlan, type UndoBuy } from "./recipe-body";
 
 // Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
 // and the menu (⋯, Story 1.11) beside the title, the time and the source
@@ -84,6 +85,8 @@ export type RecipeViewProps = {
   sharedNote?: string;
   /** Hushållets preferenser: what the recipe's ingredients say about someone's allergy, "Undviker" or "Älskar" (menu-advisor.foodFit); none for none. */
   fit?: readonly PreferenceNote[];
+  /** Stryk ingrediens: tap a row to strike it or change its amount (recipes.setLineStruck, setLineAmount); left out, the rows cannot be pressed. */
+  lineActions?: LineActions;
 };
 
 export function RecipeView({
@@ -111,12 +114,14 @@ export function RecipeView({
   stackActions = false,
   sharedNote,
   fit,
+  lineActions,
 }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
   const offerLine = offerSavedText(recipe.offerNames);
   const sharedFrom = sharedBy ?? recipe.sharedFromName ?? null;
+  const struckText = struckSummaryText(recipe.lines);
   const savedBy = recipe.isShared ? savedByText(savers) : null;
   return (
     <PlannedProvider><article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
@@ -147,7 +152,8 @@ export function RecipeView({
         {/* UX-01: "På matsedeln v. N" is small text on this line (empty:hidden when there is nothing on it). */}
         <p className="text-meta text-ink-2 empty:hidden" data-testid="recipe-meta">
             {time ? <span>{time}</span> : null}
-            {time && recipe.sourceKind === "url" && recipe.sourceUrl ? " · " : ""}
+            {struckText ? <span data-testid="recipe-struck-count">{time ? " · " : ""}{struckText}</span> : null}
+            {(time || struckText) && recipe.sourceKind === "url" && recipe.sourceUrl ? " · " : ""}
             {recipe.sourceKind === "url" && recipe.sourceUrl ? (
               <a
                 href={recipe.sourceUrl}
@@ -160,7 +166,7 @@ export function RecipeView({
                 <span className="sr-only"> (öppnas i ny flik)</span>
               </a>
             ) : null}
-            <PlannedText afterOther={Boolean(time) || (recipe.sourceKind === "url" && Boolean(recipe.sourceUrl))} />
+            <PlannedText afterOther={Boolean(time) || Boolean(struckText) || (recipe.sourceKind === "url" && Boolean(recipe.sourceUrl))} />
           </p>
         {sharedFrom ? (
           <p className="text-meta text-ink-2" data-testid="recipe-shared-by">
@@ -206,6 +212,7 @@ export function RecipeView({
         buyInline={buyInline}
         extraAction={extraAction}
         stackActions={stackActions}
+        lineActions={lineActions}
       />
     </article></PlannedProvider>
   );

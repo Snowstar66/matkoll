@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RecipesDb } from "./client";
-import { listRecipes, searchRecipesIn } from "./queries";
+import { getRecipesByIdsIn, listRecipes, searchRecipesIn } from "./queries";
 
 // The library's row parser with a stand-in for Supabase: every table answers
 // its rows to any chain of filters that ends in range().
@@ -30,6 +30,26 @@ const bad = { id: "line-2", ingredient_id: "mjolk", amount: 6, unit: "kopp", is_
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("a struck line", () => {
+  const struck = { id: "line-3", ingredient_id: "koriander", amount: 1, unit: "st", is_vague: false, is_struck: true };
+  const kept = { ...good, is_struck: false };
+
+  it("never reaches the library's status or the shopping list", async () => {
+    const rows = await listRecipes(fakeDb({ recipe: [{ ...recipe, lines: [kept, struck] }] }));
+    expect(rows[0].lines.map((line) => line.id)).toEqual(["line-1"]);
+  });
+
+  it("is left out in a search and when recipes are read by id too", async () => {
+    const found = await searchRecipesIn(
+      fakeDb({ recipe: [recipe], recipe_ingredient: [{ recipe_id: "recipe-1", ...kept }, { recipe_id: "recipe-1", ...struck }] }),
+      { text: "pannkakor", ingredientIds: [] },
+    );
+    expect(found[0].lines.map((line) => line.id)).toEqual(["line-1"]);
+    const byId = await getRecipesByIdsIn(fakeDb({ recipe: [{ ...recipe, lines: [struck, kept] }] }), ["recipe-1"]);
+    expect(byId[0].lines.map((line) => line.id)).toEqual(["line-1"]);
+  });
 });
 
 describe("a line whose unit does not parse", () => {

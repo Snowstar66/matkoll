@@ -1,4 +1,8 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { type ReactNode, useState } from "react";
+import { AmountInput } from "@/components/amount-input";
+import { Chip } from "@/components/chip";
 import { cx } from "@/components/cx";
 import { CartIcon, CheckIcon, MinusIcon, RingIcon } from "@/components/icons";
 import { formatQuantity, normalizeIngredientText } from "@/features/catalog";
@@ -72,6 +76,27 @@ function Mark({ label, className, children }: { label: string; className: string
   );
 }
 
+/**
+ * Stryk ingrediens: what a tap on the row does. A tap opens the row and its two chips, "Ändra mängd" and "Stryk"
+ * (only "Stryk" for a row without an amount); a struck row has "Ta tillbaka". Without an editor the row is not
+ * pressable (another household's recipe, which can only be looked at).
+ */
+export type LineEditor = {
+  /** The two chips are shown under the row. */
+  open: boolean;
+  /** The amount is a number field with Spara and Avbryt. */
+  editingAmount: boolean;
+  /** A change is being saved: the chips wait. */
+  busy: boolean;
+  onToggle: () => void;
+  onStartAmount: () => void;
+  /** The text typed in the number field ("1,5"). */
+  onSaveAmount: (typed: string) => void;
+  onCancel: () => void;
+  onStrike: () => void;
+  onRestore: () => void;
+};
+
 export type IngredientRowProps = {
   /** The line, its amount already scaled to the chosen servings (recipes.scaleLines). */
   line: SavedRecipeLine;
@@ -88,6 +113,8 @@ export type IngredientRowProps = {
   factor?: number;
   /** An id that makes the row focusable by script ("Saknar: …" in the recipe view takes focus here); not in the step mode, which repeats the lines. */
   anchorId?: string;
+  /** Stryk ingrediens: makes the row pressable; left out, the row only shows. */
+  editor?: LineEditor;
 };
 
 /**
@@ -102,7 +129,7 @@ export type IngredientRowProps = {
  * some ("hemma: 2 dl, 1 l"). Amounts are rounded only by formatQuantity, never
  * to whole pieces (AD-7, AD-12).
  */
-export function IngredientRow({ line, coverage, state = null, factor = 1, anchorId }: IngredientRowProps) {
+export function IngredientRow({ line, coverage, state = null, factor = 1, anchorId, editor }: IngredientRowProps) {
   const name = !line.isVague ? line.ingredientName : null;
   const withAmount = !line.isVague && line.ingredientId !== null;
   const showOriginal =
@@ -117,14 +144,12 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
   // Story 19.6: no extra word; the ring in front and the blue amount say it.
   const tag = null;
   const multiplier =!withAmount && !line.isVague && line.amount !== null && factor !== 1 ? factorText(factor) : null;
-  return (
-    <li
-      id={anchorId}
-      tabIndex={anchorId ? -1 : undefined}
-      data-testid="recipe-view-line"
-      className="flex min-h-10 items-start gap-3 border-t border-hairline py-2 outline-none first:border-t-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-    >
-      {coverage ? <LineMark state={state} coverage={coverage} /> : null}
+  const struck = line.isStruck === true;
+  const mark = coverage ? <LineMark state={state} coverage={coverage} /> : null;
+  const rowClass = "flex w-full items-start gap-3";
+  const inner = (
+    <>
+      {mark}
       {withAmount ? (
         <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
           <span className="flex min-w-0 flex-col">
@@ -170,6 +195,109 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
           ) : null}
         </span>
       )}
+    </>
+  );
+  return (
+    <li
+      id={anchorId}
+      tabIndex={anchorId ? -1 : undefined}
+      data-testid="recipe-view-line"
+      data-struck={struck ? "" : undefined}
+      className={cx(
+        "flex min-h-10 flex-col border-t border-hairline py-2 outline-none first:border-t-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        editor?.open && "rounded-md bg-mint/40",
+      )}
+    >
+      {struck ? (
+        <StruckRow line={line} editor={editor} />
+      ) : editor ? (
+        <button type="button" aria-expanded={editor.open} onClick={editor.onToggle} className={cx(rowClass, "rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent")}>
+          {inner}
+        </button>
+      ) : (
+        <div className={rowClass}>{inner}</div>
+      )}
+      {editor?.open && !struck ? <LineChips line={line} editor={editor} canEditAmount={withAmount} /> : null}
     </li>
+  );
+}
+
+/** The two chips under an open row, or the number field that replaces them. */
+function LineChips({ line, editor, canEditAmount }: { line: SavedRecipeLine; editor: LineEditor; canEditAmount: boolean }) {
+  const [typed, setTyped] = useState(() => formatQuantity(line.amount, null));
+  if (editor.editingAmount) {
+    return (
+      <form
+        className="flex items-center gap-2 pt-2 pl-8"
+        onSubmit={(event) => {
+          event.preventDefault();
+          editor.onSaveAmount(typed);
+        }}
+      >
+        <AmountInput
+          id={`line-amount-${line.id}`}
+          value={typed}
+          onChange={setTyped}
+          stepper={false}
+          onStep={() => {}}
+          canStepDown={false}
+          canStepUp={false}
+          unit={line.unit ?? undefined}
+          autoFocus
+          maxLength={12}
+        />
+        <Chip action selected={false} type="submit" disabled={editor.busy}>
+          Spara
+        </Chip>
+        <Chip action selected={false} onClick={editor.onCancel} disabled={editor.busy}>
+          Avbryt
+        </Chip>
+      </form>
+    );
+  }
+  return (
+    <div className="flex gap-2 pt-2 pl-8">
+      {canEditAmount ? (
+        <Chip action selected={false} onClick={editor.onStartAmount} disabled={editor.busy}>
+          Ändra mängd
+        </Chip>
+      ) : null}
+      <Chip action selected={false} onClick={editor.onStrike} disabled={editor.busy}>
+        Stryk
+      </Chip>
+    </div>
+  );
+}
+
+/** A struck line: grey and struck through, with the grey dash in front (it is not compared with the pantry), and "Ta tillbaka". */
+function StruckRow({ line, editor }: { line: SavedRecipeLine; editor: LineEditor | undefined }) {
+  const withAmount = !line.isVague && line.ingredientId !== null;
+  const name = withAmount ? (line.ingredientName ?? line.originalText) : line.originalText;
+  const showOriginal = withAmount && line.ingredientName !== null && normalizeIngredientText(line.originalText) !== normalizeIngredientText(line.ingredientName);
+  return (
+    <>
+      <div className="flex w-full items-start gap-3">
+        <Mark label="struken, jämförs inte med matvarorna" className="text-ink-3">
+          <MinusIcon size={18} />
+        </Mark>
+        <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3 text-ink-3 line-through">
+          <span className="flex min-w-0 flex-col">
+            <span className="text-item">{name}</span>
+            {showOriginal ? <span className="text-meta">{line.originalText}</span> : null}
+          </span>
+          {withAmount ? <span className="shrink-0 text-item">{formatQuantity(line.amount, line.unit)}</span> : null}
+        </span>
+      </div>
+      {editor ? (
+        <button
+          type="button"
+          disabled={editor.busy}
+          onClick={editor.onRestore}
+          className="flex min-h-tap items-center self-start pl-8 text-control text-accent outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+        >
+          Ta tillbaka
+        </button>
+      ) : null}
+    </>
   );
 }

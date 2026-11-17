@@ -36,9 +36,10 @@ import {
 } from "../domain/line-status";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
+import { amountForRecipe, struckStepWarning, withoutStruck } from "../domain/struck-lines";
 import { BuyMissingSheet } from "./buy-missing-sheet";
 import { ChooseWeekSheet } from "./choose-week-sheet";
-import { IngredientRow, lineCoverage } from "./ingredient-row";
+import { IngredientRow, lineCoverage, type LineEditor } from "./ingredient-row";
 import { usePublishPlanned } from "./recipe-planned";
 import { StepText } from "./step-text";
 import { TimerBar } from "./timer-bar";
@@ -82,6 +83,15 @@ export type UndoBuy = (input: { keys: string[] }) => Promise<Result<unknown>>;
 
 /** mealplan.removePlanRecipe from the page: the undo of "Lägg på matsedeln" (and the first half of "Byt vecka"). */
 export type RemoveFromPlan = (id: string) => Promise<Result<unknown>>;
+
+/**
+ * Stryk ingrediens from the page: recipes.setLineStruck and recipes.setLineAmount. `updatedAt` is the recipe's as
+ * the page read it; `amount` is for the recipe's own servings. Left out, the rows cannot be pressed.
+ */
+export type LineActions = {
+  setStruck: (input: { recipeId: string; lineId: string; isStruck: boolean; updatedAt: string }) => Promise<Result<unknown>>;
+  setAmount: (input: { recipeId: string; lineId: string; amount: number; updatedAt: string }) => Promise<Result<unknown>>;
+};
 
 /** The recipe's dish on this week's meal plan, or `null` when it is not on it. */
 export type PlanDishInfo = { id: string; weekday: number | null };
@@ -135,6 +145,8 @@ export type RecipeBodyProps = {
   extraAction?: ReactNode;
   /** The bottom bar's buttons always one above the other, in order (a shared recipe). */
   stackActions?: boolean;
+  /** Stryk ingrediens: tap a row to strike it or change its amount; not on another household's shared recipe. */
+  lineActions?: LineActions;
 };
 
 /**
@@ -174,6 +186,7 @@ export function RecipeBody({
   buyInline = false,
   extraAction,
   stackActions = false,
+  lineActions,
 }: RecipeBodyProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -189,9 +202,15 @@ export function RecipeBody({
   );
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
-  const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
+  // Stryk ingrediens: a struck line is shown but counts for nothing below (the status, the shopping, the notes).
+  const shownLines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
+  const lines = useMemo(() => withoutStruck(shownLines), [shownLines]);
+  const struckNames = useMemo(
+    () => recipe.lines.flatMap((line) => (line.isStruck && line.ingredientName ? [line.ingredientName] : [])),
+    [recipe.lines],
+  );
   const status = useMemo(
-    () => (snapshot ? recipeStatusForFactor(recipe.lines, factor, snapshot, staples) : null),
+    () => (snapshot ? recipeStatusForFactor(withoutStruck(recipe.lines), factor, snapshot, staples) : null),
     [recipe.lines, factor, snapshot, staples],
   );
   // What this visit put on the list or on the plan shows at once; the server's list catches up after the action.
@@ -338,6 +357,57 @@ export function RecipeBody({
     else showToast(removed.error.message, { role: "alert" });
   }
 
+  // Stryk ingrediens: the row that is open (its chips shown), whether its amount is being typed, and a save under way.
+  const [openLine, setOpenLine] = useState<string | null>(null);
+  const [amountLine, setAmountLine] = useState<string | null>(null);
+  const [lineBusy, setLineBusy] = useState(false);
+
+  async function changeLine(save: () => Promise<Result<unknown>>) {
+    if (lineBusy) return;
+    setLineBusy(true);
+    let result: Result<unknown>;
+    try {
+      result = await save();
+    } catch {
+      result = fail("recipe_line_failed");
+    }
+    setLineBusy(false);
+    if (result.ok) {
+      setOpenLine(null);
+      setAmountLine(null);
+    } else if (result.error.code === "unauthorized" || result.error.code === "recipe_conflict") {
+      if (result.error.code === "recipe_conflict") showToast(result.error.message, { role: "alert" });
+      router.refresh();
+    } else showToast(result.error.message, { role: "alert" });
+  }
+
+  function editorFor(line: { id: string }): LineEditor | undefined {
+    if (!lineActions) return undefined;
+    const lineId = line.id;
+    return {
+      open: openLine === lineId,
+      editingAmount: amountLine === lineId,
+      busy: lineBusy,
+      onToggle: () => {
+        setAmountLine(null);
+        setOpenLine((current) => (current === lineId ? null : lineId));
+      },
+      onStartAmount: () => setAmountLine(lineId),
+      onSaveAmount: (typed) => {
+        // The number is for the servings shown; the recipe keeps its own servings' amount.
+        const amount = amountForRecipe(typed, factor);
+        if (amount === null) {
+          showToast("Skriv en mängd större än noll.", { role: "alert" });
+          return;
+        }
+        void changeLine(() => lineActions.setAmount({ recipeId: recipe.id, lineId, amount, updatedAt: recipe.updatedAt }));
+      },
+      onCancel: () => setAmountLine(null),
+      onStrike: () => void changeLine(() => lineActions.setStruck({ recipeId: recipe.id, lineId, isStruck: true, updatedAt: recipe.updatedAt })),
+      onRestore: () => void changeLine(() => lineActions.setStruck({ recipeId: recipe.id, lineId, isStruck: false, updatedAt: recipe.updatedAt })),
+    };
+  }
+
   const wide = useWideScreen();
   const showBuy = Boolean(buyMissing) && !onPlan && (toBuy.length > 0 || bought !== null);
   const showUndo = bought !== null && toBuy.length === 0;
@@ -425,9 +495,14 @@ export function RecipeBody({
               <h2 id="ingredienser" className="text-section-label text-ink-2">
                 Ingredienser
               </h2>
-              {lines.length > 0 ? (
+              {lineActions && shownLines.length > 0 ? (
+                <p className="text-meta text-ink-2" data-testid="recipe-lines-help">
+                  Tryck på en rad för att stryka eller ändra mängd.
+                </p>
+              ) : null}
+              {shownLines.length > 0 ? (
                 // Ingredient groups (Linas Matkasse cards and the like) each get a small heading; a recipe without groups is one list, as before.
-                groupLines(lines).map((group, index) => (
+                groupLines(shownLines).map((group, index) => (
                   <div key={group.name ?? ""} className="flex flex-col" data-testid="recipe-line-group">
                     {group.name !== null ? (
                       <h3 className={cx("text-section-label wrap-break-word text-ink-2", index > 0 ? "pt-4" : "pt-2")}>{group.name}</h3>
@@ -437,10 +512,11 @@ export function RecipeBody({
                         <IngredientRow
                           key={line.id}
                           line={line}
-                          coverage={status ? lineCoverage(status, line.id) : null}
+                          coverage={status && !line.isStruck ? lineCoverage(status, line.id) : null}
                           state={states?.[line.id] ?? null}
                           factor={factor}
                           anchorId={`recipe-line-${line.id}`}
+                          editor={editorFor(line)}
                         />
                       ))}
                     </ul>
@@ -498,6 +574,11 @@ export function RecipeBody({
                         onStart={timerOption ? timers.start : undefined}
                       />
                     </p>
+                    {struckStepWarning(step.text, struckNames) ? (
+                      <p className="pt-1 text-meta text-sand-ink" data-testid="recipe-step-struck">
+                        {struckStepWarning(step.text, struckNames)}
+                      </p>
+                    ) : null}
                   </div>
                 </li>
                 );
