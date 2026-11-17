@@ -396,9 +396,11 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
 
   // Inköpslista opens on the same week, with Matsedel's segment (UX-04).
   await tab(page, "Inköpslista").click();
+  // The list has the narrow week row; its pill says the week and opens the segment.
+  await expect(page.getByTestId("week-pill")).toContainText(`v. ${nextNumber} · `);
+  await page.getByTestId("week-pill").click();
   const listNav = page.getByTestId("week-nav").filter({ visible: true });
   await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Nästa");
-  await expect(listNav.getByTestId("week-range")).toContainText(`v. ${nextNumber} · `);
 
   await page.goto(`/recept/${recipeIds[gryta]}`);
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
@@ -727,6 +729,10 @@ test("plans next week: a dish added there shows only there, and its list is a we
   // UX-04: Inköpslista opens on the week last viewed (this week now) and has the same segment, with the items to buy;
   // choosing next week there is remembered by Matsedel too.
   await page.goto("/lista");
+  // The narrow week row: the pill opens the three tiles.
+  await expect(page.getByTestId("week-pill")).toContainText(/^v\. \d+ · /);
+  await expect(page.getByRole("link", { name: "Förra veckan" })).toHaveCount(0);
+  await page.getByTestId("week-pill").click();
   const listNav = page.getByTestId("week-nav").filter({ visible: true });
   await expect(page.getByTestId("week-menu")).toHaveCount(0);
   await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
@@ -735,7 +741,10 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
   await listNav.getByRole("link", { name: /nästa vecka/i }).click();
   await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
+  // The week's own list starts afresh, with the pill closed.
+  await page.getByTestId("week-pill").click();
   await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  await expect(page.getByRole("link", { name: "Förra veckan" })).toBeVisible();
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
   await tab(page, "Matsedel").click();
   await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
@@ -761,6 +770,7 @@ test("an empty week in Inköpslista says so and offers to plan it; the segment c
   const param = `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
   await page.goto(`/lista?vecka=${param}`);
   await expect(page.getByText("Inga rätter på matsedeln om 5 veckor.").filter({ visible: true })).toBeVisible();
+  await page.getByTestId("week-pill").click();
   const listNav = page.getByTestId("week-nav").filter({ visible: true });
   const listTiles = listNav.getByTestId("week-tile");
   await expect(listTiles).toHaveCount(4);

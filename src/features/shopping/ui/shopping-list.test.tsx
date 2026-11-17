@@ -671,10 +671,8 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
   it("shows how far the shopping has come, the categories of what is left and the basket row", () => {
     render(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("8 varor kvar 6 av 14 i korgen");
-    // 6 of 14: the meter is 43 % full, and hidden from screen readers.
-    const meter = screen.getByTestId("meter");
-    expect(meter).toHaveAttribute("aria-hidden", "true");
-    expect(Number.parseFloat((meter.firstElementChild as HTMLElement).style.width)).toBeCloseTo(42.86, 1);
+    // The meter is gone (UX: Smalare topp på Inköpslistan): the progress is one line of text.
+    expect(screen.queryByTestId("meter")).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
       "Mejeri & ägg",

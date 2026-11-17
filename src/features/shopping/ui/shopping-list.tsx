@@ -15,7 +15,6 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { OfferTag } from "@/components/offer-tag";
-import { Meter } from "@/components/meter";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
 import { useConfirmDelete } from "@/components/confirm-delete";
@@ -89,7 +88,7 @@ import { useOfflineChecks } from "./use-offline-checks";
 
 // Inköpslista (FR-15, UX-DR9; the new look of Story 11.4, FR-43): the current
 // plan's name and number of dishes under the title, then the progress row
-// ("8 varor kvar", "6 av 14 i korgen" and a meter), then the lines not
+// ("8 varor kvar" and "6 av 14 i korgen"), then the lines not
 // checked off per display category (catalog.displayCategory, as in
 // Matvaror), each with its round check, its name with the amount after it
 // ("Mjöl 2 dl (hemma: 1 kg)"), the line under it (the dishes with " · ",
@@ -1183,30 +1182,22 @@ export function ShoppingList({
 }
 
 /**
- * Framstegsrad (DESIGN.md, progress-row; FR-43): a white card at the top of
- * the list with "8 varor kvar" and "6 av 14 i korgen" on one line, and the
- * meter under it, counted over the lines not hidden; "Allt ligger i korgen"
- * when everything is checked off. The meter is hidden from screen readers:
- * the text says the same.
+ * Framstegsrad (DESIGN.md, progress-row; FR-43): one line at the top of the list, without a card of its own,
+ * with "8 varor kvar" and "6 av 14 i korgen" (counted over the lines not hidden; "Allt ligger i korgen" when
+ * everything is checked off). The meter that stood under it is gone (UX: "Smalare topp på Inköpslistan").
  */
 function ProgressRow({ left, checked, total }: { left: number; checked: number; total: number }) {
   const text = progressText(left, checked, total);
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-surface p-4">
-      <div data-testid="list-progress" className="flex flex-col gap-3">
-        {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}
-        <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <span className="text-row-title font-semibold text-ink">{text.left}</span>
-          {text.basket ? (
-            <>
-              {" "}
-              <span className="text-meta text-ink-2">{text.basket}</span>
-            </>
-          ) : null}
-        </p>
-        <Meter value={total === 0 ? 0 : checked / total} />
-      </div>
-    </div>
+    <p data-testid="list-progress" className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
+      <span className="text-row-title font-semibold text-ink">{text.left}</span>
+      {text.basket ? (
+        <>
+          {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}{" "}
+          <span className="text-meta text-ink-2">{text.basket}</span>
+        </>
+      ) : null}
+    </p>
   );
 }
 

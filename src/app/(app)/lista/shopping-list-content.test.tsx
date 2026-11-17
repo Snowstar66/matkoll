@@ -149,7 +149,7 @@ describe("ShoppingListContent", () => {
     expect(tiles.map((tile) => tile.querySelector("[data-testid=week-count]")?.textContent)).toEqual(["2 varor", "Tom", "Tom"]);
     expect(tiles[1]).toHaveAttribute("aria-current", "page");
     expect(tiles[0]).toHaveAttribute("href", `/lista?vecka=${weekParam(thisWeek)}`);
-    expect(screen.getByTestId("week-range")).toHaveTextContent(/^v\. \d+ · /);
+    expect(screen.getByTestId("week-pill")).toHaveTextContent(/^v\. \d+ · /);
     expect(screen.queryByRole("link", { name: "Tidigare veckor" })).not.toBeInTheDocument();
     expect(getShoppingList).toHaveBeenCalledWith(nextWeek);
     expect(screen.getByText("Inga rätter på matsedeln nästa vecka.")).toBeInTheDocument();

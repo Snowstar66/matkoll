@@ -46,7 +46,7 @@ export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: Shoppi
       {sites ? (
         <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
       ) : null}
-      {weekNav ? <div className="mb-4">{weekNav}</div> : null}
+      {weekNav ? <div className="mb-2.5">{weekNav}</div> : null}
       <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} onOfflineChange={setOffline} />
     </>
   );
