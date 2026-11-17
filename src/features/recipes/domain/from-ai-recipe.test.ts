@@ -198,7 +198,7 @@ describe("fromAiRecipe", () => {
     expect(recipeDraftSchema.safeParse(draft).success).toBe(true);
   });
 
-  it("maps the Linas card to four groups, six staples (salt and svartpeppar once) and four step headings", () => {
+  it("maps the Linas card to four groups, eight staples and four step headings", () => {
     const draft = fromAiRecipe(linasKyckling, linasKyckling.ingredients.map(() => match), { kind: "photo" });
     expect([...new Set(draft.lines.map((l) => l.group))]).toEqual([
       "Rostad småpotatis",
@@ -206,7 +206,7 @@ describe("fromAiRecipe", () => {
       "Tryffelsky",
       "Gräddkokt spetskål",
     ]);
-    expect(draft.lines.filter((l) => l.isStapleMarked)).toHaveLength(6);
+    expect(draft.lines.filter((l) => l.isStapleMarked)).toHaveLength(8);
     expect(draft.steps.filter((step) => typeof step !== "string")).toHaveLength(4);
   });
 
@@ -247,7 +247,7 @@ describe("fromAiRecipe", () => {
       expect(recipeDraftSchema.safeParse(draft).success, name).toBe(true);
       // Only lines without an amount that repeat an earlier one are dropped ("salt och peppar" twice in kycklinggryta).
       const dropped = ai.ingredients.length - draft.lines.length;
-      expect(dropped, name).toBe(name === "kycklinggryta" ? 1 : name === "linasKyckling" ? 2 : 0);
+      expect(dropped, name).toBe(name === "kycklinggryta" ? 1 : 0);
     }
   });
 });
@@ -273,6 +273,11 @@ describe("repeated vague lines", () => {
       vague("salt och peppar"),
     ];
     expect(textsOf(page)).toEqual(["2 majstortillor (à 50 g)", "salt och peppar", "1 dl lätt crème fraiche"]);
+  });
+
+  it("keeps each dish's own salt on a card with groups, and drops a repeat inside one group", () => {
+    const grouped = (text: string, group: string) => ({ ...vague(text), group });
+    expect(textsOf([grouped("salt", "Kyckling"), grouped("salt", "Ris"), grouped("salt", "Ris")])).toEqual(["salt", "salt"]);
   });
 
   it("does not merge lines with an amount, or lines with different texts", () => {

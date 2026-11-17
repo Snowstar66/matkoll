@@ -113,16 +113,18 @@ function toLine(
 }
 
 /**
- * Lines without an amount that repeat an earlier one ("salt och peppar" under the dough and again under the
- * sauce, or read twice from the page) are kept once, the first. The same normalised text only: lines with an
- * amount and lines with other texts ("salt" and "salt och peppar") are never merged.
+ * Lines without an amount that repeat an earlier one in the same group ("salt och peppar" read twice from the page)
+ * are kept once, the first. A card with separate dishes keeps each dish's own salt: the group is part of the key.
+ * The same normalised text only: lines with an amount and lines with other texts ("salt" and "salt och peppar") are
+ * never merged.
  */
 export function withoutRepeatedVagueLines(lines: readonly RecipeLine[]): RecipeLine[] {
   const seen = new Set<string>();
   return lines.filter((line) => {
     if (line.amount !== null) return true;
-    const key = normalizeIngredientText(line.originalText);
-    if (key === "") return true;
+    const text = normalizeIngredientText(line.originalText);
+    if (text === "") return true;
+    const key = `${line.group ?? ""}\u0000${text}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
