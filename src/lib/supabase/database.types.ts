@@ -1536,6 +1536,9 @@ isOneToOne: false
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
                            },
+"replace_recipe_line":
+{ Args: { "expected_updated_at": string,"new_ingredient": string,"new_text": string,"target_line": string,"target_recipe": string }; Returns: string
+                           },
 "reset_household_staples":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -1756,9 +1759,6 @@ isOneToOne: false
       } },
 "set_pantry_photo_points":
 { Args: { "photo_id": string,"photo_points": Json }; Returns: boolean
-                           },
-"replace_recipe_line":
-{ Args: { "expected_updated_at": string,"new_ingredient": string,"new_text": string,"target_line": string,"target_recipe": string }; Returns: string
                            },
 "set_recipe_line":
 { Args: { "expected_updated_at": string,"new_amount": number,"new_is_struck": boolean,"target_line": string,"target_recipe": string }; Returns: string
