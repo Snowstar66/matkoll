@@ -66,6 +66,8 @@ const struckRecipe: SavedRecipe = { ...recipe, lines: baseLines.map((l) => (l.id
 const actions = (): LineActions & { setStruck: ReturnType<typeof vi.fn>; setAmount: ReturnType<typeof vi.fn> } => ({
   setStruck: vi.fn().mockResolvedValue(ok({})),
   setAmount: vi.fn().mockResolvedValue(ok({})),
+  replace: vi.fn().mockResolvedValue(ok({})),
+  search: vi.fn().mockResolvedValue(ok([])),
 });
 const row = (id: string) => document.getElementById(`recipe-line-${id}`) as HTMLElement;
 const nothingAtHome = toSnapshot([]);
@@ -73,7 +75,7 @@ const nothingAtHome = toSnapshot([]);
 describe("RecipeView: stryk ingrediens", () => {
   it("has the help row under Ingredienser, and rows that cannot be pressed without actions", () => {
     const { unmount } = render(<RecipeView recipe={recipe} snapshot={nothingAtHome} lineActions={actions()} />);
-    expect(screen.getByTestId("recipe-lines-help")).toHaveTextContent("Tryck på en rad för att stryka eller ändra mängd.");
+    expect(screen.getByTestId("recipe-lines-help")).toHaveTextContent("Tryck på en rad för att ändra mängd, byta ut eller stryka.");
     unmount();
     render(<RecipeView recipe={recipe} snapshot={nothingAtHome} />);
     expect(screen.queryByTestId("recipe-lines-help")).not.toBeInTheDocument();

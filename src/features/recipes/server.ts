@@ -31,7 +31,7 @@ import { sharedMatchItems, toSharedListItems, toSharedView, type SharedListItem 
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
 export { saveRecipe } from "./actions/save-recipe";
-export { setLineStruck, setLineAmount } from "./actions/set-recipe-line";
+export { setLineStruck, setLineAmount, replaceLineIngredient } from "./actions/set-recipe-line";
 export { importRecipe, prepareImport, type ImportContext } from "./actions/import-recipe";
 
 /**

@@ -1040,6 +1040,7 @@ describe("household isolation", () => {
         ["save_recipe", { recipe: { title: "Kapat", original_servings: 2, source_kind: "url", source_url: "https://www.koket.se/kapat" }, steps: [], lines: [{ position: 1, original_text: "lök", ingredient_id: aSeed.ingredientId, is_vague: true }] }],
         ["update_recipe", { id: aSeed.recipeId, expected_updated_at: new Date().toISOString(), recipe: { title: "Kapat" }, steps: [], lines: [] }],
         ["set_recipe_line", { target_recipe: aSeed.recipeId, target_line: randomUUID(), expected_updated_at: new Date().toISOString(), new_is_struck: true, new_amount: null }],
+        ["replace_recipe_line", { target_recipe: aSeed.recipeId, target_line: randomUUID(), expected_updated_at: new Date().toISOString(), new_ingredient: randomUUID(), new_text: "persilja" }],
         // Delade recept: A's recipe is not shared.
         ["get_shared_recipe", { shared_recipe_id: aSeed.recipeId }],
         ["save_shared_recipe", { shared_recipe_id: aSeed.recipeId, ingredient_ids: [], expected_version: "x" }],

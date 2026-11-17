@@ -10,7 +10,7 @@ import { NutritionCard, recipeNutrition, type RecipeNutrition } from "@/features
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { addKeyedItems, removeKeyedItems } from "@/features/shopping/server";
 import { recipeFitInput, withoutStruck, type SavedRecipe } from "@/features/recipes";
-import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry, getStarterMembership, setLineAmount, setLineStruck } from "@/features/recipes/server";
+import { getRecipe, getRecipeSavers, getRecipeSharing, getRecipeWithPantry, getStarterMembership, replaceLineIngredient, setLineAmount, setLineStruck } from "@/features/recipes/server";
 import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -141,7 +141,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       removeFromPlan={removePlanRecipe}
       savers={savers}
       fit={fit}
-      lineActions={{ setStruck: setLineStruck, setAmount: setLineAmount }}
+      lineActions={{ setStruck: setLineStruck, setAmount: setLineAmount, replace: replaceLineIngredient, search: searchIngredients }}
       nutritionCard={
         <Suspense fallback={null}>
           <NutritionCardLoader recipe={recipe} />

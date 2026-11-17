@@ -2,11 +2,12 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
+import { CatalogDataError, commitIngredients, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
-import { setRecipeLineIn, type LineChange } from "../data/line";
+import { replaceRecipeLineIn, setRecipeLineIn, type LineChange } from "../data/line";
 
 const lineSchema = z.object({ recipeId: z.uuid(), lineId: z.uuid(), updatedAt: z.iso.datetime({ offset: true }) });
 const strikeSchema = lineSchema.extend({ isStruck: z.boolean() });
@@ -56,4 +57,47 @@ export async function setLineAmount(input: z.infer<typeof amountSchema>): Promis
   const parsed = amountSchema.safeParse(input);
   if (!parsed.success) return fail("validation");
   return changeLine(parsed.data, { amount: parsed.data.amount });
+}
+
+const replaceSchema = lineSchema.extend({ name: z.string().trim().min(1).max(80).nullable() });
+
+/**
+ * "Byt ut" on an ingredient row (Byt ut ingrediens): replaces the line's ingredient with the one called `name` (the
+ * catalog's if it has it, else a new one, as when a recipe is saved), keeping the amount and unit; with `name` null
+ * ("Ta tillbaka") puts the line back as it was. `updatedAt` and the answers are as for setLineStruck, and a name
+ * the catalog cannot make an ingredient of is `validation`.
+ */
+export async function replaceLineIngredient(input: z.infer<typeof replaceSchema>): Promise<Result<{ updatedAt: string }>> {
+  const user = await requireUser();
+  if (!user.ok) return user;
+  const parsed = replaceSchema.safeParse(input);
+  if (!parsed.success) return fail("validation");
+  const { recipeId, lineId, updatedAt } = parsed.data;
+  try {
+    let replacement: { ingredientId: string; text: string } | null = null;
+    if (parsed.data.name !== null) {
+      const text = parsed.data.name.split(/\s+/).join(" ");
+      const [match] = await matchIngredients([{ text }]);
+      if (!match || match.kind === "unmatched") return fail("validation");
+      const [ingredientId] = await commitIngredients([{ text, ingredient: match }]);
+      if (!ingredientId) return fail("validation");
+      replacement = { ingredientId, text };
+    }
+    const outcome = await replaceRecipeLineIn(await createClient(), recipeId, lineId, updatedAt, replacement);
+    if (outcome === "conflict") return fail("recipe_conflict");
+    if (outcome === "not_found") {
+      console.error("recipe_line_failed", { reason: "not_found" });
+      return fail("recipe_line_failed");
+    }
+    revalidateFor("recipe");
+    return ok(outcome);
+  } catch (error) {
+    if (error instanceof CatalogDataError) {
+      console.error("recipe_line_failed", { reason: `catalog_${error.code}` });
+      return fail("recipe_line_failed");
+    }
+    if (!(error instanceof RecipeDataError)) throw error;
+    console.error("recipe_line_failed", { reason: error.detail });
+    return fail("recipe_line_failed");
+  }
 }

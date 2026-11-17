@@ -36,7 +36,7 @@ import {
 } from "../domain/line-status";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
-import { amountForRecipe, struckStepWarning, withoutStruck } from "../domain/struck-lines";
+import { amountForRecipe, replacedFromName, struckStepWarning, withoutStruck } from "../domain/struck-lines";
 import { BuyMissingSheet } from "./buy-missing-sheet";
 import { ChooseWeekSheet } from "./choose-week-sheet";
 import { IngredientRow, lineCoverage, type LineEditor } from "./ingredient-row";
@@ -45,7 +45,7 @@ import { StepText } from "./step-text";
 import { TimerBar } from "./timer-bar";
 import { useStepTimers } from "./use-step-timers";
 import { useWakeLock } from "./use-wake-lock";
-import { formatQuantity } from "@/features/catalog";
+import { formatQuantity, type IngredientSearchHit } from "@/features/catalog";
 
 const wideQuery = "(min-width: 1024px)";
 
@@ -91,6 +91,10 @@ export type RemoveFromPlan = (id: string) => Promise<Result<unknown>>;
 export type LineActions = {
   setStruck: (input: { recipeId: string; lineId: string; isStruck: boolean; updatedAt: string }) => Promise<Result<unknown>>;
   setAmount: (input: { recipeId: string; lineId: string; amount: number; updatedAt: string }) => Promise<Result<unknown>>;
+  /** Byt ut: replaces the line's ingredient with the one called `name`, or with `null` puts it back (recipes.replaceLineIngredient). */
+  replace: (input: { recipeId: string; lineId: string; name: string | null; updatedAt: string }) => Promise<Result<unknown>>;
+  /** Catalog suggestions while the name is typed (catalog.searchIngredients). */
+  search: (query: string) => Promise<Result<IngredientSearchHit[]>>;
 };
 
 /** The recipe's dish on this week's meal plan, or `null` when it is not on it. */
@@ -207,6 +211,10 @@ export function RecipeBody({
   const lines = useMemo(() => withoutStruck(shownLines), [shownLines]);
   const struckNames = useMemo(
     () => recipe.lines.flatMap((line) => (line.isStruck && line.ingredientName ? [line.ingredientName] : [])),
+    [recipe.lines],
+  );
+  const replacedNames = useMemo(
+    () => recipe.lines.flatMap((line) => (line.replacedFrom ? [replacedFromName(line.replacedFrom).split(" ").at(-1) ?? ""] : [])),
     [recipe.lines],
   );
   const status = useMemo(
@@ -360,6 +368,7 @@ export function RecipeBody({
   // Stryk ingrediens: the row that is open (its chips shown), whether its amount is being typed, and a save under way.
   const [openLine, setOpenLine] = useState<string | null>(null);
   const [amountLine, setAmountLine] = useState<string | null>(null);
+  const [replaceLine, setReplaceLine] = useState<string | null>(null);
   const [lineBusy, setLineBusy] = useState(false);
 
   async function changeLine(save: () => Promise<Result<unknown>>) {
@@ -375,6 +384,7 @@ export function RecipeBody({
     if (result.ok) {
       setOpenLine(null);
       setAmountLine(null);
+      setReplaceLine(null);
     } else if (result.error.code === "unauthorized" || result.error.code === "recipe_conflict") {
       if (result.error.code === "recipe_conflict") showToast(result.error.message, { role: "alert" });
       router.refresh();
@@ -387,9 +397,11 @@ export function RecipeBody({
     return {
       open: openLine === lineId,
       editingAmount: amountLine === lineId,
+      replacing: replaceLine === lineId,
       busy: lineBusy,
       onToggle: () => {
         setAmountLine(null);
+        setReplaceLine(null);
         setOpenLine((current) => (current === lineId ? null : lineId));
       },
       onStartAmount: () => setAmountLine(lineId),
@@ -402,7 +414,21 @@ export function RecipeBody({
         }
         void changeLine(() => lineActions.setAmount({ recipeId: recipe.id, lineId, amount, updatedAt: recipe.updatedAt }));
       },
-      onCancel: () => setAmountLine(null),
+      onCancel: () => {
+        setAmountLine(null);
+        setReplaceLine(null);
+      },
+      onStartReplace: () => setReplaceLine(lineId),
+      onReplace: (name) => void changeLine(() => lineActions.replace({ recipeId: recipe.id, lineId, name, updatedAt: recipe.updatedAt })),
+      onUndoReplace: () => void changeLine(() => lineActions.replace({ recipeId: recipe.id, lineId, name: null, updatedAt: recipe.updatedAt })),
+      search: async (query) => {
+        try {
+          const found = await lineActions.search(query);
+          return found.ok ? found.data : [];
+        } catch {
+          return [];
+        }
+      },
       onStrike: () => void changeLine(() => lineActions.setStruck({ recipeId: recipe.id, lineId, isStruck: true, updatedAt: recipe.updatedAt })),
       onRestore: () => void changeLine(() => lineActions.setStruck({ recipeId: recipe.id, lineId, isStruck: false, updatedAt: recipe.updatedAt })),
     };
@@ -497,7 +523,7 @@ export function RecipeBody({
               </h2>
               {lineActions && shownLines.length > 0 ? (
                 <p className="text-meta text-ink-2" data-testid="recipe-lines-help">
-                  Tryck på en rad för att stryka eller ändra mängd.
+                  Tryck på en rad för att ändra mängd, byta ut eller stryka.
                 </p>
               ) : null}
               {shownLines.length > 0 ? (
@@ -574,6 +600,11 @@ export function RecipeBody({
                         onStart={timerOption ? timers.start : undefined}
                       />
                     </p>
+                    {struckStepWarning(step.text, replacedNames, "bytt ut") ? (
+                      <p className="pt-1 text-meta text-sand-ink" data-testid="recipe-step-replaced">
+                        {struckStepWarning(step.text, replacedNames, "bytt ut")}
+                      </p>
+                    ) : null}
                     {struckStepWarning(step.text, struckNames) ? (
                       <p className="pt-1 text-meta text-sand-ink" data-testid="recipe-step-struck">
                         {struckStepWarning(step.text, struckNames)}

@@ -1,15 +1,16 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { AmountInput } from "@/components/amount-input";
 import { Chip } from "@/components/chip";
 import { cx } from "@/components/cx";
 import { CartIcon, CheckIcon, MinusIcon, RingIcon } from "@/components/icons";
-import { formatQuantity, normalizeIngredientText } from "@/features/catalog";
+import { formatQuantity, normalizeIngredientText, type IngredientSearchHit } from "@/features/catalog";
 import { atHomeText, isShort, type LineCoverage, type RecipeStatus } from "@/features/pantry";
 import type { SavedRecipeLine } from "../domain/saved-recipe";
 import { offerLineText, type LineState } from "../domain/line-status";
 import { factorText } from "../domain/scale";
+import { replacedFromName } from "../domain/struck-lines";
 
 // Ingrediensrad (EXPERIENCE.md): one recipe line with its mark against the
 // pantry, in the recipe view (Story 25.1: with "Saknas" / "På listan" and the offer on the row).
@@ -86,6 +87,8 @@ export type LineEditor = {
   open: boolean;
   /** The amount is a number field with Spara and Avbryt. */
   editingAmount: boolean;
+  /** Byt ut: the name is a text field with suggestions from the catalog. */
+  replacing: boolean;
   /** A change is being saved: the chips wait. */
   busy: boolean;
   onToggle: () => void;
@@ -95,6 +98,13 @@ export type LineEditor = {
   onCancel: () => void;
   onStrike: () => void;
   onRestore: () => void;
+  onStartReplace: () => void;
+  /** The name typed or picked; the amount and unit stay. */
+  onReplace: (name: string) => void;
+  /** "Ta tillbaka" on a replaced line: puts back what it was. */
+  onUndoReplace: () => void;
+  /** Catalog suggestions for what is typed (catalog.searchIngredients); an empty list on failure. */
+  search: (query: string) => Promise<IngredientSearchHit[]>;
 };
 
 export type IngredientRowProps = {
@@ -145,6 +155,8 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
   const tag = null;
   const multiplier =!withAmount && !line.isVague && line.amount !== null && factor !== 1 ? factorText(factor) : null;
   const struck = line.isStruck === true;
+  // Byt ut: what the line was, in grey under the new name.
+  const replacedNote = line.replacedFrom ? <span className="text-meta text-ink-3" data-testid="recipe-line-replaced">i stället för {replacedFromName(line.replacedFrom)}</span> : null;
   const mark = coverage ? <LineMark state={state} coverage={coverage} /> : null;
   const rowClass = "flex w-full items-start gap-3";
   const inner = (
@@ -155,6 +167,7 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
           <span className="flex min-w-0 flex-col">
             <span className={cx("text-item text-ink", missing && "font-semibold")}>{name ?? line.originalText}</span>
             {showOriginal ? <span className="text-meta text-ink-2">{line.originalText}</span> : null}
+            {replacedNote}
             {offer ? (
               <span className="text-meta text-deal-ink" data-testid="recipe-line-offer">
                 {offerLineText(offer)}
@@ -186,6 +199,7 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
         <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
           <span className="flex min-w-0 flex-col">
             <span className={cx("text-item text-ink", missing && "font-semibold")}>{line.originalText}</span>
+            {replacedNote}
             {tag}
           </span>
           {statusWord ? (
@@ -222,9 +236,80 @@ export function IngredientRow({ line, coverage, state = null, factor = 1, anchor
   );
 }
 
+/** The suggestions and the field behind "Byt ut": type a name or tap a suggestion. */
+function ReplaceField({ line, editor }: { line: SavedRecipeLine; editor: LineEditor }) {
+  const [typed, setTyped] = useState("");
+  const [hits, setHits] = useState<IngredientSearchHit[]>([]);
+  useEffect(() => {
+    const query = typed.trim();
+    if (query.length < 2) return;
+    let current = true;
+    const timer = setTimeout(() => {
+      void editor.search(query).then((found) => {
+        if (current) setHits(found.slice(0, 6));
+      });
+    }, 200);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [typed, editor]);
+  const name = typed.trim();
+  // Suggestions only for a name long enough to search with.
+  const shown = name.length < 2 ? [] : hits;
+  return (
+    <div className="flex flex-col gap-2 pt-2 pl-8">
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (name) editor.onReplace(name);
+        }}
+      >
+        <input
+          id={`line-replace-${line.id}`}
+          type="text"
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+          placeholder="Byt till, till exempel persilja"
+          aria-label="Byt till"
+          autoFocus
+          maxLength={80}
+          autoComplete="off"
+          className="h-10 min-w-0 flex-1 rounded-md border-2 border-accent bg-fill px-3 text-item text-ink outline-none"
+        />
+        <Chip action selected={false} type="submit" disabled={editor.busy || name === ""}>
+          Byt
+        </Chip>
+        <Chip action selected={false} onClick={editor.onCancel} disabled={editor.busy}>
+          Avbryt
+        </Chip>
+      </form>
+      <p className="text-meta text-ink-2">Mängden ({formatQuantity(line.amount, line.unit)}) följer med.</p>
+      {shown.length > 0 ? (
+        <ul aria-label="Förslag" className="flex flex-col">
+          {shown.map((hit) => (
+            <li key={hit.id}>
+              <button
+                type="button"
+                disabled={editor.busy}
+                onClick={() => editor.onReplace(hit.name)}
+                className="flex min-h-tap w-full items-center border-t border-hairline py-2 text-left text-item text-ink outline-none focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60"
+              >
+                {hit.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 /** The two chips under an open row, or the number field that replaces them. */
 function LineChips({ line, editor, canEditAmount }: { line: SavedRecipeLine; editor: LineEditor; canEditAmount: boolean }) {
   const [typed, setTyped] = useState(() => formatQuantity(line.amount, null));
+  if (editor.replacing) return <ReplaceField line={line} editor={editor} />;
   if (editor.editingAmount) {
     return (
       <form
@@ -262,9 +347,17 @@ function LineChips({ line, editor, canEditAmount }: { line: SavedRecipeLine; edi
           Ändra mängd
         </Chip>
       ) : null}
+      <Chip action selected={false} onClick={editor.onStartReplace} disabled={editor.busy}>
+        Byt ut
+      </Chip>
       <Chip action selected={false} onClick={editor.onStrike} disabled={editor.busy}>
         Stryk
       </Chip>
+      {line.replacedFrom ? (
+        <Chip action selected={false} onClick={editor.onUndoReplace} disabled={editor.busy}>
+          Ta tillbaka
+        </Chip>
+      ) : null}
     </div>
   );
 }

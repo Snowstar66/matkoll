@@ -33,7 +33,7 @@ export async function getRecipe(
     db.from("recipe_step").select("id, position, text, title").eq("recipe_id", id).order("position"),
     db
       .from("recipe_ingredient")
-      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked, is_struck")
+      .select("id, position, original_text, amount, unit, is_vague, ingredient_id, step_id, section, is_staple_marked, is_struck, replaced_from_text")
       .eq("recipe_id", id)
       .order("position"),
   ]);
@@ -80,6 +80,7 @@ export async function getRecipe(
       group: line.section,
       isStapleMarked: line.is_staple_marked,
       isStruck: line.is_struck,
+      replacedFrom: line.replaced_from_text,
     })),
   };
 }
