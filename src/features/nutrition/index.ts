@@ -19,6 +19,7 @@ export {
   roundedKcal,
   roundedGrams,
   isTrustworthy,
+  namedLines,
   TRUST_MIN_COVERAGE,
   TRUST_MAX_UNCOUNTED_WEIGHT,
   type PortionEstimate,

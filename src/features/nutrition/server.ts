@@ -26,6 +26,19 @@ export async function getIngredientNutrition(ingredientIds: readonly string[]): 
   return nutritionForNames(await getIngredientNames(ingredientIds));
 }
 
+/**
+ * `getIngredientNutrition` and the ingredients' names, for lists of recipes whose lines carry no names: the count
+ * leaves a line out of the coverage by its name (salt, garlic, herbs), so without them a list can say "kcal saknas"
+ * for a recipe whose own page counts it. Use `namedLines` to put the names on the lines.
+ */
+export async function getIngredientNutritionWithNames(
+  ingredientIds: readonly string[],
+): Promise<{ byId: Record<string, IngredientNutrition>; names: Record<string, string> }> {
+  if (ingredientIds.length === 0) return { byId: {}, names: {} };
+  const names = await getIngredientNames(ingredientIds);
+  return { byId: await nutritionForNames(names), names };
+}
+
 async function nutritionForNames(names: Readonly<Record<string, string>>): Promise<Record<string, IngredientNutrition>> {
   const normalizedById = new Map(Object.entries(names).map(([id, name]) => [id, normalizeIngredientText(name)]));
   const candidatesById = new Map([...normalizedById].map(([id, normalized]) => [id, nameCandidates(normalized)]));

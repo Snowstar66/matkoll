@@ -11,8 +11,8 @@ import { loadOffersSheetData } from "../offers-sheet-data";
 import { RecipeOffersSheet } from "./recipe-offers-sheet";
 import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
-import { assessKostrad, isTrustworthy, recipeNutrition, roundedKcal } from "@/features/nutrition";
-import { getIngredientNutrition } from "@/features/nutrition/server";
+import { assessKostrad, isTrustworthy, namedLines, recipeNutrition, roundedKcal } from "@/features/nutrition";
+import { getIngredientNutritionWithNames } from "@/features/nutrition/server";
 import { getStarterOffer, listLibraryWithRows, listSharedRecipesWithOwn } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
@@ -121,8 +121,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
 async function readNutrition(rows: readonly RecipeListRow[]): Promise<{ healthyIds: string[]; kcal: Record<string, number | null> } | undefined> {
   try {
     const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
-    const byId = await getIngredientNutrition(ids);
-    const worked = rows.map((row) => ({ id: row.id, nutrition: recipeNutrition(row.lines, byId, row.originalServings) }));
+    const { byId, names } = await getIngredientNutritionWithNames(ids);
+    const worked = rows.map((row) => ({ id: row.id, nutrition: recipeNutrition(namedLines(row.lines, names), byId, row.originalServings) }));
     return {
       healthyIds: worked.filter(({ nutrition }) => assessKostrad(nutrition).follows).map(({ id }) => id),
       kcal: Object.fromEntries(worked.map(({ id, nutrition }) => [id, isTrustworthy(nutrition.coverage) ? roundedKcal(nutrition.perServing.kcal) : null])),

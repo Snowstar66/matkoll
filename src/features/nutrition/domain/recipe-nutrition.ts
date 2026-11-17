@@ -20,6 +20,11 @@ export type NutritionLine = {
   ingredientName?: string | null;
 };
 
+/** `lines` with each line's ingredient name from `names` (by ingredient id), as the count wants them. */
+export function namedLines<T extends NutritionLine>(lines: readonly T[], names: Readonly<Record<string, string>>): T[] {
+  return lines.map((line) => ({ ...line, ingredientName: line.ingredientId ? (names[line.ingredientId] ?? null) : null }));
+}
+
 /** Why a line is not in the numbers. */
 export type UncountedReason = "unknown_ingredient" | "unknown_unit";
 
