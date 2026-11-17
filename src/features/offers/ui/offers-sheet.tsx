@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
 import { TagIcon } from "@/components/icons";
 import { Button, buttonClasses } from "@/components/button";
@@ -172,6 +172,12 @@ export function OffersSheet({
   const router = useRouter();
   const { showToast } = useToast();
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
+  // "Ångra" and the local marks belong to one opening: the server's list is the truth the next time (an offer taken off the list elsewhere is not still "På listan").
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) setAdded(new Set());
+    wasOpen.current = open;
+  }, [open]);
   const [adding, setAdding] = useState(false);
   /** "Lade gul lök på inköpslistan." for screen readers, in the sheet itself. */
   const [addedStatus, setAddedStatus] = useState("");

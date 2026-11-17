@@ -332,6 +332,18 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     expect(within(dialog).getByTestId("offers-added-status")).toHaveTextContent("Tog bort gårdens Herrgård, Präst från inköpslistan.");
   });
 
+  it("forgets what it marked this time: an offer taken off the list elsewhere is not still På listan the next time", async () => {
+    render({ offers, listing: { planId, onList: [], add, remove } });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Lägg Gårdens Herrgård, Präst på inköpslistan" }));
+    await waitFor(() => expect(within(dialog).getAllByText("På listan")).toHaveLength(1));
+    await user.click(within(dialog).getByRole("button", { name: "Klar" }));
+    // The list was emptied on Inköpslista meanwhile; the server's answer (onList) is still empty.
+    const again = (await open()).dialog;
+    expect(within(again).queryByText("På listan")).not.toBeInTheDocument();
+    expect(within(again).getByRole("button", { name: "Lägg Gårdens Herrgård, Präst på inköpslistan" })).toBeEnabled();
+  });
+
   it("shows På listan for offers already on the list, with no + to press and no Ångra", async () => {
     render({ offers, listing: { planId, onList: [offers[0].id], add, remove } });
     const { dialog } = await open();

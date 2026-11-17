@@ -11,7 +11,7 @@ import { getSelectedStore, SettingsDataError } from "@/features/settings/server"
 import { fail, ok, type Result } from "@/lib/errors";
 import { hashApiKey } from "@/lib/api-key";
 import { createClient, createKeyClient } from "@/lib/supabase/server";
-import { listCheckRowsIn } from "./data/checks";
+import { listCheckRowsIn, listOwnCheckTimesIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
 import { listShoppingNewsIn } from "./data/news";
@@ -209,11 +209,16 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
  * What Veckans erbjudanden needs from the list (Story 9.12): the current plan
  * (`null` without one; own items need none since Story 17.10) and the keys
  * (the offers' ids) of the items added by addKeyedItems that are on the list
- * now, among `keys`. Throws ShoppingDataError or MealPlanDataError.
+ * now and not checked off, among `keys`. Throws ShoppingDataError or MealPlanDataError.
  */
 export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ planId: string | null; onList: string[] }> {
-  const [plan, items] = await Promise.all([getCurrentPlan(), createClient().then(listCustomItemsIn)]);
-  const ids = new Set(items.map((item) => item.id));
+  const [plan, items, checked] = await Promise.all([
+    getCurrentPlan(),
+    createClient().then(listCustomItemsIn),
+    createClient().then(listOwnCheckTimesIn),
+  ]);
+  // A checked-off item is bought: it no longer counts as on the list, so the offer can be added again.
+  const ids = new Set(items.filter((item) => !checked.has(customLineKey(item.id))).map((item) => item.id));
   return { planId: plan?.id ?? null, onList: keys.filter((key) => ids.has(keyedItemId(key))) };
 }
 
