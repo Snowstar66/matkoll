@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { food, line, per } from "./fixtures";
-import { isTrustworthy, namedLines, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE } from "./recipe-nutrition";
+import { isTrustworthy, namedLines, plateRole, recipeNutrition, roundedGrams, roundedKcal, TRUST_MAX_UNCOUNTED_WEIGHT, TRUST_MIN_COVERAGE, type NutritionLine } from "./recipe-nutrition";
 
 const rows = {
   pasta: food("pasta", "raffinerad", per(358, 12, 1.3, 71.5, 4), { gramsPerDl: 40 }),
@@ -329,7 +329,7 @@ describe("cooking fat, lengths and negligible ingredients", () => {
 
 describe("namedLines", () => {
   it("puts the ingredient name on each line, so a list counts a recipe as its own page does", () => {
-    const lines = [
+    const lines: NutritionLine[] = [
       { amount: 2, unit: "dl", isVague: false, ingredientId: "a" },
       { amount: null, unit: null, isVague: true, ingredientId: "b" },
       { amount: 1, unit: "st", isVague: false, ingredientId: null },
