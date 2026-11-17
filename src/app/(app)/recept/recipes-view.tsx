@@ -11,7 +11,7 @@ import { loadOffersSheetData } from "../offers-sheet-data";
 import { RecipeOffersSheet } from "./recipe-offers-sheet";
 import { getCurrentPlan } from "@/features/mealplan/server";
 import { listRecipeSites } from "@/features/settings/server";
-import { assessKostrad, recipeNutrition } from "@/features/nutrition";
+import { assessKostrad, isTrustworthy, recipeNutrition, roundedKcal } from "@/features/nutrition";
 import { getIngredientNutrition } from "@/features/nutrition/server";
 import { getStarterOffer, listLibraryWithRows, listSharedRecipesWithOwn } from "@/features/recipes/server";
 import type { RecipeListRow } from "@/features/recipes";
@@ -72,8 +72,10 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   ]);
   // The recipes' ingredient lines held against them: "Anna undviker koriander", allergies, "Älskar"; `{}` without preferences.
   const fits = recipeFits(rows, people);
-  // Not awaited: the library renders at once and Nyttigt arrives when the nutrition has been read.
-  const healthyIds = readHealthyIds(rows);
+  // Not awaited: the library renders at once and Nyttigt and "<500 kcal" arrive when the nutrition has been read (one read for both).
+  const nutrition = readNutrition(rows);
+  const healthyIds = nutrition.then((read) => read?.healthyIds);
+  const kcal = nutrition.then((read) => read?.kcal);
   // The card reads today's date in the browser.
   const dagens = <TodayCard />;
   if (recipes.length === 0) {
@@ -101,6 +103,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
       initialFilter={offers ? initialFilter : undefined}
       healthyIds={healthyIds}
+      kcal={kcal}
       shared={shared}
       fits={fits}
     />
@@ -110,15 +113,20 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
 }
 
 /**
- * Näring: the recipes that follow the kostråd, for the chip Nyttigt (shown only with "Visa näring" on, which the
- * browser decides). One read of the library's lines and one of the nutrition for all their ingredients, no read per
- * recipe. `undefined` when it cannot be read: the chip is then left out.
+ * Näring: the recipes that follow the kostråd, for the chip Nyttigt, and the rounded kcal per portion of each recipe (`null`
+ * when the calculation is not reliable), for the chip "<500 kcal" (each shown only with its Tillval on, which the browser
+ * decides). One read of the library's lines and one of the nutrition for all their ingredients, no read per recipe.
+ * `undefined` when it cannot be read: the chips are then left out.
  */
-async function readHealthyIds(rows: readonly RecipeListRow[]): Promise<string[] | undefined> {
+async function readNutrition(rows: readonly RecipeListRow[]): Promise<{ healthyIds: string[]; kcal: Record<string, number | null> } | undefined> {
   try {
     const ids = [...new Set(rows.flatMap((row) => row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : []))))];
     const byId = await getIngredientNutrition(ids);
-    return rows.filter((row) => assessKostrad(recipeNutrition(row.lines, byId, row.originalServings)).follows).map((row) => row.id);
+    const worked = rows.map((row) => ({ id: row.id, nutrition: recipeNutrition(row.lines, byId, row.originalServings) }));
+    return {
+      healthyIds: worked.filter(({ nutrition }) => assessKostrad(nutrition).follows).map(({ id }) => id),
+      kcal: Object.fromEntries(worked.map(({ id, nutrition }) => [id, isTrustworthy(nutrition.coverage) ? roundedKcal(nutrition.perServing.kcal) : null])),
+    };
   } catch (error) {
     console.error("recipe_nutrition_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return undefined;

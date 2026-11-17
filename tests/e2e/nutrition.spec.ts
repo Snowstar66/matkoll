@@ -99,6 +99,7 @@ test("Näring is off by default: no card on the recipe and no Nyttigt chip", asy
   await page.goto("/recept");
   await expect(page.getByTestId("recipe-filters")).toBeVisible();
   await expect(page.getByRole("button", { name: "Nyttigt" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "<500 kcal" })).toHaveCount(0);
 });
 
 test("with Visa näring on the recipe has the plate card and a tag; Visa kcal adds kcal; Nyttigt keeps the green dish", async ({ page }) => {
@@ -128,6 +129,8 @@ test("with Visa näring on the recipe has the plate card and a tag; Visa kcal ad
   await expect(cards.first()).toContainText(broccoli);
   await chip.click();
   await expect(cards).toHaveCount(2);
+  // Visa kcal is on: the chip <500 kcal is there too.
+  await expect(page.getByRole("button", { name: "<500 kcal" }).filter({ visible: true })).toBeVisible();
 
   // The plain pasta has neither a tag nor a plate worth showing as healthy: its card has no tag.
   await openRecipe(page, plain);
