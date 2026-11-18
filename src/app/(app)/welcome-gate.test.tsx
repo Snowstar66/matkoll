@@ -32,14 +32,15 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" } | null = null) {
+async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" } | null = null, userId: string | null = null) {
   const promise = Promise.resolve(seen);
   const name = Promise.resolve(ask);
+  const id = Promise.resolve(userId);
   await act(async () => {
     render(
       <ToastProvider>
         <Suspense fallback={null}>
-          <WelcomeGate seen={promise} name={name} />
+          <WelcomeGate seen={promise} name={name} userId={id} />
         </Suspense>
       </ToastProvider>,
     );
@@ -47,6 +48,19 @@ async function renderGate(seen: boolean, ask: { suggested: string; tone: "sky" }
 }
 
 describe("WelcomeGate", () => {
+  it("tells the device that this person has seen the tour, so the server stops asking", async () => {
+    document.cookie = "livskoll-tour=; path=/; max-age=0";
+    await renderGate(true, null, "user-1");
+    expect(document.cookie).toContain("livskoll-tour=user-1");
+    document.cookie = "livskoll-tour=; path=/; max-age=0";
+  });
+
+  it("sets no cookie while the tour is still to be seen", async () => {
+    document.cookie = "livskoll-tour=; path=/; max-age=0";
+    await renderGate(false, null, "user-1");
+    expect(document.cookie).not.toContain("livskoll-tour=user-1");
+  });
+
   it("shows nothing to someone who has seen the tour (the privacy line is on the tour's last page)", async () => {
     await renderGate(true);
     expect(screen.queryByTestId("welcome-tour")).not.toBeInTheDocument();

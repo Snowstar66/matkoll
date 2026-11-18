@@ -5,7 +5,7 @@ import { use, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import type { MemberColor } from "@/features/household";
 import { NamePrompt } from "@/features/household/ui/name-prompt";
-import { welcomeRoute } from "@/features/welcome";
+import { tourSeenCookieText, welcomeRoute } from "@/features/welcome";
 import { WelcomeTour } from "@/features/welcome/ui/welcome-tour";
 import { useWelcomeExit } from "./welcome-exit";
 
@@ -16,6 +16,7 @@ export type NameAsk = { suggested: string; tone: MemberColor } | null;
 export const welcomeParam = "valkommen";
 
 const noNameAsk: Promise<NameAsk> = Promise.resolve(null);
+const noUser: Promise<string | null> = Promise.resolve(null);
 
 /**
  * The first things someone sees, one at a time, over the page they landed on: "Vad heter du?" the
@@ -25,8 +26,18 @@ const noNameAsk: Promise<NameAsk> = Promise.resolve(null);
  * seen them never sees them flash, and the shell never waits (AD-18). The replay at /valkomst shows
  * its own tour, so none is shown there.
  */
-export function WelcomeGate({ seen, name = noNameAsk }: { seen: Promise<boolean>; name?: Promise<NameAsk> }) {
+export function WelcomeGate({ seen, name = noNameAsk, userId = noUser }: { seen: Promise<boolean>; name?: Promise<NameAsk>; userId?: Promise<string | null> }) {
   const alreadySeen = use(seen);
+  const id = use(userId);
+  // Once the server says this person has seen the tour, the device remembers it (see tour-cookie.ts).
+  useEffect(() => {
+    if (!alreadySeen || !id) return;
+    try {
+      document.cookie = tourSeenCookieText(id, window.location.protocol === "https:");
+    } catch {
+      // Cookies blocked: the database is asked as before.
+    }
+  }, [alreadySeen, id]);
   const ask = use(name);
   const [closed, setClosed] = useState(false);
   const [named, setNamed] = useState(false);
