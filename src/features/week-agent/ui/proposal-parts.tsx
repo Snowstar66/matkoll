@@ -9,6 +9,8 @@ import { OfferTags } from "@/components/offer-tag";
 import { Sheet } from "@/components/sheet";
 import type { AlternativeOption } from "../actions/contract";
 import type { ProposalDay, WeekProposal } from "../domain/types";
+import { capitalize } from "../domain/facts";
+import { useSoonReason as soonReason } from "../domain/reasons";
 import type { WeekAgentActions } from "./actions";
 import { allergyInitial, dayDate, dayLabel, dayWord } from "./format";
 
@@ -27,11 +29,16 @@ export function AllergyFlag({ warning }: { warning: string }) {
   );
 }
 
+/** What the chip says about when: "går ut snart", "bör ätas idag", "håller till ca fre", "går ut fre" (after the item's name). */
 const soonText = (tag: { expiresWeekday: number | null; estimated?: boolean; today?: boolean }): string => {
-  if (!tag.expiresWeekday) return "Går ut snart";
-  if (tag.today) return tag.estimated ? "Bör ätas idag" : "Går ut idag";
-  return tag.estimated ? `Håller till ca ${dayWord(tag.expiresWeekday).slice(0, 3)}` : `Går ut ${dayWord(tag.expiresWeekday).slice(0, 3)}`;
+  if (!tag.expiresWeekday) return "går ut snart";
+  if (tag.today) return tag.estimated ? "bör ätas idag" : "går ut idag";
+  return tag.estimated ? `håller till ca ${dayWord(tag.expiresWeekday).slice(0, 3)}` : `går ut ${dayWord(tag.expiresWeekday).slice(0, 3)}`;
 };
+
+/** The chip names the item, so it says what goes out: "Grädde håller till ca fre". */
+export const soonChipText = (tag: { name: string; expiresWeekday: number | null; estimated?: boolean; today?: boolean }): string =>
+  `${capitalize(tag.name)} ${soonText(tag)}`;
 
 export type ProposalRowProps = {
   weekStart: string;
@@ -74,9 +81,9 @@ export function ProposalRow({ weekStart, day, loading = false, disabled = false,
               ) : null}
               <OfferTags tags={day.offerTags} max={2} />
               {day.useSoonTags.slice(0, 2).map((tag) => (
-                <span key={tag.name} data-testid="use-soon-tag" className="inline-flex items-center gap-1 rounded-full bg-deal px-2.5 py-0.5 text-badge font-medium text-deal-ink">
-                  <FridgeIcon size={12} />
-                  {soonText(tag)}
+                <span key={tag.name} data-testid="use-soon-tag" title={soonReason(tag)} className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full bg-deal px-2.5 py-0.5 text-badge font-medium text-deal-ink">
+                  <FridgeIcon size={12} className="shrink-0" />
+                  <span className="truncate">{soonChipText(tag)}</span>
                 </span>
               ))}
             </div>

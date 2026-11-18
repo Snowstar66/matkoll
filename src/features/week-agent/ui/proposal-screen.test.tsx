@@ -64,7 +64,8 @@ describe("ProposalScreen: a proposal", () => {
     });
     render(screenWith({ initialDraft: draft(p) }).ui);
     expect(screen.getByTestId("offer-tag")).toHaveTextContent("Laxfilé 129 kr/kg");
-    expect(screen.getByTestId("use-soon-tag")).toHaveTextContent("Går ut fre");
+    expect(screen.getByTestId("use-soon-tag")).toHaveTextContent("Kyckling går ut fre");
+    expect(screen.getByTestId("use-soon-tag")).toHaveAttribute("title", "Kyckling går ut fredag");
   });
 
   it("shows the household's own dish as Din rätt, locked, with no Byt, and an allergy in red with the person", () => {
