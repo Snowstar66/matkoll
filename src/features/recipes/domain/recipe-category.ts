@@ -2,6 +2,8 @@
 // recipe already holds: no AI call, no column. One main protein, any number of
 // dish types, and Snabbt from the time. Pure, so it is tested without a database.
 
+import { isQuickDish } from "@/lib/quick-dish";
+
 export const RECIPE_CATEGORIES = ["meat", "poultry", "fish", "vegetarian", "pasta", "soup", "salad", "stew", "quick"] as const;
 export type RecipeCategory = (typeof RECIPE_CATEGORIES)[number];
 
@@ -37,7 +39,7 @@ export function parseRecipeCategory(value: unknown): RecipeCategory | null {
 }
 
 /** The most minutes a recipe may take to be Snabbt. */
-export const quickMaxMinutes = 30;
+export { quickMaxMinutes } from "@/lib/quick-dish";
 
 type Protein = "meat" | "poultry" | "fish";
 
@@ -125,6 +127,6 @@ export function recipeCategories(recipe: CategorizableRecipe): RecipeCategory[] 
     categories.push("salad");
   }
   if (title.some((word) => stewWords.test(word))) categories.push("stew");
-  if (recipe.totalMinutes && recipe.totalMinutes <= quickMaxMinutes) categories.push("quick");
+  if (isQuickDish(recipe.totalMinutes)) categories.push("quick");
   return categories;
 }

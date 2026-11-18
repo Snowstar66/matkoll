@@ -410,3 +410,123 @@ describe("WeekPlanner, Hushållets preferenser", () => {
     expect(screen.queryByTestId("week-allergy-line")).toBeNull();
   });
 });
+
+
+describe("the preview of a dish, Snabbt and how often (Lägg till nya rätter)", () => {
+  const history = (weeksAgo: number | null) => ({ lastWeekStart: weeksAgo === null ? null : "2026-09-07", weeksOn: 2, usualWeekday: 4, plannedEver: weeksAgo !== null, historyWeeks: 20 });
+  const withFit = option(5, "Gryta", {
+    totalMinutes: 55,
+    fit: [
+      { kind: "allergy", text: "Kan innehålla laktos (Anna)", people: [{ id: "a", name: "Anna" }], terms: ["laktos"] },
+      { kind: "dislike", text: "Anna undviker koriander", people: [{ id: "a", name: "Anna" }], terms: ["koriander"] },
+    ],
+    stats: history(10),
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem("livskoll-plan-quick");
+    window.localStorage.removeItem("livskoll-option-showHowOften");
+    window.localStorage.removeItem("livskoll-option-oftenAfterWeeks");
+  });
+
+  async function openAddList() {
+    renderPlanner([], [tacos, korv, lax, soppa, withFit]);
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Alla recept" }));
+  }
+
+  it("opens on a tap on the card with what the row cannot carry, and the + still adds without opening it", async () => {
+    const user = userEvent.setup();
+    renderPlanner([], options);
+    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await user.click(screen.getByRole("button", { name: "Visa mer om Korvstroganoff" }));
+    const dialog = await screen.findByRole("dialog", { name: "Korvstroganoff" });
+    expect(within(dialog).getByTestId("dish-preview-buy")).toHaveTextContent("Saknas hemma: tomat, lök");
+    expect(within(dialog).getByTestId("dish-preview-offers")).toHaveTextContent("Falukorv och grädde på erbjudande · −21 kr");
+    expect(within(dialog).getByTestId("dish-preview-offers")).toHaveTextContent("Falukorv 2 för 50 kr");
+    expect(within(dialog).getByTestId("dish-preview-offers")).toHaveTextContent("Grädde 19 kr/st");
+    expect(within(dialog).getByRole("link", { name: "Öppna receptet" })).toHaveAttribute("href", `/recept/${uuid(2)}`);
+    expect(addToCurrentPlan).not.toHaveBeenCalled();
+  });
+
+  it("adds the dish from the sheet, on the free day that was tapped", async () => {
+    const user = userEvent.setup();
+    renderPlanner([], options, 0, 1);
+    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await user.click(screen.getByRole("button", { name: "Visa mer om Tacos" }));
+    await user.click(await screen.findByTestId("dish-preview-add"));
+    await waitFor(() => expect(addToCurrentPlan).toHaveBeenCalledWith(expect.objectContaining({ recipeId: uuid(1) })));
+  });
+
+  it("shows the household's allergy in red on top of the sheet and the other notes under Hushållet", async () => {
+    const user = userEvent.setup();
+    await openAddList();
+    await user.click(screen.getByRole("button", { name: "Visa mer om Gryta" }));
+    const dialog = await screen.findByRole("dialog", { name: "Gryta" });
+    expect(within(dialog).getByTestId("dish-preview-allergy")).toHaveTextContent("Kan innehålla laktos (Anna)");
+    expect(within(dialog).getByTestId("dish-preview-fit")).toHaveTextContent("Anna undviker koriander");
+  });
+
+  it("has På menyn only with Visa hur ofta on", async () => {
+    const user = userEvent.setup();
+    await openAddList();
+    await user.click(screen.getByRole("button", { name: "Visa mer om Gryta" }));
+    expect(screen.queryByTestId("dish-preview-menu")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Klar" }));
+    window.localStorage.setItem("livskoll-option-showHowOften", "1");
+    window.dispatchEvent(new Event("livskoll-option-changed"));
+    await user.click(await screen.findByRole("button", { name: "Visa mer om Gryta" }));
+    const menu = await screen.findByTestId("dish-preview-menu");
+    expect(menu).toHaveTextContent("På menyn 2 av de senaste 12 veckorna");
+    expect(menu).toHaveTextContent("Oftast torsdagar");
+  });
+
+  it("puts the quiet chip on a dish that has not been on the menu for the chosen number of weeks, and nothing without the Tillval", async () => {
+    const stale = option(6, "Pytt", { stats: history(10) });
+    const fresh = option(7, "Pasta", { stats: { ...history(2), lastWeekStart: "2026-11-02" } });
+    const never = option(8, "Nytt recept", { stats: history(null) });
+    const { rerender } = render(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-11-02" dishes={[]} options={[stale, fresh, never]} toBuy={0} />
+      </ToastProvider>,
+    );
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Alla recept" }));
+    expect(screen.queryByTestId("menu-chip")).not.toBeInTheDocument();
+    window.localStorage.setItem("livskoll-option-showHowOften", "1");
+    window.dispatchEvent(new Event("livskoll-option-changed"));
+    rerender(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-11-02" dishes={[]} options={[stale, fresh, never]} toBuy={0} />
+      </ToastProvider>,
+    );
+    const chips = await screen.findAllByTestId("menu-chip");
+    expect(chips.map((chip) => chip.textContent)).toContain("Aldrig planerad");
+    expect(chips.some((chip) => /^Inte på menyn \d+ veckor$/.test(chip.textContent ?? ""))).toBe(true);
+  });
+
+  it("filters on Snabbt (at most 30 minutes, no time is not quick), keeps it on, and says so when nothing is quick", async () => {
+    const user = userEvent.setup();
+    const slow = option(9, "Gryta", { totalMinutes: 90 });
+    const noTime = option(10, "Okänd", { totalMinutes: null });
+    const quickOne = option(11, "Omelett", { totalMinutes: 15 });
+    renderPlanner([], [slow, noTime, quickOne]);
+    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    expect(rowTitles()).toHaveLength(3);
+    const chip = screen.getByTestId("plan-quick");
+    await user.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(rowTitles()).toEqual(["Omelett"]);
+    // Kept when the tab is changed.
+    await user.click(screen.getByRole("radio", { name: "Favoriter" }));
+    expect(screen.getByTestId("plan-quick")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says there are no quick dishes, with a way to show all", async () => {
+    const user = userEvent.setup();
+    renderPlanner([], [option(12, "Gryta", { totalMinutes: 90 })]);
+    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await user.click(screen.getByTestId("plan-quick"));
+    expect(screen.getByTestId("options-empty")).toHaveTextContent("Inga snabba rätter här.");
+    await user.click(screen.getByRole("button", { name: "Visa alla" }));
+    expect(rowTitles()).toEqual(["Gryta"]);
+  });
+});

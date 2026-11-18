@@ -1,4 +1,5 @@
 import { fitRank, foodFit, type FitNote } from "@/features/menu-advisor";
+import { quickMaxMinutes } from "@/lib/quick-dish";
 import { allergenTerms, ingredientWords, isVegetarian, kindOf, sharedWord } from "./facts";
 import type { ExcludedDish, RecipeCandidate, ShortlistContext } from "./types";
 
@@ -8,8 +9,8 @@ import type { ExcludedDish, RecipeCandidate, ShortlistContext } from "./types";
 // ranks. Pure and deterministic: the same input gives the same list.
 
 export const maxShortlist = 30;
-/** A dish with at most this many minutes counts as quick. */
-export const quickMinutes = 35;
+/** A dish with at most this many minutes counts as quick: the same 30 as Snabbt in Recept and Matsedel (src/lib/quick-dish.ts). */
+export const quickMinutes = quickMaxMinutes;
 const maxPerKind = 8;
 
 export type ShortlistResult = { candidates: RecipeCandidate[]; excludedForAllergy: ExcludedDish[] };

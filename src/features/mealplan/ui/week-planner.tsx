@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Chip } from "@/components/chip";
+import { Chip, ChipSeparator } from "@/components/chip";
 import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
 import { FitRow } from "@/components/fit-row";
 import type { PreferenceNote } from "@/components/preference-notes";
 import { useToast } from "@/components/toast";
-import { useOption } from "@/lib/use-option";
+import { useChoice, useOption } from "@/lib/use-option";
+import { isQuickDish } from "@/lib/quick-dish";
 import { openAddDishesEvent } from "./add-dishes-button";
 import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -31,7 +32,10 @@ import {
 } from "../domain/meal-plan";
 import { NutritionWeekLineAsync, type RecipeNutrition } from "@/features/nutrition";
 import { addedToWeekText, allergyWeekText, calendarRows, changeDayLabel, dayChipText, dishFromRow, dishNoteText, notOnWeek, shownDishes, targetDayText, weekBarText } from "../domain/planner";
-import { chipDateText } from "../domain/week";
+import { chipDateText, currentWeekStart } from "../domain/week";
+import { menuChip } from "../domain/menu-stats";
+import { DishPreviewSheet } from "./dish-preview-sheet";
+import { usePlanQuick } from "./plan-quick-store";
 import { MoveToDaySheet } from "./move-to-day-sheet";
 import { PlanRow } from "./plan-row";
 
@@ -99,6 +103,12 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
   const router = useRouter();
   const { showToast } = useToast();
   const starterOn = useOption("starterRecipes");
+  // Tillval "Visa hur ofta" and how many weeks count as long ago (Inställningar → Tillval).
+  const howOften = useOption("showHowOften");
+  const longAgoWeeks = Number(useChoice("oftenAfterWeeks")) || 4;
+  const [quick, setQuick] = usePlanQuick();
+  /** The dish whose preview is open. */
+  const [preview, setPreview] = useState<PlanOption | null>(null);
   // A household with no recipes at all (UX-07): the empty week points at Recept instead of an empty panel.
   const noRecipes = options !== null && options.length === 0;
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
@@ -140,7 +150,10 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
   const shown = shownDishes(dishes, hidden, added, days);
   const byId = new Map((options ?? []).map((option) => [option.id, option]));
   const tabRows = optionsForTab(options ?? [], tab);
-  const rows = notOnWeek(tabRows, shown);
+  const notPlanned = notOnWeek(tabRows, shown);
+  // The chip Snabbt: only dishes of at most 30 minutes (no time is not quick); combines with the tab.
+  const rows = quick ? notPlanned.filter((option) => isQuickDish(option.totalMinutes)) : notPlanned;
+  const thisWeekStart = currentWeekStart();
 
   function failed(error: { code: string; message: string }) {
     if (error.code === "unauthorized") router.refresh();
@@ -453,12 +466,19 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
             </p>
           ) : (
             <>
-              <div role="radiogroup" aria-label="Rätter att lägga till" className="-mx-3 flex gap-2 overflow-x-auto px-3">
-                {tabs.map(({ value, label }) => (
-                  <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
-                    {label}
-                  </Chip>
-                ))}
+              <div className="-mx-3 flex gap-2 overflow-x-auto px-3">
+                {/* Snabbt first, so it is in sight: a filter that combines with the tab (kept on when the tab is changed). */}
+                <Chip aria-pressed={quick} selected={quick} onClick={() => setQuick(!quick)} data-testid="plan-quick">
+                  Snabbt
+                </Chip>
+                <ChipSeparator />
+                <div role="radiogroup" aria-label="Rätter att lägga till" className="flex gap-2">
+                  {tabs.map(({ value, label }) => (
+                    <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
+                      {label}
+                    </Chip>
+                  ))}
+                </div>
               </div>
               {tab === "offers" ? (
                 <p data-testid="offers-hint" className="text-meta text-deal-ink">
@@ -467,7 +487,14 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
               ) : null}
               {rows.length === 0 ? (
                 <p data-testid="options-empty" className="text-body text-ink-2">
-                  {tabRows.length > 0 ? (
+                  {quick && notPlanned.length > 0 ? (
+                    <>
+                      Inga snabba rätter här.{" "}
+                      <button type="button" onClick={() => setQuick(false)} className="font-semibold text-accent underline">
+                        Visa alla
+                      </button>
+                    </>
+                  ) : tabRows.length > 0 ? (
                     plannedText[tab]
                   ) : noRecipes && tab === "all" ? (
                     <>
@@ -491,6 +518,9 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
                       dish={option.dish}
                       meta={option.meta}
                       tags={option.deal?.tags}
+                      fit={option.fit}
+                      chip={howOften && option.stats ? menuChip(option.stats, { longAgoWeeks, isNew: option.isNew, thisWeek: thisWeekStart }) : null}
+                      onOpen={() => setPreview(option)}
                       onAdd={() => void add(option)}
                       disabled={adding.has(option.id)}
                     />
@@ -503,6 +533,18 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
           )}
         </div>
       </section>
+
+      <DishPreviewSheet
+        option={preview}
+        onClose={() => setPreview(null)}
+        addLabel={targetDay ? `Lägg på ${weekdayWord(targetDay)}` : "Lägg på veckan"}
+        adding={preview ? adding.has(preview.id) : false}
+        onAdd={(option) => {
+          setPreview(null);
+          void add(option);
+        }}
+        showHowOften={howOften}
+      />
 
       <MoveToDaySheet
         open={dayDish !== null}
