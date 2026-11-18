@@ -57,23 +57,30 @@ export function RecipesView({ autoImport, initialFilter }: { autoImport?: AutoIm
 }
 
 async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?: Promise<"offers" | undefined> }) {
-  await requireUserOrRedirect("/recept");
+  // The sign-in check runs alongside the reads, not before them (row security guards the data either way); awaited before anything is shown.
+  const signedIn = requireUserOrRedirect("/recept");
+  signedIn.catch(() => undefined);
   const initialFilter = await filterPromise;
   // Not awaited: Delade streams in, so the own library never waits for it (the device's option is not known here).
   const shared = readShared();
   // Not awaited either: Startrecept is a Tillval chosen in the browser, so only its offer waits for it.
   const starter = readStarterOffer();
-  const [{ library: { recipes, pantryUnavailable, site }, rows }, plan, people] = await Promise.all([
+  // Not awaited: the filter Erbjudanden arrives when the offers are read; started with the library, not after it.
+  const offers = readLibraryOffers();
+  const reads = Promise.all([
     listLibraryWithRows(),
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
     // Hushållets preferenser, one read for the whole page (never throws; empty when nothing is filled in).
     getFoodFitPeople(),
   ]);
+  reads.catch(() => undefined);
+  // Signed out: sent away here, whatever the reads said.
+  await signedIn;
+  const [{ library: { recipes, pantryUnavailable, site }, rows }, plan, people] = await reads;
   // The recipes' ingredient lines held against them: "Anna undviker koriander", allergies, "Älskar"; `{}` without preferences.
   const fits = recipeFits(rows, people);
   // Not awaited: the library renders at once and Nyttigt and "<500 kcal" arrive when the nutrition has been read (one read for both).
-  const offers = readLibraryOffers();
   const nutrition = readNutrition(rows);
   const healthyIds = nutrition.then((read) => read?.healthyIds);
   const kcal = nutrition.then((read) => read?.kcal);

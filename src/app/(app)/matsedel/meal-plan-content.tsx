@@ -141,7 +141,10 @@ async function OfferIdeasLater({ ideas, weekStart }: { ideas: Promise<OfferIdeas
  * the error boundary.
  */
 export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
-  await requireUserOrRedirect("/matsedel");
+  // The sign-in check runs alongside the reads below, not before them (the data is behind row security either way);
+  // it is awaited before anything is shown, and sends a signed-out visitor away.
+  const signedIn = requireUserOrRedirect("/matsedel");
+  signedIn.catch(() => undefined);
   const params = await searchParams;
   const vecka = params?.vecka;
   const now = new Date();
@@ -167,8 +170,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   let counts: Record<string, number>;
   let people: Awaited<ReturnType<typeof getFoodFitPeople>>;
   let draft: Awaited<ReturnType<typeof getWeekDraft>>;
-  try {
-    [view, counts, sites, people, draft] = await Promise.all([
+  const reads = Promise.all([
       getMealPlanView(weekStart),
       countsOrEmpty(overview),
       sitesOrNull(),
@@ -176,7 +178,12 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       getFoodFitPeople(),
       // The waiting proposal is read with the rest, not after them (one round trip less); it is only used when the week has free days.
       getWeekDraft(weekStart),
-    ]);
+  ]);
+  reads.catch(() => undefined);
+  // Signed out: sent away here, whatever the reads said.
+  await signedIn;
+  try {
+    [view, counts, sites, people, draft] = await reads;
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
     console.error("mealplan_unavailable", { reason: error.detail });
