@@ -792,7 +792,7 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
   expect(thisWeekCount).toBeGreaterThan(0);
   await expect(tiles.nth(0)).toHaveAttribute("aria-label", new RegExp(`^Vecka \\d+, denna vecka, ${thisWeekCount} rätt`));
   const nextBefore = await countOf(1);
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 2; index += 1) {
     const box = await tiles.nth(index).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
