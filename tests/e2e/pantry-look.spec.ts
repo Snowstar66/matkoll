@@ -278,7 +278,7 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   expect(await field.evaluate((input) => Number.parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16);
   await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toBeVisible();
   await field.fill("mjö");
-  expect(await shownCategories(page)).toEqual([["Mejeri & ägg", "1", ["Mellanmjölk | Arla laktosfri"]]]);
+  expect(await shownCategories(page)).toEqual([["Mejeri & ägg", "", ["Mellanmjölk | Arla laktosfri"]]]);
   // The card counts the whole fridge, not the matches, and Töm kylen hides while only matches show.
   await expect(places(page).getByRole("link", { name: /^Kyl/ })).toContainText("6 varor");
   await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toHaveCount(0);
@@ -292,7 +292,7 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   await expect(rows(page)).toHaveCount(1);
 
   await field.fill("johnny");
-  expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "1", ["Senap | Johnny's"]]]);
+  expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "", ["Senap | Johnny's"]]]);
 
   await field.fill("xyz");
   await expect(page.locator("p").filter({ hasText: "Inget matchar ”" })).toBeVisible();
