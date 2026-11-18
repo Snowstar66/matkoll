@@ -236,7 +236,7 @@ test("a saved idea does not show again on Matsedel", async ({ page }) => {
   await expect(page.getByRole("dialog", { name: "Spara AI-förslag" })).toBeHidden();
   await page.goto("/matsedel");
   await openLibrary(page);
-  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await page.getByRole("button", { name: "På erbjudande", pressed: false }).click();
   await expect(page.getByTestId("ai-option")).toHaveCount(2);
   await expect(page.getByTestId("ai-option").filter({ hasText: dishName })).toHaveCount(0);
 });
@@ -252,7 +252,7 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   // An empty week says "Inga rätter än" instead of a count.
   await expect(bar(page)).toHaveCount(0);
   await openLibrary(page);
-  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await page.getByRole("button", { name: "På erbjudande", pressed: false }).click();
   await expect(page.getByTestId("offers-hint")).toBeVisible();
   const row = page.getByTestId("plan-option").filter({ hasText: "Falukorv med potatismos" });
   await expect(row.getByTestId("offer-tag").first()).toContainText("Falukorv");
@@ -304,7 +304,7 @@ test("Matsedel: the new ideas are ready under På erbjudande and are reviewed an
 
   await page.goto("/matsedel");
   await openLibrary(page);
-  await page.getByRole("radio", { name: "På erbjudande" }).click();
+  await page.getByRole("button", { name: "På erbjudande", pressed: false }).click();
   await expect(page.getByRole("button", { name: /Nya idéer med erbjudanden/ })).toHaveCount(0);
   const ideas = page.getByTestId("ai-option");
   await expect(ideas).toHaveCount(3, jobTime);

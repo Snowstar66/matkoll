@@ -131,7 +131,9 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
   // The tab chosen on this page; until then Favoriter when there are any (known only when the library is read).
   const [tabChoice, setTab] = useState<PlanTab | null>(null);
-  const tab: PlanTab = tabChoice ?? (hasFavorites ? "favorites" : "all");
+  const chosenTab: PlanTab = tabChoice ?? (hasFavorites ? "favorites" : "all");
+  // One chip at a time: Snabbt (every recipe of at most 30 minutes) or a tab; none chosen shows every recipe ("all").
+  const tab: PlanTab = quick ? "all" : chosenTab;
   /** Dishes just removed, until the plan is read again; "Ångra" takes them off. */
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   /** Dishes just added, until the plan is read again. */
@@ -499,19 +501,38 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
             </p>
           ) : (
             <>
-              {/* The tabs choose one; they wrap instead of scrolling sideways. */}
-              <div role="radiogroup" aria-label="Rätter att lägga till" className="flex flex-wrap gap-2">
-                {tabs.map(({ value, label }) => (
-                  <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
-                    {label}
-                  </Chip>
-                ))}
-              </div>
-              {/* Snabbt is not a tab: it narrows whichever tab is chosen, so it stands on its own line (kept on when the tab is changed). */}
-              <div>
-                <Chip aria-pressed={quick} selected={quick} onClick={() => setQuick(!quick)} data-testid="plan-quick">
+              {/* One chip at a time, each switched off by a second tap; none on shows every recipe. */}
+              <div role="group" aria-label="Rätter att lägga till" className="flex flex-wrap gap-2">
+                <Chip
+                  aria-pressed={quick}
+                  selected={quick}
+                  onClick={() => {
+                    // Taking it off shows every recipe, not the tab that was on before it.
+                    setTab("all");
+                    setQuick(!quick);
+                  }}
+                  data-testid="plan-quick"
+                >
                   Snabbt
                 </Chip>
+                {tabs
+                  .filter(({ value }) => value !== "all")
+                  .map(({ value, label }) => {
+                    const on = !quick && chosenTab === value;
+                    return (
+                      <Chip
+                        key={value}
+                        aria-pressed={on}
+                        selected={on}
+                        onClick={() => {
+                          setQuick(false);
+                          setTab(on ? "all" : value);
+                        }}
+                      >
+                        {label}
+                      </Chip>
+                    );
+                  })}
               </div>
               {tab === "offers" ? (
                 <p data-testid="offers-hint" className="text-meta text-deal-ink">
@@ -542,7 +563,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
                   )}
                 </p>
               ) : (
-                <ul aria-label={tabs.find((candidate) => candidate.value === tab)?.label} className="flex flex-col gap-2">
+                <ul aria-label={quick ? "Snabba rätter" : tabs.find((candidate) => candidate.value === tab)?.label} className="flex flex-col gap-2">
                   {rows.map((option) => (
                     <PlanRow
                       key={option.id}

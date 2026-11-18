@@ -105,9 +105,19 @@ const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const bar = (page: Page) => page.getByTestId("week-bar-count").filter({ visible: true });
 const chip = (row: Locator) => row.getByTestId("dish-day");
+// "Alla recept" is no chip: it is every chip switched off, so the one that is on is tapped again.
 const addTab = async (page: Page, name: "Favoriter" | "På erbjudande" | "Alla recept") => {
   await openLibrary(page);
-  await page.getByRole("radio", { name }).filter({ visible: true }).click();
+  if (name !== "Alla recept") {
+    // A chip that is on already is left on (a second tap would switch it off).
+    const off = page.getByRole("button", { name, pressed: false }).filter({ visible: true });
+    if (await off.count()) await off.click();
+    return;
+  }
+  for (const chipName of ["Snabbt", "Favoriter", "På erbjudande"]) {
+    const chip = page.getByRole("button", { name: chipName, pressed: true }).filter({ visible: true });
+    if (await chip.count()) await chip.click();
+  }
 };
 const plus = (page: Page, title: string) =>
   page.getByRole("button", { name: `Lägg ${title} på veckan` }).filter({ visible: true });
@@ -145,10 +155,10 @@ test("an empty week says so, with the library to choose from under it", async ({
   // The library is folded until opened.
   const toggle = page.getByRole("button", { name: "Lägg till nya rätter" });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("radio", { name: "Favoriter" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Favoriter" })).toBeHidden();
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("radio", { name: "Favoriter" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Favoriter" })).toBeVisible();
   // The choice is kept for the next visit.
   await page.reload();
   await expect(page.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
@@ -198,7 +208,7 @@ test("a favourite is on the first free day after one tap on +, with its own serv
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   await openLibrary(page);
-  await expect(page.getByRole("radio", { name: "Favoriter" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Favoriter" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("plan-option")).toHaveCount(1);
   await plus(page, gryta).click();
   await expect(dishes(page)).toHaveCount(1);
