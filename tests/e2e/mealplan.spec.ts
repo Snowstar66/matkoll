@@ -419,6 +419,19 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
   await expect(page.getByTestId("recipe-planned")).toHaveText(`På matsedeln v. ${nextNumber - 1}`);
   // It is on this week now, so no longer on a coming week.
   await expect.poll(async () => (await comingRows()).length).toBe(0);
+  // The dish is on this week now, which clearNextWeek leaves alone: take it off so the next tests count what they expect.
+  const moved = await admin
+    .from("meal_plan_recipe")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("recipe_title", gryta)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (moved.error) throw moved.error;
+  for (const row of moved.data) {
+    const left = await admin.from("meal_plan_recipe").delete().eq("id", row.id);
+    if (left.error) throw left.error;
+  }
 
   await clearNextWeek();
   expect(errors).toEqual([]);
@@ -754,7 +767,7 @@ test("an empty week in Inköpslista says so and offers to plan it; the segment c
   await page.goto(`/lista?vecka=${param}`);
   await expect(page.getByText("Inga rätter på matsedeln om 5 veckor.").filter({ visible: true })).toBeVisible();
   const weekSelect = page.getByTestId("week-select");
-  await expect(weekSelect.locator("option")).toHaveCount(4);
+  await expect(weekSelect.locator("option")).toHaveCount(3);
   await expect(weekSelect.locator("option:checked")).toHaveText("Om 5 veckor");
   await page.getByRole("link", { name: "Planera veckan" }).filter({ visible: true }).click();
   await expect(page).toHaveURL(new RegExp(`/matsedel\\?vecka=${param}$`));
