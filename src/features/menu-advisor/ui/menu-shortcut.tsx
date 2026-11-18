@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRightIcon, RestaurantIcon } from "@/components/icons";
 import { useOption } from "@/lib/use-option";
 
 /**
- * The one way in under Matsedel: a low row "Äter ni ute?" directly under the week row (UX-02, variant A), so it
- * does not depend on how many dishes the week has; shown only when the Tillval Menyrådgivare is on.
+ * The one way in under Matsedel: the quiet chip "Äter ni ute?" on the row under the week choice (beside Veckoagentens
+ * chip), so it does not depend on how many dishes the week has; shown only when the Tillval Menyrådgivare is on.
+ * No icon: the row has to fit 375 px with the agent's chip and an open draft's ⋯.
  */
 export function MenuShortcut() {
   const on = useOption("menuAdvisor");
@@ -15,13 +15,9 @@ export function MenuShortcut() {
     <Link
       href="/matsedel/menyer"
       data-testid="menu-advisor-shortcut"
-      className="flex min-h-[3.25rem] items-center gap-3 rounded-lg bg-surface px-4 py-2 text-ink"
+      className="relative inline-flex min-h-[34px] max-w-full min-w-0 items-center rounded-pill border border-border bg-surface px-3 py-1 text-control font-medium text-ink-2 outline-none before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent">
-        <RestaurantIcon size={22} />
-      </span>
-      <span className="min-w-0 flex-1 text-row-title">Äter ni ute?</span>
-      <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
+      Äter ni ute?
     </Link>
   );
 }

@@ -209,8 +209,11 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       ) : null}
       <div className="flex flex-col gap-4">
         <WeekNav weekStart={weekStart} counts={counts} now={now} />
-        <MenuShortcut />
-        <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} draft={waitingDraft} draftHref={agentAddress} newHref={`${agentAddress}&starta=1&nytt=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
+        {/* One quiet row of chips (each hides itself with its Tillval off; with both off the row is empty and gone). */}
+        <div data-testid="matsedel-chips" className="flex flex-wrap items-center gap-2 empty:hidden">
+          <MenuShortcut />
+          <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} draft={waitingDraft} draftHref={agentAddress} newHref={`${agentAddress}&starta=1&nytt=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
+        </div>
         <WeekPlanner
           key={weekStart}
           weekStart={weekStart}

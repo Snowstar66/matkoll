@@ -97,7 +97,7 @@ test("without the Tillval nothing of the agent shows in Matsedel", async ({ page
   await clearNextWeek();
   await page.goto(nextWeekAddress);
   await expect(page.getByRole("heading", { name: "Matsedel" })).toBeVisible();
-  await expect(page.getByTestId("week-agent-card")).toHaveCount(0);
+  await expect(page.getByTestId("week-agent-card-link")).toHaveCount(0);
   await expect(page.getByTestId("week-agent-menu")).toHaveCount(0);
 });
 
@@ -105,10 +105,13 @@ test("an empty week: Föreslå veckan, a proposal with a reason per day, Använd
   await clearNextWeek();
   await agentOn(page);
   await page.goto(nextWeekAddress);
-  const card = page.getByTestId("week-agent-card");
+  const card = page.getByTestId("week-agent-card-link");
   await expect(card).toContainText("Föreslå veckan");
   await expect(card).toHaveAttribute("data-state", "empty");
-  await page.getByTestId("week-agent-card-link").click();
+  // The chip opens Veckans inriktning first; Hoppa över starts the proposal with what is saved.
+  await card.click();
+  await expect(page.getByRole("dialog", { name: "Veckans inriktning" })).toBeVisible();
+  await page.getByTestId("week-agent-settings-skip").click();
   await expect(page).toHaveURL(/veckoforslag/);
   const rows = await waitForProposal(page);
   await expect(page.getByTestId("proposal-summary")).toContainText("Inget är sparat förrän du trycker Använd veckan.");
@@ -134,10 +137,12 @@ test("a partly filled week: the household's Thursday stays, the rest is filled",
   await fixThursday("Fiskgratäng");
   await agentOn(page);
   await page.goto(nextWeekAddress);
-  const card = page.getByTestId("week-agent-card");
-  await expect(card).toContainText("Fyll resten av veckan");
-  await expect(card).toContainText("6 lediga dagar. Din rätt (torsdag) ligger kvar som den är.");
-  await page.getByTestId("week-agent-card-link").click();
+  const card = page.getByTestId("week-agent-card-link");
+  await expect(card).toContainText("Fyll resten");
+  await card.click();
+  const sheet = page.getByRole("dialog", { name: "Veckans inriktning" });
+  await expect(sheet).toContainText("6 lediga dagar. Din rätt (torsdag) ligger kvar som den är.");
+  await page.getByTestId("week-agent-settings-start").click();
   const rows = await waitForProposal(page);
   const thursday = page.locator('[data-testid="proposal-day"][data-day="4"]');
   await expect(rows.first()).toBeVisible();
@@ -172,7 +177,7 @@ test("a full week has the ⋯ menu with Gör om (only the days the agent filled)
   if (inserted.error) throw inserted.error;
   await agentOn(page);
   await page.goto(nextWeekAddress);
-  await expect(page.getByTestId("week-agent-card")).toHaveCount(0);
+  await expect(page.getByTestId("week-agent-card-link")).toHaveCount(0);
   await page.getByTestId("week-agent-menu").click();
   const redo = page.getByRole("menuitem", { name: /Gör om de olåsta/ });
   await expect(redo).toContainText("Byter 4 rätter. Dina 3 ligger kvar.");

@@ -8,9 +8,10 @@ import type { CostTexts, SettingsActions } from "./actions";
 import { redoMenuTexts } from "./format";
 import { SettingsSheet } from "./settings-sheet";
 
-// The new ⋯ in Matsedel's header (VK-N1), only for a full week and only with the Tillval Veckoagenten on: "Gör om
-// de olåsta" (or "Gör om veckan" when none of the dishes are the household's own) and "Ställ in". A full week has no
-// card to disturb it, so this is its one way in. Which days the agent put there is read when the menu opens.
+// The ⋯ in Matsedel's header (VK-N1), only with the Tillval Veckoagenten on. On a full week: "Gör om de olåsta" (or
+// "Gör om veckan" when none of the dishes are the household's own) and "Ställ in". On any other week (the row under the
+// week choice has "Föreslå veckan" there): "Ställ in" alone, the way to change the choices without making a proposal.
+// Which days the agent put there is read when the menu opens, for a full week.
 
 export type WeekAgentMenuProps = {
   /** The proposal screen for the week, asking for a redo: only the days the agent put there are proposed again. */
@@ -30,8 +31,10 @@ export function WeekAgentMenu({ redoHref, filledDays, emptyDays, loadAgentDays, 
   const [agentDays, setAgentDays] = useState<number[] | null | undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
-  const first = useRef<HTMLAnchorElement>(null);
+  const first = useRef<HTMLElement>(null);
   const menuId = useId();
+  /** A full week is the one the agent can redo; any other week only has the settings. */
+  const full = emptyDays.length === 0 && filledDays.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +48,7 @@ export function WeekAgentMenu({ redoHref, filledDays, emptyDays, loadAgentDays, 
 
   // Read each time the menu opens: another phone may have changed the week.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !full) return;
     let live = true;
     loadAgentDays().then(
       (days) => live && setAgentDays(days),
@@ -54,9 +57,9 @@ export function WeekAgentMenu({ redoHref, filledDays, emptyDays, loadAgentDays, 
     return () => {
       live = false;
     };
-  }, [open, loadAgentDays]);
+  }, [open, full, loadAgentDays]);
 
-  if (!on || emptyDays.length > 0 || filledDays.length === 0) return null;
+  if (!on || (emptyDays.length === 0 && filledDays.length === 0)) return null;
 
   function close() {
     setOpen(false);
@@ -91,14 +94,17 @@ export function WeekAgentMenu({ redoHref, filledDays, emptyDays, loadAgentDays, 
       </button>
       {open ? (
         <div id={menuId} role="menu" aria-label="Fler val för veckan" onKeyDown={onKeyDown} className="absolute top-full right-0 z-30 flex w-72 max-w-[calc(100vw-2rem)] flex-col rounded-lg bg-surface py-1 shadow-float">
-          <Link ref={first} href={redoHref} role="menuitem" data-testid="week-agent-redo" className="flex min-h-tap items-start gap-3 px-3.5 py-3 text-accent">
-            <SparkleIcon size={22} className="mt-0.5 shrink-0" />
-            <span className="flex flex-col text-ink">
-              <span className="text-row-title">{redo.title}</span>
-              <span className="text-meta text-ink-2">{redo.hint}</span>
-            </span>
-          </Link>
+          {full ? (
+            <Link ref={first as React.RefObject<HTMLAnchorElement>} href={redoHref} role="menuitem" data-testid="week-agent-redo" className="flex min-h-tap items-start gap-3 px-3.5 py-3 text-accent">
+              <SparkleIcon size={22} className="mt-0.5 shrink-0" />
+              <span className="flex flex-col text-ink">
+                <span className="text-row-title">{redo.title}</span>
+                <span className="text-meta text-ink-2">{redo.hint}</span>
+              </span>
+            </Link>
+          ) : null}
           <button
+            ref={full ? undefined : (first as React.RefObject<HTMLButtonElement>)}
             type="button"
             role="menuitem"
             data-testid="week-agent-menu-settings"
@@ -106,7 +112,7 @@ export function WeekAgentMenu({ redoHref, filledDays, emptyDays, loadAgentDays, 
               close();
               setSettingsOpen(true);
             }}
-            className="flex min-h-tap items-start gap-3 border-t border-hairline px-3.5 py-3 text-left text-accent"
+            className={`flex min-h-tap items-start gap-3 px-3.5 py-3 text-left text-accent ${full ? "border-t border-hairline" : ""}`}
           >
             <SlidersIcon size={22} className="mt-0.5 shrink-0" />
             <span className="flex flex-col text-ink">

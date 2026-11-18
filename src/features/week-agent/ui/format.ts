@@ -38,6 +38,13 @@ export function cardState(filledDays: readonly number[], emptyDays: readonly num
 export const cardTexts = {
   emptyTitle: "Föreslå veckan",
   partialTitle: "Fyll resten av veckan",
+  /** The chip on the Matsedel row: what a tap starts. */
+  startChip: "Föreslå veckan",
+  startChipPartial: "Fyll resten",
+  /** The first line of the sheet "Veckans inriktning" (the card's old body text, shortened). */
+  startIntro: "Förslag på middagar efter vad du har hemma och vad som är på erbjudande.",
+  openDraftChip: "Öppna utkast",
+  moreForDraft: "Fler val för förslaget",
   emptyBody: (week: number) => `Vecka ${week} är tom. Få ett förslag på middagar efter vad du har hemma och vad som är på erbjudande.`,
   partialBody: (emptyDays: number, filledDays: readonly number[]) =>
     `${pluralDays(emptyDays)}. ${filledDays.length === 1 ? "Din rätt" : "Dina rätter"} (${joinDays(filledDays)}) ligger kvar som ${filledDays.length === 1 ? "den" : "de"} är.`,
