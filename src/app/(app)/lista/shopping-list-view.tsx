@@ -45,7 +45,7 @@ export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: Shoppi
     <>
       {/* One quiet row: the boende button on the left, the week dropdown on the right. */}
       {sites || weekNav ? (
-        <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3">
           {sites ? (
             <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
           ) : null}

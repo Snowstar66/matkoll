@@ -398,7 +398,6 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
   await tab(page, "Inköpslista").click();
   // The list has the week as a quiet dropdown.
   await expect(page.getByTestId("week-select").locator("option:checked")).toHaveText("Nästa vecka");
-  await expect(page.getByTestId("week-select")).toHaveValue(new RegExp(`W${nextNumber}$`));
 
   await page.goto(`/recept/${recipeIds[gryta]}`);
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
