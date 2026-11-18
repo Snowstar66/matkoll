@@ -29,6 +29,12 @@ export type SettingsSheetProps = {
   preloaded?: SettingsContext | null;
   /** Called with what was saved. */
   onSaved?: (settings: WeekAgentSettings) => void;
+  /**
+   * "Veckans inriktning" before a proposal is made (Matsedel's "Föreslå veckan"): the sheet gets that title and an
+   * intro line, and two buttons in place of Spara. `label` ("Föreslå veckan", "Fyll resten") saves what was changed
+   * and then calls `onStart`; "Hoppa över" calls `onStart` at once and changes nothing (what was changed is dropped).
+   */
+  start?: { label: string; intro: string; onStart: () => void };
 };
 
 const budgetOptions = [
@@ -85,7 +91,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, onSaved }: SettingsSheetProps) {
+export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, onSaved, start }: SettingsSheetProps) {
   const { showToast } = useToast();
   const [context, setContext] = useState<SettingsContext | null>(preloaded);
   const [draft, setDraft] = useState<WeekAgentSettings | null>(preloaded?.settings ?? null);
@@ -166,6 +172,10 @@ export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, 
     }
     setContext((current) => (current ? { ...current, settings: stored } : current));
     onSaved?.(stored);
+    if (start) {
+      start.onStart();
+      return;
+    }
     onClose();
     showToast("Veckoförslagets val är sparade.");
   }
@@ -176,16 +186,32 @@ export function SettingsSheet({ open, onClose, actions, cost, preloaded = null, 
     <Sheet
       open={open}
       onClose={onClose}
-      title="Ställ in veckoförslaget"
+      title={start ? "Veckans inriktning" : "Ställ in veckoförslaget"}
       closeLabel="Avbryt"
       isDirty={dirty}
       preventClose={busy}
       footer={
-        <Button fullWidth disabled={!dirty || busy} onClick={save} data-testid="week-agent-settings-save">
-          Spara
-        </Button>
+        start ? (
+          <div className="flex flex-col gap-1">
+            <Button fullWidth disabled={!settings || busy} onClick={() => (dirty ? void save() : start.onStart())} data-testid="week-agent-settings-start">
+              {start.label}
+            </Button>
+            <Button variant="text" fullWidth disabled={busy} onClick={start.onStart} data-testid="week-agent-settings-skip">
+              Hoppa över
+            </Button>
+          </div>
+        ) : (
+          <Button fullWidth disabled={!dirty || busy} onClick={save} data-testid="week-agent-settings-save">
+            Spara
+          </Button>
+        )
       }
     >
+      {start ? (
+        <p className="mb-4 text-body text-ink-2" data-testid="week-agent-settings-intro">
+          {start.intro}
+        </p>
+      ) : null}
       {!settings ? (
         loadFailed ? (
           <Notice role="alert">Det gick inte att läsa valen. Stäng och försök igen.</Notice>

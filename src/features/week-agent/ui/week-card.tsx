@@ -2,22 +2,29 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { ChevronRightIcon, SettingsIcon, SparkleIcon } from "@/components/icons";
+import { MoreIcon, SparkleIcon } from "@/components/icons";
 import { useOption } from "@/lib/use-option";
 import type { DiscardDraftInput, OkOrError } from "../actions/contract";
 import type { CostTexts, SettingsActions } from "./actions";
 import { cardState, cardTexts } from "./format";
 import { SettingsSheet } from "./settings-sheet";
 
-// The card at the top of Matsedel (VK-A, VK-N1): "Föreslå veckan" on an empty week, "Fyll resten av veckan" with the
-// number of free days on a partly filled one, nothing on a full week (its way in is the ⋯ menu). One tap opens the
-// proposal screen; nothing runs by itself. Only with the Tillval Veckoagenten on (per device, so the page, which does
-// not know it, always renders this and the card hides itself).
+// Veckoagenten's way in on Matsedel (VK-A, VK-N1), now one quiet chip on the row under the week choice (beside
+// "Äter ni ute?", which the route puts in the same row): "Föreslå veckan" on an empty week, "Fyll resten" on a partly
+// filled one, nothing on a full week (its way in is the ⋯ menu). A tap opens the sheet "Veckans inriktning"
+// (settings.start): change what you want and start, or skip it and start with what is saved. Nothing runs by itself.
+// With a fresh waiting draft the chip is "Öppna utkast" and a ⋯ beside it holds "Gör nytt" and "Förkasta". An old draft
+// is left out of the row (a new proposal replaces it). Only with the Tillval Veckoagenten on (per device, so the page,
+// which does not know it, always renders this and the chip hides itself).
+
+/** The chip's look: 34 px high (taller only when the text has to wrap at 200 % zoom) with a 44 px tap area; the main one is mint, the only filled chip of the row. */
+const chip = "relative inline-flex min-h-[34px] max-w-full min-w-0 items-center gap-1.5 rounded-pill px-3 py-1 text-control outline-none before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const mainChip = `${chip} bg-mint font-semibold text-mint-ink`;
 
 export type WeekAgentCardProps = {
   /** The proposal screen for the week shown. */
@@ -38,17 +45,39 @@ export type WeekAgentCardProps = {
   discard?: (input: DiscardDraftInput) => Promise<OkOrError & { code?: "no_draft" }>;
 };
 
-export function WeekAgentCard({ href, weekNumber, filledDays, emptyDays, settings, draft = null, draftHref, newHref, discard }: WeekAgentCardProps) {
+export function WeekAgentCard({ href, filledDays, emptyDays, settings, draft = null, draftHref, newHref, discard }: WeekAgentCardProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const on = useOption("weekAgent");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRoot = useRef<HTMLDivElement>(null);
   const state = cardState(filledDays, emptyDays);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRoot.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   if (!on || state === "none" || state === "full") return null;
   const partial = state === "partial";
+  const fresh = draft?.freshness === "fresh";
+  const startLabel = partial ? cardTexts.startChipPartial : cardTexts.startChip;
+  const intro = partial ? cardTexts.partialBody(emptyDays.length, filledDays) : cardTexts.startIntro;
 
   async function throwAway() {
     if (!draft || !discard || busy) return;
@@ -56,7 +85,7 @@ export function WeekAgentCard({ href, weekNumber, filledDays, emptyDays, setting
     try {
       const result = await discard({ draftId: draft.id });
       if (result.status === "ok") showToast(cardTexts.discarded);
-      // Already gone (used, replaced elsewhere): the card is only refreshed.
+      // Already gone (used, replaced elsewhere): the row is only refreshed.
       if (result.status === "ok" || result.code === "no_draft") {
         setConfirm(false);
         router.refresh();
@@ -68,12 +97,7 @@ export function WeekAgentCard({ href, weekNumber, filledDays, emptyDays, setting
     }
   }
 
-  const discardButton = draft && discard ? (
-    <button type="button" onClick={() => { setNotice(null); setConfirm(true); }} className="min-h-tap rounded-lg px-3.5 text-control underline" data-testid="week-agent-card-discard">
-      {cardTexts.discard}
-    </button>
-  ) : null;
-  const discardSheet = draft && discard ? (
+  const discardSheet = fresh && discard ? (
     <Sheet
       open={confirm}
       onClose={() => setConfirm(false)}
@@ -95,49 +119,73 @@ export function WeekAgentCard({ href, weekNumber, filledDays, emptyDays, setting
     </Sheet>
   ) : null;
 
-  if (draft?.freshness === "fresh") {
+  if (fresh) {
     return (
-      <div data-testid="week-agent-card" data-state={state} data-draft="fresh" className="flex flex-col rounded-lg bg-mint text-mint-ink">
-        <div className="flex items-start gap-3 p-3.5 pb-1">
-          <SparkleIcon size={26} className="mt-0.5 shrink-0" />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-headline">{cardTexts.waitingTitle}</span>
-            <span className="text-control font-normal wrap-break-word opacity-90">{cardTexts.draftBody(weekNumber)}</span>
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-1 px-3.5 pb-2">
-          <Link href={draftHref ?? href} data-testid="week-agent-card-link" className="inline-flex min-h-tap items-center rounded-lg bg-surface px-4 text-control font-semibold text-accent">
-            {cardTexts.waitingOpen}
-          </Link>
-          <Link href={newHref ?? href} data-testid="week-agent-card-new" className="inline-flex min-h-tap items-center rounded-lg px-3.5 text-control font-semibold underline">
-            {cardTexts.waitingNew}
-          </Link>
-          {discardButton}
+      <>
+        <Link href={draftHref ?? href} data-testid="week-agent-card-link" data-state={state} data-draft="fresh" className={mainChip}>
+          <SparkleIcon size={16} className="shrink-0" />
+          {cardTexts.openDraftChip}
+        </Link>
+        <div ref={menuRoot} className="relative flex">
+          <button
+            type="button"
+            aria-label={cardTexts.moreForDraft}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            data-testid="week-agent-card-more"
+            onClick={() => setMenuOpen((value) => !value)}
+            className={`${chip} w-[34px] justify-center border border-border bg-surface px-0 text-ink-2`}
+          >
+            <MoreIcon size={18} />
+          </button>
+          {menuOpen ? (
+            <div role="menu" aria-label={cardTexts.moreForDraft} className="absolute top-full left-0 z-30 mt-1 flex w-52 flex-col rounded-lg bg-surface py-1 shadow-float">
+              <Link href={newHref ?? href} role="menuitem" data-testid="week-agent-card-new" className="flex min-h-tap items-center px-3.5 text-row-title text-ink">
+                {cardTexts.waitingNew}
+              </Link>
+              {discard ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="week-agent-card-discard"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setNotice(null);
+                    setConfirm(true);
+                  }}
+                  className="flex min-h-tap items-center border-t border-hairline px-3.5 text-left text-row-title text-ink"
+                >
+                  {cardTexts.discard}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {discardSheet}
-      </div>
+      </>
     );
   }
 
   return (
-    <div data-testid="week-agent-card" data-state={state} className="flex flex-col rounded-lg bg-mint text-mint-ink">
-      <Link href={href} data-testid="week-agent-card-link" className="flex items-start gap-3 rounded-lg p-3.5 pb-1">
-        <SparkleIcon size={26} className="mt-0.5 shrink-0" />
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-headline">{draft ? cardTexts.oldTitle : partial ? cardTexts.partialTitle : cardTexts.emptyTitle}</span>
-          <span className="text-control font-normal wrap-break-word opacity-90">{draft ? (partial ? cardTexts.partialTitle : cardTexts.emptyTitle) : partial ? cardTexts.partialBody(emptyDays.length, filledDays) : cardTexts.emptyBody(weekNumber)}</span>
-        </span>
-        <ChevronRightIcon size={20} className="shrink-0 self-center" />
-      </Link>
-      <div className="mx-3.5 flex flex-wrap items-center justify-between border-t border-mint-ink/15">
-        <button type="button" onClick={() => setSettingsOpen(true)} className="flex min-h-tap items-center gap-2 rounded-lg text-control font-semibold" data-testid="week-agent-card-settings">
-          <SettingsIcon size={20} className="shrink-0" />
-          {cardTexts.settings}
-        </button>
-        {discardButton}
-      </div>
-      {discardSheet}
-      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} actions={settings.actions} cost={settings.cost} />
-    </div>
+    <>
+      <button type="button" data-testid="week-agent-card-link" data-state={state} onClick={() => setSheetOpen(true)} className={mainChip}>
+        <SparkleIcon size={16} className="shrink-0" />
+        {startLabel}
+      </button>
+      <SettingsSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        actions={settings.actions}
+        cost={settings.cost}
+        start={{
+          label: startLabel,
+          intro,
+          onStart: () => {
+            setSheetOpen(false);
+            router.push(href);
+          },
+        }}
+      />
+    </>
   );
 }
