@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/components/cx";
 import { ExpandIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
@@ -17,6 +17,7 @@ import {
 } from "../domain/pantry-suggestion";
 import { markerInset, photoMarkerClasses } from "@/components/photo-marker";
 import { notPointedText, photoNumberText, spreadMarkers, type PhotoMarker } from "../domain/photo-numbers";
+import { scrollToTap, tapFractions, type TapOnPhoto } from "../domain/photo-zoom";
 import type { ReviewPhoto } from "./use-pantry-analysis";
 
 // The photo during review (quick fix after Story 6.5): at the top of
@@ -40,6 +41,15 @@ import type { ReviewPhoto } from "./use-pantry-analysis";
 // (ReviewPhotoPanel) with the rows' numbers as buttons, and the sheet Rätta
 // shows the photo around its item (PhotoCrop). The sheet below is the photo
 // full screen.
+
+/** The nearest ancestor that scrolls (the sheet's body), or `null`. */
+function scrollParentOf(element: HTMLElement): HTMLElement | null {
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+    const { overflowX, overflowY } = getComputedStyle(parent);
+    if (/(auto|scroll)/.test(`${overflowX} ${overflowY}`)) return parent;
+  }
+  return null;
+}
 
 /** Kylfoto D: a marker on the review photo, with the row's name and how its row stands. */
 export type ReviewMarker = PhotoMarker & {
@@ -457,6 +467,23 @@ export function AnalyzedPhotoSheet({
   const [failed, setFailed] = useState(false);
   const [fullSize, setFullSize] = useState(false);
   const [decoded, setDecoded] = useState<ImageSize | null>(null);
+  // Where on the photo the tap that enlarged it was, so the full-size view lands there and not at the photo's top left.
+  const frameRef = useRef<HTMLSpanElement>(null);
+  const tapRef = useRef<TapOnPhoto | null>(null);
+  useLayoutEffect(() => {
+    const tap = tapRef.current;
+    const frame = frameRef.current;
+    if (!fullSize || !tap || !frame) return;
+    tapRef.current = null;
+    const scroller = scrollParentOf(frame);
+    if (!scroller) return;
+    const frameBox = frame.getBoundingClientRect();
+    const scrollerBox = scroller.getBoundingClientRect();
+    // The photo's box from the scrolled content's own origin, with the scroll at 0.
+    const origin = { left: frameBox.left - scrollerBox.left + scroller.scrollLeft, top: frameBox.top - scrollerBox.top + scroller.scrollTop };
+    const target = scrollToTap(tap, { ...origin, width: frameBox.width, height: frameBox.height }, { width: scroller.clientWidth, height: scroller.clientHeight });
+    scroller.scrollTo({ left: target.left, top: target.top });
+  }, [fullSize]);
   const size = photo.size ? (decoded ?? photo.size) : null;
   const failWith = () => {
     setFailed(true);
@@ -491,11 +518,17 @@ export function AnalyzedPhotoSheet({
           aria-pressed={fullSize}
           aria-label={analyzedPhotoFullSizeText}
           data-testid="pantry-analyzed-photo-large"
-          onClick={() => setFullSize((full) => !full)}
+          onClick={(event) => {
+            if (!fullSize) {
+              const box = (frameRef.current ?? event.currentTarget).getBoundingClientRect();
+              tapRef.current = tapFractions({ x: event.clientX, y: event.clientY }, box);
+            }
+            setFullSize((full) => !full);
+          }}
           className={cx("block rounded-md", fullSize ? "w-max" : "w-full")}
         >
           {size ? (
-            <span data-testid="pantry-photo-frame" style={style} className={cx("relative block", !fullSize && "mx-auto")}>
+            <span ref={frameRef} data-testid="pantry-photo-frame" style={style} className={cx("relative block", !fullSize && "mx-auto")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}

@@ -175,11 +175,12 @@ test("the fridge shows its items under categories in the store's order, with the
 
   await expect(categories(page)).toHaveCount(4);
   const shown = await shownCategories(page);
+  // The number beside each category is hidden for now (the count is still read as words below).
   expect(shown.map(([heading, count]) => [heading, count])).toEqual([
-    ["Frukt & grönt", "1"],
-    ["Mejeri & ägg", "3"],
-    ["Kött, fisk & chark", "1"],
-    ["Såser & smaksättare", "1"],
+    ["Frukt & grönt", ""],
+    ["Mejeri & ägg", ""],
+    ["Kött, fisk & chark", ""],
+    ["Såser & smaksättare", ""],
   ]);
   expect(shown[0][2]).toEqual(["Gurka"]);
   expect(shown[1][2]).toEqual(["Gräddfil", "Mellanmjölk | Arla laktosfri", "Ägg"]);
@@ -277,7 +278,7 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   expect(await field.evaluate((input) => Number.parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16);
   await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toBeVisible();
   await field.fill("mjö");
-  expect(await shownCategories(page)).toEqual([["Mejeri & ägg", "1", ["Mellanmjölk | Arla laktosfri"]]]);
+  expect(await shownCategories(page)).toEqual([["Mejeri & ägg", "", ["Mellanmjölk | Arla laktosfri"]]]);
   // The card counts the whole fridge, not the matches, and Töm kylen hides while only matches show.
   await expect(places(page).getByRole("link", { name: /^Kyl/ })).toContainText("6 varor");
   await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toHaveCount(0);
@@ -291,7 +292,7 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   await expect(rows(page)).toHaveCount(1);
 
   await field.fill("johnny");
-  expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "1", ["Senap | Johnny's"]]]);
+  expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "", ["Senap | Johnny's"]]]);
 
   await field.fill("xyz");
   await expect(page.locator("p").filter({ hasText: "Inget matchar ”" })).toBeVisible();

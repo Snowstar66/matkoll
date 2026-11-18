@@ -24,6 +24,13 @@ describe("CategoryHeader", () => {
     expect(heading).toHaveAccessibleDescription("3 varor");
   });
 
+  it("can hide the number and still say '3 varor' to a screen reader", () => {
+    render(<CategoryHeader category="Mejeri & ägg" count={3} showCount={false} />);
+    expect(screen.queryByText("3")).not.toBeInTheDocument();
+    expect(screen.getByText("3 varor")).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "Mejeri & ägg" })).toHaveAccessibleDescription("3 varor");
+  });
+
   it("takes another heading level", () => {
     render(<CategoryHeader category="Dryck" count={2} level={3} />);
     expect(screen.getByRole("heading", { level: 3, name: "Dryck" })).toBeInTheDocument();
