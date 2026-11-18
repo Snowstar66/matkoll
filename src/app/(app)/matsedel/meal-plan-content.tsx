@@ -1,3 +1,4 @@
+import { PageReady } from "@/components/app-shell/nav-timing";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
@@ -188,6 +189,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
 
   return (
     <>
+      <PageReady name="Matsedel" />
       <PageHeader
         title="Matsedel"
         tab="/matsedel"

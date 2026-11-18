@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageReady } from "@/components/app-shell/nav-timing";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import Link from "next/link";
@@ -94,6 +95,7 @@ export async function ShoppingListContent({
   };
   return (
     <>
+      <PageReady name="Inköpslista" />
       <ShoppingListView
         // The week's own state: a new key starts the list afresh, so no check, sheet or
         // pending change of another week's plan is carried over (Story 13.7).

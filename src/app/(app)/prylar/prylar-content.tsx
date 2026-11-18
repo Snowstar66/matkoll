@@ -1,3 +1,4 @@
+import { PageReady } from "@/components/app-shell/nav-timing";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Notice } from "@/components/notice";
@@ -59,6 +60,7 @@ export async function PrylarContent() {
   );
   return (
     <>
+      <PageReady name="Förråd" />
       <PageHeader title="Förråd" tab="/prylar" action={<NewRoom siteId={site.id} variant="icon" />} />
       {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
       <div className="-mt-2 mb-3 empty:hidden desktop:hidden">

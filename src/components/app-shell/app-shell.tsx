@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NavTimingBadge } from "./nav-timing";
 import { NewsWatcher } from "./news-watcher";
 import { ScrollMemory } from "./scroll-memory";
 import { SideMenu } from "./side-menu";
@@ -39,6 +40,7 @@ export function AppShell({
       <TabBar jobRow={jobRows?.bar} />
       <ScrollMemory />
       <NewsWatcher />
+      <NavTimingBadge />
     </div>
   );
 }

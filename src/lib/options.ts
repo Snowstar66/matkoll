@@ -15,6 +15,7 @@ export const optionGroups = [
   { id: "dagens", label: "Dagens" },
   { id: "menu", label: "Äta ute" },
   { id: "shared", label: "Delade recept" },
+  { id: "debug", label: "Felsökning" },
 ] as const;
 
 export type OptionGroupId = (typeof optionGroups)[number]["id"];
@@ -65,6 +66,13 @@ export const options = [
     group: "household",
     label: "Visa hur ofta",
     hint: "I Matsedel: när en rätt senast var på menyn och hur ofta, och chippen Inte på menyn och Aldrig planerad",
+    defaultOn: false,
+  },
+  {
+    id: "showTimings",
+    group: "debug",
+    label: "Visa sidtider",
+    hint: "Visar uppe till vänster hur lång tid ett byte av flik tar, från tryck till att innehållet syns. Bara för att mäta",
     defaultOn: false,
   },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
