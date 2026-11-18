@@ -159,12 +159,24 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  * `site: null`. Throws MealPlanDataError.
  */
 export async function getMealPlanView(weekStart?: string): Promise<MealPlanView> {
-  const [plan, { snapshot, site, staples }] = await Promise.all([
-    weekStart && weekStart !== currentWeekStart() ? getPlanForWeek(weekStart) : getCurrentPlan(),
-    getPantryForStatus(),
-  ]);
-  if (!plan) return { plan: null, dishes: [], names: {}, snapshot, site, staples };
-  const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
+  // Two chains side by side: the pantry (place, then its items) and the plan with its recipes and ingredient names.
+  // The recipes no longer wait for the pantry.
+  const planWithRecipes = (async () => {
+    const plan = await (weekStart && weekStart !== currentWeekStart() ? getPlanForWeek(weekStart) : getCurrentPlan());
+    if (!plan) return null;
+    const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
+    const ingredientIds = [
+      ...new Set(recipes.flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))),
+    ];
+    const names = ingredientIds.length > 0 ? await getIngredientNames(ingredientIds).catch(() => ({})) : {};
+    return { plan, recipes, names };
+  })();
+  // Handled at once, so a failure in one chain never goes unhandled while the other is awaited.
+  planWithRecipes.catch(() => undefined);
+  const { snapshot, site, staples } = await getPantryForStatus();
+  const read = await planWithRecipes;
+  if (!read) return { plan: null, dishes: [], names: {}, snapshot, site, staples };
+  const { plan, recipes, names } = read;
   const byId = new Map<string, DishRecipe>(
     recipes.map((recipe) => [
       recipe.id,
@@ -176,10 +188,6 @@ export async function getMealPlanView(weekStart?: string): Promise<MealPlanView>
       },
     ]),
   );
-  const ingredientIds = [
-    ...new Set(recipes.flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))),
-  ];
-  const names = ingredientIds.length > 0 ? await getIngredientNames(ingredientIds).catch(() => ({})) : {};
   return { plan: { id: plan.id, name: plan.name }, dishes: toPlanDishes(plan.recipes, byId), names, snapshot, site, staples };
 }
 
