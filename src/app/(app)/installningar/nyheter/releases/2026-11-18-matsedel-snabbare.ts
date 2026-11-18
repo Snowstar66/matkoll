@@ -5,5 +5,6 @@ export const release: Release = {
   title: "Matsedeln visas snabbare",
   bullets: [
     "Veckans rätter visas nu utan att vänta på receptlistan för \"Lägg till nya rätter\", antalet varor att köpa och idéerna på erbjudande. De kommer in strax efter.",
+    "Tills receptlistan är läst står det \"Läser dina recept …\" under Lägg till nya rätter.",
   ],
 };
