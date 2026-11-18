@@ -175,11 +175,12 @@ test("the fridge shows its items under categories in the store's order, with the
 
   await expect(categories(page)).toHaveCount(4);
   const shown = await shownCategories(page);
+  // The number beside each category is hidden for now (the count is still read as words below).
   expect(shown.map(([heading, count]) => [heading, count])).toEqual([
-    ["Frukt & grönt", "1"],
-    ["Mejeri & ägg", "3"],
-    ["Kött, fisk & chark", "1"],
-    ["Såser & smaksättare", "1"],
+    ["Frukt & grönt", ""],
+    ["Mejeri & ägg", ""],
+    ["Kött, fisk & chark", ""],
+    ["Såser & smaksättare", ""],
   ]);
   expect(shown[0][2]).toEqual(["Gurka"]);
   expect(shown[1][2]).toEqual(["Gräddfil", "Mellanmjölk | Arla laktosfri", "Ägg"]);
