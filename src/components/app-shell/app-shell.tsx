@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import { NavTimingBadge } from "./nav-timing";
 import { NewsWatcher } from "./news-watcher";
 import { ScrollMemory } from "./scroll-memory";
@@ -40,7 +40,10 @@ export function AppShell({
       <TabBar jobRow={jobRows?.bar} />
       <ScrollMemory />
       <NewsWatcher />
-      <NavTimingBadge />
+      {/* usePathname waits for the request: in its own Suspense, so the frame still prerenders. */}
+      <Suspense fallback={null}>
+        <NavTimingBadge />
+      </Suspense>
     </div>
   );
 }
