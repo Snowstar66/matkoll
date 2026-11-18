@@ -60,6 +60,13 @@ export const options = [
     defaultOn: false,
   },
   { id: "weekAgent", group: "household", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
+  {
+    id: "showHowOften",
+    group: "household",
+    label: "Visa hur ofta",
+    hint: "I Matsedel: när en rätt senast var på menyn och hur ofta, och chippen Inte på menyn och Aldrig planerad",
+    defaultOn: false,
+  },
   { id: "showShared", group: "shared", label: "Visa delade recept", hint: "Recept som andra hushåll delar, under Recept", defaultOn: true },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 
@@ -119,12 +126,27 @@ export const choiceOptions = [
       { value: "none", label: "Inget" },
     ],
   },
+  {
+    id: "oftenAfterWeeks",
+    group: "household",
+    label: "Länge sedan efter",
+    hint: "Så många veckor utan att rätten legat på menyn tills chipet Inte på menyn visas. Gäller med Visa hur ofta på",
+    defaultValue: "4",
+    choices: [
+      { value: "2", label: "2 veckor" },
+      { value: "3", label: "3 veckor" },
+      { value: "4", label: "4 veckor" },
+      { value: "6", label: "6 veckor" },
+      { value: "8", label: "8 veckor" },
+      { value: "12", label: "12 veckor" },
+    ],
+  },
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultValue: string; choices: readonly { value: string; label: string }[] }[];
 
 export type ChoiceOptionId = (typeof choiceOptions)[number]["id"];
 export type FitMode = Extract<(typeof choiceOptions)[0]["choices"][number]["value"], string>;
 
-const choiceDefaults = { showFit: "dots" } as const satisfies Record<ChoiceOptionId, string>;
+const choiceDefaults = { showFit: "dots", oftenAfterWeeks: "4" } as const satisfies Record<ChoiceOptionId, string>;
 
 export const defaultChoice = <Id extends ChoiceOptionId>(id: Id): string => choiceDefaults[id];
 
