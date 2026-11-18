@@ -5,5 +5,6 @@ export const release: Release = {
   title: "Recept visas snabbare",
   bullets: [
     "Receptlistan visas nu utan att vänta på veckans erbjudanden. Filtret Erbjudanden dyker upp när de är inlästa, strax efter listan.",
+    "Allt annat i Recept fungerar som förut.",
   ],
 };
