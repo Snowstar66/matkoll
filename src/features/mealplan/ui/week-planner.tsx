@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, Suspense, use, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Chip, ChipSeparator } from "@/components/chip";
+import { Chip } from "@/components/chip";
 import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
 import { FitRow } from "@/components/fit-row";
@@ -499,19 +499,19 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
             </p>
           ) : (
             <>
-              <div className="-mx-3 flex gap-2 overflow-x-auto px-3">
-                {/* Snabbt first, so it is in sight: a filter that combines with the tab (kept on when the tab is changed). */}
+              {/* The tabs choose one; they wrap instead of scrolling sideways. */}
+              <div role="radiogroup" aria-label="Rätter att lägga till" className="flex flex-wrap gap-2">
+                {tabs.map(({ value, label }) => (
+                  <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
+                    {label}
+                  </Chip>
+                ))}
+              </div>
+              {/* Snabbt is not a tab: it narrows whichever tab is chosen, so it stands on its own line (kept on when the tab is changed). */}
+              <div>
                 <Chip aria-pressed={quick} selected={quick} onClick={() => setQuick(!quick)} data-testid="plan-quick">
                   Snabbt
                 </Chip>
-                <ChipSeparator />
-                <div role="radiogroup" aria-label="Rätter att lägga till" className="flex gap-2">
-                  {tabs.map(({ value, label }) => (
-                    <Chip key={value} role="radio" aria-checked={tab === value} selected={tab === value} onClick={() => setTab(value)}>
-                      {label}
-                    </Chip>
-                  ))}
-                </div>
               </div>
               {tab === "offers" ? (
                 <p data-testid="offers-hint" className="text-meta text-deal-ink">
