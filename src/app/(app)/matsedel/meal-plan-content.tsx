@@ -117,6 +117,20 @@ async function weekNutrition(dishes: MealPlanView["dishes"]): Promise<Record<str
   }
 }
 
+/** The footer of På erbjudande, read after the week is shown. */
+async function OfferIdeasLater({ ideas, weekStart }: { ideas: Promise<OfferIdeasView | null>; weekStart: string }) {
+  return (
+    <OfferIdeas
+      initial={await ideas}
+      start={startOfferIdeas}
+      read={readOfferIdeas}
+      weekStart={weekStart}
+      addToWeek={addToCurrentPlan}
+      searchIngredients={searchIngredients}
+    />
+  );
+}
+
 /**
  * Matsedel's data, for a <Suspense> in page.tsx (AD-18): the week's dishes
  * (with the pantry), the library as rows with offers, and the count of items
@@ -133,25 +147,31 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const now = new Date();
   const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
 
+  // Not awaited: the week shows at once; the library for "Lägg till rätter", the count to buy and the ideas arrive when read.
+  // An unexpected failure there leaves the part out (logged) instead of the whole week.
+  const options = optionsOrNull().catch((error: unknown) => {
+    console.error("mealplan_recipes_failed", { reason: error instanceof Error ? error.name : "unknown" });
+    return null;
+  });
+  const toBuy = itemsToBuy(weekStart).catch((error: unknown) => {
+    console.error("mealplan_to_buy_failed", { reason: error instanceof Error ? error.name : "unknown" });
+    return null;
+  });
+  const ideas = ideasOrNull().catch((): null => null);
+
   const overview = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
   if (!overview.includes(weekStart)) overview.push(weekStart);
 
   let view: MealPlanView;
-  let options: PlanOption[] | null;
   let sites: PantrySite[] | null;
   let counts: Record<string, number>;
-  let toBuy: number | null;
-  let ideas: OfferIdeasView | null;
   let people: Awaited<ReturnType<typeof getFoodFitPeople>>;
   let draft: Awaited<ReturnType<typeof getWeekDraft>>;
   try {
-    [view, options, counts, sites, toBuy, ideas, people, draft] = await Promise.all([
+    [view, counts, sites, people, draft] = await Promise.all([
       getMealPlanView(weekStart),
-      optionsOrNull(),
       countsOrEmpty(overview),
       sitesOrNull(),
-      itemsToBuy(weekStart),
-      ideasOrNull(),
       // One read for the whole page (never throws; empty when nothing is filled in).
       getFoodFitPeople(),
       // The waiting proposal is read with the rest, not after them (one round trip less); it is only used when the week has free days.
@@ -224,19 +244,14 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           weekStart={weekStart}
           firstOpenDay={firstOpenDay}
           dishes={view.dishes}
-          options={options}
-          toBuy={toBuy}
+          optionsLater={options}
+          toBuyLater={toBuy}
           nutrition={nutrition}
           fits={fits}
           offersFooter={
-            <OfferIdeas
-              initial={ideas}
-              start={startOfferIdeas}
-              read={readOfferIdeas}
-              weekStart={weekStart}
-              addToWeek={addToCurrentPlan}
-              searchIngredients={searchIngredients}
-            />
+            <Suspense fallback={null}>
+              <OfferIdeasLater ideas={ideas} weekStart={weekStart} />
+            </Suspense>
           }
         />
       </div>

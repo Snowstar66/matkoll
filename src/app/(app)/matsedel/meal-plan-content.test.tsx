@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
@@ -103,7 +103,8 @@ describe("MealPlanContent", () => {
     vi.mocked(weekPlanOptions).mockRejectedValue(new RecipeDataError("query_failed 08006"));
     await show();
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
+    // The library is read after the week is shown.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
   });
 
@@ -143,7 +144,7 @@ describe("MealPlanContent", () => {
       list([line("a"), line("b"), line("c", { checked: true }), line("d", { isCustom: true })]) as never,
     );
     await show();
-    expect(screen.getByTestId("week-bar-count")).toHaveTextContent("1 rätt · 2 varor att köpa");
+    await waitFor(() => expect(screen.getByTestId("week-bar-count")).toHaveTextContent("1 rätt · 2 varor att köpa"));
   });
 
   it("names only the dishes when the list cannot be counted", async () => {
