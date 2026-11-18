@@ -396,11 +396,9 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
 
   // Inköpslista opens on the same week, with Matsedel's segment (UX-04).
   await tab(page, "Inköpslista").click();
-  // The list has the narrow week row; its pill says the week and opens the segment.
-  await expect(page.getByTestId("week-pill")).toContainText(`v. ${nextNumber} · `);
-  await page.getByTestId("week-pill").click();
-  const listNav = page.getByTestId("week-nav").filter({ visible: true });
-  await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  // The list has the week as a quiet dropdown.
+  await expect(page.getByTestId("week-select").locator("option:checked")).toHaveText("Nästa vecka");
+  await expect(page.getByTestId("week-select")).toHaveValue(new RegExp(`W${nextNumber}$`));
 
   await page.goto(`/recept/${recipeIds[gryta]}`);
   await page.getByRole("button", { name: "Lägg på matsedeln" }).click();
@@ -729,22 +727,14 @@ test("plans next week: a dish added there shows only there, and its list is a we
   // UX-04: Inköpslista opens on the week last viewed (this week now) and has the same segment, with the items to buy;
   // choosing next week there is remembered by Matsedel too.
   await page.goto("/lista");
-  // The narrow week row: the pill opens the three tiles.
-  await expect(page.getByTestId("week-pill")).toContainText(/^v\. \d+ · /);
-  await expect(page.getByRole("link", { name: "Förra veckan" })).toHaveCount(0);
-  await page.getByTestId("week-pill").click();
-  const listNav = page.getByTestId("week-nav").filter({ visible: true });
+  const weekSelect = page.getByTestId("week-select");
   await expect(page.getByTestId("week-menu")).toHaveCount(0);
-  await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
-  await expect(listNav.getByTestId("week-tile")).toHaveCount(3);
-  await expect(listNav.getByTestId("week-tile").nth(1).getByTestId("week-count")).toHaveText(/^\d+ var(a|or)$/);
+  await expect(weekSelect.locator("option:checked")).toHaveText("Denna vecka");
+  await expect(weekSelect.locator("option")).toHaveText(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
   await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
-  await listNav.getByRole("link", { name: /nästa vecka/i }).click();
+  await weekSelect.selectOption({ label: "Nästa vecka" });
   await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
-  // The week's own list starts afresh, with the pill closed.
-  await page.getByTestId("week-pill").click();
-  await expect(listNav.locator(`[aria-current="page"]`)).toContainText("Nästa");
-  await expect(page.getByRole("link", { name: "Förra veckan" })).toBeVisible();
+  await expect(page.getByTestId("week-select").locator("option:checked")).toHaveText("Nästa vecka");
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
   await tab(page, "Matsedel").click();
   await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
@@ -770,14 +760,9 @@ test("an empty week in Inköpslista says so and offers to plan it; the segment c
   const param = `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
   await page.goto(`/lista?vecka=${param}`);
   await expect(page.getByText("Inga rätter på matsedeln om 5 veckor.").filter({ visible: true })).toBeVisible();
-  await page.getByTestId("week-pill").click();
-  const listNav = page.getByTestId("week-nav").filter({ visible: true });
-  const listTiles = listNav.getByTestId("week-tile");
-  await expect(listTiles).toHaveCount(4);
-  await expect(listTiles.nth(3)).toHaveAttribute("aria-current", "page");
-  await expect(listTiles.nth(3)).toContainText("Om 5 v");
-  await expect(listTiles.nth(3).getByTestId("week-count")).toHaveText("Tom");
-  await expect(listTiles.nth(1).getByTestId("week-count")).toHaveText(/^\d+ var(a|or)$/);
+  const weekSelect = page.getByTestId("week-select");
+  await expect(weekSelect.locator("option")).toHaveCount(4);
+  await expect(weekSelect.locator("option:checked")).toHaveText("Om 5 veckor");
   await page.getByRole("link", { name: "Planera veckan" }).filter({ visible: true }).click();
   await expect(page).toHaveURL(new RegExp(`/matsedel\\?vecka=${param}$`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

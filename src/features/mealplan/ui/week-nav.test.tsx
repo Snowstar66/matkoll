@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 import { describe, expect, it } from "vitest";
-import { CompactWeekNav, WeekNav } from "./week-nav";
+import userEvent from "@testing-library/user-event";
+import { WeekSelectNav, WeekNav } from "./week-nav";
 
 const now = new Date("2026-10-29T10:00:00Z");
 
@@ -64,36 +65,29 @@ describe("WeekNav", () => {
   });
 });
 
-describe("CompactWeekNav (Inköpslistan)", () => {
-  const now = new Date("2026-11-18T10:00:00Z");
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-  it("is one row: no back arrow on this week, a next arrow, the pill with the week and its dates", () => {
-    render(<CompactWeekNav weekStart="2026-11-16" now={now} basePath="/lista" showHistory={false} unit="items" counts={{}} />);
-    expect(screen.queryByRole("link", { name: "Förra veckan" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Nästa vecka" })).toHaveAttribute("href", "/lista?vecka=2026-W48");
-    expect(screen.getByTestId("week-pill")).toHaveTextContent(/^v\. 47 · /);
+describe("WeekSelectNav (Inköpslistan)", () => {
+  it("offers this week, next week and the week after, with the viewed week chosen", () => {
+    render(<WeekSelectNav weekStart="2026-11-02" now={now} basePath="/lista" />);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+    expect(select.value).toBe("2026-11-02");
+    expect(screen.getByLabelText("Vecka")).toBe(select);
   });
 
-  it("has both arrows in the middle, and the next one switched off on the last week", () => {
-    const { unmount } = render(<CompactWeekNav weekStart="2026-11-30" now={now} basePath="/lista" showHistory={false} unit="items" counts={{}} />);
-    expect(screen.getByRole("link", { name: "Förra veckan" })).toHaveAttribute("href", "/lista?vecka=2026-W48");
-    expect(screen.getByRole("link", { name: "Nästa vecka" })).toBeInTheDocument();
-    unmount();
-    render(<CompactWeekNav weekStart="2027-02-08" now={now} basePath="/lista" showHistory={false} unit="items" counts={{}} />);
-    expect(screen.queryByRole("link", { name: "Nästa vecka" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Sista veckan som går att välja" })).toBeInTheDocument();
+  it("adds the week further ahead as a fourth choice", () => {
+    render(<WeekSelectNav weekStart="2026-12-07" now={now} basePath="/lista" />);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor", "Om 6 veckor"]);
+    expect(select.value).toBe("2026-12-07");
   });
 
-  it("keeps the old week tiles behind the pill and opens them on a tap", async () => {
-    const user = userEvent.setup();
-    render(<CompactWeekNav weekStart="2026-11-16" now={now} basePath="/lista" showHistory={false} unit="items" counts={{ "2026-11-16": 3 }} />);
-    const pill = screen.getByTestId("week-pill");
-    expect(pill).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("week-nav").parentElement).toHaveAttribute("hidden");
-    await user.click(pill);
-    expect(pill).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("week-nav").parentElement).not.toHaveAttribute("hidden");
-    await user.click(pill);
-    expect(screen.getByTestId("week-nav").parentElement).toHaveAttribute("hidden");
+  it("goes to the week's address, keeping the filter, when another week is chosen", async () => {
+    push.mockClear();
+    render(<WeekSelectNav weekStart="2026-10-26" now={now} basePath="/lista" keepParams={{ visa: "egna" }} />);
+    await userEvent.setup().selectOptions(screen.getByTestId("week-select"), "Nästa vecka");
+    expect(push).toHaveBeenCalledWith("/lista?vecka=2026-W45&visa=egna", { scroll: false });
   });
 });

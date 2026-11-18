@@ -101,7 +101,7 @@ export const helpAreas: readonly HelpArea[] = [
     id: "matsedel",
     title: "Matsedel",
     steps: [
-      { icon: "calendar", title: "Välj vecka", text: "Denna vecka, Nästa eller Om 2 v. Veckan du valt gäller också Inköpslistan och när du lägger en rätt på matsedeln från receptet. I Inköpslistan är veckan en smal rad: pilen › går till nästa vecka, ‹ tillbaka, och ett tryck på veckan öppnar de tre veckorna med antal varor." },
+      { icon: "calendar", title: "Välj vecka", text: "Denna vecka, Nästa eller Om 2 v. Veckan du valt gäller också Inköpslistan och när du lägger en rätt på matsedeln från receptet. I Inköpslistan väljer du vecka i den lilla rullgardinen uppe till höger, på samma rad som boendet." },
       { icon: "plus", title: "Lägg till rätter", text: "Veckan står som en kalender med dagens nummer under veckodagen (månaden står på första dagen och när den byter), och en ledig dag, en rad med ett plus, väljer du med ett tryck. Tryck + i rubriken eller fäll ut Lägg till nya rätter (den är ihopfälld tills du öppnar den, och ett tryck på en ledig dag öppnar den) och tryck + på en rätt: den hamnar på den lediga dagen du valt, annars på första lediga." },
       { icon: "house", title: "Se vad som ska köpas", text: "Raden under Veckans rätter räknar varorna veckan behöver. Det du har hemma räknas bort." },
     ],

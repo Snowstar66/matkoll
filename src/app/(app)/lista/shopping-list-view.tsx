@@ -11,13 +11,13 @@ export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "o
   sites: readonly PantrySite[] | null;
   /** What each boende holds, read when the boende sheet opens (a Server Action); the page gives it. */
   loadCounts?: () => Promise<Record<string, BoendeCounts> | null>;
-  /** UX-04: the week segment ("Denna vecka / Nästa / Om 2 v") above the list; the route composes it (AD-1). */
+  /** The week dropdown ("Denna vecka / Nästa vecka / Om 2 veckor") on the boende row above the list; the route composes it (AD-1). */
   weekNav?: ReactNode;
 };
 
 /**
  * Inköpslista as the page shows it: the boende button "📍 Stugan ⌄"
- * (pantry/ui), then the list (shopping/ui) with the week segment (mealplan/ui) above it, which never import each other
+ * (pantry/ui) with the week dropdown (mealplan/ui) on the same row, then the list (shopping/ui), which never import each other
  * (AD-24). What they share passes through here: the button waits while the list
  * saves something, and a switch made from the sheet is not announced twice
  * (the list keeps quiet once for the place the sheet is switching to).
@@ -43,10 +43,15 @@ export function ShoppingListView({ sites, loadCounts, weekNav, ...list }: Shoppi
 
   return (
     <>
-      {sites ? (
-        <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
+      {/* One quiet row: the boende button on the left, the week dropdown on the right. */}
+      {sites || weekNav ? (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          {sites ? (
+            <ListSiteLine site={list.site ?? null} sites={sites} busy={busy} onSwitching={onSwitching} loadCounts={loadCounts} />
+          ) : null}
+          {weekNav}
+        </div>
       ) : null}
-      {weekNav ? <div className="mb-2.5">{weekNav}</div> : null}
       <ShoppingList {...list} isQuietSwitch={isQuietSwitch} onBusyChange={setBusy} onOfflineChange={setOffline} />
     </>
   );
