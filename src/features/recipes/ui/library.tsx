@@ -107,6 +107,8 @@ export type LibraryProps = {
   site: SelectedSite | null;
   /** Story 9.3: the offers for the filter Erbjudanden; without it the filter is not offered. */
   offers?: LibraryOffers;
+  /** The same as `offers`, as a promise that is not waited for: the library shows at once and Erbjudanden arrives when the offers are read. */
+  offersLater?: Promise<LibraryOffers | undefined>;
   /** The ids of the recipes on the current meal plan, for the question before a swipe-away delete. */
   onMenuIds?: readonly string[];
   /** The filter to open with, from the address ("?filter=erbjudanden", "Visa alla" in Veckans erbjudanden); chosen once when it arrives. */
@@ -158,9 +160,11 @@ function NutritionLoader<T>({ promise, onLoaded }: { promise: Promise<T | undefi
   return null;
 }
 
-export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, initialFilter, healthyIds: healthyPromise, kcal: kcalPromise, shared: sharedPromise, fits }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, offers: offersNow, offersLater, onMenuIds, initialFilter, healthyIds: healthyPromise, kcal: kcalPromise, shared: sharedPromise, fits }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  const [offersRead, setOffersRead] = useState<LibraryOffers | undefined>(undefined);
+  const offers = offersNow ?? offersRead;
   // Delade (on by default; on the server and while hydrating the option is its default, so nothing jumps). The chip
   // stands while the shared recipes are on their way, and goes only when they could not be read.
   const [sharedLoaded, setSharedLoaded] = useState<{ items: readonly SharedListItem[] | undefined } | null>(null);
@@ -187,11 +191,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
   // "Visa alla": the filter the address asks for is chosen once, and the sheet it came from closes.
   const appliedFilter = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (initialFilter === undefined || appliedFilter.current === initialFilter) return;
+    if (initialFilter === undefined || appliedFilter.current === initialFilter || offers === undefined) return;
     appliedFilter.current = initialFilter;
     setFilter(initialFilter);
     setOffersOpen(false);
-  }, [initialFilter, setFilter]);
+  }, [initialFilter, offers, setFilter]);
   // Story 9.10: the first time Erbjudanden is shown with offers that have no ingredient, the AI links them (once per visit).
   const [matching, setMatching] = useState(false);
   const matchAsked = useRef(false);
@@ -488,6 +492,11 @@ export function Library({ recipes, pantryUnavailable, site, offers, onMenuIds, i
 
   return (
     <div className="flex flex-col gap-3">
+      {offersLater ? (
+        <Suspense fallback={null}>
+          <NutritionLoader promise={offersLater} onLoaded={setOffersRead} />
+        </Suspense>
+      ) : null}
       {healthyPromise ? (
         <Suspense fallback={null}>
           <NutritionLoader promise={healthyPromise} onLoaded={setHealthyIds} />

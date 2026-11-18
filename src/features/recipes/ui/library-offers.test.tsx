@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useContext } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,6 +90,24 @@ describe("Library, the filter Erbjudanden", () => {
     first.unmount();
     renderLibrary(null);
     expect(screen.queryByRole("button", { name: "Erbjudanden" })).not.toBeInTheDocument();
+  });
+
+  it("shows the library at once and the pill when the offers have been read", async () => {
+    let resolve!: (value: LibraryOffers | undefined) => void;
+    const later = new Promise<LibraryOffers | undefined>((done) => {
+      resolve = done;
+    });
+    await act(async () => {
+      render(
+        <ToastProvider>
+          <Library recipes={library} pantryUnavailable={false} site={null} offersLater={later} />
+        </ToastProvider>,
+      );
+    });
+    expect(titles()).toHaveLength(4);
+    expect(screen.queryByRole("button", { name: "Erbjudanden" })).not.toBeInTheDocument();
+    await act(async () => resolve(offers()));
+    expect(await screen.findByRole("button", { name: "Erbjudanden" })).toBeInTheDocument();
   });
 
   it("shows only recipes with an offer, most offers first and then fewest missing", async () => {
