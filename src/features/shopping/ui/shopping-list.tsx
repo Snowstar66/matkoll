@@ -1182,21 +1182,16 @@ export function ShoppingList({
 }
 
 /**
- * Framstegsrad (DESIGN.md, progress-row; FR-43): one line at the top of the list, without a card of its own,
- * with "8 varor kvar" and "6 av 14 i korgen" (counted over the lines not hidden; "Allt ligger i korgen" when
- * everything is checked off). The meter that stood under it is gone (UX: "Smalare topp på Inköpslistan").
+ * Framstegsrad (DESIGN.md, progress-row; FR-43): "8 varor kvar" and "6 av 14 i korgen" ("Allt ligger i korgen"
+ * when everything is checked off), counted over the lines not hidden. Not shown for now (UX 2026-11-18: the top of the
+ * list was too noisy), but kept in the page for screen readers, which read the same two texts as before.
  */
 function ProgressRow({ left, checked, total }: { left: number; checked: number; total: number }) {
   const text = progressText(left, checked, total);
   return (
-    <p data-testid="list-progress" className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-      <span className="text-row-title font-semibold text-ink">{text.left}</span>
-      {text.basket ? (
-        <>
-          {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}{" "}
-          <span className="text-meta text-ink-2">{text.basket}</span>
-        </>
-      ) : null}
+    <p data-testid="list-progress" className="sr-only">
+      {text.left}
+      {text.basket ? ` ${text.basket}` : null}
     </p>
   );
 }
@@ -1393,7 +1388,7 @@ export function ShoppingLineRow({
     // Story 19.7: an own item has the small label "Egen"; a recipe line says "Till <rätt>" on one line.
     meta: meta ? (
       <span id={metaId}>
-        {line.isCustom ? <span className="inline-block rounded-xs bg-border px-1.5 py-px align-middle text-badge text-ink-2">{meta}</span> : meta}
+        {line.isCustom ? <span className="inline-block rounded-xs bg-sky px-1.5 py-px align-middle text-badge text-sky-ink">{meta}</span> : meta}
       </span>
     ) : null,
     plain: true,

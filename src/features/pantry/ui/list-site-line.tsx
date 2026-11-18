@@ -307,7 +307,7 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching, loadCount
         aria-haspopup="dialog"
         disabled={!hydrated || busy || saving}
         onClick={open}
-        className="-ml-1.5 mb-2 flex min-h-tap items-center gap-1 rounded-md px-1.5 text-meta text-ink-2"
+        className="-ml-1.5 flex min-h-tap items-center gap-1 rounded-md px-1.5 text-meta text-ink-2"
       >
         <PinIcon size={14} />
         <span className="min-w-0 break-words">{shown?.name}</span>

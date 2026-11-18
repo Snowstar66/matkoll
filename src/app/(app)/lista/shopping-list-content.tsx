@@ -3,9 +3,9 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
-import { addWeeks, currentWeekStart, overviewWeeks, weekQueryAlways, weeksBetween } from "@/features/mealplan";
+import { currentWeekStart, weekQueryAlways, weeksBetween } from "@/features/mealplan";
 import { resolveViewedWeek } from "@/features/mealplan/server";
-import { CompactWeekNav } from "@/features/mealplan/ui/week-nav";
+import { WeekSelectNav } from "@/features/mealplan/ui/week-nav";
 import { matchIngredientNames, searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
@@ -48,16 +48,6 @@ export async function ShoppingListContent({
   const now = new Date();
   const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const thisWeek = currentWeekStart(now);
-  const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
-  if (!weeks.includes(weekStart)) weeks.push(weekStart);
-  // UX-04: the segment says how many items each week has to buy; the viewed week's list is read below,
-  // the others here (a week that cannot be read says "Tom").
-  const otherCounts = Promise.all(
-    weeks.filter((week) => week !== weekStart).map(async (week) => {
-      const other = await getShoppingList(week).catch(() => null);
-      return [week, other?.ok ? other.data.lines.filter((line) => !line.isCustom).length : 0] as const;
-    }),
-  );
   const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
@@ -85,10 +75,6 @@ export async function ShoppingListContent({
     marks,
     addedAt,
   } = result.data;
-  const counts: Record<string, number> = {
-    ...Object.fromEntries(await otherCounts),
-    [weekStart]: lines.filter((line) => !line.isCustom).length,
-  };
   const filterParam = Array.isArray(params?.visa) ? params.visa[0] : params?.visa;
   // A week without dishes: say so, and offer to plan that week in Matsedel.
   const empty = {
@@ -108,15 +94,7 @@ export async function ShoppingListContent({
         sites={sites}
         loadCounts={loadBoendeCounts}
         weekNav={
-          <CompactWeekNav
-            weekStart={weekStart}
-            counts={counts}
-            now={now}
-            basePath="/lista"
-            showHistory={false}
-            unit="items"
-            keepParams={filterParam ? { visa: filterParam } : undefined}
-          />
+          <WeekSelectNav weekStart={weekStart} now={now} basePath="/lista" keepParams={filterParam ? { visa: filterParam } : undefined} />
         }
         userId={user.id}
         plan={plan}

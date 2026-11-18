@@ -142,14 +142,13 @@ describe("ShoppingListContent", () => {
     const { unmount } = render(
       <ToastProvider>{await ShoppingListContent({ searchParams: Promise.resolve({ vecka: weekParam(nextWeek) }) })}</ToastProvider>,
     );
-    // UX-04: Matsedel's segment, with the items to buy per week, and no week menu or second heading.
+    // The week is a quiet dropdown with this week, next week and the week after (no week menu or second heading).
     expect(screen.queryByRole("heading", { level: 2, name: "Att handla" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("week-menu")).not.toBeInTheDocument();
-    const tiles = screen.getAllByTestId("week-tile");
-    expect(tiles.map((tile) => tile.querySelector("[data-testid=week-count]")?.textContent)).toEqual(["2 varor", "Tom", "Tom"]);
-    expect(tiles[1]).toHaveAttribute("aria-current", "page");
-    expect(tiles[0]).toHaveAttribute("href", `/lista?vecka=${weekParam(thisWeek)}`);
-    expect(screen.getByTestId("week-pill")).toHaveTextContent(/^v\. \d+ · /);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+    expect(select.value).toBe(nextWeek);
+    expect(screen.queryByTestId("week-tile")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Tidigare veckor" })).not.toBeInTheDocument();
     expect(getShoppingList).toHaveBeenCalledWith(nextWeek);
     expect(screen.getByText("Inga rätter på matsedeln nästa vecka.")).toBeInTheDocument();

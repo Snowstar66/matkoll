@@ -416,27 +416,20 @@ test("from the keyboard, focus stays above the fixed buttons, and a held Enter c
   expect(errors).toEqual([]);
 });
 
-test("in dark mode the progress row and the product chip keep their contrast", async ({ page }) => {
+test("in dark mode the product chip keeps its contrast, and the progress text is not shown but still read", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/lista");
+  // The progress text stays in the page for screen readers (the top of the list is quiet), clipped to one pixel.
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
+  const box = await progress(page).boundingBox();
+  expect(box!.width).toBeLessThanOrEqual(1);
   const colours = await page.evaluate(() => {
     const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    const row = document.querySelector('[data-testid="list-progress"]')!;
     return {
-      surface: style('[data-testid="list-progress"]').backgroundColor,
-      left: getComputedStyle(row.querySelector("p > span")!).color,
-      basket: getComputedStyle(row.querySelectorAll("p > span")[1]!).color,
-      page: getComputedStyle(document.body).backgroundColor,
       chip: style('[data-testid="product-chip"]').backgroundColor,
       chipText: style('[data-testid="product-chip"]').color,
     };
   });
-  // The dark surface, not the light one.
-  expect(contrast(colours.surface, "rgb(0, 0, 0)")).toBeLessThan(3);
-  expect(colours.surface).not.toBe(colours.page);
-  expect(contrast(colours.left, colours.surface)).toBeGreaterThanOrEqual(4.5);
-  expect(contrast(colours.basket, colours.surface)).toBeGreaterThanOrEqual(4.5);
   expect(contrast(colours.chipText, colours.chip)).toBeGreaterThanOrEqual(4.5);
 });
