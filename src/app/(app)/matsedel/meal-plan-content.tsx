@@ -142,8 +142,9 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   let toBuy: number | null;
   let ideas: OfferIdeasView | null;
   let people: Awaited<ReturnType<typeof getFoodFitPeople>>;
+  let draft: Awaited<ReturnType<typeof getWeekDraft>>;
   try {
-    [view, options, counts, sites, toBuy, ideas, people] = await Promise.all([
+    [view, options, counts, sites, toBuy, ideas, people, draft] = await Promise.all([
       getMealPlanView(weekStart),
       optionsOrNull(),
       countsOrEmpty(overview),
@@ -152,6 +153,8 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       ideasOrNull(),
       // One read for the whole page (never throws; empty when nothing is filled in).
       getFoodFitPeople(),
+      // The waiting proposal is read with the rest, not after them (one round trip less); it is only used when the week has free days.
+      getWeekDraft(weekStart),
     ]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
@@ -180,7 +183,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const emptyDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => day >= firstOpenDay && !filledDays.includes(day));
   const agentAddress = `/matsedel/veckoforslag${weekQueryAlways(weekStart)}`;
   // The waiting proposal and its age on the server's clock; never throws (null when it cannot be read).
-  const waiting = emptyDays.length > 0 ? await getWeekDraft(weekStart) : null;
+  const waiting = emptyDays.length > 0 ? draft : null;
   const waitingDraft = waiting ? { id: waiting.id, freshness: draftFreshness(waiting.createdAt, now) } : null;
 
   // Not awaited: the plan renders at once and the week line arrives when the nutrition has been read.
