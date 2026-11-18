@@ -91,6 +91,8 @@ export function CollapsingTitleRow({
         aria-hidden="true"
         data-testid="collapsed-bar"
         data-shown={collapsed || undefined}
+        // With many buttons (Matsedel has four) the title would sit under them: it is centred in what they leave instead.
+        style={collapsed && box && box.width > 88 ? { paddingLeft: 16, paddingRight: box.width + 16 } : undefined}
         className={cx(
           "pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center justify-center border-b-[0.5px] border-border bg-bar px-24 pt-[calc(4px+env(safe-area-inset-top))] backdrop-blur-[20px] backdrop-saturate-150",
           "h-[calc(52px+env(safe-area-inset-top))] transition-opacity duration-150 desktop:hidden",
