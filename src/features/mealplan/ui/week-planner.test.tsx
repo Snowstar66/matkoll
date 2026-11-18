@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
@@ -100,6 +100,29 @@ beforeEach(() => {
   vi.spyOn(performance, "now").mockImplementation(() => (clock += 1000));
 });
 afterEach(() => vi.restoreAllMocks());
+
+describe("WeekPlanner, read later", () => {
+  it("shows the week at once and the library and the count when they have been read", async () => {
+    let done!: (value: PlanOption[] | null) => void;
+    const optionsLater = new Promise<PlanOption[] | null>((resolve) => {
+      done = resolve;
+    });
+    await act(async () => {
+      render(
+        <ToastProvider>
+          <WeekPlanner weekStart="2026-11-02" dishes={[onWeek(1, "Tacos", 2)]} optionsLater={optionsLater} toBuyLater={Promise.resolve(3)} />
+        </ToastProvider>,
+      );
+    });
+    expect(screen.getByTestId("plan-dish")).toHaveTextContent("Tacos");
+    expect(screen.getByTestId("options-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("week-bar-count")).toHaveTextContent("3 varor att köpa");
+    await act(async () => done(options));
+    expect(screen.queryByTestId("options-loading")).not.toBeInTheDocument();
+    // Favoriter is the tab when there are favorites, known only now.
+    expect(screen.getByRole("radio", { name: "Favoriter" })).toBeChecked();
+  });
+});
 
 describe("WeekPlanner, the tabs", () => {
   it("starts on Favoriter with the most cooked first, with meta and the offer line", () => {

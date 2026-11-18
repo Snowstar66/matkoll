@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, Suspense, use, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Chip, ChipSeparator } from "@/components/chip";
 import { ChevronDownIcon, PlusIcon } from "@/components/icons";
 import { OfferTags } from "@/components/offer-tag";
@@ -88,9 +88,13 @@ export type WeekPlannerProps = {
   /** The week's dishes. */
   dishes: readonly PlanDish[];
   /** The library as rows, or `null` when it could not be read. */
-  options: readonly PlanOption[] | null;
+  options?: readonly PlanOption[] | null;
+  /** The same as `options`, as a promise that is not waited for: the week shows at once and the library arrives when it is read. */
+  optionsLater?: Promise<readonly PlanOption[] | null>;
   /** How many items the week's dishes still need, or `null` when it could not be counted. */
-  toBuy: number | null;
+  toBuy?: number | null;
+  /** The same as `toBuy`, as a promise that is not waited for (the line names the dishes only until it arrives). */
+  toBuyLater?: Promise<number | null>;
   /** Under the rows of På erbjudande: "Nya idéer med extrapris" and the ideas. */
   offersFooter?: ReactNode;
   /** The nutrition per portion of the week's recipes by recipe id, for the quiet week line (shown only with Tillval "Visa näring"). */
@@ -99,7 +103,14 @@ export type WeekPlannerProps = {
   fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
 };
 
-export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBuy, offersFooter, nutrition, fits }: WeekPlannerProps) {
+/** Waits for one of the page's promises under Suspense, so only this renders late; hands the value on. */
+function LaterLoader<T>({ promise, onLoaded }: { promise: Promise<T>; onLoaded: (value: T) => void }) {
+  const value = use(promise);
+  useEffect(() => onLoaded(value), [value, onLoaded]);
+  return null;
+}
+
+export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: optionsNow, optionsLater, toBuy: toBuyNow = null, toBuyLater, offersFooter, nutrition, fits }: WeekPlannerProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const starterOn = useOption("starterRecipes");
@@ -107,12 +118,20 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
   const howOften = useOption("showHowOften");
   const longAgoWeeks = Number(useChoice("oftenAfterWeeks")) || 4;
   const [quick, setQuick] = usePlanQuick();
+  // Read after the week is shown: `undefined` until then, `null` when it could not be read.
+  const [optionsRead, setOptionsRead] = useState<readonly PlanOption[] | null | undefined>(undefined);
+  const [toBuyRead, setToBuyRead] = useState<number | null>(null);
+  const options = optionsNow !== undefined ? optionsNow : optionsLater ? optionsRead : null;
+  const optionsLoading = options === undefined;
+  const toBuy = toBuyLater ? toBuyRead : toBuyNow;
   /** The dish whose preview is open. */
   const [preview, setPreview] = useState<PlanOption | null>(null);
   // A household with no recipes at all (UX-07): the empty week points at Recept instead of an empty panel.
-  const noRecipes = options !== null && options.length === 0;
+  const noRecipes = !!options && options.length === 0;
   const hasFavorites = options?.some((option) => option.isFavorite) ?? false;
-  const [tab, setTab] = useState<PlanTab>(hasFavorites ? "favorites" : "all");
+  // The tab chosen on this page; until then Favoriter when there are any (known only when the library is read).
+  const [tabChoice, setTab] = useState<PlanTab | null>(null);
+  const tab: PlanTab = tabChoice ?? (hasFavorites ? "favorites" : "all");
   /** Dishes just removed, until the plan is read again; "Ångra" takes them off. */
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   /** Dishes just added, until the plan is read again. */
@@ -312,6 +331,16 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
 
   return (
     <div className="flex flex-col gap-5">
+      {optionsLater ? (
+        <Suspense fallback={null}>
+          <LaterLoader promise={optionsLater} onLoaded={setOptionsRead} />
+        </Suspense>
+      ) : null}
+      {toBuyLater ? (
+        <Suspense fallback={null}>
+          <LaterLoader promise={toBuyLater} onLoaded={setToBuyRead} />
+        </Suspense>
+      ) : null}
       <section aria-labelledby="week-dishes-heading" className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
           <h2 id="week-dishes-heading" className="text-section-title text-ink">
@@ -460,7 +489,11 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options, toBu
               </button>
             </div>
           ) : null}
-          {options === null ? (
+          {optionsLoading ? (
+            <p data-testid="options-loading" className="text-body text-ink-2">
+              Läser dina recept …
+            </p>
+          ) : options === null ? (
             <p role="alert" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
               {errorMessages.mealplan_recipes_unavailable}
             </p>
