@@ -63,9 +63,8 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   const shared = readShared();
   // Not awaited either: Startrecept is a Tillval chosen in the browser, so only its offer waits for it.
   const starter = readStarterOffer();
-  const [{ library: { recipes, pantryUnavailable, site }, rows }, offers, plan, people] = await Promise.all([
+  const [{ library: { recipes, pantryUnavailable, site }, rows }, plan, people] = await Promise.all([
     listLibraryWithRows(),
-    readLibraryOffers(),
     // Which recipes are on the current meal plan, which the question before a swipe-away delete says.
     getCurrentPlan().catch(() => null),
     // Hushållets preferenser, one read for the whole page (never throws; empty when nothing is filled in).
@@ -74,6 +73,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   // The recipes' ingredient lines held against them: "Anna undviker koriander", allergies, "Älskar"; `{}` without preferences.
   const fits = recipeFits(rows, people);
   // Not awaited: the library renders at once and Nyttigt and "<500 kcal" arrive when the nutrition has been read (one read for both).
+  const offers = readLibraryOffers();
   const nutrition = readNutrition(rows);
   const healthyIds = nutrition.then((read) => read?.healthyIds);
   const kcal = nutrition.then((read) => read?.kcal);
@@ -102,9 +102,9 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
       recipes={recipes}
       pantryUnavailable={pantryUnavailable}
       site={site}
-      offers={offers}
+      offersLater={offers}
       onMenuIds={plan?.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])) ?? []}
-      initialFilter={offers ? initialFilter : undefined}
+      initialFilter={initialFilter}
       healthyIds={healthyIds}
       kcal={kcal}
       shared={shared}
