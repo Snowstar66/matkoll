@@ -59,9 +59,10 @@ describe("dealOf", () => {
 });
 
 describe("planMeta", () => {
-  it("prefers the cook count, else the time", () => {
-    expect(planMeta({ isFavorite: true, totalMinutes: 30 }, 6)).toBe("Favorit · lagad 6 gånger");
-    expect(planMeta({ isFavorite: true, totalMinutes: 30 }, 1)).toBe("Favorit · lagad 1 gång");
+  it("says the time also when the dish has been cooked", () => {
+    expect(planMeta({ isFavorite: true, totalMinutes: 30 }, 6)).toBe("Favorit · 30 min · lagad 6 gånger");
+    expect(planMeta({ isFavorite: true, totalMinutes: 30 }, 1)).toBe("Favorit · 30 min · lagad 1 gång");
+    expect(planMeta({ isFavorite: false, totalMinutes: null }, 2)).toBe("lagad 2 gånger");
     expect(planMeta({ isFavorite: true, totalMinutes: 30 }, 0)).toBe("Favorit · 30 min");
     expect(planMeta({ isFavorite: false, totalMinutes: 25 }, 0)).toBe("25 min");
   });

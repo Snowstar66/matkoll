@@ -7,7 +7,7 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn, listWeekDishesIn, type WeekDish } from "./data/queries";
+import { getCookedCountsIn, getCurrentPlanIn, getPlanIn, getWeekCountsIn, listMenuHistoryIn, listPreviousPlansIn, listWeekDishesIn, type WeekDish } from "./data/queries";
 import { addToCurrentPlanIn, detachRecipeIn, markDishesFromAgentIn, removePlanRecipeIn } from "./data/write";
 import { cookies } from "next/headers";
 import { currentWeekStart, rememberedWeekCookie, viewedWeek, weekName } from "./domain/week";
@@ -81,6 +81,12 @@ export const getPlanForWeek = cache(async (weekStart: string): Promise<MealPlan 
 export async function getWeekCounts(weeks: readonly string[]): Promise<Record<string, number>> {
   return getWeekCountsIn(await createClient(), weeks);
 }
+
+/**
+ * The dishes of every planned week, for "Hur ofta på menyn" (menuStatsOf counts them). One read per request.
+ * Throws MealPlanDataError.
+ */
+export const getMenuHistory = cache(async () => listMenuHistoryIn(await createClient()));
 
 /**
  * How many times each recipe has been marked cooked, by recipe id, for

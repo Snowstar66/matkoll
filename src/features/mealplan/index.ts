@@ -43,4 +43,5 @@ export {
   type ServingsChange,
 } from "./domain/meal-plan";
 export * from "./domain/week";
+export * from "./domain/menu-stats";
 export * from "./domain/planner";

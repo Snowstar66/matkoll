@@ -150,6 +150,29 @@ export async function getCookedCountsIn(db: MealPlanDb): Promise<Record<string, 
   return counts;
 }
 
+/**
+ * Every dish on every planned week of the signed-in user's household (the recipe, the weekday and the week's Monday),
+ * for "Hur ofta på menyn": past weeks, this week and weeks ahead. A dish whose recipe is gone has no `recipe_id` and is
+ * left out. Read in pages of 1 000 rows (the API's row limit). RLS limits the query to the household. Throws MealPlanDataError.
+ */
+export async function listMenuHistoryIn(db: MealPlanDb): Promise<{ recipeId: string; weekStart: string; weekday: number | null }[]> {
+  const rows: { recipeId: string; weekStart: string; weekday: number | null }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from("meal_plan_recipe")
+      .select("id, recipe_id, weekday, meal_plan!inner(week_start)")
+      .not("recipe_id", "is", null)
+      .order("id")
+      .range(from, from + 999);
+    if (error) throw new MealPlanDataError(`query_failed ${error.code}`);
+    for (const row of data) {
+      const plan = Array.isArray(row.meal_plan) ? row.meal_plan[0] : row.meal_plan;
+      if (row.recipe_id && plan?.week_start) rows.push({ recipeId: row.recipe_id, weekStart: plan.week_start, weekday: row.weekday });
+    }
+    if (data.length < 1000) return rows;
+  }
+}
+
 /** A dish of a week as the week agent reads it: which day, which recipe, and who put it there (`source`: null or "user" is the household). */
 export type WeekDish = { id: string; weekday: number | null; recipeId: string | null; recipeTitle: string; servings: number; source: string | null; cookedAt: string | null };
 

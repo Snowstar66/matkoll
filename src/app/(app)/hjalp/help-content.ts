@@ -108,6 +108,14 @@ export const helpAreas: readonly HelpArea[] = [
     faq: [
       { question: "Var hittar jag tidigare veckor?", answer: "Tryck Tidigare bredvid veckans datum. Där kan du hämta idéer igen." },
       {
+        question: "Kan jag läsa mer om en rätt innan jag lägger till den?",
+        answer: "Ja. I Lägg till nya rätter öppnar ett tryck på kortet en förhandsvisning: tid och portioner, vad som saknas hemma, alla erbjudanden fullt utskrivna med pris, och hushållets smak och allergier. Allergier står i rött överst. Plustecknet lägger till rätten direkt som förut, och i förhandsvisningen finns Lägg på veckan och Öppna receptet. Vill du se hur ofta en rätt har varit på menyn slår du på Visa hur ofta under Inställningar, Tillval: förhandsvisningen visar då när rätten senast låg på en vecka, hur många av de senaste 12 veckorna och vilken dag den oftast hamnar på, och raden får chipet Inte på menyn efter så många veckor du väljer (4 från början) eller Aldrig planerad. Räknat på vad ni planerat, inte på lagad, och först när ni planerat i minst sex veckor.",
+      },
+      {
+        question: "Kan jag bara se snabba rätter?",
+        answer: "Ja. I Lägg till nya rätter finns chipet Snabbt först i raden. Det visar rätter på högst 30 minuter och går att kombinera med flikarna, till exempel På erbjudande och Snabbt tillsammans. Rätter utan angiven tid räknas inte som snabba. Samma gräns, 30 minuter, gäller kategorin Snabbt i Recept och Snabbt på vardagar i Veckoagenten.",
+      },
+      {
         question: "Hur hittar jag rätter som är på erbjudande?",
         answer: "Fäll ut Lägg till nya rätter och öppna fliken På erbjudande. Där står dina egna recept där en huvudvara är på erbjudande, med störst rabatt överst och en grön etikett för varje vara som är på erbjudande, till exempel Gul lök 10 kr/kg. Vill du ha något nytt finns Nya idéer under dem: när du hämtat erbjudandena tar appen fram två eller tre förslag med en tanke om varför, så de står redo när du öppnar. Tryck plus, granska och spara med Spara och lägg på veckan. Vill du ha andra förslag trycker du på Andra idéer.",
       },

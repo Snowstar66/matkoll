@@ -1,4 +1,6 @@
 import { nameInSentence, normalizeIngredientText, type Unit } from "@/features/catalog";
+import type { PreferenceNote } from "@/components/preference-notes";
+import type { MenuStats } from "@/features/mealplan";
 import { offerDisplay, savingKronor, textUnitPrice } from "@/features/offers";
 import { noStaples, type StapleRules } from "@/features/pantry";
 import { offerTagOf, uniqueTags, type OfferTagData } from "@/lib/offer-tag";
@@ -28,6 +30,12 @@ export type PlanRecipe = {
   lines: readonly PlanLine[];
   /** UX-13b: the drawing when there is no photo, from the title and the lines as written; from the title and the line names when left out. */
   dish?: DishKind;
+  /** Hushållets preferenser against the dish (foodFit), allergy first; left out for none. */
+  fit?: readonly PreferenceNote[];
+  /** "Hur ofta på menyn" (mealplan.menuStatsOf); left out when the history could not be read. */
+  stats?: MenuStats;
+  /** The recipe was added within the last four weeks, so it is not "aldrig planerad" yet. */
+  isNew?: boolean;
 };
 
 /** What the offer line of a row says. */
@@ -61,6 +69,11 @@ export type PlanOption = {
   /** Those items by name, as written mid-sentence ("grädde"), for the toast after an add. */
   buyNames: string[];
   deal: PlanDeal | null;
+  /** Hushållets preferenser against the dish: "Anna undviker koriander", an allergy in red; left out for none. */
+  fit?: PreferenceNote[];
+  /** How often the dish has been on the menu (planned weeks); shown only with the Tillval "Visa hur ofta". */
+  stats?: MenuStats;
+  isNew?: boolean;
 };
 
 export type PlanTab = "favorites" | "offers" | "all";
@@ -77,10 +90,9 @@ export function cookedText(times: number): string {
   return `lagad ${times} ${times === 1 ? "gång" : "gånger"}`;
 }
 
-/** "Favorit · lagad 6 gånger"; without a cook count the time: "Favorit · 30 min", "25 min". */
+/** "Favorit · 35 min · lagad 6 gånger": the time is there also for a dish that has been cooked, so a quick dish says so. */
 export function planMeta({ isFavorite, totalMinutes }: { isFavorite: boolean; totalMinutes: number | null }, cookedTimes: number): string {
-  const second = cookedTimes > 0 ? cookedText(cookedTimes) : totalMinutes ? `${totalMinutes} min` : null;
-  return [isFavorite ? "Favorit" : null, second].filter(Boolean).join(" · ");
+  return [isFavorite ? "Favorit" : null, totalMinutes ? `${totalMinutes} min` : null, cookedTimes > 0 ? cookedText(cookedTimes) : null].filter(Boolean).join(" · ");
 }
 
 /** "−21 kr" (whole kronor, at least 1), "−25 %" when kronor are not known, or "". */
@@ -163,6 +175,9 @@ export function planOptions(
       buy: buyNames.length,
       buyNames,
       deal: dealOf(offers, recipe, staples),
+      ...(recipe.fit && recipe.fit.length > 0 ? { fit: [...recipe.fit] } : {}),
+      ...(recipe.stats ? { stats: recipe.stats } : {}),
+      ...(recipe.isNew ? { isNew: true } : {}),
     };
   });
 }
