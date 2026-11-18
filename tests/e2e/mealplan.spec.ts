@@ -411,20 +411,14 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
   await toast(page).getByRole("button", { name: "Byt vecka" }).click();
   const sheet = page.getByRole("dialog", { name: "Vilken vecka?" });
   await expect(sheet).toContainText(gryta);
-  await expect(sheet.getByTestId("week-choice")).toHaveCount(3);
+  // This week and next week only (two weeks ahead was dropped).
+  await expect(sheet.getByTestId("week-choice")).toHaveCount(2);
   await expect(sheet.getByTestId("week-choice").nth(1)).toContainText(`v. ${nextNumber} · 1 rätt`);
   await expect(sheet).toContainText("Dag väljer du på Matsedel, om du vill.");
-  await sheet.getByTestId("week-choice").nth(2).click();
-  await expect(page.getByTestId("recipe-planned")).toHaveText(`På matsedeln v. ${nextNumber + 1}`);
-  await expect.poll(async () => (await comingRows()).map((row) => row.weekday)).toEqual([null]);
-  await expect
-    .poll(async () => (await comingRows()).map((row) => (row.meal_plan as unknown as { week_start: string }).week_start))
-    .toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
-  const moved = (await comingRows())[0]!.meal_plan as unknown as { week_start: string };
-  const nextMonday = new Date(`${moved.week_start}T12:00:00Z`);
-  nextMonday.setUTCDate(nextMonday.getUTCDate() - 7);
-  // It is on the week after next now, not on next week.
-  expect(nextMonday.getTime()).toBeGreaterThan(Date.now());
+  await sheet.getByTestId("week-choice").nth(0).click();
+  await expect(page.getByTestId("recipe-planned")).toHaveText(`På matsedeln v. ${nextNumber - 1}`);
+  // It is on this week now, so no longer on a coming week.
+  await expect.poll(async () => (await comingRows()).length).toBe(0);
 
   await clearNextWeek();
   expect(errors).toEqual([]);
@@ -729,7 +723,7 @@ test("plans next week: a dish added there shows only there, and its list is a we
   const weekSelect = page.getByTestId("week-select");
   await expect(page.getByTestId("week-menu")).toHaveCount(0);
   await expect(weekSelect.locator("option:checked")).toHaveText("Denna vecka");
-  await expect(weekSelect.locator("option")).toHaveText(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+  await expect(weekSelect.locator("option")).toHaveText(["Denna vecka", "Nästa vecka"]);
   await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
   await weekSelect.selectOption({ label: "Nästa vecka" });
   await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
@@ -774,7 +768,7 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
   await page.goto("/matsedel");
   const nav = page.getByTestId("week-nav").filter({ visible: true });
   const tiles = nav.getByTestId("week-tile");
-  await expect(tiles).toHaveCount(3);
+  await expect(tiles).toHaveCount(2);
   await expect(tiles.nth(0)).toHaveAttribute("aria-current", "page");
   const countOf = async (index: number) => {
     const text = (await tiles.nth(index).getByTestId("week-count").textContent()) ?? "";
@@ -821,7 +815,7 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
     .filter({ visible: true })
     .click();
   const targets = page.getByTestId("copy-target").filter({ visible: true });
-  await expect(targets).toHaveCount(3);
+  await expect(targets).toHaveCount(2);
   // Each week says what it already has, like the week tiles.
   await expect(targets.nth(1)).toContainText(nextBefore === 0 ? "Tom" : nextBefore === 1 ? "1 rätt" : `${nextBefore} rätter`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

@@ -12,12 +12,11 @@ describe("week overview helpers", () => {
     expect(weekTileName("2026-10-26", 0, 0)).toBe("Vecka 44, denna vecka, inga rätter");
   });
 
-  it("offers this week and the next two to copy to", () => {
+  it("offers this week and the next to copy to", () => {
     const targets = copyTargets(new Date("2026-10-29T10:00:00Z"));
     expect(targets.map((t) => [t.weekStart, t.label])).toEqual([
       ["2026-10-26", "Denna vecka"],
       ["2026-11-02", "Nästa vecka"],
-      ["2026-11-09", "Om 2 veckor"],
     ]);
   });
 

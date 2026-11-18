@@ -3,8 +3,8 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
-import { currentWeekStart, weekQueryAlways, weeksBetween } from "@/features/mealplan";
-import { resolveViewedWeek } from "@/features/mealplan/server";
+import { addWeeks, currentWeekStart, weekQueryAlways, weeksBetween } from "@/features/mealplan";
+import { getWeekCounts, resolveViewedWeek } from "@/features/mealplan/server";
 import { WeekSelectNav } from "@/features/mealplan/ui/week-nav";
 import { matchIngredientNames, searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
@@ -48,6 +48,11 @@ export async function ShoppingListContent({
   const now = new Date();
   const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const thisWeek = currentWeekStart(now);
+  // The week choice only shows when there is a week to choose: next week has dishes, or another week than this one is
+  // viewed (so there is a way back). Own items are on every week's list anyway (Story 17.10). A count that cannot be
+  // read shows the choice.
+  const nextWeek = addWeeks(thisWeek, 1);
+  const nextWeekDishes = weekStart === thisWeek ? getWeekCounts([nextWeek]).then((counts) => counts[nextWeek] ?? 0, () => null) : Promise.resolve(null);
   const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
@@ -75,7 +80,9 @@ export async function ShoppingListContent({
     marks,
     addedAt,
   } = result.data;
+  const showWeeks = weekStart !== thisWeek || (await nextWeekDishes) !== 0;
   const filterParam = Array.isArray(params?.visa) ? params.visa[0] : params?.visa;
+  const weekNav = showWeeks ? <WeekSelectNav weekStart={weekStart} now={now} basePath="/lista" keepParams={filterParam ? { visa: filterParam } : undefined} /> : undefined;
   // A week without dishes: say so, and offer to plan that week in Matsedel.
   const empty = {
     text: noDishesText(weeksBetween(thisWeek, weekStart)),
@@ -93,9 +100,7 @@ export async function ShoppingListContent({
         key={weekStart}
         sites={sites}
         loadCounts={loadBoendeCounts}
-        weekNav={
-          <WeekSelectNav weekStart={weekStart} now={now} basePath="/lista" keepParams={filterParam ? { visa: filterParam } : undefined} />
-        }
+        weekNav={weekNav}
         userId={user.id}
         plan={plan}
         lines={lines}
