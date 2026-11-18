@@ -72,6 +72,14 @@ function renderPlanner(dishes: PlanDish[] = [], opts: PlanOption[] | null = opti
   );
 }
 
+/** "Alla recept" is no chip: it is every chip off, so the one that is on is tapped again. */
+const showAll = async (user: ReturnType<typeof userEvent.setup>) => {
+  for (const name of ["Snabbt", "Favoriter", "På erbjudande"]) {
+    const chip = screen.getByRole("button", { name });
+    if (chip.getAttribute("aria-pressed") === "true") await user.click(chip);
+  }
+};
+
 const rowTitles = () => screen.queryAllByTestId("plan-option").map((row) => row.querySelector("p")?.textContent);
 
 afterEach(() => window.localStorage.removeItem("livskoll-option-showFit"));
@@ -120,14 +128,14 @@ describe("WeekPlanner, read later", () => {
     await act(async () => done(options));
     expect(screen.queryByTestId("options-loading")).not.toBeInTheDocument();
     // Favoriter is the tab when there are favorites, known only now.
-    expect(screen.getByRole("radio", { name: "Favoriter" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Favoriter" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 
 describe("WeekPlanner, the tabs", () => {
   it("starts on Favoriter with the most cooked first, with meta and the offer line", () => {
     renderPlanner();
-    expect(screen.getByRole("radio", { name: "Favoriter" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Favoriter" })).toHaveAttribute("aria-pressed", "true");
     expect(rowTitles()).toEqual(["Tacos", "Korvstroganoff"]);
     const korvRow = screen.getAllByTestId("plan-option")[1];
     expect(korvRow).toHaveTextContent("Favorit · 30 min");
@@ -138,11 +146,11 @@ describe("WeekPlanner, the tabs", () => {
   it("På erbjudande lists only recipes with an offer, most saved first, with the hint and the ideas footer", async () => {
     const user = userEvent.setup();
     renderPlanner();
-    await user.click(screen.getByRole("radio", { name: "På erbjudande" }));
+    await user.click(screen.getByRole("button", { name: "På erbjudande" }));
     expect(rowTitles()).toEqual(["Korvstroganoff", "Laxpasta"]);
     expect(screen.getByTestId("offers-hint")).toHaveTextContent("Förslag för att varorna är på erbjudande den här veckan.");
     expect(screen.getByText("Idéer")).toBeVisible();
-    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(user);
     expect(rowTitles()).toEqual(["Korvstroganoff", "Laxpasta", "Linssoppa", "Tacos"]);
     expect(screen.getByText("Idéer")).not.toBeVisible();
   });
@@ -150,8 +158,8 @@ describe("WeekPlanner, the tabs", () => {
   it("falls back to Alla recept without favourites, and says when a tab is empty", async () => {
     const user = userEvent.setup();
     renderPlanner([], [soppa]);
-    expect(screen.getByRole("radio", { name: "Alla recept" })).toBeChecked();
-    await user.click(screen.getByRole("radio", { name: "På erbjudande" }));
+    expect(screen.queryAllByRole("button", { pressed: true }).filter((chip) => ["Snabbt", "Favoriter", "På erbjudande"].includes(chip.textContent ?? ""))).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "På erbjudande" }));
     expect(screen.getByTestId("options-empty")).toHaveTextContent("Inget av dina recept har en huvudvara på erbjudande just nu.");
   });
 
@@ -175,10 +183,10 @@ describe("WeekPlanner, the folded library", () => {
     const { unmount } = renderPlanner();
     const toggle = screen.getByRole("button", { name: "Lägg till nya rätter" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("radio", { name: "Favoriter" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Favoriter" })).not.toBeInTheDocument();
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("radio", { name: "Favoriter" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Favoriter" })).toBeVisible();
     unmount();
     renderPlanner();
     expect(screen.getByRole("button", { name: "Lägg till nya rätter" })).toHaveAttribute("aria-expanded", "true");
@@ -454,13 +462,13 @@ describe("the preview of a dish, Snabbt and how often (Lägg till nya rätter)",
 
   async function openAddList() {
     renderPlanner([], [tacos, korv, lax, soppa, withFit]);
-    await userEvent.setup().click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(userEvent.setup());
   }
 
   it("opens on a tap on the card with what the row cannot carry, and the + still adds without opening it", async () => {
     const user = userEvent.setup();
     renderPlanner([], options);
-    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(user);
     await user.click(screen.getByRole("button", { name: "Visa mer om Korvstroganoff" }));
     const dialog = await screen.findByRole("dialog", { name: "Korvstroganoff" });
     expect(within(dialog).getByTestId("dish-preview-buy")).toHaveTextContent("Saknas hemma: tomat, lök");
@@ -474,7 +482,7 @@ describe("the preview of a dish, Snabbt and how often (Lägg till nya rätter)",
   it("adds the dish from the sheet, on the free day that was tapped", async () => {
     const user = userEvent.setup();
     renderPlanner([], options, 0, 1);
-    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(user);
     await user.click(screen.getByRole("button", { name: "Visa mer om Tacos" }));
     await user.click(await screen.findByTestId("dish-preview-add"));
     await waitFor(() => expect(addToCurrentPlan).toHaveBeenCalledWith(expect.objectContaining({ recipeId: uuid(1) })));
@@ -512,7 +520,7 @@ describe("the preview of a dish, Snabbt and how often (Lägg till nya rätter)",
         <WeekPlanner weekStart="2026-11-02" dishes={[]} options={[stale, fresh, never]} toBuy={0} />
       </ToastProvider>,
     );
-    await userEvent.setup().click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(userEvent.setup());
     expect(screen.queryByTestId("menu-chip")).not.toBeInTheDocument();
     window.localStorage.setItem("livskoll-option-showHowOften", "1");
     window.dispatchEvent(new Event("livskoll-option-changed"));
@@ -526,27 +534,32 @@ describe("the preview of a dish, Snabbt and how often (Lägg till nya rätter)",
     expect(chips.some((chip) => /^Inte på menyn \d+ veckor$/.test(chip.textContent ?? ""))).toBe(true);
   });
 
-  it("filters on Snabbt (at most 30 minutes, no time is not quick), keeps it on, and says so when nothing is quick", async () => {
+  it("filters on Snabbt (at most 30 minutes, no time is not quick), one chip at a time, a second tap switches it off", async () => {
     const user = userEvent.setup();
     const slow = option(9, "Gryta", { totalMinutes: 90 });
     const noTime = option(10, "Okänd", { totalMinutes: null });
     const quickOne = option(11, "Omelett", { totalMinutes: 15 });
     renderPlanner([], [slow, noTime, quickOne]);
-    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(user);
     expect(rowTitles()).toHaveLength(3);
     const chip = screen.getByTestId("plan-quick");
     await user.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(rowTitles()).toEqual(["Omelett"]);
-    // Kept when the tab is changed.
-    await user.click(screen.getByRole("radio", { name: "Favoriter" }));
-    expect(screen.getByTestId("plan-quick")).toHaveAttribute("aria-pressed", "true");
+    // One chip at a time: another chip takes Snabbt off.
+    await user.click(screen.getByRole("button", { name: "Favoriter" }));
+    expect(screen.getByTestId("plan-quick")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Favoriter" })).toHaveAttribute("aria-pressed", "true");
+    // A second tap on a chip that is on switches it off: every recipe again.
+    await user.click(screen.getByTestId("plan-quick"));
+    await user.click(screen.getByTestId("plan-quick"));
+    expect(rowTitles()).toHaveLength(3);
   });
 
   it("says there are no quick dishes, with a way to show all", async () => {
     const user = userEvent.setup();
     renderPlanner([], [option(12, "Gryta", { totalMinutes: 90 })]);
-    await user.click(screen.getByRole("radio", { name: "Alla recept" }));
+    await showAll(user);
     await user.click(screen.getByTestId("plan-quick"));
     expect(screen.getByTestId("options-empty")).toHaveTextContent("Inga snabba rätter här.");
     await user.click(screen.getByRole("button", { name: "Visa alla" }));
