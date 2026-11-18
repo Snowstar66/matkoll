@@ -58,6 +58,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (!current.me) return fallback;
     return { name: current.me.name, email: fallback.email, initial: initialOf(current.me.name), tone: current.me.color };
   });
+  // The person's id, for the gate to tell the device that the tour has been seen (the next renders skip the query).
+  const userId = signedIn.then((current) => current?.user.id ?? null);
   // Story 20.1: whether to leave the welcome tour out; a promise, read inside WelcomeGate's <Suspense>.
   const welcomeSeen = hasSeenWelcomeTour().catch(() => true);
   // Story 21.2b: "Vad heter du?" while the person has not said their name.
@@ -87,7 +89,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             }
           >
             <Suspense fallback={null}>
-              <WelcomeGate seen={welcomeSeen} name={nameAsk} />
+              <WelcomeGate seen={welcomeSeen} name={nameAsk} userId={userId} />
             </Suspense>
             {children}
             {/* The preview of an AI idea opened in Veckans erbjudanden, which closes when the preview opens. */}

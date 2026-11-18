@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WelcomeTourDataError } from "./welcome-tour";
 
+const cookieValue = vi.hoisted(() => ({ current: undefined as string | undefined }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: (name: string) => (name === "livskoll-tour" && cookieValue.current !== undefined ? { name, value: cookieValue.current } : undefined) }) }));
 const getCurrentUser = vi.fn();
 vi.mock("@/features/auth/server", () => ({ getCurrentUser: () => getCurrentUser() }));
 const db = { session: true };
@@ -16,9 +18,23 @@ const { hasSeenWelcomeTour } = await import("./queries");
 beforeEach(() => {
   getCurrentUser.mockReset().mockResolvedValue({ id: "user", email: "pontus@example.com" });
   loadTourSeenIn.mockReset();
+  cookieValue.current = undefined;
 });
 
 describe("hasSeenWelcomeTour", () => {
+  it("skips the query when the device has been told this person has seen the tour", async () => {
+    cookieValue.current = "user";
+    expect(await hasSeenWelcomeTour()).toBe(true);
+    expect(loadTourSeenIn).not.toHaveBeenCalled();
+  });
+
+  it("asks the database when the cookie is for another person, so a new person on the device gets the tour", async () => {
+    cookieValue.current = "somebody-else";
+    loadTourSeenIn.mockResolvedValue(false);
+    expect(await hasSeenWelcomeTour()).toBe(false);
+    expect(loadTourSeenIn).toHaveBeenCalled();
+  });
+
   it("answers from the user's row", async () => {
     loadTourSeenIn.mockResolvedValue(false);
     expect(await hasSeenWelcomeTour()).toBe(false);

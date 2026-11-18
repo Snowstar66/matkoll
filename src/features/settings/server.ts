@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/server/env";
 import { loadAiSettingIn } from "./data/ai-setting";
@@ -8,7 +9,7 @@ import { capGateIn, reserveAiCallIn } from "./ai-meter";
 import { loadAiCapStatusIn, loadHouseholdCostsIn } from "./data/ai-cap";
 import { insertAiUsageIn, loadAiUsageIn } from "./data/ai-usage";
 import { insertUserDefaults } from "./data/defaults";
-import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
+import { loadActiveRecipeDomains, loadStores } from "./data/queries";
 import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
 import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
 import type { HouseholdCost } from "./domain/ai-cap";
@@ -50,8 +51,14 @@ export async function listRecipeSites(): Promise<string[]> {
  * SettingsDataError.
  */
 export async function listStores(): Promise<Store[]> {
-  return (await loadStores(await createClient())).sort(compareStores);
+  return [...(await storesOfRequest())].sort(compareStores);
 }
+
+/**
+ * The user's stores, read once per request (React cache): a page that shows the offers button and the list reads the
+ * stores for both ("every store" and "the selected store"), which were two queries of the same small table.
+ */
+const storesOfRequest = cache(async (): Promise<Store[]> => loadStores(await createClient()));
 
 /**
  * The store the signed-in user has selected, which the product choices
@@ -60,7 +67,7 @@ export async function listStores(): Promise<Store[]> {
  * is only one store. Throws SettingsDataError.
  */
 export async function getSelectedStore(): Promise<Store | null> {
-  return loadSelectedStore(await createClient());
+  return (await storesOfRequest()).find((store) => store.isSelected) ?? null;
 }
 
 /**

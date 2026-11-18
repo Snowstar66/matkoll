@@ -11,3 +11,4 @@ export {
   welcomeRoute,
   type TourExit,
 } from "./domain/tour";
+export { tourSeenCookie, tourSeenCookieText } from "./domain/tour-cookie";
