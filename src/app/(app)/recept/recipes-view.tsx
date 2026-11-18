@@ -7,6 +7,7 @@ import { recipeFits } from "@/features/menu-advisor";
 import { getFoodFitPeople } from "@/features/menu-advisor/server";
 import { matchOffersWithAi, recipeOfferTags } from "@/features/suggestions/server";
 import { recipeOffersLineText } from "@/features/offers";
+import { PageReady } from "@/components/app-shell/nav-timing";
 import { loadOffersSheetData } from "../offers-sheet-data";
 import { RecipeOffersSheet } from "./recipe-offers-sheet";
 import { getCurrentPlan } from "@/features/mealplan/server";
@@ -81,6 +82,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   if (recipes.length === 0) {
     return (
       <>
+        <PageReady name="Recept" />
         {dagens}
         <EmptyLibrary shared={shared}>
           <StarterEmptyOffer offer={starter} importButton={<ImportRecipeButton variant="text" />}>
@@ -94,6 +96,7 @@ async function RecipesContent({ initialFilter: filterPromise }: { initialFilter?
   }
   return (
     <>
+    <PageReady name="Recept" />
     {dagens}
     <Library
       recipes={recipes}

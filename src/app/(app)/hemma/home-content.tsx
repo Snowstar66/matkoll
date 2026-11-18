@@ -1,3 +1,4 @@
+import { PageReady } from "@/components/app-shell/nav-timing";
 import { Suspense } from "react";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
@@ -86,6 +87,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   const photos = await photoRead;
   return (
     <>
+      <PageReady name="Matvaror" />
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
