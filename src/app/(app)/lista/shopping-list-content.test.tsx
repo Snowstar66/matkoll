@@ -17,9 +17,13 @@ vi.mock("next/navigation", () => ({
   redirect: (url: string) => redirect(url),
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
+const weekCounts = vi.hoisted(() => vi.fn(async (_weeks: readonly string[]): Promise<Record<string, number>> => ({})));
 vi.mock("@/features/mealplan/server", async () => {
   const { viewedWeek } = await import("@/features/mealplan");
-  return { resolveViewedWeek: async (vecka: string | null | undefined, now?: Date) => viewedWeek(vecka, now) };
+  return {
+    resolveViewedWeek: async (vecka: string | null | undefined, now?: Date) => viewedWeek(vecka, now),
+    getWeekCounts: weekCounts,
+  };
 });
 vi.mock("@/features/shopping/actions/set-checked", () => ({ setChecked: vi.fn() }));
 vi.mock("@/features/shopping/actions/add-custom-item", () => ({ addCustomItem: vi.fn() }));
@@ -82,6 +86,11 @@ const noChoices = {
 };
 
 describe("ShoppingListContent", () => {
+  beforeEach(() => {
+    weekCounts.mockReset();
+    weekCounts.mockResolvedValue({});
+  });
+
   it("shows shopping_unavailable in a notice when the list cannot be read", async () => {
     vi.mocked(getShoppingList).mockResolvedValue(fail("shopping_unavailable"));
     render(await ShoppingListContent());
@@ -109,6 +118,39 @@ describe("ShoppingListContent", () => {
     expect(screen.getByText("Allt till veckans rätter finns redan hemma.")).toBeInTheDocument();
     // Checks an interrupted "Lägg till i Matvaror" left behind keep the button reachable.
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
+  });
+
+  describe("the week choice", () => {
+    const thisWeekList = () =>
+      vi.mocked(getShoppingList).mockResolvedValue(
+        ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0, ...noChoices }),
+      );
+
+    it("is left out on this week when next week has no dishes: the list is one list", async () => {
+      thisWeekList();
+      render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+      expect(screen.queryByTestId("week-select")).not.toBeInTheDocument();
+    });
+
+    it("shows on this week once next week has dishes", async () => {
+      thisWeekList();
+      weekCounts.mockImplementation(async (weeks) => Object.fromEntries(weeks.map((week) => [week, 2])));
+      render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+      expect(screen.getByTestId("week-select")).toBeInTheDocument();
+    });
+
+    it("shows when the dish count cannot be read, and always on another week than this one", async () => {
+      thisWeekList();
+      weekCounts.mockRejectedValue(new Error("down"));
+      const { unmount } = render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+      expect(screen.getByTestId("week-select")).toBeInTheDocument();
+      unmount();
+      weekCounts.mockResolvedValue({});
+      const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
+      const nextWeek = weekParam(addWeeks(currentWeekStart(new Date()), 1));
+      render(<ToastProvider>{await ShoppingListContent({ searchParams: Promise.resolve({ vecka: nextWeek }) })}</ToastProvider>);
+      expect(screen.getByTestId("week-select")).toBeInTheDocument();
+    });
   });
 
   it("shows one list with the week as the segment, and a week without dishes offers to plan it", async () => {
@@ -146,7 +188,7 @@ describe("ShoppingListContent", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Att handla" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("week-menu")).not.toBeInTheDocument();
     const select = screen.getByTestId("week-select") as HTMLSelectElement;
-    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka"]);
     expect(select.value).toBe(nextWeek);
     expect(screen.queryByTestId("week-tile")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Tidigare veckor" })).not.toBeInTheDocument();

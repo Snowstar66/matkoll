@@ -138,8 +138,8 @@ export function weekNumber(weekStart: string): number {
   return isoWeekOfMonday(weekStart).week;
 }
 
-/** How many weeks the overview and "Kopiera till …" offer: this week and the next two. */
-export const overviewWeeks = 3;
+/** How many weeks the overview and "Kopiera till …" offer: this week and the next (UX 2026-11-18: two ahead was too ambitious; it is this one number). */
+export const overviewWeeks = 2;
 
 /** The short label of a week tile: "Denna vecka", "Nästa", "Om 3 v". */
 export function weekTileLabel(offset: number): string {

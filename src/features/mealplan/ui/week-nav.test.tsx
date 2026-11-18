@@ -7,17 +7,15 @@ import { WeekSelectNav, WeekNav } from "./week-nav";
 const now = new Date("2026-10-29T10:00:00Z");
 
 describe("WeekNav", () => {
-  it("shows this week and the next two as tiles with their dish counts", () => {
+  it("shows this week and the next as tiles with their dish counts", () => {
     render(<WeekNav weekStart="2026-10-26" counts={{ "2026-10-26": 5, "2026-11-02": 1 }} now={now} />);
     const tiles = screen.getAllByTestId("week-tile");
     expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
       "Vecka 44, denna vecka, 5 rätter",
       "Vecka 45, nästa vecka, 1 rätt",
-      "Vecka 46, om 2 veckor, inga rätter",
     ]);
     expect(within(tiles[0]).getByTestId("week-count")).toHaveTextContent("5 rätter");
     expect(within(tiles[1]).getByTestId("week-count")).toHaveTextContent("1 rätt");
-    expect(within(tiles[2]).getByTestId("week-count")).toHaveTextContent("Tom");
     expect(within(tiles[0]).getByText("Denna vecka")).toBeInTheDocument();
     expect(screen.getByTestId("week-range")).toHaveTextContent("v. 44 · 26 okt – 1 nov");
     expect(tiles[0]).toHaveAttribute("aria-current", "page");
@@ -42,9 +40,8 @@ describe("WeekNav", () => {
     expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
       "Vecka 44, denna vecka, 38 varor",
       "Vecka 45, nästa vecka, 1 vara",
-      "Vecka 46, om 2 veckor, inga varor",
     ]);
-    expect(tiles.map((tile) => within(tile).getByTestId("week-count").textContent)).toEqual(["38 varor", "1 vara", "Tom"]);
+    expect(tiles.map((tile) => within(tile).getByTestId("week-count").textContent)).toEqual(["38 varor", "1 vara"]);
     expect(tiles[1]).toHaveAttribute("href", "/lista?vecka=2026-W45&visa=egna");
     expect(document.cookie).toContain("livskoll-vecka=2026-W44");
   });
@@ -53,15 +50,16 @@ describe("WeekNav", () => {
     render(<WeekNav weekStart="2026-11-09" now={now} />);
     expect(screen.getByRole("link", { name: /Vecka 46/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByTestId("week-tile")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /Vecka 46/ })).toHaveAttribute("aria-label", "Vecka 46, om 2 veckor, inga rätter");
   });
 
   it("adds a selected tile for a week further ahead", () => {
     render(<WeekNav weekStart="2026-12-07" now={now} />);
     const tiles = screen.getAllByTestId("week-tile");
-    expect(tiles).toHaveLength(4);
-    expect(tiles[3]).toHaveAttribute("aria-current", "page");
-    expect(tiles[3]).toHaveAttribute("aria-label", "Vecka 50, om 6 veckor, inga rätter");
-    expect(tiles[3]).toHaveAttribute("href", "/matsedel?vecka=2026-W50");
+    expect(tiles).toHaveLength(3);
+    expect(tiles[2]).toHaveAttribute("aria-current", "page");
+    expect(tiles[2]).toHaveAttribute("aria-label", "Vecka 50, om 6 veckor, inga rätter");
+    expect(tiles[2]).toHaveAttribute("href", "/matsedel?vecka=2026-W50");
   });
 });
 
@@ -69,18 +67,18 @@ const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 describe("WeekSelectNav (Inköpslistan)", () => {
-  it("offers this week, next week and the week after, with the viewed week chosen", () => {
+  it("offers this week and next week, with the viewed week chosen", () => {
     render(<WeekSelectNav weekStart="2026-11-02" now={now} basePath="/lista" />);
     const select = screen.getByTestId("week-select") as HTMLSelectElement;
-    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor"]);
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka"]);
     expect(select.value).toBe("2026-11-02");
     expect(screen.getByLabelText("Vecka")).toBe(select);
   });
 
-  it("adds the week further ahead as a fourth choice", () => {
+  it("adds the week further ahead as a third choice", () => {
     render(<WeekSelectNav weekStart="2026-12-07" now={now} basePath="/lista" />);
     const select = screen.getByTestId("week-select") as HTMLSelectElement;
-    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 2 veckor", "Om 6 veckor"]);
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka", "Om 6 veckor"]);
     expect(select.value).toBe("2026-12-07");
   });
 
