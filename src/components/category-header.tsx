@@ -45,6 +45,8 @@ export type CategoryHeaderProps = {
   icon?: string;
   /** How many items are under the heading; shown as a number, read as "3 varor". Not a whole number ≥ 0: 0. */
   count: number;
+  /** Whether the number is shown. Left out, it is (Förråd's rooms, Erbjudanden); Inköpslista and Matvaror hide it for now. Screen readers still hear "3 varor". */
+  showCount?: boolean;
   /** The heading's id, for `aria-labelledby` on the ListGroup below it. */
   id?: string;
   /** The heading level; 2 (default) under the page title, 3 or 4 when the categories sit under another heading. */
@@ -62,7 +64,7 @@ export type CategoryHeaderProps = {
  * description, so it is heard when moving by headings. The emoji has a fixed
  * size in px, so the row holds at 200 % text; a long name wraps instead.
  */
-export function CategoryHeader({ category, icon: ownIcon, count, id, level = 2, className }: CategoryHeaderProps) {
+export function CategoryHeader({ category, icon: ownIcon, count, showCount = true, id, level = 2, className }: CategoryHeaderProps) {
   const countId = useId();
   const icon = ownIcon ?? (categoryIcons as Record<string, { icon: string }>)[category]?.icon ?? categoryIcons["Övrigt"].icon;
   const shown = itemCount(count);
@@ -85,7 +87,7 @@ export function CategoryHeader({ category, icon: ownIcon, count, id, level = 2, 
         {category}
       </Heading>
       <span className="shrink-0 text-meta text-ink-2 tabular-nums">
-        <span aria-hidden="true">{shown}</span>
+        {showCount ? <span aria-hidden="true">{shown}</span> : null}
         <span id={countId} className="sr-only">
           {itemCountText(shown)}
         </span>

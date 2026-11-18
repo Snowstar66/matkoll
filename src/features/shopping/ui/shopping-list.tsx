@@ -1205,7 +1205,7 @@ function CategorySection({ category, children }: { category: Category; children:
   const headingId = useId();
   return (
     <div data-testid="list-category" className="flex flex-col gap-2">
-      <CategoryHeader id={headingId} category={category} count={children.length} />
+      <CategoryHeader id={headingId} category={category} count={children.length} showCount={false} />
       <ListGroup labelledBy={headingId} inset={56} className="@container">
         {children}
       </ListGroup>

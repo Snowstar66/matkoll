@@ -239,7 +239,7 @@ function CategoryGroup({
   const { openItem } = usePantrySheet();
   return (
     <div className="flex flex-col gap-2" data-testid="pantry-category">
-      <CategoryHeader id={headingId} category={group.category} count={group.items.length} />
+      <CategoryHeader id={headingId} category={group.category} count={group.items.length} showCount={false} />
       <ListGroup labelledBy={headingId} inset={16}>
         {group.items.map((item) => {
           const { meta, extra, removeLabel } = names.get(item.id) ?? { meta: null, extra: undefined, removeLabel: `Ta bort ${item.name}` };
