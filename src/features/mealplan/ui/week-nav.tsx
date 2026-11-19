@@ -1,131 +1,34 @@
-import Link from "next/link";
-import { weekRangeText } from "../domain/meal-plan";
-import { addWeeks, currentWeekStart, overviewWeeks, weekFillText, weekItemsText, weekNumber, weekOffsetLabel, weekParam, weeksBetween, weekTileLabel, weekTileName } from "../domain/week";
-import { RememberWeek } from "./remember-week";
+import { addWeeks, currentWeekStart, overviewWeeks, weekOffsetLabel, weekParam, weeksBetween } from "../domain/week";
 import { WeekSelect } from "./week-select";
 
 /**
- * The week control on Matsedel (Story 14.5, Stories 13.7,
- * 13.9 and 3.10 before it): a calm segmented track with this week, next week
- * and the week after as equal segments. The viewed week is a white, slightly
- * raised segment; the others lie flat on the track. Each segment has the label
- * on the first line and the dish count on the second ("3 rätter", "Tom"). A
- * week further ahead (reached with `?vecka=`) gets a fourth, selected segment.
- * Plain links, so the viewed week is in the address (`?vecka=2026-W45`) and a
- * reload keeps it. Under the track: the viewed week and its dates, and
- * "Tidigare" to the earlier plans (Story 3.2). Server-rendered; `now` is the
- * server's moment, the same one the page counted the week from, and `counts`
- * are the dishes by week (getWeekCounts).
- */
-export function WeekNav({
-  weekStart,
-  counts = {},
-  now = new Date(),
-  basePath = "/matsedel",
-  showHistory = true,
-  unit = "dishes",
-  keepParams,
-}: {
-  weekStart: string;
-  counts?: Record<string, number>;
-  now?: Date;
-  /** The page the segments lead to (Inköpslista used them until it got WeekMenu). */
-  basePath?: string;
-  /** "Tidigare" beside the dates, which only Matsedel has. */
-  showHistory?: boolean;
-  /** What `counts` count: the week's dishes (Matsedel) or the items to buy (Inköpslista, UX-04). */
-  unit?: "dishes" | "items";
-  /** Other address values the links keep, e.g. Inköpslista's filter `visa`. */
-  keepParams?: Record<string, string>;
-}) {
-  const thisWeek = currentWeekStart(now);
-  const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
-  if (!weeks.includes(weekStart)) weeks.push(weekStart);
-  // Always `?vecka=`, also for this week: the plain address means the week last viewed (UX-04).
-  const hrefFor = (week: string) => {
-    const params = new URLSearchParams({ vecka: weekParam(week), ...keepParams });
-    return `${basePath}?${params.toString()}`;
-  };
-  return (
-    <nav aria-label="Vecka" data-testid="week-nav" className="flex flex-col gap-2.5">
-      <RememberWeek weekStart={weekStart} />
-      <ul
-        className="grid gap-[3px] rounded-md bg-seg-track p-[3px] desktop:max-w-[480px]"
-        style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
-      >
-        {weeks.map((week) => {
-          const offset = weeksBetween(thisWeek, week);
-          const count = counts[week] ?? 0;
-          const selected = week === weekStart;
-          return (
-            <li key={week} className="flex">
-              <Link
-                href={hrefFor(week)}
-                scroll={false}
-                data-testid="week-tile"
-                aria-current={selected ? "page" : undefined}
-                aria-label={weekTileName(week, offset, count, unit)}
-                className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[9px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
-                  selected ? "border border-border bg-seg-on" : "border border-transparent"
-                }`}
-              >
-                <span aria-hidden="true" className={`text-control ${selected ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>
-                  {weekTileLabel(offset)}
-                </span>
-                <span
-                  aria-hidden="true"
-                  data-testid="week-count"
-                  className={`text-badge ${selected ? "text-accent dark:text-ink" : "text-ink-2"}`}
-                >
-                  {unit === "items" ? weekItemsText(count) : weekFillText(count)}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="flex items-center justify-between gap-3 px-1">
-        <p data-testid="week-range" className="flex min-w-0 items-center text-meta text-ink-2">
-          <span className="min-w-0">
-            v. {weekNumber(weekStart)} {"\u00B7"} {weekRangeText(weekStart)}
-          </span>
-        </p>
-        {showHistory ? (
-          <Link
-            href="/matsedel/tidigare"
-            aria-label="Tidigare veckor"
-            className="flex min-h-tap shrink-0 items-center text-control text-accent"
-          >
-            Tidigare {"\u203A"}
-          </Link>
-        ) : null}
-      </div>
-    </nav>
-  );
-}
-
-/**
- * Inköpslistans vecka som en diskret rullgardin (WeekSelect): "Denna vecka", "Nästa vecka" och "Om 2 veckor", och en
- * vecka längre fram (`?vecka=`) som en fjärde post. Samma adresser (`?vecka=`) som tilarna i WeekNav.
+ * The week as a discreet dropdown (WeekSelect), on Inköpslista and Matsedel: "Denna vecka" and "Nästa vecka", and a
+ * week further ahead (`?vecka=`) as one more entry. The addresses are `?vecka=`, so a reload keeps the week.
+ * `withHistory` (Matsedel): last week and "Äldre veckor ›" are offered when the Tillval "Visa tidigare vecka" is on.
  */
 export function WeekSelectNav({
   weekStart,
   now = new Date(),
   basePath = "/matsedel",
   keepParams,
+  withHistory = false,
 }: {
   weekStart: string;
   now?: Date;
   basePath?: string;
   keepParams?: Record<string, string>;
+  withHistory?: boolean;
 }) {
   const thisWeek = currentWeekStart(now);
   const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
-  if (!weeks.includes(weekStart)) weeks.push(weekStart);
-  const options = weeks.map((week) => ({
-    week,
-    label: weekOffsetLabel(weeksBetween(thisWeek, week)),
-    href: `${basePath}?${new URLSearchParams({ vecka: weekParam(week), ...keepParams }).toString()}`,
-  }));
-  return <WeekSelect weekStart={weekStart} options={options} />;
+  const lastWeek = addWeeks(thisWeek, -1);
+  // Last week is WeekSelect's own entry (it depends on the Tillval, which only the browser knows).
+  if (!weeks.includes(weekStart) && weekStart !== lastWeek) weeks.push(weekStart);
+  // Always `?vecka=`, also for this week: the plain address means the week last viewed (UX-04).
+  const hrefFor = (week: string) => `${basePath}?${new URLSearchParams({ vecka: weekParam(week), ...keepParams }).toString()}`;
+  const options = weeks.map((week) => ({ week, label: weekOffsetLabel(weeksBetween(thisWeek, week)), href: hrefFor(week) }));
+  const history = withHistory
+    ? { lastWeek: { week: lastWeek, label: weekOffsetLabel(-1), href: hrefFor(lastWeek) }, thisWeekHref: hrefFor(thisWeek), olderHref: "/matsedel/tidigare" }
+    : undefined;
+  return <WeekSelect weekStart={weekStart} options={options} history={history} />;
 }

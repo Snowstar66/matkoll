@@ -72,6 +72,38 @@ function renderPlanner(dishes: PlanDish[] = [], opts: PlanOption[] | null = opti
   );
 }
 
+describe("WeekPlanner, UX-02 and UX-03", () => {
+  it("puts the chips in the row of Veckans rätter and shows no guidance text in an empty week", () => {
+    render(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-11-02" dishes={[]} options={options} headingAction={<button type="button">Föreslå veckan</button>} />
+      </ToastProvider>,
+    );
+    const heading = screen.getByRole("heading", { name: "Veckans rätter" });
+    expect(heading.parentElement).toContainElement(screen.getByRole("button", { name: "Föreslå veckan" }));
+    expect(screen.getByTestId("week-heading-actions").className).toMatch(/\bml-auto\b/);
+    expect(heading.parentElement?.className).toMatch(/\bflex-wrap\b/);
+    expect(screen.queryByTestId("week-empty")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Välj bland dina recept här under/)).not.toBeInTheDocument();
+  });
+
+  it("a week that has passed can only be looked at: no bin, no day button, no adding, no note", () => {
+    render(
+      <ToastProvider>
+        <WeekPlanner weekStart="2026-10-19" readOnly firstOpenDay={8} dishes={[onWeek(1, "Tacos", 2), onWeek(2, "Korv", 5)]} />
+      </ToastProvider>,
+    );
+    expect(screen.getAllByTestId("plan-dish")).toHaveLength(2);
+    expect(screen.getByTestId("week-bar-count")).toHaveTextContent("2 rätter");
+    expect(screen.queryByTestId("dish-remove")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dish-day")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("free-day")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dish-note")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("add-dishes-toggle")).not.toBeInTheDocument();
+    expect(screen.getByText("Tis")).toBeInTheDocument();
+  });
+});
+
 /** "Alla recept" is no chip: it is every chip off, so the one that is on is tapped again. */
 const showAll = async (user: ReturnType<typeof userEvent.setup>) => {
   for (const name of ["Snabbt", "Favoriter", "På erbjudande"]) {
@@ -322,7 +354,8 @@ describe("WeekPlanner, Veckans rätter and the bar", () => {
     await user.click(screen.getByRole("button", { name: "Ta bort Tacos" }));
     expect(removePlanRecipe).toHaveBeenCalledWith(dish.id);
     expect(screen.queryByTestId("plan-dish")).not.toBeInTheDocument();
-    expect(screen.getByTestId("week-empty")).toBeInTheDocument();
+    // No guidance text in an empty week any more (UX-02).
+    expect(screen.queryByTestId("week-empty")).not.toBeInTheDocument();
     expect((await screen.findAllByText("Tog bort Tacos.")).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: /Ångra/ }));
     await waitFor(() => expect(restorePlanRecipe).toHaveBeenCalledWith(row));

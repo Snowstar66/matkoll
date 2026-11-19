@@ -51,9 +51,10 @@ export async function getRememberedWeek(now: Date = new Date()): Promise<string>
   return viewedWeek(value, now);
 }
 
-/** The week a page shows: the address's `?vecka=` when it has one, else the remembered week. */
-export async function resolveViewedWeek(vecka: string | null | undefined, now: Date = new Date()): Promise<string> {
-  return vecka ? viewedWeek(vecka, now) : getRememberedWeek(now);
+/** The week a page shows: the address's `?vecka=` when it has one, else the remembered week. Matsedel lets last week through (`allowLastWeek`). */
+export async function resolveViewedWeek(vecka: string | null | undefined, now: Date = new Date(), allowLastWeek = false): Promise<string> {
+  // The remembered week is never a past one (RememberWeek does not save it, and viewedWeek here does not let it through).
+  return vecka ? viewedWeek(vecka, now, allowLastWeek) : getRememberedWeek(now);
 }
 
 /**

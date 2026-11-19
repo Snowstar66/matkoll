@@ -30,6 +30,19 @@ describe("PageHeader", () => {
     expect(back.className).not.toMatch(/-mt-tap\b/);
   });
 
+  it("has the slim bar's title at the left on a tab, with room kept for the buttons at the right (UX-04)", () => {
+    render(<PageHeader title="Recept" tab="/recept" action={<button type="button">Lägg till</button>} />);
+    const bar = screen.getByTestId("collapsed-bar");
+    expect(bar).toHaveClass("justify-start");
+    expect(bar).not.toHaveClass("justify-center");
+    expect(bar).toHaveStyle({ paddingLeft: "16px" });
+  });
+
+  it("keeps the slim bar's title centred on a page with a back link, which takes the left edge", () => {
+    render(<PageHeader title="Hjälp och tips" backHref="/hemma" backLabel="Matvaror" collapsing />);
+    expect(screen.getByTestId("collapsed-bar")).toHaveClass("justify-center");
+  });
+
   it("on a long page under a tab, has the slim bar with the title, and the back link that moves into it", () => {
     render(<PageHeader title="Hjälp och tips" backHref="/hemma" backLabel="Matvaror" collapsing />);
     const back = screen.getByRole("link", { name: "Matvaror" });

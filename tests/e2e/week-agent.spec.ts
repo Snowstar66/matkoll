@@ -108,6 +108,12 @@ test("an empty week: Föreslå veckan, a proposal with a reason per day, Använd
   const card = page.getByTestId("week-agent-card-link");
   await expect(card).toContainText("Föreslå veckan");
   await expect(card).toHaveAttribute("data-state", "empty");
+  // UX-02: the chip sits at the right of the heading "Veckans rätter", on the same row.
+  const headingBox = await page.getByRole("heading", { name: "Veckans rätter" }).boundingBox();
+  const cardBox = await card.boundingBox();
+  expect(Math.abs(headingBox!.y + headingBox!.height / 2 - (cardBox!.y + cardBox!.height / 2))).toBeLessThan(20);
+  expect(cardBox!.x).toBeGreaterThan(headingBox!.x + headingBox!.width);
+  expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(375);
   // The chip opens Veckans inriktning first; Hoppa över starts the proposal with what is saved.
   await card.click();
   await expect(page.getByRole("dialog", { name: "Veckans inriktning" })).toBeVisible();

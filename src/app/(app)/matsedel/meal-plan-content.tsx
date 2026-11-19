@@ -2,10 +2,10 @@ import { PageReady } from "@/components/app-shell/nav-timing";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { addToCurrentPlan, getMealPlanView, getWeekCounts, MealPlanDataError, resolveViewedWeek, type MealPlanView } from "@/features/mealplan/server";
-import { addWeeks, currentWeekStart, firstOpenWeekday, overviewWeeks, todayWeekday, weekNumber, weekQueryAlways } from "@/features/mealplan";
+import { addToCurrentPlan, getMealPlanView, MealPlanDataError, resolveViewedWeek, type MealPlanView } from "@/features/mealplan/server";
+import { firstOpenWeekday, isPastWeek, todayWeekday, weekNumber, weekQueryAlways } from "@/features/mealplan";
 import { WeekPlanner } from "@/features/mealplan/ui/week-planner";
-import { WeekNav } from "@/features/mealplan/ui/week-nav";
+import { WeekSelectNav } from "@/features/mealplan/ui/week-nav";
 import { namedLines, recipeNutrition, type RecipeNutrition } from "@/features/nutrition";
 import { getIngredientNutritionWithNames } from "@/features/nutrition/server";
 import type { PantrySite } from "@/features/pantry";
@@ -78,17 +78,6 @@ async function sitesOrNull(): Promise<PantrySite[] | null> {
   }
 }
 
-/** The dishes by week for the week overview, or none when they cannot be read: the tiles then show "–". */
-async function countsOrEmpty(weeks: string[]): Promise<Record<string, number>> {
-  try {
-    return await getWeekCounts(weeks);
-  } catch (error) {
-    if (!(error instanceof MealPlanDataError)) throw error;
-    console.error("mealplan_counts_unavailable", { reason: error.detail });
-    return {};
-  }
-}
-
 /**
  * How many items the week's dishes still need: the shopping list's own lines
  * for the week (what is at home and the Basvaror already taken off), without
@@ -148,49 +137,46 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const params = await searchParams;
   const vecka = params?.vecka;
   const now = new Date();
-  const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
+  // Last week is let through (to look at, with the Tillval "Visa tidigare vecka"); it is never changed or remembered.
+  const weekStart = await resolveViewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now, true);
+  const past = isPastWeek(weekStart, now);
 
   // Not awaited: the week shows at once; the library for "Lägg till rätter", the count to buy and the ideas arrive when read.
   // An unexpected failure there leaves the part out (logged) instead of the whole week.
-  const options = optionsOrNull().catch((error: unknown) => {
+  const options = past ? undefined : optionsOrNull().catch((error: unknown) => {
     console.error("mealplan_recipes_failed", { reason: error instanceof Error ? error.name : "unknown" });
     return null;
   });
-  const toBuy = itemsToBuy(weekStart).catch((error: unknown) => {
+  const toBuy = past ? undefined : itemsToBuy(weekStart).catch((error: unknown) => {
     console.error("mealplan_to_buy_failed", { reason: error instanceof Error ? error.name : "unknown" });
     return null;
   });
-  const ideas = ideasOrNull().catch((): null => null);
-
-  const overview = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
-  if (!overview.includes(weekStart)) overview.push(weekStart);
+  const ideas = past ? undefined : ideasOrNull().catch((): null => null);
 
   let view: MealPlanView;
   let sites: PantrySite[] | null;
-  let counts: Record<string, number>;
   let people: Awaited<ReturnType<typeof getFoodFitPeople>>;
   let draft: Awaited<ReturnType<typeof getWeekDraft>>;
   const reads = Promise.all([
       getMealPlanView(weekStart),
-      countsOrEmpty(overview),
       sitesOrNull(),
       // One read for the whole page (never throws; empty when nothing is filled in).
       getFoodFitPeople(),
       // The waiting proposal is read with the rest, not after them (one round trip less); it is only used when the week has free days.
-      getWeekDraft(weekStart),
+      past ? Promise.resolve(null) : getWeekDraft(weekStart),
   ]);
   reads.catch(() => undefined);
   // Signed out: sent away here, whatever the reads said.
   await signedIn;
   try {
-    [view, counts, sites, people, draft] = await reads;
+    [view, sites, people, draft] = await reads;
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
     console.error("mealplan_unavailable", { reason: error.detail });
     return (
       <>
         <PageHeader title="Matsedel" tab="/matsedel" />
-        <WeekNav weekStart={weekStart} now={now} />
+        <WeekSelectNav weekStart={weekStart} now={now} withHistory />
         <Notice role="alert">{errorMessages.mealplan_unavailable}</Notice>
       </>
     );
@@ -228,27 +214,39 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
             <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
               <ListOffers next="/matsedel" />
             </Suspense>
-            <AddDishesButton />
-            <MatsedelWeekAgentMenu weekStart={weekStart} redoHref={`${agentAddress}&gor-om=1`} filledDays={filledDays} emptyDays={emptyDays} />
+            {past ? null : (
+              <>
+                <AddDishesButton />
+                <MatsedelWeekAgentMenu weekStart={weekStart} redoHref={`${agentAddress}&gor-om=1`} filledDays={filledDays} emptyDays={emptyDays} />
+              </>
+            )}
           </>
         }
       />
-      {/* A phone has no side menu: the boende is directly under the title (Story 19.2). */}
-      {sites && sites.length > 1 ? (
-        <div className="-mt-2 mb-3 desktop:hidden">
-          <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
-        </div>
-      ) : null}
+      {/* One quiet row: on a phone (no side menu) the boende on the left, Denna vecka ⌄ on the right (Story 19.2, UX-01). */}
+      <div className="-mt-2 mb-1 flex flex-wrap items-center justify-between gap-x-3">
+        {sites && sites.length > 1 ? (
+          <div className="desktop:hidden">
+            <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
+          </div>
+        ) : null}
+        <WeekSelectNav weekStart={weekStart} now={now} withHistory />
+      </div>
       <div className="flex flex-col gap-4">
-        <WeekNav weekStart={weekStart} counts={counts} now={now} />
-        {/* One quiet row of chips (each hides itself with its Tillval off; with both off the row is empty and gone). */}
+        {/* One quiet row of chips: Äter ni ute? (hides itself with its Tillval off; with it off the row is empty and gone). */}
         <div data-testid="matsedel-chips" className="flex flex-wrap items-center gap-2 empty:hidden">
           <MenuShortcut />
-          <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} draft={waitingDraft} draftHref={agentAddress} newHref={`${agentAddress}&starta=1&nytt=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
         </div>
         <WeekPlanner
           key={weekStart}
           weekStart={weekStart}
+          readOnly={past}
+          // Föreslå veckan / Fyll resten / Öppna utkast (+ ⋯) sit at the right of the heading "Veckans rätter" (UX-02).
+          headingAction={
+            past ? null : (
+              <MatsedelWeekAgentCard href={`${agentAddress}&starta=1`} draft={waitingDraft} draftHref={agentAddress} newHref={`${agentAddress}&starta=1&nytt=1`} weekNumber={weekNumber(weekStart)} filledDays={filledDays} emptyDays={emptyDays} />
+            )
+          }
           firstOpenDay={firstOpenDay}
           dishes={view.dishes}
           optionsLater={options}
@@ -256,9 +254,11 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
           nutrition={nutrition}
           fits={fits}
           offersFooter={
-            <Suspense fallback={null}>
-              <OfferIdeasLater ideas={ideas} weekStart={weekStart} />
-            </Suspense>
+            ideas ? (
+              <Suspense fallback={null}>
+                <OfferIdeasLater ideas={ideas} weekStart={weekStart} />
+              </Suspense>
+            ) : undefined
           }
         />
       </div>

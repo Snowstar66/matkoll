@@ -122,6 +122,8 @@ export async function SettingsMenuContent() {
           title: "Basvaror",
           value: staples ? staplesCountText(staples.length) : undefined,
         },
+        // The way to the earlier plans now that Matsedel's week row no longer has "Tidigare ›" (with the Tillval "Visa tidigare vecka" on it is in Matsedel's dropdown too).
+        { href: "/matsedel/tidigare", icon: "bookmark", tile: "lilac", title: "Tidigare matsedlar" },
       ],
     },
     {

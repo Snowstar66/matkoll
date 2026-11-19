@@ -105,6 +105,9 @@ const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const bar = (page: Page) => page.getByTestId("week-bar-count").filter({ visible: true });
 const chip = (row: Locator) => row.getByTestId("dish-day");
+/** The week dropdown on Matsedel (UX-01); a native select, so a choice is made by its label. */
+const weekDropdown = (page: Page) => page.getByTestId("week-select").filter({ visible: true });
+const chosenWeek = (page: Page) => weekDropdown(page).locator("option:checked");
 // "Alla recept" is no chip: it is every chip switched off, so the one that is on is tapped again.
 const addTab = async (page: Page, name: "Favoriter" | "På erbjudande" | "Alla recept") => {
   await openLibrary(page);
@@ -148,10 +151,12 @@ async function dishCount(): Promise<number> {
   return count ?? 0;
 }
 
-test("an empty week says so, with the library to choose from under it", async ({ page }) => {
+test("an empty week has no guidance text, with the library to choose from under it", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  await expect(page.getByTestId("week-empty")).toHaveText("Inga rätter än. Välj bland dina recept här under.");
+  await expect(page.getByRole("heading", { name: "Veckans rätter" })).toBeVisible();
+  await expect(page.getByTestId("week-empty")).toHaveCount(0);
+  await expect(page.getByText("Välj bland dina recept här under")).toHaveCount(0);
   // The library is folded until opened.
   const toggle = page.getByRole("button", { name: "Lägg till nya rätter" });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -397,10 +402,9 @@ test("Lägg på matsedeln in the recipe view uses the week last viewed, and Byt 
 
   // View next week on Matsedel; the week is remembered on this device.
   await page.goto("/matsedel");
-  const nav = page.getByTestId("week-nav").filter({ visible: true });
-  await nav.getByRole("link", { name: "Nästa vecka" }).click();
+  await weekDropdown(page).selectOption({ label: "Nästa vecka" });
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  await expect(chosenWeek(page)).toHaveText("Nästa vecka");
   const nextParam = new URL(page.url()).searchParams.get("vecka")!;
   const nextNumber = Number(nextParam.slice(-2));
 
@@ -554,10 +558,14 @@ async function seedEarlierPlan(
   planIds[name] = id;
 }
 
-test("Tidigare veckor says when there are no earlier plans", async ({ page }) => {
+test("Tidigare matsedlar says when there are no earlier plans, and is reached from Inställningar with the Tillval off", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  await page.getByRole("link", { name: "Tidigare veckor" }).filter({ visible: true }).click();
+  // Off by default: the dropdown has this week and next week only, and there is no "Tidigare ›" any more.
+  await expect(weekDropdown(page).locator("option")).toHaveText(["Denna vecka", "Nästa vecka"]);
+  await expect(page.getByRole("link", { name: "Tidigare veckor" })).toHaveCount(0);
+  await page.goto("/installningar");
+  await page.getByRole("link", { name: /Tidigare matsedlar/ }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/\/matsedel\/tidigare$/);
   await expect(page.getByRole("heading", { name: "Tidigare matsedlar", level: 1 })).toBeVisible();
   await expect(page.getByText("Inga tidigare matsedlar än.").filter({ visible: true })).toBeVisible();
@@ -710,15 +718,13 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await seedRecipe("Våffelsmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
   await page.goto("/matsedel");
   const thisWeekDishes = await dishCount();
-  const nav = page.getByTestId("week-nav").filter({ visible: true });
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
-  await expect(nav.getByRole("link", { name: "Föregående vecka" })).toHaveCount(0);
+  await expect(chosenWeek(page)).toHaveText("Denna vecka");
 
   // Next week: an empty week to plan, with the library under it.
-  await nav.getByRole("link", { name: "Nästa vecka" }).click();
+  await weekDropdown(page).selectOption({ label: "Nästa vecka" });
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
-  await expect(page.getByTestId("week-empty")).toBeVisible();
+  await expect(chosenWeek(page)).toHaveText("Nästa vecka");
+  await expect(page.getByTestId("week-empty")).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(0);
 
   await addTab(page, "Alla recept");
@@ -729,14 +735,14 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(toast(page)).toContainText("Våffelsmet på måndag.");
   await expect(bar(page)).toHaveText(/^1 rätt · 1 vara att köpa$/);
 
-  // A reload keeps the week; the "Denna vecka" tile goes back to this week, which did not get the dish.
+  // A reload keeps the week; "Denna vecka" in the dropdown goes back to this week, which did not get the dish.
   await page.reload();
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  await expect(chosenWeek(page)).toHaveText("Nästa vecka");
   await expect(dish(page, "Våffelsmet")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await nav.getByRole("link", { name: /denna vecka/i }).click();
+  await weekDropdown(page).selectOption({ label: "Denna vecka" });
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
+  await expect(chosenWeek(page)).toHaveText("Denna vecka");
   await expect(dishes(page)).toHaveCount(thisWeekDishes);
   await expect(dish(page, "Våffelsmet")).toHaveCount(0);
 
@@ -753,7 +759,7 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(page.getByTestId("week-select").locator("option:checked")).toHaveText("Nästa vecka");
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
   await tab(page, "Matsedel").click();
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  await expect(chosenWeek(page)).toHaveText("Nästa vecka");
   expect(errors).toEqual([]);
 });
 
@@ -763,7 +769,7 @@ test("an empty week in Inköpslista says so and offers to plan it; the segment c
   const ids = await seedIngredients(["Mjölk"]);
   await seedRecipe("Pannkaksmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
   await page.goto("/matsedel");
-  await page.getByTestId("week-nav").filter({ visible: true }).getByRole("link", { name: "Nästa vecka" }).click();
+  await weekDropdown(page).selectOption({ label: "Nästa vecka" });
   // The dish must land on next week: wait for the navigation before adding.
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
   await addTab(page, "Alla recept");
@@ -786,33 +792,25 @@ test("an empty week in Inköpslista says so and offers to plan it; the segment c
 });
 
 // Story 13.9: the week overview and "Kopiera till …".
-test("the week tiles show counts and switch week, and an earlier week is copied to next week", async ({ page }) => {
+test("the week dropdown switches week, and an earlier week is copied to next week", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  const nav = page.getByTestId("week-nav").filter({ visible: true });
-  const tiles = nav.getByTestId("week-tile");
-  await expect(tiles).toHaveCount(2);
-  await expect(tiles.nth(0)).toHaveAttribute("aria-current", "page");
-  const countOf = async (index: number) => {
-    const text = (await tiles.nth(index).getByTestId("week-count").textContent()) ?? "";
-    const digits = /\d+/.exec(text);
-    return digits ? Number(digits[0]) : 0;
-  };
-  const thisWeekCount = await countOf(0);
+  const select = weekDropdown(page);
+  await expect(select.locator("option")).toHaveText(["Denna vecka", "Nästa vecka"]);
+  await expect(chosenWeek(page)).toHaveText("Denna vecka");
+  const box = await select.boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await expect(dishes(page).first()).toBeVisible();
+  const thisWeekCount = await dishes(page).count();
   expect(thisWeekCount).toBeGreaterThan(0);
-  await expect(tiles.nth(0)).toHaveAttribute("aria-label", new RegExp(`^Vecka \\d+, denna vecka, ${thisWeekCount} rätt`));
-  const nextBefore = await countOf(1);
-  for (let index = 0; index < 2; index += 1) {
-    const box = await tiles.nth(index).boundingBox();
-    expect(box!.height).toBeGreaterThanOrEqual(44);
-  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  // Tapping a tile shows that week and keeps it in the address.
-  await tiles.nth(1).click();
+  // Choosing a week shows that week and keeps it in the address.
+  await select.selectOption({ label: "Nästa vecka" });
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
-  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
-  await expect(dishes(page)).toHaveCount(nextBefore);
+  await expect(chosenWeek(page)).toHaveText("Nästa vecka");
+  await expect(page.getByRole("heading", { name: "Veckans rätter" })).toBeVisible();
+  const nextBefore = await dishes(page).count();
 
   // An earlier week is copied to next week, with its weekdays.
   await seedEarlierPlan("Vecka 38", "2026-09-14T08:00:00Z", [
@@ -839,7 +837,7 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
     .click();
   const targets = page.getByTestId("copy-target").filter({ visible: true });
   await expect(targets).toHaveCount(2);
-  // Each week says what it already has, like the week tiles.
+  // Each week says what it already has.
   await expect(targets.nth(1)).toContainText(nextBefore === 0 ? "Tom" : nextBefore === 1 ? "1 rätt" : `${nextBefore} rätter`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await targets.nth(1).click();
@@ -849,10 +847,67 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
   await expect(dishes(page)).toHaveCount(nextBefore + 2);
   await expect(chip(dish(page, soppa))).toHaveAttribute("aria-label", /nu tis$/);
   await expect(chip(dish(page, gryta))).toHaveAttribute("aria-label", /nu tor$/);
-  await expect(tiles.nth(1).getByTestId("week-count")).toContainText(String(nextBefore + 2));
 
-  await tiles.nth(0).click();
+  await weekDropdown(page).selectOption({ label: "Denna vecka" });
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
   await expect(dishes(page)).toHaveCount(thisWeekCount);
   expect(errors).toEqual([]);
+});
+
+// UX-03: Tillval "Visa tidigare vecka": last week in the dropdown, to look at only, never remembered.
+test("Visa tidigare vecka adds Förra veckan to look at, which is never remembered, and Äldre veckor › to the earlier plans", async ({ page }) => {
+  const errors = watchErrors(page);
+  const monday = new Date();
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - 7);
+  const lastWeekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  await seedEarlierPlan("Förra veckan e2e", new Date().toISOString(), [{ recipeId: recipeIds[gryta], title: gryta, servings: 4 }], lastWeekStart);
+  await adminClient().from("meal_plan_recipe").update({ weekday: 2 }).eq("meal_plan_id", planIds["Förra veckan e2e"]);
+
+  try {
+    // Off: this week and next week only.
+    await page.goto("/matsedel");
+    await expect(weekDropdown(page).locator("option")).toHaveText(["Denna vecka", "Nästa vecka"]);
+    await page.goto("/installningar/tillval");
+    const row = page.getByRole("switch", { name: /Visa tidigare vecka/ }).filter({ visible: true });
+    await expect(row).toHaveAttribute("aria-checked", "false");
+    await row.click();
+    await expect(row).toHaveAttribute("aria-checked", "true");
+
+    // On: Förra veckan first, Äldre veckor › last.
+    await page.goto("/matsedel");
+    await expect(weekDropdown(page).locator("option")).toHaveText(["Förra veckan", "Denna vecka", "Nästa vecka", "Äldre veckor ›"]);
+    await weekDropdown(page).selectOption({ label: "Förra veckan" });
+    await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
+    await expect(chosenWeek(page)).toHaveText("Förra veckan");
+    await expect(dish(page, gryta)).toHaveCount(1);
+    // View only: no bin, no day button, no Föreslå veckan, no library, no + in the header.
+    await expect(page.getByTestId("dish-remove")).toHaveCount(0);
+    await expect(page.getByTestId("dish-day")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lägg till nya rätter" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lägg till rätt" })).toHaveCount(0);
+    await expect(page.getByTestId("week-agent-card-link")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    // Never remembered: a plain address opens this week.
+    const remembered = (await page.context().cookies()).find((cookie) => cookie.name === "livskoll-vecka")?.value ?? "";
+    expect(remembered).not.toBe(new URL(page.url()).searchParams.get("vecka"));
+    await page.goto("/matsedel");
+    await expect(chosenWeek(page)).toHaveText("Denna vecka");
+
+    // Äldre veckor › leads to the earlier plans.
+    await weekDropdown(page).selectOption({ label: "Äldre veckor ›" });
+    await expect(page).toHaveURL(/\/matsedel\/tidigare$/);
+
+    // Switched off while last week is open: back to this week.
+    await page.goBack();
+    await weekDropdown(page).selectOption({ label: "Förra veckan" });
+    await expect(chosenWeek(page)).toHaveText("Förra veckan");
+    await page.evaluate(() => localStorage.setItem("livskoll-option-showPreviousWeek", "0"));
+    await page.reload();
+    await expect(chosenWeek(page)).toHaveText("Denna vecka");
+    expect(errors).toEqual([]);
+  } finally {
+    await adminClient().from("meal_plan_recipe").delete().eq("meal_plan_id", planIds["Förra veckan e2e"]);
+    await adminClient().from("meal_plan").delete().eq("id", planIds["Förra veckan e2e"]);
+  }
 });

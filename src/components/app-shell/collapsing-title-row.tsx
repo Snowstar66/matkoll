@@ -12,7 +12,7 @@ type Box = { width: number; height: number };
  * The title row of a tab's header (Story 19.2): the large title with the tab's
  * buttons at the right and, once the title has scrolled out of sight, a slim
  * bar (52 px, 84 % surface with blur and a hairline below) with the title
- * centred and the same buttons at the right. The buttons are the very same
+ * at the left (centred when a back link takes the left edge) and the same buttons at the right. The buttons are the very same
  * elements: they stay where they are and are fixed to the bar when it shows
  * (their old place keeps its size), so there is one "+" and one P at any time.
  * Only the bar fades in (150 ms); the text never changes size, which works the
@@ -91,15 +91,18 @@ export function CollapsingTitleRow({
         aria-hidden="true"
         data-testid="collapsed-bar"
         data-shown={collapsed || undefined}
-        // With many buttons (Matsedel has four) the title would sit under them: it is centred in what they leave instead.
-        style={collapsed && box && box.width > 88 ? { paddingLeft: 16, paddingRight: box.width + 16 } : undefined}
+        // UX-04: the title starts at the left (the page's own 16 px gutter) and is cut short before the buttons, which are
+        // fixed at the right (8 px in, `box.width` wide, plus 8 px of air). A page under a tab with a back link keeps the
+        // title centred, as before: the link takes the left edge.
+        style={!back ? { paddingLeft: 16, paddingRight: actions && box ? box.width + 16 : 16 } : undefined}
         className={cx(
-          "pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center justify-center border-b-[0.5px] border-border bg-bar px-24 pt-[calc(4px+env(safe-area-inset-top))] backdrop-blur-[20px] backdrop-saturate-150",
+          "pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center border-b-[0.5px] border-border bg-bar pt-[calc(4px+env(safe-area-inset-top))] backdrop-blur-[20px] backdrop-saturate-150",
+          back ? "justify-center px-24" : "justify-start",
           "h-[calc(52px+env(safe-area-inset-top))] transition-opacity duration-150 desktop:hidden",
           collapsed ? "opacity-100" : "opacity-0",
         )}
       >
-        <p className="truncate text-headline text-ink">{title}</p>
+        <p className={cx("truncate text-headline text-ink", !back && "min-w-0")}>{title}</p>
       </div>
       {back ? (
         <div className="self-start" style={collapsed && backBox ? { width: backBox.width, height: backBox.height } : undefined}>

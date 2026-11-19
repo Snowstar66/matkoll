@@ -25,6 +25,12 @@ describe("options", () => {
     expect(readOption("recipeTimer")).toBe(true);
   });
 
+  it("has Visa tidigare vecka, off by default, last of the switches in Hushållet", () => {
+    const household = options.filter((entry) => entry.group === "household");
+    expect(household.at(-1)).toMatchObject({ id: "showPreviousWeek", label: "Visa tidigare vecka", defaultOn: false });
+    expect(readOption("showPreviousWeek")).toBe(false);
+  });
+
   it("has Veckoagenten, off by default, in a group the settings page shows", () => {
     const option = options.find((entry) => entry.id === "weekAgent");
     expect(option).toMatchObject({ label: "Veckoagenten", defaultOn: false });
