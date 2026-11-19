@@ -1402,7 +1402,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
 
   // Pontus 1 Nov: the › at the end of a row opens the föremål's sheet, the same as in the room and in search.
   await page.getByRole("button", { name: "Öppna Förlängningssladd" }).click();
-  const thingSheet = page.getByRole("dialog", { name: "Förlängningssladd" });
+  const thingSheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(thingSheet.getByTestId("count-card")).toBeVisible();
   await expect(thingSheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
   await expect(thingSheet.getByRole("link", { name: "Visa på kortet" })).toHaveCount(0);

@@ -121,7 +121,7 @@ test.describe("on a phone", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
     await expect(heading(page, "Mejeri & ägg")).toBeVisible();
-    await expect(heading(page, "Såser & smaksättare")).toBeVisible();
+    await expect(heading(page, "Övrigt")).toBeVisible();
     await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     await expect(heading(page, "Med mängd")).toHaveCount(0);
     await expect(heading(page, "Finns hemma")).toHaveCount(0);
@@ -255,8 +255,8 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
 
     await expect(sheet(page)).toHaveCount(0);
-    // "Saffran" is a seasoning: Såser & smaksättare, after Frys in the store's order.
-    await expect(heading(page, "Såser & smaksättare")).toBeVisible();
+    // A new ingredient is saved in Övrigt, after Frys in the store's order.
+    await expect(heading(page, "Övrigt")).toBeVisible();
     await expect(rows(page)).toHaveText([today("Ärtor"), today(name)]);
     await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*2 varor$/);
 
@@ -472,7 +472,7 @@ test.describe("removing an item", () => {
     await sheet(page).getByRole("button", { name: "Ta bort" }).click();
     await expect(sheet(page)).toHaveCount(0);
     await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör")]);
-    await expect(heading(page, "Såser & smaksättare")).toHaveCount(0);
+    await expect(heading(page, "Övrigt")).toHaveCount(0);
     await expect(toast(page)).toContainText("Tog bort Salt.");
     await expect.poll(() => rowId(userId, "Salt", "Kyl")).toBeNull();
     expect(errors).toEqual([]);
