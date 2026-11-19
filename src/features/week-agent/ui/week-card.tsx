@@ -14,8 +14,8 @@ import type { CostTexts, SettingsActions } from "./actions";
 import { cardState, cardTexts } from "./format";
 import { SettingsSheet } from "./settings-sheet";
 
-// Veckoagenten's way in on Matsedel (VK-A, VK-N1), now one quiet chip on the row under the week choice (beside
-// "Äter ni ute?", which the route puts in the same row): "Föreslå veckan" on an empty week, "Fyll resten" on a partly
+// Veckoagenten's way in on Matsedel (VK-A, VK-N1), now one quiet chip at the right of the heading "Veckans rätter" (UX-02; the route
+// puts it there, "Äter ni ute?" stays in the chip row above): "Föreslå veckan" on an empty week, "Fyll resten" on a partly
 // filled one, nothing on a full week (its way in is the ⋯ menu). A tap opens the sheet "Veckans inriktning"
 // (settings.start): change what you want and start, or skip it and start with what is saved. Nothing runs by itself.
 // With a fresh waiting draft the chip is "Öppna utkast" and a ⋯ beside it holds "Gör nytt" and "Förkasta". An old draft
@@ -139,7 +139,7 @@ export function WeekAgentCard({ href, filledDays, emptyDays, settings, draft = n
             <MoreIcon size={18} />
           </button>
           {menuOpen ? (
-            <div role="menu" aria-label={cardTexts.moreForDraft} className="absolute top-full left-0 z-30 mt-1 flex w-52 flex-col rounded-lg bg-surface py-1 shadow-float">
+            <div role="menu" aria-label={cardTexts.moreForDraft} className="absolute top-full right-0 z-30 mt-1 flex w-52 flex-col rounded-lg bg-surface py-1 shadow-float">
               <Link href={newHref ?? href} role="menuitem" data-testid="week-agent-card-new" className="flex min-h-tap items-center px-3.5 text-row-title text-ink">
                 {cardTexts.waitingNew}
               </Link>

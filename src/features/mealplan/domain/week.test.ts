@@ -7,6 +7,7 @@ import {
   currentWeekStart,
   maxWeeksAhead,
   parseWeekParam,
+  isPastWeek,
   viewedWeek,
   weekChoices,
   weekName,
@@ -68,6 +69,15 @@ describe("weeks (Story 13.7)", () => {
     expect(viewedWeek("2026-W43", thursday)).toBe("2026-10-26");
     expect(viewedWeek("2027-W20", thursday)).toBe("2026-10-26");
     expect(viewedWeek(weekParam(addWeeks("2026-10-26", maxWeeksAhead)), thursday)).toBe(addWeeks("2026-10-26", maxWeeksAhead));
+  });
+
+  it("lets exactly last week through when asked (Matsedel, to look at it), never further back", () => {
+    expect(viewedWeek("2026-W43", thursday, true)).toBe("2026-10-19");
+    expect(viewedWeek("2026-W42", thursday, true)).toBe("2026-10-26");
+    expect(viewedWeek("2026-W43", thursday)).toBe("2026-10-26");
+    expect(isPastWeek("2026-10-19", thursday)).toBe(true);
+    expect(isPastWeek("2026-10-26", thursday)).toBe(false);
+    expect(weekOffsetLabel(-1)).toBe("Förra veckan");
   });
 
   it("leaves the address plain for this week", () => {

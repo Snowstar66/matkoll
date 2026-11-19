@@ -69,6 +69,13 @@ export const options = [
     defaultOn: false,
   },
   {
+    id: "showPreviousWeek",
+    group: "household",
+    label: "Visa tidigare vecka",
+    hint: "Förra veckan finns i väljaren på Matsedel, bara för att titta",
+    defaultOn: false,
+  },
+  {
     id: "showTimings",
     group: "debug",
     label: "Visa sidtider",

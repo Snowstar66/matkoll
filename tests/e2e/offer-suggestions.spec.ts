@@ -248,8 +248,8 @@ test("Matsedel: På erbjudande, + puts the dish on the first free day and the ba
   await seedFalukorvRecipe();
 
   await page.goto("/matsedel");
-  await expect(page.getByTestId("week-empty")).toBeVisible();
-  // An empty week says "Inga rätter än" instead of a count.
+  await expect(page.getByTestId("week-empty")).toHaveCount(0);
+  // An empty week has no count (and no guidance text either).
   await expect(bar(page)).toHaveCount(0);
   await openLibrary(page);
   await page.getByRole("button", { name: "På erbjudande", pressed: false }).click();

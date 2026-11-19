@@ -84,4 +84,10 @@ describe("the group Hushåll (Story 21.2b)", () => {
     const household = (await groupLabels()).find((group) => group.label === "Hushåll");
     expect(household?.rows[0]).toMatchObject({ title: "Medlemmar", value: "Pontus, Martina" });
   });
+
+  it("keeps Tidigare matsedlar reachable, whatever Tillval says", async () => {
+    getOwnerInbox.mockResolvedValue(null);
+    const household = (await groupLabels()).find((group) => group.label === "Hushåll");
+    expect(household?.rows).toContainEqual(expect.objectContaining({ title: "Tidigare matsedlar", href: "/matsedel/tidigare" }));
+  });
 });

@@ -147,7 +147,7 @@ test.describe("mobile, 390 × 844", () => {
     await expect(main.getByTestId("feedback-idea")).toHaveAttribute("href", "/hjalp?tyck=idea&q=zebrafink");
   });
 
-  test("the large title gives way to a slim bar with the title centred when it scrolls out of sight", async ({ page }) => {
+  test("the large title gives way to a slim bar with the title at the left when it scrolls out of sight", async ({ page }) => {
     await page.goto("/recept");
     await page.evaluate(() => {
       document.documentElement.style.minHeight = "3000px";
@@ -161,6 +161,10 @@ test.describe("mobile, 390 × 844", () => {
     // The P button is the same one, now on the bar.
     const p = await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).boundingBox();
     expect(p!.y).toBeLessThan(52);
+    // UX-04: the title starts at the page's 16 px gutter and ends before the buttons, which stay fixed at the right.
+    const title = await bar.getByText("Recept", { exact: true }).boundingBox();
+    expect(title!.x).toBeCloseTo(16, 0);
+    expect(title!.x + title!.width).toBeLessThanOrEqual(p!.x);
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(bar).toHaveCSS("opacity", "0");
   });

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
@@ -16,7 +16,7 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/mealplan/server")>()),
   getMealPlanView: vi.fn(),
   getWeekCounts: vi.fn(async () => ({})),
-  resolveViewedWeek: vi.fn(async (vecka: string | null | undefined) => (await import("@/features/mealplan")).viewedWeek(vecka)),
+  resolveViewedWeek: vi.fn(async (vecka: string | null | undefined, now?: Date, allowLastWeek?: boolean) => (await import("@/features/mealplan")).viewedWeek(vecka, now, allowLastWeek)),
   addToCurrentPlan: vi.fn(),
 }));
 vi.mock("@/features/suggestions/server", () => ({
@@ -46,7 +46,7 @@ vi.mock("@/features/mealplan/actions/set-weekday", () => ({ setWeekday: vi.fn() 
 vi.mock("../lista/list-offers", () => ({
   ListOffers: ({ next }: { next?: string }) => <button type="button" aria-label="Erbjudanden" data-next={next} />,
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn(), push: vi.fn() }) }));
 // The AI ideas have their own tests (week-planner e2e); the page only places them.
 vi.mock("../offer-ideas", () => ({ OfferIdeas: () => <div data-testid="offer-ideas" /> }));
 
@@ -76,16 +76,24 @@ beforeEach(() => {
 });
 afterEach(() => {
   window.localStorage.removeItem("livskoll-option-showFit");
+  window.localStorage.removeItem("livskoll-option-weekAgent");
+  window.localStorage.removeItem("livskoll-option-showPreviousWeek");
   vi.clearAllMocks();
   logged.mockRestore();
 });
 
-async function show() {
-  return render(
-    <SiteSwitchProvider>
-      <ToastProvider>{await MealPlanContent()}</ToastProvider>
-    </SiteSwitchProvider>,
-  );
+async function show(vecka?: string) {
+  const content = await MealPlanContent({ searchParams: Promise.resolve({ vecka }) });
+  let rendered!: ReturnType<typeof render>;
+  // The page's late reads (library, count to buy) suspend the planner's loaders: render inside an awaited act.
+  await act(async () => {
+    rendered = render(
+      <SiteSwitchProvider>
+        <ToastProvider>{content}</ToastProvider>
+      </SiteSwitchProvider>,
+    );
+  });
+  return rendered;
 }
 
 describe("MealPlanContent", () => {
@@ -94,8 +102,8 @@ describe("MealPlanContent", () => {
     await show();
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa matsedeln. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_unavailable", { reason: "query_failed 08006" });
-    // The earlier plans can still be reached.
-    expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
+    // The week can still be chosen.
+    expect(screen.getByTestId("week-select")).toBeInTheDocument();
   });
 
   it("shows the week when the library cannot be read, and says so", async () => {
@@ -152,6 +160,41 @@ describe("MealPlanContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(fail("shopping_unavailable"));
     await show();
     expect(screen.getByTestId("week-bar-count")).toHaveTextContent(/^1 rätt$/);
+  });
+
+  it("puts Föreslå veckan on the row of Veckans rätter, not in the chip row (UX-02)", async () => {
+    window.localStorage.setItem("livskoll-option-weekAgent", "1");
+    vi.mocked(getMealPlanView).mockResolvedValue({ ...view, dishes: [] });
+    await show();
+    const chip = await screen.findByRole("button", { name: "Föreslå veckan" });
+    expect(screen.getByTestId("week-heading-actions")).toContainElement(chip);
+    expect(screen.getByTestId("week-heading-actions").parentElement).toContainElement(screen.getByRole("heading", { name: "Veckans rätter" }));
+    expect(screen.getByTestId("matsedel-chips")).not.toContainElement(chip);
+    expect(screen.queryByText(/Välj bland dina recept här under/)).not.toBeInTheDocument();
+  });
+
+  it("shows last week to look at only: no editing, no chip, no reading of the library, and no week counts at all (UX-03)", async () => {
+    window.localStorage.setItem("livskoll-option-weekAgent", "1");
+    window.localStorage.setItem("livskoll-option-showPreviousWeek", "1");
+    const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
+    vi.mocked(getMealPlanView).mockResolvedValue({ ...view, dishes: [{ ...dish, weekday: 2 }] } as never);
+    await show(weekParam(addWeeks(currentWeekStart(), -1)));
+    expect(vi.mocked(getMealPlanView)).toHaveBeenCalledWith(addWeeks(currentWeekStart(), -1));
+    expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
+    expect(screen.queryByTestId("dish-remove")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Föreslå veckan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lägg till rätt" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("add-dishes-toggle")).not.toBeInTheDocument();
+    expect(vi.mocked(weekPlanOptions)).not.toHaveBeenCalled();
+    expect(vi.mocked(getShoppingList)).not.toHaveBeenCalled();
+    expect((screen.getByTestId("week-select") as HTMLSelectElement).value).toBe(addWeeks(currentWeekStart(), -1));
+  });
+
+  it("falls back to this week for a week before last week", async () => {
+    const { addWeeks, currentWeekStart, weekParam } = await import("@/features/mealplan");
+    vi.mocked(getMealPlanView).mockResolvedValue(view);
+    await show(weekParam(addWeeks(currentWeekStart(), -2)));
+    expect(vi.mocked(getMealPlanView)).toHaveBeenCalledWith(currentWeekStart());
   });
 
   it("shows the boende as a button under the title (Story 16.14)", async () => {

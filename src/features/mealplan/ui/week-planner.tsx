@@ -101,6 +101,13 @@ export type WeekPlannerProps = {
   nutrition?: Promise<Readonly<Record<string, RecipeNutrition>>>;
   /** Hushållets preferenser: the notes of each recipe on the week that has any, by recipe id (worked out by the page); dishes are flagged, never hidden. */
   fits?: Readonly<Record<string, readonly PreferenceNote[]>>;
+  /**
+   * The chips on the right of the heading "Veckans rätter" (Föreslå veckan and its ⋯): they share the row with the
+   * heading and wrap to a row of their own under it, right-aligned, when they do not fit beside it. Nothing for none.
+   */
+  headingAction?: ReactNode;
+  /** A week that has passed (Förra veckan): the dishes can be looked at only; nothing can be added, removed or moved. */
+  readOnly?: boolean;
 };
 
 /** Waits for one of the page's promises under Suspense, so only this renders late; hands the value on. */
@@ -110,7 +117,7 @@ function LaterLoader<T>({ promise, onLoaded }: { promise: Promise<T>; onLoaded: 
   return null;
 }
 
-export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: optionsNow, optionsLater, toBuy: toBuyNow = null, toBuyLater, offersFooter, nutrition, fits }: WeekPlannerProps) {
+export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: optionsNow, optionsLater, toBuy: toBuyNow = null, toBuyLater, offersFooter, nutrition, fits, headingAction, readOnly = false }: WeekPlannerProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const starterOn = useOption("starterRecipes");
@@ -345,9 +352,12 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
       ) : null}
       <section aria-labelledby="week-dishes-heading" className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
-          <h2 id="week-dishes-heading" className="text-section-title text-ink">
-            Veckans rätter
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <h2 id="week-dishes-heading" className="text-section-title text-ink">
+              Veckans rätter
+            </h2>
+            {headingAction ? <div data-testid="week-heading-actions" className="ml-auto flex items-center gap-2 empty:hidden">{headingAction}</div> : null}
+          </div>
           {/* The count once lay in a bar with "Inköpslistan"; the tab bar already goes there, so only the count stays. */}
           {shown.length > 0 ? (
             <p data-testid="week-bar-count" className="text-meta text-ink-2">
@@ -362,7 +372,11 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
             </p>
           ) : null}
         </div>
-        {shown.length === 0 ? (
+        {shown.length === 0 && readOnly ? (
+          <p data-testid="week-empty" className="text-body text-ink-2">
+            Inga rätter lades på den veckan.
+          </p>
+        ) : shown.length === 0 ? (
           noRecipes ? (
             <div data-testid="week-empty" className="flex flex-col items-start gap-3 rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
               <p>Inga rätter än. Lägg först in ett recept.</p>
@@ -379,11 +393,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
                 </Link>
               ) : null}
             </div>
-          ) : (
-            <p data-testid="week-empty" className="rounded-lg bg-surface px-3.5 py-4 text-body text-ink-2">
-              Inga rätter än. Välj bland dina recept här under.
-            </p>
-          )
+          ) : null
         ) : null}
         {rowsOfWeek.length > 0 ? (
           <ul aria-label="Veckans rätter" className="overflow-hidden rounded-lg bg-surface">
@@ -420,11 +430,10 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
               const dish = row.dish;
               return (
                 <li key={dish.id} id={`dish-${dish.id}`} data-testid="plan-dish" data-dish={dish.id} className="flex scroll-mt-4 items-stretch border-t border-hairline first:border-t-0">
-                  <button
-                    type="button"
-                    data-testid="dish-day"
-                    onClick={() => setDayFor(dish.id)}
-                    aria-label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
+                  <DayCell
+                    readOnly={readOnly}
+                    onPress={() => setDayFor(dish.id)}
+                    label={`Välj dag för ${dish.recipeTitle}, nu ${dayChipText(dish.weekday).toLowerCase()}`}
                     className={`flex min-h-tap w-14 shrink-0 flex-col items-center justify-center py-2 ${row.weekday ? "bg-mint text-mint-ink" : "bg-bg text-ink-3"}`}
                   >
                     {row.weekday && row.showDay ? (
@@ -435,7 +444,7 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
                     ) : row.weekday ? null : (
                       <span className="text-meta">–</span>
                     )}
-                  </button>
+                  </DayCell>
                   <div className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3">
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       {dish.recipeId ? (
@@ -445,20 +454,24 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
                       ) : (
                         <p className="line-clamp-2 wrap-break-word text-row-title text-ink">{dish.recipeTitle}</p>
                       )}
-                      <p data-testid="dish-note" className="text-meta text-ink-2">
-                        {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
-                      </p>
+                      {readOnly ? null : (
+                        <p data-testid="dish-note" className="text-meta text-ink-2">
+                          {dish.recipeId ? dishNoteText(byId.get(dish.recipeId)) : "Borttaget recept"}
+                        </p>
+                      )}
                       <FitRow notes={fitOf(dish)} maxNotes={2} />
                       {dish.recipeId ? <OfferTags tags={byId.get(dish.recipeId)?.deal?.tags ?? []} className="mt-0.5" /> : null}
                     </div>
-                    <TrashButton
-                      data-testid="dish-remove"
-                      label={`Ta bort ${dish.recipeTitle}`}
-                      onPress={(bin, press) => {
-                        if (!press.pointer) focusAfterRemoval(bin);
-                        void remove(dish);
-                      }}
-                    />
+                    {readOnly ? null : (
+                      <TrashButton
+                        data-testid="dish-remove"
+                        label={`Ta bort ${dish.recipeTitle}`}
+                        onPress={(bin, press) => {
+                          if (!press.pointer) focusAfterRemoval(bin);
+                          void remove(dish);
+                        }}
+                      />
+                    )}
                   </div>
                 </li>
               );
@@ -468,6 +481,8 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
         {nutrition ? <NutritionWeekLineAsync recipeIds={shown.map((dish) => dish.recipeId)} nutrition={nutrition} /> : null}
       </section>
 
+      {readOnly ? null : (
+      <>
       <section ref={addRef} aria-labelledby="add-dishes-heading" className="flex scroll-mt-4 flex-col gap-2.5 rounded-xl bg-fill p-3">
         <h2 id="add-dishes-heading" className="text-section-title text-ink">
           <button
@@ -611,8 +626,19 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
         onMove={(weekday) => dayDish && void moveTo(dayDish, weekday)}
         servings={dayDish ? { value: portions[dayDish.id] ?? dayDish.servings, onChange: (value) => void changeServings(dayDish, value) } : undefined}
       />
-
+      </>
+      )}
     </div>
+  );
+}
+
+/** The day cell of a dish: a button that opens "Flytta till dag", or just the day when the week can only be looked at. */
+function DayCell({ readOnly, onPress, label, className, children }: { readOnly: boolean; onPress: () => void; label: string; className: string; children: ReactNode }) {
+  if (readOnly) return <div className={className}>{children}</div>;
+  return (
+    <button type="button" data-testid="dish-day" onClick={onPress} aria-label={label} className={className}>
+      {children}
+    </button>
   );
 }
 

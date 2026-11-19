@@ -94,19 +94,27 @@ export function parseWeekParam(value: string | null | undefined): string | null 
 
 /**
  * The week a page shows: the `?vecka=` value when it is this week or one of
- * the next `maxWeeksAhead`; else this week. Going back is Tidigare's job.
+ * the next `maxWeeksAhead`; else this week. Going further back is Tidigare's job. With `allowLastWeek` (Matsedel only,
+ * to look at it) exactly last week is let through too.
  */
-export function viewedWeek(value: string | null | undefined, now: Date = new Date()): string {
+export function viewedWeek(value: string | null | undefined, now: Date = new Date(), allowLastWeek = false): string {
   const thisWeek = currentWeekStart(now);
   const wanted = parseWeekParam(value);
   if (!wanted) return thisWeek;
   const offset = weeksBetween(thisWeek, wanted);
-  return offset >= 0 && offset <= maxWeeksAhead ? wanted : thisWeek;
+  return (offset >= 0 || (allowLastWeek && offset === -1)) && offset <= maxWeeksAhead ? wanted : thisWeek;
 }
 
-/** "Denna vecka", "Nästa vecka", "Om 2 veckor". */
+/** Whether `weekStart` is a week that has passed (before this week). */
+export function isPastWeek(weekStart: string, now: Date = new Date()): boolean {
+  return weeksBetween(currentWeekStart(now), weekStart) < 0;
+}
+
+/** "Förra veckan", "Denna vecka", "Nästa vecka", "Om 2 veckor". */
 export function weekOffsetLabel(offset: number): string {
-  if (offset <= 0) return "Denna vecka";
+  if (offset === -1) return "Förra veckan";
+  if (offset < -1) return "Tidigare vecka";
+  if (offset === 0) return "Denna vecka";
   if (offset === 1) return "Nästa vecka";
   return `Om ${offset} veckor`;
 }

@@ -1,70 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
-import { vi } from "vitest";
-import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { WeekSelectNav, WeekNav } from "./week-nav";
+import { WeekSelectNav } from "./week-nav";
 
 const now = new Date("2026-10-29T10:00:00Z");
 
-describe("WeekNav", () => {
-  it("shows this week and the next as tiles with their dish counts", () => {
-    render(<WeekNav weekStart="2026-10-26" counts={{ "2026-10-26": 5, "2026-11-02": 1 }} now={now} />);
-    const tiles = screen.getAllByTestId("week-tile");
-    expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
-      "Vecka 44, denna vecka, 5 rätter",
-      "Vecka 45, nästa vecka, 1 rätt",
-    ]);
-    expect(within(tiles[0]).getByTestId("week-count")).toHaveTextContent("5 rätter");
-    expect(within(tiles[1]).getByTestId("week-count")).toHaveTextContent("1 rätt");
-    expect(within(tiles[0]).getByText("Denna vecka")).toBeInTheDocument();
-    expect(screen.getByTestId("week-range")).toHaveTextContent("v. 44 · 26 okt – 1 nov");
-    expect(tiles[0]).toHaveAttribute("aria-current", "page");
-    expect(tiles[1]).not.toHaveAttribute("aria-current");
-    expect(tiles[0]).toHaveAttribute("href", "/matsedel?vecka=2026-W44");
-    expect(tiles[1]).toHaveAttribute("href", "/matsedel?vecka=2026-W45");
-    expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveTextContent("Tidigare");
-    expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
-  });
-
-  it("leads to another page without the history link when asked (Inköpslista, Story 3.10)", () => {
-    render(<WeekNav weekStart="2026-10-26" now={now} basePath="/lista" showHistory={false} />);
-    expect(screen.getAllByTestId("week-tile")[1]).toHaveAttribute("href", "/lista?vecka=2026-W45");
-    expect(screen.queryByRole("link", { name: "Tidigare veckor" })).toBeNull();
-  });
-
-  it("counts items to buy on Inköpslista, keeps the filter in the links and remembers the week (UX-04)", () => {
-    render(
-      <WeekNav weekStart="2026-10-26" counts={{ "2026-10-26": 38, "2026-11-02": 1 }} now={now} basePath="/lista" showHistory={false} unit="items" keepParams={{ visa: "egna" }} />,
-    );
-    const tiles = screen.getAllByTestId("week-tile");
-    expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
-      "Vecka 44, denna vecka, 38 varor",
-      "Vecka 45, nästa vecka, 1 vara",
-    ]);
-    expect(tiles.map((tile) => within(tile).getByTestId("week-count").textContent)).toEqual(["38 varor", "1 vara"]);
-    expect(tiles[1]).toHaveAttribute("href", "/lista?vecka=2026-W45&visa=egna");
-    expect(document.cookie).toContain("livskoll-vecka=2026-W44");
-  });
-
-  it("highlights the viewed week", () => {
-    render(<WeekNav weekStart="2026-11-09" now={now} />);
-    expect(screen.getByRole("link", { name: /Vecka 46/ })).toHaveAttribute("aria-current", "page");
-    expect(screen.getAllByTestId("week-tile")).toHaveLength(3);
-    expect(screen.getByRole("link", { name: /Vecka 46/ })).toHaveAttribute("aria-label", "Vecka 46, om 2 veckor, inga rätter");
-  });
-
-  it("adds a selected tile for a week further ahead", () => {
-    render(<WeekNav weekStart="2026-12-07" now={now} />);
-    const tiles = screen.getAllByTestId("week-tile");
-    expect(tiles).toHaveLength(3);
-    expect(tiles[2]).toHaveAttribute("aria-current", "page");
-    expect(tiles[2]).toHaveAttribute("aria-label", "Vecka 50, om 6 veckor, inga rätter");
-    expect(tiles[2]).toHaveAttribute("href", "/matsedel?vecka=2026-W50");
-  });
-});
-
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 
 describe("WeekSelectNav (Inköpslistan)", () => {
   it("offers this week and next week, with the viewed week chosen", () => {
@@ -87,5 +30,61 @@ describe("WeekSelectNav (Inköpslistan)", () => {
     render(<WeekSelectNav weekStart="2026-10-26" now={now} basePath="/lista" keepParams={{ visa: "egna" }} />);
     await userEvent.setup().selectOptions(screen.getByTestId("week-select"), "Nästa vecka");
     expect(push).toHaveBeenCalledWith("/lista?vecka=2026-W45&visa=egna", { scroll: false });
+  });
+});
+
+describe("WeekSelectNav on Matsedel (UX-01, UX-03)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  beforeEach(() => {
+    // RememberWeek counts "this week" on the real clock.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+    window.localStorage.removeItem("livskoll-option-showPreviousWeek");
+    document.cookie = "livskoll-vecka=; max-age=0; path=/";
+    push.mockClear();
+    replace.mockClear();
+  });
+
+  it("offers only this week and next week while Visa tidigare vecka is off", () => {
+    render(<WeekSelectNav weekStart="2026-10-26" now={now} withHistory />);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka"]);
+  });
+
+  it("adds Förra veckan first and Äldre veckor › last when it is on", async () => {
+    window.localStorage.setItem("livskoll-option-showPreviousWeek", "1");
+    render(<WeekSelectNav weekStart="2026-10-26" now={now} withHistory />);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Förra veckan", "Denna vecka", "Nästa vecka", "Äldre veckor \u203A"]);
+    await userEvent.setup().selectOptions(select, "Förra veckan");
+    expect(push).toHaveBeenCalledWith("/matsedel?vecka=2026-W43", { scroll: false });
+    await userEvent.setup().selectOptions(select, "Äldre veckor \u203A");
+    expect(push).toHaveBeenLastCalledWith("/matsedel/tidigare");
+  });
+
+  it("never offers last week on Inköpslistan", () => {
+    window.localStorage.setItem("livskoll-option-showPreviousWeek", "1");
+    render(<WeekSelectNav weekStart="2026-10-26" now={now} basePath="/lista" />);
+    const select = screen.getByTestId("week-select") as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual(["Denna vecka", "Nästa vecka"]);
+  });
+
+  it("shows last week chosen without remembering it", () => {
+    window.localStorage.setItem("livskoll-option-showPreviousWeek", "1");
+    render(<WeekSelectNav weekStart="2026-10-19" now={now} withHistory />);
+    expect((screen.getByTestId("week-select") as HTMLSelectElement).value).toBe("2026-10-19");
+    expect(document.cookie).not.toContain("livskoll-vecka");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("sends you to this week when last week is open and the Tillval is off", () => {
+    render(<WeekSelectNav weekStart="2026-10-19" now={now} withHistory />);
+    expect(replace).toHaveBeenCalledWith("/matsedel?vecka=2026-W44", { scroll: false });
+  });
+
+  it("remembers this week as before", () => {
+    render(<WeekSelectNav weekStart="2026-10-26" now={now} withHistory />);
+    expect(document.cookie).toContain("livskoll-vecka=2026-W44");
   });
 });
