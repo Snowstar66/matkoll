@@ -7,15 +7,15 @@ import {
   startTransition,
   useActionState,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState,
 } from "react";
-import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
 import { AmountInput } from "@/components/amount-input";
 import { ChoiceRows } from "@/components/choice-rows";
-import { FieldError, FieldLabel, Input } from "@/components/field";
+import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
 import { FilterPills } from "@/components/filter-pills";
 import {
   ChevronDownIcon,
@@ -23,12 +23,13 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { IngredientPicker } from "@/components/ingredient-picker";
+import { useIngredientSearch } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { searchDelayMs } from "@/components/search-field";
 import { Sheet } from "@/components/sheet";
-import { UnitChoice, UnitList } from "@/components/unit-choice";
 import { useToast } from "@/components/toast";
 import {
+  catalogName,
   isCountUnit,
   LOCATIONS,
   normalizeIngredientText,
@@ -46,6 +47,7 @@ import type { PantryItem } from "../domain/pantry-item";
 import {
   type PantryItemForm,
   formFieldErrors,
+  collapseName,
   pantryItemFormSchema,
   pantryNewIngredientName,
   parseAmountField,
@@ -110,6 +112,9 @@ type ChosenIngredient =
   | { kind: "new"; name: string; section: Section };
 
 type FormValues = {
+  /** The name as typed in "Namn"; empty for a new item until Pontus writes one. */
+  name: string;
+  /** What Pontus chose (a suggestion, "Använd … som namn") or the item started as; `resolveIngredient` reads it against `name`. */
   ingredient: ChosenIngredient | null;
   /** As typed; empty for an unlimited item. */
   amount: string;
@@ -133,11 +138,12 @@ const defaultSection: Section = "Övrigt";
 const amountField = (amount: number | null) => (amount === null ? "" : String(amount).replace(".", ","));
 
 function initialValues(target: PantrySheetTarget): FormValues {
-  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location, label: "" };
+  if (target.kind === "new") return { name: "", ingredient: null, amount: "", unit: "", location: target.location, label: "" };
   if (target.kind === "suggestion") {
     const { suggestion } = target;
     const { ingredient } = suggestion;
     return {
+      name: suggestion.name,
       ingredient:
         ingredient.kind === "existing"
           ? { kind: "existing", ingredientId: ingredient.ingredientId, name: suggestion.name }
@@ -151,6 +157,7 @@ function initialValues(target: PantrySheetTarget): FormValues {
   }
   const { item } = target;
   return {
+    name: item.name,
     ingredient: { kind: "existing", ingredientId: item.ingredientId, name: item.name },
     // The exact amount, not formatQuantity's rounding.
     amount: amountField(item.amount),
@@ -171,8 +178,31 @@ function sameIngredient(a: ChosenIngredient | null, b: ChosenIngredient | null):
   );
 }
 
+/**
+ * The ingredient the name in the field stands for: what Pontus chose while the
+ * text still is its name; else a catalog hit that is the typed name (or one of
+ * its synonyms); else a new ingredient in Övrigt, with no question first.
+ */
+function resolveIngredient(
+  values: FormValues,
+  hits: readonly PantryIngredientHit[] | null,
+): ChosenIngredient | null {
+  const text = collapseName(values.name);
+  const normalized = normalizeIngredientText(text);
+  if (!normalized) return null;
+  const { ingredient } = values;
+  if (ingredient && normalizeIngredientText(ingredient.name) === normalized) return ingredient;
+  const found = hits?.find((hit) => hit.exact || normalizeIngredientText(hit.name) === normalized);
+  if (found) return { kind: "existing", ingredientId: found.id, name: found.name };
+  return { kind: "new", name: catalogName(text), section: defaultSection };
+}
+
+/** The most suggestions from the catalog shown under "Namn". */
+const maxNameSuggestions = 5;
+
 function isFormDirty(values: FormValues, initial: FormValues): boolean {
   return (
+    collapseName(values.name) !== collapseName(initial.name) ||
     !sameIngredient(values.ingredient, initial.ingredient) ||
     values.amount.trim() !== initial.amount.trim() ||
     values.unit !== initial.unit ||
@@ -232,16 +262,18 @@ export type PantryItemSheetProps =
   | (SheetBaseProps & { target: SuggestionTarget; review: SuggestionReview });
 
 /**
- * Arket Lagervara: a new item starts in the catalog search with the field in
- * focus and the chosen location preselected; choosing an ingredient suggests
- * its location and unit from the catalog, and "Lägg till … som ny" asks for
- * the new ingredient's section. Then amount (optional: without one the item
- * is unlimited), unit and location. An item already in the pantry opens on
- * the form; changing its location or unit moves it, and "Ta bort" removes it
- * at once (the short confirmation offers "Ångra"). A lagerförslag opens on
- * the form filled in from it, with "Bekräfta", which saves it as corrected,
- * and "Avvisa". Unsaved changes ask "Släng ändringarna?" before the sheet
- * closes, but not before "Ta bort" or "Avvisa".
+ * Arket Lagervara: "Namn" at the top, filled in for an item or a lagerförslag
+ * and empty (with focus and the chosen location preselected) for a new item.
+ * Writing over the name lists catalog hits under it, and the row Använd "x"
+ * som namn; a name that is not in the catalog is saved as a new ingredient in
+ * Övrigt without asking. Choosing a hit for a new item suggests its location
+ * and unit. Then amount (optional: without one the item is unlimited) and
+ * unit as a select on one row, the place of a new item, and "Märke eller
+ * sort". An item stays where it is ("Ta bort" and add it again to move it),
+ * and "Ta bort" removes it at once (the short confirmation offers "Ångra"). A
+ * lagerförslag has "Bekräfta", which saves it as corrected, and "Avvisa".
+ * Unsaved changes ask "Släng ändringarna?" before the sheet closes, but not
+ * before "Ta bort" or "Avvisa".
  */
 export function PantryItemSheet(props: PantryItemSheetProps) {
   const { open, onClose, onSaved, target, session } = props;
@@ -249,11 +281,25 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const [formSession, setFormSession] = useState(session);
   const [initial, setInitial] = useState(() => initialValues(target));
   const [values, setValues] = useState(initial);
-  const [picking, setPicking] = useState(target.kind === "new");
-  /** Story 16.17: the place choice is unfolded; an item that exists shows it as a calm row first. */
-  const [placeOpen, setPlaceOpen] = useState(false);
-  /** Story 19.5: one level deeper, replacing the form: all units, or the sections of a new ingredient. */
-  const [step, setStep] = useState<"unit" | "section" | null>(null);
+  /** One level deeper, replacing the form: the sections of a new ingredient. */
+  const [step, setStep] = useState<"section" | null>(null);
+  const { query: searched, hits, error: searchError, search, reset: resetSearch } = useIngredientSearch(searchPantryIngredients);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+  // A new item opens with the name field in focus (after the commit: the dialog moves focus to its first control as it opens).
+  const opensNew = open && target.kind === "new";
+  useEffect(() => {
+    if (!opensNew) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) nameRef.current?.focus();
+    });
+    return () => {
+      active = false;
+    };
+  }, [opensNew, session]);
+  // A new opening: a search waiting for the old text is dropped.
+  useEffect(() => clearTimeout(searchTimer.current), [session]);
   /** Why saving failed; the form stays as it was. Cleared when a field changes. */
   const [error, setError] = useState<string | null>(null);
   /** The server's messages for fields (`amount`, `ingredient`), shown at the field. Cleared when a field changes. */
@@ -266,6 +312,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   /** The same, at once: a double tap sends one confirmation. */
   const confirmingNow = useRef(false);
   const amountRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const { removeItem } = usePantryRemoval();
   const ids = useId();
@@ -276,9 +323,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     setFormSession(session);
     setInitial(fresh);
     setValues(fresh);
-    setPicking(target.kind === "new");
-    setPlaceOpen(false);
     setStep(null);
+    resetSearch();
     setError(null);
     setServerFields({});
     setAmountTouched(false);
@@ -357,7 +403,10 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     }
   }
 
-  const { ingredient } = values;
+  // Hits belong to the text searched last; read only when that still is the name.
+  const nameHits =
+    hits && normalizeIngredientText(searched) === normalizeIngredientText(values.name) ? hits : null;
+  const ingredient = resolveIngredient(values, nameHits);
   const input = ingredient ? toInput(values, ingredient, target) : null;
   const parsed = input ? pantryItemFormSchema.safeParse(input) : null;
   const fieldErrors = parsed && !parsed.success ? formFieldErrors(parsed.error) : {};
@@ -366,8 +415,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const amountError = serverFields.amount ?? liveAmountError;
   // maxLength keeps the field short; a longer text (set by a script) shows why at once.
   const labelError = serverFields.label ?? fieldErrors.label ?? null;
-  // A new ingredient's name is not typed here, so its problem shows at once.
-  const ingredientError = serverFields.ingredient ?? fieldErrors.ingredient ?? null;
+  const nameError =
+    serverFields.ingredient ?? fieldErrors.ingredient ?? (attempted && !ingredient ? "Skriv vad det är." : null);
   /** Shown after a save attempt when the form is invalid without a field to point at. */
   const formError =
     attempted && parsed && !parsed.success && Object.keys(fieldErrors).length === 0 ? fail("validation").error.message : null;
@@ -380,25 +429,43 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     setValues((current) => ({ ...current, ...changes }));
   };
 
+  /** Typing in "Namn": the catalog is searched after the pause, as in any search field. */
+  function changeName(name: string) {
+    update({ name });
+    clearTimeout(searchTimer.current);
+    if (!name.trim()) {
+      void search("");
+      return;
+    }
+    searchTimer.current = setTimeout(() => void search(name), searchDelayMs);
+  }
+
   function choose(hit: PantryIngredientHit) {
     // For a new item the catalog suggests where it is kept and its unit; Pontus
-    // can change both. Swapping the ingredient of an item keeps it where it is.
+    // can change both. Renaming an item keeps it where it is.
+    clearTimeout(searchTimer.current);
     const defaults = target.kind === "new" ? hit.defaults : null;
     update({
+      name: hit.name,
       ingredient: { kind: "existing", ingredientId: hit.id, name: hit.name },
       ...(defaults ? { location: defaults.location, unit: defaults.defaultUnit ?? values.unit } : {}),
     });
-    setPicking(false);
   }
 
   function chooseNew(name: string) {
-    update({ ingredient: { kind: "new", name, section: defaultSection } });
-    setPicking(false);
+    clearTimeout(searchTimer.current);
+    update({ name, ingredient: { kind: "new", name, section: defaultSection } });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!input || !ingredient || !parsed || saving) return;
+    if (saving) return;
+    if (!input || !ingredient || !parsed) {
+      // No name: nothing is saved, and the field says so.
+      setAttempted(true);
+      nameRef.current?.focus();
+      return;
+    }
     if (!parsed.success) {
       // Nothing is saved; the reasons show at their fields.
       setAttempted(true);
@@ -432,7 +499,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
 
   const formId = `${ids}-form`;
   const footer =
-    picking || !ingredient || step ? null : (
+    step ? null : (
       <>
         {error ? <Notice role="alert">{error}</Notice> : null}
         {formError ? <Notice role="alert">{formError}</Notice> : null}
@@ -459,23 +526,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       </>
     );
 
-  const picksAgain = picking && ingredient !== null;
-  const stepHeading =
-    step === "unit" ? "Enhet" : step === "section" ? "Avdelning" : null;
-  const heading = stepHeading ? (
-    stepHeading
-  ) : picking ? (
-    ingredient ? (
-      "Byt vara"
-    ) : (
-      "Lägg till vara"
-    )
-  ) : ingredient ? (
-    <span className="flex min-w-0 flex-wrap items-center gap-2">
-      <span data-testid="pantry-sheet-ingredient">{ingredient.name}</span>
-      {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}
-    </span>
-  ) : undefined;
+  const stepHeading = step === "section" ? "Avdelning" : null;
+  const title = stepHeading ?? (target.kind === "new" ? "Lägg till vara" : "Ändra vara");
   const choosePlace = target.kind === "new";
 
   /** The amount stepper: − and + move the amount by the unit's step (see stepAmountField). */
@@ -487,43 +539,30 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const canStepUp = stepAmountField(values.amount, values.unit, 1) !== null;
   const countable = values.unit === "" || isCountUnit(values.unit);
 
+  // Suggestions while the text is not the name of what is chosen (or, for a new item, until something is).
+  const typedName = collapseName(values.name);
+  const suggesting =
+    typedName !== "" && normalizeIngredientText(typedName) !== normalizeIngredientText(values.ingredient?.name ?? "");
+  const shownHits = suggesting && nameHits ? nameHits.slice(0, maxNameSuggestions) : [];
+  const useName = suggesting && nameHits ? pantryNewIngredientName(values.name, nameHits) : null;
+  const suggestionsFailed = suggesting && searchError !== null;
+  /** The section row is for a new ingredient a photo suggested, still named as suggested. */
+  const sectionRow = ingredient?.kind === "new" && ingredient === values.ingredient && initial.ingredient?.kind === "new";
+
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={
-        stepHeading ??
-        (picking
-          ? ingredient
-            ? "Byt vara"
-            : "Lägg till vara"
-          : (ingredient?.name ?? "Lägg till vara"))
-      }
-      heading={heading}
+      title={title}
       // Story 21.3: under the name, who else last added or changed the item ("Martina ändrade · 1 nov").
-      subtitle={target.kind === "edit" && target.item.lastChange && !step && !picking ? lastChangeText(target.item.lastChange) : undefined}
-      onBack={
-        step
-          ? () => setStep(null)
-          : picksAgain
-            ? () => setPicking(false)
-            : undefined
-      }
+      subtitle={target.kind === "edit" && target.item.lastChange && !step ? lastChangeText(target.item.lastChange) : undefined}
+      onBack={step ? () => setStep(null) : undefined}
       closeLabel="Avbryt"
       isDirty={isDirty}
       preventClose={saving}
       footer={footer}
     >
-      {step === "unit" ? (
-        <UnitList
-          units={UNITS}
-          value={values.unit}
-          onChange={(unit) => {
-            update({ unit });
-            setStep(null);
-          }}
-        />
-      ) : step === "section" && ingredient?.kind === "new" ? (
+      {step === "section" && ingredient?.kind === "new" ? (
         <ChoiceRows
           label="Avdelning"
           options={SECTIONS.map((section) => ({
@@ -536,35 +575,58 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
             setStep(null);
           }}
         />
-      ) : picking || !ingredient ? (
-        <IngredientPicker
-          label="Sök vara"
-          searchIngredients={searchPantryIngredients}
-          newName={pantryNewIngredientName}
-          onChoose={choose}
-          onNew={chooseNew}
-          onCancel={ingredient ? () => setPicking(false) : undefined}
-          currentId={ingredient?.kind === "existing" ? ingredient.ingredientId : undefined}
-          hint={ingredient ? undefined : "Börja skriva, till exempel \u201Cgul lök\u201D."}
-        />
       ) : (
         <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
           {target.kind === "suggestion" && target.crop ? <PhotoCrop {...target.crop} /> : null}
-          <div className="-mt-3 flex flex-col gap-1.5">
-            <p className="flex min-h-tap flex-wrap items-center gap-x-1.5 text-meta text-ink-2">
-              Fel vara?
-              <button
-                type="button"
-                onClick={() => setPicking(true)}
-                className="min-h-tap font-medium text-accent underline underline-offset-[3px]"
-              >
-                Byt vara
-              </button>
-            </p>
-            {ingredientError ? <FieldError role="alert">{ingredientError}</FieldError> : null}
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor={`${ids}-name`}>Namn</FieldLabel>
+            <Input
+              id={`${ids}-name`}
+              ref={nameRef}
+              autoComplete="off"
+              maxLength={200}
+              placeholder={target.kind === "new" ? "Börja skriva, till exempel “gul lök”" : undefined}
+              value={values.name}
+              onChange={(event) => changeName(event.target.value)}
+              {...(nameError ? { "aria-invalid": true, "aria-describedby": `${ids}-name-error` } : {})}
+            />
+            {nameError ? (
+              <FieldError id={`${ids}-name-error`} role="alert">
+                {nameError}
+              </FieldError>
+            ) : null}
+            {suggestionsFailed ? <Notice role="alert">{searchError?.message}</Notice> : null}
+            {shownHits.length > 0 || useName ? (
+              <ul aria-label="Förslag" className="flex flex-col overflow-hidden rounded-md border border-border">
+                {shownHits.map((hit) => (
+                  <li key={hit.id} className="border-b border-hairline last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => choose(hit)}
+                      className="flex min-h-tap w-full items-center px-4 text-left text-body text-ink"
+                    >
+                      {hit.name}
+                    </button>
+                  </li>
+                ))}
+                {useName ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => chooseNew(useName)}
+                      className="flex min-h-tap w-full items-center px-4 text-left text-body font-medium text-accent"
+                    >
+                      Använd {"“"}
+                      {useName}
+                      {"”"} som namn
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+            ) : null}
           </div>
 
-          {ingredient.kind === "new" ? (
+          {sectionRow && ingredient?.kind === "new" ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-control text-ink">Avdelning</span>
               <button
@@ -580,38 +642,49 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor={`${ids}-amount`}>
-              Mängd <span className="font-normal text-ink-2">(valfritt)</span>
-            </FieldLabel>
-            <AmountInput
-              id={`${ids}-amount`}
-              inputRef={amountRef}
-              value={values.amount}
-              onChange={(amount) => update({ amount })}
-              stepper={countable}
-              onStep={stepAmount}
-              canStepDown={canStepDown}
-              canStepUp={canStepUp}
-              unit={values.unit}
-              autoFocus
-              onBlur={() => setAmountTouched(true)}
-              invalid={Boolean(amountError)}
-              describedBy={`${ids}-amount-error`}
-            />
+          <div className="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1.5">
+            <FieldLabel htmlFor={`${ids}-amount`}>Mängd</FieldLabel>
+            <FieldLabel htmlFor={`${ids}-unit`}>Enhet</FieldLabel>
+            <div>
+              <AmountInput
+                id={`${ids}-amount`}
+                inputRef={amountRef}
+                value={values.amount}
+                onChange={(amount) => update({ amount })}
+                stepper={countable}
+                onStep={stepAmount}
+                canStepDown={canStepDown}
+                canStepUp={canStepUp}
+                onBlur={() => setAmountTouched(true)}
+                invalid={Boolean(amountError)}
+                describedBy={`${ids}-amount-error`}
+              />
+            </div>
+            <div className="relative">
+              <select
+                id={`${ids}-unit`}
+                value={values.unit}
+                onChange={(event) => update({ unit: event.target.value as Unit | "" })}
+                className={`${inputClasses} cursor-pointer appearance-none pr-10`}
+              >
+                <option value="">Ingen enhet</option>
+                {UNITS.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon
+                size={18}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-ink-3"
+              />
+            </div>
             {amountError ? (
-              <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError>
+              <FieldError id={`${ids}-amount-error`} className="col-span-2">
+                {amountError}
+              </FieldError>
             ) : null}
-            <span className="mt-1 text-control text-ink">Enhet</span>
-            <UnitChoice
-              units={UNITS}
-              value={values.unit}
-              onChange={(unit) => update({ unit })}
-              onMore={() => setStep("unit")}
-            />
-            <p className="text-meta text-ink-2">
-              Lämna mängden tom om du inte vill räkna.
-            </p>
           </div>
 
           {choosePlace ? (
@@ -629,36 +702,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
                 onChange={(location) => update({ location })}
               />
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {/* Story 16.17: moving an item is rare, so the place is a calm row that unfolds the choice. */}
-              <button
-                type="button"
-                aria-expanded={placeOpen}
-                aria-controls={`${ids}-place`}
-                onClick={() => setPlaceOpen((current) => !current)}
-                className="flex min-h-12 items-center gap-1.5 border-y border-hairline text-left text-body text-ink-2"
-              >
-                <span>
-                  Ligger i <span className="font-medium text-ink">{values.location}</span> ·{" "}
-                </span>
-                <span className="flex items-center gap-0.5 font-medium text-accent">
-                  Flytta
-                  <ChevronDownIcon size={16} className={placeOpen ? "" : "-rotate-90"} />
-                </span>
-              </button>
-              <div id={`${ids}-place`} hidden={!placeOpen}>
-                <FilterPills
-                  label="Plats"
-                  segmented
-                  tall
-                  options={LOCATIONS.map((location) => ({ value: location, label: location }))}
-                  value={values.location}
-                  onChange={(location) => update({ location })}
-                />
-              </div>
-            </div>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor={`${ids}-label`}>

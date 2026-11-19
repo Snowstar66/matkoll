@@ -241,7 +241,8 @@ describe("PantryList", () => {
     expect(screen.queryByRole("list")).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
-    expect(screen.getByRole("searchbox", { name: "Sök vara" })).toBeInTheDocument();
+    // The sheet opens on the name field (no search step first).
+    expect(screen.getByRole("textbox", { name: "Namn" })).toBeInTheDocument();
   });
 
   it("names the search field after the location", () => {
@@ -258,13 +259,13 @@ describe("PantryList", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Mjölk Arla" }));
-    expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Mjölk");
+    expect(screen.getByRole("textbox", { name: "Namn" })).toHaveValue("Mjölk");
     expect(screen.getByLabelText("Mängd")).toHaveValue("1,5");
     expect(unitOf()).toBe("l");
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     fireEvent.click(screen.getByRole("button", { name: "Salt" }));
-    expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Salt");
+    expect(screen.getByRole("textbox", { name: "Namn" })).toHaveValue("Salt");
     expect(screen.getByLabelText("Mängd")).toHaveValue("");
   });
 });

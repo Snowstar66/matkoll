@@ -111,9 +111,10 @@ export function openThingText(name: string): string {
 export function showThingOnCardText(name: string): string {
   return `Visa ${name} på kortet`;
 }
-export const renameThingText = "Byt namn";
-/** The label of the name field one step in, under the title "Byt namn". */
-export const nameFieldText = "Namn";
+/** The title of a föremål's sheet: the name is a field in it, so the title does not show a name that is being changed. */
+export const thingSheetTitleText = "Föremål";
+/** The label of the name field at the top of the first view. */
+export const nameFieldText = "Vad är det?";
 export const saveNameText = "Spara";
 /** The photo at the top of a föremål's sheet: a link to the whole card. */
 export const openWholeCardText = "Öppna hela kortet";

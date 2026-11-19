@@ -65,19 +65,22 @@ function setup(location: Location = "Frys") {
 }
 
 const sheet = () => screen.getByRole("dialog");
-/** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
+/** The place choice is for a new item only: an item and a lagerförslag stay where they are. */
 function placeRadio(scope: HTMLElement, name: string) {
-  const row = within(scope).queryByRole("button", { name: /^Ligger i/ });
-  if (row?.getAttribute("aria-expanded") === "false") fireEvent.click(row);
   return within(scope).getByRole("radio", { name });
 }
 const location = (name: Location) => placeRadio(sheet(), name);
 
-/** Types in the search field and searches at once (Enter skips the 200 ms wait). */
+const nameField = () => within(sheet()).getByRole("textbox", { name: "Namn" });
+const useNameRow = (name: string) => within(sheet()).getByRole("button", { name: `Använd \u201C${name}\u201D som namn` });
+
+/** Writes in "Namn" and waits for the catalog's answer under it (after the 200 ms pause). */
 async function search(text: string) {
-  const field = within(sheet()).getByRole("searchbox", { name: "Sök vara" });
-  fireEvent.change(field, { target: { value: text } });
-  await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
+  const before = searchPantryIngredients.mock.calls.length;
+  fireEvent.change(nameField(), { target: { value: text } });
+  await waitFor(() => expect(searchPantryIngredients.mock.calls.length).toBeGreaterThan(before));
+  expect(searchPantryIngredients).toHaveBeenLastCalledWith(text);
+  await act(async () => {});
 }
 
 async function save(name: "Lägg till vara" | "Spara ändringar") {
@@ -90,14 +93,39 @@ beforeEach(() => {
 });
 
 describe("PantryItemSheet, a new item", () => {
-  it("opens on the search with the field in focus and the chosen location preselected", async () => {
+  it("opens on an empty Namn field in focus with the chosen location preselected", async () => {
     setup("Frys");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" })));
-    expect(within(sheet()).getByRole("searchbox", { name: "Sök vara" })).toHaveFocus();
+    expect(sheet()).toHaveAccessibleName("Lägg till vara");
+    expect(nameField()).toHaveFocus();
+    expect(nameField()).toHaveValue("");
+    expect(location("Frys")).toHaveAttribute("aria-checked", "true");
+    // The same sheet as for an item: no search step, no Byt vara.
+    expect(within(sheet()).queryByRole("searchbox")).toBeNull();
     await search("lök");
     expect(searchPantryIngredients).toHaveBeenCalledWith("lök");
-    // Before an ingredient is chosen, there is nothing to save.
-    expect(within(sheet()).queryByRole("button", { name: "Lägg till vara" })).toBeNull();
+  });
+
+  it("asks for a name, and saves nothing, while Namn is empty", async () => {
+    setup("Frys");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await save("Lägg till vara");
+    expect(within(sheet()).getByRole("alert")).toHaveTextContent("Skriv vad det är.");
+    expect(nameField()).toHaveAttribute("aria-invalid", "true");
+    expect(nameField()).toHaveFocus();
+    expect(savePantryItem).not.toHaveBeenCalled();
+  });
+
+  it("lists catalog hits and Använd \u201Cx\u201D som namn under the field while typing", async () => {
+    setup("Frys");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    const list = within(sheet()).getByRole("list", { name: "Förslag" });
+    expect(within(list).getAllByRole("button").map((button) => button.textContent)).toEqual(["Gul lök", "Använd \u201CGul\u201D som namn"]);
+    // A name the catalog has (exactly) is not offered as new.
+    searchPantryIngredients.mockResolvedValue(ok([{ ...gulLok, exact: true }]));
+    await search("Gul lök");
+    expect(within(sheet()).queryByRole("button", { name: /som namn$/ })).toBeNull();
   });
 
   it("suggests the location and unit from the catalog and saves the amount", async () => {
@@ -106,10 +134,11 @@ describe("PantryItemSheet, a new item", () => {
     await search("gul");
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
 
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
+    expect(nameField()).toHaveValue("Gul lök");
     expect(location("Skafferi")).toHaveAttribute("aria-checked", "true");
     expect(unitOf(sheet())).toBe("st");
-    expect(within(sheet()).getByLabelText("Mängd")).toHaveFocus();
+    // No field takes focus on its own after a pick, so the keyboard stays down.
+    expect(within(sheet()).getByLabelText("Mängd")).not.toHaveFocus();
 
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
     await save("Lägg till vara");
@@ -142,28 +171,45 @@ describe("PantryItemSheet, a new item", () => {
     expect("label" in savePantryItem.mock.lastCall![0]).toBe(false);
   });
 
-  it("asks for the section of a new ingredient, keeps it where the item is, and saves without amount", async () => {
+  it("saves a name that is not in the register as a new ingredient in Övrigt, without asking", async () => {
     searchPantryIngredients.mockResolvedValue(ok([]));
     setup("Kyl");
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
     await search("Saffran");
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Saffran som ny" }));
-
-    expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
-    // Avdelning is a row that opens a step in with the sections as rows with a check (Story 19.5).
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Avdelning: Övrigt" }));
-    expect(sheet()).toHaveAccessibleName("Avdelning");
-    fireEvent.click(within(sheet()).getByRole("radio", { name: "Skafferi" }));
+    fireEvent.click(useNameRow("Saffran"));
+    expect(nameField()).toHaveValue("Saffran");
+    // The place choice stays for a new item, and there is no section step.
+    expect(within(sheet()).queryByRole("button", { name: /^Avdelning/ })).toBeNull();
     fireEvent.click(location("Skafferi"));
     await save("Lägg till vara");
     expect(savePantryItem).toHaveBeenCalledWith({
-      ingredient: { kind: "new", name: "Saffran", section: "Skafferi", location: "Skafferi" },
+      ingredient: { kind: "new", name: "Saffran", section: "Övrigt", location: "Skafferi" },
       amount: "",
       unit: "",
       location: "Skafferi",
       siteId: hemma.id,
       replaceId: null,
     });
+  });
+
+  it("saves the typed name as new in Övrigt even when no row was tapped and the answer is not in yet", async () => {
+    searchPantryIngredients.mockResolvedValue(ok([]));
+    setup("Kyl");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    fireEvent.change(nameField(), { target: { value: "  tomatpuré " } });
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenCalledWith(
+      expect.objectContaining({ ingredient: { kind: "new", name: "Tomatpuré", section: "Övrigt", location: "Kyl" }, location: "Kyl" }),
+    );
+  });
+
+  it("takes a typed name that is a catalog name as that ingredient", async () => {
+    searchPantryIngredients.mockResolvedValue(ok([{ ...gulLok, exact: true }]));
+    setup("Kyl");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul lök");
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ ingredient: { kind: "existing", ingredientId: gulLokId } }));
   });
 
   it.each(["två", "0", "-1", "1-2"])("refuses the amount %j at the field once tried, and saves nothing", async (amount) => {
@@ -218,18 +264,20 @@ describe("PantryItemSheet, a new item", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
     await search("Saffran");
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Saffran som ny" }));
+    fireEvent.click(useNameRow("Saffran"));
     await save("Lägg till vara");
-    expect(within(sheet()).getByRole("alert")).toHaveTextContent("Skriv ett namn med bokstäver eller siffror.");
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Skriv ett namn med bokstäver eller siffror.");
   });
 
-  it("offers no new ingredient for a name without letters or digits", async () => {
+  it("offers no new ingredient for a name without letters or digits, and asks for a name", async () => {
     searchPantryIngredients.mockResolvedValue(ok([]));
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
     await search("!!!");
-    expect(within(sheet()).getByText("Ingen ingrediens hittades.")).toBeInTheDocument();
-    expect(within(sheet()).queryByRole("button", { name: /som ny$/ })).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: /som namn$/ })).toBeNull();
+    await save("Lägg till vara");
+    expect(within(sheet()).getByRole("alert")).toHaveTextContent("Skriv vad det är.");
+    expect(savePantryItem).not.toHaveBeenCalled();
   });
 
   it("shows why saving failed and keeps the form", async () => {
@@ -240,7 +288,7 @@ describe("PantryItemSheet, a new item", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
     await save("Lägg till vara");
     expect(within(sheet()).getByRole("alert")).toHaveTextContent(errorMessages.pantry_save_failed);
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
+    expect(nameField()).toHaveValue("Gul lök");
     // A change means the failure no longer applies.
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
     expect(within(sheet()).queryByRole("alert")).toBeNull();
@@ -312,7 +360,7 @@ describe("PantryItemSheet and the place (Story 8.2, FR-33)", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
     await save("Lägg till vara");
     expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
+    expect(nameField()).toHaveValue("Gul lök");
   });
 });
 
@@ -321,7 +369,6 @@ describe("PantryItemSheet, an item in the pantry", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
-    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
     await save("Spara ändringar");
     expect(savePantryItem).toHaveBeenCalledWith({
@@ -390,7 +437,7 @@ describe("PantryItemSheet, an item in the pantry", () => {
   it.each([
     [0.333, "0,333"],
     [0.004, "0,004"],
-  ])("keeps the exact amount %s when only the location changes", async (amount, text) => {
+  ])("keeps the exact amount %s when only the label changes", async (amount, text) => {
     render(
       <ToastProvider>
         <PantrySuggestionsProvider>
@@ -402,18 +449,21 @@ describe("PantryItemSheet, an item in the pantry", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue(text);
-    fireEvent.click(location("Frys"));
+    fireEvent.change(within(sheet()).getByRole("textbox", { name: /^Märke eller sort/ }), { target: { value: "Arla" } });
     await save("Spara ändringar");
     const [input] = savePantryItem.mock.calls[0];
-    expect(pantryItemFormSchema.parse(input)).toMatchObject({ amount, unit: "kg", location: "Frys" });
+    expect(pantryItemFormSchema.parse(input)).toMatchObject({ amount, unit: "kg", location: "Kyl" });
   });
 
-  it("moves it to another location", async () => {
+  it("stays where it is: no place choice, and the place is saved as it was", async () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
-    fireEvent.click(location("Frys"));
+    expect(within(sheet()).queryByRole("radiogroup", { name: "Plats" })).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: /^Ligger i/ })).toBeNull();
+    expect(within(sheet()).queryByText("Flytta")).toBeNull();
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
     await save("Spara ändringar");
-    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ location: "Frys", replaceId: rowId }));
+    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ location: "Kyl", replaceId: rowId }));
   });
 
   it("closes without asking when nothing changed, and asks when something did", () => {
@@ -430,23 +480,90 @@ describe("PantryItemSheet, an item in the pantry", () => {
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("3");
   });
 
-  it("swaps the ingredient through the search, and Avbryt goes back to the form", async () => {
+  it("opens as Ändra vara with the name first, Mängd and Enhet on one row, and none of the old extras", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
-    expect(within(sheet()).getByRole("heading", { name: "Byt vara" })).toBeInTheDocument();
-    fireEvent.keyDown(within(sheet()).getByRole("searchbox"), { key: "Escape" });
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Mjölk");
+    expect(sheet()).toHaveAccessibleName("Ändra vara");
+    expect(nameField()).toHaveValue("Mjölk");
+    const form = within(sheet()).getByLabelText("Mängd").closest("form")!;
+    const labels = [...form.querySelectorAll("label")].map((label) => label.textContent);
+    expect(labels.slice(0, 3)).toEqual(["Namn", "Mängd", "Enhet"]);
+    expect(within(sheet()).getByRole("combobox", { name: "Enhet" })).toHaveValue("l");
+    expect(within(sheet()).queryByRole("radiogroup", { name: "Enhet" })).toBeNull();
+    expect(within(sheet()).queryByText(/Fel vara/)).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: "Byt vara" })).toBeNull();
+    expect(within(sheet()).queryByText(/Lämna mängden tom/)).toBeNull();
+    expect(within(sheet()).queryByText("(valfritt)", { selector: "label *" })).not.toBeNull();
+    // No field takes focus on its own, so the keyboard does not open over the sheet.
+    expect(within(sheet()).getByLabelText("Mängd")).not.toHaveFocus();
+    expect(nameField()).not.toHaveFocus();
+    // Hits only show once the text is changed.
+    expect(within(sheet()).queryByRole("list", { name: "Förslag" })).toBeNull();
+  });
 
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
+  it("writes over the name and picks a catalog hit: the item changes ingredient and stays where it is", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
     await search("gul");
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
-    // Swapping keeps the item where it is.
-    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
+    expect(nameField()).toHaveValue("Gul lök");
+    // The hit's own defaults are for a new item; a changed one keeps its amount, unit and place.
+    expect(unitOf(sheet())).toBe("l");
+    expect(within(sheet()).queryByRole("list", { name: "Förslag" })).toBeNull();
+    await save("Spara ändringar");
+    expect(savePantryItem).toHaveBeenCalledWith({
+      ingredient: { kind: "existing", ingredientId: gulLokId },
+      amount: "1",
+      unit: "l",
+      location: "Kyl",
+      siteId: stugan.id,
+      replaceId: rowId,
+      label: "",
+    });
+  });
+
+  it("saves a name that is not in the register as a new ingredient in Övrigt, where the item is, replacing the row", async () => {
+    searchPantryIngredients.mockResolvedValue(ok([]));
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+    await search("tomatpuré");
+    fireEvent.click(useNameRow("Tomatpuré"));
     await save("Spara ändringar");
     expect(savePantryItem).toHaveBeenCalledWith(
-      expect.objectContaining({ ingredient: { kind: "existing", ingredientId: gulLokId }, replaceId: rowId }),
+      expect.objectContaining({ ingredient: { kind: "new", name: "Tomatpuré", section: "Övrigt", location: "Kyl" }, replaceId: rowId, location: "Kyl" }),
     );
+    expect(screen.getByRole("status")).toHaveTextContent("Tomatpuré är sparad i kylen.");
+  });
+
+  it("saves a rewritten name without a tap on a row, and asks before closing with it", async () => {
+    searchPantryIngredients.mockResolvedValue(ok([]));
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+    fireEvent.change(nameField(), { target: { value: "havredryck" } });
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
+    expect(within(sheet()).getByText("Släng ändringarna?")).toBeInTheDocument();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Fortsätt ändra" }));
+    await save("Spara ändringar");
+    expect(savePantryItem).toHaveBeenCalledWith(
+      expect.objectContaining({ ingredient: { kind: "new", name: "Havredryck", section: "Övrigt", location: "Kyl" }, replaceId: rowId }),
+    );
+  });
+
+  it("asks for a name when it is emptied, and saves nothing", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+    fireEvent.change(nameField(), { target: { value: "" } });
+    await save("Spara ändringar");
+    expect(within(sheet()).getByRole("alert")).toHaveTextContent("Skriv vad det är.");
+    expect(savePantryItem).not.toHaveBeenCalled();
+  });
+
+  it("changes the unit in the select, one row with Mängd", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+    chooseUnit("dl", sheet());
+    await save("Spara ändringar");
+    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ unit: "dl", amount: "1" }));
   });
 });
 
@@ -519,22 +636,21 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
 
   it("opens on the form filled in from an existing ingredient's suggestion, with Bekräfta and Avvisa", () => {
     open(mjolkSuggestion);
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toBeInTheDocument();
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
-    expect(within(sheet()).queryByText("Ny")).toBeNull();
+    expect(sheet()).toHaveAccessibleName("Ändra vara");
+    expect(nameField()).toHaveValue("mjölk");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
     expect(unitOf(sheet())).toBe("förp");
-    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
+    // It stays where the photo saw it: no place choice.
+    expect(within(sheet()).queryByRole("radiogroup", { name: "Plats" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Bekräfta" })).toBeInTheDocument();
     expect(within(sheet()).getByRole("button", { name: "Inte en vara" })).toBeInTheDocument();
     expect(within(sheet()).queryByRole("button", { name: "Lägg till vara" })).toBeNull();
     expect(within(sheet()).queryByRole("button", { name: "Ta bort" })).toBeNull();
   });
 
-  it("fills in a new ingredient with its name, Ny and section, and the amount with a decimal comma", () => {
+  it("fills in a new ingredient with its name and section, and the amount with a decimal comma", () => {
     open(ketchup);
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("ketchup");
-    expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
+    expect(nameField()).toHaveValue("ketchup");
     expect(within(sheet()).getByRole("button", { name: "Avdelning: Skafferi" })).toBeInTheDocument();
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("0,5");
     expect(unitOf(sheet())).toBe("l");
@@ -575,27 +691,38 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     expect(unitOf(sheet())).toBe("");
   });
 
-  it("keeps the place when another ingredient is chosen", async () => {
+  it("corrects what the photo misread: a typed name replaces it and the place stays", async () => {
+    open(ketchup);
+    searchPantryIngredients.mockResolvedValue(ok([]));
+    await search("tomatpuré");
+    fireEvent.click(useNameRow("Tomatpuré"));
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(onConfirm.mock.calls[0]![2]).toMatchObject({
+      ingredient: { kind: "new", name: "Tomatpuré", section: "Övrigt", location: "Kyl" },
+      location: "Kyl",
+    });
+  });
+
+  it("corrects an existing suggestion to another catalog ingredient and keeps the place and unit", async () => {
     open(mjolkSuggestion);
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
     await search("gul");
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
-    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
     expect(unitOf(sheet())).toBe("förp");
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(onConfirm.mock.calls[0]![2]).toMatchObject({ ingredient: { kind: "existing", ingredientId: gulLokId }, location: "Kyl", unit: "förp" });
   });
 
   it("Bekräfta saves the form as corrected, then closes with the short confirmation", async () => {
     open(ketchup);
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
     chooseUnit("dl", sheet());
-    fireEvent.click(location("Frys"));
     await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
     expect(onConfirm).toHaveBeenCalledWith(
       "s3",
       7,
       {
-        ingredient: { kind: "new", name: "ketchup", section: "Skafferi", location: "Frys", defaultUnit: "dl" },
-        location: "Frys",
+        ingredient: { kind: "new", name: "ketchup", section: "Skafferi", location: "Kyl", defaultUnit: "dl" },
+        location: "Kyl",
         amount: 2,
         unit: "dl",
         siteId: hemma.id,
@@ -604,7 +731,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
       expect.any(Function),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByTestId("toast")).toHaveTextContent("ketchup är sparad i frysen.");
+    expect(screen.getByTestId("toast")).toHaveTextContent("ketchup är sparad i kylen.");
     expect(savePantryItem).not.toHaveBeenCalled();
   });
 
@@ -708,7 +835,6 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
   const amount = () => within(sheet()).getByLabelText("Mängd");
   const less = () => within(sheet()).getByRole("button", { name: "Minska" });
   const more = () => within(sheet()).getByRole("button", { name: "Öka" });
-  const placeRow = () => within(sheet()).getByRole("button", { name: /^Ligger i/ });
   const openMjolk = () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
@@ -720,21 +846,21 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
   };
 
-  it("is named after the item (Story 19.4), never the generic Lagervara", () => {
+  it("is headed Ändra vara, with the item's name in a field, never the generic Lagervara", () => {
     openMjolk();
-    expect(sheet()).toHaveAccessibleName("Mjölk");
-    expect(within(sheet()).getByRole("heading", { name: "Mjölk" })).toBeInTheDocument();
+    expect(sheet()).toHaveAccessibleName("Ändra vara");
+    expect(within(sheet()).getByRole("heading", { name: "Ändra vara" })).toBeInTheDocument();
     expect(within(sheet()).queryByRole("heading", { name: "Lagervara" })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
-    expect(within(sheet()).getByText("Fel vara?")).toBeInTheDocument();
+    expect(nameField()).toHaveValue("Mjölk");
   });
 
   it("steps the amount by the unit and lets the number be typed", async () => {
     openMjolk();
-    // Mjölk is counted in litres, a measure: a field with the unit after it, and no stepper (Story 19.5).
+    // Mjölk is counted in litres, a measure: a plain number field, and no stepper (the unit is the select beside it).
     expect(amount()).toHaveValue("1");
     expect(within(sheet()).queryByRole("button", { name: "Öka" })).toBeNull();
-    expect(within(sheet()).getByTestId("amount-unit")).toHaveTextContent("l");
+    expect(unitOf(sheet())).toBe("l");
     // A counted unit has − n +.
     chooseUnit("st", sheet());
     expect(await within(sheet()).findByRole("button", { name: "Öka" })).toBeInTheDocument();
@@ -771,23 +897,6 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ amount: "", location: "Skafferi" }));
   });
 
-  it("shows the place of an item as a row that unfolds Kyl, Frys and Skafferi", () => {
-    openMjolk();
-    expect(placeRow()).toHaveTextContent("Ligger i Kyl · Flytta");
-    expect(placeRow()).toHaveAttribute("aria-expanded", "false");
-    expect(within(sheet()).queryByRole("radio", { name: "Frys" })).toBeNull();
-
-    fireEvent.click(placeRow());
-    expect(placeRow()).toHaveAttribute("aria-expanded", "true");
-    expect(within(sheet()).getByRole("radiogroup", { name: "Plats" })).toBeInTheDocument();
-    expect(within(sheet()).getByRole("radio", { name: "Kyl" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(within(sheet()).getByRole("radio", { name: "Frys" }));
-    expect(placeRow()).toHaveTextContent("Ligger i Frys · Flytta");
-
-    fireEvent.click(placeRow());
-    expect(within(sheet()).queryByRole("radio", { name: "Frys" })).toBeNull();
-  });
-
   it("shows the place choice at once for a new item, preselected, and no Ta bort", async () => {
     await openNewGulLok();
     expect(within(sheet()).queryByRole("button", { name: /^Ligger i/ })).toBeNull();
@@ -796,41 +905,12 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     expect(within(sheet()).getAllByText("(valfritt)").length).toBeGreaterThan(0);
   });
 
-  it("heads the add search with Lägg till vara and a hint that goes away when typing", async () => {
+  it("heads a new item Lägg till vara, with the name field and a hint in it, and no search step", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
     expect(within(sheet()).getByRole("heading", { name: "Lägg till vara" })).toBeInTheDocument();
-    expect(within(sheet()).getByText(/Börja skriva/)).toBeInTheDocument();
+    expect(nameField()).toHaveAttribute("placeholder", expect.stringContaining("Börja skriva"));
     expect(within(sheet()).queryByRole("button", { name: "Tillbaka" })).toBeNull();
-    await search("gul");
-    expect(within(sheet()).queryByText(/Börja skriva/)).toBeNull();
-  });
-
-  it("replaces the content with Byt vara and Tillbaka, which goes back without changing anything", async () => {
-    openMjolk();
-    fireEvent.change(amount(), { target: { value: "3" } });
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
-    expect(within(sheet()).getByRole("heading", { name: "Byt vara" })).toBeInTheDocument();
-    await waitFor(() => expect(within(sheet()).getByRole("searchbox", { name: "Sök vara" })).toHaveFocus());
-    // No second Avbryt.
-    expect(within(sheet()).queryByRole("button", { name: "Avbryt" })).toBeNull();
-    expect(within(sheet()).queryByLabelText("Mängd")).toBeNull();
-
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Tillbaka" }));
-    expect(within(sheet()).getByRole("heading", { name: "Mjölk" })).toBeInTheDocument();
-    expect(amount()).toHaveValue("3");
-    expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
-  });
-
-  it("marks the current ingredient among the hits of Byt vara", async () => {
-    openMjolk();
-    searchPantryIngredients.mockResolvedValue(
-      ok([{ ...gulLok, id: mjolkId, name: "Mjölk" }, gulLok]),
-    );
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
-    await search("m");
-    expect(within(sheet()).getByRole("button", { name: /^Mjölk/ })).toHaveTextContent("Nuvarande");
-    expect(within(sheet()).getByRole("button", { name: "Gul lök" })).not.toHaveTextContent("Nuvarande");
   });
 
   it("still asks Släng ändringarna? when cancelling with changes, and Ta bort stays last", () => {

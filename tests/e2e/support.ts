@@ -869,8 +869,16 @@ export async function openSettingsViaAvatar(page: Page) {
   await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: "Inställningar" }).click();
 }
 
-/** Story 19.5: Enhet is a row of chips; a unit that is not among them is chosen through "Fler ›" and its row in the step behind it. */
+/**
+ * Enhet in the pantry's sheet is a select next to Mängd (Pontus 19 Nov); elsewhere (Story 19.5) it is a row of chips,
+ * where a unit that is not among them is chosen through "Fler ›" and its row in the step behind it.
+ */
 export async function chooseUnit(scope: Locator, unit: string): Promise<void> {
+  const select = scope.getByRole("combobox", { name: "Enhet" });
+  if ((await select.count()) > 0) {
+    await select.selectOption(unit);
+    return;
+  }
   const group = scope.getByRole("radiogroup", { name: "Enhet" });
   const chip = group.getByRole("radio", { name: unit, exact: true });
   if ((await chip.count()) > 0) {
@@ -882,8 +890,13 @@ export async function chooseUnit(scope: Locator, unit: string): Promise<void> {
   await scope.getByRole("radio", { name: unit, exact: true }).click();
 }
 
-/** The unit the Enhet chips show as chosen; "" means none. */
+/** The unit the Enhet select or chips show as chosen; "" means none. */
 export async function expectUnit(scope: Locator, unit: string): Promise<void> {
+  const select = scope.getByRole("combobox", { name: "Enhet" });
+  if ((await select.count()) > 0) {
+    await expect(select).toHaveValue(unit);
+    return;
+  }
   const group = scope.getByRole("radiogroup", { name: "Enhet" });
   if (unit === "") await expect(group.getByRole("radio", { checked: true })).toHaveCount(0);
   else await expect(group.getByRole("radio", { name: unit, exact: true })).toBeChecked();

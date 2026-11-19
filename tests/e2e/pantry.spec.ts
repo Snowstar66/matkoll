@@ -220,7 +220,7 @@ test.describe("the sheet Lagervara", () => {
     await expect(rows(page)).toHaveCount(3);
 
     await addButton(page).click();
-    const search = sheet(page).getByRole("searchbox", { name: "Sök vara" });
+    const search = sheet(page).getByRole("textbox", { name: "Namn", exact: true });
     await expect(search).toBeFocused();
     await search.fill("mjö");
     await sheet(page).getByRole("button", { name: "Mjölk" }).click();
@@ -246,11 +246,10 @@ test.describe("the sheet Lagervara", () => {
     await expect(rows(page)).toHaveCount(1);
 
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill(name);
-    await sheet(page).getByRole("button", { name: `Lägg till ${name} som ny` }).click();
-    await expect(sheet(page).getByText("Ny", { exact: true })).toBeVisible();
-    await sheet(page).getByRole("button", { name: /^Avdelning:/ }).click();
-    await sheet(page).getByRole("radio", { name: "Skafferi" }).click();
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill(name);
+    // A name that is not in the register is saved as a new ingredient in Övrigt without a question.
+    await sheet(page).getByRole("button", { name: `Använd \u201C${name}\u201D som namn` }).click();
+    await expect(sheet(page).getByRole("button", { name: /^Avdelning:/ })).toHaveCount(0);
     // Frys was chosen on Hemma, so it is preselected.
     await expect(place(page, "Frys")).toHaveAttribute("aria-checked", "true");
     await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
@@ -263,9 +262,9 @@ test.describe("the sheet Lagervara", () => {
 
     // The new ingredient is in the catalog now: the search finds it.
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill(name);
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill(name);
     await expect(sheet(page).getByRole("button", { name, exact: true })).toBeVisible();
-    await expect(sheet(page).getByRole("button", { name: /som ny$/ })).toHaveCount(0);
+    await expect(sheet(page).getByRole("button", { name: /som namn$/ })).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -292,28 +291,31 @@ test.describe("the sheet Lagervara", () => {
 
     // An unlimited item's row opens the sheet too.
     await row(page, "Salt").click();
-    await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Salt");
+    await expect(sheet(page).getByRole("textbox", { name: "Namn", exact: true })).toHaveValue("Salt");
     await expect(amountField(page)).toHaveValue("");
     expect(errors).toEqual([]);
   });
 
-  test("moves an item to another location", async ({ page }) => {
+  test("an item keeps its place, and a misread name is typed over: a new name replaces the row in the same place", async ({ page }) => {
     const errors = watchErrors(page);
+    const name = `Tomatpure ${letters(6)}`;
     await page.goto("/hemma");
 
     await row(page, "Mjölk").click();
-    await sheet(page).getByRole("button", { name: /^Ligger i/ }).click();
-    await place(page, "Frys").click();
+    // Named "Ändra vara", the name first and Mängd with Enhet beside it; nothing to move, rename or search first.
+    await expect(sheet(page)).toHaveAccessibleName("Ändra vara");
+    await expect(sheet(page).getByRole("button", { name: /^Ligger i/ })).toHaveCount(0);
+    await expect(sheet(page).getByRole("button", { name: "Byt vara" })).toHaveCount(0);
+    await expect(sheet(page).getByText("Lämna mängden tom")).toHaveCount(0);
+    await expectUnit(sheet(page), "l");
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill(name);
+    await sheet(page).getByRole("button", { name: `Använd \u201C${name}\u201D som namn` }).click();
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
-    await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i frysen.");
-    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*2 varor$/);
-    await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*2 varor$/);
-
-    // Mejeri & ägg comes before Frys in the store's order.
-    await card(page, "Frys").click();
-    await expect(rows(page)).toHaveText([today("Mjölk"), today("Ärtor")]);
+    await expect(page.getByTestId("toast")).toHaveText(`${name} är sparad i kylen.`);
+    await expect.poll(() => amounts(userId, "Mjölk")).toEqual({});
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
+    await expect(rows(page).filter({ hasText: name })).toHaveCount(1);
     expect(errors).toEqual([]);
   });
 
@@ -347,7 +349,7 @@ test.describe("the sheet Lagervara", () => {
     // An empty location offers "Lägg till vara" too, with the location preselected.
     await card(page, "Skafferi").click();
     await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).last().click();
-    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("salt");
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill("salt");
     await sheet(page).getByRole("button", { name: "Salt" }).click();
     await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
@@ -362,14 +364,13 @@ test.describe("the sheet Lagervara", () => {
 
     // Salt is kept in Skafferi in the catalog, although Kyl is chosen.
     await addButton(page).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("salt");
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill("salt");
     await sheet(page).getByRole("button", { name: "Salt" }).click();
     await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
     await expectUnit(sheet(page), "");
 
     // Smör has the default unit g.
-    await sheet(page).getByRole("button", { name: "Byt vara" }).click();
-    await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("smör");
+    await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill("smör");
     await sheet(page).getByRole("button", { name: "Smör" }).click();
     await expectUnit(sheet(page), "g");
     expect(errors).toEqual([]);

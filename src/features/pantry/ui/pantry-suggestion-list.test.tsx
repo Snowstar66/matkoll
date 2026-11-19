@@ -547,32 +547,32 @@ describe("Rätta", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
+    expect(within(sheet()).getByRole("textbox", { name: "Namn" })).toHaveValue("mjölk");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
     expect(unitOf(sheet())).toBe("förp");
-    expect(placeRadio(sheet(), "Kyl")).toHaveAttribute("aria-checked", "true");
+    // It stays where the photo saw it: no place choice, and no Byt vara.
+    expect(within(sheet()).queryByRole("radiogroup", { name: "Plats" })).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: "Byt vara" })).toBeNull();
 
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2,5" } });
-    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     expect(lastConfirm().items).toEqual([
-      { ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Frys", amount: 2.5, unit: "förp" },
+      { ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Kyl", amount: 2.5, unit: "förp" },
     ]);
     // Story 8.4: a plain photo's Rätta saves on the photo's place.
     expect(confirms.at(-1)?.siteId).toBe(photoSite.id);
     await answerConfirm();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(cardNames()).toEqual(["gurka", "ketchup", "smör"]);
-    expect(toast()).toHaveTextContent("mjölk är sparad i frysen.");
+    expect(toast()).toHaveTextContent("mjölk är sparad i kylen.");
     await waitFor(() => expect(button("Rätta smör")).toHaveFocus());
   });
 
-  it("saves the photo once on the photo's place and location after Rätta's Bekräfta, also when the item moves to Frys (Story 10.1)", async () => {
+  it("saves the photo once on the photo's place and location after Rätta's Bekräfta (Story 10.1)", async () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(photoPosts).toHaveLength(0);
     await answerConfirm();
@@ -584,17 +584,15 @@ describe("Rätta", () => {
     expect(photoPosts).toHaveLength(1);
   });
 
-  it("swaps a new suggestion for another new ingredient, saved as new with the form's place", async () => {
+  it("types over a new suggestion's name (what the photo misread), saved as new in Övrigt with the suggestion's place", async () => {
     searchPantryIngredients.mockResolvedValue(ok([]));
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta gurka"));
-    expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
-    const field = within(sheet()).getByRole("searchbox", { name: "Sök vara" });
+    const field = within(sheet()).getByRole("textbox", { name: "Namn" });
+    expect(field).toHaveValue("gurka");
     fireEvent.change(field, { target: { value: "slanggurka" } });
-    await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Slanggurka som ny" }));
+    fireEvent.click(await within(sheet()).findByRole("button", { name: "Använd \u201CSlanggurka\u201D som namn" }));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(lastConfirm().items).toEqual([
       {
@@ -647,10 +645,9 @@ describe("Review patches", () => {
     await analyze();
     fireEvent.click(button("Rätta gurka"));
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
-    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(lastConfirm().items).toEqual([
-      { ingredient: fridge.suggestions[0].ingredient, location: "Frys", amount: 3, unit: "st" },
+      { ingredient: fridge.suggestions[0].ingredient, location: "Kyl", amount: 3, unit: "st" },
     ]);
     await answerConfirm();
   });
@@ -1482,8 +1479,8 @@ describe("numbers on the photo (Story 6.6)", () => {
       expect(crop.style.backgroundImage).toContain("blob:photo-1");
       expect(crop.style.backgroundPosition).toBe("69.4% 58.3%");
       expect(crop).toHaveTextContent("3");
-      // At the top of the sheet's form, before "Fel vara?".
-      expect(crop.compareDocumentPosition(within(dialog).getByText(/Fel vara\?/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // At the top of the sheet's form, before the name field.
+      expect(crop.compareDocumentPosition(within(dialog).getByRole("textbox", { name: "Namn" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       fireEvent.click(within(dialog).getByRole("button", { name: "Avbryt" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       expect(marker("Vara 3: Gurka")).toHaveAttribute("aria-pressed", "true");

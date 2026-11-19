@@ -101,7 +101,7 @@ describe("the card big (Story 18.7)", () => {
     const open = screen.getByRole("button", { name: "Öppna Cirkelsåg" });
     expect(open).toHaveAttribute("aria-haspopup", "dialog");
     await userEvent.click(open);
-    const dialog = screen.getByRole("dialog", { name: "Cirkelsåg" });
+    const dialog = screen.getByRole("dialog", { name: "Föremål" });
     expect(await within(dialog).findByTestId("count-number")).toHaveTextContent("4st");
     expect(within(dialog).getByRole("button", { name: "Ta bort föremålet" })).toBeInTheDocument();
     expect(within(dialog).queryByTestId("thing-sheet-link")).not.toBeInTheDocument();
