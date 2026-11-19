@@ -233,7 +233,11 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Varför spelar Matvaror roll?",
         answer: "Det avgör vad som står som Kan lagas nu och vad som dras av på inköpslistan.",
       },
-      { question: "Hur ändrar jag en vara?", answer: "Tryck på varan. Där kan du också ta bort den, eller tryck på soptunnan på raden." },
+      {
+        question: "Hur ändrar jag en vara?",
+        answer:
+          "Tryck på varan. Namnet står överst: skriv över det om fotot tolkade fel, till exempel tomatpuré som kaviar, och tryck på ett förslag eller Använd ... som namn. Mängd och Enhet ligger på samma rad, och Märke eller sort är kvar. En vara ligger kvar där den är; vill du flytta den tar du bort den och lägger till den på nytt. Där kan du också ta bort den, eller tryck på soptunnan på raden.",
+      },
       {
         question: "Kan jag fota frysen och skafferiet också?",
         answer: "Ja, Fota finns för varje plats: kylen, frysen och skafferiet.",

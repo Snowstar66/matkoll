@@ -365,15 +365,6 @@ describe("Bekräfta on a compared photo", () => {
     await answerSave(answered({ set: 1 }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(groupNames("Ändrat")).toEqual([]);
-
-    // Another place: the fridge's rows stay.
-    await analyze();
-    fireEvent.click(button("Rätta mjölk"));
-    const moved = screen.getByRole("dialog");
-    fireEvent.click(placeRadio(moved, "Frys"));
-    fireEvent.click(within(moved).getByRole("button", { name: "Bekräfta" }));
-    await waitFor(() => expect(saves).toHaveLength(2));
-    expect(lastSave().input).toMatchObject({ items: [{ location: "Frys" }], replaceRowIds: [] });
   });
 });
 

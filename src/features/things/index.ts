@@ -98,7 +98,7 @@ export {
   removedCardText,
   removedThingText,
   removeThingText,
-  renameThingText,
+  thingSheetTitleText,
   type CardSnapshot,
   type ThingSnapshot,
 } from "./domain/thing-edit";

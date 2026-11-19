@@ -150,16 +150,16 @@ test("ticking, correcting, Inte en vara and Lägg till save only what Pontus cho
 
   // Rätta grädde: the sheet filled in; another new ingredient, 2 dl, and Bekräfta.
   await section(page).getByRole("button", { name: "Rätta Grädde" }).click();
-  await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Grädde");
+  await expect(sheet(page).getByRole("textbox", { name: "Namn", exact: true })).toHaveValue("Grädde");
   await expect(sheet(page).getByLabel("Mängd")).toHaveValue("1");
   await expectUnit(sheet(page), "förp");
-  await expect(sheet(page).getByRole("button", { name: "Ligger i Kyl · Flytta" })).toBeVisible();
+  // It stays where the photo saw it: nothing to move, and the name is typed over.
+  await expect(sheet(page).getByRole("button", { name: /^Ligger i/ })).toHaveCount(0);
   await expect(sheet(page).getByRole("button", { name: "Inte en vara" })).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Byt vara" }).click();
-  await sheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("Matlagningsgrädde");
+  await sheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill("Matlagningsgrädde");
   // New on a first run; already in the catalog on a retry.
   await sheet(page)
-    .getByRole("button", { name: "Lägg till Matlagningsgrädde som ny" })
+    .getByRole("button", { name: "Använd \u201CMatlagningsgrädde\u201D som namn" })
     .or(sheet(page).getByRole("button", { name: "Matlagningsgrädde", exact: true }))
     .click();
   await sheet(page).getByLabel("Mängd").fill("2");

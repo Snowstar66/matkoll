@@ -90,7 +90,7 @@ describe("a search hit's sheet", () => {
   it("opens from the row with the count card, Visa på kortet › to the card, and Ta bort föremålet last", async () => {
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
-    const sheet = screen.getByRole("dialog", { name: "Hammare" });
+    const sheet = screen.getByRole("dialog", { name: "Föremål" });
     expect(sheet).toHaveTextContent("Boden · på väggen");
     expect(await within(sheet).findByText("· räknas inte")).toBeInTheDocument();
     // The photo at the top is the way to the card (the search hit knows its card at once).
@@ -109,7 +109,7 @@ describe("a search hit's sheet", () => {
     expect(screen.getByRole("link", { name: "Visa Hammare på kortet" })).toHaveFocus();
     await userEvent.tab({ shift: true });
     await userEvent.keyboard("{Enter}");
-    expect(screen.getByRole("dialog", { name: "Hammare" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Föremål" })).toBeInTheDocument();
   });
 
   it("removes the föremål at once with Tog bort Hammare. and Ångra, which brings the hit back", async () => {
@@ -117,7 +117,7 @@ describe("a search hit's sheet", () => {
     restoreThing.mockResolvedValue(ok(null));
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
-    await userEvent.click(within(screen.getByRole("dialog", { name: "Hammare" })).getByRole("button", { name: "Ta bort föremålet" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Föremål" })).getByRole("button", { name: "Ta bort föremålet" }));
     expect(removeThing).toHaveBeenCalledWith(id);
     expect((await screen.findAllByText("Tog bort Hammare.")).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.queryByTestId("thing-hit")).not.toBeInTheDocument());
@@ -130,10 +130,9 @@ describe("a search hit's sheet", () => {
     updateThing.mockResolvedValue(ok(null));
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
-    const sheet = screen.getByRole("dialog", { name: "Hammare" });
-    await userEvent.click(within(sheet).getByRole("button", { name: "Byt namn" }));
-    await userEvent.clear(within(sheet).getByLabelText("Namn"));
-    await userEvent.type(within(sheet).getByLabelText("Namn"), "Snickarhammare");
+    const sheet = screen.getByRole("dialog", { name: "Föremål" });
+    await userEvent.clear(within(sheet).getByLabelText("Vad är det?"));
+    await userEvent.type(within(sheet).getByLabelText("Vad är det?"), "Snickarhammare");
     await userEvent.click(within(sheet).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(screen.getByTestId("thing-hit")).toHaveTextContent("Snickarhammare"));
   });
@@ -169,7 +168,7 @@ describe("a search hit's sheet", () => {
     const [noted, written] = screen.getAllByTestId("thing-hit");
     expect(written).toHaveAttribute("href", `/prylar/lada/${placeId}`);
     await userEvent.click(noted);
-    const sheet = screen.getByRole("dialog", { name: "Hammare" });
+    const sheet = screen.getByRole("dialog", { name: "Föremål" });
     expect(sheet).toHaveTextContent("Du skrev in det 12 okt · Översta byrålådan");
     expect(within(sheet).getByRole("link", { name: "Visa i rummet" })).toHaveAttribute("href", `/prylar/${placeId}`);
   });

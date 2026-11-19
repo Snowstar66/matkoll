@@ -42,7 +42,7 @@ export type SheetProps = {
    */
   heading?: ReactNode;
   /**
-   * Story 16.17: a "‹ Tillbaka" header for a view that replaces the sheet's content (e.g. "Byt vara"):
+   * Story 16.17: a "‹ Tillbaka" header for a view that replaces the sheet's content (e.g. a step in a form):
    * Tillbaka on the left, the heading centred, and no close button. Tillbaka never asks about changes.
    */
   onBack?: () => void;

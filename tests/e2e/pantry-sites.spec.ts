@@ -297,7 +297,7 @@ test("milk added with Stugan selected is on Stugan, and Hemma's fridge is as it 
   await expect(rows(page)).toHaveCount(0);
 
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
-  await itemSheet(page).getByRole("searchbox", { name: "Sök vara" }).fill("mjö");
+  await itemSheet(page).getByRole("textbox", { name: "Namn", exact: true }).fill("mjö");
   await itemSheet(page).getByRole("button", { name: "Mjölk" }).click();
   await itemSheet(page).getByLabel("Mängd").fill("1");
   await chooseUnit(itemSheet(page), "l");

@@ -473,11 +473,12 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
 
   await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByRole("button", { name: "Byt namn" }).click();
-  await sheet.getByLabel("Namn").fill("Klohammare");
+  // The name is a free field at the top of the sheet, titled Föremål; there is no Byt namn row, and Spara saves it at once.
+  await expect(sheet).toHaveAccessibleName("Föremål");
+  await expect(sheet.getByRole("button", { name: "Byt namn" })).toHaveCount(0);
+  await sheet.getByLabel("Vad är det?").fill("Klohammare");
   await sheet.getByRole("button", { name: "Spara" }).click();
-  await expect(sheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
   await expect(things.first()).toContainText("Klohammare");
   await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
@@ -635,7 +636,7 @@ test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two wi
   await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("3 st");
   await expect(main.getByRole("button", { name: /^Glödlampor E27/ })).toContainText("Slut");
   await main.getByRole("button", { name: /^Gravljus/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Gravljus" });
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(sheet.getByTestId("count-number")).toHaveText("3st");
   await expect(sheet.getByTestId("count-line")).toHaveText("Du borde ha 3 kvar · kortet 12 okt visade 5");
   await expect(sheet.getByTestId("count-change")).toHaveCount(2);
@@ -648,7 +649,7 @@ test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two wi
   await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("4 st");
   // A föremål without a count: Räkna.
   await main.getByRole("button", { name: /^Hammare/ }).click();
-  const hammer = page.getByRole("dialog", { name: "Hammare" });
+  const hammer = page.getByRole("dialog", { name: "Föremål" });
   await expect(hammer.getByText("· räknas inte")).toBeVisible();
   await hammer.getByRole("button", { name: "Räkna" }).click();
   await hammer.getByRole("button", { name: "Spara antal" }).click();
@@ -667,7 +668,7 @@ test("Pontus 1 Nov: a search hit opens the föremål's sheet, where the count is
   const hit = page.getByTestId("thing-hit");
   await expect(hit).toHaveCount(1);
   await hit.click();
-  const sheet = page.getByRole("dialog", { name: "Gravljus" });
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(sheet.getByTestId("count-number")).toHaveText("2st");
   await expect(sheet.getByRole("link", { name: "Visa på kortet" })).toBeVisible();
   await shot(page, "sok-blad");
@@ -1401,7 +1402,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
 
   // Pontus 1 Nov: the › at the end of a row opens the föremål's sheet, the same as in the room and in search.
   await page.getByRole("button", { name: "Öppna Förlängningssladd" }).click();
-  const thingSheet = page.getByRole("dialog", { name: "Förlängningssladd" });
+  const thingSheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(thingSheet.getByTestId("count-card")).toBeVisible();
   await expect(thingSheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
   await expect(thingSheet.getByRole("link", { name: "Visa på kortet" })).toHaveCount(0);
@@ -1450,7 +1451,7 @@ test("a search hit and a chat reference open the card big with the föremål mar
   // Pontus 1 Nov: the thumbnail opens the card; the row opens the föremål's sheet, which has Visa på kortet ›.
   await expect(page.getByRole("link", { name: "Visa Hammare på kortet" })).toHaveAttribute("href", `/prylar/kort/${cardId}?foremal=${ids[0]}`);
   await hit.click();
-  const sheet = page.getByRole("dialog", { name: "Hammare" });
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(sheet.getByText("· räknas inte")).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
   await shot(page, "hit-sheet");

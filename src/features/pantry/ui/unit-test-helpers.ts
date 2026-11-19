@@ -1,19 +1,11 @@
 import { fireEvent, within } from "@testing-library/react";
 
-/** The unit the sheet's Enhet chips show as chosen ("" for none). Story 19.5: Enhet is a row of chips, not a select. */
+/** The unit the sheet's Enhet select shows ("" for none). Enhet is a plain select next to Mängd. */
 export function unitOf(scope: HTMLElement = document.body): string {
-  const group = within(scope).getByRole("radiogroup", { name: "Enhet" });
-  return within(group).queryByRole("radio", { checked: true })?.textContent ?? "";
+  return (within(scope).getByRole("combobox", { name: "Enhet" }) as HTMLSelectElement).value;
 }
 
-/** Chooses a unit: its chip when it shows, else through "Fler ›" and the row in the step behind it. */
+/** Chooses a unit in the sheet's Enhet select ("" for none). */
 export function chooseUnit(unit: string, scope: HTMLElement = document.body): void {
-  const group = within(scope).getByRole("radiogroup", { name: "Enhet" });
-  const chip = within(group).queryByRole("radio", { name: unit });
-  if (chip) {
-    if (chip.getAttribute("aria-checked") !== "true") fireEvent.click(chip);
-    return;
-  }
-  fireEvent.click(within(group).getByRole("button", { name: "Fler ›" }));
-  fireEvent.click(within(scope).getByRole("radio", { name: unit }));
+  fireEvent.change(within(scope).getByRole("combobox", { name: "Enhet" }), { target: { value: unit } });
 }

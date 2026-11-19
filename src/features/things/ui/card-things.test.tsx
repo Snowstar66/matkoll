@@ -57,7 +57,7 @@ async function openHammer() {
     </ToastProvider>,
   );
   await userEvent.click(screen.getByRole("button", { name: /Hammare/ }));
-  return screen.getByRole("dialog", { name: "Hammare" });
+  return screen.getByRole("dialog", { name: "Föremål" });
 }
 
 const photoId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
@@ -73,10 +73,11 @@ const detail = {
 describe("the things of a card", () => {
   it("opens a sheet with the first view's rows, and Ta bort föremålet last in the muted red", async () => {
     const dialog = await openHammer();
-    // No form and no Spara on the first view: each row opens a step of its own.
-    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: "Spara" })).not.toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Byt namn" })).toBeInTheDocument();
+    // The name is a free field with Spara at the top, titled "Föremål"; there is no Byt namn row or step.
+    expect(within(dialog).getByRole("textbox", { name: "Vad är det?" })).toHaveValue("Hammare");
+    expect(within(dialog).getByRole("button", { name: "Spara" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Byt namn" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("listbox")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /^Var på bilden/ })).toHaveTextContent("på väggen");
     const remove = within(dialog).getByRole("button", { name: "Ta bort föremålet" });
@@ -117,21 +118,18 @@ describe("the things of a card", () => {
     expect(within(dialog).getByTestId("thing-tile")).toBeInTheDocument();
   });
 
-  it("renames just that thing in its own step and reads the page again", async () => {
+  it("renames just that thing from the field at the top, saves with Spara and reads the page again", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
-    expect(screen.getByRole("dialog", { name: "Byt namn" })).toBe(dialog);
-    const field = within(dialog).getByLabelText("Namn");
+    const field = within(dialog).getByLabelText("Vad är det?");
     expect(field).toHaveValue("Hammare");
     await userEvent.clear(field);
     await userEvent.type(field, "Klohammare");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Klohammare", category: "Verktyg", whereHint: "på väggen" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
-    // Back on the first view, which now has the new name and the row focused.
-    expect(await screen.findByRole("dialog", { name: "Klohammare" })).toBe(dialog);
-    expect(within(dialog).getByRole("button", { name: "Byt namn" })).toHaveFocus();
+    // The sheet closes, like after a picked category.
+    await waitFor(() => expect(dialog).not.toBeVisible());
   });
 
   it("saves the category as soon as it is picked one level deeper", async () => {
@@ -182,25 +180,29 @@ describe("the things of a card", () => {
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Sport & fritid", whereHint: "på väggen" }));
   });
 
-  it("sends nothing when the name is unchanged, and asks for a name when it is emptied", async () => {
+  it("sends nothing when the name is unchanged", async () => {
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(updateThing).not.toHaveBeenCalled();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
-    await userEvent.clear(within(dialog).getByLabelText("Namn"));
+  });
+
+  it("asks for a name when it is emptied", async () => {
+    const dialog = await openHammer();
+    await userEvent.clear(within(dialog).getByLabelText("Vad är det?"));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(screen.getByText("Ange ett namn.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Vad är det?")).toHaveFocus();
     expect(updateThing).not.toHaveBeenCalled();
   });
 
   it("shows the server's text under the field when the name is refused", async () => {
     updateThing.mockResolvedValue(fail("validation", { name: "Namnet får vara högst 80 tecken." }));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Byt namn" }));
-    await userEvent.type(within(dialog).getByLabelText("Namn"), "x");
+    await userEvent.type(within(dialog).getByLabelText("Vad är det?"), "x");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(await screen.findByText("Namnet får vara högst 80 tecken.")).toBeInTheDocument();
+    // The sheet stays open on the field.
+    expect(dialog).toBeVisible();
   });
 
   it("removes just the thing with Ångra, which puts it back", async () => {
@@ -241,7 +243,7 @@ describe("a thing written in with where it is (Story 18.19)", () => {
     );
     expect(screen.getByTestId("thing")).toHaveTextContent("Översta byrålådan · skrivet 31 okt");
     await userEvent.click(screen.getByRole("button", { name: /Pass/ }));
-    return screen.getByRole("dialog", { name: "Pass" });
+    return screen.getByRole("dialog", { name: "Föremål" });
   }
 
   it("says when it was written in and where, and has no 'Var på bilden'", async () => {
