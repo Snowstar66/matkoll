@@ -82,9 +82,9 @@ function defaultSubtitle(thing: SheetThing): string | undefined {
 
 type Step = "main" | "category";
 
-/** Matvaror's zoom (150 % of the sheet's width) is the least; a small box is enlarged until it fills about half the width. */
-const minCropZoom = 1.5;
-const maxCropZoom = 3;
+/** Matvaror's zoom (125 % of the sheet's width) is the least; a small box is enlarged until it fills about half the width. */
+const minCropZoom = 1.25;
+const maxCropZoom = 2.5;
 
 /** Where a background of `zoom` times the box's width sits (in percent) to put the photo's point `at` (0-1) in the middle. */
 function centeredPosition(at: number, zoom: number): number {
@@ -93,7 +93,7 @@ function centeredPosition(at: number, zoom: number): number {
 
 /**
  * The top of a föremål's sheet, like Matvaror's "Ändra vara": the photo enlarged around the föremål (no frame, no
- * shading), 180 px high, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
+ * shading), square, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
  * so the crop is right at any size. Without a box the whole photo shows.
  */
 function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingId: string; box: ThingDetail["box"]; onOpen: () => void }) {
@@ -114,7 +114,7 @@ function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingI
           <div
             aria-hidden="true"
             data-testid="thing-photo-crop"
-            className="h-[180px] w-full"
+            className="aspect-square max-h-[320px] w-full"
             style={{
               backgroundImage: `url("${url}")`,
               backgroundSize: `${zoom * 100}% auto`,
