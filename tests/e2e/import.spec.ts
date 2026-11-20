@@ -146,7 +146,7 @@ test("the sheet opens on the Länk tab, with Text and Foto beside it", async ({ 
   await expect(tolka).toBeDisabled();
 
   await sheet(page).getByRole("tab", { name: "Foto" }).click();
-  await expect(sheet(page).getByRole("tabpanel")).toContainText("Bilden sparas inte.");
+  await expect(sheet(page).getByRole("tabpanel")).toContainText("bilden sparas inte.");
   await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeVisible();
   await expect(tolka).toHaveCount(0);
   expect(errors).toEqual([]);
