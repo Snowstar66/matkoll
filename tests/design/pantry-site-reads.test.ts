@@ -17,6 +17,8 @@ const allowed: Record<string, string> = {
   // Deletes one row by its id (unique over all places) for removePantryItem,
   // and returns it with its site_id for "Ångra".
   "src/features/pantry/data/remove.ts": "delete by id",
+  // Reads the photo link of the one row "Ändra vara" is replacing, by its id (unique over all places).
+  "src/features/pantry/data/photos.ts": "read one row's photo link by id",
   // The daily "Ät snart" push is about the household's food, whatever the place: it reads only created_at and the
   // ingredient of the fridge and freezer rows, and only the due ones leave the file.
   "src/features/pantry/data/old.ts": "household-wide old items",

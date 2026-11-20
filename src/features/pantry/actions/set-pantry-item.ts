@@ -6,6 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
+import { linkPantryItemsToPhotoIn, loadPantryItemPhotoLinkIn } from "../data/photos";
 import { setPantryItemsIn } from "../data/set";
 import { formFieldErrors, pantryItemFormSchema, type PantryItemFormInput } from "../domain/pantry-item-form";
 
@@ -73,13 +74,22 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
   }
 
   try {
+    const db = await createClient();
+    // A replaced row is a new row: the photo it was read from follows it, so the camera icon stays.
+    const photoLink = replaceId ? await loadPantryItemPhotoLinkIn(db, replaceId).catch(() => null) : null;
     const [row] = await setPantryItemsIn(
-      await createClient(),
+      db,
       [{ ingredientId, location, amount, unit, ...(label === undefined ? {} : { label }) }],
       replaceId,
       siteId,
     );
     if (!row) throw new PantryDataError("no_row");
+    if (photoLink && row.id !== replaceId) {
+      // Best effort: the item is saved either way.
+      await linkPantryItemsToPhotoIn(db, photoLink.photoId, [{ id: row.id, number: photoLink.number }]).catch((error) =>
+        console.error("pantry_photo_failed", { reason: error instanceof PantryDataError ? error.detail : "link_threw" }),
+      );
+    }
     revalidateFor("pantry_item");
     return ok({ id: row.id });
   } catch (error) {

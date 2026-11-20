@@ -20,6 +20,13 @@ vi.mock("@/features/catalog/server", async (importOriginal) => ({
 const setPantryItemsIn = vi.fn();
 vi.mock("../data/set", () => ({ setPantryItemsIn: (...args: unknown[]) => setPantryItemsIn(...args) }));
 
+const loadPantryItemPhotoLinkIn = vi.fn();
+const linkPantryItemsToPhotoIn = vi.fn();
+vi.mock("../data/photos", () => ({
+  loadPantryItemPhotoLinkIn: (...args: unknown[]) => loadPantryItemPhotoLinkIn(...args),
+  linkPantryItemsToPhotoIn: (...args: unknown[]) => linkPantryItemsToPhotoIn(...args),
+}));
+
 const { savePantryItem } = await import("./set-pantry-item");
 
 const mjolk = "11111111-1111-4111-8111-111111111111";
@@ -45,6 +52,8 @@ beforeEach(() => {
     items.map((item) => ({ id: row, ...item })),
   );
   revalidateFor.mockReset();
+  loadPantryItemPhotoLinkIn.mockReset().mockResolvedValue(null);
+  linkPantryItemsToPhotoIn.mockReset().mockResolvedValue(0);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -198,5 +207,41 @@ describe("savePantryItem", () => {
   it("throws other errors, which are bugs", async () => {
     setPantryItemsIn.mockRejectedValue(new TypeError("boom"));
     await expect(savePantryItem(form())).rejects.toThrow("boom");
+  });
+
+  describe("photo link of a replaced row", () => {
+    const photo = "55555555-5555-4555-8555-555555555555";
+    const newRow = "66666666-6666-4666-8666-666666666666";
+
+    it("carries the photo and number over to the new row", async () => {
+      requireUser.mockResolvedValue({ ok: true, value: { id: "u" } });
+      loadPantryItemPhotoLinkIn.mockResolvedValue({ photoId: photo, number: 3 });
+      linkPantryItemsToPhotoIn.mockResolvedValue(1);
+      setPantryItemsIn.mockResolvedValue([{ id: newRow }]);
+      const result = await savePantryItem(form({ replaceId: row }));
+      expect(result).toEqual(ok({ id: newRow }));
+      expect(loadPantryItemPhotoLinkIn).toHaveBeenCalledWith(db, row);
+      expect(linkPantryItemsToPhotoIn).toHaveBeenCalledWith(db, photo, [{ id: newRow, number: 3 }]);
+    });
+
+    it("does not link when the row had no photo or was kept", async () => {
+      requireUser.mockResolvedValue({ ok: true, value: { id: "u" } });
+      linkPantryItemsToPhotoIn.mockClear();
+      loadPantryItemPhotoLinkIn.mockResolvedValue(null);
+      setPantryItemsIn.mockResolvedValue([{ id: newRow }]);
+      await savePantryItem(form({ replaceId: row }));
+      loadPantryItemPhotoLinkIn.mockResolvedValue({ photoId: photo, number: 3 });
+      setPantryItemsIn.mockResolvedValue([{ id: row }]);
+      await savePantryItem(form({ replaceId: row }));
+      expect(linkPantryItemsToPhotoIn).not.toHaveBeenCalled();
+    });
+
+    it("still saves when linking fails", async () => {
+      requireUser.mockResolvedValue({ ok: true, value: { id: "u" } });
+      loadPantryItemPhotoLinkIn.mockResolvedValue({ photoId: photo, number: 3 });
+      linkPantryItemsToPhotoIn.mockRejectedValue(new PantryDataError("update_failed x"));
+      setPantryItemsIn.mockResolvedValue([{ id: newRow }]);
+      expect(await savePantryItem(form({ replaceId: row }))).toEqual(ok({ id: newRow }));
+    });
   });
 });

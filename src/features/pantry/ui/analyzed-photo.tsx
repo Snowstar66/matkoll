@@ -375,6 +375,36 @@ export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
 }
 
 /**
+ * "Visa hela fotot" in the sheet Ändra vara: the whole photo at the sheet's
+ * width with the item's marker on it (percent of the photo, so the marker
+ * stays on the item). A plain <img> in the sheet, not a link to the file and
+ * not a second sheet, so there is always a way back: the caller shows
+ * "Stäng fotot" under it. The point is optional; without it no marker shows.
+ */
+export function PhotoFull({ url, x, y, number }: { url: string; x: number | null; y: number | null; number: number }) {
+  const left = x === null ? null : x / 10;
+  const top = y === null ? null : y / 10;
+  return (
+    <div data-testid="pantry-sheet-full-photo" className="relative overflow-hidden rounded-[14px] bg-photo-stage">
+      {/* eslint-disable-next-line @next/next/no-img-element -- the photo is private, served by the route handler */}
+      <img src={url} alt="" className="block h-auto w-full" />
+      {left !== null && top !== null ? (
+        <span
+          aria-hidden="true"
+          style={{
+            left: `clamp(${markerInset}, ${left}%, calc(100% - ${markerInset}))`,
+            top: `clamp(${markerInset}, ${top}%, calc(100% - ${markerInset}))`,
+          }}
+          className={cx(photoMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
+        >
+          {number}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * A card's number and a marker on the photo (Story 6.6): a round number.
  * Kylfoto B: the card's is small and quiet, ink-2 in a hairline circle, so
  * it never looks like a checkbox or a button; the marker on the photo is
