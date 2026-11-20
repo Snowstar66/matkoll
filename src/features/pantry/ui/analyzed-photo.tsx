@@ -328,6 +328,9 @@ export function ReviewPhotoPanel({
   );
 }
 
+/** The crop's zoom: the photo is this many times the box's width. */
+const cropZoom = 1.5;
+
 export type PhotoCropProps = {
   /** The photo's URL. */
   url: string;
@@ -340,31 +343,36 @@ export type PhotoCropProps = {
 
 /**
  * Kylfoto D: at the top of the sheet Rätta, the photo around the item's
- * point, 2.5 times enlarged, with its marker on it, so what the AI means
+ * point, 1.5 times enlarged, with its marker on it, so what the AI means
  * shows without leaving the sheet. The photo is a background placed at the
  * point's own percentages, which keeps it inside the box at the edges and
  * puts the point at the same percentages of the box: the marker goes there.
  * Only for the eye; the sheet's title names the item.
  */
 export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
-  const left = x / 10;
-  const top = y / 10;
+  // 150 % of the box's width, with the item in the middle where the photo's edges allow it; the marker follows the point.
+  const zoom = cropZoom;
+  const position = (at: number) => Math.round(Math.min(1, Math.max(0, (0.5 - at * zoom) / (1 - zoom))) * 1000) / 10;
+  const left = position(x / 1000);
+  const top = position(y / 1000);
+  const markerLeft = Math.round(((x / 1000) * zoom * 100 + (left / 100) * (1 - zoom) * 100) * 10) / 10;
+  const markerTop = Math.round(((y / 1000) * zoom * 100 + (top / 100) * (1 - zoom) * 100) * 10) / 10;
   return (
     <div
       aria-hidden="true"
       data-testid="pantry-sheet-crop"
       style={{
         backgroundImage: `url("${url}")`,
-        backgroundSize: "250% auto",
+        backgroundSize: `${zoom * 100}% auto`,
         backgroundPosition: `${left}% ${top}%`,
         backgroundRepeat: "no-repeat",
       }}
-      className="relative h-[120px] shrink-0 overflow-hidden rounded-[14px] bg-photo-stage"
+      className="relative h-[180px] shrink-0 overflow-hidden rounded-[14px] bg-photo-stage"
     >
       <span
         style={{
-          left: `clamp(${markerInset}, ${left}%, calc(100% - ${markerInset}))`,
-          top: `clamp(${markerInset}, ${top}%, calc(100% - ${markerInset}))`,
+          left: `clamp(${markerInset}, ${markerLeft}%, calc(100% - ${markerInset}))`,
+          top: `clamp(${markerInset}, ${markerTop}%, calc(100% - ${markerInset}))`,
         }}
         className={cx(photoMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
       >

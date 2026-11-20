@@ -105,11 +105,12 @@ describe("PhotoCrop (Kylfoto D)", () => {
     render(<PhotoCrop url="blob:photo" x={694} y={583} number={3} />);
     const crop = screen.getByTestId("pantry-sheet-crop");
     expect(crop).toHaveAttribute("aria-hidden", "true");
-    expect(crop.style.backgroundSize).toMatch(/^250%( auto)?$/);
-    expect(crop.style.backgroundPosition).toBe("69.4% 58.3%");
-    expect(crop).toHaveClass("h-[120px]");
+    expect(crop.style.backgroundSize).toMatch(/^150%( auto)?$/);
+    // Centred on the point where the photo's edges allow it: (0.5 - 0.694 * 1.5) / (1 - 1.5) = 108 % → kept at 100 %.
+    expect(crop.style.backgroundPosition).toBe("100% 74.9%");
+    expect(crop).toHaveClass("h-[180px]");
     const marker = crop.querySelector("span")!;
     expect(marker).toHaveTextContent("3");
-    expect(marker.style.left).toMatch(/69.4%/);
+    expect(marker.style.left).toMatch(/54.1%/);
   });
 });
