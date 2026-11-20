@@ -365,8 +365,10 @@ test.describe("import from a link", () => {
 
     await page.goto(`/recept/importera?url=${encodeURIComponent("http://www.koket.se/chow-mein-med-lovbiff")}`);
     await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+    // Opened without any address: no error yet, the field waits for a link.
     await page.goto("/recept/importera");
-    await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+    await expect(linkField(page)).toBeVisible();
+    await expect(sheet(page).getByRole("alert")).toHaveCount(0);
   });
 
   test("Öppna inställningar asks before it throws away pasted text", async ({ page }) => {

@@ -134,7 +134,8 @@ export type ImportSheetProps = {
   sites?: Promise<readonly string[]>;
 };
 
-export type AutoImport = { kind: "ok"; url: string } | { kind: "invalid"; value: string };
+/** `none`: the page was opened without any address (a bookmark, a share without a link); the sheet opens quietly, with no error. */
+export type AutoImport = { kind: "ok"; url: string } | { kind: "invalid"; value: string } | { kind: "none" };
 
 export function ImportSheet({ open, onClose, showFinished = false, autoImport, sites }: ImportSheetProps) {
   const ids = useId();
@@ -202,7 +203,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
       if (autoImport.kind === "ok") {
         setUrl(autoImport.url);
         void parse("url", null, autoImport.url);
-      } else {
+      } else if (autoImport.kind === "invalid") {
         setUrl(autoImport.value);
         setError({ kind: "url", error: fail("fetch_invalid_url").error });
         focusField.current = "url";
@@ -650,7 +651,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
     >
       {(
         <div className="flex flex-col gap-4">
-          <div role="tablist" aria-label="Importera från" className="flex gap-0.5 rounded-md bg-seg-track p-[3px]">
+          <div role="tablist" aria-label="Importera från" className="flex gap-0.5 self-start rounded-[10px] bg-seg-track p-0.5">
             {tabs.map(({ id, label }) => (
               <button
                 key={id}
@@ -667,11 +668,12 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                 disabled={reading}
                 onClick={() => changeTab(id)}
                 onKeyDown={onTabKeyDown}
-                className={
+                // 32 px high as in the sketch; the ::after gives a 44 px tall tap area without changing the look.
+                className={`relative h-8 rounded-lg border px-[18px] text-control after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] ${
                   tab === id
-                    ? "h-10 flex-1 rounded-[9px] border border-border bg-seg-on text-control font-semibold text-ink"
-                    : "h-10 flex-1 rounded-[9px] border border-transparent text-control font-medium text-ink-2"
-                }
+                    ? "border-border bg-seg-on font-semibold text-ink"
+                    : "border-transparent font-medium text-ink-2"
+                }`}
               >
                 {label}
               </button>
@@ -713,6 +715,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                     </Notice>
                   ) : null}
                   <FieldLabel htmlFor={`${ids}-url`}>Länk till receptet</FieldLabel>
+                  <div className="relative">
                   <Input
                     ref={urlRef}
                     id={`${ids}-url`}
@@ -730,6 +733,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                       setDuplicate(null);
                       setPastedTooLong(false);
                     }}
+                    className="pr-24"
                     aria-invalid={pastedTooLong || undefined}
                     aria-describedby={pastedTooLong ? `${ids}-url-too-long` : undefined}
                     onKeyDown={(event) => {
@@ -739,10 +743,17 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                       }
                     }}
                   />
+                  <button
+                    type="button"
+                    aria-label="Klistra in länk"
+                    onClick={() => void pasteLink()}
+                    disabled={reading}
+                    className="absolute inset-y-0 right-1 flex min-w-tap items-center justify-center px-2 text-control font-medium text-accent disabled:opacity-50"
+                  >
+                    Klistra in
+                  </button>
+                  </div>
                   {pastedTooLong ? <FieldError id={`${ids}-url-too-long`}>{importLinkTooLongMessage}</FieldError> : null}
-                  <Button variant="text" onClick={() => void pasteLink()} disabled={reading} className="-ml-3 self-start">
-                    Klistra in länk
-                  </Button>
                   {/* Mounted empty, so the text is announced when it appears. */}
                   <div role="status">{reading && tab === "link" ? <Reading waiting={waiting} /> : null}</div>
                 </div>
@@ -753,7 +764,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                   <textarea
                     ref={textRef}
                     id={`${ids}-text`}
-                    rows={10}
+                    rows={4}
                     value={text}
                     maxLength={maxImportTextChars}
                     readOnly={reading}
@@ -761,7 +772,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                     onChange={(event) => setText(event.target.value)}
                     aria-describedby={text.length >= counterFrom ? `${ids}-count` : undefined}
                     aria-invalid={tooLong || undefined}
-                    className="min-h-48 w-full rounded-md border border-ink-3 bg-surface px-4 py-3 text-body text-ink placeholder:text-ink-3 aria-[invalid=true]:border-sky-ink"
+                    className="min-h-[8.25rem] w-full rounded-md border border-ink-3 bg-surface px-4 py-3 text-body text-ink placeholder:text-ink-3 aria-[invalid=true]:border-sky-ink"
                   />
                   {text.length >= counterFrom ? (
                     <div id={`${ids}-count`} className="flex flex-col gap-1">
@@ -778,8 +789,8 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                 <div className="flex flex-col gap-3">
                   {errorNotice("photo")}
                   <p className="text-body text-ink-2">
-                    {touch ? "Fotografera receptsidan i kokboken" : "Välj ett foto av receptsidan i kokboken"}, så läser
-                    AI-tjänsten av receptet. Bilden sparas inte.
+                    {touch ? "Fotografera receptsidan i kokboken" : "Välj ett foto av receptsidan i kokboken"}.
+                    AI-tjänsten läser av receptet och bilden sparas inte.
                   </p>
                   {/* Mounted empty, so the text is announced when it appears. */}
                   <div role="status">{reading && tab === "photo" ? <Reading waiting={waiting} /> : null}</div>
@@ -828,13 +839,13 @@ function FindRecipes({
     </Link>
   );
   return (
-    <section aria-labelledby={headingId} data-testid="find-recipes" className="mt-6 flex flex-col gap-3 border-t border-hairline pt-4">
-      <h3 id={headingId} className="text-section-label text-ink-2">
+    <section aria-labelledby={headingId} data-testid="find-recipes" className="flex flex-col gap-2 rounded-lg bg-bg p-3.5">
+      <h3 id={headingId} className="text-body font-semibold text-ink">
         Hitta recept på nätet
       </h3>
       {domains.length > 0 ? (
         <>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {domains.map((domain) => (
               <li key={domain}>
                 <SiteLink domain={domain} device={device} standalone={standalone} />
@@ -842,17 +853,13 @@ function FindRecipes({
             ))}
           </ul>
           <p className="text-meta text-ink-2">
-            {device === "iphone" ? (
-              <>
-                {standalone ? "Öppnas i Safari. Där trycker du" : "Hittat ett recept? Tryck"} Dela → {settingsLink("Spara i " + appName)}, eller{" "}
-                {standalone ? "kopierar" : "kopiera"} länken och {standalone ? "klistrar" : "klistra"} in den{" "}
-              </>
-            ) : device === "android" ? (
-              <>Hittat ett recept? Tryck Dela → {appName}, eller kopiera länken och klistra in den </>
+            Hitta ett recept hos någon av dina sajter{device === "iphone" && standalone ? " (de öppnas i Safari)" : ""} och för över det hit:{" "}
+            {device === "android" ? (
+              <>tryck Dela → {appName}, eller kopiera länken och klistra in den </>
+            ) : device === "iphone" ? (
+              <>tryck Dela → {settingsLink("Spara i " + appName)}, eller kopiera länken och klistra in den </>
             ) : (
-              <>
-                Hittat ett recept? Använd bokmärket {settingsLink("Spara i " + appName)} på datorn, eller kopiera länken och klistra in den{" "}
-              </>
+              <>använd bokmärket {settingsLink("Spara i " + appName)} på datorn, eller kopiera länken och klistra in den </>
             )}
             <button type="button" onClick={onPaste} className={`${linkClass} min-h-tap`}>
               här
@@ -891,7 +898,7 @@ function SiteLink({ domain, device, standalone }: { domain: string; device: Devi
       href={href}
       {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       aria-label={newTab ? `Öppna ${domain} i en ny flik` : `Öppna ${domain} i Safari`}
-      className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
+      className="flex min-h-[34px] items-center rounded-full border border-hairline bg-surface px-[13px] py-1 text-control text-ink"
     >
       {domain}
     </a>

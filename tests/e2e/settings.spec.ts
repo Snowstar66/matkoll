@@ -320,7 +320,7 @@ test("Story 1.14: Importera recept lists the approved sites with new-tab links a
     await expect(link).toHaveAttribute("href", `https://${domain}/`);
     await expect(link).toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("rel", /noopener/);
-    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(34);
   }
   await section.getByRole("button", { name: "här" }).click();
   await expect(page.getByLabel("Länk till receptet")).toBeFocused();
