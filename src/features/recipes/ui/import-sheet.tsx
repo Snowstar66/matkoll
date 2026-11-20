@@ -110,6 +110,17 @@ function subscribeImportRequests(listener: () => void) {
 
 /** From this length on, the text field shows how much is left. */
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
+
+/** The host of an https link ("ica.se" for https://www.ica.se/recept), or null for anything else. */
+function httpsHostOf(link: string): string | null {
+  try {
+    const parsed = new URL(link.trim());
+    return parsed.protocol === "https:" ? parsed.hostname.replace(/^www\./, "") : null;
+  } catch {
+    return null;
+  }
+}
+
 const formatCount = (n: number) => n.toLocaleString("sv-SE");
 
 export type ImportSheetProps = {
@@ -518,6 +529,21 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
     }
     // A link without a recipe: the recipe is often in a caption or said in a video, so Foto (a screenshot) comes first and pasting text second.
     const help = of === "url" && shown.code === "import_no_recipe" ? noRecipeHelp(url) : null;
+    // A site that refused us: open it, copy the recipe and paste it here. Only the https link the user typed.
+    const blockedHost = of === "url" && shown.code === "fetch_blocked" ? httpsHostOf(url) : null;
+    if (blockedHost) {
+      actions.push(
+        <a
+          key="open-site"
+          href={url.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-tap items-center px-2 text-body font-medium text-accent underline underline-offset-4"
+        >
+          Öppna {blockedHost}
+        </a>,
+      );
+    }
     const action = actions.length > 0 ? <div className="flex flex-wrap">{actions}</div> : null;
     return (
       <Notice role="alert" action={action}>
@@ -527,6 +553,9 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
             <span className="mt-2 block">{help.text}</span>
             <span className="mt-2 block">{help.photoText}</span>
           </>
+        ) : null}
+        {of === "url" && shown.code === "fetch_blocked" ? (
+          <span className="mt-2 block">Öppna sidan, markera receptet, kopiera och klistra in här.</span>
         ) : null}
       </Notice>
     );

@@ -66,3 +66,27 @@ describe("a link without a recipe", () => {
     expect(screen.getByRole("button", { name: "Använd Foto" })).toBeInTheDocument();
   });
 });
+
+describe("a site that refuses the link", () => {
+  beforeEach(() => start.mockResolvedValue(fail("fetch_blocked")));
+
+  it("explains the way, links to the site and still switches to Text", async () => {
+    const user = await readLink("https://www.ica.se/recept/pannkakor-123/");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Öppna sidan, markera receptet, kopiera och klistra in här.");
+    const link = screen.getByRole("link", { name: "Öppna ica.se" });
+    expect(link).toHaveAttribute("href", "https://www.ica.se/recept/pannkakor-123/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await user.click(screen.getByRole("button", { name: "Klistra in text i stället" }));
+    expect(screen.getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("is not shown for other errors", async () => {
+    start.mockResolvedValue(fail("fetch_timeout"));
+    await readLink("https://www.ica.se/recept/pannkakor-123/");
+    const alert = await screen.findByRole("alert");
+    expect(alert).not.toHaveTextContent("markera receptet");
+    expect(screen.queryByRole("link", { name: /Öppna ica\.se/ })).toBeNull();
+  });
+});
