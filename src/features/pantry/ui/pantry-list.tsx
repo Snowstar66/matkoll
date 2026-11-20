@@ -227,8 +227,9 @@ function NameWithPhotoMark({ name }: { name: string }) {
   return (
     <>
       {name}
-      <CameraIcon size={14} className="ml-1.5 inline-block align-[-1px] text-ink-3" />
-      <span className="sr-only"> Inläst från foto</span>
+      <span role="img" aria-label="Inläst från foto" className="ml-1.5 inline-block align-[-1px] text-ink-3">
+        <CameraIcon size={14} />
+      </span>
     </>
   );
 }

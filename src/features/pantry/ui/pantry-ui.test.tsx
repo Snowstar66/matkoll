@@ -98,7 +98,7 @@ describe("PantryList", () => {
     const mjolkRow = rows.find((row) => row.textContent?.startsWith("Mjölk"));
     expect(mjolkRow?.querySelector("svg")).toBeNull();
     expect(rows.filter((row) => row.querySelector("svg")).length).toBe(2);
-    const withIcon = rows.filter((row) => row.textContent?.includes("Inläst från foto")).map((row) => row.textContent?.replace(" Inläst från foto", ""));
+    const withIcon = rows.filter((row) => within(row).queryByRole("img", { name: "Inläst från foto" })).map((row) => row.textContent);
     expect(withIcon).toEqual(["Gurka", "Tomat"]);
   });
 

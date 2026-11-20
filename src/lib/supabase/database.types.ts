@@ -500,17 +500,17 @@ isOneToOne: false
       referencedRelation: "ingredient"
       referencedColumns: ["id","household_id"]
     },{
-      foreignKeyName: "pantry_item_site_fkey"
-      columns: ["site_id","household_id"]
-isOneToOne: false
-      referencedRelation: "pantry_site"
-      referencedColumns: ["id","household_id"]
-    },{
       foreignKeyName: "pantry_item_photo_id_fkey"
       columns: ["photo_id"]
 isOneToOne: false
       referencedRelation: "pantry_photo"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pantry_item_site_fkey"
+      columns: ["site_id","household_id"]
+isOneToOne: false
+      referencedRelation: "pantry_site"
+      referencedColumns: ["id","household_id"]
     }
                   ]
                 },"pantry_photo": {
@@ -1395,6 +1395,9 @@ isOneToOne: false
 "leave_household":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"link_pantry_items_photo":
+{ Args: { "links": Json,"photo": string }; Returns: number
+                           },
 "list_shared_recipes":
 { Args: Record<PropertyKey, never>; Returns: {
               "created_at": string,"household_name": string,"id": string,"image_url": string,"line_texts": (string)[],"original_servings": number,"saved_copy_id": string,"shared_at": string,"title": string,"total_minutes": number
@@ -1560,6 +1563,8 @@ isOneToOne: false
 "ingredient_id": string,
 "label": string | null,
 "location": string,
+"photo_id": string | null,
+"photo_number": number | null,
 "site_id": string,
 "unit": string | null,
 "updated_at": string | null,
@@ -1751,6 +1756,8 @@ isOneToOne: false
 "ingredient_id": string,
 "label": string | null,
 "location": string,
+"photo_id": string | null,
+"photo_number": number | null,
 "site_id": string,
 "unit": string | null,
 "updated_at": string | null,
@@ -1763,9 +1770,6 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
-"link_pantry_items_photo":
-{ Args: { "links": Json,"photo": string }; Returns: number
-                           },
 "set_pantry_photo_points":
 { Args: { "photo_id": string,"photo_points": Json }; Returns: boolean
                            },

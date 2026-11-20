@@ -202,7 +202,7 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   await expect.poll(async () => (await pantryRows()).map((row) => row.photo_id)).toEqual([saved.id]);
   expect((await pantryRows())[0].photo_number).toBeGreaterThanOrEqual(1);
   // The page reads again after the link, so the row has its camera icon (named for screen readers).
-  await expect(page.getByTestId("pantry-row").filter({ visible: true, hasText: "Mjölk" })).toContainText("Inläst från foto");
+  await expect(page.getByTestId("pantry-row").filter({ visible: true, hasText: "Mjölk" }).getByRole("img", { name: "Inläst från foto" })).toBeVisible();
 
   await confirm(page, "Ägg");
   await addOnly(section(page), "all");
