@@ -195,9 +195,8 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await expect(page.getByTestId("thing")).toHaveCount(12);
   // The position text is no longer in the list row; the row shows the name only.
   await expect(page.getByTestId("thing").filter({ hasText: "Hammare" })).not.toContainText("på väggen");
-  // A guess says kanske, and only a guess.
-  await expect(page.getByText("kanske · överst, höger")).toBeVisible();
-  await expect(page.getByText(/kanske/)).toHaveCount(1);
+  // A guess no longer shows its position text in the row.
+  await expect(page.getByText(/kanske/)).toHaveCount(0);
   await expect(page.getByTestId("unseen-note")).toContainText(/där innehållet inte syns/);
 
   await page.reload();
