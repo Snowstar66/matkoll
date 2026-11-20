@@ -146,7 +146,7 @@ test("the sheet opens on the Länk tab, with Text and Foto beside it", async ({ 
   await expect(tolka).toBeDisabled();
 
   await sheet(page).getByRole("tab", { name: "Foto" }).click();
-  await expect(sheet(page).getByRole("tabpanel")).toContainText("Bilden sparas inte.");
+  await expect(sheet(page).getByRole("tabpanel")).toContainText("bilden sparas inte.");
   await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeVisible();
   await expect(tolka).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -365,8 +365,10 @@ test.describe("import from a link", () => {
 
     await page.goto(`/recept/importera?url=${encodeURIComponent("http://www.koket.se/chow-mein-med-lovbiff")}`);
     await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+    // Opened without any address: no error yet, the field waits for a link.
     await page.goto("/recept/importera");
-    await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+    await expect(linkField(page)).toBeVisible();
+    await expect(sheet(page).getByRole("alert")).toHaveCount(0);
   });
 
   test("Öppna inställningar asks before it throws away pasted text", async ({ page }) => {

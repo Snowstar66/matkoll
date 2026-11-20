@@ -28,6 +28,8 @@ async function ImportFromLink({ searchParams }: Pick<PageProps<"/recept/importer
   const autoImport =
     shared.status === "ok"
       ? ({ kind: "ok", url: shared.url } as const)
-      : ({ kind: "invalid", value: shared.status === "invalid" ? shared.value : "" } as const);
+      : shared.status === "invalid"
+        ? ({ kind: "invalid", value: shared.value } as const)
+        : ({ kind: "none" } as const);
   return <RecipesView autoImport={autoImport} />;
 }
