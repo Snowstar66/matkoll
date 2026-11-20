@@ -1079,6 +1079,8 @@ describe("household isolation", () => {
         ["apply_pantry_inventory", { place: "Kyl", items: [], replace_ids: [], remove_ids: [rowIds.get("pantry_item")!], operation_id: randomUUID(), site }],
         ["save_pantry_photo", { site, place: "Kyl", photo_id: randomUUID(), photo_path: `${b.id}/${site}/kyl/${randomUUID()}.png`, photo_type: "image/png", photo_width: 10, photo_height: 10, photo_taken_at: new Date().toISOString(), photo_reading: [] }],
         ["set_pantry_photo_points", { photo_id: rowIds.get("pantry_photo")!, photo_points: [] }],
+        // Foto på raden: A's photo and A's item are not B's to link, so it links nothing.
+        ["link_pantry_items_photo", { photo: rowIds.get("pantry_photo")!, links: [{ id: rowIds.get("pantry_item")!, n: 1 }] }],
         ["delete_expired_pantry_photos", { photo_ids: [rowIds.get("pantry_photo")!], taken_before: "2100-01-01T00:00:00Z" }],
         ["save_thing_card", { photo: photoId, things: [], note: null, hidden_count: 0 }],
         ["save_thing_reading", { photo: photoId, things: [], note: null, hidden_count: 0 }],
