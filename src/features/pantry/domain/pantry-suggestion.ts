@@ -19,6 +19,8 @@ import { roundSum, type PantryAmountRow } from "./pantry-item";
 import {
   collapseName,
   maxIngredientNameLength,
+  maxPhotoNumbers,
+  photoNumberKeys,
   maxPantryAmount,
   pantryLabelSchema,
   suggestionLabel,
@@ -692,6 +694,8 @@ export const confirmItemSchema = z
     unit: unitSchema.nullable(),
     label: pantryLabelSchema.nullable().optional(),
     photoLabel: pantryLabelSchema.optional(),
+    /** The numbers on the photo of the items behind the suggestion, so the saved row can be linked to its place on the photo. */
+    photoNumbers: z.array(z.number().int().min(1).max(100)).max(maxPhotoNumbers).optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
@@ -769,6 +773,12 @@ function mergedLabels(earlier: ItemLabels, later: ItemLabels): ItemLabels {
   return { ...(label === undefined ? {} : { label }), ...(photoLabel === undefined ? {} : { photoLabel }) };
 }
 
+/** The photo numbers of two merged items, each once, in the order they came. */
+function mergedNumbers(earlier: ConfirmItem, later: ConfirmItem): { photoNumbers?: number[] } {
+  const numbers = [...new Set([...(earlier.photoNumbers ?? []), ...(later.photoNumbers ?? [])])].slice(0, maxPhotoNumbers);
+  return numbers.length === 0 ? {} : { photoNumbers: numbers };
+}
+
 /** Whether an item says anything about its label. */
 const hasLabels = (item: ItemLabels) => item.label !== undefined || item.photoLabel !== undefined;
 
@@ -820,7 +830,7 @@ export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[]
       continue;
     }
     const amount = earlier.amount !== null && item.amount !== null ? clampAmount(earlier.amount + item.amount) : earlier.amount;
-    merged.set(at, { ...withoutLabels(earlier), amount, ...mergedLabels(earlier, item) });
+    merged.set(at, { ...withoutLabels(earlier), amount, ...mergedLabels(earlier, item), ...mergedNumbers(earlier, item) });
   }
   const result = [...merged.values()];
   for (const [place, labels] of dropped) {
@@ -838,7 +848,7 @@ export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[]
 export function confirmItemFromSuggestion(suggestion: PantrySuggestion): ConfirmItemInput {
   const { ingredient, location, amount, unit } = suggestion;
   const photoLabel = suggestionLabel(suggestion);
-  return { ingredient, location, amount, unit, ...(photoLabel === null ? {} : { photoLabel }) };
+  return { ingredient, location, amount, unit, ...(photoLabel === null ? {} : { photoLabel }), ...photoNumberKeys(suggestion) };
 }
 
 /**
@@ -872,6 +882,7 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
     unit,
     ...(label === undefined ? {} : { label }),
     ...(photoLabel === null ? {} : { photoLabel }),
+    ...(suggestion ? photoNumberKeys(suggestion) : {}),
   };
 }
 
@@ -882,15 +893,16 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
  */
 export function mergePantrySets(items: readonly PantryItemSet[]): PantryItemSet[] {
   return mergeConfirmations(
-    items.map(({ ingredientId, location, amount, unit, label, photoLabel }) => ({
+    items.map(({ ingredientId, location, amount, unit, label, photoLabel, photoNumbers }) => ({
       ingredient: { kind: "existing", ingredientId },
       location,
       amount,
       unit,
       ...(label === undefined ? {} : { label }),
       ...(photoLabel === undefined ? {} : { photoLabel }),
+      ...(photoNumbers === undefined ? {} : { photoNumbers }),
     })),
-  ).flatMap(({ ingredient, location, amount, unit, label, photoLabel }) =>
+  ).flatMap(({ ingredient, location, amount, unit, label, photoLabel, photoNumbers }) =>
     ingredient.kind === "existing"
       ? [
           {
@@ -900,10 +912,29 @@ export function mergePantrySets(items: readonly PantryItemSet[]): PantryItemSet[
             unit,
             ...(label === undefined ? {} : { label }),
             ...(photoLabel === undefined ? {} : { photoLabel }),
+            ...(photoNumbers === undefined ? {} : { photoNumbers }),
           },
         ]
       : [],
   );
+}
+
+/** A row a confirmation set, as the client gets it back: with the photo numbers of the item that set it (linkPantryItemsToPhoto). */
+export type SetRowWithNumbers = { id: string; ingredientId: string; photoNumbers?: number[] };
+
+/**
+ * The rows a write set, each with the photo numbers of the item behind it,
+ * found by ingredient, place and unit (the key set_pantry_items sets a row
+ * on), so it does not matter in which order the database answered.
+ */
+export function rowsWithPhotoNumbers(
+  sets: readonly PantryItemSet[],
+  rows: readonly { id: string; ingredientId: string; location: string; unit: string | null }[],
+): SetRowWithNumbers[] {
+  return rows.map(({ id, ingredientId, location, unit }) => {
+    const set = sets.find((item) => item.ingredientId === ingredientId && item.location === location && item.unit === unit);
+    return { id, ingredientId, ...(set?.photoNumbers?.length ? { photoNumbers: set.photoNumbers } : {}) };
+  });
 }
 
 /**

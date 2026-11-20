@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePantryItems, snapshotFor, toSnapshot, type PantryItem } from "./pantry-item";
+import { comparePantryItems, snapshotFor, toSnapshot, withKeptPhotos, type PantryItem } from "./pantry-item";
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
   siteId: "hemma",
@@ -95,5 +95,39 @@ describe("snapshotFor", () => {
     const part = snapshotFor(snapshot, ["gradde", "salt", null, "agg", "gradde"]);
     expect([...part.keys()]).toEqual(["gradde", "salt"]);
     expect(part.get("gradde")).toEqual(snapshot.get("gradde"));
+  });
+});
+
+describe("withKeptPhotos", () => {
+  const photoId = "photo-1";
+  const urlOf = (id: string) => `/api/pantry/photo/${id}`;
+  const stored = [{ id: photoId, points: [{ n: 2, x: 300, y: 600 }] }];
+
+  it("marks the photo as kept, with its address and the item's point on it", () => {
+    const gurka = item({ id: "1", name: "Gurka", photo: { number: 2, photoId } });
+    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo).toEqual({
+      number: 2,
+      photoId,
+      kept: { url: "/api/pantry/photo/photo-1", point: { x: 300, y: 600 } },
+    });
+  });
+
+  it("keeps the photo without a point when the photo has none for the number", () => {
+    const gurka = item({ id: "1", name: "Gurka", photo: { number: 1, photoId } });
+    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo?.kept).toEqual({ url: "/api/pantry/photo/photo-1", point: null });
+  });
+
+  it("leaves the link without a kept photo when the photo is swept, removed or its row is gone", () => {
+    const swept = item({ id: "1", name: "Gurka", photo: { number: 2, photoId } });
+    const gone = item({ id: "2", name: "Tomat", photo: { number: 1, photoId: null } });
+    expect(withKeptPhotos([swept, gone], [], urlOf).map((row) => row.photo)).toEqual([
+      { number: 2, photoId },
+      { number: 1, photoId: null },
+    ]);
+  });
+
+  it("returns items without a link as they are", () => {
+    const mjolk = item({ id: "3", name: "Mjölk" });
+    expect(withKeptPhotos([mjolk], stored, urlOf)[0]).toBe(mjolk);
   });
 });

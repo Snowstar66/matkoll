@@ -343,6 +343,28 @@ export async function setPlacePhotoPointsIn(db: PantryDb, id: string, points: re
   });
 }
 
+/**
+ * Links pantry items to the user's photo `photoId` and the number each came
+ * from on it (link_pantry_items_photo), once the photo is saved: the items
+ * were confirmed before the photo had an id. Only the household's own items
+ * and photos count; says how many items it linked (0 for a photo that is
+ * gone). Throws PantryDataError `update_failed <code>` or `update_threw`.
+ */
+export async function linkPantryItemsToPhotoIn(
+  db: PantryDb,
+  photoId: string,
+  links: readonly { id: string; number: number }[],
+): Promise<number> {
+  return guarded("update", async () => {
+    const { data, error } = await db.rpc("link_pantry_items_photo", {
+      photo: photoId,
+      links: links.map(({ id, number }) => ({ id, n: number })) as Json,
+    });
+    if (error) throw new PantryDataError(`update_failed ${error.code}`);
+    return data;
+  });
+}
+
 // Visa senaste fotot (Story 10.2, AD-26): Matvaror reads the rows of a place's
 // photos, never the files; the Route Handler GET /api/pantry/photo/[id]
 // reads one row and its file; "Ta bort fotot" deletes the row and then the
