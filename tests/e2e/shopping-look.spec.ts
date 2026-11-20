@@ -2,7 +2,7 @@ import { expect, type Page, type Response, test } from "@playwright/test";
 import { adminClient, e2eUserId, shoppingLookEmail, shoppingLookStorageState, thisMonday } from "./support";
 
 // Story 11.4: Inköpslistan in the new look (FR-43, Flöde 9). The progress
-// row, the categories of Matvaror, the line under a name, the product chip,
+// row, the categories of Matvaror, the line under a name,
 // a check that moves a line to "I korgen" and back, and the fixed buttons in
 // one row, at 375 px. The spec has an E2E user of its own (shoppingLookEmail).
 // Before each test the service role makes:
@@ -217,24 +217,12 @@ const focusAndBar = (page: Page) =>
     const bar = document.querySelector('[data-testid="fixed-action"]')!.getBoundingClientRect();
     return { top: focused.top, bottom: focused.bottom, barTop: bar.top };
   });
-/** The WCAG contrast of two computed colours, "rgb(r, g, b)". */
-function contrast(a: string, b: string): number {
-  const luminance = (color: string) => {
-    const [r, g, bl] = (color.match(/[\d.]+/g) ?? []).slice(0, 3).map((part) => {
-      const c = Number(part) / 255;
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
-  };
-  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (light! + 0.05) / (dark! + 0.05);
-}
 const announcement = (page: Page) => page.getByTestId("check-announcement").filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-test("the list shows the progress row, the categories, the line under each name and the product chip", async ({ page }) => {
+test("the list shows the progress row, the categories and the line under each name, and no product chip", async ({ page }) => {
   await seed();
   const errors = watchErrors(page);
   await page.goto("/lista");
@@ -251,11 +239,9 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(lineOf(page, "Diskmedel")).toContainText("Egen");
   await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   await expect(page.getByText(/från /).filter({ visible: true })).toHaveCount(0);
-  // The selected store's product choice, as a chip beside Falukorv.
-  const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
-  await expect(chip).toHaveText(scan);
-  const [chipBox, rowBox] = [await chip.boundingBox(), await lineOf(page, "Falukorv").boundingBox()];
-  expect(chipBox!.width).toBeLessThanOrEqual(rowBox!.width * 0.4 + 1);
+  // The selected store's saved product choice (Falukorv has one) shows nowhere on the row: it only goes into the export.
+  await expect(lineOf(page, "Falukorv").getByTestId("product-chip")).toHaveCount(0);
+  await expect(lineOf(page, "Falukorv")).not.toContainText(scan);
   // Nothing checked off: no basket row, nothing pinned, and "Kopiera till ICA-varukorgen" as a text button at the end of the list (UX-02).
   await expect(basketRow(page)).toHaveCount(0);
   await expect(button(page, "Kopiera till ICA-varukorgen")).toBeVisible();
@@ -356,7 +342,7 @@ test("a checked line stays visible and struck through in I korgen without a toas
   expect(errors).toEqual([]);
 });
 
-test("at 200 % text the pinned button fits, the chip is cut, and nothing scrolls sideways @flaky", async ({ page }) => {
+test("at 200 % text the pinned button fits and nothing scrolls sideways @flaky", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   // A 375 px phone at 200 % zoom.
   await page.setViewportSize({ width: 188, height: 406 });
@@ -364,8 +350,6 @@ test("at 200 % text the pinned button fits, the chip is cut, and nothing scrolls
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
   await expect(button(page, "Lägg till i Matvaror")).toBeVisible();
-  const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
-  expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   expect(await noSideScroll(page)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -416,7 +400,7 @@ test("from the keyboard, focus stays above the fixed buttons, and a held Enter c
   expect(errors).toEqual([]);
 });
 
-test("in dark mode the product chip keeps its contrast, and the progress text is not shown but still read", async ({ page }) => {
+test("in dark mode the progress text is not shown but still read", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/lista");
@@ -424,12 +408,4 @@ test("in dark mode the product chip keeps its contrast, and the progress text is
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
   const box = await progress(page).boundingBox();
   expect(box!.width).toBeLessThanOrEqual(1);
-  const colours = await page.evaluate(() => {
-    const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    return {
-      chip: style('[data-testid="product-chip"]').backgroundColor,
-      chipText: style('[data-testid="product-chip"]').color,
-    };
-  });
-  expect(contrast(colours.chipText, colours.chip)).toBeGreaterThanOrEqual(4.5);
 });

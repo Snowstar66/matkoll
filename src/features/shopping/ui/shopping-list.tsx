@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { type ReactNode, type RefObject, Suspense, use, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { CategoryHeader } from "@/components/category-header";
 import { Avatar } from "@/components/app-shell/avatar";
@@ -15,6 +15,7 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { OfferTag } from "@/components/offer-tag";
+import type { OfferTagData } from "@/lib/offer-tag";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
 import { useConfirmDelete } from "@/components/confirm-delete";
@@ -23,7 +24,6 @@ import type { Category } from "@/features/catalog";
 import { initialOf } from "@/features/household";
 import { type SelectedSite, shownSiteName, staplesFooterText } from "@/features/pantry";
 import type { Store } from "@/features/settings";
-import { useToast } from "@/components/toast";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { newsKey } from "@/lib/news";
 import { noteOwnNews } from "@/lib/news-client";
@@ -76,9 +76,7 @@ import { UnpackSheet } from "./unpack-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
-import { openSettingsText, type ProductChoice, type ProductChoiceContext } from "../domain/product-choice";
-import { chipChoice, ProductChip } from "./product-chip";
-import { ProductChoiceSheet } from "./product-choice-sheet";
+import { openSettingsText, type ProductChoice } from "../domain/product-choice";
 import { canPutInPantry } from "../domain/put-in-pantry";
 import { checkId, mergeQueued, outcomeOf, type SendOutcome } from "./offline-checks";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
@@ -168,7 +166,7 @@ export type ShoppingListProps = {
   filter?: ListFilter | null;
   /** The selected store (Story 7.2), as the list was read; `null` when none is selected. */
   store?: Store | null;
-  /** The store could not be read: the detail's section Produktval says so. */
+  /** The store could not be read: the export says so. */
   storeUnavailable?: boolean;
   /** The store's product choices by catalog ingredient id. */
   productChoices?: Readonly<Record<string, ProductChoice>>;
@@ -202,9 +200,14 @@ export type ShoppingListProps = {
   userId?: string | null;
   /** The empty list without dishes (Story 3.10): its text and a way on, e.g. to the week that has dishes. */
   empty?: { text: string; action: ReactNode };
-  /** The choices could not be read: the detail's section Produktval says so. */
+  /**
+   * The selected store's offers this week as tags by catalog ingredient (read after the list is shown, so nothing waits
+   * for it), or `null` when they cannot be read: no tags then. A line with the ingredient shows its tag after the name.
+   */
+  offerTags?: Promise<Readonly<Record<string, OfferTagData>> | null>;
+  /** The choices could not be read (the export then says so). */
   productChoicesUnavailable?: boolean;
-  /** The catalog ingredients whose stored choice cannot be read: their section says so. */
+  /** The catalog ingredients whose stored choice cannot be read (the export then says so). */
   unreadableChoices?: readonly string[];
   /** Story 21.3: the lines someone else in the household checked off or added. */
   marks?: LineMarks;
@@ -605,17 +608,12 @@ const noSuggestions: SearchIngredients = async () => ok([]);
 const noChoices: Readonly<Record<string, ProductChoice>> = {};
 const noUnreadable: readonly string[] = [];
 
-/** When the sheet Produktval closes by itself: the store it was opened for is no longer the one the list shows. */
-export const storeChangedText = "Butiken har bytts. Öppna produktvalet igen.";
-
-/** The sheet Produktval: the line and store it opened with, kept while it closes. */
-type ChoiceSheet = {
-  open: boolean;
-  session: number;
-  label: string;
-  ingredientId: string;
-  store: Store;
-};
+/** Waits for the page's offers under Suspense, so only this renders late; hands the tags on. */
+function OfferTagsLoader({ promise, onLoaded }: { promise: Promise<Readonly<Record<string, OfferTagData>> | null>; onLoaded: (tags: Readonly<Record<string, OfferTagData>> | null) => void }) {
+  const tags = use(promise);
+  useEffect(() => onLoaded(tags), [tags, onLoaded]);
+  return null;
+}
 
 /** The "+" that shows: the header's (UX-07). */
 function visibleAddButton(): HTMLElement | undefined {
@@ -673,6 +671,7 @@ export function ShoppingList({
   productChoices = noChoices,
   productChoicesUnavailable = false,
   unreadableChoices = noUnreadable,
+  offerTags: offerTagsLater,
   site = null,
   isQuietSwitch,
   onBusyChange,
@@ -686,6 +685,8 @@ export function ShoppingList({
   now = null,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
+  // The offers are read after the list is shown: until they are in, no line has a tag.
+  const [offerTags, setOfferTags] = useState<Readonly<Record<string, OfferTagData>> | null>(null);
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
   const removal = useLineRemoval(planId, savedLines);
   // Inköpslistan asks before the first removal (the bin, the swipe and "Ta bort" in the detail),
@@ -767,7 +768,6 @@ export function ShoppingList({
   const rootRef = useRef<HTMLDivElement>(null);
   useFocusAfterRemoval(rootRef, removal.focusAfterRef, [...leftKeys, ...(basketShown ? basketKeys : [])]);
   const { announcement: moveAnnouncement, announce } = useMoveAnnouncement();
-  const { showToast } = useToast();
   /**
    * Focus to move once the line has moved (the basket row's "Visa" after the
    * first check, a line back in its category, a line that went back): tried
@@ -891,46 +891,6 @@ export function ShoppingList({
   if (detail?.open && !lines.some((line) => line.key === detail.line.key)) {
     setDetail({ ...detail, open: false });
   }
-  const choiceContext = useMemo<ProductChoiceContext>(
-    () => ({ store, storeUnavailable, productChoices, productChoicesUnavailable, unreadableChoices }),
-    [store, storeUnavailable, productChoices, productChoicesUnavailable, unreadableChoices],
-  );
-  const [choiceSheet, setChoiceSheet] = useState<ChoiceSheet | null>(null);
-  // The list is read again while the sheet Produktval is open, and the
-  // store it was opened for is no longer the selected one, or the choices
-  // cannot be read now: the sheet closes and says why, rather than save
-  // against a store or choice it cannot show.
-  const sheetStoreId = choiceSheet?.open ? choiceSheet.store.id : null;
-  const sheetStale = sheetStoreId !== null && (storeUnavailable || productChoicesUnavailable || store?.id !== sheetStoreId);
-  /** Why the sheet closed by itself; a new id each time, so the same text is shown again. */
-  const [staleNotice, setStaleNotice] = useState<{ text: string; id: number } | null>(null);
-  if (sheetStale && choiceSheet) {
-    // State adjusted while rendering: the sheet closes, and the toast follows in an effect.
-    setChoiceSheet({ ...choiceSheet, open: false });
-    const text = storeUnavailable || productChoicesUnavailable ? errorMessages.shopping_product_choices_unavailable : storeChangedText;
-    setStaleNotice((before) => ({ text, id: (before?.id ?? 0) + 1 }));
-  }
-  useEffect(() => {
-    if (staleNotice) showToast(staleNotice.text, { role: "alert" });
-  }, [staleNotice, showToast]);
-  /**
-   * "Ange produktval" / "Ändra produktval" in the detail: the sheet
-   * Produktval opens for the line's catalog ingredient, with the store and
-   * choice as the list was read. The detail is not closed here: the sheet
-   * replaces it, and asks "Släng ändringarna?" first when the detail has
-   * changes (Sheet); "Fortsätt ändra" keeps the detail and closes this one.
-   */
-  const openProductChoice = (line: ShoppingLine) => {
-    if (!store || !line.ingredientId || unreadableChoices.includes(line.ingredientId)) return;
-    const { ingredientId } = line;
-    setChoiceSheet((current) => ({
-      open: true,
-      session: (current?.session ?? 0) + 1,
-      label: line.label,
-      ingredientId,
-      store,
-    }));
-  };
   // "Kopiera till ICA-varukorgen": the export is built from the lines as shown, a check not yet saved included.
   const basket = useSendBasket({
     lines,
@@ -953,7 +913,7 @@ export function ShoppingList({
       key={line.key}
       line={line}
       meta={lineMetaText(line, plan?.dishTitles ?? {}, siteName, !pantryUnavailable)}
-      chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
+      offerTag={line.ingredientId ? (offerTags?.[line.ingredientId] ?? null) : null}
       onCheckedChange={(checked) => moveLine(line, checked)}
       onRemove={(moveFocus) => removeAfterAsking(line, moveFocus)}
       onTrash={(press) => removeAfterAsking(line, !press.pointer)}
@@ -988,6 +948,11 @@ export function ShoppingList({
       }}
       className="flex flex-col gap-6"
     >
+      {offerTagsLater ? (
+        <Suspense fallback={null}>
+          <OfferTagsLoader promise={offerTagsLater} onLoaded={setOfferTags} />
+        </Suspense>
+      ) : null}
       {/* Mounted empty, so a recount is announced when its text arrives. */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="list-announcement">
         {announcement.text ? <span key={announcement.count}>{announcement.text}</span> : null}
@@ -1157,22 +1122,7 @@ export function ShoppingList({
               searchIngredients={searchIngredients}
               onRemove={removeAfterAsking}
               onChange={own.track}
-              productChoices={choiceContext}
-              onProductChoice={openProductChoice}
               onClose={() => setDetail((current) => (current ? { ...current, open: false } : current))}
-            />
-          ) : null}
-          {/* Mounted from the first "Ange produktval", and kept, so it can close with its animation. */}
-          {choiceSheet ? (
-            <ProductChoiceSheet
-              open={choiceSheet.open}
-              session={choiceSheet.session}
-              label={choiceSheet.label}
-              ingredientId={choiceSheet.ingredientId}
-              store={choiceSheet.store}
-              // The choice as the list has it now, so a refused save can take it up.
-              choice={sheetStale ? null : (productChoices[choiceSheet.ingredientId] ?? null)}
-              onClose={() => setChoiceSheet((current) => (current ? { ...current, open: false } : current))}
             />
           ) : null}
         </>
@@ -1303,8 +1253,7 @@ function Basket({
 /**
  * One listpost (DESIGN.md, list-row; FR-43): the square check (Checkbox,
  * 22 px in a 44 × 44 px tap area) to the left, the name with the amount after
- * it in ink-2 ("Gul lök 2 st"), the line under it, and the product chip to
- * the right. Checked (in I korgen), the name is struck through in ink-3. The
+ * it in ink-2 ("Gul lök 2 st"), the line under it, and the offer tag after the name. Checked (in I korgen), the name is struck through in ink-3. The
  * check and the text are separate tap targets: with `onOpen`, the text is a
  * button that opens Listpostdetalj. With `onRemove`, swiping the row to the
  * left reveals "Ta bort" (SwipeRow), also reached with Tab after the row.
@@ -1329,7 +1278,7 @@ function writeBasketOpen(open: boolean) {
 export function ShoppingLineRow({
   line,
   meta,
-  chip = null,
+  offerTag = null,
   onCheckedChange,
   onRemove,
   onTrash,
@@ -1342,8 +1291,8 @@ export function ShoppingLineRow({
   line: ShoppingLine;
   /** The line under the name (lineMetaText), or `null`. */
   meta: string | null;
-  /** The product choice's name for the chip, or `null`. */
-  chip?: string | null;
+  /** The line's offer in the selected store this week (UX-20), or `null`. */
+  offerTag?: OfferTagData | null;
   onCheckedChange: (checked: boolean) => void;
   /** Removes or hides the line; `moveFocus` when it came from the keyboard. */
   onRemove?: (moveFocus: boolean) => void;
@@ -1361,7 +1310,6 @@ export function ShoppingLineRow({
   isNew?: boolean;
 }) {
   const metaId = useId();
-  const chipId = useId();
   const amount = lineAmountText(line);
   const offer = line.isCustom ? splitOfferNote(line.label) : null;
   const shownName = offer ? offer.name : line.label;
@@ -1372,7 +1320,7 @@ export function ShoppingLineRow({
       {/* The name in its own element, so it is still found by its exact text beside "Ny". */}
       {isNew ? <span>{shownName}</span> : shownName}
       {/* UX-20: an item from an offer shows the price as an OfferTag after the name, read together with it. */}
-      {offer ? <OfferTag tag={{ name: offer.name, price: offer.price }} priceOnly className="ml-1.5" /> : null}
+      {offer ? <OfferTag tag={{ name: offer.name, price: offer.price }} priceOnly className="ml-1.5" /> : offerTag ? <OfferTag tag={offerTag} priceOnly className="ml-1.5" /> : null}
       {/* "Ny" (Pontus 2026-11-04): the "Egen" label's shape in mint; said in srStatus, so hidden here. */}
       {isNew ? (
         <span aria-hidden="true" data-testid="line-new" className="ml-1.5 inline-block rounded-xs bg-mint px-1.5 py-px align-middle text-badge text-mint-ink">
@@ -1402,7 +1350,7 @@ export function ShoppingLineRow({
         onCheckedChange={onCheckedChange}
         label={checkLabel(line)}
         disabled={checkingOff}
-        describedBy={[meta ? metaId : null, chip ? chipId : null].filter(Boolean).join(" ")}
+        describedBy={meta ? metaId : undefined}
         // The ignored tap's cue: a ring that fades, without motion when "Minska rörelse" is on.
         className={
           ignoredTap === null || ignoredTap === undefined
@@ -1412,7 +1360,7 @@ export function ShoppingLineRow({
       />
     ),
     trailing:
-      amount || chip || onTrash || mark ? (
+      amount || onTrash || mark ? (
         <>
           {/* Story 21.3 (decision 6): someone else's initial, 20 px in their shade; said in srStatus. */}
           {mark ? (
@@ -1420,7 +1368,6 @@ export function ShoppingLineRow({
           ) : null}
           {/* Story 19.7: the amount to the right in grey, struck through with the name when checked. */}
           {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[0.9375rem] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
-          {chip ? <ProductChip name={chip} id={chipId} /> : null}
           {onTrash ? (
             <TrashButton label={`Ta bort ${line.label}`} onPress={(_bin, press) => onTrash(press)} />
           ) : null}

@@ -701,7 +701,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
   });
 
-  it("shows the product choice of the selected store as a chip, and none without a store", () => {
+  it("shows no product chip for a stored product choice, and the offer's price after the name of a line with an offer", async () => {
     const store = {
       id: "55555555-5555-4555-8555-555555555555",
       name: "ICA Maxi",
@@ -721,19 +721,26 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
       url: null,
       updatedAt: "2026-10-26T05:12:29.123456+00:00",
     };
-    const { rerender } = render(
-      <ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={store} productChoices={{ falukorv: choice }} />,
-    );
-    const chips = screen.getAllByTestId("product-chip");
-    expect(chips).toHaveLength(1);
-    expect(chips[0]).toHaveTextContent("Scan Falukorv 800 g");
-    expect(chips[0]).toHaveClass("truncate", "bg-sky", "text-sky-ink");
-    // Beside the line, not in the button that opens its detail.
-    const falukorv = screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:falukorv:g")!;
-    expect(within(falukorv).getByTestId("shopping-line-name")).not.toContainElement(chips[0]);
-    expect(falukorv).toContainElement(chips[0]);
-    rerender(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={null} productChoices={{ falukorv: choice }} />);
+    // The tags are read after the list is shown, so the render is awaited.
+    await act(async () => {
+      render(
+        <ShoppingList
+          plan={plan}
+          lines={fourteen}
+          pantryUnavailable={false}
+          store={store}
+          productChoices={{ falukorv: choice }}
+          offerTags={Promise.resolve({ falukorv: { name: "Falukorv", price: "29 kr/kg" } })}
+        />,
+      );
+    });
+    const tag = await screen.findByTestId("offer-tag");
     expect(screen.queryByTestId("product-chip")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("offer-tag")).toHaveLength(1);
+    expect(tag).toHaveTextContent("29 kr/kg");
+    // After the name, inside the button that opens the line's detail.
+    const falukorv = screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:falukorv:g")!;
+    expect(within(falukorv).getByTestId("shopping-line-name")).toContainElement(tag);
   });
 
   it("says Egen under an own item", () => {
@@ -851,13 +858,11 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     expect(first.defaultPrevented).toBe(false);
   });
 
-  it("describes each check with the line under its name and its product", () => {
+  it("describes each check with the line under its name, and not with a stored product", () => {
     const store = { id: "s", name: "ICA Maxi", chain: "ICA" as const, externalStoreId: null, address: null, url: null, offersUrl: null, isSelected: true };
     const choice = { id: "c", ingredientId: "falukorv", storeId: "s", productName: "Scan Falukorv 800 g", packageSize: null, url: null, updatedAt: "x" };
     render(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={store} productChoices={{ falukorv: choice }} />);
-    expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription(
-      "Till Krämig kycklinggryta Scan Falukorv 800 g",
-    );
+    expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription("Till Krämig kycklinggryta");
     expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i Matvaror · Till Krämig kycklinggryta");
   });
 
