@@ -259,7 +259,7 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Får jag en påminnelse när något bör ätas?",
         answer: "Ja, om du har notiser påslagna. På eftermiddagen kommer en notis om något i kylen bör användas, och när du trycker på den öppnas Matvaror. Finns inget att äta snart kommer ingen notis, och frysen ingår inte. Under Inställningar, Notiser, stänger du av Ät snart.",
       },
-      { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga." },
+      { question: "Hur tömmer jag kylen?", answer: "Töm kylen längst ned tar bort allt på platsen, efter en fråga. Fotot av kylen tas också bort. Du kan ångra direkt efteråt, men då kommer bara varorna tillbaka, inte fotot." },
     ],
   },
   {
