@@ -329,7 +329,7 @@ export function ReviewPhotoPanel({
 }
 
 /** The crop's zoom: the photo is this many times the box's width. */
-const cropZoom = 1.5;
+const cropZoom = 1.25;
 
 export type PhotoCropProps = {
   /** The photo's URL. */
@@ -343,14 +343,14 @@ export type PhotoCropProps = {
 
 /**
  * Kylfoto D: at the top of the sheet Rätta, the photo around the item's
- * point, 1.5 times enlarged, with its marker on it, so what the AI means
+ * point, 1.25 times enlarged, with its marker on it, so what the AI means
  * shows without leaving the sheet. The photo is a background placed at the
  * point's own percentages, which keeps it inside the box at the edges and
  * puts the point at the same percentages of the box: the marker goes there.
  * Only for the eye; the sheet's title names the item.
  */
 export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
-  // 150 % of the box's width, with the item in the middle where the photo's edges allow it; the marker follows the point.
+  // 125 % of the box's width, with the item in the middle where the photo's edges allow it; the marker follows the point.
   const zoom = cropZoom;
   const position = (at: number) => Math.round(Math.min(1, Math.max(0, (0.5 - at * zoom) / (1 - zoom))) * 1000) / 10;
   const left = position(x / 1000);
@@ -367,7 +367,7 @@ export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
         backgroundPosition: `${left}% ${top}%`,
         backgroundRepeat: "no-repeat",
       }}
-      className="relative h-[180px] shrink-0 overflow-hidden rounded-[14px] bg-photo-stage"
+      className="relative aspect-square max-h-[320px] w-full shrink-0 overflow-hidden rounded-[14px] bg-photo-stage"
     >
       <span
         style={{

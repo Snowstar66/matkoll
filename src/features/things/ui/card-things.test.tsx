@@ -103,9 +103,9 @@ describe("the things of a card", () => {
     expect(photo).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
     const crop = within(dialog).getByTestId("thing-photo-crop");
     expect(crop.style.backgroundImage).toContain(`/api/things/photo/${photoId}`);
-    // Zoomed in on the box, never less than 150 %.
-    expect(Number.parseFloat(crop.style.backgroundSize)).toBeGreaterThanOrEqual(150);
-    expect(crop.className).toMatch(/h-\[180px\]/);
+    // Zoomed in on the box, never less than 125 %.
+    expect(Number.parseFloat(crop.style.backgroundSize)).toBeGreaterThanOrEqual(125);
+    expect(crop.className).toMatch(/aspect-square/);
     // No frame and no shading in the sheet.
     expect(within(dialog).queryByTestId("thing-photo-box")).not.toBeInTheDocument();
     expect(dialog.innerHTML).not.toMatch(/100vmax|border-white/);
