@@ -9,13 +9,10 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** For the menu: only what exists ("5 varor", "18 prylar", "30 varor · 4 prylar"); "Tomt" when nothing does. */
+/** For the menu: both counts, so a boende with 47 varor and no föremål says so ("47 varor · 0 föremål"); "Tomt" when nothing exists. */
 export function boendeMenuText(counts: BoendeCounts): string {
-  const parts = [
-    counts.items > 0 ? plural(counts.items, "vara", "varor") : null,
-    counts.things > 0 ? thingCountText(counts.things) : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : "Tomt";
+  if (counts.items === 0 && counts.things === 0) return "Tomt";
+  return [plural(counts.items, "vara", "varor"), thingCountText(counts.things)].join(" · ");
 }
 
 /** For the cards: "30 matvaror · inga prylar än", "Inga matvaror · 18 prylar · 1 kort". */
