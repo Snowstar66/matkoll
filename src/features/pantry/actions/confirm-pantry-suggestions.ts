@@ -10,6 +10,8 @@ import { loadPantrySitesIn } from "../data/sites";
 import type { PantryItemSet } from "../domain/pantry-item-form";
 import {
   confirmSuggestionsSchema,
+  rowsWithPhotoNumbers,
+  type SetRowWithNumbers,
   suggestionInvalidText,
   type ConfirmItemInput,
   type ConfirmSuggestionsInput,
@@ -51,7 +53,7 @@ import { checkSiteForWrite } from "./site-for-write";
  */
 export async function confirmPantrySuggestions(
   input: ConfirmSuggestionsInput | readonly ConfirmItemInput[],
-): Promise<Result<{ count: number; setRows: { id: string; ingredientId: string }[] }>> {
+): Promise<Result<{ count: number; setRows: SetRowWithNumbers[] }>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const db = await createClient();
@@ -86,10 +88,10 @@ export async function confirmPantrySuggestions(
     return fail("pantry_confirm_failed");
   }
 
-  let setRows: { id: string; ingredientId: string }[] = [];
+  let setRows: SetRowWithNumbers[] = [];
   try {
     const rows = await setPantryItemsIn(db, sets, null, siteId);
-    setRows = rows.map((row) => ({ id: row.id, ingredientId: row.ingredientId }));
+    setRows = rowsWithPhotoNumbers(sets, rows);
     if (rows.length !== sets.length) throw new PantryDataError("missing_rows");
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;

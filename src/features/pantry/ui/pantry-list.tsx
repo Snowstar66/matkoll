@@ -8,6 +8,7 @@ import { ListRow } from "@/components/list-row";
 import type { SearchFieldHandle } from "@/components/search-field";
 import { SwipeRow } from "@/components/swipe-row";
 import { TrashButton } from "@/components/trash-button";
+import { CameraIcon } from "@/components/icons";
 import { formatQuantity, type Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import { filterPantry, groupPantryByCategory, oldItemText, type PantryCategoryGroup } from "../domain/pantry-meta";
@@ -221,6 +222,18 @@ export function PantryList({ location, items, after }: PantryListProps) {
   );
 }
 
+/** The name of an item that was read from a photo, with a small camera after it (hidden from screen readers, which get the words). */
+function NameWithPhotoMark({ name }: { name: string }) {
+  return (
+    <>
+      {name}
+      <span role="img" aria-label="Inläst från foto" className="ml-1.5 inline-block align-[-1px] text-ink-3">
+        <CameraIcon size={14} />
+      </span>
+    </>
+  );
+}
+
 /** One category: its heading with the count, and its items in one list group. */
 function CategoryGroup({
   group,
@@ -253,7 +266,7 @@ function CategoryGroup({
                   plain
                   compact
                   oneLine
-                  title={item.name}
+                  title={item.photo ? <NameWithPhotoMark name={item.name} /> : item.name}
                   meta={meta}
                   srStatus={extra}
                   onPress={() => openItem(item)}

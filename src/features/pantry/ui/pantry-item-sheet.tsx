@@ -43,7 +43,7 @@ import { lastChangeText } from "@/features/household";
 import { fail, type Result } from "@/lib/errors";
 import { searchPantryIngredients, type PantryIngredientHit } from "../actions/search-ingredients";
 import { savePantryItem } from "../actions/set-pantry-item";
-import type { PantryItem } from "../domain/pantry-item";
+import type { ItemPhoto, PantryItem } from "../domain/pantry-item";
 import {
   type PantryItemForm,
   formFieldErrors,
@@ -578,6 +578,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       ) : (
         <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
           {target.kind === "suggestion" && target.crop ? <PhotoCrop {...target.crop} /> : null}
+          {target.kind === "edit" && target.item.photo ? <ItemPhotoBlock photo={target.item.photo} /> : null}
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor={`${ids}-name`}>Namn</FieldLabel>
             <Input
@@ -834,5 +835,36 @@ export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" |
     <Button variant={variant} disabled={switching} onClick={openNew}>
       Lägg till vara
     </Button>
+  );
+}
+
+/**
+ * Matvaror: for an item that was read from a photo, the photo around the item
+ * at the top of "Ändra vara" (the same crop as Rätta), so Pontus sees what the
+ * AI read, and a link to the whole photo. A photo that is no longer stored
+ * (older than 30 days, or removed) says so, with no picture.
+ */
+function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
+  if (!photo.kept) {
+    return (
+      <p data-testid="pantry-item-photo-gone" className="text-meta text-ink-3">
+        Fotot finns inte kvar.
+      </p>
+    );
+  }
+  const { url, point } = photo.kept;
+  return (
+    <div data-testid="pantry-item-photo" className="flex flex-col gap-2">
+      <p className="text-meta text-ink-3">Så här läste AI fotot.</p>
+      {point ? <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} /> : null}
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent"
+      >
+        Visa hela fotot
+      </a>
+    </div>
   );
 }

@@ -248,6 +248,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Förslagen sparas och granskningen stängs. Kylen är uppdaterad visas en stund med Ångra, som tar bort det du just lade till. Vill du inte ha förslagen alls trycker du Släng förslagen.",
       },
       {
+        question: "Hur ser jag vilka varor som lästs av från ett foto?",
+        answer: "En vara som lagts in från ett foto har en liten kameraikon efter namnet. Tryck på varan så visas överst utsnittet av fotot där den lästes av, och du kan öppna hela fotot och ändra varan som vanligt. Fotot sparas i 30 dagar; därefter, eller efter Ta bort fotot eller Töm, står det Fotot finns inte kvar. Gäller varor du lagt in från och med den här versionen.",
+      },
+      {
         question: "Vad betyder att varor syntes inte på fotot?",
         answer: "Efter ett foto kan ett litet kort fråga om varor du har i appen men som inte syntes. Tryck Behåll om de finns kvar, eller Välj vilka och bocka för det som är slut. Det du lagt in de senaste tre dagarna räknas aldrig dit.",
       },

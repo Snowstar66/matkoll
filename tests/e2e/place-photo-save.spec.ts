@@ -98,6 +98,13 @@ async function photos(): Promise<PhotoRow[]> {
   return data as PhotoRow[];
 }
 
+/** The user's pantry rows with the photo each was read from (Matvaror: foto på raden), read with the service role. */
+async function pantryRows(): Promise<{ id: string; photo_id: string | null; photo_number: number | null }[]> {
+  const { data, error } = await adminClient().from("pantry_item").select("id, photo_id, photo_number").eq("user_id", userId);
+  if (error) throw error;
+  return data;
+}
+
 /** The files in the bucket under a place's location folder, read with the service role. */
 async function files(site: string, folder = "kyl"): Promise<string[]> {
   const { data, error } = await adminClient().storage.from(placePhotoBucket).list(`${userId}/${site}/${folder}`);
@@ -191,11 +198,23 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   expect(await files(sites.Stugan)).toEqual([saved.object_path]);
   // The mock's points come with it, or once after it.
   await expect.poll(async () => (await photos())[0].points).not.toBeNull();
+  // Matvaror: the confirmed row is linked to the saved photo and its number on it, once the photo has an id.
+  await expect.poll(async () => (await pantryRows()).map((row) => row.photo_id)).toEqual([saved.id]);
+  expect((await pantryRows())[0].photo_number).toBeGreaterThanOrEqual(1);
+  // The page reads again after the link, so the row has its camera icon (named for screen readers).
+  await expect(page.getByTestId("pantry-row").filter({ visible: true, hasText: "Mjölk" }).getByRole("img", { name: "Inläst från foto" })).toBeVisible();
 
   await confirm(page, "Ägg");
   await addOnly(section(page), "all");
   await expect(toast(page)).toBeVisible();
   await expect.poll(async () => (await photos()).map((photo) => photo.id)).toEqual([saved.id]);
+  // Rows confirmed after the photo was saved are linked to it at once, so every row shows its camera icon.
+  await expect
+    .poll(async () => {
+      const rows = await pantryRows();
+      return rows.length > 1 && rows.every((row) => row.photo_id === saved.id && row.photo_number !== null);
+    })
+    .toBe(true);
   expect(saves.count()).toBe(1);
   expect(await files(sites.Stugan)).toEqual([saved.object_path]);
   expect(errors).toEqual([]);

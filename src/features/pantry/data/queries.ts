@@ -127,7 +127,7 @@ export async function listPantryIn(
   const rows = await allPages((from, to) =>
     db
       .from("pantry_item")
-      .select("id, site_id, ingredient_id, location, amount, unit, label, created_at, user_id, updated_by, updated_at")
+      .select("id, site_id, ingredient_id, location, amount, unit, label, created_at, user_id, updated_by, updated_at, photo_id, photo_number")
       .eq("site_id", place)
       .eq("location", location)
       .order("id")
@@ -154,6 +154,7 @@ export async function listPantryIn(
       section: summary.section,
       keepsDays: summary.keepsDays ?? null,
       lastChange: lastChangeOf(others, row),
+      ...(row.photo_number === null ? {} : { photo: { number: row.photo_number, photoId: row.photo_id } }),
     };
   });
   return items.sort(comparePantryItems);

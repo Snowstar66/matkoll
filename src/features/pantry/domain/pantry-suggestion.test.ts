@@ -30,6 +30,7 @@ import {
   maxSuggestionAmount,
   isConfirmable,
   mergeConfirmations,
+  rowsWithPhotoNumbers,
   mergePantrySets,
   noSuggestionsText,
   withConfirmedStock,
@@ -63,7 +64,7 @@ import {
   type ConfirmItemInput,
   type PantrySuggestion,
 } from "./pantry-suggestion";
-import { pantryItemFormSchema, type PantryItemFormInput } from "./pantry-item-form";
+import { pantryItemFormSchema, type PantryItemFormInput, type PantryItemSet } from "./pantry-item-form";
 
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;
 const mjolk = id(1);
@@ -1085,5 +1086,65 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
 describe("the photo during review (Story 10.1)", () => {
   it("says the photo is kept as the latest photo once something is confirmed", () => {
     expect(analyzedPhotoNoteText).toBe("Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.");
+  });
+});
+
+describe("photo numbers on confirmed items (Matvaror: foto på raden)", () => {
+  const ingredient = { kind: "existing", ingredientId: mjolk } as const;
+  const base = { ingredient, location: "Kyl", amount: 1, unit: "st" } as const;
+  const suggestion = (itemNumbers?: number[]): PantrySuggestion => ({
+    id: "s1",
+    name: "gurka",
+    ingredient,
+    location: "Kyl",
+    amount: 1,
+    unit: "st",
+    current: null,
+    change: null,
+    replaces: [],
+    ...(itemNumbers ? { itemNumbers } : {}),
+  });
+
+  it("carries the numbers of the items behind a suggestion, and none without any", () => {
+    expect(confirmItemFromSuggestion(suggestion([2, 5]))).toMatchObject({ photoNumbers: [2, 5] });
+    expect(confirmItemFromSuggestion(suggestion())).not.toHaveProperty("photoNumbers");
+    expect(confirmItemFromSuggestion(suggestion([]))).not.toHaveProperty("photoNumbers");
+  });
+
+  it("carries them through a corrected form too", () => {
+    const form = pantryItemFormSchema.parse({
+      ingredient: { kind: "existing", ingredientId: mjolk },
+      amount: "1",
+      unit: "st",
+      location: "Kyl",
+      replaceId: null,
+      siteId: "44444444-4444-4444-8444-444444444444",
+    });
+    expect(confirmItemFromForm(form, suggestion([3]))).toMatchObject({ photoNumbers: [3] });
+    expect(confirmItemFromForm(form)).not.toHaveProperty("photoNumbers");
+  });
+
+  it("keeps the numbers of merged items, each once", () => {
+    expect(mergeConfirmations([{ ...base, photoNumbers: [1, 2] }, { ...base, photoNumbers: [2, 4] }])).toEqual([
+      { ...base, amount: 2, photoNumbers: [1, 2, 4] },
+    ]);
+    expect(mergeConfirmations([base, { ...base, photoNumbers: [4] }])).toEqual([{ ...base, amount: 2, photoNumbers: [4] }]);
+  });
+
+  it("finds the numbers of the row each item set by ingredient, place and unit, in any order", () => {
+    const sets: PantryItemSet[] = [
+      { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "st", photoNumbers: [2] },
+      { ingredientId: smor, location: "Kyl", amount: 250, unit: "g" },
+    ];
+    const rows = [
+      { id: "r-smor", ingredientId: smor, location: "Kyl", unit: "g" },
+      { id: "r-mjolk", ingredientId: mjolk, location: "Kyl", unit: "st" },
+      { id: "r-other", ingredientId: mjolk, location: "Frys", unit: "st" },
+    ];
+    expect(rowsWithPhotoNumbers(sets, rows)).toEqual([
+      { id: "r-smor", ingredientId: smor },
+      { id: "r-mjolk", ingredientId: mjolk, photoNumbers: [2] },
+      { id: "r-other", ingredientId: mjolk },
+    ]);
   });
 });

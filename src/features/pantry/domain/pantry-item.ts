@@ -32,7 +32,51 @@ export type PantryItem = {
   keepsDays?: number | null;
   /** Story 21.3: who else in the household last added or changed it, and when; absent or null when that was me. */
   lastChange?: LastChange | null;
+  /** Added from a photo reading (Matvaror: a camera icon on the row); absent or null for an item Pontus added himself or before this was kept. */
+  photo?: ItemPhoto | null;
 };
+
+/**
+ * What an item remembers of the photo it was read from: the number on the
+ * photo, and the photo's id (`null` once the photo row is gone). `kept` is
+ * set by Matvaror when the photo is still stored (younger than 30 days, not
+ * removed): where to fetch it, and the item's point on it when the photo has
+ * one. Without `kept` the sheet says "Fotot finns inte kvar."
+ */
+export type ItemPhoto = {
+  number: number;
+  photoId: string | null;
+  kept?: { url: string; point: { x: number; y: number } | null };
+};
+
+/**
+ * `items` with the photo each was read from, for the photos still stored
+ * (`photos`: id and points, as listPlacePhotos gives them); an item whose
+ * photo is gone keeps its link without `kept`. Items without a link are
+ * returned as they are.
+ */
+export function withKeptPhotos(
+  items: readonly PantryItem[],
+  photos: readonly { id: string; points: readonly { n: number; x: number; y: number }[] | null }[],
+  urlOf: (id: string) => string,
+): PantryItem[] {
+  const byId = new Map(photos.map((photo) => [photo.id, photo]));
+  return items.map((item) => {
+    const link = item.photo;
+    if (!link) return item;
+    const photo = link.photoId === null ? undefined : byId.get(link.photoId);
+    if (!photo || link.photoId === null) return { ...item, photo: { number: link.number, photoId: link.photoId } };
+    const point = photo.points?.find((candidate) => candidate.n === link.number);
+    return {
+      ...item,
+      photo: {
+        number: link.number,
+        photoId: link.photoId,
+        kept: { url: urlOf(link.photoId), point: point ? { x: point.x, y: point.y } : null },
+      },
+    };
+  });
+}
 
 /** An amount at home in one unit. Units are never converted into each other (AD-12). */
 export type PantryAmount = { unit: Unit; amount: number };

@@ -924,3 +924,47 @@ describe("PantryItemSheet, the clearer sheet (Story 16.17)", () => {
     expect(buttons.at(-1)).toBe("Ta bort");
   });
 });
+
+describe("PantryItemSheet, an item read from a photo", () => {
+  function openFromPhoto(photo: PantryItem["photo"]) {
+    render(
+      <ToastProvider>
+        <PantrySuggestionsProvider>
+          <PantrySheetProvider location="Kyl" site={hemma}>
+            <OpenItem item={{ ...mjolk, photo }} />
+          </PantrySheetProvider>
+        </PantrySuggestionsProvider>
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+  }
+
+  it("shows the photo around the item at the top, with a link to the whole photo", () => {
+    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 } } });
+    const block = within(sheet()).getByTestId("pantry-item-photo");
+    expect(block).toHaveTextContent("Så här läste AI fotot.");
+    expect(within(block).getByTestId("pantry-sheet-crop")).toHaveTextContent("2");
+    expect(within(block).getByRole("link", { name: "Visa hela fotot" })).toHaveAttribute("href", "/api/pantry/photo/p1");
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
+  });
+
+  it("shows the whole-photo link alone when the photo has no point for the item", () => {
+    openFromPhoto({ number: 1, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: null } });
+    expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
+    expect(within(sheet()).getByRole("link", { name: "Visa hela fotot" })).toBeInTheDocument();
+  });
+
+  it("says the photo is gone, with no picture, when it is swept or removed", () => {
+    openFromPhoto({ number: 2, photoId: null });
+    expect(within(sheet()).getByTestId("pantry-item-photo-gone")).toHaveTextContent("Fotot finns inte kvar.");
+    expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
+    expect(within(sheet()).queryByRole("link", { name: "Visa hela fotot" })).toBeNull();
+  });
+
+  it("shows nothing about a photo for an item without a link", () => {
+    openFromPhoto(null);
+    expect(within(sheet()).queryByTestId("pantry-item-photo")).toBeNull();
+    expect(within(sheet()).queryByTestId("pantry-item-photo-gone")).toBeNull();
+  });
+});
+
