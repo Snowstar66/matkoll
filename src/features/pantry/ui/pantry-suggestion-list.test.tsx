@@ -1477,7 +1477,7 @@ describe("numbers on the photo (Story 6.6)", () => {
       const crop = within(dialog).getByTestId("pantry-sheet-crop");
       expect(crop).toHaveAttribute("aria-hidden", "true");
       expect(crop.style.backgroundImage).toContain("blob:photo-1");
-      expect(crop.style.backgroundPosition).toBe("69.4% 58.3%");
+      expect(crop.style.backgroundPosition).toBe("100% 74.9%");
       expect(crop).toHaveTextContent("3");
       // At the top of the sheet's form, before the name field.
       expect(crop.compareDocumentPosition(within(dialog).getByRole("textbox", { name: "Namn" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

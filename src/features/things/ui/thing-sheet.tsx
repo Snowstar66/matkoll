@@ -82,9 +82,9 @@ function defaultSubtitle(thing: SheetThing): string | undefined {
 
 type Step = "main" | "category";
 
-/** Matvaror's zoom (250 % of the sheet's width) is the least; a small box is enlarged until it fills most of the width. */
-const minCropZoom = 2.5;
-const maxCropZoom = 8;
+/** Matvaror's zoom (150 % of the sheet's width) is the least; a small box is enlarged until it fills about half the width. */
+const minCropZoom = 1.5;
+const maxCropZoom = 3;
 
 /** Where a background of `zoom` times the box's width sits (in percent) to put the photo's point `at` (0-1) in the middle. */
 function centeredPosition(at: number, zoom: number): number {
@@ -93,14 +93,14 @@ function centeredPosition(at: number, zoom: number): number {
 
 /**
  * The top of a föremål's sheet, like Matvaror's "Ändra vara": the photo enlarged around the föremål (no frame, no
- * shading), 120 px high, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
+ * shading), 180 px high, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
  * so the crop is right at any size. Without a box the whole photo shows.
  */
 function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingId: string; box: ThingDetail["box"]; onOpen: () => void }) {
   const href = cardViewHref(photoId, thingId);
   // The photo is served by the route that checks the user; nothing is fetched from anywhere else.
   const url = `/api/things/photo/${photoId}`;
-  const zoom = box ? Math.min(maxCropZoom, Math.max(minCropZoom, 0.85 / Math.max(box.width, 0.01))) : 1;
+  const zoom = box ? Math.min(maxCropZoom, Math.max(minCropZoom, 0.5 / Math.max(box.width, 0.01))) : 1;
   return (
     <div className="flex flex-col gap-1">
       <Link
@@ -114,7 +114,7 @@ function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingI
           <div
             aria-hidden="true"
             data-testid="thing-photo-crop"
-            className="h-[120px] w-full"
+            className="h-[180px] w-full"
             style={{
               backgroundImage: `url("${url}")`,
               backgroundSize: `${zoom * 100}% auto`,
