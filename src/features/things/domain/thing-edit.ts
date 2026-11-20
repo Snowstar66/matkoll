@@ -119,6 +119,8 @@ export const nameFieldText = "Vad är det?";
 export const saveNameText = "Spara";
 /** The photo at the top of a föremål's sheet: a link to the whole card. */
 export const openWholeCardText = "Öppna hela kortet";
+/** The text link under the photo's crop, to the same place. */
+export const showWholeCardText = "Visa hela kortet";
 /** Where a föremål is kept, read in the sheet, with the crumbs' name for a screen reader. */
 export const placeCrumbsLabel = "Var den finns";
 export const categoryLabelText = "Kategori";

@@ -25,6 +25,7 @@ import {
   maxThingNameChars,
   nameFieldText,
   openWholeCardText,
+  showWholeCardText,
   placeCrumbsLabel,
   saveNameText,
   removedThingText,
@@ -81,34 +82,58 @@ function defaultSubtitle(thing: SheetThing): string | undefined {
 
 type Step = "main" | "category";
 
-/** The photo of the card with the föremål's box framed and the rest shaded; the box is a share of the photo, so the overlay sits right at any size. */
+/** Matvaror's zoom (250 % of the sheet's width) is the least; a small box is enlarged until it fills most of the width. */
+const minCropZoom = 2.5;
+const maxCropZoom = 8;
+
+/** Where a background of `zoom` times the box's width sits (in percent) to put the photo's point `at` (0-1) in the middle. */
+function centeredPosition(at: number, zoom: number): number {
+  return Math.min(1, Math.max(0, (0.5 - at * zoom) / (1 - zoom))) * 100;
+}
+
+/**
+ * The top of a föremål's sheet, like Matvaror's "Ändra vara": the photo enlarged around the föremål (no frame, no
+ * shading), 120 px high, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
+ * so the crop is right at any size. Without a box the whole photo shows.
+ */
 function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingId: string; box: ThingDetail["box"]; onOpen: () => void }) {
+  const href = cardViewHref(photoId, thingId);
+  // The photo is served by the route that checks the user; nothing is fetched from anywhere else.
+  const url = `/api/things/photo/${photoId}`;
+  const zoom = box ? Math.min(maxCropZoom, Math.max(minCropZoom, 0.85 / Math.max(box.width, 0.01))) : 1;
   return (
-    <div className="flex justify-center">
+    <div className="flex flex-col gap-1">
       <Link
-        href={cardViewHref(photoId, thingId)}
+        href={href}
         onClick={onOpen}
         aria-label={openWholeCardText}
-        className="relative inline-block max-w-full overflow-hidden rounded-lg bg-border"
+        className="block overflow-hidden rounded-[14px] bg-border"
         data-testid="thing-photo"
       >
-        {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/things/photo/${photoId}`} alt="" className="block max-h-[55svh] w-auto max-w-full" draggable={false} />
         {box ? (
-          <span
+          <div
             aria-hidden="true"
-            data-testid="thing-photo-box"
-            className="pointer-events-none absolute rounded-md border-2 border-white"
+            data-testid="thing-photo-crop"
+            className="h-[120px] w-full"
             style={{
-              left: `${box.left * 100}%`,
-              top: `${box.top * 100}%`,
-              width: `${box.width * 100}%`,
-              height: `${box.height * 100}%`,
-              boxShadow: "0 0 0 100vmax color-mix(in srgb, var(--ink) 45%, transparent)",
+              backgroundImage: `url("${url}")`,
+              backgroundSize: `${zoom * 100}% auto`,
+              backgroundPosition: `${centeredPosition(box.left + box.width / 2, zoom)}% ${centeredPosition(box.top + box.height / 2, zoom)}%`,
+              backgroundRepeat: "no-repeat",
             }}
           />
-        ) : null}
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" className="mx-auto block max-h-[55svh] w-auto max-w-full" draggable={false} />
+        )}
+      </Link>
+      <Link
+        href={href}
+        onClick={onOpen}
+        data-testid="thing-photo-whole"
+        className="-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent"
+      >
+        {showWholeCardText}
       </Link>
     </div>
   );

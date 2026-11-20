@@ -101,8 +101,16 @@ describe("the things of a card", () => {
     const dialog = await openHammer();
     const photo = await within(dialog).findByTestId("thing-photo");
     expect(photo).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
-    expect(photo.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
-    expect(within(dialog).getByTestId("thing-photo-box")).toHaveStyle({ left: "20%", top: "10%", width: "30%", height: "40%" });
+    const crop = within(dialog).getByTestId("thing-photo-crop");
+    expect(crop.style.backgroundImage).toContain(`/api/things/photo/${photoId}`);
+    // Zoomed in on the box, never less than 250 %.
+    expect(Number.parseFloat(crop.style.backgroundSize)).toBeGreaterThanOrEqual(250);
+    expect(crop.className).toMatch(/h-\[120px\]/);
+    // No frame and no shading in the sheet.
+    expect(within(dialog).queryByTestId("thing-photo-box")).not.toBeInTheDocument();
+    expect(dialog.innerHTML).not.toMatch(/100vmax|border-white/);
+    const whole = within(dialog).getByRole("link", { name: "Visa hela kortet" });
+    expect(whole).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
     expect(within(dialog).queryByTestId("thing-tile")).not.toBeInTheDocument();
     const crumbs = within(dialog).getByTestId("thing-crumbs");
     expect(within(crumbs).getByRole("link", { name: "Garaget" })).toHaveAttribute("href", `/prylar/rum/${siteId}/garaget`);
@@ -113,8 +121,10 @@ describe("the things of a card", () => {
   it("links a box in the crumbs, and shows the photo without a frame when it has no box", async () => {
     loadThingDetail.mockResolvedValue(ok({ ...detail, box: null, place: { ...detail.place, kind: "box", part: "Jul" } }));
     const dialog = await openHammer();
-    await within(dialog).findByTestId("thing-photo");
-    expect(within(dialog).queryByTestId("thing-photo-box")).not.toBeInTheDocument();
+    const photo = await within(dialog).findByTestId("thing-photo");
+    expect(within(dialog).queryByTestId("thing-photo-crop")).not.toBeInTheDocument();
+    expect(photo.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
+    expect(within(dialog).getByRole("link", { name: "Visa hela kortet" })).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Låda Jul" })).toHaveAttribute("href", `/prylar/lada/${placeId}`);
   });
 
