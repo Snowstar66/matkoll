@@ -17,6 +17,13 @@ vi.mock("../data/remove", () => ({
   emptyPantryPlaceIn: (...args: unknown[]) => emptyPantryPlaceIn(...args),
 }));
 
+const deleteLocationPhotoRowsIn = vi.fn();
+const removePlacePhotoFiles = vi.fn();
+vi.mock("../data/photos", () => ({
+  deleteLocationPhotoRowsIn: (...args: unknown[]) => deleteLocationPhotoRowsIn(...args),
+  removePlacePhotoFiles: (...args: unknown[]) => removePlacePhotoFiles(...args),
+}));
+
 const { emptyPantryPlace } = await import("./empty-pantry-place");
 
 const operation = "44444444-4444-4444-8444-444444444444";
@@ -29,6 +36,8 @@ beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
   emptyPantryPlaceIn.mockReset().mockResolvedValue({ removed: 2, removedIds: ids });
   revalidateFor.mockReset();
+  deleteLocationPhotoRowsIn.mockReset().mockResolvedValue([]);
+  removePlacePhotoFiles.mockReset().mockResolvedValue({ removed: [], failed: null });
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -40,6 +49,34 @@ describe("emptyPantryPlace", () => {
     expect(emptyPantryPlaceIn).toHaveBeenCalledTimes(1);
     expect(emptyPantryPlaceIn).toHaveBeenCalledWith(db, "Kyl", operation, stugan);
     expect(revalidateFor).toHaveBeenCalledWith("pantry_item");
+  });
+
+  it("removes the photos of that place and location, rows and files", async () => {
+    deleteLocationPhotoRowsIn.mockResolvedValue(["u/s/kyl/a.jpg", "u/s/kyl/b.jpg"]);
+    expect(await emptyPantryPlace("Kyl", operation, stugan)).toEqual(ok({ removed: 2, removedIds: ids }));
+    expect(deleteLocationPhotoRowsIn).toHaveBeenCalledExactlyOnceWith(db, stugan, "Kyl");
+    expect(removePlacePhotoFiles).toHaveBeenCalledExactlyOnceWith(db, ["u/s/kyl/a.jpg", "u/s/kyl/b.jpg"]);
+    expect(revalidateFor).toHaveBeenCalledWith("pantry_photo");
+  });
+
+  it("stays ok and logs the reason when the photo rows cannot be deleted", async () => {
+    deleteLocationPhotoRowsIn.mockRejectedValue(new PantryDataError("delete_failed 42501"));
+    expect(await emptyPantryPlace("Kyl", operation, stugan)).toEqual(ok({ removed: 2, removedIds: ids }));
+    expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "delete_failed 42501" });
+    expect(removePlacePhotoFiles).not.toHaveBeenCalled();
+  });
+
+  it("stays ok and logs the reason when the files cannot be removed", async () => {
+    deleteLocationPhotoRowsIn.mockResolvedValue(["u/s/kyl/a.jpg"]);
+    removePlacePhotoFiles.mockResolvedValue({ removed: [], failed: "remove_failed 500" });
+    expect(await emptyPantryPlace("Kyl", operation, stugan)).toEqual(ok({ removed: 2, removedIds: ids }));
+    expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 500", left: "file" });
+  });
+
+  it("touches no photos when the emptying fails", async () => {
+    emptyPantryPlaceIn.mockRejectedValue(new PantryDataError("empty_failed 42501"));
+    await emptyPantryPlace("Kyl", operation, stugan);
+    expect(deleteLocationPhotoRowsIn).not.toHaveBeenCalled();
   });
 
   it("is ok with no rows when the location is empty already, and revalidates so the list catches up", async () => {

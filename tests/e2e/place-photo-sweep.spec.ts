@@ -185,7 +185,7 @@ test("removing an empty place in the sheet Boenden removes its photos' files too
   expect(errors).toEqual([]);
 });
 
-test("Töm kylen and Ångra leave the photo of the fridge", async ({ page }) => {
+test("Töm kylen removes the photo of the fridge, row and file, and Ångra brings back the items only", async ({ page }) => {
   const admin = adminClient();
   const catalog = await admin
     .from("ingredient")
@@ -200,17 +200,21 @@ test("Töm kylen and Ångra leave the photo of the fridge", async ({ page }) => 
     .insert({ user_id: userId, site_id: sites.Hemma, ingredient_id: catalog.data[0].id, location: "Kyl", amount: 2, unit: "förp" });
   if (item.error) throw item.error;
   const photo = await seedPhoto(sites.Hemma, "Kyl", new Date(Date.now() - day));
+  // Another location and another place keep their photos.
+  const frysPhoto = await seedPhoto(sites.Hemma, "Frys", new Date(Date.now() - day));
+  const stuganPhoto = await seedPhoto(sites.Stugan, "Kyl", new Date(Date.now() - day));
 
   await openHemma(page);
   await emptyButton(page).click();
   await page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true }).click();
   // With two places the toast names the place (Story 8.4).
   await expect(toast(page)).toContainText("Tog bort 1 vara ur kylen för Hemma.");
-  expect(await photoIds()).toEqual([photo.id]);
-  expect(await fileThere(photo.path)).toBe(true);
+  await expect.poll(photoIds).toEqual([frysPhoto.id, stuganPhoto.id].sort());
+  expect(await fileThere(photo.path)).toBe(false);
+  expect(await fileThere(frysPhoto.path)).toBe(true);
+  expect(await fileThere(stuganPhoto.path)).toBe(true);
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveCount(1);
-  expect(await photoIds()).toEqual([photo.id]);
-  expect(await fileThere(photo.path)).toBe(true);
+  expect(await photoIds()).toEqual([frysPhoto.id, stuganPhoto.id].sort());
 });
