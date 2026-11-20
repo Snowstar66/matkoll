@@ -109,7 +109,7 @@ export function confirmText(kind: "take" | "refill", amount: number): string {
 }
 export const countLabel = "Antal";
 export const notCountedText = "räknas inte";
-export const countThisText = "Räkna";
+export const countPlaceholderText = "Skriv antal";
 export const fixCountText = "Rätta antalet";
 export const stopCountText = "Sluta räkna";
 export const saveCountText = "Spara antal";

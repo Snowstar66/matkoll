@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { thingCategories, thingConfidences, type Thing, type ThingCategory } from "../domain/thing";
 import { shownStatus } from "../domain/thing-photo";
-import { orderCategories, toRoomThing, type RoomCard, type RoomSummary } from "../domain/thing-room";
+import { orderCategories, toRoomThing, type RoomCard, type RoomPhotoThings, type RoomSummary } from "../domain/thing-room";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
 // The rooms (Stories 18.11 and 18.12): a room is the distinct room of a
@@ -94,6 +94,81 @@ export async function loadRoomThingsIn(db: ThingsDb, siteId: string, key: string
       quantity: row.quantity ?? null,
     }),
   );
+}
+
+const photoThingsSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    name: z.string().min(1),
+    category: z.enum(thingCategories),
+    confidence: z.enum(thingConfidences),
+    photo_id: z.uuid().nullable(),
+    position: z.number().int(),
+    quantity: z.number().int().nullable(),
+  }),
+);
+
+const notedSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    name: z.string().min(1),
+    category: z.enum(thingCategories),
+    confidence: z.enum(thingConfidences),
+    quantity: z.number().int().nullable(),
+    created_at: z.string(),
+    thing_place: z.object({ part: z.string().nullable(), kind: z.enum(["part", "box"]) }),
+  }),
+);
+
+/**
+ * The things of the room's cards, each card's own (a thing seen on two cards is under both), in the model's order,
+ * and the things written in without a card (Story 18.19). Only the user's own (RLS). Throws like loadRoomsIn.
+ */
+export async function loadRoomPhotoThingsIn(db: ThingsDb, siteId: string, key: string, photoIds: readonly string[]): Promise<RoomPhotoThings> {
+  const byPhoto: Record<string, Thing[]> = Object.fromEntries(photoIds.map((id) => [id, []]));
+  if (photoIds.length > 0) {
+    const { data, error } = await db
+      .from("thing_item")
+      .select("id, name, category, confidence, photo_id, position, quantity")
+      .in("photo_id", [...photoIds])
+      .order("position")
+      .order("id")
+      .limit(5000);
+    if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+    const parsed = photoThingsSchema.safeParse(data);
+    if (!parsed.success) throw new ThingsDataError("invalid_row");
+    for (const row of parsed.data) {
+      if (row.photo_id === null) continue;
+      byPhoto[row.photo_id]?.push({ id: row.id, name: row.name, category: row.category, confidence: row.confidence, whereHint: null, seenOn: 1, quantity: row.quantity });
+    }
+  }
+  const { data: notedData, error: notedError } = await db
+    .from("thing_item")
+    .select("id, name, category, confidence, quantity, created_at, thing_place!inner(part, kind, site_id, room_key)")
+    .eq("source", "noted")
+    .is("same_as", null)
+    .eq("thing_place.site_id", siteId)
+    .eq("thing_place.room_key", key)
+    .limit(2000);
+  if (notedError) throw new ThingsDataError(`query_failed ${notedError.code}`);
+  const notedRows = notedSchema.safeParse(notedData);
+  if (!notedRows.success) throw new ThingsDataError("invalid_row");
+  const noted = notedRows.data.map((row) =>
+    toRoomThing({
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      confidence: row.confidence,
+      whereHint: null,
+      part: row.thing_place.part,
+      kind: row.thing_place.kind,
+      seenOn: 1,
+      notedAt: new Date(row.created_at).toISOString(),
+      quantity: row.quantity,
+    }),
+  );
+  noted.sort((a, b) => a.name.localeCompare(b.name, "sv") || (a.id < b.id ? -1 : 1));
+  return { byPhoto, noted };
 }
 
 const cardRowSchema = z.object({

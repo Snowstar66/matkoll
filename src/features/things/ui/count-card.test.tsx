@@ -204,17 +204,23 @@ describe("the count card in a föremål's sheet (Story 18.23)", () => {
     await waitFor(() => expect(undoThingChange).toHaveBeenCalledWith(changeId));
   });
 
-  it("has Antal · räknas inte with Räkna for a föremål without a count, which saves a count from 1", async () => {
-    loadThingCount.mockResolvedValueOnce(ok({ itemId, quantity: null, changes: [] }));
-    loadThingCount.mockResolvedValue(ok({ itemId, quantity: 2, changes: [change("set", new Date().toISOString(), 2)] }));
-    setThingCount.mockResolvedValue(ok({ changeId, quantity: 2 }));
-    render(<CountCard itemId={itemId} name="Hammare" initial={null} />);
-    expect(screen.getByText("· räknas inte")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Räkna" }));
-    await userEvent.click(screen.getByRole("button", { name: "Fler" }));
-    await userEvent.click(screen.getByRole("button", { name: "Spara antal" }));
-    await waitFor(() => expect(setThingCount).toHaveBeenCalledWith({ itemId, quantity: 2 }));
-    expect(await screen.findByText("Du skrev 2 den " + new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short", timeZone: "Europe/Stockholm" }).format(new Date()).replace(".", ""))).toBeInTheDocument();
+  it("has an Antal field to write in for a föremål without a count, and no Räkna step", async () => {
+    loadThingCount.mockResolvedValue(ok({ itemId, quantity: null, changes: [] }));
+    const onDraft = vi.fn();
+    const onSubmit = vi.fn();
+    render(<CountCard itemId={itemId} name="Hammare" initial={null} draft="" onDraft={onDraft} onSubmit={onSubmit} action={<button type="button">Spara</button>} />);
+    const field = screen.getByRole("textbox", { name: /^Antal/ });
+    expect(field).toHaveAttribute("placeholder", "Skriv antal");
+    expect(screen.getByText("(valfritt)")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Räkna" })).not.toBeInTheDocument();
+    // Only digits are taken, and Enter asks the sheet to save.
+    await userEvent.type(field, "4a");
+    expect(onDraft).toHaveBeenCalledWith("4");
+    expect(onDraft).not.toHaveBeenCalledWith("a");
+    await userEvent.type(field, "{Enter}");
+    expect(onSubmit).toHaveBeenCalled();
+    // The action (the sheet's Spara) is on the field's row.
+    expect(screen.getByRole("button", { name: "Spara" }).parentElement?.parentElement).toBe(field.parentElement);
   });
 
   it("stops counting and puts the count back with Ångra", async () => {
@@ -227,7 +233,7 @@ describe("the count card in a föremål's sheet (Story 18.23)", () => {
     await screen.findByText("Du borde ha 3 kvar · kortet 12 okt visade 6");
     await userEvent.click(screen.getByRole("button", { name: "Sluta räkna" }));
     expect(await screen.findByText("Slutade räkna gravljus.")).toBeInTheDocument();
-    expect(screen.getByText("· räknas inte")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /^Antal/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(restoreThingCount).toHaveBeenCalledWith(snapshot));
   });
@@ -239,7 +245,7 @@ describe("the count card in a föremål's sheet (Story 18.23)", () => {
     render(<CountCard itemId={itemId} name="Gravljus" initial={3} />);
     await screen.findByText("Du borde ha 3 kvar · kortet 12 okt visade 6");
     await userEvent.click(screen.getByRole("button", { name: "Sluta räkna" }));
-    expect(await screen.findByText("· räknas inte")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: /^Antal/ })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
   });

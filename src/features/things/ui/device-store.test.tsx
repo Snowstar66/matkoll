@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { lastRoomKey, openCategoriesKey, resetDeviceStore, useLastRoom, useOpenCategories } from "./device-store";
+import { lastRoomKey, openCategoriesKey, resetDeviceStore, roomGroupingKey, useLastRoom, useOpenCategories, useRoomGroupingStored } from "./device-store";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -25,6 +25,16 @@ describe("the last used room", () => {
     const { result } = renderHook(() => useLastRoom("site-1"));
     act(() => result.current[1]("Boden"));
     expect(result.current[0]).toBe("Boden");
+  });
+});
+
+describe("the room list's grouping", () => {
+  it("is unknown until chosen and then kept on the device", () => {
+    const { result } = renderHook(() => useRoomGroupingStored());
+    expect(result.current[0]).toBeNull();
+    act(() => result.current[1]("category"));
+    expect(result.current[0]).toBe("category");
+    expect(window.localStorage.getItem(roomGroupingKey)).toBe("category");
   });
 });
 

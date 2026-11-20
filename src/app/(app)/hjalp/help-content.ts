@@ -280,6 +280,14 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Ska maten in här?",
         answer: `Nej, maten bor i Matvaror. Förråd är för ${things} som verktyg och annat som ligger i lådor och på hyllor.`,
       },
+      {
+        question: "Hur hittar jag en sak i ett rum med flera foton?",
+        answer: `Överst i rummet väljer du Per foto eller Per kategori. Per foto är förvalt: varje foto är en grupp med en liten bild, datum och ${things}en som syns på det. Tryck på bilden för att se hela kortet. Valet minns telefonen.`,
+      },
+      {
+        question: "Hur ändrar jag eller räknar en sak?",
+        answer: `Tryck på ${things}et. Fotot med saken markerad står överst, och under det namnet (Vad är det?) och Antal. Skriv ett antal om du vill hålla räkning; Spara visas bredvid när du ändrat något. Kategori och Ta bort längst ned är små rader, och Ta bort går att ångra.`,
+      },
       { question: "Kan jag dela upp ett rum?", answer: "Ja, i rummet lägger du till lådor och egna platser." },
       { question: "Något har flyttats. Vad gör jag?", answer: "Ta ett nytt foto av platsen, så uppdateras listan." },
       { question: "Söker den i alla boenden?", answer: `Ja, sökningen går igenom ${things}en i alla dina boenden.` },

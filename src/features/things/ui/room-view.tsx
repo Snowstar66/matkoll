@@ -13,19 +13,20 @@ import { unseenText, type ThingCategory } from "../domain/thing";
 import { type ClosedBox } from "../domain/thing-closed";
 import { moreCardsText } from "../domain/capture";
 import { isJobInRoom } from "../domain/thing-news";
-import { parseRoomView, type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
+import { parseRoomGrouping, parseRoomView, type RoomCard, type RoomGrouping, type RoomSummary, type RoomView as View } from "../domain/thing-room";
 import { boxesLabelText, boxMeta, type WrittenBox, writeInsteadText } from "../domain/thing-written";
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
 import { AddBox } from "./add-box";
 import { ClosedBoxes } from "./closed-boxes";
-import { useRoomViewStored } from "./device-store";
+import { useRoomGroupingStored, useRoomViewStored } from "./device-store";
 import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
 import { partsLabelText, partMeta } from "../domain/thing-written";
 import { RoomCards } from "./room-cards";
 import { RemoveRoomButton } from "./remove-room";
 import { RoomCategories } from "./room-categories";
+import { RoomPhotos } from "./room-photos";
 import { TakeCard } from "./take-card";
 import { UploadCardRow } from "./upload-card-row";
 import { appName } from "@/app/app-info";
@@ -71,6 +72,11 @@ const views: readonly SegmentOption<View>[] = [
   { value: "cards", icon: <GridIcon size={18} />, iconOnly: true, label: "Kort" },
 ];
 
+const groupings: readonly SegmentOption<RoomGrouping>[] = [
+  { value: "photo", label: "Per foto" },
+  { value: "category", label: "Per kategori" },
+];
+
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
@@ -81,6 +87,9 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
   // The choice of this device (like Recept's Kort och Lista); the address's `vy` is the first one.
   const view: View = stored === null ? initialView : parseRoomView(stored);
   const setStoredView = (next: View) => setStored(next);
+  // Per foto is the first choice (Pontus 20 Nov); the choice of this device is kept.
+  const [storedGrouping, setStoredGrouping] = useRoomGroupingStored();
+  const grouping: RoomGrouping = parseRoomGrouping(storedGrouping);
   const reading = cards.some((card) => card.status === "reading");
 
   // The results of this tab's jobs are on this page, so no confirmation says what is already here.
@@ -156,7 +165,14 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
               </EmptyState>
             </div>
           ) : (
-            <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />
+            <>
+              <Segment<RoomGrouping> label="Visa föremålen" value={grouping} onChange={setStoredGrouping} options={groupings} />
+              {grouping === "photo" ? (
+                <RoomPhotos siteId={siteId} roomKey={summary.key} cards={cards} />
+              ) : (
+                <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />
+              )}
+            </>
           )}
           {boxes.length > 0 ? (
             <section className="flex flex-col gap-1.5" data-testid="room-boxes">
