@@ -150,7 +150,7 @@ describe("SiteSwitch and the boende menu", () => {
     await user.click(opener("Hemma"));
     const menu = await screen.findByRole("menu", { name: "Boende" });
     expect(await within(menu).findByText("Tomt")).toBeInTheDocument();
-    expect(within(menu).getByText("5 varor")).toBeInTheDocument();
+    expect(within(menu).getByText("5 varor · 0 föremål")).toBeInTheDocument();
   });
 
   it("opens a bottom sheet with the same content on a phone", async () => {
@@ -158,7 +158,7 @@ describe("SiteSwitch and the boende menu", () => {
     render(<Hemma initial={[hemma, stugan]} variant="page" />);
     await user.click(opener("Hemma"));
     const sheet = await screen.findByRole("dialog", { name: "Boende" });
-    expect(await within(sheet).findByText("18 föremål")).toBeInTheDocument();
+    expect(await within(sheet).findByText("0 varor · 18 föremål")).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: /Hemma/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(sheet).getByRole("link", { name: /Hantera boenden/ })).toHaveAttribute("href", "/installningar/boenden");
     await user.click(within(sheet).getByRole("button", { name: /Stugan/ }));
