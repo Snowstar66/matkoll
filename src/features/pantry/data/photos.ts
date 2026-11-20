@@ -365,6 +365,24 @@ export async function linkPantryItemsToPhotoIn(
   });
 }
 
+/**
+ * The photo link of the pantry item `id` (photo_id and photo_number), or null
+ * when it has none, the photo is gone or the item is not the household's.
+ * Used to carry the link over when "Ändra vara" replaces the row. Throws
+ * PantryDataError `query_failed <code>` or `query_threw`.
+ */
+export async function loadPantryItemPhotoLinkIn(
+  db: PantryDb,
+  id: string,
+): Promise<{ photoId: string; number: number } | null> {
+  return guarded("query", async () => {
+    const { data, error } = await db.from("pantry_item").select("photo_id, photo_number").eq("id", id).maybeSingle();
+    if (error) throw new PantryDataError(`query_failed ${error.code}`);
+    if (!data || data.photo_id === null || data.photo_number === null) return null;
+    return { photoId: data.photo_id, number: data.photo_number };
+  });
+}
+
 // Visa senaste fotot (Story 10.2, AD-26): Matvaror reads the rows of a place's
 // photos, never the files; the Route Handler GET /api/pantry/photo/[id]
 // reads one row and its file; "Ta bort fotot" deletes the row and then the

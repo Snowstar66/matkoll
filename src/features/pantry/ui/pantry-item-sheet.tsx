@@ -56,7 +56,7 @@ import {
 } from "../domain/pantry-item-form";
 import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
-import { PhotoCrop, type PhotoCropProps } from "./analyzed-photo";
+import { PhotoCrop, PhotoFull, type PhotoCropProps } from "./analyzed-photo";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
 import { useSiteSwitching } from "./site-switching";
@@ -845,6 +845,7 @@ export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" |
  * (older than 30 days, or removed) says so, with no picture.
  */
 function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
+  const [whole, setWhole] = useState(false);
   if (!photo.kept) {
     return (
       <p data-testid="pantry-item-photo-gone" className="text-meta text-ink-3">
@@ -853,18 +854,18 @@ function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
     );
   }
   const { url, point } = photo.kept;
+  const linkClasses = "-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent";
   return (
     <div data-testid="pantry-item-photo" className="flex flex-col gap-2">
       <p className="text-meta text-ink-3">Så här läste AI fotot.</p>
-      {point ? <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} /> : null}
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent"
-      >
-        Visa hela fotot
-      </a>
+      {whole ? (
+        <PhotoFull url={url} x={point?.x ?? null} y={point?.y ?? null} number={photo.number} />
+      ) : point ? (
+        <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} />
+      ) : null}
+      <button type="button" onClick={() => setWhole(!whole)} aria-expanded={whole} className={linkClasses}>
+        {whole ? "Stäng fotot" : "Visa hela fotot"}
+      </button>
     </div>
   );
 }
