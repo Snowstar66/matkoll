@@ -57,6 +57,20 @@ beforeEach(() => {
 });
 
 describe("the card big (Story 18.7)", () => {
+  it("moves the mark to the föremål of a new ?foremal when the same card is opened again from another föremål's sheet", () => {
+    const view = (initial: string | null) => (
+      <ToastProvider>
+        <CardView card={card([hammer, saw, drill])} initialThingId={initial} roomHref="/prylar/rum/s/boden" />
+      </ToastProvider>
+    );
+    const { rerender } = render(view(hammer.id));
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("1");
+    // Client navigation to the same page with another ?foremal keeps the component mounted.
+    rerender(view(saw.id));
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
+    expect(screen.getAllByTestId("card-thing")[1]).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("shows the whole photo with a numbered dot at the middle of every föremål that has a box, and the list under it, with the same numbers", () => {
     renderIt([hammer, saw, drill]);
     const photo = screen.getByTestId("card-photo");

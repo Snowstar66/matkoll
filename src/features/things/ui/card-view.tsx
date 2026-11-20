@@ -186,9 +186,15 @@ function ThingRowTitle({ thing, selected, number }: { thing: CardThing; selected
 
 export function CardView({ card, initialThingId, roomHref }: { card: Card; initialThingId: string | null; roomHref: string }) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState<string | null>(() =>
-    initialThingId && card.things.some((thing) => thing.id === initialThingId) ? initialThingId : null,
-  );
+  const initialId = initialThingId && card.things.some((thing) => thing.id === initialThingId) ? initialThingId : null;
+  const [selectedId, setSelectedId] = useState<string | null>(initialId);
+  // Opening the same card again from another föremål's sheet only changes ?foremal; this component stays mounted,
+  // so the mark follows the address (adjusting state while rendering, not in an effect).
+  const [seenInitialId, setSeenInitialId] = useState(initialThingId);
+  if (seenInitialId !== initialThingId) {
+    setSeenInitialId(initialThingId);
+    setSelectedId(initialId);
+  }
   // What this visit's lookups gave: a box, or null when it could not be pointed out (also when the AI did not answer).
   const [found, setFound] = useState<Record<string, ThingBox | null>>({});
   const asked = useRef(new Set<string>());
