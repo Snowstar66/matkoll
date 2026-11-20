@@ -41,12 +41,13 @@ export type PantryItem = {
  * photo, and the photo's id (`null` once the photo row is gone). `kept` is
  * set by Matvaror when the photo is still stored (younger than 30 days, not
  * removed): where to fetch it, and the item's point on it when the photo has
- * one. Without `kept` the sheet says "Fotot finns inte kvar."
+ * one. `points` are all of the photo's points (thousandths), so the whole photo
+ * can show every number. Without `kept` the sheet says "Fotot finns inte kvar."
  */
 export type ItemPhoto = {
   number: number;
   photoId: string | null;
-  kept?: { url: string; point: { x: number; y: number } | null };
+  kept?: { url: string; point: { x: number; y: number } | null; points: { n: number; x: number; y: number }[] };
 };
 
 /**
@@ -72,7 +73,11 @@ export function withKeptPhotos(
       photo: {
         number: link.number,
         photoId: link.photoId,
-        kept: { url: urlOf(link.photoId), point: point ? { x: point.x, y: point.y } : null },
+        kept: {
+          url: urlOf(link.photoId),
+          point: point ? { x: point.x, y: point.y } : null,
+          points: (photo.points ?? []).map(({ n, x, y }) => ({ n, x, y })),
+        },
       },
     };
   });

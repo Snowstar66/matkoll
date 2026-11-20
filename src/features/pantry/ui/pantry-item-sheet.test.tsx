@@ -940,7 +940,7 @@ describe("PantryItemSheet, an item read from a photo", () => {
   }
 
   it("shows the photo around the item at the top, with a link to the whole photo", () => {
-    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 } } });
+    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 }, points: [{ n: 2, x: 300, y: 600 }, { n: 5, x: 700, y: 200 }] } });
     const block = within(sheet()).getByTestId("pantry-item-photo");
     expect(block).toHaveTextContent("Så här läste AI fotot.");
     expect(within(block).getByTestId("pantry-sheet-crop")).toHaveTextContent("2");
@@ -949,10 +949,15 @@ describe("PantryItemSheet, an item read from a photo", () => {
   });
 
   it("shows the whole photo with the marker in the sheet and closes it again", () => {
-    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 } } });
+    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 }, points: [{ n: 2, x: 300, y: 600 }, { n: 5, x: 700, y: 200 }] } });
     fireEvent.click(within(sheet()).getByRole("button", { name: "Visa hela fotot" }));
     const full = within(sheet()).getByTestId("pantry-sheet-full-photo");
     expect(full).toHaveTextContent("2");
+    const markers = within(full).getAllByTestId("pantry-full-photo-marker");
+    expect(markers.map((marker) => [marker.textContent, marker.getAttribute("data-tone")])).toEqual([
+      ["5", "off"],
+      ["2", "on"],
+    ]);
     expect(full.querySelector("img")).toHaveAttribute("src", "/api/pantry/photo/p1");
     expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
     fireEvent.click(within(sheet()).getByRole("button", { name: "Stäng fotot" }));
@@ -961,7 +966,7 @@ describe("PantryItemSheet, an item read from a photo", () => {
   });
 
   it("shows the whole-photo link alone when the photo has no point for the item", () => {
-    openFromPhoto({ number: 1, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: null } });
+    openFromPhoto({ number: 1, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: null, points: [] } });
     expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Visa hela fotot" })).toBeInTheDocument();
   });
