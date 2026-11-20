@@ -62,6 +62,13 @@ export function useRoomViewStored(): [string | null, (view: string) => void] {
   return useStored(roomViewKey);
 }
 
+export const roomGroupingKey = "matkoll.prylar.gruppering";
+
+/** How a room's list is grouped ("photo" or "category"), on this device; `null` until it is chosen (then per photo). */
+export function useRoomGroupingStored(): [string | null, (grouping: string) => void] {
+  return useStored(roomGroupingKey);
+}
+
 /** The room a card was last taken in, in this boende, on this device. */
 export function useLastRoom(siteId: string): [string | null, (room: string) => void] {
   return useStored(lastRoomKey(siteId));

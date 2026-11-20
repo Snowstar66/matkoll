@@ -4,6 +4,7 @@ import {
   cardLabel,
   cardMeta,
   orderCategories,
+  parseRoomGrouping,
   parseRoomView,
   roomMeta,
   roomsTotalText,
@@ -52,12 +53,18 @@ describe("the cards", () => {
 });
 
 describe("a thing's hint in the room's list", () => {
-  it("is the box, then 'syns på 2 kort', then where on the photo", () => {
-    expect(roomThingHint({ kind: "box", part: "Blå backen", whereHint: "överst", seenOn: 1 })).toBe("i Blå backen");
-    expect(roomThingHint({ kind: "part", part: "Väggen", whereHint: "väggen", seenOn: 2 })).toBe("syns på 2 kort");
-    expect(roomThingHint({ kind: "part", part: null, whereHint: "väggen", seenOn: 1 })).toBe("väggen");
-    expect(roomThingHint({ kind: "part", part: null, whereHint: null, seenOn: 1 })).toBeNull();
-    expect(toRoomThing({ id: "i", name: "Hammare", category: "Verktyg", confidence: "high", whereHint: "väggen", part: null, kind: "part", seenOn: 1 }).whereHint).toBe("väggen");
+  it("is the box, then 'syns på 2 kort', and never where on the photo", () => {
+    expect(roomThingHint({ kind: "box", part: "Blå backen", seenOn: 1 })).toBe("i Blå backen");
+    expect(roomThingHint({ kind: "part", part: "Väggen", seenOn: 2 })).toBe("syns på 2 kort");
+    expect(roomThingHint({ kind: "part", part: null, seenOn: 1 })).toBeNull();
+    expect(toRoomThing({ id: "i", name: "Hammare", category: "Verktyg", confidence: "high", whereHint: "väggen", part: null, kind: "part", seenOn: 1 }).whereHint).toBeNull();
+  });
+
+  it("groups per photo unless per category is chosen", () => {
+    expect(parseRoomGrouping("category")).toBe("category");
+    expect(parseRoomGrouping("photo")).toBe("photo");
+    expect(parseRoomGrouping(null)).toBe("photo");
+    expect(parseRoomGrouping("x")).toBe("photo");
   });
 
   it("orders the categories like the lists do and leaves empty ones out", () => {

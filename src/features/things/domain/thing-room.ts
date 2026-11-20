@@ -82,10 +82,10 @@ export function cardMeta(card: { things: number; takenAt: Date }): string {
   return `${thingsText(card.things)} · ${shortDateText(card.takenAt)}`;
 }
 
-/** The words next to a thing in the room's list: "i Blå backen" for a box, "syns på 2 kort", or where on the photo. */
-export function roomThingHint(thing: { kind: "part" | "box"; part: string | null; whereHint: string | null; seenOn: number }): string | null {
+/** The words next to a thing in the room's list: "i Blå backen" for a box, or "syns på 2 kort". Where on the photo is not shown here (Pontus 20 Nov): the photo says it. */
+export function roomThingHint(thing: { kind: "part" | "box"; part: string | null; seenOn: number }): string | null {
   if (thing.kind === "box" && thing.part) return inBoxText(thing.part);
-  return seenOnText(thing.seenOn) ?? thing.whereHint;
+  return seenOnText(thing.seenOn);
 }
 
 /** A thing of the room's list, with its hint (as `whereHint`, so the row is the card's own). */
@@ -157,6 +157,17 @@ export type RoomCard = {
 /** The room's page titles: the tabs of the segmented control. */
 export const roomViews = ["things", "cards"] as const;
 export type RoomView = (typeof roomViews)[number];
+
+/** How the room's list is grouped (Pontus 20 Nov): per photo (the first choice) or per category. */
+export const roomGroupings = ["photo", "category"] as const;
+export type RoomGrouping = (typeof roomGroupings)[number];
+
+export function parseRoomGrouping(value: string | null | undefined): RoomGrouping {
+  return value === "category" ? "category" : "photo";
+}
+
+/** The things of a room per card, for the per-photo list: each card's own things, and the ones written in without a card. */
+export type RoomPhotoThings = { byPhoto: Record<string, Thing[]>; noted: Thing[] };
 
 export function parseRoomView(value: string | null | undefined): RoomView {
   return value === "cards" ? "cards" : "things";

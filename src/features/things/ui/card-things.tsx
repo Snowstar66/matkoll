@@ -24,7 +24,7 @@ export function CategoryHeading({ category, count, id }: { category: ThingCatego
  * a counted föremål has its count first there ("3 st · översta hyllan, vänster", or "Slut"); no buttons, the
  * list is for looking: Ta and Fyll på are in the sheet.
  */
-function AsideTitle({ name, hint, quantity }: { name: string; hint: string; quantity: number | null }) {
+export function AsideTitle({ name, hint, quantity }: { name: string; hint: string; quantity: number | null }) {
   return (
     <span className="flex items-baseline justify-between gap-3">
       <span className="min-w-0 font-normal wrap-break-word">{name}</span>

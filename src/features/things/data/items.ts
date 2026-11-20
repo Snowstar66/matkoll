@@ -38,12 +38,12 @@ export async function renameItemIn(db: ThingsDb, id: string, name: string): Prom
 }
 
 /** The fields of a thing that "Spara" in its sheet changes. */
-export type ThingUpdate = { name: string; category: ThingCategory; whereHint: string | null };
+export type ThingUpdate = { name: string; category: ThingCategory; /** Left out: the AI's "where" stays as it is. */ whereHint?: string | null };
 
-/** Changes the name, the category and the "where" of a thing; its card and the other things are not touched. `false` when it is gone or not the user's. Throws ThingsDataError `update_failed <code>`. */
+/** Changes the name and the category of a thing, and its "where" when one is given; its card and the other things are not touched. `false` when it is gone or not the user's. Throws ThingsDataError `update_failed <code>`. */
 export async function updateItemIn(db: ThingsDb, id: string, update: ThingUpdate): Promise<boolean> {
   return guarded("update", async () => {
-    const { data, error } = await db.from("thing_item").update({ name: update.name, category: update.category, where_hint: update.whereHint, box_missed: false }).eq("id", id).select("id");
+    const { data, error } = await db.from("thing_item").update({ name: update.name, category: update.category, ...(update.whereHint !== undefined ? { where_hint: update.whereHint } : {}), box_missed: false }).eq("id", id).select("id");
     if (error) throw new ThingsDataError(`update_failed ${error.code}`);
     return data.length > 0;
   });

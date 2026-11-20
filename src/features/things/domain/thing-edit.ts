@@ -31,7 +31,7 @@ export type RenameInput = z.input<typeof renameInputSchema>;
 /** The longest "where" of a thing, as thing_item_where_hint_check counts it. */
 export const maxWhereChars = 120;
 
-/** "Spara" in the sheet of a thing (Story 18.15): a name, a category and where on the picture; an empty "where" clears it. */
+/** "Spara" in the sheet of a thing: a name and a category; the "where" (read by the AI) is only changed when it is given, and the sheet no longer gives it (Pontus 20 Nov). */
 export const updateThingInputSchema = z.object({
   id: z.uuid(),
   name: renameInputSchema.shape.name,
@@ -39,8 +39,9 @@ export const updateThingInputSchema = z.object({
   whereHint: z
     .string()
     .nullable()
-    .transform((text) => (text === null ? null : cleanThingName(text) || null))
-    .refine((text) => text === null || charLength(text) <= maxWhereChars, "too long"),
+    .optional()
+    .transform((text) => (text == null ? text : cleanThingName(text) || null))
+    .refine((text) => text == null || charLength(text) <= maxWhereChars, "too long"),
 });
 export type UpdateThingInput = z.input<typeof updateThingInputSchema>;
 
@@ -121,9 +122,8 @@ export const openWholeCardText = "Öppna hela kortet";
 /** Where a föremål is kept, read in the sheet, with the crumbs' name for a screen reader. */
 export const placeCrumbsLabel = "Var den finns";
 export const categoryLabelText = "Kategori";
-export const whereLabelText = "Var på bilden";
-export const wherePlaceholderText = "Till exempel översta hyllan";
 export const whereTooLongText = `Det får vara högst ${maxWhereChars} tecken.`;
+export const countInvalidText = "Skriv ett heltal.";
 export const emptyNameText = "Ange ett namn.";
 export const nameTooLongText = `Namnet får vara högst ${maxThingNameChars} tecken.`;
 

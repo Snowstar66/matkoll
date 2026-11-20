@@ -92,13 +92,13 @@ describe("a search hit's sheet", () => {
     await userEvent.click(screen.getByTestId("thing-hit"));
     const sheet = screen.getByRole("dialog", { name: "Föremål" });
     expect(sheet).toHaveTextContent("Boden · på väggen");
-    expect(await within(sheet).findByText("· räknas inte")).toBeInTheDocument();
+    expect(await within(sheet).findByRole("textbox", { name: /^Antal/ })).toBeInTheDocument();
     // The photo at the top is the way to the card (the search hit knows its card at once).
     const link = within(sheet).getByRole("link", { name: "Öppna hela kortet" });
     expect(link).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${id}`);
     const buttons = within(sheet).getAllByRole("button");
     expect(buttons[buttons.length - 1]).toHaveTextContent("Ta bort föremålet");
-    expect(buttons[buttons.length - 1].querySelector(".text-danger")).not.toBeNull();
+    expect(buttons[buttons.length - 1].className).toMatch(/text-danger/);
   });
 
   it("is reached with the keyboard, and the thumbnail is a link of its own to the card", async () => {

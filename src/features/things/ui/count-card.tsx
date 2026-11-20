@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { Chip } from "@/components/chip";
 import { cx } from "@/components/cx";
+import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { lastChangeText } from "@/features/household";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -16,12 +16,11 @@ import {
   changesLabel,
   countLabel,
   countLine,
-  countThisText,
+  countPlaceholderText,
   fixCountText,
   lessCountText,
   maxCount,
   moreCountText,
-  notCountedText,
   outText,
   saveCountText,
   showAllChangesText,
@@ -100,7 +99,18 @@ export function CountCard({
   name,
   initial,
   onQuantity,
+  draft,
+  onDraft,
+  draftError,
+  action,
+  onSubmit,
 }: {
+  /** The count typed into the field of a föremål that is not counted, and the sheet's Spara shown beside it. */
+  draft?: string;
+  onDraft?: (value: string) => void;
+  draftError?: string | null;
+  action?: ReactNode;
+  onSubmit?: () => void;
   itemId: string;
   name: string;
   initial: number | null;
@@ -108,6 +118,7 @@ export function CountCard({
   onQuantity?: (quantity: number | null) => void;
 }) {
   const router = useRouter();
+  const fieldId = useId();
   const [count, setCount] = useState<ThingCount | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -262,18 +273,35 @@ export function CountCard({
     return (
       <div className="flex flex-col gap-2" data-testid="count-card">
         {problem ? <Notice role="alert">{problem}</Notice> : null}
-        <div className="overflow-hidden rounded-lg bg-bg">
-          <div className="flex min-h-tap items-center gap-3 py-1.5 pr-3 pl-4">
-            <span className="flex-1 text-body">
-              <span className="font-medium text-ink">{countLabel}</span> <span className="text-ink-2">· {notCountedText}</span>
-            </span>
-            {setting === null ? (
-              <Chip action selected={false} onClick={() => setSetting(1)} data-testid="count-start">
-                {countThisText}
-              </Chip>
-            ) : null}
+        {/* Pontus 20 Nov: not counted means a field to write the count in at once; the sheet's Spara saves it. */}
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor={`${fieldId}-count`} optional>
+            {countLabel}
+          </FieldLabel>
+          <div className="flex items-center gap-3">
+            <Input
+              id={`${fieldId}-count`}
+              name="quantity"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={countPlaceholderText}
+              value={draft ?? ""}
+              maxLength={String(maxCount).length}
+              onChange={(event) => onDraft?.(event.target.value.replace(/\D/g, ""))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onSubmit?.();
+                }
+              }}
+              aria-invalid={draftError ? true : undefined}
+              aria-describedby={draftError ? `${fieldId}-count-error` : undefined}
+              className="w-35"
+              data-testid="count-field"
+            />
+            <div className="ml-auto">{action}</div>
           </div>
-          {setRow}
+          {draftError ? <FieldError id={`${fieldId}-count-error`}>{draftError}</FieldError> : null}
           {done ? <DoneLine done={done} busy={busy} onUndo={undo} /> : null}
         </div>
         {/* Story 21.3: without a history, who else last added or changed the föremål ("Martina ändrade · 4 nov"). */}

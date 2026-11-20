@@ -2,28 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, Fragment, useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { ChoiceRows } from "@/components/choice-rows";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { ChevronRightIcon } from "@/components/icons";
-import { ListGroup } from "@/components/list-group";
-import { ListRow } from "@/components/list-row";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
+import { setThingCount } from "../actions/thing-count";
 import { loadThingDetail } from "../actions/thing-detail";
 import { removeThing, restoreThing, updateThing } from "../actions/thing-item";
 import { cardViewHref } from "../domain/thing-card";
 import { thingCrumbs, type ThingDetail } from "../domain/thing-detail";
-import { thingCategories, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
+import { thingCategories, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
 import {
   categoryLabelText,
   cleanThingName,
+  countInvalidText,
   emptyNameText,
   maxThingNameChars,
-  maxWhereChars,
   nameFieldText,
   openWholeCardText,
   placeCrumbsLabel,
@@ -31,24 +30,23 @@ import {
   removedThingText,
   removeThingText,
   thingSheetTitleText,
-  wherePlaceholderText,
-  whereLabelText,
 } from "../domain/thing-edit";
 import { notedSheetSubtitle } from "../domain/thing-noted";
+import { maxCount } from "../domain/thing-count";
 import { CountCard } from "./count-card";
 
-// Föremålets blad (Stories 18.3, 18.15 and 18.23; Pontus 1 and 9 Nov): one sheet
+// Föremålets blad (Stories 18.3, 18.15 and 18.23; Pontus 1, 9 and 20 Nov): one sheet
 // for a föremål wherever it is tapped, in a room's list, a search hit or on its
-// card. From the top: "Vad är det?", the name as a free field with Spara under it
-// (Pontus 19 Nov: a föremål the AI got wrong is renamed at once, no register, no
-// "Byt namn" step), the card's photo with the föremål's box marked (a tap
-// opens the whole card; a tile with the category's emoji when there is no
-// photo), where it is kept as crumbs, the count card (Ta, Fyll på, Räkna, saved
-// at once), and one card of calm rows: "Kategori  🛍️ Övrigt ›",
-// "Var på bilden ›" (only with a photo) and last "Ta bort föremålet" in the
-// muted red, which goes at once with "Tog bort X." and Ångra. Each row opens its
-// own step in the same sheet ("‹ Tillbaka"); a step saves at once and comes back
-// (a picked category closes the sheet: the föremål moves to another group of its list). The photo and the place are read when the
+// card. From the top: the card's photo with the föremål's box marked, large (a tap
+// opens the whole card; a tile with the category's emoji when there is no photo),
+// where it is kept as crumbs, "Vad är det?" (the name is a free field: a föremål
+// the AI got wrong is renamed at once), the count (a field to write it in when the
+// föremål is not counted, "Spara" beside it; for a counted one Ta, Fyll på and the
+// history, saved at once), and last two quiet lines, "Kategori" and "Ta bort
+// föremålet", which goes at once with "Tog bort X." and Ångra. There is no "Var på
+// bilden" any more (the AI's hint stays in the database, unchanged). Spara is one
+// small button, shown only when the name or a typed count has changed. A picked
+// category closes the sheet: the föremål moves to another group of its list. The photo and the place are read when the
 // sheet opens; if that fails the rest still works.
 
 /** What the sheet needs of a föremål. */
@@ -76,13 +74,12 @@ export type ThingSheetProps = {
 };
 
 function defaultSubtitle(thing: SheetThing): string | undefined {
+  // Where on the picture is no longer said here (Pontus 20 Nov); only a noted föremål says when and where it was written in.
   if (thing.noted) return notedSheetSubtitle(thing.noted.part, new Date(thing.noted.at));
-  return thingMeta(thing) || undefined;
+  return undefined;
 }
 
-type Step = "main" | "where" | "category";
-
-const stepTitles: Record<Exclude<Step, "main">, string> = { where: whereLabelText, category: categoryLabelText };
+type Step = "main" | "category";
 
 /** The photo of the card with the föremål's box framed and the rest shaded; the box is a share of the photo, so the overlay sits right at any size. */
 function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingId: string; box: ThingDetail["box"]; onOpen: () => void }) {
@@ -97,7 +94,7 @@ function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingI
       >
         {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/things/photo/${photoId}`} alt="" className="block max-h-[40svh] w-auto max-w-full" draggable={false} />
+        <img src={`/api/things/photo/${photoId}`} alt="" className="block max-h-[55svh] w-auto max-w-full" draggable={false} />
         {box ? (
           <span
             aria-hidden="true"
@@ -117,37 +114,18 @@ function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingI
   );
 }
 
-/** A row of the sheet's card: the name on the left, the value and › on the right. */
-function SheetRow({ label, value, ariaLabel, onPress, rowRef, testId }: { label: string; value?: string; ariaLabel?: string; onPress: () => void; rowRef: (el: HTMLElement | null) => void; testId?: string }) {
-  return (
-    <ListRow
-      plain
-      pressRef={rowRef}
-      onPress={onPress}
-      pressProps={{ ...(ariaLabel ? { "aria-label": ariaLabel } : {}), ...(testId ? { "data-testid": testId } : {}) }}
-      title={
-        <span className="flex items-center justify-between gap-3">
-          <span className="shrink-0">{label}</span>
-          <span className="flex min-w-0 items-center gap-1.5 text-ink-2">
-            {value ? <span className="truncate">{value}</span> : null}
-            <ChevronRightIcon size={16} className="shrink-0 text-ink-3" />
-          </span>
-        </span>
-      }
-    />
-  );
-}
-
 export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: ThingSheetProps) {
   const router = useRouter();
   const { showToast } = useToast();
   // What the föremål is now: from the opener, then as saved in the sheet.
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ThingCategory>("Övrigt");
-  const [where, setWhere] = useState("");
-  // The text in the open step's field, and in "Vad är det?" at the top.
-  const [draft, setDraft] = useState("");
+  // The text in "Vad är det?", and the count typed in when the föremål is not counted.
   const [nameDraft, setNameDraft] = useState("");
+  const [countDraft, setCountDraft] = useState("");
+  const [countError, setCountError] = useState<string | null>(null);
+  // The count as read and after each change (null when not counted).
+  const [counted, setCounted] = useState<number | null>(null);
   // The category the check is on in its step (the arrow keys move it; a pick saves it).
   const [choice, setChoice] = useState<ThingCategory>("Övrigt");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -158,21 +136,19 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const [session, setSession] = useState<{ id: string; at: number } | null>(null);
   // The photo and place: `undefined` until read, `null` when they could not be read (the rest of the sheet works anyway).
   const [detail, setDetail] = useState<{ key: string; value: ThingDetail | null } | undefined>(undefined);
-  const fieldRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef<Partial<Record<Exclude<Step, "main">, HTMLElement | null>>>({});
+  const categoryRowRef = useRef<HTMLButtonElement>(null);
   const lastStep = useRef<Step>("main");
   const ids = useId();
   const thingId = thing?.id ?? null;
   const sessionAt = session?.at ?? 0;
   const detailKey = `${thingId}-${sessionAt}`;
 
-  // Focus follows the step: the chosen category or the field going deeper, the row that opened the step when coming back.
+  // Focus follows the step: the chosen category going deeper, the line that opened the step when coming back.
   useEffect(() => {
     if (step === "category") categoriesRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-    else if (step !== "main") fieldRef.current?.focus();
-    else if (lastStep.current !== "main") rowRefs.current[lastStep.current]?.focus();
+    else if (lastStep.current !== "main") categoryRowRef.current?.focus();
     lastStep.current = step;
   }, [step]);
 
@@ -200,8 +176,9 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
     setName(thing.name);
     setNameDraft(thing.name);
     setCategory(thing.category);
-    // A noted thing (Story 18.19) has no picture: its hint is where it is and when, never a "where on the picture".
-    setWhere(thing.noted ? "" : (thing.whereHint ?? ""));
+    setCountDraft("");
+    setCountError(null);
+    setCounted(thing.quantity ?? null);
     setFieldError(null);
     setNotice(null);
     setStep("main");
@@ -216,37 +193,36 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const read = detail?.key === detailKey ? detail.value : undefined;
   const photoId = noted ? null : read === undefined ? (thing?.photoId ?? null) : read ? read.photoId : (thing?.photoId ?? null);
   const box = read?.box ?? null;
-  // "Var på bilden" is for a föremål on a card; until the detail is read, every föremål that is not noted is taken to be one.
-  const hasPhoto = !noted && (read === undefined ? true : read ? read.photoId !== null : true);
+  const isCounted = counted !== null;
+  const dirty = cleanThingName(nameDraft) !== name || (!isCounted && countDraft !== "");
 
   function go(next: Step) {
     setNotice(null);
     setFieldError(null);
-    if (next === "where") setDraft(where);
     if (next === "category") setChoice(category);
     setStep(next);
   }
 
-  /** Saves the three fields with `patch` on top, and says whether it went (it came back to the first view then). */
-  async function save(patch: { name?: string; category?: ThingCategory; where?: string }): Promise<boolean> {
+  /** Saves the name and the category with `patch` on top, and says whether it went (it came back to the first view then). */
+  async function save(patch: { name?: string; category?: ThingCategory }): Promise<boolean> {
     if (!thing || saving) return false;
     setNotice(null);
     const nextName = cleanThingName(patch.name ?? name);
     const nextCategory = patch.category ?? category;
-    const nextWhere = noted ? null : cleanThingName(patch.where ?? where) || null;
     if (nextName === "") {
       setFieldError(emptyNameText);
-      (patch.name !== undefined ? nameRef : fieldRef).current?.focus();
+      nameRef.current?.focus();
       return false;
     }
-    if (nextName === name && nextCategory === category && nextWhere === (noted ? null : where || null)) {
+    if (nextName === name && nextCategory === category) {
       setStep("main");
       return true;
     }
     setSaving(true);
     let result: Result<null>;
     try {
-      result = await updateThing({ id: thing.id, name: nextName, category: nextCategory, whereHint: nextWhere });
+      // The AI's "where" is left as it is: it is not given.
+      result = await updateThing({ id: thing.id, name: nextName, category: nextCategory });
     } catch {
       // No answer (e.g. no connection): it may have been saved, so the page is read again.
       result = fail("things_item_failed");
@@ -257,16 +233,15 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
       setName(nextName);
       setNameDraft(nextName);
       setCategory(nextCategory);
-      if (!noted) setWhere(nextWhere ?? "");
-      onEvent?.({ kind: "saved", id: thing.id, name: nextName, category: nextCategory, whereHint: noted ? thing.whereHint : nextWhere });
+      onEvent?.({ kind: "saved", id: thing.id, name: nextName, category: nextCategory, whereHint: thing.whereHint });
       setStep("main");
       router.refresh();
       return true;
     }
     if (result.error.code === "things_item_gone" || result.error.code === "unauthorized") router.refresh();
-    if (result.error.fields?.name || result.error.fields?.where) {
-      setFieldError(result.error.fields.name ?? result.error.fields.where ?? null);
-      (result.error.fields.name ? nameRef : fieldRef).current?.focus();
+    if (result.error.fields?.name) {
+      setFieldError(result.error.fields.name);
+      nameRef.current?.focus();
       return false;
     }
     setNotice(result.error.message);
@@ -274,17 +249,36 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
     return false;
   }
 
-  function submitStep(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (step === "where") void save({ where: draft });
-  }
-
-  /** "Spara" under "Vad är det?": the name is saved, and the sheet closes as it does for a picked category. */
-  function submitName(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void save({ name: nameDraft }).then((saved) => {
-      if (saved) onClose();
-    });
+  /** "Spara": the name, and the count when one is typed in; the sheet closes, as it does for a picked category. */
+  async function saveAll() {
+    if (!thing || saving || !dirty) return;
+    let quantity: number | null = null;
+    if (!isCounted && countDraft !== "") {
+      quantity = Number(countDraft);
+      if (!Number.isInteger(quantity) || quantity < 0 || quantity > maxCount) {
+        setCountError(countInvalidText);
+        return;
+      }
+    }
+    setCountError(null);
+    if (!(await save({ name: nameDraft }))) return;
+    if (quantity !== null) {
+      setSaving(true);
+      let result: Awaited<ReturnType<typeof setThingCount>>;
+      try {
+        result = await setThingCount({ itemId: thing.id, quantity });
+      } catch {
+        result = fail("things_count_failed");
+      }
+      setSaving(false);
+      if (!result.ok) {
+        setNotice(result.error.message);
+        return;
+      }
+      onEvent?.({ kind: "counted", id: thing.id, quantity });
+      router.refresh();
+    }
+    onClose();
   }
 
   async function remove() {
@@ -326,12 +320,17 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   }
 
   const crumbs = read && !noted ? thingCrumbs(read.place) : [];
+  const saveButton = (
+    <Button variant="compact-primary" onClick={() => void saveAll()} aria-disabled={saving || undefined} data-testid="thing-save">
+      {saving ? "Sparar …" : saveNameText}
+    </Button>
+  );
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={step === "main" ? thingSheetTitleText : stepTitles[step]}
+      title={step === "main" ? thingSheetTitleText : categoryLabelText}
       subtitle={thing && step === "main" ? (subtitle ?? defaultSubtitle(thing)) : undefined}
       onBack={step === "main" ? undefined : () => setStep("main")}
       closeLabel="Avbryt"
@@ -353,59 +352,9 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
           />
         </div>
       ) : null}
-      {step === "where" ? (
-        <form onSubmit={submitStep} noValidate aria-busy={saving || undefined} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor={`${ids}-field`} optional>
-              {whereLabelText}
-            </FieldLabel>
-            <Input
-              ref={fieldRef}
-              id={`${ids}-field`}
-              name={step}
-              autoComplete="off"
-              maxLength={maxWhereChars * 2}
-              placeholder={wherePlaceholderText}
-              value={draft}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setFieldError(null);
-              }}
-              aria-invalid={fieldError ? true : undefined}
-              aria-describedby={fieldError ? `${ids}-field-error` : undefined}
-            />
-            {fieldError ? <FieldError id={`${ids}-field-error`}>{fieldError}</FieldError> : null}
-          </div>
-          <Button type="submit" fullWidth aria-disabled={saving || undefined}>
-            {saving ? "Sparar …" : saveNameText}
-          </Button>
-        </form>
-      ) : null}
       {/* The first view stays mounted, hidden, in a step, so the count is not read again. */}
       <div hidden={step !== "main"} aria-busy={saving || undefined} className="flex flex-col gap-4">
         {notice ? <Notice role="alert">{notice}</Notice> : null}
-        {/* The name is a free field: no register, no suggestions, and the title above does not change with it. */}
-        <form onSubmit={submitName} noValidate className="flex flex-col gap-2">
-          <FieldLabel htmlFor={`${ids}-name`}>{nameFieldText}</FieldLabel>
-          <Input
-            ref={nameRef}
-            id={`${ids}-name`}
-            name="name"
-            autoComplete="off"
-            maxLength={maxThingNameChars * 2}
-            value={nameDraft}
-            onChange={(event) => {
-              setNameDraft(event.target.value);
-              setFieldError(null);
-            }}
-            aria-invalid={fieldError && step === "main" ? true : undefined}
-            aria-describedby={fieldError && step === "main" ? `${ids}-name-error` : undefined}
-          />
-          {fieldError && step === "main" ? <FieldError id={`${ids}-name-error`}>{fieldError}</FieldError> : null}
-          <Button type="submit" fullWidth aria-disabled={saving || undefined}>
-            {saving ? "Sparar …" : saveNameText}
-          </Button>
-        </form>
         {photoId ? (
           <ThingPhoto key={photoId} photoId={photoId} thingId={thing?.id ?? ""} box={box} onOpen={onClose} />
         ) : (
@@ -434,16 +383,53 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
             ))}
           </nav>
         ) : null}
-        {/* Story 18.23: the count first, saved at once (no Spara); read again each time the sheet opens. */}
+        {/* The name is a free field: no register, no suggestions, and the title above does not change with it. */}
+        <div className="flex flex-col gap-2">
+          <FieldLabel htmlFor={`${ids}-name`}>{nameFieldText}</FieldLabel>
+          <Input
+            ref={nameRef}
+            id={`${ids}-name`}
+            name="name"
+            autoComplete="off"
+            maxLength={maxThingNameChars * 2}
+            value={nameDraft}
+            onChange={(event) => {
+              setNameDraft(event.target.value);
+              setFieldError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void saveAll();
+              }
+            }}
+            aria-invalid={fieldError && step === "main" ? true : undefined}
+            aria-describedby={fieldError && step === "main" ? `${ids}-name-error` : undefined}
+          />
+          {fieldError && step === "main" ? <FieldError id={`${ids}-name-error`}>{fieldError}</FieldError> : null}
+        </div>
+        {/* Story 18.23: the count; not counted is a field to write it in, with the one small Spara beside it, shown when something is changed. */}
         {thing ? (
           <CountCard
             key={`${thing.id}-${sessionAt}`}
             itemId={thing.id}
             name={thing.name}
             initial={thing.quantity ?? null}
-            onQuantity={(quantity) => onEvent?.({ kind: "counted", id: thing.id, quantity })}
+            onQuantity={(quantity) => {
+              setCounted(quantity);
+              onEvent?.({ kind: "counted", id: thing.id, quantity });
+            }}
+            draft={countDraft}
+            onDraft={(value) => {
+              setCountDraft(value);
+              setCountError(null);
+            }}
+            draftError={countError}
+            onSubmit={() => void saveAll()}
+            action={dirty ? saveButton : null}
           />
         ) : null}
+        {isCounted && dirty ? <div className="-mt-2 flex justify-end">{saveButton}</div> : null}
         {link ? (
           <Link
             href={link.href}
@@ -455,25 +441,25 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
             <ChevronRightIcon size={16} className="shrink-0 text-ink-3" />
           </Link>
         ) : null}
-        <ListGroup label="Ändra" className="border border-border">
-          <SheetRow
-            label={categoryLabelText}
-            value={`${thingTiles[category].icon} ${category}`}
-            ariaLabel={`${categoryLabelText}, ${category}`}
-            onPress={() => go("category")}
-            rowRef={(el) => void (rowRefs.current.category = el)}
-            testId="thing-category"
-          />
-          {hasPhoto ? (
-            <SheetRow label={whereLabelText} value={where || undefined} onPress={() => go("where")} rowRef={(el) => void (rowRefs.current.where = el)} testId="thing-where" />
-          ) : null}
-          <ListRow
-            plain
-            onPress={() => void remove()}
-            pressProps={{ "data-testid": "thing-remove" }}
-            title={<span className="text-danger">{removeThingText}</span>}
-          />
-        </ListGroup>
+        {/* Two quiet lines (Pontus 20 Nov): small, muted text, nothing like buttons. */}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            ref={categoryRowRef}
+            type="button"
+            onClick={() => go("category")}
+            aria-label={`${categoryLabelText}, ${category}`}
+            data-testid="thing-category"
+            className="inline-flex min-h-tap items-center gap-1 rounded-md pr-1 text-meta text-ink-2"
+          >
+            <span aria-hidden="true">
+              {categoryLabelText}: {thingTiles[category].icon} {category}
+            </span>
+            <ChevronRightIcon size={12} className="shrink-0 text-ink-3" />
+          </button>
+          <button type="button" onClick={() => void remove()} data-testid="thing-remove" className="inline-flex min-h-tap items-center rounded-md pl-1 text-meta text-danger">
+            {removeThingText}
+          </button>
+        </div>
       </div>
     </Sheet>
   );
