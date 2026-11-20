@@ -9,6 +9,7 @@ import { photoSave, type PhotoSaveCalls, type PhotoToSave } from "./place-photo-
 // saved.
 
 vi.mock("../actions/save-place-photo-points", () => ({ savePlacePhotoPoints: vi.fn() }));
+vi.mock("../actions/link-pantry-photo", () => ({ linkPantryItemsToPhoto: vi.fn() }));
 
 const stugan = "22222222-2222-4222-8222-222222222222";
 const photoId = "33333333-3333-4333-8333-333333333333";
@@ -28,6 +29,7 @@ function fakeCalls() {
       (form: FormData) => new Promise<PhotoPostAnswer>((resolve, reject) => posts.push({ form, answer: resolve, fail: reject })),
     ),
     savePoints: vi.fn(async () => ok({ saved: true })),
+    link: vi.fn(async () => ok({ linked: 1 })),
   };
   return { calls, posts };
 }
@@ -171,5 +173,49 @@ describe("photoSave", () => {
     await settle();
     save.located([]);
     expect(calls.savePoints).not.toHaveBeenCalled();
+  });
+
+  // Matvaror: the rows a write set are linked to the photo, with the number they came from.
+  it("links rows to the photo once it is saved, with the first number the reading has", async () => {
+    const { calls, posts } = fakeCalls();
+    const save = photoSave(photo, calls);
+    save.written();
+    save.linked([
+      { id: "r1", photoNumbers: [3, 2] },
+      { id: "r2", photoNumbers: [1] },
+      { id: "r3" },
+    ]);
+    expect(calls.link).not.toHaveBeenCalled();
+    posts[0].answer({ kind: "saved", id: photoId });
+    await settle();
+    // The reading has two items: number 3 is on another photo, r3 came from no number.
+    expect(calls.link).toHaveBeenCalledWith({
+      photoId,
+      items: [
+        { id: "r1", number: 2 },
+        { id: "r2", number: 1 },
+      ],
+    });
+  });
+
+  it("prefers a number that has a point, and links at once for a saved photo", async () => {
+    const { calls, posts } = fakeCalls();
+    const save = photoSave(photo, calls);
+    save.written();
+    save.located([{ n: 2, x: 10, y: 20 }]);
+    posts[0].answer({ kind: "saved", id: photoId });
+    await settle();
+    save.linked([{ id: "r1", photoNumbers: [1, 2] }]);
+    expect(calls.link).toHaveBeenCalledWith({ photoId, items: [{ id: "r1", number: 2 }] });
+  });
+
+  it("links nothing after a refusal or when no number fits", async () => {
+    const { calls, posts } = fakeCalls();
+    const save = photoSave(photo, calls);
+    save.written();
+    posts[0].answer({ kind: "final" });
+    await settle();
+    save.linked([{ id: "r1", photoNumbers: [1] }]);
+    expect(calls.link).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
-import { photoTimeText, type PantryItem, type SelectedSite } from "@/features/pantry";
+import { photoTimeText, placePhotoUrl, withKeptPhotos, type PantryItem, type PlacePhoto, type SelectedSite } from "@/features/pantry";
 import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
 import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
@@ -55,7 +55,9 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   await requireUserOrRedirect(next);
 
   // Started first, so it is read alongside the pantry, and is there for the notice below too.
-  const photoRead = locationPhotos(site.id, location);
+  const allPhotoRead = sitePhotos(site.id);
+  allPhotoRead.catch(() => {});
+  const photoRead = locationPhotos(allPhotoRead, location);
   // Awaited below, unless the pantry fails with a bug, which goes to the error boundary without it.
   photoRead.catch(() => {});
   let counts: Record<Location, number>;
@@ -85,6 +87,8 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   }
 
   const photos = await photoRead;
+  // The photo each item was read from, when it is still stored (a camera icon on the row, the photo in its sheet).
+  items = withKeptPhotos(items, await allPhotoRead, placePhotoUrl);
   return (
     <>
       <PageReady name="Matvaror" />
@@ -101,11 +105,16 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
  * first, with the time it was taken as the line writes it. Only photos that
  * are stored (younger than 30 days, not removed) come back.
  */
-async function locationPhotos(siteId: string, location: Location): Promise<ShownPlacePhoto[]> {
-  const { photos } = await listPlacePhotos(siteId);
+async function locationPhotos(all: Promise<PlacePhoto[]>, location: Location): Promise<ShownPlacePhoto[]> {
+  const photos = await all;
   const now = new Date();
   return photos
     .filter((candidate) => candidate.location === location)
     .sort((a, b) => b.takenAt.getTime() - a.takenAt.getTime())
     .map((photo) => ({ ...photo, time: photoTimeText(photo.takenAt, now) }));
+}
+
+/** Every stored photo of the place, whatever the location; none when they could not be read. */
+async function sitePhotos(siteId: string): Promise<PlacePhoto[]> {
+  return (await listPlacePhotos(siteId)).photos;
 }

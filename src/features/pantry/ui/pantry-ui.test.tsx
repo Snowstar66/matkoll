@@ -83,6 +83,25 @@ describe("PantryList", () => {
     item({ id: "4", name: "Kycklingfilé", section: "Kött och fisk", createdAt: "2026-10-26T11:00:00Z", amount: 500, unit: "g" }),
     item({ id: "5", name: "Senap", section: "Skafferi", label: "Johnny's" }),
   ];
+  it("marks an item read from a photo with a camera icon, and no other", () => {
+    render(
+      <PantryList
+        location="Kyl"
+        items={[
+          item({ id: "1", name: "Gurka", photo: { number: 2, photoId: "photo-1" } }),
+          item({ id: "2", name: "Tomat", photo: { number: 1, photoId: null } }),
+          item({ id: "3", name: "Mjölk" }),
+        ]}
+      />,
+    );
+    const rows = screen.getAllByTestId("pantry-row");
+    const mjolkRow = rows.find((row) => row.textContent?.startsWith("Mjölk"));
+    expect(mjolkRow?.querySelector("svg")).toBeNull();
+    expect(rows.filter((row) => row.querySelector("svg")).length).toBe(2);
+    const withIcon = rows.filter((row) => row.textContent?.includes("Inläst från foto")).map((row) => row.textContent?.replace(" Inläst från foto", ""));
+    expect(withIcon).toEqual(["Gurka", "Tomat"]);
+  });
+
   /** Each category's heading, with its rows' names and the line under each. */
   const categories = () =>
     screen.getAllByTestId("pantry-category").map((category) => [

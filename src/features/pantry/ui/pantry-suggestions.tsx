@@ -168,6 +168,12 @@ export type PantrySuggestions = PantryAnalysis & PantryReview;
 
 const PantrySuggestionsContext = createContext<PantrySuggestions | null>(null);
 
+/** The rows a confirmation's answer says it set, with their photo numbers; none for an answer without them. */
+function setRowsOf(data: unknown): { id: string; photoNumbers?: number[] }[] {
+  const rows = (data as { setRows?: { id: string; photoNumbers?: number[] }[] } | null)?.setRows;
+  return Array.isArray(rows) ? rows : [];
+}
+
 /**
  * Where focus goes when `id` leaves the cards and `gone` with it: the next
  * card's first button, else the previous card's, else the camera button.
@@ -381,8 +387,11 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const answer = await within(call, code);
     busy.current = false;
     setPending(null);
-    if (answer.result.ok) photo?.written();
-    else if (answer.result.error.code === "unauthorized") router.refresh();
+    if (answer.result.ok) {
+      photo?.written();
+      // Matvaror: the rows this write set are linked to the photo (and the number they came from) once it is saved.
+      photo?.linked(setRowsOf(answer.result.data));
+    } else if (answer.result.error.code === "unauthorized") router.refresh();
     return answer;
   }
 

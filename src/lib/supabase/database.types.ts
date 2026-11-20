@@ -477,14 +477,14 @@ isOneToOne: false
                   ]
                 },"pantry_item": {
                   Row: {
-                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string,"label": string | null,"location": string,"site_id": string,"unit": string | null,"updated_at": string | null,"updated_by": string | null,"user_id": string | null
+                    "amount": number | null,"created_at": string,"household_id": string,"id": string,"ingredient_id": string,"label": string | null,"location": string,"photo_id": string | null,"photo_number": number | null,"site_id": string,"unit": string | null,"updated_at": string | null,"updated_by": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id": string,"label"?: string | null,"location": string,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id": string,"label"?: string | null,"location": string,"photo_id"?: string | null,"photo_number"?: number | null,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string,"label"?: string | null,"location"?: string,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
+                    "amount"?: number | null,"created_at"?: string,"household_id"?: string,"id"?: string,"ingredient_id"?: string,"label"?: string | null,"location"?: string,"photo_id"?: string | null,"photo_number"?: number | null,"site_id"?: string,"unit"?: string | null,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -505,6 +505,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "pantry_site"
       referencedColumns: ["id","household_id"]
+    },{
+      foreignKeyName: "pantry_item_photo_id_fkey"
+      columns: ["photo_id"]
+isOneToOne: false
+      referencedRelation: "pantry_photo"
+      referencedColumns: ["id"]
     }
                   ]
                 },"pantry_photo": {
@@ -1757,6 +1763,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"link_pantry_items_photo":
+{ Args: { "links": Json,"photo": string }; Returns: number
+                           },
 "set_pantry_photo_points":
 { Args: { "photo_id": string,"photo_points": Json }; Returns: boolean
                            },

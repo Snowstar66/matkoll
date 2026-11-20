@@ -164,6 +164,15 @@ export function suggestionLabel(suggestion: { name: string; labels?: readonly st
   return null;
 }
 
+/** The most numbers one confirmed item remembers from its photo (a reading has at most 25 items). */
+export const maxPhotoNumbers = 25;
+
+/** The numbers on the photo of the items behind a suggestion, as the confirmed item carries them; nothing without any. */
+export function photoNumberKeys(suggestion: { itemNumbers?: readonly number[] }): { photoNumbers?: number[] } {
+  const numbers = (suggestion.itemNumbers ?? []).slice(0, maxPhotoNumbers);
+  return numbers.length === 0 ? {} : { photoNumbers: [...numbers] };
+}
+
 /**
  * The field "Märke eller sort" as typed: on one line without blank-looking
  * characters, and `null` when empty, so an emptied field removes the label.
@@ -314,10 +323,15 @@ const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
  * `photoLabel` (Story 11.2, after review): a label from a photo (the model's,
  * suggestionLabel). It fills the row's label only when the row has none, so
  * a label Pontus wrote is never replaced by the model's. `label` wins when an
- * item has both.
+ * item has both. `photoNumbers`: the numbers on the photo of the items it
+ * came from; the database never sees them (the client links the rows to the
+ * photo once it is saved, linkPantryItemsToPhoto).
  */
 export const pantryItemSetSchema = pantryItemSetShape
-  .extend({ photoLabel: pantryLabelSchema.optional() })
+  .extend({
+    photoLabel: pantryLabelSchema.optional(),
+    photoNumbers: z.array(z.number().int().min(1).max(100)).max(maxPhotoNumbers).optional(),
+  })
   .refine(amountHasUnit, { path: ["unit"] });
 export type PantryItemSet = z.infer<typeof pantryItemSetSchema>;
 
