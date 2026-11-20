@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { CheckIcon, TrashIcon } from "@/components/icons";
 import { AmountInput } from "@/components/amount-input";
@@ -129,11 +129,6 @@ export type CustomItemSheetProps = {
   /** "Ta bort" in an item's detail: removes it, with "Ångra" (Story 3.5). */
   onRemove?: () => void;
   /**
-   * Under the form in an item's detail: the section Produktval (Story 7.2),
-   * given whether the form is saving and whether it has unsaved changes.
-   */
-  renderAfterForm?: (saving: boolean, dirty: boolean) => ReactNode;
-  /**
    * "Fota en lista" and "Klistra in en lista" under the field of a new item: the catalog's match of names (passed down
    * from the page, AD-1) and what the list has already, for "Finns redan". Without it the sheet has no such choices.
    */
@@ -164,7 +159,6 @@ export function CustomItemSheet({
   title,
   subtitle,
   onRemove,
-  renderAfterForm,
   listImport: listImportProps,
 }: CustomItemSheetProps) {
   const router = useRouter();
@@ -578,11 +572,6 @@ export function CustomItemSheet({
           ) : null}
         </div>
       </form>
-      {item && renderAfterForm ? (
-        <div inert={saving} className="pt-6">
-          {renderAfterForm(saving, isFormDirty(values, initial))}
-        </div>
-      ) : null}
     </Sheet>
   );
 }

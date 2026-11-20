@@ -19,19 +19,16 @@ import { exactAmountText } from "../domain/custom-item";
 import { parseLineKey } from "../domain/line-key";
 import { isAmountKey, lineAmountFieldErrors, lineAmountFormSchema } from "../domain/line-override";
 import { backToComputedText, computedAmountText, dishTitlesOf } from "../domain/list-text";
-import { canHaveProductChoice, type ProductChoiceContext, saveItemFirstText } from "../domain/product-choice";
 import { CustomItemSheet } from "./custom-item-sheet";
 import type { OwnChanges } from "./own-changes";
-import { ProductChoiceSection } from "./product-choice-section";
 
 // Listpostdetalj (FR-17, Story 3.6, EXPERIENCE.md): the sheet a tap on a
 // line's name opens. For a recipe line it shows the amount to correct (in the
 // line's unit, which never changes), where the line comes from and "Ta bort";
 // a vague line and a line without a catalog ingredient have no amount to
 // correct. For an own item it is the item's form (CustomItemSheet), whose
-// "Spara" changes the item. A line with a catalog ingredient, and an own item,
-// also has the section Produktval (Story 7.2), whose button asks the list to
-// replace the detail with the sheet Produktval.
+// "Spara" changes the item. (The section Produktval was taken out of the
+// sheet 2026-11-20; stored choices are only used by "Kopiera till ICA-varukorgen".)
 
 export type LineDetailSheetProps = {
   open: boolean;
@@ -49,14 +46,6 @@ export type LineDetailSheetProps = {
   onRemove: (line: ShoppingLine, moveFocus: boolean) => void;
   /** Tracks a corrected amount, so the list's live region does not announce it as a recount. */
   onChange?: OwnChanges["track"];
-  /** The selected store and its product choices, as the list was read (Story 7.2). */
-  productChoices: ProductChoiceContext;
-  /**
-   * "Ange produktval" / "Ändra produktval": the list opens the sheet
-   * Produktval for the line, which replaces this one (after "Släng
-   * ändringarna?" when the detail has changes).
-   */
-  onProductChoice: (line: ShoppingLine) => void;
   /** Story 21.3: under the name, who else checked it off or added it ("Martina bockade av · 17:42"). */
   byLine?: string;
 };
@@ -84,16 +73,6 @@ export function LineDetailSheet(props: LineDetailSheetProps) {
           unit: line.unit,
         }}
         onRemove={() => onRemove(line, true)}
-        // The link as saved: a link changed in the form counts once it is saved.
-        renderAfterForm={(saving, dirty) => (
-          <ProductChoiceSection
-            line={line}
-            context={props.productChoices}
-            disabled={saving}
-            blockedHint={dirty ? saveItemFirstText : undefined}
-            onOpen={() => props.onProductChoice(line)}
-          />
-        )}
       />
     );
   }
@@ -116,12 +95,10 @@ type Change = { kind: "save"; amount: string; value: number } | { kind: "clear" 
  * A recipe line's detail: its name as the title, the amount field with the
  * line's unit beside it (a line with a unit only), "Beräknat: 3 dl" and
  * "Använd beräknad mängd" when the amount is corrected, what is at home in
- * other units, "Från [rätter]", the section Produktval for a line with a
- * catalog ingredient, and "Spara" and "Ta bort". "Spara" with the amount
+ * other units, "Från [rätter]", and "Spara" and "Ta bort". "Spara" with the amount
  * unchanged only closes the sheet; with the counted amount, it takes a
  * correction off (or only closes without one). A changed amount asks
- * "Släng ändringarna?" before the sheet closes or the sheet Produktval
- * replaces it, but not before "Ta bort".
+ * "Släng ändringarna?" before the sheet closes, but not before "Ta bort".
  */
 function RecipeLineDetail({
   open,
@@ -132,8 +109,6 @@ function RecipeLineDetail({
   dishTitles,
   onRemove,
   onChange,
-  productChoices,
-  onProductChoice,
   byLine,
 }: LineDetailSheetProps) {
   const router = useRouter();
@@ -360,14 +335,6 @@ function RecipeLineDetail({
               </p>
             ) : null}
           </div>
-        ) : null}
-        {canHaveProductChoice(line) ? (
-          <ProductChoiceSection
-            line={line}
-            context={productChoices}
-            disabled={saving}
-            onOpen={() => onProductChoice(line)}
-          />
         ) : null}
       </div>
     </Sheet>
