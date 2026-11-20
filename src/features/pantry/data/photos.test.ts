@@ -6,6 +6,7 @@ import {
   loadExpiredPlacePhotosIn,
   loadPlacePhotoOrphansIn,
   loadSitePhotoPathsIn,
+  deleteLocationPhotoRowsIn,
   deletePlacePhotoRowIn,
   downloadPlacePhoto,
   loadPlacePhotoIn,
@@ -541,6 +542,24 @@ describe("deletePlacePhotoRowIn", () => {
 
   it("throws delete_failed with the code", async () => {
     await expect(deletePlacePhotoRowIn(fakeQuery({ data: null, error: { code: "42501" } }).db, photo)).rejects.toThrow(
+      new PantryDataError("delete_failed 42501"),
+    );
+  });
+});
+
+describe("deleteLocationPhotoRowsIn", () => {
+  it("deletes the rows of the place and location only, and gives their paths", async () => {
+    const { db, calls } = fakeQuery({ data: [{ object_path: path }, { object_path: `${path}2` }], error: null });
+    expect(await deleteLocationPhotoRowsIn(db, site, "Kyl")).toEqual([path, `${path}2`]);
+    expect(calls).toEqual([["delete"], ["eq", "site_id", site], ["eq", "location", "Kyl"], ["select", "object_path"]]);
+  });
+
+  it("gives no paths when there were no rows", async () => {
+    expect(await deleteLocationPhotoRowsIn(fakeQuery({ data: [], error: null }).db, site, "Frys")).toEqual([]);
+  });
+
+  it("throws delete_failed with the code", async () => {
+    await expect(deleteLocationPhotoRowsIn(fakeQuery({ data: null, error: { code: "42501" } }).db, site, "Kyl")).rejects.toThrow(
       new PantryDataError("delete_failed 42501"),
     );
   });

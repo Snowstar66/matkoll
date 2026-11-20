@@ -128,6 +128,7 @@ describe("the sheet", () => {
     fireEvent.click(emptyButton()!);
     expect(within(sheet()).getByText("Ta bort alla 14 varor i kylen?")).toBeInTheDocument();
     expect(within(sheet()).getByText("Du kan ångra direkt efteråt.")).toBeInTheDocument();
+    expect(within(sheet()).getByText("Fotot av kylen tas också bort.")).toBeInTheDocument();
     expect(within(sheet()).getByRole("button", { name: "Avbryt" })).toHaveFocus();
     expect(sheetConfirm()).toHaveTextContent("Ta bort");
   });

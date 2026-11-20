@@ -92,6 +92,11 @@ export function emptyPlaceQuestion(location: Location, count: number, site: Name
 /** Under the question: emptying can be undone, so no "Det går inte att ångra." */
 export const emptyPlaceUndoHint = "Du kan ångra direkt efteråt.";
 
+/** Also under the question: the photos of the place go, and "Ångra" does not bring them back. */
+export function emptyPlacePhotoHint(location: Location): string {
+  return `Fotot av ${definite[location]} tas också bort.`;
+}
+
 /**
  * The short confirmation, with "Ångra": "Tog bort 14 varor ur kylen." or
  * "Tog bort 1 vara ur kylen."; with more than one place (Story 8.4) "Tog

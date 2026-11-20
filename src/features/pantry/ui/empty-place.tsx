@@ -8,7 +8,7 @@ import { Sheet } from "@/components/sheet";
 import type { Location } from "@/features/catalog";
 import { newId } from "@/lib/new-id";
 import type { PantryItem } from "../domain/pantry-item";
-import { emptyPlaceButtonText, emptyPlaceQuestion, emptyPlaceUndoHint } from "../domain/places";
+import { emptyPlaceButtonText, emptyPlacePhotoHint, emptyPlaceQuestion, emptyPlaceUndoHint } from "../domain/places";
 import type { SelectedSite } from "../domain/site";
 import { usePantryRemoval } from "./pantry-removal";
 import { usePantrySuggestions } from "./pantry-suggestions";
@@ -139,6 +139,7 @@ export function EmptyPlaceButton({ site, location, count, items }: EmptyPlaceBut
       >
         <div className="flex flex-col gap-2">
           <p className="text-body text-ink-2">{emptyPlaceUndoHint}</p>
+          <p className="text-body text-ink-2">{emptyPlacePhotoHint(asking?.location ?? location)}</p>
         </div>
       </Sheet>
     </>

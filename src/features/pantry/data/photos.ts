@@ -448,3 +448,17 @@ export async function deletePlacePhotoRowIn(db: PantryDb, id: string): Promise<s
     return typeof path === "string" ? path : null;
   });
 }
+
+/**
+ * Deletes every photo row of the user's place `siteId` at `location` ("Töm
+ * kylen" takes the photos too) and gives the paths of their files, which are
+ * left for the caller to remove. Other places and locations are never
+ * touched. Throws PantryDataError `delete_failed <code>` or `delete_threw`.
+ */
+export async function deleteLocationPhotoRowsIn(db: PantryDb, siteId: string, location: Location): Promise<string[]> {
+  return guarded("delete", async () => {
+    const { data, error } = await db.from("pantry_photo").delete().eq("site_id", siteId).eq("location", location).select("object_path");
+    if (error) throw new PantryDataError(`delete_failed ${error.code}`);
+    return (data ?? []).map((row) => row.object_path).filter((path): path is string => typeof path === "string");
+  });
+}
