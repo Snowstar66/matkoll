@@ -138,12 +138,6 @@ export const imageReadingEmail = "e2e-bildtolkning@matkoll.test";
  */
 export const storeEmail = "e2e-butik@matkoll.test";
 /**
- * The E2E user of product-choice.spec.ts alone (Produktval, Story 7.2): each
- * test sets its meal plan, own items, stores and product choices with the
- * service role, so what the detail shows depends on nothing else.
- */
-export const productChoiceEmail = "e2e-produktval@matkoll.test";
-/**
  * The E2E user of basket-export.spec.ts alone ("Skicka till ICA", Story
  * 7.3): each test sets its meal plan, own items, store and product choices
  * with the service role, so the copied export depends on nothing else.
@@ -382,7 +376,6 @@ export const e2eEmails = [
   inventoryEmail,
   imageReadingEmail,
   storeEmail,
-  productChoiceEmail,
   basketExportEmail,
   sitesEmail,
   siteStatusEmail,
@@ -448,7 +441,6 @@ export const emptyPlaceStorageState = "tests/e2e/.auth/empty-place.json";
 export const inventoryStorageState = "tests/e2e/.auth/inventory.json";
 export const imageReadingStorageState = "tests/e2e/.auth/image-reading.json";
 export const storeStorageState = "tests/e2e/.auth/store.json";
-export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
 export const basketExportStorageState = "tests/e2e/.auth/basket-export.json";
 export const sitesStorageState = "tests/e2e/.auth/sites.json";
 export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";

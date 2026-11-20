@@ -13,6 +13,7 @@ import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
 import { noDishesText, parseListFilter, planWeekText } from "@/features/shopping";
 import { loadBoendeCounts } from "../boende-counts";
+import { loadListOfferTags } from "./list-offer-tags";
 import { ShoppingListView } from "./shopping-list-view";
 
 const next = "/lista";
@@ -27,7 +28,8 @@ const quickAddNext = "/lista/lagg-till";
  * catalog's search is passed down for the suggestions in Lägg till vara
  * (AD-1: a client component never imports another module's actions). The
  * selected store and its product choices (Story 7.2) go beside the list; when
- * they cannot be read, only the detail's section Produktval says so. The place
+ * they cannot be read, only "Kopiera till ICA-varukorgen" says so. The selected store's
+ * offers are started here without being waited for, and follow as prices after the names (ShoppingList). The place
  * the list is counted against goes to the list too, for "Lägg till i Matvaror" and
  * its texts.
  *
@@ -118,6 +120,8 @@ export async function ShoppingListContent({
         productChoices={productChoices}
         productChoicesUnavailable={productChoicesUnavailable}
         unreadableChoices={unreadableChoices}
+        // Started here, not waited for: the list is shown at once and the prices follow (ShoppingList's Suspense).
+        offerTags={store ? loadListOfferTags(store.id) : undefined}
         site={site}
         marks={marks}
         addedAt={addedAt}

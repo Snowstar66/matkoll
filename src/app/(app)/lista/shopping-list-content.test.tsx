@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
@@ -10,6 +10,13 @@ import { ShoppingListContent } from "./shopping-list-content";
 
 vi.mock("@/features/auth/server", () => ({ requireUserOrRedirect: vi.fn(async () => ({ id: "user" })) }));
 vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
+const getActiveOffers = vi.hoisted(() => vi.fn(async (_storeId: string): Promise<unknown[]> => []));
+vi.mock("@/features/offers/server", () => ({
+  getActiveOffers,
+  OffersDataError: class OffersDataError extends Error {
+    detail = "x";
+  },
+}));
 const redirect = vi.fn((url: string) => {
   throw new Error(`redirect ${url}`);
 });
@@ -205,7 +212,11 @@ describe("ShoppingListContent", () => {
     expect(screen.getByRole("link", { name: "Planera veckan" })).toHaveAttribute("href", `/matsedel?vecka=${weekParam(thisWeek)}`);
   });
 
-  it("passes the selected store and its product choices on to the line's detail", async () => {
+  it("shows the selected store's offer as a price after the name, and no Produktval in the line's detail", async () => {
+    getActiveOffers.mockResolvedValue([
+      { id: "o1", name: "Matlagningsgrädde", label: "Arla Matlagningsgrädde", price: "19 kr/st", ingredientId: "11111111-1111-4111-8111-111111111111" },
+      { id: "o2", name: "Annat", label: "Annat", price: "5 kr", ingredientId: null },
+    ]);
     const graddeId = "11111111-1111-4111-8111-111111111111";
     const store = {
       id: "22222222-2222-4222-8222-222222222222",
@@ -258,13 +269,58 @@ describe("ShoppingListContent", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    const content = await ShoppingListContent();
+    await act(async () => {
+      render(<ToastProvider>{content}</ToastProvider>);
+    });
+    expect(getActiveOffers).toHaveBeenCalledWith(store.id);
+    // The price follows once the offers are read; the saved product choice shows nowhere on the list.
+    expect(await screen.findByTestId("offer-tag")).toHaveTextContent("19 kr/st");
+    expect(screen.queryByTestId("product-chip")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Grädde/ }));
     const detail = await screen.findByRole("dialog", { name: "Grädde" });
-    expect(detail).toHaveTextContent("Arla Matlagningsgrädde 15 % · 5 dl");
+    expect(detail).not.toHaveTextContent(/produktval/i);
+    expect(detail).not.toHaveTextContent("Arla Matlagningsgrädde 15 %");
   });
 
-  it("passes the choices that cannot be read on to the line's detail, and shows Kopiera till ICA-varukorgen", async () => {
+  it("shows the list without prices when the offers cannot be read", async () => {
+    getActiveOffers.mockRejectedValue(new Error("down"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getShoppingList).mockResolvedValue(
+      ok({
+        plan: { id: "plan", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
+        lines: [
+          {
+            key: "r:11111111-1111-4111-8111-111111111111:dl",
+            ingredientId: "11111111-1111-4111-8111-111111111111",
+            label: "Grädde",
+            amount: 3,
+            unit: "dl" as const,
+            isVague: false,
+            coverage: { kind: "unlinked" as const },
+            section: "Mejeri" as const,
+            origins: [],
+            checked: false,
+            isCustom: false,
+          },
+        ],
+        hiddenLines: [],
+        pantryUnavailable: false,
+        checksUnavailable: false,
+        pendingClear: 0,
+        ...noChoices,
+        store: { id: "22222222-2222-4222-8222-222222222222", name: "ICA", chain: "ICA" as const, externalStoreId: null, address: null, url: null, offersUrl: null, isSelected: true },
+        site: null,
+      }),
+    );
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.getByRole("button", { name: /^Grädde/ })).toBeInTheDocument();
+    await waitFor(() => expect(log).toHaveBeenCalledWith("list_offers_unavailable", { reason: "Error" }));
+    expect(screen.queryByTestId("offer-tag")).not.toBeInTheDocument();
+    log.mockRestore();
+  });
+
+  it("passes the choices that cannot be read on to the export, and shows Kopiera till ICA-varukorgen", async () => {
     const graddeId = "11111111-1111-4111-8111-111111111111";
     vi.mocked(getShoppingList).mockResolvedValue(
       ok({
@@ -302,12 +358,9 @@ describe("ShoppingListContent", () => {
         unreadableChoices: [graddeId],
       }),
     );
-    const user = userEvent.setup();
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByRole("button", { name: "Kopiera till ICA-varukorgen" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^Grädde/ }));
-    const detail = await screen.findByRole("dialog", { name: "Grädde" });
-    expect(detail).toHaveTextContent("Det gick inte att läsa produktvalet.");
+    expect(screen.queryByText("Det gick inte att läsa produktvalet.")).not.toBeInTheDocument();
   });
 
   it("passes the list's place on, so Lägg till i Matvaror puts the items there", async () => {

@@ -63,7 +63,7 @@ export type ShoppingList = CountedList & { pendingClear: number } & ProductChoic
  * choices. When the store cannot be read (logged as
  * `settings_store_unavailable`), or its choices cannot (logged as
  * `shopping_product_choices_unavailable`), the list is shown all the same and
- * only the detail's section Produktval says so. No store selected: no choices.
+ * only the export says so. No store selected: no choices.
  * Other errors are bugs and are thrown.
  */
 async function storeAndChoices(): Promise<ProductChoiceContext> {
