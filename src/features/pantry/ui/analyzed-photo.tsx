@@ -384,30 +384,68 @@ export function PhotoCrop({ url, x, y, number }: PhotoCropProps) {
 
 /**
  * "Visa hela fotot" in the sheet Ändra vara: the whole photo at the sheet's
- * width with the item's marker on it (percent of the photo, so the marker
- * stays on the item). A plain <img> in the sheet, not a link to the file and
- * not a second sheet, so there is always a way back: the caller shows
- * "Stäng fotot" under it. The point is optional; without it no marker shows.
+ * width with all of the photo's numbered markers on it (percent of the photo,
+ * so they stay on their items). The item's own (`number`) is lit (tone "on"),
+ * the others are quiet (tone "off"), nudged apart where they would overlap.
+ * Purely visual, so hidden from screen readers. A plain <img> in the sheet,
+ * not a link to the file and not a second sheet, so there is always a way
+ * back: the caller shows "Stäng fotot" under it.
  */
-export function PhotoFull({ url, x, y, number }: { url: string; x: number | null; y: number | null; number: number }) {
-  const left = x === null ? null : x / 10;
-  const top = y === null ? null : y / 10;
+export function PhotoFull({
+  url,
+  points,
+  number,
+}: {
+  url: string;
+  points: readonly { n: number; x: number; y: number }[];
+  number: number;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  const [natural, setNatural] = useState<ImageSize | null>(null);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    setWidth(frame.clientWidth || null);
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(() => setWidth(frame.clientWidth || null));
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+  const markers = points.map((point) => ({ key: point.n, label: point.n, left: point.x / 10, top: point.y / 10 }));
+  const shown = natural && width ? spreadMarkers(markers, { width, height: (width * natural.height) / natural.width }) : markers;
+  // The lit one last, so it is on top where markers still touch.
+  const ordered = [...shown].sort((a, b) => Number(a.label === number) - Number(b.label === number));
   return (
-    <div data-testid="pantry-sheet-full-photo" className="relative overflow-hidden rounded-[14px] bg-photo-stage">
+    <div ref={frameRef} data-testid="pantry-sheet-full-photo" className="relative overflow-hidden rounded-[14px] bg-photo-stage">
       {/* eslint-disable-next-line @next/next/no-img-element -- the photo is private, served by the route handler */}
-      <img src={url} alt="" className="block h-auto w-full" />
-      {left !== null && top !== null ? (
-        <span
-          aria-hidden="true"
-          style={{
-            left: `clamp(${markerInset}, ${left}%, calc(100% - ${markerInset}))`,
-            top: `clamp(${markerInset}, ${top}%, calc(100% - ${markerInset}))`,
-          }}
-          className={cx(photoMarkerClasses("on"), "absolute -translate-x-1/2 -translate-y-1/2")}
-        >
-          {number}
-        </span>
-      ) : null}
+      <img
+        src={url}
+        alt=""
+        className="block h-auto w-full"
+        onLoad={(event) => {
+          const { naturalWidth, naturalHeight } = event.currentTarget;
+          if (naturalWidth > 0 && naturalHeight > 0) setNatural({ width: naturalWidth, height: naturalHeight });
+        }}
+      />
+      {ordered.map((marker) => {
+        const own = marker.label === number;
+        return (
+          <span
+            key={marker.key}
+            aria-hidden="true"
+            data-testid="pantry-full-photo-marker"
+            data-tone={own ? "on" : "off"}
+            style={{
+              left: `clamp(${markerInset}, ${marker.left}%, calc(100% - ${markerInset}))`,
+              top: `clamp(${markerInset}, ${marker.top}%, calc(100% - ${markerInset}))`,
+            }}
+            className={cx(photoMarkerClasses(own ? "on" : "off"), "absolute -translate-x-1/2 -translate-y-1/2", own ? "z-20" : "z-10")}
+          >
+            {marker.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
