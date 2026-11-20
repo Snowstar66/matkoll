@@ -452,7 +452,7 @@ test.describe("import from a link", () => {
       await expect(sheet(page).getByRole("alert")).toContainText(message, { timeout: 15_000 });
       if (message.includes("släppte inte in")) {
         await expect(sheet(page).getByRole("alert")).toContainText("Öppna sidan, markera receptet, kopiera och klistra in här.");
-        await expect(sheet(page).getByRole("link", { name: "Öppna koket.se" })).toHaveAttribute("rel", "noopener noreferrer");
+        await expect(sheet(page).getByRole("link", { name: "Öppna koket.se", exact: true })).toHaveAttribute("rel", "noopener noreferrer");
       }
       await sheet(page).getByRole("button", { name: "Klistra in text i stället" }).click();
       await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
