@@ -853,13 +853,13 @@ function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
       </p>
     );
   }
-  const { url, point } = photo.kept;
+  const { url, point, points } = photo.kept;
   const linkClasses = "-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent";
   return (
     <div data-testid="pantry-item-photo" className="flex flex-col gap-2">
       <p className="text-meta text-ink-3">Så här läste AI fotot.</p>
       {whole ? (
-        <PhotoFull url={url} x={point?.x ?? null} y={point?.y ?? null} number={photo.number} />
+        <PhotoFull url={url} points={points} number={photo.number} />
       ) : point ? (
         <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} />
       ) : null}

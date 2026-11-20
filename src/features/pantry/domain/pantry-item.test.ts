@@ -101,20 +101,34 @@ describe("snapshotFor", () => {
 describe("withKeptPhotos", () => {
   const photoId = "photo-1";
   const urlOf = (id: string) => `/api/pantry/photo/${id}`;
-  const stored = [{ id: photoId, points: [{ n: 2, x: 300, y: 600 }] }];
+  const stored = [{ id: photoId, points: [{ n: 2, x: 300, y: 600 }, { n: 3, x: 100, y: 200 }] }];
 
   it("marks the photo as kept, with its address and the item's point on it", () => {
     const gurka = item({ id: "1", name: "Gurka", photo: { number: 2, photoId } });
     expect(withKeptPhotos([gurka], stored, urlOf)[0].photo).toEqual({
       number: 2,
       photoId,
-      kept: { url: "/api/pantry/photo/photo-1", point: { x: 300, y: 600 } },
+      kept: {
+        url: "/api/pantry/photo/photo-1",
+        point: { x: 300, y: 600 },
+        points: [
+          { n: 2, x: 300, y: 600 },
+          { n: 3, x: 100, y: 200 },
+        ],
+      },
     });
   });
 
   it("keeps the photo without a point when the photo has none for the number", () => {
     const gurka = item({ id: "1", name: "Gurka", photo: { number: 1, photoId } });
-    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo?.kept).toEqual({ url: "/api/pantry/photo/photo-1", point: null });
+    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo?.kept).toEqual({
+      url: "/api/pantry/photo/photo-1",
+      point: null,
+      points: [
+        { n: 2, x: 300, y: 600 },
+        { n: 3, x: 100, y: 200 },
+      ],
+    });
   });
 
   it("leaves the link without a kept photo when the photo is swept, removed or its row is gone", () => {
