@@ -102,8 +102,9 @@ test("Lindqvists share a recipe, Bergs find it under Delade and save it, and Lin
   // Bergs: the chip Delade first, the card with whose it is, no heart.
   await bergs.goto("/recept");
   const chips = bergs.getByTestId("recipe-filters").getByRole("button");
-  await expect(chips.first()).toHaveText("Delade");
-  await chips.first().click();
+  await expect(chips.nth(0)).toHaveText("Alla");
+  await expect(chips.nth(1)).toHaveText("Delade");
+  await chips.nth(1).click();
   await expect(bergs.getByTestId("recipe-count")).toContainText(/del(ade|at) recept/);
   await shot(bergs, "lista");
   const card = bergs.getByTestId("shared-recipe-card").filter({ hasText: title });
@@ -223,7 +224,7 @@ test("the first share asks what others should see the household as, and Bergs se
   expect((await admin.from("household").select("name, name_is_default").eq("id", ownerHousehold).single()).data).toEqual({ name: "Hellgrens", name_is_default: false });
 
   await bergs.goto("/recept");
-  await bergs.getByTestId("recipe-filters").getByRole("button").first().click();
+  await bergs.getByTestId("recipe-filters").getByRole("button", { name: "Delade" }).click();
   const card = bergs.getByTestId("shared-recipe-card").filter({ hasText: "Hellgrens paj" });
   await expect(card.getByTestId("recipe-card-byline")).toHaveText("från Hellgrens");
 

@@ -188,7 +188,7 @@ const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: t
 const pill = (page: Page, name: "Favoriter" | "Kan lagas nu") =>
   page.getByRole("button", { name }).filter({ visible: true });
 
-/** "Alla" has no chip (Story 19.3): letting go of the chosen filter chip shows every recipe. */
+/** Letting go of the chosen filter chip shows every recipe (the chip Alla does the same for all choices at once). */
 const showAll = async (page: Page) => {
   for (const name of ["Favoriter", "Kan lagas nu"]) {
     const chip = page.getByRole("button", { name, pressed: true }).filter({ visible: true });

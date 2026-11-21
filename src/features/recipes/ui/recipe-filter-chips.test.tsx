@@ -51,3 +51,24 @@ describe("RecipeFilterChips, <500 kcal", () => {
     expect(onFilterChange).toHaveBeenLastCalledWith("all");
   });
 });
+
+describe("RecipeFilterChips, Alla", () => {
+  it("is first and pressed when nothing is chosen", () => {
+    render(<RecipeFilterChips filter="all" onFilterChange={vi.fn()} category={null} onCategoryChange={vi.fn()} />);
+    const names = screen.getAllByRole("button").map((button) => button.textContent);
+    expect(names[0]).toBe("Alla");
+    expect(screen.getByRole("button", { name: "Alla" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("is not pressed with a filter or a category chosen, and pressing it clears both", async () => {
+    const onFilterChange = vi.fn();
+    const onCategoryChange = vi.fn();
+    const { rerender } = render(<RecipeFilterChips filter="favorites" onFilterChange={onFilterChange} category={null} onCategoryChange={onCategoryChange} />);
+    expect(screen.getByRole("button", { name: "Alla" })).toHaveAttribute("aria-pressed", "false");
+    rerender(<RecipeFilterChips filter="all" onFilterChange={onFilterChange} category="soup" onCategoryChange={onCategoryChange} />);
+    expect(screen.getByRole("button", { name: "Alla" })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(screen.getByRole("button", { name: "Alla" }));
+    expect(onFilterChange).toHaveBeenCalledWith("all");
+    expect(onCategoryChange).toHaveBeenCalledWith(null);
+  });
+});

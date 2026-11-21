@@ -28,15 +28,28 @@ export type RecipeFilterChipsProps = {
 };
 
 /**
- * The library's filters on one row (Story 19.3): Favoriter, Kan lagas nu and (Story 9.3) Erbjudanden, a thin divider, then
+ * The library's filters on one row (Story 19.3): Alla (nothing chosen; pressing it clears every choice), Favoriter, Kan lagas nu and (Story 9.3) Erbjudanden, a thin divider, then
  * the categories, each with its emoji before the name. The row scrolls sideways inside itself with snap, no scrollbar and a fade at the
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
 export function RecipeFilterChips({ filter, onFilterChange, category, onCategoryChange, available, withOffers = false, withHealthy = false, withKcal = false, withShared = false }: RecipeFilterChipsProps) {
   const categories = RECIPE_CATEGORIES.filter((entry) => entry === category || !available || available.has(entry));
+  const allChosen = filter === "all" && category === null;
   return (
     <ChipRow role="group" aria-label="Filter" data-testid="recipe-filters">
+      {/* Alla: pressed when nothing is chosen, so a chosen chip scrolled out of sight shows as "Alla" not pressed; pressing it lets every choice go. */}
+      <Chip
+        className="snap-start"
+        aria-pressed={allChosen}
+        selected={allChosen}
+        onClick={() => {
+          onFilterChange("all");
+          onCategoryChange(null);
+        }}
+      >
+        Alla
+      </Chip>
       {withShared ? (
         <Chip className="snap-start" aria-pressed={filter === "shared"} selected={filter === "shared"} onClick={() => onFilterChange(filter === "shared" ? "all" : "shared")}>
           Delade

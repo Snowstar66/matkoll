@@ -104,10 +104,10 @@ beforeEach(() => {
 });
 
 describe("Library, Delade", () => {
-  it("puts Delade first in the chip row and shows the shared recipes as cards with whose they are", async () => {
+  it("puts Delade first after Alla in the chip row and shows the shared recipes as cards with whose they are", async () => {
     const user = userEvent.setup();
     await renderLibrary();
-    expect(chipNames()[0]).toBe("Delade");
+    expect(chipNames().slice(0, 2)).toEqual(["Alla", "Delade"]);
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("1 recept");
 
     await user.click(screen.getByRole("button", { name: "Delade" }));
