@@ -1223,7 +1223,7 @@ export function parseDishExplanation(answer: z.output<typeof explainDishAnswer>)
   };
 }
 /** explainWorth: the longest each part of the explanation is kept (characters), and how many checks. */
-export const worthExplanationChars = { why: 380, couldBe: 380, check: 150, checks: 4 } as const;
+export const worthExplanationChars = { why: 380, couldBe: 380, check: 150, checks: 4, search: 60 } as const;
 
 /**
  * What the model answers to explainWorth: why a föremål was flagged "Värt en titt", what it could be, and what is worth
@@ -1233,9 +1233,29 @@ export const explainWorthAnswer = z.object({
   darfor: z.string().describe("Två till tre meningar: vad på bilden (form, material, teknik, stil eller märke) som gjorde att föremålet markerades"),
   kan_vara: z.string().describe("Två till tre meningar: vad det kan vara (tillverkare, modell, tid) och hur säker du är; säg tydligt vad som är en gissning"),
   undersok: z.array(z.string()).describe("Två till fyra konkreta saker att undersöka vidare: var märket brukar sitta, vad man kan jämföra med, vad som gör varianter mer eller mindre eftertraktade, en sökfras att använda. Aldrig priser"),
+  sokfras: z
+    .string()
+    .optional()
+    .describe("Två till sex ord att söka på för att hitta sålda liknande föremål, till exempel tillverkare, typ och material (”Orrefors kristallskål slipad”). Inga priser, inga citattecken, ingen mening"),
 });
 
-export type WorthExplanation = { darfor: string; kan_vara: string; undersok: string[] };
+/** `sokfras` is the phrase to search for sold lookalikes with; "" when the model gave none. */
+export type WorthExplanation = { darfor: string; kan_vara: string; undersok: string[]; sokfras: string };
+
+/** A search phrase as it is kept: one line, no quotation marks, at most six words and 60 characters; "" when nothing is left. */
+export function cleanSearchPhrase(text: string): string {
+  const words = cleanModelText(text)
+    .replace(/["”“„'`´]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word !== "")
+    .slice(0, 6);
+  let phrase = words.join(" ");
+  while (phrase.length > worthExplanationChars.search && words.length > 1) {
+    words.pop();
+    phrase = words.join(" ");
+  }
+  return phrase.length > worthExplanationChars.search ? phrase.slice(0, worthExplanationChars.search).trimEnd() : phrase;
+}
 
 /** The explanation with every text cleaned and cut to its length, at most four checks; the port's answer for explainWorth. */
 export function parseWorthExplanation(answer: z.output<typeof explainWorthAnswer>): WorthExplanation {
@@ -1247,6 +1267,8 @@ export function parseWorthExplanation(answer: z.output<typeof explainWorthAnswer
     darfor: clip(answer.darfor, worthExplanationChars.why),
     kan_vara: clip(answer.kan_vara, worthExplanationChars.couldBe),
     undersok: answer.undersok.map((line) => clip(line, worthExplanationChars.check)).filter((line) => line !== "").slice(0, worthExplanationChars.checks),
+    // One line of at most six words, no quotation marks; a phrase that is not that is no phrase (the sheet falls back to the name).
+    sokfras: cleanSearchPhrase(answer.sokfras ?? ""),
   };
 }
 

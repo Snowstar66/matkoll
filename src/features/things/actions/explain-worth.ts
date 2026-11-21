@@ -75,7 +75,7 @@ export async function explainThingWorth(thingId: string): Promise<Result<{ detai
   });
   if (!explained.ok) return explained;
 
-  const text = formatWorthDetail({ why: explained.data.darfor, couldBe: explained.data.kan_vara, checks: explained.data.undersok });
+  const text = formatWorthDetail({ why: explained.data.darfor, couldBe: explained.data.kan_vara, checks: explained.data.undersok, search: explained.data.sokfras });
   // An answer with nothing in it is the model's failure, not a kept empty explanation.
   if (!text) return fail("ai_invalid");
   try {
