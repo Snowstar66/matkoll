@@ -253,7 +253,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Vad visar Senaste foto av kylen?",
-        answer: "Tryck Visa under Fota så ser du hela fotot med en siffra på varje vara. Tryck på en siffra så zoomas fotot in och varans namn står i en rad under fotot; tryck på fotot för att backa till exakt där du var, eller på en annan siffra för att byta. Ett rött kryss på siffran och texten Finns inte längre betyder att varan lades till men inte finns kvar. En streckad ring och texten Lades inte till betyder att du bockade bort den när du lade till. Fotot sparas i 30 dagar. Ta bort fotot finns längst ned.",
+        answer: "Tryck Visa under Fota så ser du hela fotot med en siffra på varje vara. Tryck på en siffra så zoomas fotot in och varans namn står i en rad under fotot; tryck på fotot för att backa till exakt där du var, eller på en annan siffra för att byta. Ett rött kryss på siffran och texten Finns inte längre betyder att varan lades till men inte finns kvar. En streckad ring och texten Lades inte till betyder att du bockade bort den när du lade till. Vill du se hela fotot utan siffror ovanpå, tryck Dölj siffror ovanför fotot; Visa siffror tar tillbaka dem. Fotot sparas i 30 dagar. Ta bort fotot finns längst ned.",
       },
       {
         question: "Vad betyder att varor syntes inte på fotot?",
@@ -294,7 +294,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur ser jag var på fotot en sak ligger?",
-        answer: `Öppna ${things}ets blad och tryck på bilden överst eller på Visa hela kortet. Fotot öppnas inzoomat på ${things}et, med namnet i en rad under fotot så att det inte skymmer. Tryck på en annan siffra för att se vad det är, och tryck på fotot för att backa till hela kortet med alla siffror. Klar tar dig tillbaka till bladet, och Öppna kortet med listan tar dig till kortets egen sida, där du kan trycka på en rad eller en siffra för att markera ${things}et. Siffrorna är de samma som på kortets sida. Ett ${things} som AI:n inte pekade ut när kortet lästes letas upp av sig själv när du öppnar kortets sida, så att alla får en siffra.`,
+        answer: `Öppna ${things}ets blad och tryck på bilden överst eller på Visa hela kortet. Fotot öppnas inzoomat på ${things}et, med namnet i en rad under fotot så att det inte skymmer. Tryck på en annan siffra för att se vad det är, och tryck på fotot för att backa till hela kortet med alla siffror. Klar tar dig tillbaka till bladet, och Öppna kortet med listan tar dig till kortets egen sida, där du kan trycka på en rad eller en siffra för att markera ${things}et. Siffrorna är de samma som på kortets sida. Ett ${things} som AI:n inte pekade ut när kortet lästes letas upp av sig själv när du öppnar kortets sida, så att alla får en siffra. Dölj siffror ovanför fotot visar hela fotot utan siffror, och Visa siffror tar tillbaka dem; knappen finns också på kortets sida.`,
       },
       {
         question: "Hur ändrar jag eller räknar en sak?",

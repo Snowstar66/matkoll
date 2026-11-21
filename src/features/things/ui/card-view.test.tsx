@@ -73,6 +73,20 @@ describe("the card big (Story 18.7)", () => {
     expect(screen.getAllByTestId("card-thing")[1]).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("hides the dots with Dölj siffror (the marked föremål keeps its dot) and shows them again with Visa siffror", async () => {
+    window.localStorage.removeItem("livskoll:photo-numbers-hidden");
+    renderIt([hammer, saw], hammer.id);
+    expect(document.querySelectorAll("[data-number]")).toHaveLength(2);
+    await userEvent.click(screen.getByTestId("photo-numbers-toggle"));
+    expect(screen.getByTestId("photo-numbers-toggle")).toHaveTextContent("Visa siffror");
+    // Only the marked föremål's dot is left; the list keeps its numbers.
+    expect(document.querySelectorAll("[data-number]")).toHaveLength(1);
+    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("1");
+    await userEvent.click(screen.getByTestId("photo-numbers-toggle"));
+    expect(document.querySelectorAll("[data-number]")).toHaveLength(2);
+    window.localStorage.removeItem("livskoll:photo-numbers-hidden");
+  });
+
   it("shows the whole photo with a numbered dot at the middle of every föremål that has a box, and the list under it, with the same numbers", () => {
     // The föremål without a box is being looked up by itself.
     locateThingOnCard.mockReturnValue(new Promise(() => {}));

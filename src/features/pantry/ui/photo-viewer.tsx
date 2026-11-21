@@ -4,6 +4,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/components/cx";
 import { CloseIcon } from "@/components/icons";
 import { markerPosition, photoMarkerClasses, type MarkerTone } from "@/components/photo-marker";
+import { numbersHiddenHint, PhotoNumbersToggle, useHiddenNumbers } from "@/components/photo-numbers-toggle";
 import { Sheet } from "@/components/sheet";
 import type { Location } from "@/features/catalog";
 import type { ImageSize } from "@/lib/images";
@@ -119,6 +120,7 @@ export function PhotoViewer({
   children,
 }: PhotoViewerProps) {
   const title = givenTitle ?? (location ? analyzedPhotoTitle(location) : "Fotot");
+  const [hidden, setHidden] = useHiddenNumbers();
   const [failed, setFailed] = useState(false);
   const [decoded, setDecoded] = useState<ImageSize | null>(null);
   const [view, setView] = useState(() => openView(initialNumber !== null && markers.some((marker) => marker.n === initialNumber) ? initialNumber : null));
@@ -195,7 +197,9 @@ export function PhotoViewer({
     setView(next.view);
   }
 
-  const legend = zoomed ? [] : legendFor(markers);
+  // The overview can be shown without its numbers (a switch above the photo); zoomed in, the number tapped is always there.
+  const numbersHidden = hidden && !zoomed;
+  const legend = zoomed || numbersHidden ? [] : legendFor(markers);
   const frameStyle = frame
     ? zoomed
       ? { width: frame.width, height: frame.height }
@@ -207,13 +211,19 @@ export function PhotoViewer({
       open={open}
       onClose={onClose}
       title={title}
-      subtitle={zoomed ? zoomedHint : (subtitle ?? overviewHint)}
+      subtitle={zoomed ? zoomedHint : numbersHidden ? numbersHiddenHint : (subtitle ?? overviewHint)}
       closeLabel="Klar"
     >
       {/* Mounted empty, so VoiceOver says the text when the photo fails. */}
       <div role="status">{failed ? <p className="text-body text-ink-2">{errorText}</p> : null}</div>
       {failed ? null : (
         <div ref={boxRef} data-testid="photo-viewer" data-zoomed={zoomed || undefined} className="flex flex-col gap-3">
+          {zoomed || markers.length === 0 ? null : (
+            // Next to the photo: the whole photo without the numbers on top of it, and back.
+            <div className="-mb-1 flex justify-end">
+              <PhotoNumbersToggle hidden={hidden} onChange={setHidden} className="-mr-2" />
+            </div>
+          )}
           <div
             ref={viewportRef}
             data-testid="photo-viewer-viewport"
@@ -251,7 +261,7 @@ export function PhotoViewer({
                   className="absolute inset-0 cursor-zoom-out -outline-offset-2"
                 />
               ) : null}
-              {decoded
+              {decoded && !numbersHidden
                 ? shown.map((marker) => {
                     const lit = view.selected === marker.n;
                     return (
