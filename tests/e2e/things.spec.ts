@@ -1406,7 +1406,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await expect(page.getByTestId("card-dot").first()).toHaveText("1");
   await expect(page.getByTestId("marker-badge").first()).toHaveText("1");
   await expect(page.getByTestId("card-dot-name")).toHaveCount(0);
-  await expect(page.getByTestId("card-hint")).toHaveText("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+  await expect(page.getByTestId("card-hint")).toHaveText("Tryck på ett föremål för att markera det, eller på en siffra på fotot för att zooma in.");
   const ratio = await photo.evaluate((element) => element.getBoundingClientRect().width / element.getBoundingClientRect().height);
   expect(ratio).toBeCloseTo(1200 / 900, 1);
   await shot(page, "18-7-alla");
@@ -1417,11 +1417,13 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("card-hint")).toHaveText("Förlängningssladd · mellersta hyllan, mitten");
   await shot(page, "18-7-markerad");
-  // A tap on another dot moves the mark; a second tap on it clears it.
+  // A tap on another dot opens the photo view zoomed in on it; Klar leaves it marked, and a tap on its row clears it.
   const area = (await photo.boundingBox())!;
   await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
+  await expect(page.getByTestId("photo-viewer-name")).toContainText("Hammare");
+  await page.getByRole("button", { name: "Klar" }).click();
   await expect(page.getByTestId("card-dot-name")).toHaveText("Hammare");
-  await page.mouse.click(area.x + area.width * 0.27, area.y + area.height * 0.26);
+  await page.getByRole("button", { name: /^Hammare/ }).click();
   await expect(page.getByTestId("card-dot-selected")).toHaveCount(0);
   await page.emulateMedia({ colorScheme: "dark" });
   await page.getByRole("button", { name: /^Hammare/ }).click();
