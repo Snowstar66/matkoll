@@ -20,6 +20,7 @@ describe("mock explainWorth", () => {
     expect(result.data.darfor).toContain("Kristallskål");
     expect(result.data.kan_vara).toContain("gissning");
     expect(result.data.undersok.length).toBeGreaterThanOrEqual(2);
+    expect(result.data.sokfras).toBe("Kristallskål vintage");
     expect(JSON.stringify(result.data)).not.toMatch(/\bkr\b|kronor/);
   });
 

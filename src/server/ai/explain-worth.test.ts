@@ -25,6 +25,7 @@ describe("explainWorth on a model", () => {
     darfor: "Den slipade kanten och den tunga botten liknar äldre kristall.",
     kan_vara: "Kan vara svensk kristall, men det här är en gissning utan synlig signatur.",
     undersok: ["Titta på undersidan efter en graverad signatur.", "Jämför slipningen med kataloger.", "Sök på ”kristallskål slipad vintage”."],
+    sokfras: "Orrefors kristallskål slipad",
   };
   const message = "Föremål: Kristallskål\nTips: Liknar Orrefors. Titta på botten.\nSäkerhet: osäker";
 
@@ -63,6 +64,15 @@ describe("explainWorth on a model", () => {
     expect(result.data.kan_vara.length).toBeLessThanOrEqual(380);
     expect(result.data.kan_vara.endsWith("…")).toBe(true);
     expect(result.data.undersok).toEqual(["a", "b", "c", "d"]);
+    // No phrase from the model is no phrase (the sheet then searches for the föremål's name).
+    expect(result.data.sokfras).toBe("");
+  });
+
+  it("keeps the search phrase to one line of at most six words without quotation marks, and tells the model to give one", async () => {
+    expect(prompts.explainWorth).toMatch(/sokfras/);
+    const model = fakeModel(JSON.stringify({ ...answer, sokfras: ' ”Orrefors”  kristallskål\nslipad vintage tung klar extra lång fras ' }));
+    const result = await createModelAiService({ model }, limits).explainWorth(input, signal());
+    expect(result).toMatchObject({ ok: true, data: { sokfras: "Orrefors kristallskål slipad vintage tung klar" } });
   });
 
   it("is ai_invalid for an answer that is not the shape", async () => {

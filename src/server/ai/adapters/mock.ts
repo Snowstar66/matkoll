@@ -405,6 +405,7 @@ function mockWorthExplanation(input: ExplainWorthInput): ExplainWorthResult {
     darfor: `${input.name} har en form och ett material som ofta hör ihop med kända tillverkare. ${input.tip}`,
     kan_vara: "Det kan vara en äldre svensk tillverkning, men det här är en gissning utan synlig signatur.",
     undersok: ["Titta på undersidan efter en stämpel eller signatur.", "Jämför formen med kataloger och sålda annonser för samma typ.", `Sök på ”${input.name} vintage” för att se varianter.`],
+    sokfras: `${input.name} vintage`,
   };
 }
 

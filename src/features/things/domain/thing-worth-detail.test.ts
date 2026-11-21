@@ -15,6 +15,17 @@ describe("the kept explanation", () => {
     expect(parseWorthDetail(text ?? "")).toEqual(parts);
   });
 
+  it("keeps the search phrase as a last section, and reads an explanation kept without one as before", () => {
+    const text = formatWorthDetail({ ...parts, search: "  Orrefors   kristallskål slipad " });
+    expect(text?.endsWith("\n\nSökfras\nOrrefors kristallskål slipad")).toBe(true);
+    expect(parseWorthDetail(text ?? "")).toEqual({ ...parts, search: "Orrefors kristallskål slipad" });
+    // No phrase, no section: the same text as before the phrase existed.
+    expect(formatWorthDetail({ ...parts, search: "  " })).toBe(formatWorthDetail(parts));
+    expect(parseWorthDetail(formatWorthDetail(parts) ?? "")).toEqual(parts);
+    // An empty phrase section is no phrase, not a broken text.
+    expect(parseWorthDetail(`${formatWorthDetail(parts)}\n\nSökfras\n`)).toEqual(parts);
+  });
+
   it("is on the föremål's tip as `detail`, trimmed, and none when empty", () => {
     expect(worthOfRow({ worth_why: "Liknar Arabia.", worth_confidence: "sure", worth_detail: " Text " })).toEqual({ why: "Liknar Arabia.", confidence: "sure", detail: "Text" });
     expect(worthOfRow({ worth_why: "Liknar Arabia.", worth_confidence: "sure", worth_detail: "  " })).toEqual({ why: "Liknar Arabia.", confidence: "sure" });

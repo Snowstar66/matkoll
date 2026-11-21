@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
-import { StarIcon } from "@/components/icons";
+import { ExternalIcon, StarIcon } from "@/components/icons";
 import { errorMessages } from "@/lib/errors";
 import { useOption } from "@/lib/use-option";
 import {
@@ -19,6 +19,7 @@ import {
   type ThingWorth,
   type WorthConfidence,
 } from "../domain/thing-worth";
+import { phraseForSearch, soldLinks, soldSearchNoteText, soldSearchTitleText, soldSearchingText } from "../domain/worth-search";
 import { explainWorthDetail } from "./worth-client";
 
 // Värt en titt (Tillval): a small pill on a föremål's row ("★ Värt en titt": a shape and words, never colour alone),
@@ -75,18 +76,56 @@ function WorthDetail({ text }: { text: string }) {
   );
 }
 
+/**
+ * "Se vad liknande har sålts för": three links that open a search for sold lookalikes on another site, in a new tab.
+ * No price is shown here; the note says that the numbers are on the other site and depend on condition and mark.
+ */
+function SoldSearch({ phrase }: { phrase: string }) {
+  const links = soldLinks(phrase);
+  if (links.length === 0) return null;
+  return (
+    <div data-testid="worth-sold" className="flex flex-col gap-1">
+      <p className="text-meta font-semibold text-ink-2">{soldSearchTitleText}</p>
+      <ul role="list" className="flex flex-wrap gap-x-1 gap-y-0.5">
+        {links.map((link) => (
+          <li key={link.key}>
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid={`worth-sold-${link.key}`}
+              className="inline-flex min-h-tap items-center gap-1 rounded-md px-2 text-meta font-medium text-accent"
+            >
+              {link.label}
+              <span className="font-normal text-ink-2">({link.hint})</span>
+              <ExternalIcon size={13} className="shrink-0" />
+              <span className="sr-only">, öppnas på en annan sajt</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="text-meta text-ink-2" data-testid="worth-sold-phrase">
+        {soldSearchingText(phrase)}
+      </p>
+      <p className="text-meta text-ink-2">{soldSearchNoteText}</p>
+    </div>
+  );
+}
+
 type Asking = "idle" | "asking" | { error: string };
 
 /**
  * Under a föremål's name in its sheet: "Värt en titt", the sentence, how sure, and that it is a tip. With the föremål's
  * id there is also "Förklara närmare" (and the explanation once it is there); key it on the opening, so each starts fresh.
  */
-export function WorthBlock({ worth, thingId }: { worth: ThingWorth | null | undefined; thingId?: string }) {
+export function WorthBlock({ worth, thingId, name }: { worth: ThingWorth | null | undefined; thingId?: string; name?: string }) {
   const on = useOption("worthLook");
   const [detail, setDetail] = useState<string | null>(worth?.detail ?? null);
   const [asking, setAsking] = useState<Asking>("idle");
   if (!on || !worth) return null;
   const shownDetail = detail ?? worth.detail ?? null;
+  // The explanation's own phrase when it has one (older explanations have none), else the föremål's name.
+  const phrase = phraseForSearch(shownDetail ? parseWorthDetail(shownDetail)?.search : null, name ?? "");
 
   async function explain() {
     if (!thingId || asking === "asking") return;
@@ -124,6 +163,7 @@ export function WorthBlock({ worth, thingId }: { worth: ThingWorth | null | unde
           {typeof asking === "object" ? <Notice role="alert">{asking.error}</Notice> : null}
         </div>
       ) : null}
+      <SoldSearch phrase={phrase} />
       <p className="text-meta text-ink-2">
         <span data-testid="worth-confidence">{worthConfidenceText(worth.confidence)}</span>. {worthDisclaimerText}
       </p>
