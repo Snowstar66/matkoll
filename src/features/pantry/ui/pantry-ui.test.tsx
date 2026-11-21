@@ -83,12 +83,18 @@ describe("PantryList", () => {
     item({ id: "4", name: "Kycklingfilé", section: "Kött och fisk", createdAt: "2026-10-26T11:00:00Z", amount: 500, unit: "g" }),
     item({ id: "5", name: "Senap", section: "Skafferi", label: "Johnny's" }),
   ];
-  it("marks an item read from a photo with a camera icon, and no other", () => {
+  it("marks an item read from a photo with a camera, a button when the photo is kept and a plain icon when it is gone, and no other", () => {
+    const kept = {
+      url: "/api/pantry/photo/photo-1",
+      size: { width: 720, height: 900 },
+      point: { x: 100, y: 200 },
+      markers: [{ n: 2, left: 10, top: 20, name: "Gurka", status: "present" as const, location: "Kyl" as const }],
+    };
     render(
       <PantryList
         location="Kyl"
         items={[
-          item({ id: "1", name: "Gurka", photo: { number: 2, photoId: "photo-1" } }),
+          item({ id: "1", name: "Gurka", photo: { number: 2, photoId: "photo-1", kept } }),
           item({ id: "2", name: "Tomat", photo: { number: 1, photoId: null } }),
           item({ id: "3", name: "Mjölk" }),
         ]}
@@ -97,9 +103,32 @@ describe("PantryList", () => {
     const rows = screen.getAllByTestId("pantry-row");
     const mjolkRow = rows.find((row) => row.textContent?.startsWith("Mjölk"));
     expect(mjolkRow?.querySelector("svg")).toBeNull();
-    expect(rows.filter((row) => row.querySelector("svg")).length).toBe(2);
+    // Only a photo that is gone keeps the icon in the row's text; a kept one has a button of its own after the name.
     const withIcon = rows.filter((row) => within(row).queryByRole("img", { name: "Inläst från foto" })).map((row) => row.textContent);
-    expect(withIcon).toEqual(["Gurka", "Tomat"]);
+    expect(withIcon).toEqual(["Tomat"]);
+    const camera = screen.getByRole("button", { name: "Visa fotot som Gurka lästes från" });
+    expect(camera.className).toContain("min-h-tap");
+    expect(screen.getAllByTestId("pantry-row-photo")).toHaveLength(1);
+  });
+
+  it("opens the photo zoomed in on the item from its camera, and Klar closes it without opening the item", () => {
+    const kept = {
+      url: "/api/pantry/photo/photo-1",
+      size: { width: 720, height: 900 },
+      point: { x: 100, y: 200 },
+      markers: [
+        { n: 2, left: 10, top: 20, name: "Gurka", status: "present" as const, location: "Kyl" as const },
+        { n: 4, left: 50, top: 60, name: "Ketchup", status: "skipped" as const, location: null },
+      ],
+    };
+    render(<PantryList location="Kyl" items={[item({ id: "1", name: "Gurka", photo: { number: 2, photoId: "photo-1", kept } })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Visa fotot som Gurka lästes från" }));
+    const viewer = screen.getByRole("dialog", { name: "Fotot av kylen" });
+    expect(within(viewer).getByTestId("photo-viewer")).toHaveAttribute("data-zoomed", "true");
+    expect(within(viewer).getByTestId("photo-viewer-name")).toHaveTextContent("Gurka");
+    expect(within(viewer).getByTestId("photo-viewer-status")).toHaveTextContent("Finns i kylen");
+    fireEvent.click(within(viewer).getByRole("button", { name: "Klar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   /** Each category's heading, with its rows' names and the line under each. */

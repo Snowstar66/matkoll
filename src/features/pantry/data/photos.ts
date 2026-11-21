@@ -354,11 +354,17 @@ export async function linkPantryItemsToPhotoIn(
   db: PantryDb,
   photoId: string,
   links: readonly { id: string; number: number }[],
+  /**
+   * `false` only moves existing links (the carry-over when "Ändra vara"
+   * replaces a row): the numbers are not added to the photo's confirmed
+   * numbers. Confirming (the default) adds them, as a union.
+   */
+  confirm = true,
 ): Promise<number> {
   return guarded("update", async () => {
     const { data, error } = await db.rpc("link_pantry_items_photo", {
       photo: photoId,
-      links: links.map(({ id, number }) => ({ id, n: number })) as Json,
+      links: links.map(({ id, number }) => (confirm ? { id, n: number } : { id, n: number, c: false })) as Json,
     });
     if (error) throw new PantryDataError(`update_failed ${error.code}`);
     return data;
@@ -400,7 +406,7 @@ export async function loadPlacePhotosIn(db: PantryDb, siteId: string, now: Date)
   return guarded("query", async () => {
     const { data, error } = await db
       .from("pantry_photo")
-      .select("id, location, taken_at, width, height, reading, points")
+      .select("id, location, taken_at, width, height, reading, points, confirmed_numbers")
       .eq("site_id", siteId)
       .gte("taken_at", placePhotoCutoff(now).toISOString());
     if (error) throw new PantryDataError(`query_failed ${error.code}`);

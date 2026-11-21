@@ -411,6 +411,7 @@ describe("loadPlacePhotosIn", () => {
     height: 900,
     reading: ["Mjölk", "Smör"],
     points: [{ n: 2, x: 500, y: 250 }],
+    confirmed_numbers: [1, 2],
   };
 
   it("reads the place's rows taken within 30 days, without the path, as PlacePhotos", async () => {
@@ -424,6 +425,7 @@ describe("loadPlacePhotosIn", () => {
         height: 900,
         reading: ["Mjölk", "Smör"],
         points: [{ n: 2, x: 500, y: 250 }],
+        confirmedNumbers: [1, 2],
       },
     ]);
     expect(from).toHaveBeenCalledWith("pantry_photo");

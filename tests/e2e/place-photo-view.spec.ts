@@ -50,6 +50,7 @@ async function seedPhoto(
   takenAt: Date,
   reading: string[],
   points: { n: number; x: number; y: number }[] | null,
+  confirmedNumbers: number[] | null = null,
 ): Promise<Seeded> {
   const id = randomUUID();
   const path = `${owner}/${siteId}/${folders[location]}/${id}.png`;
@@ -69,6 +70,7 @@ async function seedPhoto(
     taken_at: takenAt.toISOString(),
     reading,
     points,
+    confirmed_numbers: confirmedNumbers,
   });
   if (inserted.error) throw inserted.error;
   return { id, path, takenAt };
@@ -152,7 +154,7 @@ const visa = (page: Page, place = "kylen") =>
   line(page).getByRole("button", { name: `Visa senaste foto av ${place}`, exact: true });
 const photoSheet = (page: Page, place = "kylen") => page.getByRole("dialog", { name: `Fotot av ${place}`, exact: true });
 const question = (page: Page) => page.getByRole("dialog", { name: "Ta bort fotot av kylen?" });
-const markers = (page: Page) => photoSheet(page).getByTestId("pantry-photo-marker");
+const markers = (page: Page) => photoSheet(page).getByTestId("photo-viewer-marker");
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const card = (page: Page, name: Location) =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
@@ -175,7 +177,7 @@ async function choose(page: Page, name: "Hemma" | "Stugan") {
 /** The photo's time as Matvaror writes it, counted now. */
 const time = (photo: Seeded) => photoTimeText(photo.takenAt, new Date());
 
-test("the line under the camera button opens the photo with its markers and the reading as a numbered list", async ({ page }) => {
+test("the line under the camera button opens the photo with every number as a button and no list of the reading", async ({ page }) => {
   const errors = watchErrors(page);
   const reads = watchPhotoReads(page);
   await openLagersaldo(page);
@@ -191,28 +193,104 @@ test("the line under the camera button opens the photo with its markers and the 
 
   await visa(page).click();
   await expect(photoSheet(page)).toHaveAccessibleDescription(
-    `Taget ${time(photos.hemmaKyl)}. Numren visar vad AI:n läste av.`,
+    `Taget ${time(photos.hemmaKyl)}. Tryck på en siffra för att se vad det är.`,
   );
   const image = photoSheet(page).getByRole("img", { name: "Senaste fotot av kylen" });
   await expect(image).toHaveAttribute("src", `/api/pantry/photo/${photos.hemmaKyl.id}`);
   await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(720);
   await expect(markers(page)).toHaveText(["1", "3"]);
-  await expect(photoSheet(page).getByRole("heading", { name: "AI:n läste av:" })).toBeVisible();
-  await expect(photoSheet(page).getByRole("list", { name: "AI:n läste av:" }).getByRole("listitem")).toHaveText([
-    /Mellanmjölk 1,5 %$/,
-    /Smör 500 g$/,
-    /Ägg$/,
-  ]);
-  // Full size, and the markers come along.
-  await photoSheet(page).getByRole("button", { name: "Visa i full storlek" }).click();
-  await expect(photoSheet(page).getByRole("button", { name: "Visa i full storlek" })).toHaveAttribute("aria-pressed", "true");
-  await expect(markers(page)).toHaveCount(2);
+  // Buttons, each at least 44 px to tap (the marker itself is 22 px), named after the AI's reading.
+  await expect(markers(page).first()).toHaveAccessibleName("Vara 1: Mellanmjölk 1,5 %");
+  for (const marker of await markers(page).all()) {
+    const box = await marker.evaluate((element) => {
+      const { width, height } = getComputedStyle(element, "::before");
+      return { width: Number.parseFloat(width), height: Number.parseFloat(height) };
+    });
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  // The list of what the AI read is gone from under the photo, "Ta bort fotot" stays.
+  await expect(photoSheet(page).getByRole("heading", { name: "AI:n läste av:" })).toHaveCount(0);
+  await expect(photoSheet(page).getByRole("list")).toHaveCount(0);
+  await expect(photoSheet(page).getByRole("button", { name: "Ta bort fotot" })).toBeVisible();
   // No sideways scroll at 375 px.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.keyboard.press("Escape");
   await expect(photoSheet(page)).toHaveCount(0);
   await expect(visa(page)).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test("a number zooms in with its name in a fixed line, a tap on the photo goes back to exactly where the view was, and statuses are words as well as symbols", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  // Number 1 is still on the list, number 3 was confirmed and is gone, number 2 was never added.
+  const photo = await seedPhoto(userId, sites.Hemma, "Kyl", new Date(Date.now() - minute), ["Mellanmjölk 1,5 %", "Smör 500 g", "Vispgrädde 3 dl"], [
+    { n: 1, x: 250, y: 300 },
+    { n: 2, x: 500, y: 480 },
+    { n: 3, x: 700, y: 650 },
+  ], [1, 3]);
+  const ingredient = await adminClient()
+    .from("ingredient")
+    .insert({ user_id: userId, name: "Mellanmjölk", normalized_name: `mellanmjolk ${randomUUID()}`, section: "Mejeri", location: "Kyl" })
+    .select("id")
+    .single();
+  if (ingredient.error) throw ingredient.error;
+  const item = await adminClient().from("pantry_item").insert({
+    user_id: userId,
+    site_id: sites.Hemma,
+    ingredient_id: ingredient.data.id,
+    location: "Kyl",
+    amount: 1,
+    unit: "l",
+    photo_id: photo.id,
+    photo_number: 1,
+  });
+  if (item.error) throw item.error;
+  // The seeded photo is older than the one above: this one is the latest.
+  await openLagersaldo(page);
+  await visa(page).click();
+  await expect.poll(() => photoSheet(page).getByRole("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(720);
+
+  // The overview: a cross on the gone one, a dashed ring on the one never added, and a legend in words.
+  await expect(markers(page).nth(0)).toHaveAccessibleName("Vara 1: Mellanmjölk, finns i kylen");
+  await expect(markers(page).nth(1)).toHaveAccessibleName("Vara 2: Smör 500 g, lades inte till");
+  await expect(markers(page).nth(2)).toHaveAccessibleName("Vara 3: Vispgrädde 3 dl, finns inte längre");
+  await expect(markers(page).nth(2)).not.toHaveText("3");
+  await expect(photoSheet(page).getByTestId("photo-viewer-legend").getByRole("listitem")).toHaveText([/Finns i listan$/, /Finns inte längre$/, /Lades inte till$/]);
+  const body = photoSheet(page).locator(".overflow-y-auto");
+  await body.evaluate((element) => {
+    element.scrollTop = 50;
+    element.scrollLeft = 0;
+  });
+  const before = await body.evaluate((element) => ({ top: element.scrollTop, left: element.scrollLeft }));
+
+  // Zoomed in on the gone one: its name in the fixed line under the photo, in words.
+  await markers(page).nth(2).click();
+  await expect(photoSheet(page).getByTestId("photo-viewer")).toHaveAttribute("data-zoomed", "true");
+  await expect(photoSheet(page)).toHaveAccessibleDescription("Tryck på bilden för att backa.");
+  await expect(photoSheet(page).getByTestId("photo-viewer-name")).toContainText("Vispgrädde 3 dl");
+  await expect(photoSheet(page).getByTestId("photo-viewer-status")).toHaveText("Finns inte längre");
+  // The line is under the photo and does not cover it.
+  const viewport = await photoSheet(page).getByTestId("photo-viewer-viewport").boundingBox();
+  const name = await photoSheet(page).getByTestId("photo-viewer-name").boundingBox();
+  expect(name!.y).toBeGreaterThanOrEqual(viewport!.y + viewport!.height - 1);
+  // Another number while zoomed in.
+  await markers(page).nth(1).click();
+  await expect(photoSheet(page).getByTestId("photo-viewer-status")).toHaveText("Lades inte till");
+  await markers(page).nth(0).click();
+  await expect(photoSheet(page).getByTestId("photo-viewer-name")).toContainText("Mellanmjölk");
+  await expect(photoSheet(page).getByTestId("photo-viewer-status")).toHaveText("Finns i kylen");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // A tap on the photo (not on a number): back to the overview, scrolled exactly as before.
+  const visible = (await photoSheet(page).getByTestId("photo-viewer-viewport").boundingBox())!;
+  await page.mouse.click(visible.x + visible.width - 24, visible.y + visible.height - 24);
+  await expect(photoSheet(page).getByTestId("photo-viewer")).not.toHaveAttribute("data-zoomed");
+  await expect(photoSheet(page)).toHaveAccessibleDescription(/Tryck på en siffra för att se vad det är\.$/);
+  expect(await body.evaluate((element) => ({ top: element.scrollTop, left: element.scrollLeft }))).toEqual(before);
   expect(errors).toEqual([]);
 });
 
@@ -228,12 +306,11 @@ test("the line follows the location and the place, and a photo older than 30 day
   await card(page, "Skafferi").click();
   await expect(line(page)).toHaveText(new RegExp(`^Senaste foto av skafferiet: ${time(photos.hemmaSkafferi)}`));
   await visa(page, "skafferiet").click();
-  // Without points: no markers, the time only, and the whole reading.
+  // Without points: no markers and the time only.
   await expect(photoSheet(page, "skafferiet")).toHaveAccessibleDescription(`Taget ${time(photos.hemmaSkafferi)}.`);
   const image = photoSheet(page, "skafferiet").getByRole("img", { name: "Senaste fotot av skafferiet" });
   await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(720);
-  await expect(photoSheet(page, "skafferiet").getByTestId("pantry-photo-marker")).toHaveCount(0);
-  await expect(photoSheet(page, "skafferiet").getByRole("listitem")).toHaveText([/Ketchup$/]);
+  await expect(photoSheet(page, "skafferiet").getByTestId("photo-viewer-marker")).toHaveCount(0);
   await photoSheet(page, "skafferiet").getByRole("button", { name: "Klar" }).click();
 
   await card(page, "Kyl").click();

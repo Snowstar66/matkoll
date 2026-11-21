@@ -86,13 +86,13 @@ test.beforeEach(async () => {
   if (catalog.error) throw catalog.error;
 });
 
-type PhotoRow = { id: string; site_id: string; location: string; object_path: string; media_type: string; points: unknown };
+type PhotoRow = { id: string; site_id: string; location: string; object_path: string; media_type: string; points: unknown; confirmed_numbers: number[] | null };
 
 /** The user's saved photos, read with the service role. */
 async function photos(): Promise<PhotoRow[]> {
   const { data, error } = await adminClient()
     .from("pantry_photo")
-    .select("id, site_id, location, object_path, media_type, points")
+    .select("id, site_id, location, object_path, media_type, points, confirmed_numbers")
     .eq("user_id", userId);
   if (error) throw error;
   return data as PhotoRow[];
@@ -201,8 +201,10 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   // Matvaror: the confirmed row is linked to the saved photo and its number on it, once the photo has an id.
   await expect.poll(async () => (await pantryRows()).map((row) => row.photo_id)).toEqual([saved.id]);
   expect((await pantryRows())[0].photo_number).toBeGreaterThanOrEqual(1);
-  // The page reads again after the link, so the row has its camera icon (named for screen readers).
-  await expect(page.getByTestId("pantry-row").filter({ visible: true, hasText: "Mjölk" }).getByRole("img", { name: "Inläst från foto" })).toBeVisible();
+  // What was confirmed is remembered on the photo, for the statuses in the photo view.
+  await expect.poll(async () => (await photos())[0].confirmed_numbers).toContain((await pantryRows())[0].photo_number);
+  // The page reads again after the link, so the row has its camera, a button that opens the photo (named for screen readers).
+  await expect(page.getByRole("button", { name: "Visa fotot som Mjölk lästes från" }).filter({ visible: true })).toBeVisible();
 
   await confirm(page, "Ägg");
   await addOnly(section(page), "all");

@@ -16,6 +16,7 @@ import { emptyPlaceText } from "../domain/places";
 import { AddPantryItemButton, usePantrySheet } from "./pantry-item-sheet";
 import { usePantryRemoval } from "./pantry-removal";
 import { PantryNoMatch, PantrySearchField, PantrySearchStatus } from "./pantry-search";
+import { PhotoViewer } from "./photo-viewer";
 import { usePantryNow } from "./use-pantry-now";
 
 export type PantryListProps = {
@@ -118,6 +119,8 @@ export function PantryList({ location, items, after }: PantryListProps) {
   const searchRef = useRef<SearchFieldHandle>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const now = usePantryNow();
+  /** The row whose camera was tapped: its photo is shown zoomed in on its number. */
+  const [viewing, setViewing] = useState<{ item: PantryItem; opened: number } | null>(null);
 
   // The search goes when the location has nothing left to search, and when an
   // item is saved from the sheet (state adjusted while rendering).
@@ -213,11 +216,23 @@ export function PantryList({ location, items, after }: PantryListProps) {
           <PantryNoMatch query={query} fieldRef={searchRef} />
         ) : (
           groups.map((group) => (
-            <CategoryGroup key={group.category} group={group} names={names} now={now} location={location} onRemove={removeBySwipe} />
+            <CategoryGroup key={group.category} group={group} names={names} now={now} location={location} onRemove={removeBySwipe} onViewPhoto={(item) => setViewing((current) => ({ item, opened: (current?.opened ?? 0) + 1 }))} />
           ))
         )}
       </div>
       {searching ? null : after}
+      {viewing?.item.photo?.kept ? (
+        <PhotoViewer
+          key={viewing.opened}
+          open
+          onClose={() => setViewing(null)}
+          photo={{ url: viewing.item.photo.kept.url, size: viewing.item.photo.kept.size }}
+          location={viewing.item.location}
+          markers={viewing.item.photo.kept.markers}
+          initialNumber={viewing.item.photo.number}
+          alt={`Fotot som ${viewing.item.name} lästes från`}
+        />
+      ) : null}
     </>
   );
 }
@@ -241,12 +256,14 @@ function CategoryGroup({
   now,
   location,
   onRemove,
+  onViewPhoto,
 }: {
   group: PantryCategoryGroup;
   names: ReadonlyMap<string, RowNames>;
   now: Date;
   location: Location;
   onRemove: (item: PantryItem, keyboard: boolean) => void;
+  onViewPhoto: (item: PantryItem) => void;
 }) {
   const headingId = useId();
   const { openItem } = usePantrySheet();
@@ -266,7 +283,8 @@ function CategoryGroup({
                   plain
                   compact
                   oneLine
-                  title={item.photo ? <NameWithPhotoMark name={item.name} /> : item.name}
+                  // A photo that is still stored has its camera as a button of its own after the name; one that is gone keeps the small icon.
+                  title={item.photo && !item.photo.kept ? <NameWithPhotoMark name={item.name} /> : item.name}
                   meta={meta}
                   srStatus={extra}
                   onPress={() => openItem(item)}
@@ -275,6 +293,22 @@ function CategoryGroup({
                     // The amount to the right of the name, and when the item has lain too long a small sand label (Story 14.6);
                     // then the bin (UX-03), the same as on Inköpslista. "dagar" is hidden from nobody: the label is the text.
                     <span className="flex items-center gap-2">
+                      {item.photo?.kept ? (
+                        <button
+                          type="button"
+                          aria-haspopup="dialog"
+                          aria-label={`Visa fotot som ${item.name} lästes från`}
+                          data-testid="pantry-row-photo"
+                          onClick={(event) => {
+                            // Safari does not focus a tapped button: the sheet gives focus back to what had it when it opened.
+                            event.currentTarget.focus();
+                            onViewPhoto(item);
+                          }}
+                          className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-full text-ink-3"
+                        >
+                          <CameraIcon size={16} />
+                        </button>
+                      ) : null}
                       {amount ? <span className="text-[0.9375rem] leading-5 text-ink-2 tabular-nums" data-testid="pantry-amount">{amount}</span> : null}
                       {old ? (
                         <span className="rounded-full bg-sand px-2 py-0.5 text-badge text-sand-ink" data-testid="pantry-old">

@@ -17,6 +17,7 @@ import {
   type PantrySnapshot,
 } from "../domain/pantry-item";
 import { pantryLabelSchema } from "../domain/pantry-item-form";
+import type { PhotoLink } from "../domain/photo-view";
 import { PantryDataError, type PantryDb } from "./client";
 import { loadSelectedSiteIdIn } from "./sites";
 
@@ -158,6 +159,38 @@ export async function listPantryIn(
     };
   });
   return items.sort(comparePantryItems);
+}
+
+/**
+ * The items of one place (`siteId`, or the selected place) that were read from
+ * a photo and still exist, whatever their location: the photo, the number on
+ * it, the item's name and where it is. The photo view uses them to tell which
+ * numbers are still on the list. Throws PantryDataError when a query fails.
+ */
+export async function listPhotoLinksIn(
+  db: PantryDb,
+  ingredientSummaries: IngredientSummaries,
+  siteId?: string,
+): Promise<PhotoLink[]> {
+  const place = await placeToRead(db, siteId);
+  if (place === null) return [];
+  const rows = await allPages((from, to) =>
+    db
+      .from("pantry_item")
+      .select("id, ingredient_id, location, photo_id, photo_number")
+      .eq("site_id", place)
+      .not("photo_id", "is", null)
+      .order("id")
+      .range(from, to),
+  );
+  const ids = [...new Set(rows.map((row) => row.ingredient_id))];
+  const summaries = ids.length > 0 ? await ingredientSummaries(ids) : {};
+  return rows.flatMap((row): PhotoLink[] => {
+    const summary = summaries[row.ingredient_id];
+    const location = locationSchema.safeParse(row.location);
+    if (summary === undefined || !location.success || row.photo_id === null || row.photo_number === null) return [];
+    return [{ photoId: row.photo_id, number: row.photo_number, name: summary.name, location: location.data }];
+  });
 }
 
 /**

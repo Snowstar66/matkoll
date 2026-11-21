@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cannotUndoText } from "@/components/confirm-delete";
 import { TrashIcon } from "@/components/icons";
@@ -19,7 +19,6 @@ import {
   latestPhotoOpenText,
   latestPhotoText,
   photoOfLabel,
-  photoReadingHeading,
   photoTimeText,
   photoTakenText,
   placePhotoUrl,
@@ -27,22 +26,22 @@ import {
   removePhotoQuestion,
   removePhotoText,
   savedPhotoAlt,
-  savedPhotoMarkers,
   type PlacePhoto,
 } from "../domain/place-photo";
-import { AnalyzedPhotoSheet, badgeClasses } from "./analyzed-photo";
+import { photoViewMarkers, type PhotoLink } from "../domain/photo-view";
+import { PhotoViewer } from "./photo-viewer";
 import { usePantrySuggestions } from "./pantry-suggestions";
 
 // Senaste foto (Story 10.2, FR-38, FR-39, UX-DR21, UX-DR22): centred directly
 // under the camera button, when the chosen location on the place Matvaror
 // shows has a photo younger than 30 days, the line "Senaste foto av kylen:
 // idag 15:42 · Visa" in meta type, as in the Epic 11 mockup (lagersaldo.html).
-// No thumbnail, and nothing is fetched before "Visa": the photo sheet of
-// Story 6.6 then loads the photo from GET /api/pantry/photo/[id], with a
-// marker for each saved point and, under the photo, the section label "AI:n
-// läste av:" and the reading as a numbered list with hairlines and the same
-// numbers, and "Ta bort fotot" last. The line is not announced when the page
-// loads.
+// No thumbnail, and nothing is fetched before "Visa": the photo view
+// (PhotoViewer, the same as from a row in the list) then loads the photo from
+// GET /api/pantry/photo/[id], with every number on it, a legend, zooming into
+// a number with its name in a fixed line under the photo, and "Ta bort fotot"
+// last. The list of what the AI read is gone from under the photo. The line is
+// not announced when the page loads.
 //
 // "Ta bort fotot" is not a bin with "Ångra" (Story 11.3): the file cannot be
 // brought back, so it replaces the sheet with the question "Ta bort fotot av
@@ -81,6 +80,8 @@ export type LatestPhotoProps = {
    * grid. Without it, the line knows `photo` only.
    */
   photos?: readonly ShownPlacePhoto[];
+  /** The place's items that came from photos, for the statuses in the photo view; without them the view has no statuses. */
+  photoLinks?: readonly PhotoLink[];
 };
 
 type View = "closed" | "list" | "photo" | "ask";
@@ -102,7 +103,7 @@ function useNow(): Date | null {
   return now;
 }
 
-export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
+export function LatestPhoto({ photo, location, photos, photoLinks = [] }: LatestPhotoProps) {
   const { showToast } = useToast();
   const router = useRouter();
   const { cameraButtonRef } = usePantrySuggestions();
@@ -124,7 +125,6 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
   const [removed, setRemoved] = useState(0);
   const inFlight = useRef(false);
   const mounted = useRef(true);
-  const readingHeadingId = useId();
 
   useEffect(() => {
     mounted.current = true;
@@ -194,7 +194,7 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
   }
 
   const sheetPhoto = openPhoto;
-  const markers = sheetPhoto ? savedPhotoMarkers(sheetPhoto.points, sheetPhoto.reading) : [];
+  const markers = sheetPhoto ? photoViewMarkers(sheetPhoto, photoLinks) : [];
 
   return (
     <>
@@ -269,7 +269,7 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
       </Sheet>
       {sheetPhoto ? (
         <>
-          <AnalyzedPhotoSheet
+          <PhotoViewer
             key={`${sheetPhoto.id}:${opened}`}
             photo={{ url: placePhotoUrl(sheetPhoto.id), size: { width: sheetPhoto.width, height: sheetPhoto.height } }}
             location={sheetPhoto.location}
@@ -281,41 +281,14 @@ export function LatestPhoto({ photo, location, photos }: LatestPhotoProps) {
             alt={savedPhotoAlt(sheetPhoto.location)}
             errorText={goneId === sheetPhoto.id ? errorMessages.pantry_photo_gone : undefined}
           >
-            <div className="flex flex-col gap-2 pt-5">
-              {sheetPhoto.reading.length > 0 ? (
-                <>
-                  {/* A section label, as over Matvaror's categories (Epic 11). */}
-                  <h3 id={readingHeadingId} className="px-1 text-section-label text-ink-2">
-                    {photoReadingHeading}
-                  </h3>
-                  {/* A list group's hairlines; the sheet is the card. role="list" keeps the list for VoiceOver in Safari. */}
-                  <ol
-                    role="list"
-                    aria-labelledby={readingHeadingId}
-                    data-testid="pantry-photo-reading"
-                    className="flex flex-col divide-y divide-hairline"
-                  >
-                    {sheetPhoto.reading.map((label, index) => (
-                      <li key={index} className="flex items-start gap-3 py-2.5 text-body text-ink">
-                        <span aria-hidden="true" className={badgeClasses}>
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0 pt-0.5 wrap-break-word">
-                          <span className="sr-only">{index + 1}. </span>
-                          {label}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              ) : null}
-              {/* Not a bin: the file cannot be brought back, so it asks first (EXPERIENCE.md, Fotoark). */}
+            {/* Not a bin: the file cannot be brought back, so it asks first (EXPERIENCE.md, Fotoark). */}
+            <div className="flex flex-col pt-3">
               <Button variant="danger" onClick={ask} className="-ml-3 self-start">
                 <TrashIcon size={20} />
                 {removePhotoText}
               </Button>
             </div>
-          </AnalyzedPhotoSheet>
+          </PhotoViewer>
           <Sheet
             open={view === "ask"}
             onClose={() => setView("photo")}

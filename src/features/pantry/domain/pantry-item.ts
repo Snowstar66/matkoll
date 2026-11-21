@@ -1,5 +1,6 @@
 import { UNITS, type Location, type Section, type Unit } from "@/features/catalog";
 import type { LastChange } from "@/features/household";
+import { photoViewMarkers, type PhotoLink, type PhotoViewMarker, type PhotoViewSource } from "./photo-view";
 
 // What is at home (FR-11, FR-12, AD-19): a pantry item points at a catalog
 // ingredient and is kept in one location, with an amount and unit or
@@ -40,26 +41,34 @@ export type PantryItem = {
  * What an item remembers of the photo it was read from: the number on the
  * photo, and the photo's id (`null` once the photo row is gone). `kept` is
  * set by Matvaror when the photo is still stored (younger than 30 days, not
- * removed): where to fetch it, and the item's point on it when the photo has
- * one. `points` are all of the photo's points (thousandths), so the whole photo
- * can show every number. Without `kept` the sheet says "Fotot finns inte kvar."
+ * removed): where to fetch it, its size, and the item's point on it when the
+ * photo has one. `markers` are all of the photo's numbers with their names and
+ * statuses (photoViewMarkers), so the photo view can show every one. Without
+ * `kept` the sheet says "Fotot finns inte kvar."
  */
 export type ItemPhoto = {
   number: number;
   photoId: string | null;
-  kept?: { url: string; point: { x: number; y: number } | null; points: { n: number; x: number; y: number }[] };
+  kept?: {
+    url: string;
+    size: { width: number; height: number } | null;
+    point: { x: number; y: number } | null;
+    markers: PhotoViewMarker[];
+  };
 };
 
 /**
  * `items` with the photo each was read from, for the photos still stored
- * (`photos`: id and points, as listPlacePhotos gives them); an item whose
- * photo is gone keeps its link without `kept`. Items without a link are
- * returned as they are.
+ * (`photos`, as listPlacePhotos gives them); an item whose photo is gone
+ * keeps its link without `kept`. `links` are the place's living items that
+ * came from photos (listPhotoLinks), for the statuses in the photo view.
+ * Items without a link are returned as they are.
  */
 export function withKeptPhotos(
   items: readonly PantryItem[],
-  photos: readonly { id: string; points: readonly { n: number; x: number; y: number }[] | null }[],
+  photos: readonly (PhotoViewSource & { width?: number; height?: number })[],
   urlOf: (id: string) => string,
+  links: readonly PhotoLink[] = [],
 ): PantryItem[] {
   const byId = new Map(photos.map((photo) => [photo.id, photo]));
   return items.map((item) => {
@@ -75,8 +84,9 @@ export function withKeptPhotos(
         photoId: link.photoId,
         kept: {
           url: urlOf(link.photoId),
+          size: photo.width && photo.height ? { width: photo.width, height: photo.height } : null,
           point: point ? { x: point.x, y: point.y } : null,
-          points: (photo.points ?? []).map(({ n, x, y }) => ({ n, x, y })),
+          markers: photoViewMarkers(photo, links),
         },
       },
     };

@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect } from "react";
 import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
+import type { PhotoLink } from "../domain/photo-view";
 import type { SelectedSite } from "../domain/site";
 import { EmptyPlaceButton } from "./empty-place";
 import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
@@ -26,6 +27,8 @@ export type PantryPlaceProps = {
   photo?: ShownPlacePhoto | null;
   /** Every photo of the chosen location on the place, newest first: "Alla foton (N)". */
   photos?: readonly ShownPlacePhoto[];
+  /** The place's items that came from photos, for the statuses in the photo view. */
+  photoLinks?: readonly PhotoLink[];
   /** A slot right under the location cards: "Vad kan jag laga nu?", put together by the page so pantry never imports recipes (AD-1). */
   findDishes?: ReactNode;
 };
@@ -40,7 +43,7 @@ export type PantryPlaceProps = {
  * card, list and the question in "Töm kylen" never disagree. "Lägg till
  * boende" is only under Inställningar → Boenden (UX-17).
  */
-export function PantryPlace({ site, location, counts, items, photo = null, photos, findDishes }: PantryPlaceProps) {
+export function PantryPlace({ site, location, counts, items, photo = null, photos, photoLinks, findDishes }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
   // The removals keep a change until the server's items show it.
   useEffect(() => report(site.id, location, items), [report, site.id, location, items]);
@@ -51,7 +54,7 @@ export function PantryPlace({ site, location, counts, items, photo = null, photo
       {/* An empty place gives no useful suggestions. */}
       {Object.values({ ...counts, [location]: shown.length }).some((count) => count > 0) ? findDishes : null}
       <PantryCamera site={site} location={location}>
-        <LatestPhoto photo={photo} photos={photos} location={location} />
+        <LatestPhoto photo={photo} photos={photos} photoLinks={photoLinks} location={location} />
       </PantryCamera>
       <PantrySuggestionList siteId={site.id} />
       <NotSeenCard siteId={site.id} location={location} />

@@ -171,6 +171,12 @@ export type PlacePhoto = {
   reading: string[];
   /** The points of the numbers (Story 6.6), or `null` when none came. */
   points: PhotoPoint[] | null;
+  /**
+   * The numbers that were ever confirmed (added to the list) from this photo,
+   * or `null` when that was not kept (a photo saved before it was): then the
+   * photo view shows its numbers without any status.
+   */
+  confirmedNumbers?: number[] | null;
 };
 
 /** A saved photo's row as read from pantry_photo, checked before Matvaror shows it. */
@@ -189,6 +195,7 @@ export const placePhotoRowSchema = z.object({
   height: z.number().int().positive(),
   reading: readingSchema,
   points: z.array(photoPointSchema).max(maxReadingItems).nullable(),
+  confirmed_numbers: z.array(z.number().int().min(1)).max(100).nullable().optional(),
 });
 
 /** A checked row as a PlacePhoto. */
@@ -201,6 +208,7 @@ export function toPlacePhoto(row: z.output<typeof placePhotoRowSchema>): PlacePh
     height: row.height,
     reading: row.reading,
     points: row.points && row.points.length > 0 ? row.points : null,
+    confirmedNumbers: row.confirmed_numbers ?? null,
   };
 }
 
@@ -263,20 +271,17 @@ export function latestPhotoOpenLabel(location: Location): string {
 }
 
 /**
- * The photo sheet's subtitle: "Taget idag 15:42. Numren visar vad AI:n läste
- * av.", or "Taget idag 15:42." when the photo has no markers.
+ * The photo sheet's subtitle: "Taget idag 15:42. Tryck på en siffra för att
+ * se vad det är.", or "Taget idag 15:42." when the photo has no markers.
  */
 export function photoTakenText(time: string, hasPoints: boolean): string {
-  return hasPoints ? `Taget ${time}. Numren visar vad AI:n läste av.` : `Taget ${time}.`;
+  return hasPoints ? `Taget ${time}. Tryck på en siffra för att se vad det är.` : `Taget ${time}.`;
 }
 
 /** The saved photo's alt text: "Senaste fotot av kylen". */
 export function savedPhotoAlt(location: Location): string {
   return `Senaste fotot av ${definite[location]}`;
 }
-
-/** Over the numbered list of the reading, under the photo. */
-export const photoReadingHeading = "AI:n läste av:";
 
 /** The link under the latest-photo line when the location has two or more photos: "Alla foton (3)". */
 export function allPhotosOpenText(count: number): string {

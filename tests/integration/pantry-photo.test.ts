@@ -834,6 +834,7 @@ describe("Visa senaste fotot (Story 10.2)", () => {
         height: 900,
         reading: ["Mjölk", "Smör"],
         points: [{ n: 2, x: 400, y: 600 }],
+        confirmedNumbers: null,
       },
     ]);
     expect(await loadPlacePhotosIn(other.db, place, new Date())).toEqual([]);
@@ -870,5 +871,65 @@ describe("Visa senaste fotot (Story 10.2)", () => {
     expect(await removePlacePhoto({ id: fresh.id })).toEqual(ok({ removed: false }));
     // The older photo is left for Story 10.3's sweep.
     expect(await fileAt(old.objectPath)).not.toBeNull();
+  });
+});
+
+describe("link_pantry_items_photo and confirmed_numbers", () => {
+  let photoId: string;
+  let items: string[];
+  const confirmed = async () => {
+    const { data, error } = await adminClient().from("pantry_photo").select("confirmed_numbers").eq("id", photoId).single();
+    if (error) throw error;
+    return data.confirmed_numbers;
+  };
+  const link = async (links: Record<string, unknown>[]) => {
+    const { data, error } = await owner.db.rpc("link_pantry_items_photo", { photo: photoId, links: links as never });
+    if (error) throw error;
+    return data;
+  };
+
+  beforeAll(async () => {
+    const photo = row(owner.id, stugan, { location: "Skafferi", reading: ["Mjölk", "Gurka", "Ketchup"], points: null });
+    expect(await savePantryPhotoIn(owner.db, photo)).toMatchObject({ kind: "saved" });
+    photoId = photo.id;
+    const ingredients = await owner.db
+      .from("ingredient")
+      .insert([1, 2, 3].map((n) => ({ name: `Gurka foto ${n}`, normalized_name: `gurka foto ${n} ${randomUUID()}`, section: "Frukt och grönt", location: "Kyl" })))
+      .select("id");
+    if (ingredients.error) throw ingredients.error;
+    const seeded = await adminClient()
+      .from("pantry_item")
+      .insert(ingredients.data.map((ingredient) => ({ user_id: owner.id, site_id: stugan, ingredient_id: ingredient.id, location: "Kyl", amount: 1, unit: "st" })))
+      .select("id");
+    if (seeded.error) throw seeded.error;
+    items = seeded.data.map((item) => item.id);
+  });
+
+  afterAll(async () => {
+    await adminClient().from("pantry_photo").delete().eq("id", photoId);
+  });
+
+  it("starts as not known (null) and gets the linked numbers, as a union over every call", async () => {
+    expect(await confirmed()).toBeNull();
+    expect(await link([{ id: items[0], n: 2 }])).toBe(1);
+    expect(await confirmed()).toEqual([2]);
+    expect(await link([{ id: items[1], n: 1 }, { id: items[2], n: 2 }])).toBe(2);
+    expect(await confirmed()).toEqual([1, 2]);
+  });
+
+  it("does not confirm a number when the link only carries an existing link over (c: false)", async () => {
+    expect(await link([{ id: items[2], n: 3, c: false }])).toBe(1);
+    expect(await confirmed()).toEqual([1, 2]);
+    const { data } = await adminClient().from("pantry_item").select("photo_number").eq("id", items[2]).single();
+    expect(data?.photo_number).toBe(3);
+  });
+
+  it("ignores numbers outside the reading and does not touch another user's photo", async () => {
+    expect(await link([{ id: items[0], n: 9 }])).toBe(1);
+    expect(await confirmed()).toEqual([1, 2]);
+    const { data, error } = await other.db.rpc("link_pantry_items_photo", { photo: photoId, links: [{ id: items[0], n: 3 }] });
+    expect(error).toBeNull();
+    expect(data).toBe(0);
+    expect(await confirmed()).toEqual([1, 2]);
   });
 });

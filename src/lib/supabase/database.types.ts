@@ -515,14 +515,14 @@ isOneToOne: false
                   ]
                 },"pantry_photo": {
                   Row: {
-                    "created_at": string,"height": number,"household_id": string,"id": string,"location": string,"media_type": string,"object_path": string,"points": Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id": string | null,"width": number
+                    "confirmed_numbers": (number)[] | null,"created_at": string,"height": number,"household_id": string,"id": string,"location": string,"media_type": string,"object_path": string,"points": Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id": string | null,"width": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"height": number,"household_id"?: string,"id": string,"location": string,"media_type": string,"object_path": string,"points"?: Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id"?: string | null,"width": number
+                    "confirmed_numbers"?: (number)[] | null,"created_at"?: string,"height": number,"household_id"?: string,"id": string,"location": string,"media_type": string,"object_path": string,"points"?: Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id"?: string | null,"width": number
                   }
                   Update: {
-                    "created_at"?: string,"height"?: number,"household_id"?: string,"id"?: string,"location"?: string,"media_type"?: string,"object_path"?: string,"points"?: Json | null,"reading"?: NonNullable<Json>,"site_id"?: string,"taken_at"?: string,"user_id"?: string | null,"width"?: number
+                    "confirmed_numbers"?: (number)[] | null,"created_at"?: string,"height"?: number,"household_id"?: string,"id"?: string,"location"?: string,"media_type"?: string,"object_path"?: string,"points"?: Json | null,"reading"?: NonNullable<Json>,"site_id"?: string,"taken_at"?: string,"user_id"?: string | null,"width"?: number
                   }
                   Relationships: [
                     {

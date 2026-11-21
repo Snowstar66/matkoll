@@ -5,7 +5,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import { photoTimeText, placePhotoUrl, withKeptPhotos, type PantryItem, type PlacePhoto, type SelectedSite } from "@/features/pantry";
-import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
+import { countPantryItems, isPantrySiteGone, listPantry, listPhotoLinks, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
 import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
@@ -56,6 +56,8 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
 
   // Started first, so it is read alongside the pantry, and is there for the notice below too.
   const allPhotoRead = sitePhotos(site.id);
+  // The items that came from photos, for the statuses in the photo view (none when they cannot be read).
+  const linksRead = listPhotoLinks(site.id);
   allPhotoRead.catch(() => {});
   const photoRead = locationPhotos(allPhotoRead, location);
   // Awaited below, unless the pantry fails with a bug, which goes to the error boundary without it.
@@ -79,7 +81,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
       <div className="flex flex-col gap-6">
         <Notice role="alert">{message}</Notice>
         <PantryCamera site={site} location={location}>
-          <LatestPhoto photo={(await photoRead)[0] ?? null} photos={await photoRead} location={location} />
+          <LatestPhoto photo={(await photoRead)[0] ?? null} photos={await photoRead} photoLinks={await linksRead} location={location} />
         </PantryCamera>
         <PantrySuggestionList siteId={site.id} />
       </div>
@@ -88,14 +90,15 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
 
   const photos = await photoRead;
   // The photo each item was read from, when it is still stored (a camera icon on the row, the photo in its sheet).
-  items = withKeptPhotos(items, await allPhotoRead, placePhotoUrl);
+  const photoLinks = await linksRead;
+  items = withKeptPhotos(items, await allPhotoRead, placePhotoUrl, photoLinks);
   return (
     <>
       <PageReady name="Matvaror" />
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photos[0] ?? null} photos={photos} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photos[0] ?? null} photos={photos} photoLinks={photoLinks} findDishes={<CookNowButton readCookNow={readCookNow} saveRecipe={saveRecipe} sendFeedback={sendFeedback} />} />
     </>
   );
 }

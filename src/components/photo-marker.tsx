@@ -4,7 +4,7 @@ import { cx } from "@/components/cx";
 // Förrådet (a card's föremål), so both look the same: 22 px, filled, with a
 // white edge (dark in dark mode) and a shadow. Presentational only.
 
-export type MarkerTone = "on" | "off" | "unsure";
+export type MarkerTone = "on" | "off" | "unsure" | "gone" | "skipped";
 
 /** Half a marker and its border, at 200 % text: a marker is kept this far inside the photo's edges. */
 export const markerInset = "14px";
@@ -13,6 +13,10 @@ const toneClasses = {
   on: "bg-accent text-on-accent",
   off: "bg-marker-off text-photo-mark",
   unsure: "bg-warm text-on-warm",
+  // Enhetlig fotovisning: an item that is no longer on the list (the marker holds a cross, the view adds the words) and
+  // one that was never added (a dashed ring); neither depends on colour alone.
+  gone: "bg-danger text-on-accent",
+  skipped: "border-dashed bg-marker-off text-photo-mark opacity-80",
 } as const;
 
 /**

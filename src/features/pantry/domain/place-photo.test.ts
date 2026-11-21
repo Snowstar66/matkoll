@@ -5,7 +5,6 @@ import {
   latestPhotoOpenText,
   latestPhotoText,
   maxTakenAtAgeMs,
-  photoReadingHeading,
   photoTakenText,
   photoTimeText,
   placePhotoCutoff,
@@ -183,9 +182,8 @@ describe("the texts of the line and the sheet", () => {
     expect(latestPhotoText("24 okt 15:42", "Frys")).toBe("Senaste foto av frysen: 24 okt 15:42");
     expect(latestPhotoOpenText).toBe("Visa");
     expect(latestPhotoOpenLabel("Frys")).toBe("Visa senaste foto av frysen");
-    expect(photoTakenText("idag 15:42", true)).toBe("Taget idag 15:42. Numren visar vad AI:n läste av.");
+    expect(photoTakenText("idag 15:42", true)).toBe("Taget idag 15:42. Tryck på en siffra för att se vad det är.");
     expect(photoTakenText("idag 15:42", false)).toBe("Taget idag 15:42.");
-    expect(photoReadingHeading).toBe("AI:n läste av:");
     expect(savedPhotoAlt("Kyl")).toBe("Senaste fotot av kylen");
   });
 
@@ -261,7 +259,9 @@ describe("placePhotoRowSchema", () => {
       height: 900,
       reading: ["Mjölk"],
       points: [{ n: 1, x: 10, y: 20 }],
+      confirmedNumbers: null,
     });
+    expect(toPlacePhoto(placePhotoRowSchema.parse({ ...row, confirmed_numbers: [1] })).confirmedNumbers).toEqual([1]);
     expect(toPlacePhoto(placePhotoRowSchema.parse({ ...row, points: [] })).points).toBeNull();
     expect(toPlacePhoto(placePhotoRowSchema.parse({ ...row, points: null })).points).toBeNull();
   });

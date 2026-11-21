@@ -101,19 +101,30 @@ describe("snapshotFor", () => {
 describe("withKeptPhotos", () => {
   const photoId = "photo-1";
   const urlOf = (id: string) => `/api/pantry/photo/${id}`;
-  const stored = [{ id: photoId, points: [{ n: 2, x: 300, y: 600 }, { n: 3, x: 100, y: 200 }] }];
+  const stored = [
+    {
+      id: photoId,
+      width: 720,
+      height: 900,
+      reading: ["Mjölk", "Gurka", "Vispgrädde 3 dl"],
+      points: [{ n: 2, x: 300, y: 600 }, { n: 3, x: 100, y: 200 }],
+      confirmedNumbers: [2, 3],
+    },
+  ];
+  const links = [{ photoId, number: 2, name: "Gurka", location: "Kyl" as const }];
 
-  it("marks the photo as kept, with its address and the item's point on it", () => {
+  it("marks the photo as kept, with its address, size, the item's point and every number's status", () => {
     const gurka = item({ id: "1", name: "Gurka", photo: { number: 2, photoId } });
-    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo).toEqual({
+    expect(withKeptPhotos([gurka], stored, urlOf, links)[0].photo).toEqual({
       number: 2,
       photoId,
       kept: {
         url: "/api/pantry/photo/photo-1",
+        size: { width: 720, height: 900 },
         point: { x: 300, y: 600 },
-        points: [
-          { n: 2, x: 300, y: 600 },
-          { n: 3, x: 100, y: 200 },
+        markers: [
+          { n: 2, left: 30, top: 60, name: "Gurka", status: "present", location: "Kyl" },
+          { n: 3, left: 10, top: 20, name: "Vispgrädde 3 dl", status: "gone", location: null },
         ],
       },
     });
@@ -121,14 +132,9 @@ describe("withKeptPhotos", () => {
 
   it("keeps the photo without a point when the photo has none for the number", () => {
     const gurka = item({ id: "1", name: "Gurka", photo: { number: 1, photoId } });
-    expect(withKeptPhotos([gurka], stored, urlOf)[0].photo?.kept).toEqual({
-      url: "/api/pantry/photo/photo-1",
-      point: null,
-      points: [
-        { n: 2, x: 300, y: 600 },
-        { n: 3, x: 100, y: 200 },
-      ],
-    });
+    const kept = withKeptPhotos([gurka], stored, urlOf)[0].photo?.kept;
+    expect(kept?.point).toBeNull();
+    expect(kept?.url).toBe("/api/pantry/photo/photo-1");
   });
 
   it("leaves the link without a kept photo when the photo is swept, removed or its row is gone", () => {
