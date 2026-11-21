@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roomHref, thingCrumbs, type ThingDetailPlace } from "./thing-detail";
+import { cardPhotoMarkers, numberOnCard, roomHref, thingCrumbs, type ThingDetailCardThing, type ThingDetailPlace } from "./thing-detail";
 
 const place: ThingDetailPlace = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02", siteId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a03", room: "Garaget", roomKey: "garaget", part: null, kind: "part" };
 
@@ -22,5 +22,27 @@ describe("the crumbs of a föremål", () => {
   it("links a box to its page", () => {
     expect(thingCrumbs({ ...place, kind: "box", part: "Jul" })[1]).toEqual({ label: "Låda Jul", href: `/prylar/lada/${place.id}` });
     expect(thingCrumbs({ ...place, kind: "box" })[1]?.label).toBe("Låda");
+  });
+});
+
+describe("the numbers of a card in the photo view", () => {
+  const box = (left: number, top: number) => ({ left, top, width: 0.2, height: 0.2 });
+  const things: ThingDetailCardThing[] = [
+    { id: "a", name: "Hammare", box: box(0.1, 0.1) },
+    { id: "b", name: "Spade", box: null },
+    { id: "c", name: "Såg", box: box(0.5, 0.6) },
+  ];
+
+  it("numbers the föremål with a box in the card's order, the same as the card's page, without statuses", () => {
+    expect(cardPhotoMarkers(things)).toEqual([
+      { n: 1, left: 20, top: 20, name: "Hammare", status: null, location: null },
+      { n: 2, left: 60, top: 70, name: "Såg", status: null, location: null },
+    ]);
+  });
+
+  it("finds a föremål's number, or none for one without a box or not on the card", () => {
+    expect(numberOnCard(things, "c")).toBe(2);
+    expect(numberOnCard(things, "b")).toBeNull();
+    expect(numberOnCard(things, "z")).toBeNull();
   });
 });

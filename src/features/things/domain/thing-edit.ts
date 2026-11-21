@@ -121,6 +121,10 @@ export const saveNameText = "Spara";
 export const openWholeCardText = "Öppna hela kortet";
 /** The text link under the photo's crop, to the same place. */
 export const showWholeCardText = "Visa hela kortet";
+/** The photo view's title (Förrådet), its photo's alt text, and the link in it to the card's own page with the list. */
+export const photoViewerTitleText = "Kortet";
+export const photoViewerAltText = "Kortet som föremålen lästes från";
+export const openCardPageText = "Öppna kortet med listan";
 /** Where a föremål is kept, read in the sheet, with the crumbs' name for a screen reader. */
 export const placeCrumbsLabel = "Var den finns";
 export const categoryLabelText = "Kategori";

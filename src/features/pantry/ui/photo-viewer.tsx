@@ -74,8 +74,12 @@ export type PhotoViewerProps = {
   onClose: () => void;
   /** The photo's address and its size when known (it lays out the frame before the photo is decoded). */
   photo: { url: string; size: ImageSize | null };
-  /** The place the photo shows: the sheet's title is "Fotot av kylen". */
-  location: Location;
+  /** The place the photo shows: the sheet's title is "Fotot av kylen". Förrådet gives `title` instead. */
+  location?: Location;
+  /** The sheet's title when it is not about a place ("Kortet"). */
+  title?: string;
+  /** What a number stands for, said to a screen reader: "Vara 3: …", "Föremål 3: …". */
+  noun?: string;
   /** The numbers on the photo with their names and statuses. */
   markers: readonly PhotoViewMarker[];
   /** The line under the title in the overview; "Tryck på en siffra …" when not given. */
@@ -101,6 +105,8 @@ export function PhotoViewer({
   onClose,
   photo,
   location,
+  title: givenTitle,
+  noun = "Vara",
   markers,
   subtitle,
   initialNumber = null,
@@ -109,7 +115,7 @@ export function PhotoViewer({
   onPhotoError,
   children,
 }: PhotoViewerProps) {
-  const title = analyzedPhotoTitle(location);
+  const title = givenTitle ?? (location ? analyzedPhotoTitle(location) : "Fotot");
   const [failed, setFailed] = useState(false);
   const [decoded, setDecoded] = useState<ImageSize | null>(null);
   const [view, setView] = useState(() => openView(initialNumber !== null && markers.some((marker) => marker.n === initialNumber) ? initialNumber : null));
@@ -249,7 +255,7 @@ export function PhotoViewer({
                       <button
                         key={marker.n}
                         type="button"
-                        aria-label={photoMarkerName(marker)}
+                        aria-label={photoMarkerName(marker, noun)}
                         aria-pressed={zoomed ? lit : undefined}
                         data-testid="photo-viewer-marker"
                         data-status={marker.status ?? undefined}
@@ -283,7 +289,7 @@ export function PhotoViewer({
                 </span>
                 <span className="flex min-w-0 flex-col">
                   <span className="text-row-title font-semibold wrap-break-word text-ink">
-                    <span className="sr-only">Vara {selectedMarker.n}: </span>
+                    <span className="sr-only">{noun} {selectedMarker.n}: </span>
                     {selectedMarker.name}
                   </span>
                   {selectedMarker.status ? (

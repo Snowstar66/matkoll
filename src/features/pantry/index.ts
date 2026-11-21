@@ -263,3 +263,6 @@ export {
   type StapleRestore,
   type StapleUnit,
 } from "./domain/staples";
+// The photo view (Matvaror and Förrådet): one component, markers with names and statuses.
+export { PhotoViewer, type PhotoViewerProps } from "./ui/photo-viewer";
+export type { PhotoViewMarker, PhotoMarkerStatus } from "./domain/photo-view";

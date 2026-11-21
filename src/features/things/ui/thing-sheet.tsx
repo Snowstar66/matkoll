@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { PhotoViewer } from "@/features/pantry";
 import { Button } from "@/components/button";
 import { ChoiceRows } from "@/components/choice-rows";
 import { FieldError, FieldLabel, Input } from "@/components/field";
@@ -15,7 +16,7 @@ import { setThingCount } from "../actions/thing-count";
 import { loadThingDetail } from "../actions/thing-detail";
 import { removeThing, restoreThing, updateThing } from "../actions/thing-item";
 import { cardViewHref } from "../domain/thing-card";
-import { thingCrumbs, type ThingDetail } from "../domain/thing-detail";
+import { cardPhotoMarkers, numberOnCard, thingCrumbs, type ThingDetail } from "../domain/thing-detail";
 import { thingCategories, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
 import {
   categoryLabelText,
@@ -25,6 +26,9 @@ import {
   maxThingNameChars,
   nameFieldText,
   openWholeCardText,
+  openCardPageText,
+  photoViewerAltText,
+  photoViewerTitleText,
   showWholeCardText,
   placeCrumbsLabel,
   saveNameText,
@@ -96,45 +100,65 @@ function centeredPosition(at: number, zoom: number): number {
  * shading), square, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
  * so the crop is right at any size. Without a box the whole photo shows.
  */
-function ThingPhoto({ photoId, thingId, box, onOpen }: { photoId: string; thingId: string; box: ThingDetail["box"]; onOpen: () => void }) {
+function ThingPhoto({
+  photoId,
+  thingId,
+  box,
+  canView,
+  onView,
+  onOpen,
+}: {
+  photoId: string;
+  thingId: string;
+  box: ThingDetail["box"];
+  /** The card's numbers are known: the photo and "Visa hela kortet" open the photo view; otherwise they lead to the card's page. */
+  canView: boolean;
+  onView: (zoomed: boolean) => void;
+  onOpen: () => void;
+}) {
   const href = cardViewHref(photoId, thingId);
   // The photo is served by the route that checks the user; nothing is fetched from anywhere else.
   const url = `/api/things/photo/${photoId}`;
   const zoom = box ? Math.min(maxCropZoom, Math.max(minCropZoom, 0.5 / Math.max(box.width, 0.01))) : 1;
+  const picture = box ? (
+    <div
+      aria-hidden="true"
+      data-testid="thing-photo-crop"
+      className="aspect-square max-h-[320px] w-full"
+      style={{
+        backgroundImage: `url("${url}")`,
+        backgroundSize: `${zoom * 100}% auto`,
+        backgroundPosition: `${centeredPosition(box.left + box.width / 2, zoom)}% ${centeredPosition(box.top + box.height / 2, zoom)}%`,
+        backgroundRepeat: "no-repeat",
+      }}
+    />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className="mx-auto block max-h-[55svh] w-auto max-w-full" draggable={false} />
+  );
+  const frameClass = "block w-full overflow-hidden rounded-[14px] bg-border";
+  const wholeClass = "-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent";
   return (
     <div className="flex flex-col gap-1">
-      <Link
-        href={href}
-        onClick={onOpen}
-        aria-label={openWholeCardText}
-        className="block overflow-hidden rounded-[14px] bg-border"
-        data-testid="thing-photo"
-      >
-        {box ? (
-          <div
-            aria-hidden="true"
-            data-testid="thing-photo-crop"
-            className="aspect-square max-h-[320px] w-full"
-            style={{
-              backgroundImage: `url("${url}")`,
-              backgroundSize: `${zoom * 100}% auto`,
-              backgroundPosition: `${centeredPosition(box.left + box.width / 2, zoom)}% ${centeredPosition(box.top + box.height / 2, zoom)}%`,
-              backgroundRepeat: "no-repeat",
-            }}
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" className="mx-auto block max-h-[55svh] w-auto max-w-full" draggable={false} />
-        )}
-      </Link>
-      <Link
-        href={href}
-        onClick={onOpen}
-        data-testid="thing-photo-whole"
-        className="-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent"
-      >
-        {showWholeCardText}
-      </Link>
+      {canView ? (
+        // The same photo view as in Matvaror: the photo zoomed in on this föremål, the whole card with every number one tap away.
+        <button type="button" onClick={() => onView(box !== null)} aria-haspopup="dialog" aria-label={openWholeCardText} className={frameClass} data-testid="thing-photo">
+          {picture}
+        </button>
+      ) : (
+        <Link href={href} onClick={onOpen} aria-label={openWholeCardText} className={frameClass} data-testid="thing-photo">
+          {picture}
+        </Link>
+      )}
+      {canView ? (
+        <button type="button" onClick={() => onView(false)} aria-haspopup="dialog" data-testid="thing-photo-whole" className={wholeClass}>
+          {showWholeCardText}
+        </button>
+      ) : (
+        <Link href={href} onClick={onOpen} data-testid="thing-photo-whole" className={wholeClass}>
+          {showWholeCardText}
+        </Link>
+      )}
     </div>
   );
 }
@@ -161,6 +185,8 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const [session, setSession] = useState<{ id: string; at: number } | null>(null);
   // The photo and place: `undefined` until read, `null` when they could not be read (the rest of the sheet works anyway).
   const [detail, setDetail] = useState<{ key: string; value: ThingDetail | null } | undefined>(undefined);
+  // The photo view, replacing the sheet while it shows ("Klar" comes back to the sheet, whose fields are as they were).
+  const [photoView, setPhotoView] = useState<{ zoomed: boolean; opened: number } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
   const categoryRowRef = useRef<HTMLButtonElement>(null);
@@ -218,6 +244,8 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const read = detail?.key === detailKey ? detail.value : undefined;
   const photoId = noted ? null : read === undefined ? (thing?.photoId ?? null) : read ? read.photoId : (thing?.photoId ?? null);
   const box = read?.box ?? null;
+  const cardMarkers = read ? cardPhotoMarkers(read.cardThings ?? []) : [];
+  const viewing = photoView !== null && photoId !== null && cardMarkers.length > 0;
   const isCounted = counted !== null;
   const dirty = cleanThingName(nameDraft) !== name || (!isCounted && countDraft !== "");
 
@@ -352,8 +380,9 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   );
 
   return (
+    <>
     <Sheet
-      open={open}
+      open={open && !viewing}
       onClose={onClose}
       title={step === "main" ? thingSheetTitleText : categoryLabelText}
       subtitle={thing && step === "main" ? (subtitle ?? defaultSubtitle(thing)) : undefined}
@@ -381,7 +410,15 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
       <div hidden={step !== "main"} aria-busy={saving || undefined} className="flex flex-col gap-4">
         {notice ? <Notice role="alert">{notice}</Notice> : null}
         {photoId ? (
-          <ThingPhoto key={photoId} photoId={photoId} thingId={thing?.id ?? ""} box={box} onOpen={onClose} />
+          <ThingPhoto
+            key={photoId}
+            photoId={photoId}
+            thingId={thing?.id ?? ""}
+            box={box}
+            canView={cardMarkers.length > 0}
+            onView={(zoomed) => setPhotoView((current) => ({ zoomed, opened: (current?.opened ?? 0) + 1 }))}
+            onOpen={onClose}
+          />
         ) : (
           // No photo (written or noted, or not read yet): the category's emoji on a mint tile.
           <div className="flex h-32 items-center justify-center rounded-lg bg-mint text-5xl" aria-hidden="true" data-testid="thing-tile">
@@ -487,5 +524,23 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
         </div>
       </div>
     </Sheet>
+    {viewing && photoId ? (
+      <PhotoViewer
+        key={photoView.opened}
+        open={open}
+        onClose={() => setPhotoView(null)}
+        photo={{ url: `/api/things/photo/${photoId}`, size: null }}
+        title={photoViewerTitleText}
+        noun="Föremål"
+        markers={cardMarkers}
+        initialNumber={photoView.zoomed && thing && read ? numberOnCard(read.cardThings ?? [], thing.id) : null}
+        alt={photoViewerAltText}
+      >
+        <Link href={cardViewHref(photoId, thing?.id ?? "")} onClick={onClose} data-testid="thing-photo-card-page" className="inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent">
+          {openCardPageText}
+        </Link>
+      </PhotoViewer>
+    ) : null}
+    </>
   );
 }
