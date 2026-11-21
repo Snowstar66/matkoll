@@ -86,6 +86,8 @@ export type PhotoViewerProps = {
   subtitle?: string;
   /** Opens zoomed in on this number (a row's camera, the crop in "Ändra vara"); the overview when `null` or not on the photo. */
   initialNumber?: number | null;
+  /** Numbers that are not the lit one are dark grey, as on Förråd's card page (Matvaror's are green). Only for markers without a status. */
+  quietMarkers?: boolean;
   /** The photo's alt text. */
   alt: string;
   /** What is said when the photo cannot be shown. */
@@ -110,6 +112,7 @@ export function PhotoViewer({
   markers,
   subtitle,
   initialNumber = null,
+  quietMarkers = false,
   alt,
   errorText = analyzedPhotoErrorText,
   onPhotoError,
@@ -262,7 +265,7 @@ export function PhotoViewer({
                         style={markerPosition(marker.left, marker.top)}
                         onClick={() => choose(marker.n)}
                         className={cx(
-                          photoMarkerClasses(toneFor(marker.status)),
+                          photoMarkerClasses(!lit && quietMarkers && marker.status === null ? "off" : toneFor(marker.status)),
                           "absolute -translate-x-1/2 -translate-y-1/2 transition-[scale,opacity,box-shadow] duration-200 motion-reduce:transition-none",
                           // A 44 px tap area around the 22 px marker (the inset is measured from inside its 2 px border).
                           "before:absolute before:-inset-[13px] before:content-['']",

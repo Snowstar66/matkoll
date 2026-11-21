@@ -18,11 +18,13 @@ function Viewer({
   initialNumber = null,
   onClose = () => {},
   onPhotoError,
+  quietMarkers = false,
 }: {
   list?: readonly PhotoViewMarker[];
   initialNumber?: number | null;
   onClose?: () => void;
   onPhotoError?: () => void;
+  quietMarkers?: boolean;
 }) {
   return (
     <PhotoViewer
@@ -32,6 +34,7 @@ function Viewer({
       location="Kyl"
       markers={list}
       initialNumber={initialNumber}
+      quietMarkers={quietMarkers}
       alt="Senaste fotot av kylen"
       onPhotoError={onPhotoError}
     >
@@ -84,6 +87,23 @@ describe("PhotoViewer", () => {
       "6Lades inte till",
     ]);
     expect(within(dialog()).getByRole("button", { name: "Ta bort fotot" })).toBeInTheDocument();
+  });
+
+  it("keeps Matvaror's numbers green, and with quietMarkers (Förråd) dark grey until one is lit", () => {
+    const plain: PhotoViewMarker[] = [
+      { n: 1, left: 20, top: 20, name: "Hammare", status: null, location: null },
+      { n: 2, left: 60, top: 30, name: "Såg", status: null, location: null },
+    ];
+    const view = render(<Viewer list={plain} />);
+    decode();
+    for (const button of within(dialog()).getAllByTestId("photo-viewer-marker")) expect(button).toHaveClass("bg-accent");
+    view.unmount();
+    render(<Viewer list={plain} quietMarkers initialNumber={2} />);
+    decode();
+    const [first, second] = within(dialog()).getAllByTestId("photo-viewer-marker");
+    expect(first).toHaveClass("bg-marker-off");
+    expect(first).not.toHaveClass("bg-accent");
+    expect(second).toHaveClass("bg-accent");
   });
 
   it("gives every marker a 44 px tap area and works from the keyboard (they are buttons)", () => {
