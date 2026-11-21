@@ -7,7 +7,8 @@ import { phraseForSearch, searchPhrase, soldLinks } from "./worth-search";
 describe("the search phrase", () => {
   it("is one line without quotation marks or control characters", () => {
     expect(searchPhrase('  Orrefors  "kristallskål"\nslipad ')).toBe("Orrefors kristallskål slipad");
-    expect(searchPhrase("a\u0000b​c")).toBe("a b c");
+    // Written as code points: invisible characters are never written literally in the files.
+    expect(searchPhrase(`a${String.fromCharCode(0)}b${String.fromCodePoint(0x200b)}c`)).toBe("a b c");
     expect(searchPhrase(null)).toBe("");
     expect(searchPhrase("   ")).toBe("");
   });
