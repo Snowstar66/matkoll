@@ -57,7 +57,7 @@ function watchErrors(page: Page): string[] {
 
 const section = (page: Page) => page.getByRole("main").getByRole("region", { name: "Butik", exact: true });
 const card = (page: Page) => section(page).getByTestId("selected-store");
-const others = (page: Page) => section(page).getByRole("list", { name: "Andra butiker" });
+const others = (page: Page) => section(page).getByRole("list", { name: "Byt butik" });
 const toast = (page: Page) => page.getByTestId("toast");
 const dialog = (page: Page, name: string) => page.getByRole("dialog", { name });
 
@@ -122,7 +122,7 @@ test("Ändra saves a new address, which stays after a reload", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-test("Lägg till butik with Willys selects the new store, and Välj switches back", async ({ page }) => {
+test("Lägg till butik with Willys selects the new store, and Använd den här butiken switches back", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/installningar/butiker");
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
@@ -140,17 +140,17 @@ test("Lägg till butik with Willys selects the new store, and Välj switches bac
   await expect(others(page)).toContainText("ICA · butiks-id 1003733");
   expect(await selectedStores()).toEqual(["Willys Lindhagen"]);
 
-  await others(page).getByRole("button", { name: `Välj ${maxi}` }).click();
+  await others(page).getByRole("button", { name: `Använd ${maxi}` }).click();
   await expectSelected(page, maxi);
-  await expect(toast(page)).toHaveText(`${maxi} är vald.`);
-  await expect(others(page).getByRole("button", { name: "Välj Willys Lindhagen" })).toBeVisible();
+  await expect(toast(page)).toHaveText(`Du handlar nu hos ${maxi}.`);
+  await expect(others(page).getByRole("button", { name: "Använd Willys Lindhagen" })).toBeVisible();
   await expect.poll(selectedStores).toEqual([maxi]);
   await page.reload();
   await expectSelected(page, maxi);
   expect(errors).toEqual([]);
 });
 
-test("a store added without Använd för varukorgen lands under Andra butiker", async ({ page }) => {
+test("a store added without Använd för varukorgen lands under Byt butik", async ({ page }) => {
   await page.goto("/installningar/butiker");
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
@@ -187,7 +187,7 @@ test("refuses a URL that does not start with https://, and a store that is there
   expect(await storedStores()).toEqual([{ name: maxi, chain: "ICA", address: null, is_selected: true }]);
 });
 
-test("Andra butiker are in Swedish name order, each with Ändra and Välj", async ({ page }) => {
+test("The stores under Byt butik are in Swedish name order, each with Ändra and Använd den här butiken", async ({ page }) => {
   // Inserted out of order; in code-unit order "Ä" (U+00C4) would come before "Å" (U+00C5).
   const added = await adminClient()
     .from("store")
@@ -205,6 +205,6 @@ test("Andra butiker are in Swedish name order, each with Ändra and Välj", asyn
   await expect(rows.nth(1)).toContainText("Ärtans Coop");
   for (const name of ["Åkrokens Willys", "Ärtans Coop"]) {
     await expect(others(page).getByRole("button", { name: `Ändra ${name}` })).toBeVisible();
-    await expect(others(page).getByRole("button", { name: `Välj ${name}` })).toBeVisible();
+    await expect(others(page).getByRole("button", { name: `Använd ${name}` })).toBeVisible();
   }
 });

@@ -193,7 +193,7 @@ describe("texts", () => {
   });
 
   it("names the selected store", () => {
-    expect(selectedStoreText("Maxi ICA Stormarknad Östersund")).toBe("Maxi ICA Stormarknad Östersund är vald.");
+    expect(selectedStoreText("Maxi ICA Stormarknad Östersund")).toBe("Du handlar nu hos Maxi ICA Stormarknad Östersund.");
     expect(noAddressText).toBe("Ingen adress angiven");
   });
 });

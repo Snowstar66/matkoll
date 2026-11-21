@@ -64,6 +64,6 @@ describe("the store card's line", () => {
     expect(offersSiteName(maxi)).toBe("ica.se");
     expect(offersSiteName("https://example.com/")).toBeNull();
     expect(offersSiteName("inte en adress")).toBeNull();
-    expect(offersLinkCardText("ica.se")).toBe("Erbjudanden: ica.se");
+    expect(offersLinkCardText("ica.se")).toBe("Erbjudanden hämtas från ica.se");
   });
 });

@@ -85,7 +85,8 @@ test("the store's link is in Inställningar, and only an offer page on ica.se is
   const errors = watchErrors(page);
   await page.goto("/installningar/butiker");
   const card = page.getByRole("main").getByTestId("selected-store");
-  await expect(card.getByText("Erbjudanden: ica.se")).toBeVisible();
+  await expect(card.getByText("Erbjudanden hämtas från ica.se")).toBeVisible();
+  await expect(card.getByTestId("no-offers")).toHaveCount(0);
 
   await card.getByRole("button", { name: "Ändra" }).click();
   const dialog = page.getByRole("dialog", { name: "Ändra butik" });

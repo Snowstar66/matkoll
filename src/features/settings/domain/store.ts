@@ -54,16 +54,31 @@ export function tooLongMessage(max: number): string {
 export const noAddressText = "Ingen adress angiven";
 /** The short confirmation after "Spara" in the sheet. */
 export const storeSavedText = "Butiken är sparad.";
-/** In the section when no store is selected (a new household starts like this, UX-09). */
-export const noSelectedStoreText = "Välj butik";
-/** The sentence under it: what the store is for. */
-export const noSelectedStoreHint = "Butiken styr vilka erbjudanden du ser. Lägg till din butik här under.";
+/** The sentence at the top of the page: what the choice of store does. */
+export const storePurposeText =
+  "Här väljer du butiken du handlar i. Den styr två saker: vilka erbjudanden du ser, och vilken butik som står i listan när du trycker Kopiera till ICA-varukorgen.";
+/** On the selected store's card: what the varukorg export does with it. */
+export const basketLineText = "Varukorgen: listan kopieras med den här butiken";
+/** The yellow line on an ICA store without a link to its offers. */
+export const noOffersTitle = "Inga erbjudanden än.";
+export const noOffersHint = "Lägg till länken till butikens erbjudanden på ica.se.";
+/** In the section when no store is selected but there are stores. */
+export const noSelectedStoreText = "Ingen butik vald";
+/** The sentence under it: what choosing one gives. */
+export const noSelectedStoreHint = "Välj en butik nedan så får du erbjudanden och en färdig lista att kopiera.";
+/** The page when there are no stores at all (a new household starts like this, UX-09). */
+export const noStoresTitle = "Lägg till din butik";
+export const noStoresIntro = "Det här får du när du har lagt till en butik:";
+export const noStoresLines = [
+  "Du ser veckans erbjudanden från butiken (just nu för ICA).",
+  "Listan kan kopieras med butikens namn, så du kan fylla varukorgen på nätet.",
+] as const;
 /** The help text under Kedja when a store is changed: its product choices stay with the row. */
 export const changeChainHint = "Byter du kedja, lägg hellre till en ny butik, så behåller den här sina produktval.";
 
-/** "Maxi ICA Stormarknad Östersund är vald.", the short confirmation after "Välj". */
+/** "Du handlar nu hos Maxi ICA Stormarknad Östersund.", the short confirmation after "Använd den här butiken". */
 export function selectedStoreText(name: string): string {
-  return `${name} är vald.`;
+  return `Du handlar nu hos ${name}.`;
 }
 
 /** "ICA · butiks-id 1003733", or just "Willys" without a store id. */

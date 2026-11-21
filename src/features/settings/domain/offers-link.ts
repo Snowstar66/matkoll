@@ -80,7 +80,7 @@ export function offersSiteName(url: string): string | null {
   return OFFER_SITES.find((site) => site.host === host)?.name ?? null;
 }
 
-/** "Erbjudanden: ica.se", the store card's line when the store has a link. */
+/** "Erbjudanden hämtas från ica.se", the store card's line when the store has a link. */
 export function offersLinkCardText(siteName: string): string {
-  return `Erbjudanden: ${siteName}`;
+  return `Erbjudanden hämtas från ${siteName}`;
 }
