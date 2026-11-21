@@ -18,7 +18,7 @@ import { listOldCandidatesIn } from "./data/old";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
 import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFileExists } from "./data/photos";
-import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
+import { checkedSiteId, countPantryIn, listPantryIn, listPhotoLinksIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { removePantryItemIn } from "./data/remove";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
 import { listStaplesIn } from "./data/staples";
@@ -29,6 +29,7 @@ import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pa
 import { byOvershoot, expiringPantryItems, oldPantryItems, type ExpiringPantryItem, type OldPantryItem } from "./domain/old-items";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
+import type { PhotoLink } from "./domain/photo-view";
 import type { PlacePhoto, PlacePhotoMediaType } from "./domain/place-photo";
 import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/site";
 
@@ -106,6 +107,10 @@ const listPantryOn = cache(async (location: Location, siteId: string): Promise<P
   // Story 21.3: who else last added or changed each item (getOthers is empty when the members cannot be read).
   const [db, others] = await Promise.all([createClient(), getOthers()]);
   return listPantryIn(db, location, getIngredientSummaries, siteId, others);
+});
+
+const photoLinksOn = cache(async (siteId: string): Promise<PhotoLink[]> => {
+  return listPhotoLinksIn(await createClient(), getIngredientSummaries, siteId);
 });
 
 const countPantryOn = cache(async (siteId: string): Promise<Record<Location, number>> => {
@@ -219,6 +224,24 @@ export async function listPlacePhotos(siteId?: string): Promise<PlacePhotos> {
     const reason = error instanceof PantryDataError ? error.detail : `unexpected ${error instanceof Error ? error.name : typeof error}`;
     console.error("pantry_photos_unavailable", { reason });
     return { photos: [] };
+  }
+}
+
+/**
+ * The items of one place (`siteId`, or the selected place) that were read from
+ * a photo and still exist, whatever their location, for the photo view's
+ * statuses. Never throws: when they cannot be read there are none, and the
+ * photo view then shows its numbers without statuses (the reason is logged).
+ * Memoised per request and place.
+ */
+export async function listPhotoLinks(siteId?: string): Promise<PhotoLink[]> {
+  try {
+    const place = await placeToRead(siteId);
+    return place === null ? [] : await photoLinksOn(place);
+  } catch (error) {
+    const reason = error instanceof PantryDataError ? error.detail : `unexpected ${error instanceof Error ? error.name : typeof error}`;
+    console.error("pantry_photo_links_unavailable", { reason });
+    return [];
   }
 }
 

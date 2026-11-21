@@ -249,7 +249,11 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur ser jag vilka varor som lästs av från ett foto?",
-        answer: "En vara som lagts in från ett foto har en liten kameraikon efter namnet. Tryck på varan så visas överst utsnittet av fotot där den lästes av, och du kan öppna hela fotot och ändra varan som vanligt. Fotot sparas i 30 dagar; därefter, eller efter Ta bort fotot eller Töm, står det Fotot finns inte kvar. Gäller varor du lagt in från och med den här versionen.",
+        answer: "En vara som lagts in från ett foto har en kamera på raden. Tryck på kameran så öppnas fotot inzoomat på just den varan, med namnet i en rad under fotot; tryck på fotot för att komma tillbaka. Tryck någon annanstans på raden så visas överst i Ändra vara utsnittet av fotot där den lästes av. Där kan du trycka på utsnittet för att zooma, eller på Visa hela fotot för att se alla siffror, och Klar tar dig tillbaka till varan som den var. Fotot sparas i 30 dagar; därefter, eller efter Ta bort fotot eller Töm, står det Fotot finns inte kvar. Gäller varor du lagt in från och med den här versionen.",
+      },
+      {
+        question: "Vad visar Senaste foto av kylen?",
+        answer: "Tryck Visa under Fota så ser du hela fotot med en siffra på varje vara. Tryck på en siffra så zoomas fotot in och varans namn står i en rad under fotot; tryck på fotot för att backa till exakt där du var, eller på en annan siffra för att byta. Ett rött kryss på siffran och texten Finns inte längre betyder att varan lades till men inte finns kvar. En streckad ring och texten Lades inte till betyder att du bockade bort den när du lade till. Fotot sparas i 30 dagar. Ta bort fotot finns längst ned.",
       },
       {
         question: "Vad betyder att varor syntes inte på fotot?",

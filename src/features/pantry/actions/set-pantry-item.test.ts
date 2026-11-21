@@ -221,7 +221,7 @@ describe("savePantryItem", () => {
       const result = await savePantryItem(form({ replaceId: row }));
       expect(result).toEqual(ok({ id: newRow }));
       expect(loadPantryItemPhotoLinkIn).toHaveBeenCalledWith(db, row);
-      expect(linkPantryItemsToPhotoIn).toHaveBeenCalledWith(db, photo, [{ id: newRow, number: 3 }]);
+      expect(linkPantryItemsToPhotoIn).toHaveBeenCalledWith(db, photo, [{ id: newRow, number: 3 }], false);
     });
 
     it("does not link when the row had no photo or was kept", async () => {

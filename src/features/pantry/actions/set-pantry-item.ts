@@ -86,7 +86,7 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
     if (!row) throw new PantryDataError("no_row");
     if (photoLink && row.id !== replaceId) {
       // Best effort: the item is saved either way.
-      await linkPantryItemsToPhotoIn(db, photoLink.photoId, [{ id: row.id, number: photoLink.number }]).catch((error) =>
+      await linkPantryItemsToPhotoIn(db, photoLink.photoId, [{ id: row.id, number: photoLink.number }], false).catch((error) =>
         console.error("pantry_photo_failed", { reason: error instanceof PantryDataError ? error.detail : "link_threw" }),
       );
     }

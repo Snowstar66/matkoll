@@ -20,6 +20,7 @@ import { FilterPills } from "@/components/filter-pills";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  ExpandIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
@@ -56,7 +57,8 @@ import {
 } from "../domain/pantry-item-form";
 import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
-import { PhotoCrop, PhotoFull, type PhotoCropProps } from "./analyzed-photo";
+import { PhotoCrop, type PhotoCropProps } from "./analyzed-photo";
+import { PhotoViewer } from "./photo-viewer";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
 import { useSiteSwitching } from "./site-switching";
@@ -283,6 +285,11 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const [values, setValues] = useState(initial);
   /** One level deeper, replacing the form: the sections of a new ingredient. */
   const [step, setStep] = useState<"section" | null>(null);
+  /**
+   * The photo view replacing the sheet (sheets never stack): the number it opens zoomed in on, or `null` for the
+   * overview. The form's state stays here, so "Klar" comes back to the sheet with its fields unchanged.
+   */
+  const [photoView, setPhotoView] = useState<{ number: number | null; opened: number } | null>(null);
   const { query: searched, hits, error: searchError, search, reset: resetSearch } = useIngredientSearch(searchPantryIngredients);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(searchTimer.current), []);
@@ -324,6 +331,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     setInitial(fresh);
     setValues(fresh);
     setStep(null);
+    setPhotoView(null);
     resetSearch();
     setError(null);
     setServerFields({});
@@ -549,9 +557,12 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   /** The section row is for a new ingredient a photo suggested, still named as suggested. */
   const sectionRow = ingredient?.kind === "new" && ingredient === values.ingredient && initial.ingredient?.kind === "new";
 
+  const keptPhoto = target.kind === "edit" ? (target.item.photo?.kept ?? null) : null;
+  const viewingPhoto = photoView !== null && keptPhoto !== null;
   return (
+    <>
     <Sheet
-      open={open}
+      open={open && !viewingPhoto}
       onClose={onClose}
       title={title}
       // Story 21.3: under the name, who else last added or changed the item ("Martina ändrade · 1 nov").
@@ -578,7 +589,12 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       ) : (
         <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
           {target.kind === "suggestion" && target.crop ? <PhotoCrop {...target.crop} /> : null}
-          {target.kind === "edit" && target.item.photo ? <ItemPhotoBlock photo={target.item.photo} /> : null}
+          {target.kind === "edit" && target.item.photo ? (
+            <ItemPhotoBlock
+              photo={target.item.photo}
+              onOpen={(number) => setPhotoView((current) => ({ number, opened: (current?.opened ?? 0) + 1 }))}
+            />
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <FieldLabel htmlFor={`${ids}-name`}>Namn</FieldLabel>
             <Input
@@ -722,6 +738,20 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         </form>
       )}
     </Sheet>
+    {viewingPhoto && target.kind === "edit" ? (
+      // Replaces the sheet while it shows; "Klar" comes back to the sheet, whose fields are as they were.
+      <PhotoViewer
+        key={photoView.opened}
+        open={open}
+        onClose={() => setPhotoView(null)}
+        photo={{ url: keptPhoto.url, size: keptPhoto.size }}
+        location={target.item.location}
+        markers={keptPhoto.markers}
+        initialNumber={photoView.number}
+        alt={`Fotot som ${target.item.name} lästes från`}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -844,8 +874,7 @@ export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" |
  * AI read, and a link to the whole photo. A photo that is no longer stored
  * (older than 30 days, or removed) says so, with no picture.
  */
-function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
-  const [whole, setWhole] = useState(false);
+function ItemPhotoBlock({ photo, onOpen }: { photo: ItemPhoto; onOpen: (number: number | null) => void }) {
   if (!photo.kept) {
     return (
       <p data-testid="pantry-item-photo-gone" className="text-meta text-ink-3">
@@ -853,18 +882,32 @@ function ItemPhotoBlock({ photo }: { photo: ItemPhoto }) {
       </p>
     );
   }
-  const { url, point, points } = photo.kept;
+  const { url, point } = photo.kept;
   const linkClasses = "-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent";
   return (
     <div data-testid="pantry-item-photo" className="flex flex-col gap-2">
       <p className="text-meta text-ink-3">Så här läste AI fotot.</p>
-      {whole ? (
-        <PhotoFull url={url} points={points} number={photo.number} />
-      ) : point ? (
-        <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} />
+      {point ? (
+        // The crop leads to the same zoomed-in view as the row's camera: this item's number, name and status.
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label={`Zooma in på fotot, vara ${photo.number}`}
+          data-testid="pantry-item-photo-zoom"
+          onClick={() => onOpen(photo.number)}
+          className="relative block w-full rounded-[14px] text-left -outline-offset-2"
+        >
+          <PhotoCrop url={url} x={point.x} y={point.y} number={photo.number} />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-2.5 right-2.5 flex size-[34px] items-center justify-center rounded-full bg-photo-chip text-photo-mark backdrop-blur-md"
+          >
+            <ExpandIcon size={18} />
+          </span>
+        </button>
       ) : null}
-      <button type="button" onClick={() => setWhole(!whole)} aria-expanded={whole} className={linkClasses}>
-        {whole ? "Stäng fotot" : "Visa hela fotot"}
+      <button type="button" onClick={() => onOpen(null)} aria-haspopup="dialog" className={linkClasses}>
+        Visa hela fotot
       </button>
     </div>
   );

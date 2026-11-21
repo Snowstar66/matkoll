@@ -939,8 +939,27 @@ describe("PantryItemSheet, an item read from a photo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
   }
 
+  const markers = [
+    { n: 2, left: 30, top: 60, name: "Mjölk", status: "present" as const, location: "Kyl" as const },
+    { n: 5, left: 70, top: 20, name: "Vispgrädde 3 dl", status: "gone" as const, location: null },
+  ];
+  const kept = (extra: Partial<NonNullable<NonNullable<PantryItem["photo"]>["kept"]>> = {}) => ({
+    url: "/api/pantry/photo/p1",
+    size: { width: 720, height: 900 },
+    point: { x: 300, y: 600 },
+    markers,
+    ...extra,
+  });
+  const viewer = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
+  const decode = () => {
+    const image = within(viewer()).getByRole("img");
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: 720 });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: 900 });
+    fireEvent.load(image);
+  };
+
   it("shows the photo around the item at the top, with a link to the whole photo", () => {
-    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 }, points: [{ n: 2, x: 300, y: 600 }, { n: 5, x: 700, y: 200 }] } });
+    openFromPhoto({ number: 2, photoId: "p1", kept: kept() });
     const block = within(sheet()).getByTestId("pantry-item-photo");
     expect(block).toHaveTextContent("Så här läste AI fotot.");
     expect(within(block).getByTestId("pantry-sheet-crop")).toHaveTextContent("2");
@@ -948,26 +967,45 @@ describe("PantryItemSheet, an item read from a photo", () => {
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
   });
 
-  it("shows the whole photo with the marker in the sheet and closes it again", () => {
-    openFromPhoto({ number: 2, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: { x: 300, y: 600 }, points: [{ n: 2, x: 300, y: 600 }, { n: 5, x: 700, y: 200 }] } });
+  it("opens the same zoomed view from the crop, with the item's number and name, and Klar comes back with the fields as they were", () => {
+    openFromPhoto({ number: 2, photoId: "p1", kept: kept() });
+    fireEvent.change(nameField(), { target: { value: "Mjölk 3 %" } });
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "4" } });
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Zooma in på fotot, vara 2" }));
+    // The photo view replaces the sheet: they never stack.
+    expect(screen.queryByRole("dialog", { name: "Ändra vara" })).toBeNull();
+    decode();
+    expect(within(viewer()).getByTestId("photo-viewer")).toHaveAttribute("data-zoomed", "true");
+    expect(within(viewer()).getByTestId("photo-viewer-name")).toHaveTextContent("Mjölk");
+    expect(within(viewer()).getByTestId("photo-viewer-status")).toHaveTextContent("Finns i kylen");
+    // Another number while zoomed in.
+    fireEvent.click(within(viewer()).getByRole("button", { name: "Vara 5: Vispgrädde 3 dl, finns inte längre" }));
+    expect(within(viewer()).getByTestId("photo-viewer-name")).toHaveTextContent("Vispgrädde 3 dl");
+    fireEvent.click(within(viewer()).getByRole("button", { name: "Klar" }));
+    expect(screen.queryByRole("dialog", { name: "Fotot av kylen" })).toBeNull();
+    expect(nameField()).toHaveValue("Mjölk 3 %");
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("4");
+  });
+
+  it("opens the overview from the link, with every number, and no photo view of its own in the sheet", () => {
+    openFromPhoto({ number: 2, photoId: "p1", kept: kept() });
     fireEvent.click(within(sheet()).getByRole("button", { name: "Visa hela fotot" }));
-    const full = within(sheet()).getByTestId("pantry-sheet-full-photo");
-    expect(full).toHaveTextContent("2");
-    const markers = within(full).getAllByTestId("pantry-full-photo-marker");
-    expect(markers.map((marker) => [marker.textContent, marker.getAttribute("data-tone")])).toEqual([
-      ["5", "off"],
-      ["2", "on"],
+    expect(screen.queryByRole("dialog", { name: "Ändra vara" })).toBeNull();
+    decode();
+    expect(within(viewer()).getByTestId("photo-viewer")).not.toHaveAttribute("data-zoomed");
+    expect(within(viewer()).getAllByTestId("photo-viewer-marker").map((marker) => marker.getAttribute("aria-label"))).toEqual([
+      "Vara 2: Mjölk, finns i kylen",
+      "Vara 5: Vispgrädde 3 dl, finns inte längre",
     ]);
-    expect(full.querySelector("img")).toHaveAttribute("src", "/api/pantry/photo/p1");
-    expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Stäng fotot" }));
-    expect(within(sheet()).queryByTestId("pantry-sheet-full-photo")).toBeNull();
+    fireEvent.click(within(viewer()).getByRole("button", { name: "Klar" }));
+    expect(within(sheet()).queryByRole("button", { name: "Stäng fotot" })).toBeNull();
     expect(within(sheet()).getByTestId("pantry-sheet-crop")).toBeInTheDocument();
   });
 
   it("shows the whole-photo link alone when the photo has no point for the item", () => {
-    openFromPhoto({ number: 1, photoId: "p1", kept: { url: "/api/pantry/photo/p1", point: null, points: [] } });
+    openFromPhoto({ number: 1, photoId: "p1", kept: kept({ point: null, markers: [] }) });
     expect(within(sheet()).queryByTestId("pantry-sheet-crop")).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: /Zooma in/ })).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Visa hela fotot" })).toBeInTheDocument();
   });
 

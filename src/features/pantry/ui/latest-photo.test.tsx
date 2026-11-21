@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
+import type { PhotoLink } from "../domain/photo-view";
 import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
 import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
@@ -56,17 +57,19 @@ function Hemma({
   shown = photo,
   location = "Kyl",
   all,
+  links,
 }: {
   shown?: ShownPlacePhoto | null;
   location?: Location;
   all?: readonly ShownPlacePhoto[];
+  links?: readonly PhotoLink[];
 }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
           <PantryCamera site={site} location={location} />
-          <LatestPhoto photo={shown} photos={all} location={location} />
+          <LatestPhoto photo={shown} photos={all} photoLinks={links} location={location} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -78,7 +81,7 @@ const visa = () => screen.getByRole("button", { name: "Visa senaste foto av kyle
 const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
 const question = () => screen.getByRole("dialog", { name: /^Ta bort fotot av .*\?$/ });
 const largePhoto = () => within(photoSheet()).getByRole("img", { name: "Senaste fotot av kylen" });
-const markers = () => within(photoSheet()).queryAllByTestId("pantry-photo-marker");
+const markers = () => within(photoSheet()).queryAllByTestId("photo-viewer-marker");
 const decode = () => {
   const image = largePhoto();
   Object.defineProperty(image, "naturalWidth", { configurable: true, value: 720 });
@@ -120,33 +123,68 @@ describe("LatestPhoto", () => {
     expect(screen.queryByText("Inget foto än")).toBeNull();
   });
 
-  it("opens the sheet with the photo from the route, the time, the markers and the reading as a numbered list", async () => {
+  it("opens the sheet with the photo from the route, the time and every number as a button, and no list of the reading", () => {
     render(<Hemma />);
     fireEvent.click(visa());
-    expect(photoSheet()).toHaveAccessibleDescription("Taget idag 15:42. Numren visar vad AI:n läste av.");
+    expect(photoSheet()).toHaveAccessibleDescription("Taget idag 15:42. Tryck på en siffra för att se vad det är.");
     expect(largePhoto()).toHaveAttribute("src", `/api/pantry/photo/${id}`);
     expect(markers()).toEqual([]);
     decode();
     expect(markers().map((marker) => marker.textContent)).toEqual(["1", "3"]);
-    for (const marker of markers()) expect(marker).toHaveAttribute("aria-hidden", "true");
-    expect(within(photoSheet()).getByRole("heading", { name: "AI:n läste av:" })).toBeInTheDocument();
-    const items = within(within(photoSheet()).getByRole("list", { name: "AI:n läste av:" })).getAllByRole("listitem");
-    expect(items.map((item) => item.textContent)).toEqual(["11. Mellanmjölk 1,5 %", "22. Smör 500 g", "33. <b>Ägg</b>"]);
-    // Text, never HTML.
-    expect(within(photoSheet()).queryByText("Ägg", { selector: "b" })).toBeNull();
-    // Full size, and the markers come along.
-    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" }));
-    expect(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" })).toHaveAttribute("aria-pressed", "true");
-    expect(markers()).toHaveLength(2);
+    // Buttons named after the AI's reading (no statuses: this photo has no confirmed numbers saved), as text, never HTML.
+    expect(markers().map((marker) => marker.getAttribute("aria-label"))).toEqual(["Vara 1: Mellanmjölk 1,5 %", "Vara 3: <b>Ägg</b>"]);
+    expect(within(photoSheet()).queryByTestId("photo-viewer-legend")).toBeNull();
+    // The list of what the AI read is gone from under the photo.
+    expect(within(photoSheet()).queryByRole("heading", { name: "AI:n läste av:" })).toBeNull();
+    expect(within(photoSheet()).queryByRole("list")).toBeNull();
+    expect(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" })).toBeInTheDocument();
   });
 
-  it("says only when it was taken for a photo without points, with no markers but the whole list", () => {
+  it("zooms into a number with its name in a fixed line, switches number and goes back to the overview", () => {
+    render(<Hemma links={[{ photoId: id, number: 1, name: "Mjölk", location: "Kyl" }]} shown={{ ...photo, confirmedNumbers: [1, 3] }} />);
+    fireEvent.click(visa());
+    decode();
+    // The overview: every number, a legend for the kinds that occur.
+    expect(markers().map((marker) => marker.getAttribute("aria-label"))).toEqual(["Vara 1: Mjölk, finns i kylen", "Vara 3: <b>Ägg</b>, finns inte längre"]);
+    expect(within(within(photoSheet()).getByTestId("photo-viewer-legend")).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "1Finns i listan",
+      "Finns inte längre",
+    ]);
+    expect(photoSheet()).toHaveAccessibleDescription("Taget idag 15:42. Tryck på en siffra för att se vad det är.");
+
+    fireEvent.click(markers()[1]);
+    expect(within(photoSheet()).getByTestId("photo-viewer")).toHaveAttribute("data-zoomed", "true");
+    expect(photoSheet()).toHaveAccessibleDescription("Tryck på bilden för att backa.");
+    const name = within(photoSheet()).getByTestId("photo-viewer-name");
+    expect(name).toHaveTextContent("<b>Ägg</b>");
+    expect(within(name).getByTestId("photo-viewer-status")).toHaveTextContent("Finns inte längre");
+    expect(within(photoSheet()).queryByTestId("photo-viewer-legend")).toBeNull();
+
+    // Another number while zoomed in: the line changes name, and still goes back to the same overview.
+    fireEvent.click(markers()[0]);
+    expect(within(photoSheet()).getByTestId("photo-viewer-name")).toHaveTextContent("Mjölk");
+    expect(within(photoSheet()).getByTestId("photo-viewer-status")).toHaveTextContent("Finns i kylen");
+
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Fotot av kylen, tryck för att backa" }));
+    expect(within(photoSheet()).getByTestId("photo-viewer")).not.toHaveAttribute("data-zoomed");
+    expect(within(photoSheet()).getByTestId("photo-viewer-name").textContent).toBe("");
+  });
+
+  it("marks a number that was never added with a dashed ring and the words Lades inte till", () => {
+    render(<Hemma shown={{ ...photo, confirmedNumbers: [3] }} links={[{ photoId: id, number: 3, name: "Ägg", location: "Kyl" }]} />);
+    fireEvent.click(visa());
+    decode();
+    expect(markers().map((marker) => marker.dataset.status)).toEqual(["skipped", "present"]);
+    fireEvent.click(markers()[0]);
+    expect(within(photoSheet()).getByTestId("photo-viewer-status")).toHaveTextContent("Lades inte till");
+  });
+
+  it("says only when it was taken for a photo without points, and has no markers", () => {
     render(<Hemma shown={{ ...photo, points: null }} />);
     fireEvent.click(visa());
     expect(photoSheet()).toHaveAccessibleDescription("Taget idag 15:42.");
     decode();
     expect(markers()).toEqual([]);
-    expect(within(photoSheet()).getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("gives focus back to Visa when the sheet closes", async () => {
