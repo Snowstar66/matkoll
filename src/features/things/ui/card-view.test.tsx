@@ -142,14 +142,19 @@ describe("the card big (Story 18.7)", () => {
     expect(row("Cirkelsåg")).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("marks the föremål whose dot is nearest to a tap on the photo, and none when the tap is far from every dot", async () => {
+  it("opens the photo view zoomed in on the föremål whose dot is nearest to a tap on the photo, and nothing when the tap is far from every dot", async () => {
     renderIt([hammer, saw]);
     const photo = screen.getByTestId("card-photo");
     photo.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => ({}) });
-    await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.52 * 400, clientY: 0.2 * 300 } });
-    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
     await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.9 * 400, clientY: 0.9 * 300 } });
-    expect(screen.getByTestId("card-dot-selected")).toHaveTextContent("2");
+    expect(screen.queryByTestId("photo-viewer")).toBeNull();
+    await userEvent.pointer({ keys: "[MouseLeft]", target: photo, coords: { clientX: 0.52 * 400, clientY: 0.2 * 300 } });
+    const viewer = await screen.findByTestId("photo-viewer");
+    expect(viewer).toHaveAttribute("data-zoomed", "true");
+    expect(within(viewer).getByTestId("photo-viewer-name")).toHaveTextContent("Cirkelsåg");
+    // Closing the view leaves the föremål marked on the card page.
+    await userEvent.click(screen.getByRole("button", { name: "Klar" }));
+    expect(await screen.findByTestId("card-dot-selected")).toHaveTextContent("2");
   });
 
   it("opens with the föremål of a search hit marked, and ignores one that is not on the card", () => {
@@ -179,7 +184,7 @@ describe("the card big (Story 18.7)", () => {
   it("says it could not point it out when the lookup finds nothing or fails, and asks only once", async () => {
     locateThingOnCard.mockResolvedValueOnce(ok({ box: null }));
     renderIt([drill, saw]);
-    await waitFor(() => expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det."));
+    await waitFor(() => expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål för att markera det, eller på en siffra på fotot för att zooma in."));
     await userEvent.click(row("Skruvdragare"));
     expect(await screen.findByTestId("card-missed")).toHaveTextContent("Kunde inte peka ut den på bilden.");
     expect(screen.queryByTestId("card-dot-selected")).toBeNull();
@@ -207,7 +212,7 @@ describe("the card big (Story 18.7)", () => {
     await act(async () => answers[1](ok({ box: { left: 0.1, top: 0.6, width: 0.1, height: 0.14 } })));
     await waitFor(() => expect(screen.getAllByTestId("card-dot")).toHaveLength(3));
     expect(screen.getAllByTestId("marker-badge").map((badge) => badge.textContent)).toEqual(["1", "2", "3"]);
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål för att markera det, eller på en siffra på fotot för att zooma in.");
     expect(locateThingOnCard).toHaveBeenCalledTimes(2);
   });
 

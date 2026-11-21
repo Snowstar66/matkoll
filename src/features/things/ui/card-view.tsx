@@ -29,11 +29,13 @@ import {
 } from "../domain/thing-card";
 import { thingNoun, thingNounCap } from "../domain/thing-noun";
 import { countText } from "../domain/thing-count";
+import { PhotoViewer } from "@/features/pantry";
 import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 import { ThingSheet } from "./thing-sheet";
-import { openThingText } from "../domain/thing-edit";
+import { openThingText, photoViewerAltText, photoViewerTitleText } from "../domain/thing-edit";
+import { cardPhotoMarkers, numberOnCard } from "../domain/thing-detail";
 
 // Kortet i stort (Story 18.7): the card's whole photo, never cropped, with a
 // numbered dot (as in Kylfoto) at the middle of every föremål's box, and the föremål listed
@@ -242,6 +244,15 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
       .finally(() => setLookingId(null));
   }, [card.status, things, found, selectedId, lookingId]);
 
+  // A tap on a dot of the photo opens the photo view zoomed in on that föremål (as in Matvaror); the föremål stays marked after it closes.
+  const [viewer, setViewer] = useState<{ id: string; opened: number } | null>(null);
+  const viewerOpened = useRef(0);
+  const zoomOn = useCallback((id: string) => {
+    setSelectedId(id);
+    viewerOpened.current += 1;
+    setViewer({ id, opened: viewerOpened.current });
+  }, []);
+  const viewerMarkers = useMemo(() => cardPhotoMarkers(things), [things]);
   const pick = useCallback((id: string) => setSelectedId((current) => (current === id ? null : id)), []);
   // The föremål's sheet; kept while it closes, so its text does not blank during the animation.
   const [sheetThing, setSheetThing] = useState<CardThing | null>(null);
@@ -267,7 +278,7 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] desktop:items-start desktop:gap-6" data-testid="card-view">
       {/* On a phone the photo stays at the top while the list scrolls under it, so the mark is always in sight. */}
       <div className="sticky top-0 z-10 -mx-page flex flex-col gap-2 bg-bg px-page pt-[max(8px,env(safe-area-inset-top))] pb-1 desktop:top-6 desktop:mx-0 desktop:px-0 desktop:pt-0">
-        <CardPhoto card={card} things={things} selected={selected} looking={needsLookup} numbersHidden={numbersHidden} onPick={pick} />
+        <CardPhoto card={card} things={things} selected={selected} looking={needsLookup} numbersHidden={numbersHidden} onPick={zoomOn} />
         <div className="flex items-center justify-between gap-2">
           <div aria-live="polite" className="min-h-6 min-w-0 flex-1">
             {missed ? (
@@ -336,6 +347,20 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
         </div>
         <RemoveCard cardId={card.id} takenAt={new Date(card.takenAt)} name={title} onRemoved={() => router.replace(`${roomHref}?vy=cards`)} />
       </div>
+      {viewer ? (
+        <PhotoViewer
+          key={viewer.opened}
+          open
+          onClose={() => setViewer(null)}
+          photo={{ url: `/api/things/photo/${card.id}`, size: { width: card.width, height: card.height } }}
+          title={photoViewerTitleText}
+          noun="Föremål"
+          markers={viewerMarkers}
+          quietMarkers
+          initialNumber={numberOnCard(things, viewer.id)}
+          alt={photoViewerAltText}
+        />
+      ) : null}
       <ThingSheet
         thing={sheetThing ? (things.find((thing) => thing.id === sheetThing.id) ?? sheetThing) : null}
         open={sheetOpen}
