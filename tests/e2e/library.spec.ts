@@ -42,7 +42,7 @@ const heart = (row: Locator) => row.getByRole("button", { name: /^Favorit/ });
 const searchField = (page: Page) => page.getByRole("searchbox", { name: "Sök recept" });
 const pill = (page: Page, name: "Favoriter") => page.getByRole("button", { name });
 
-/** "Alla" has no chip (Story 19.3): letting go of the chosen filter chip shows every recipe. */
+/** Letting go of the chosen filter chip shows every recipe (the chip Alla does the same for all choices at once). */
 const showAll = async (page: Page) => {
   for (const name of ["Favoriter", "Kan lagas nu"]) {
     const chip = page.getByRole("button", { name, pressed: true }).filter({ visible: true });

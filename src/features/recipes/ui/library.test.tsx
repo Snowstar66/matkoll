@@ -367,10 +367,10 @@ describe("Library", () => {
     expectAll();
   });
 
-  it("has the filters on one row: Favoriter and Kan lagas nu, no Alla, nothing chosen", () => {
+  it("has the filters on one row: Alla (pressed, nothing chosen), Favoriter and Kan lagas nu", () => {
     renderLibrary();
-    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu"]);
-    expect(screen.queryByRole("button", { name: "Alla" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button").map((button) => button.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu"]);
+    expect(screen.getByRole("button", { name: "Alla", pressed: true })).toBeInTheDocument();
     expectAll();
     expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
@@ -743,7 +743,7 @@ describe("Library, view, sort and categories", () => {
     renderLibrary(withCategories);
     // Story 14.4: only the categories some recipe has.
     const group = screen.getByRole("group", { name: "Filter" });
-    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu", "🍗Fågel", "🥦Vegetariskt", "🍲Soppa", "🥘Gryta", "⏱️Snabbt"]);
+    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu", "🍗Fågel", "🥦Vegetariskt", "🍲Soppa", "🥘Gryta", "⏱️Snabbt"]);
     // The emoji is decoration: the chip is named by its label alone.
     for (const name of ["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]) {
       expect(chip(name)).toHaveAttribute("aria-pressed", "false");
@@ -784,8 +784,8 @@ describe("Library, view, sort and categories", () => {
     first.unmount();
     window.localStorage.clear();
     renderLibrary([gryta, soppa]);
-    // Only the two filter chips are left: no category chip.
-    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button")).toHaveLength(2);
+    // Only Alla and the two filter chips are left: no category chip.
+    expect(within(screen.getByRole("group", { name: "Filter" })).getAllByRole("button")).toHaveLength(3);
   });
 });
 
