@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadCardViewIn } from "@/features/things/data/card-view";
+import { loadRoomThingsIn } from "@/features/things/data/rooms";
 import { insertPlaceIn } from "@/features/things/data/places";
 import { insertCardIn, saveReadingIn, uploadCardFile } from "@/features/things/data/photos";
 import { loadThingDetailIn } from "@/features/things/data/thing-detail";
@@ -68,6 +69,27 @@ describe("Värt en titt on a card", () => {
     const vas = view?.things[0];
     if (!vas) throw new Error("no vas");
     expect((await loadThingDetailIn(a.db, vas.id))?.worth).toEqual({ why: "Ser ut som Gustavsberg. Titta på botten.", confidence: "guess" });
+  });
+
+  it("the room's list per category carries the tip of a föremål that has one", async () => {
+    const cardId = await readingCard();
+    await saveReadingIn(a.db, {
+      photoId: cardId,
+      things: [
+        { name: "Tipsvas", category: "Hushåll", where: null, confidence: "high", worth: { why: "Liknar Rörstrand.", confidence: "unsure" } },
+        { name: "Tipslös skål", category: "Hushåll", where: null, confidence: "high" },
+      ],
+      note: null,
+      hidden: 0,
+    });
+    const view = await loadCardViewIn(a.db, cardId);
+    const placeRoom = view?.roomKey;
+    if (!site || !placeRoom) throw new Error("no room");
+    const list = await loadRoomThingsIn(a.db, site, placeRoom, "Hushåll");
+    expect(list.filter((entry) => entry.name.startsWith("Tips")).map((entry) => [entry.name, entry.worth ?? null])).toEqual([
+      ["Tipslös skål", null],
+      ["Tipsvas", { why: "Liknar Rörstrand.", confidence: "unsure" }],
+    ]);
   });
 
   it("leaves out a tip that is not a sentence and a known confidence, and still reads the card", async () => {

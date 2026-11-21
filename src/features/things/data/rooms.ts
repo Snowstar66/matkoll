@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { thingCategories, thingConfidences, type Thing, type ThingCategory } from "../domain/thing";
 import { shownStatus } from "../domain/thing-photo";
-import { worthOfRow, worthRowShape } from "../domain/thing-worth";
+import { worthOfRow, worthRowShape, type ThingWorth } from "../domain/thing-worth";
 import { orderCategories, toRoomThing, type RoomCard, type RoomPhotoThings, type RoomSummary } from "../domain/thing-room";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -81,8 +81,9 @@ export async function loadRoomThingsIn(db: ThingsDb, siteId: string, key: string
   if (!parsed.success) throw new ThingsDataError("invalid_row");
   // Swedish order (å, ä, ö last), whatever the database's collation is; the id breaks a tie.
   const rows = [...parsed.data].sort((a, b) => a.name.localeCompare(b.name, "sv") || (a.id < b.id ? -1 : 1));
-  return rows.map((row) =>
-    toRoomThing({
+  const tips = await loadRoomTipsIn(db, siteId, key);
+  return rows.map((row) => ({
+    ...toRoomThing({
       id: row.id,
       name: row.name,
       category: row.category,
@@ -94,7 +95,35 @@ export async function loadRoomThingsIn(db: ThingsDb, siteId: string, key: string
       notedAt: row.noted && row.noted_at ? new Date(row.noted_at).toISOString() : null,
       quantity: row.quantity ?? null,
     }),
-  );
+    ...(tips.has(row.id) ? { worth: tips.get(row.id) } : {}),
+  }));
+}
+
+const tipRowsSchema = z.array(
+  z.object({ id: z.uuid(), ...worthRowShape }),
+);
+
+/**
+ * Värt en titt: the tips of a room's föremål by id. thing_room_things does not return them (and is not changed), so
+ * they are read here, only the rows that have one (a handful), filtered by the room. A failure is no tips, never no list.
+ */
+async function loadRoomTipsIn(db: ThingsDb, siteId: string, key: string): Promise<Map<string, ThingWorth>> {
+  const tips = new Map<string, ThingWorth>();
+  const { data, error } = await db
+    .from("thing_item")
+    .select("id, worth_why, worth_confidence, thing_place!inner(site_id, room_key)")
+    .not("worth_why", "is", null)
+    .eq("thing_place.site_id", siteId)
+    .eq("thing_place.room_key", key)
+    .limit(2000);
+  if (error) return tips;
+  const parsed = tipRowsSchema.safeParse(data);
+  if (!parsed.success) return tips;
+  for (const row of parsed.data) {
+    const worth = worthOfRow(row);
+    if (worth) tips.set(row.id, worth);
+  }
+  return tips;
 }
 
 const photoThingsSchema = z.array(
