@@ -51,8 +51,11 @@ import {
   askThingsAnswer,
   categorizeThingsAnswer,
   explainDishAnswer,
+  explainWorthAnswer,
   parseDishExplanation,
+  parseWorthExplanation,
   type DishExplanation,
+  type WorthExplanation,
   parseCategories,
   parseSearchTerms,
   parseThingIntent,
@@ -368,6 +371,21 @@ export type ExplainDishInput = {
 /** The dish explained in Swedish, in plain sentences. */
 export type ExplainDishResult = DishExplanation;
 
+/** What explainWorth gets (Värt en titt, "Förklara närmare"): the photo (cropped around the föremål when it has a box), its name and the tip it already has. Data for the model, never instructions. */
+export type ExplainWorthInput = {
+  /** The card's photo or a crop of it as it is stored (AD-15). Never stored or logged by the port. */
+  image: ImageInput;
+  /** The föremål's name on one line (at most inputLimits.explainWorth.maxNameChars). */
+  name: string;
+  /** The short tip the reading gave, on one line (at most inputLimits.explainWorth.maxTipChars). */
+  tip: string;
+  /** How sure the reading was. */
+  confidence: "sure" | "guess" | "unsure";
+};
+
+/** Why the föremål was flagged, what it could be and what to check further, in plain Swedish sentences; never a price. */
+export type ExplainWorthResult = WorthExplanation;
+
 /** What askThings answers: a short text and the places it is about, as indexes into `places` (zero-based). */
 export type AskThingsResult = { answer: string; places: number[] };
 
@@ -635,6 +653,14 @@ export interface AiService {
    */
   explainDish(input: ExplainDishInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ExplainDishResult>>;
   /**
+   * A föremål flagged "Värt en titt" explained (the föremål's sheet, "Förklara närmare"): why it was flagged, what it
+   * could be and what is worth checking further. One short call with the photo (a crop round the föremål when it has a
+   * box), its name and the tip it has; never a price. Asked once per föremål, the answer is kept. Fails with
+   * `validation` (an image, name or tip outside the limits), `ai_unavailable` (also when the deadline leaves too
+   * little time), `ai_rejected` or `ai_invalid`.
+   */
+  explainWorth(input: ExplainWorthInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ExplainWorthResult>>;
+  /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
    * for `text`), a minimal message without any data of Pontus's (a grey
@@ -747,6 +773,7 @@ export const inputLimits = {
    * explainDish: a dish name, the restaurant, the short explanation and up to 12 ingredients are under 1 500
    * characters (about 500 tokens in); the answer is five short texts of about 350 tokens in all, so 800 leave room.
    */
+  explainWorth: { maxNameChars: 80, maxTipChars: 200, maxOutputTokens: 700, attemptMs: 45_000 },
   explain: { maxNameChars: 120, maxRestaurantChars: 80, maxSummaryChars: 400, maxIngredients: 12, maxIngredientChars: 40, maxChars: 1_500, maxOutputTokens: 800 },
   /**
    * mergeThings (Story 18.6): the lists are names, categories and where on
@@ -853,6 +880,22 @@ export function isValidCategorizeThingsInput(input: CategorizeThingsInput): bool
   const { names } = input;
   if (names.length === 0 || names.length > limits.maxNames) return false;
   return names.every((name) => name !== "" && name === cleanModelText(name) && name.length <= limits.maxNameChars) && categorizeThingsText(input).length <= limits.maxChars;
+}
+
+/** True for an image within the limits, a name and a tip on one line each, within inputLimits.explainWorth. */
+export function isValidExplainWorthInput(input: ExplainWorthInput): boolean {
+  const limits = inputLimits.explainWorth;
+  const oneLine = (text: string, max: number) => text !== "" && text === cleanModelText(text) && text.length <= max;
+  return isValidImage(input.image) && oneLine(input.name, limits.maxNameChars) && oneLine(input.tip, limits.maxTipChars) && ["sure", "guess", "unsure"].includes(input.confidence);
+}
+
+/**
+ * explainWorth's budget within `limits`: one attempt, of at most inputLimits.explainWorth.attemptMs, after the health
+ * check. Shorter limits (in tests) stay shorter.
+ */
+export function explainWorthLimitsFrom(limits: Limits): Limits {
+  const attemptMs = Math.min(limits.attemptMs, inputLimits.explainWorth.attemptMs);
+  return { ...limits, attemptMs, totalMs: Math.min(limits.totalMs, limits.healthMs + attemptMs), maxAttempts: 1 };
 }
 
 /** True for a dish within inputLimits.explain: every text on one line and within its length. */
@@ -1070,6 +1113,10 @@ export function withInputValidation(service: AiService): AiService {
     async explainDish(input, signal, options) {
       if (!isValidExplainDishInput(input)) return fail("validation");
       return service.explainDish(input, signal, options);
+    },
+    async explainWorth(input, signal, options) {
+      if (!isValidExplainWorthInput(input)) return fail("validation");
+      return service.explainWorth(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -1553,6 +1600,28 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok(parseDishExplanation(answer.data));
     },
+    async explainWorth(input, signal, options = {}) {
+      const within = limitsWithin(explainWorthLimitsFrom(limits), options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: explainWorthAnswer,
+          system: prompts.explainWorth,
+          messages: [{ role: "user", content: explainWorthContent(input) }],
+          maxOutputTokens: inputLimits.explainWorth.maxOutputTokens,
+          sampling: target.imageSampling,
+          onTruncated: () => console.info("explain_worth_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok(parseWorthExplanation(answer.data));
+    },
     async categorizeThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1899,6 +1968,20 @@ export function locateThingContent(input: LocateThingInput) {
   return [
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
     { type: "text" as const, text: lines.join("\n") },
+  ];
+}
+
+const worthConfidenceWords: Record<ExplainWorthInput["confidence"], string> = { sure: "säker", guess: "gissning", unsure: "osäker" };
+
+/**
+ * The user message for explainWorth: the photo as a `file` part, then "Föremål:" with the name, "Tips:" with the line the
+ * reading gave and "Säkerhet:" with how sure it was. Each is on one line, so none can start a section of its own; the
+ * prompt says they are data.
+ */
+export function explainWorthContent(input: ExplainWorthInput) {
+  return [
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+    { type: "text" as const, text: [`${thingNounCap.singular}: ${input.name}`, `Tips: ${input.tip}`, `Säkerhet: ${worthConfidenceWords[input.confidence]}`].join("\n") },
   ];
 }
 

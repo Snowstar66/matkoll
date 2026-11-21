@@ -44,7 +44,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_item")
-      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, worth_why, worth_confidence, thing_place!inner(site_id, room, room_key, part, kind)")
+      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, worth_why, worth_confidence, worth_detail, thing_place!inner(site_id, room, room_key, part, kind)")
       .eq("id", id)
       .maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
