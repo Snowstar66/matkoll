@@ -239,7 +239,7 @@ test("the first share asks what others should see the household as, and Bergs se
   // Newest shared first: the recipe shared last is first in Delade.
   await bergs.reload();
   // Delade is still chosen: the filter is kept on the device.
-  await expect(bergs.getByTestId("recipe-filters").getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
+  await expect(bergs.getByTestId("recipe-filters").getByRole("button", { name: "Delade" })).toHaveAttribute("aria-pressed", "true");
   await expect(bergs.getByTestId("shared-recipe-card").first()).toContainText("Hellgrens soppa");
 
   // Turning Dela alla off asks while recipes are shared; Behåll dem keeps them.
