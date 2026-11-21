@@ -4,6 +4,7 @@ import explainDishPrompt from "./prompts/explain-dish.md?raw";
 import thingSearchTermsPrompt from "./prompts/thing-search-terms.md?raw";
 import askThingsPrompt from "./prompts/ask-things.md?raw";
 import listThingsPrompt from "./prompts/list-things.md?raw";
+import listThingsWorthPrompt from "./prompts/list-things-worth.md?raw";
 import matchOffersPrompt from "./prompts/match-offers.md?raw";
 import mergeThingsPrompt from "./prompts/merge-things.md?raw";
 import locateThingPrompt from "./prompts/locate-thing.md?raw";
@@ -30,6 +31,7 @@ export const prompts = {
   analyzeImage: analyzeImagePrompt,
   locateThing: locateThingPrompt,
   listThings: listThingsPrompt,
+  listThingsWorth: listThingsWorthPrompt,
   askThings: askThingsPrompt,
   mergeThings: mergeThingsPrompt,
   matchOffers: matchOffersPrompt,

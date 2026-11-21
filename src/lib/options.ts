@@ -14,6 +14,7 @@ export const optionGroups = [
   { id: "nutrition", label: "Näring" },
   { id: "dagens", label: "Dagens" },
   { id: "menu", label: "Äta ute" },
+  { id: "things", label: "Förrådet" },
   { id: "shared", label: "Delade recept" },
   { id: "debug", label: "Felsökning" },
 ] as const;
@@ -53,6 +54,13 @@ export const options = [
   { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
   { id: "restaurantAgent", group: "menu", label: "Äta ute", hint: "Sök restauranger i Google Maps med dina val ifyllda. Gratis. Telefonen frågar om plats när du öppnar sidan, och den sparas inte", defaultOn: false },
   { id: "restaurantAgentWeb", group: "menu", label: "Låt agenten söka på webben", hint: "Låt agenten söka restauranger på webben åt dig. Experimentell, kostar Claude-tokens, cirka 1 kr per sökning", defaultOn: false },
+  {
+    id: "worthLook",
+    group: "things",
+    label: "Värt en titt",
+    hint: "När ett kort läses in markerar AI:n de föremål som kan vara samlarvärda eller värda mer än de ser ut. Ett tips, inte en värdering. Gäller kort du läser in efter att du slagit på det",
+    defaultOn: false,
+  },
   {
     id: "starterRecipes",
     group: "household",

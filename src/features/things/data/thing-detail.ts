@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { boxOfRow } from "../domain/thing-card";
 import type { ThingDetail } from "../domain/thing-detail";
+import { worthOfRow, worthRowShape } from "../domain/thing-worth";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
 // The detail of one föremål for its sheet: its card, the box on it and where
@@ -15,6 +16,7 @@ const rowSchema = z.object({
   box_top: z.number().nullable(),
   box_width: z.number().nullable(),
   box_height: z.number().nullable(),
+  ...worthRowShape,
   thing_place: z.object({ site_id: z.uuid(), room: z.string(), room_key: z.string(), part: z.string().nullable(), kind: z.enum(["part", "box"]) }),
 });
 
@@ -42,7 +44,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_item")
-      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, thing_place!inner(site_id, room, room_key, part, kind)")
+      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, worth_why, worth_confidence, thing_place!inner(site_id, room, room_key, part, kind)")
       .eq("id", id)
       .maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
@@ -55,6 +57,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
       photoId: row.photo_id,
       source: row.source,
       box: boxOfRow(row),
+      worth: worthOfRow(row),
       place: {
         id: row.place_id,
         siteId: row.thing_place.site_id,

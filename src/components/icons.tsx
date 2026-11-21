@@ -406,6 +406,15 @@ export function SparkleIcon(props: IconProps) {
   );
 }
 
+/** A five-pointed star: Värt en titt in Förråd. */
+export function StarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.95 5.55L12 16.55 7 19.2l.95-5.55L3.9 9.7l5.6-.8z" />
+    </Icon>
+  );
+}
+
 /** A paint palette: Utseende in Inställningar. */
 export function PaletteIcon(props: IconProps) {
   return (

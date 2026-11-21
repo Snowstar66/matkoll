@@ -9,6 +9,7 @@ import { toDecodableImage } from "@/lib/heic";
 import { maxPlacePhotoSide } from "@/lib/images";
 import { newsKey } from "@/lib/news";
 import { noteOwnNews } from "@/lib/news-client";
+import { readOption } from "@/lib/options";
 
 // Sending cards (Story 18.11): every image becomes its own card and its own AI
 // job, one after the other. At most three AI jobs are active (AD-28); when the
@@ -62,6 +63,8 @@ export function useCardUpload(onSaved: () => void) {
         form.append("place", target.placeId);
         form.append("takenAt", takenAt.toISOString());
         if (target.replaces) form.append("replaces", target.replaces);
+        // Värt en titt (Tillval, kept on this device): the server cannot see it, so the photo says it.
+        if (readOption("worthLook")) form.append("worth", "1");
         let answer: Result<{ job: AiJob }>;
         try {
           answer = await start("/api/things/photo", form, clientKey);

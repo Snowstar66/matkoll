@@ -52,6 +52,8 @@ export type StartReadingInput = {
   takenAt: Date;
   clientKey: string;
   requestStartedAt: number;
+  /** Värt en titt (Tillval, on for this device): the reading also flags the few föremål that may be worth a closer look. */
+  worth?: boolean;
 };
 
 /** The photo without metadata (AD-15): a JPEG without APP1–APP15 and comments, a PNG with only the chunks that make the image; `null` for a WebP or bytes that cannot be walked. */
@@ -68,7 +70,7 @@ function withoutMetadata(image: StartReadingInput["image"]): { data: Uint8Array;
 }
 
 /** The job's work: the model reads the photo, the things are saved, the card it replaces (Ta om) goes, and the things the card shares with the room's other cards are merged. */
-function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }): AiJobWork {
+function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }, worth: boolean): AiJobWork {
   return async (signal, deadline): Promise<Result<Json>> => {
     const failCard = async (code: string) => {
       try {
@@ -79,7 +81,7 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
     };
 
     const ai = await getAiServiceForUser();
-    const listed = await ai.listThings({ image }, signal, { deadline: deadline - postModelMarginMs });
+    const listed = await ai.listThings({ image, ...(worth ? { worth: true } : {}) }, signal, { deadline: deadline - postModelMarginMs });
     if (!listed.ok) {
       await failCard(listed.error.code);
       return listed;
@@ -122,6 +124,7 @@ async function queueReading(
   image: { data: Uint8Array; mediaType: string },
   clientKey: string,
   requestStartedAt: number,
+  worth: boolean,
 ) {
   const enqueued = await enqueueAiJob(db, {
     kind: "things",
@@ -132,7 +135,7 @@ async function queueReading(
   if (!enqueued.ok) return enqueued;
   const { job, created, startBy } = enqueued.data;
   // A job that was given back (a double tap, another tab) is run by the request that made it.
-  if (created) after(() => runAiJob(db, job, { startBy }, readingWork(db, userId, card, image)));
+  if (created) after(() => runAiJob(db, job, { startBy }, readingWork(db, userId, card, image, worth)));
   return ok({ job });
 }
 
@@ -212,7 +215,7 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
 
   let queued: Awaited<ReturnType<typeof queueReading>>;
   try {
-    queued = await queueReading(db, user.data.id, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt);
+    queued = await queueReading(db, user.data.id, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt, input.worth === true);
   } catch (error) {
     // An error nobody expected: the card must not stay `reading` for ever. The route logs it.
     await discardCard(db, id, path);
@@ -233,7 +236,7 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
  * the user's, is gone or is not failed (shownStatus), so a double tap never
  * starts a second reading.
  */
-export async function retryCardReading(input: { cardId: string; clientKey: string; requestStartedAt: number }): Promise<Result<{ job: AiJob }>> {
+export async function retryCardReading(input: { cardId: string; clientKey: string; requestStartedAt: number; worth?: boolean }): Promise<Result<{ job: AiJob }>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const db = await createClient();
@@ -266,6 +269,7 @@ export async function retryCardReading(input: { cardId: string; clientKey: strin
     { data: bytes, mediaType: card.mediaType },
     input.clientKey,
     input.requestStartedAt,
+    input.worth === true,
   );
   if (!queued.ok) {
     // The card goes back to failed: it is still there to try again.

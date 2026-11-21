@@ -962,8 +962,8 @@ describe("listThings on a model (Story 18.2)", () => {
       ok: true,
       data: {
         things: [
-          { name: "Hammare", category: "Verktyg", where: "översta hyllan, vänster", confidence: "high", box: null, count: null },
-          { name: "Spade", category: "Trädgård", where: "översta hyllan, vänster", confidence: "low", box: null, count: null },
+          { name: "Hammare", category: "Verktyg", where: "översta hyllan, vänster", confidence: "high", box: null, count: null, worth: null },
+          { name: "Spade", category: "Trädgård", where: "översta hyllan, vänster", confidence: "low", box: null, count: null, worth: null },
         ],
         invalid: 0,
         trimmed: 0,
@@ -1011,10 +1011,61 @@ describe("listThings on a model (Story 18.2)", () => {
     const result = await createModelAiService({ model }, limits).listThings(input, signal());
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.things).toEqual([
-      { name: "Föremål", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low", box: null, count: null },
-      { name: "Såg", category: "Verktyg", where: null, confidence: "high", box: null, count: null },
+      { name: "Föremål", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low", box: null, count: null, worth: null },
+      { name: "Såg", category: "Verktyg", where: null, confidence: "high", box: null, count: null, worth: null },
     ]);
     expect(result.data.invalid).toBe(1);
+  });
+
+  describe("Värt en titt", () => {
+    const tip = (why: string, confidence = "guess") => ({ why, confidence });
+
+    it("asks nothing about worth without the switch: the plain prompt and schema, and a worth the model sends anyway is dropped", async () => {
+      const model = fakeModel(answer([thing("Vas", { worth: tip("Ser ut som Gustavsberg.") })]));
+      const result = await createModelAiService({ model }, limits).listThings(input, signal());
+      if (!result.ok) throw new Error(result.error.code);
+      const [system] = model.doGenerateCalls[0].prompt;
+      expect(system).toEqual({ role: "system", content: prompts.listThings });
+      expect(JSON.stringify(model.doGenerateCalls[0].responseFormat)).not.toContain("worth");
+    });
+
+    it("adds the worth prompt and a worth field to the schema when the switch is on, and keeps good tips", async () => {
+      const model = fakeModel(
+        answer([
+          thing("Vas", { worth: tip("Ser ut som Gustavsberg, Stig Lindberg. Titta på botten efter stämpel.", "sure") }),
+          thing("Hammare", { worth: null }),
+          thing("Skål", { worth: tip("Liknar Arabia.", "kanske") }),
+        ]),
+      );
+      const result = await createModelAiService({ model }, limits).listThings({ ...input, worth: true }, signal());
+      if (!result.ok) throw new Error(result.error.code);
+      const [system] = model.doGenerateCalls[0].prompt;
+      expect(system).toEqual({ role: "system", content: `${prompts.listThings}\n\n${prompts.listThingsWorth}` });
+      expect(JSON.stringify(model.doGenerateCalls[0].responseFormat)).toContain("worth");
+      expect(result.data.things.map((entry) => entry.worth)).toEqual([
+        { why: "Ser ut som Gustavsberg, Stig Lindberg. Titta på botten efter stämpel.", confidence: "sure" },
+        null,
+        { why: "Liknar Arabia.", confidence: "guess" },
+      ]);
+    });
+
+    it("drops a bad worth (empty, too long) and never the thing, and keeps at most ten tips", async () => {
+      const good = Array.from({ length: 11 }, (_, index) => thing(`Bra ${index + 1}`, { worth: tip(`Tips ${index + 1}.`) }));
+      const model = fakeModel(answer([thing("A", { worth: tip("   ") }), thing("B", { worth: tip("x".repeat(201)) }), thing("C", { worth: null }), ...good]));
+      const result = await createModelAiService({ model }, limits).listThings({ ...input, worth: true }, signal());
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.invalid).toBe(0);
+      expect(result.data.things.slice(0, 3).map((entry) => [entry.name, entry.worth])).toEqual([
+        ["A", null],
+        ["B", null],
+        ["C", null],
+      ]);
+      expect(result.data.things).toHaveLength(14);
+      const tips = result.data.things.filter((entry) => entry.worth);
+      expect(tips).toHaveLength(10);
+      expect(tips.at(-1)?.name).toBe("Bra 10");
+      expect(result.data.things.at(-1)?.worth).toBeNull();
+    });
   });
 
   it("merges the same name on the same spot and keeps the same name in two places", async () => {

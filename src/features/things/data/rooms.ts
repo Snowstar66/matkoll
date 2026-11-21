@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { thingCategories, thingConfidences, type Thing, type ThingCategory } from "../domain/thing";
 import { shownStatus } from "../domain/thing-photo";
+import { worthOfRow, worthRowShape } from "../domain/thing-worth";
 import { orderCategories, toRoomThing, type RoomCard, type RoomPhotoThings, type RoomSummary } from "../domain/thing-room";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -105,6 +106,7 @@ const photoThingsSchema = z.array(
     photo_id: z.uuid().nullable(),
     position: z.number().int(),
     quantity: z.number().int().nullable(),
+    ...worthRowShape,
   }),
 );
 
@@ -129,7 +131,7 @@ export async function loadRoomPhotoThingsIn(db: ThingsDb, siteId: string, key: s
   if (photoIds.length > 0) {
     const { data, error } = await db
       .from("thing_item")
-      .select("id, name, category, confidence, photo_id, position, quantity")
+      .select("id, name, category, confidence, photo_id, position, quantity, worth_why, worth_confidence")
       .in("photo_id", [...photoIds])
       .order("position")
       .order("id")
@@ -139,7 +141,7 @@ export async function loadRoomPhotoThingsIn(db: ThingsDb, siteId: string, key: s
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     for (const row of parsed.data) {
       if (row.photo_id === null) continue;
-      byPhoto[row.photo_id]?.push({ id: row.id, name: row.name, category: row.category, confidence: row.confidence, whereHint: null, seenOn: 1, quantity: row.quantity });
+      byPhoto[row.photo_id]?.push({ id: row.id, name: row.name, category: row.category, confidence: row.confidence, whereHint: null, seenOn: 1, quantity: row.quantity, worth: worthOfRow(row) });
     }
   }
   const { data: notedData, error: notedError } = await db

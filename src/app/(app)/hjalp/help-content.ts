@@ -297,6 +297,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: `Öppna ${things}ets blad och tryck på bilden överst eller på Visa hela kortet. Fotot öppnas inzoomat på ${things}et, med namnet i en rad under fotot så att det inte skymmer. Tryck på en annan siffra för att se vad det är, och tryck på fotot för att backa till hela kortet med alla siffror. Klar tar dig tillbaka till bladet, och Öppna kortet med listan tar dig till kortets egen sida, där en rad i listan markerar ${things}et och en siffra på fotot zoomar in på det på samma sätt. Siffrorna är de samma som på kortets sida. Ett ${things} som AI:n inte pekade ut när kortet lästes letas upp av sig själv när du öppnar kortets sida, så att alla får en siffra. Dölj siffror ovanför fotot visar hela fotot utan siffror, och Visa siffror tar tillbaka dem; knappen finns också på kortets sida.`,
       },
       {
+        question: "Vad är Värt en titt?",
+        answer: `Slå på Värt en titt under Inställningar, Tillval, Förrådet. När du läser in ett nytt kort markerar AI:n med en stjärna de ${things} som kan vara samlarvärda eller värda mer än de ser ut, till exempel ett känt märke eller en känd formgivare. Tryck på ${things}et så står det i bladet vad AI:n tror, hur säker den är (Säker, Gissning eller Osäker) och vad du kan titta efter. Det är ett tips och inte en värdering: appen säger aldrig något pris, och AI:n kan ha fel. Se efter på föremålet själv, till exempel stämpel eller signatur på undersidan, och sök på sålda annonser för att veta mer. Det gäller kort du läser in efter att du slagit på det, och inget skickas extra när det är avslaget.`,
+      },
+      {
         question: "Hur ändrar jag eller räknar en sak?",
         answer: `Tryck på ${things}et. Fotot med saken markerad står överst, och under det namnet (Vad är det?) och Antal. Skriv ett antal om du vill hålla räkning; Spara visas bredvid när du ändrat något. Kategori och Ta bort längst ned är små rader, och Ta bort går att ångra.`,
       },

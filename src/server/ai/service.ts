@@ -63,6 +63,7 @@ import {
   type ThingToRemember,
   parseAskAnswer,
   listThingsAnswer,
+  listThingsWorthAnswer,
   shoppingListAnswer,
   parseShoppingList,
   menuAnswer,
@@ -241,6 +242,8 @@ export type LocateThingResult = { box: ThingBox | null };
 export type ListThingsInput = {
   /** A photo of a place, already resized in the client (AD-15). Never stored or logged by the port. */
   image: ImageInput;
+  /** Värt en titt (Tillval, on): the model also flags the few föremål that may be worth a closer look. Left out, nothing is asked and nothing is spent. */
+  worth?: boolean;
 };
 
 /**
@@ -1229,8 +1232,8 @@ export function createModelAiService(
       const answer = await runStructured(
         target,
         {
-          schema: listThingsAnswer,
-          system: prompts.listThings,
+          schema: input.worth ? listThingsWorthAnswer : listThingsAnswer,
+          system: input.worth ? `${prompts.listThings}\n\n${prompts.listThingsWorth}` : prompts.listThings,
           messages: [{ role: "user", content: listThingsContent(input) }],
           maxOutputTokens: inputLimits.things.maxOutputTokens,
           sampling: target.imageSampling,

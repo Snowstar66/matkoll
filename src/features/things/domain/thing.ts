@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { seenOnText } from "./thing-merge";
 import { closedBoxesText } from "./thing-closed";
+import type { ThingWorth } from "./thing-worth";
 
 // A thing the AI read from a card (Story 18.2): name, category, where in the
 // photo and how sure. Things never touch food: no list, no recipe, no pantry.
@@ -53,6 +54,8 @@ export type Thing = {
   noted?: { at: string; part: string | null } | null;
   /** Story 18.23: how many there are; null or missing when it is not counted. */
   quantity?: number | null;
+  /** Värt en titt: why it may be worth a closer look; missing or null when it has no tip. */
+  worth?: ThingWorth | null;
 };
 
 /** A thing_item row as read, checked before the page shows it. */

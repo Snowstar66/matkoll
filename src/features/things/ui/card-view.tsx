@@ -35,6 +35,7 @@ import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 import { ThingSheet } from "./thing-sheet";
 import { openThingText, photoViewerAltText, photoViewerTitleText } from "../domain/thing-edit";
+import { WorthMarker } from "./worth-marker";
 import { cardPhotoMarkers, numberOnCard } from "../domain/thing-detail";
 
 // Kortet i stort (Story 18.7): the card's whole photo, never cropped, with a
@@ -184,7 +185,10 @@ function ThingRowTitle({ thing, selected, number }: { thing: CardThing; selected
     <span className="flex items-baseline justify-between gap-3">
       <span className="flex min-w-0 items-center gap-2.5 text-left">
         {number !== undefined ? <MarkerBadge number={number} tone={selected ? "on" : "off"} /> : null}
-        <span className={cx("min-w-0 wrap-break-word hyphens-auto", selected ? "font-semibold text-mint-ink" : "font-normal")}>{thing.name}</span>
+        <span className={cx("min-w-0 wrap-break-word hyphens-auto", selected ? "font-semibold text-mint-ink" : "font-normal")}>
+          {thing.name}
+          <WorthMarker worth={thing.worth} />
+        </span>
       </span>
       {thing.whereHint || thing.quantity != null ? (
         <span className={cx("max-w-[45%] shrink-0 text-right text-meta font-normal", selected ? "text-mint-ink" : "text-ink-3")}>

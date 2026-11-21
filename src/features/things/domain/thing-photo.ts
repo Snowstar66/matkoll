@@ -59,6 +59,8 @@ export const thingPhotoFormSchema = z.object({
   /** "Ta om": the card this one replaces once it is read (Story 18.11); absent for a card that adds. */
   replaces: z.uuid().nullish().transform((id) => id ?? null),
   takenAt: z.iso.datetime({ offset: true }).transform((text) => new Date(text)),
+  /** Värt en titt (Tillval, on on the device): "1" asks the reading to flag föremål worth a closer look; anything else, or nothing, does not. */
+  worth: z.string().nullish().transform((value) => value === "1"),
 });
 export type ThingPhotoForm = z.output<typeof thingPhotoFormSchema>;
 

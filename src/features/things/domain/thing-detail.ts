@@ -1,6 +1,7 @@
 import type { PhotoViewMarker } from "@/features/pantry";
 import type { ThingBox } from "@/lib/thing-box";
 import { thingDots } from "./thing-card";
+import type { ThingWorth } from "./thing-worth";
 
 // The detail of one föremål for its sheet (Pontus 9 Nov): its card photo and
 // where on it, and where it is kept, read when the sheet opens. No new data:
@@ -26,6 +27,8 @@ export type ThingDetail = {
   place: ThingDetailPlace;
   /** Every föremål on the same card in the card's order, for the photo view's numbers (the same as on the card's page); empty without a card. */
   cardThings: ThingDetailCardThing[];
+  /** Värt en titt: why it may be worth a closer look; null when it has no tip. */
+  worth: ThingWorth | null;
 };
 
 /** A föremål on the card the sheet's föremål is seen on. */

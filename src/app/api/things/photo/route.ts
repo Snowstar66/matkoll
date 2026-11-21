@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
   if (auth.response) return auth.response;
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
-  const form = await readImageForm(request, ["clientKey", "place", "takenAt", "replaces"], { maxSide: maxPlacePhotoSide });
+  const form = await readImageForm(request, ["clientKey", "place", "takenAt", "replaces", "worth"], { maxSide: maxPlacePhotoSide });
   if (!form.ok) return form.response;
   // A WebP can be read by the AI, but only a JPEG or PNG is kept, since only those are cleaned of metadata.
   if (form.image.mediaType === "image/webp") return respond(fail("validation"), 415);
@@ -49,6 +49,7 @@ export async function POST(request: Request): Promise<Response> {
       takenAt: clampTakenAt(fields.data.takenAt, new Date()),
       clientKey: fields.data.clientKey,
       requestStartedAt,
+      worth: fields.data.worth,
     });
   } catch (error) {
     // The name, message and first stack line only: they hold no photo and no name (an error from our own code or a library).
