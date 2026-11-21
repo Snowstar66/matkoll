@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
@@ -116,6 +116,44 @@ describe("the things of a card", () => {
     expect(within(crumbs).getByRole("link", { name: "Garaget" })).toHaveAttribute("href", `/prylar/rum/${siteId}/garaget`);
     expect(crumbs).toHaveTextContent("Garaget›Hylla 2");
     expect(within(crumbs).queryByRole("link", { name: "Hylla 2" })).not.toBeInTheDocument();
+  });
+
+  it("opens the photo view from the photo: zoomed in on this föremål, then the whole card with every number", async () => {
+    loadThingDetail.mockResolvedValue(
+      ok({
+        ...detail,
+        cardThings: [
+          { id: hammer.id, name: "Hammare", box: detail.box },
+          { id: spade.id, name: "Spade", box: { left: 0.6, top: 0.5, width: 0.2, height: 0.2 } },
+        ],
+      }),
+    );
+    const dialog = await openHammer();
+    await within(dialog).findByTestId("thing-photo");
+    // With the card's numbers known the photo is a button, not a link.
+    expect(within(dialog).queryByRole("link", { name: "Visa hela kortet" })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByTestId("thing-photo"));
+    const viewer = screen.getByRole("dialog", { name: "Kortet" });
+    const image = within(viewer).getByRole("img");
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: 800 });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: 600 });
+    fireEvent.load(image);
+    // Zoomed in on the hammer (number 1) with its name in the fixed line; the spade is the other number.
+    expect(within(viewer).getByTestId("photo-viewer")).toHaveAttribute("data-zoomed", "true");
+    expect(within(viewer).getByTestId("photo-viewer-name")).toHaveTextContent("Hammare");
+    expect(within(viewer).getByRole("button", { name: "Föremål 2: Spade" })).toBeInTheDocument();
+    // No status for anything: Förrådet keeps nothing about what became of a föremål.
+    expect(within(viewer).queryByTestId("photo-viewer-status")).not.toBeInTheDocument();
+    expect(within(viewer).queryByTestId("photo-viewer-legend")).not.toBeInTheDocument();
+    // The way to the card's own page stays.
+    expect(within(viewer).getByRole("link", { name: "Öppna kortet med listan" })).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
+    // "Klar" comes back to the sheet.
+    await userEvent.click(within(viewer).getByRole("button", { name: "Klar" }));
+    expect(screen.queryByRole("dialog", { name: "Kortet" })).not.toBeInTheDocument();
+    // "Visa hela kortet" opens the overview.
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Föremål" })).getByRole("button", { name: "Visa hela kortet" }));
+    const again = screen.getByRole("dialog", { name: "Kortet" });
+    expect(within(again).getByTestId("photo-viewer")).not.toHaveAttribute("data-zoomed");
   });
 
   it("links a box in the crumbs, and shows the photo without a frame when it has no box", async () => {

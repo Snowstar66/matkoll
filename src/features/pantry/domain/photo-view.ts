@@ -72,9 +72,9 @@ export function photoStatusText(marker: Pick<PhotoViewMarker, "status" | "locati
 }
 
 /** A marker's name for a screen reader, status included: "Vara 3: Grädde, finns inte längre". */
-export function photoMarkerName(marker: PhotoViewMarker): string {
+export function photoMarkerName(marker: PhotoViewMarker, noun = "Vara"): string {
   const status = photoStatusText(marker);
-  const label = `Vara ${marker.n}: ${catalogName(marker.name)}`;
+  const label = `${noun} ${marker.n}: ${catalogName(marker.name)}`;
   return status ? `${label}, ${status.charAt(0).toLowerCase()}${status.slice(1)}` : label;
 }
 

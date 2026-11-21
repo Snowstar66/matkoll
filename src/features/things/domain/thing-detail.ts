@@ -1,4 +1,6 @@
+import type { PhotoViewMarker } from "@/features/pantry";
 import type { ThingBox } from "@/lib/thing-box";
+import { thingDots } from "./thing-card";
 
 // The detail of one föremål for its sheet (Pontus 9 Nov): its card photo and
 // where on it, and where it is kept, read when the sheet opens. No new data:
@@ -22,7 +24,28 @@ export type ThingDetail = {
   /** Where on the card, 0 to 1; null when there is none (an older card) or it is not reasonable. */
   box: ThingBox | null;
   place: ThingDetailPlace;
+  /** Every föremål on the same card in the card's order, for the photo view's numbers (the same as on the card's page); empty without a card. */
+  cardThings: ThingDetailCardThing[];
 };
+
+/** A föremål on the card the sheet's föremål is seen on. */
+export type ThingDetailCardThing = { id: string; name: string; box: ThingBox | null };
+
+/**
+ * The numbers of a card as the photo view shows them: the same numbers as the
+ * card's page (a föremål without a box has none), each with its name. Förrådet
+ * keeps nothing about what became of a föremål (a removed one is gone from the
+ * database), so no marker has a status. Pure.
+ */
+export function cardPhotoMarkers(things: readonly ThingDetailCardThing[]): PhotoViewMarker[] {
+  const names = new Map(things.map((thing) => [thing.id, thing.name]));
+  return thingDots(things).map((dot) => ({ n: dot.number, left: dot.left, top: dot.top, name: names.get(dot.id) ?? "", status: null, location: null }));
+}
+
+/** The number of föremål `id` on its card's photo, or `null` when it has no box. */
+export function numberOnCard(things: readonly ThingDetailCardThing[], id: string): number | null {
+  return thingDots(things).find((dot) => dot.id === id)?.number ?? null;
+}
 
 /** One step of the crumbs: its words, and where it links when there is a page for it. */
 export type ThingCrumb = { label: string; href: string | null };

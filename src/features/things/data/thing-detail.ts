@@ -18,6 +18,25 @@ const rowSchema = z.object({
   thing_place: z.object({ site_id: z.uuid(), room: z.string(), room_key: z.string(), part: z.string().nullable(), kind: z.enum(["part", "box"]) }),
 });
 
+const cardThingSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  position: z.number().int(),
+  box_left: z.number().nullable(),
+  box_top: z.number().nullable(),
+  box_width: z.number().nullable(),
+  box_height: z.number().nullable(),
+});
+
+/** The föremål on card `photoId` in the card's order (the order of its page, so the numbers agree). Throws ThingsDataError. */
+async function loadCardThings(db: ThingsDb, photoId: string): Promise<ThingDetail["cardThings"]> {
+  const { data, error } = await db.from("thing_item").select("id, name, position, box_left, box_top, box_width, box_height").eq("photo_id", photoId);
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  const parsed = z.array(cardThingSchema).safeParse(data);
+  if (!parsed.success) throw new ThingsDataError("invalid_row");
+  return [...parsed.data].sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1)).map((row) => ({ id: row.id, name: row.name, box: boxOfRow(row) }));
+}
+
 /** The detail of föremål `id`, or `null` when it is gone or not the user's. Throws ThingsDataError. */
 export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<ThingDetail | null> {
   return guarded("query", async () => {
@@ -32,6 +51,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     const row = parsed.data;
     return {
+      cardThings: row.photo_id ? await loadCardThings(db, row.photo_id) : [],
       photoId: row.photo_id,
       source: row.source,
       box: boxOfRow(row),

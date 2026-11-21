@@ -293,6 +293,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: `Överst i rummet väljer du Per foto eller Per kategori. Per foto är förvalt: varje foto är en grupp med en liten bild, datum och ${things}en som syns på det. Tryck på bilden för att se hela kortet. Valet minns telefonen.`,
       },
       {
+        question: "Hur ser jag var på fotot en sak ligger?",
+        answer: `Öppna ${things}ets blad och tryck på bilden överst eller på Visa hela kortet. Fotot öppnas inzoomat på ${things}et, med namnet i en rad under fotot så att det inte skymmer. Tryck på en annan siffra för att se vad det är, och tryck på fotot för att backa till hela kortet med alla siffror. Klar tar dig tillbaka till bladet, och Öppna kortet med listan tar dig till kortets egen sida, där du kan trycka på en rad eller en siffra för att markera ${things}et. Siffrorna är de samma som på kortets sida.`,
+      },
+      {
         question: "Hur ändrar jag eller räknar en sak?",
         answer: `Tryck på ${things}et. Fotot med saken markerad står överst, och under det namnet (Vad är det?) och Antal. Skriv ett antal om du vill hålla räkning; Spara visas bredvid när du ändrat något. Kategori och Ta bort längst ned är små rader, och Ta bort går att ångra.`,
       },
