@@ -13,7 +13,7 @@ alter table public.thing_item add constraint thing_item_worth_check check (
   (worth_why is null and worth_confidence is null)
   or (
     worth_why is not null and char_length(worth_why) between 1 and 200
-    and worth_confidence in ('sure', 'guess', 'unsure')
+    and worth_confidence is not null and worth_confidence in ('sure', 'guess', 'unsure')
   )
 );
 
