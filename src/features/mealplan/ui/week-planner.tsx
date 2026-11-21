@@ -446,9 +446,10 @@ export function WeekPlanner({ weekStart, firstOpenDay = 1, dishes, options: opti
                     )}
                   </DayCell>
                   <div className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
                       {dish.recipeId ? (
-                        <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink">
+                        // The link's ::after covers the whole text part of the row (and its padding), so a tap anywhere there opens the recipe.
+                        <Link href={`/recept/${dish.recipeId}`} className="line-clamp-2 self-start wrap-break-word text-row-title text-ink after:absolute after:-inset-y-2 after:-right-1 after:-left-3 after:content-['']">
                           {dish.recipeTitle}
                         </Link>
                       ) : (
