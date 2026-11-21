@@ -76,6 +76,43 @@ describe("the block in the sheet", () => {
     render(<WorthBlock worth={worth} />);
     expect(screen.queryByTestId("worth-block")).not.toBeInTheDocument();
   });
+
+  it("offers searches for sold lookalikes in a new tab, from the föremål's name before there is an explanation", () => {
+    saveOption("worthLook", true);
+    render(<WorthBlock worth={worth} name="Vas i glas" />);
+    const sold = screen.getByTestId("worth-sold");
+    const tradera = within(sold).getByTestId("worth-sold-tradera");
+    expect(tradera).toHaveAttribute("href", "https://www.tradera.com/search?q=Vas%20i%20glas&itemStatus=Ended");
+    expect(tradera).toHaveAttribute("target", "_blank");
+    expect(tradera.getAttribute("rel")).toContain("noopener");
+    expect(within(tradera).getByText(", öppnas på en annan sajt")).toHaveClass("sr-only");
+    expect(within(sold).getByTestId("worth-sold-ebay")).toHaveAttribute("href", expect.stringContaining("LH_Sold=1"));
+    expect(within(sold).getByTestId("worth-sold-bukowskis")).toHaveTextContent("via Google");
+    expect(screen.getByTestId("worth-sold-phrase")).toHaveTextContent("Söker på: Vas i glas");
+    expect(sold).toHaveTextContent("Sökning på sålda föremål öppnas på en annan sajt. Priserna beror på skick och märke.");
+    expect(sold).not.toHaveTextContent(/\d+\s?kr\b|kronor/);
+  });
+
+  it("searches with the explanation's own phrase when it has one, and shows no links without any phrase", () => {
+    saveOption("worthLook", true);
+    const text =
+      "Därför markerades den\nSlipad kant.\n\nVad det kan vara\nTroligen Orrefors, en gissning.\n\nAtt undersöka vidare\n- Titta på botten.\n\nSökfras\nOrrefors kristallskål slipad";
+    const { unmount } = render(<WorthBlock worth={{ ...worth, detail: text }} name="Skål" />);
+    expect(screen.getByTestId("worth-sold-tradera")).toHaveAttribute("href", expect.stringContaining("Orrefors%20kristallsk%C3%A5l%20slipad"));
+    expect(screen.getByTestId("worth-sold-phrase")).toHaveTextContent("Söker på: Orrefors kristallskål slipad");
+    // The phrase is for the links, not another paragraph of the explanation.
+    expect(screen.getByTestId("worth-detail")).not.toHaveTextContent("Sökfras");
+    unmount();
+    render(<WorthBlock worth={worth} name=" " />);
+    expect(screen.queryByTestId("worth-sold")).not.toBeInTheDocument();
+  });
+
+  it("uses the name for an explanation kept before the search phrase existed", () => {
+    saveOption("worthLook", true);
+    const old = "Därför markerades den\nSlipad kant.\n\nVad det kan vara\nTroligen Orrefors.\n\nAtt undersöka vidare\n- Titta på botten.";
+    render(<WorthBlock worth={{ ...worth, detail: old }} name="Kristallskål" />);
+    expect(screen.getByTestId("worth-sold-phrase")).toHaveTextContent("Söker på: Kristallskål");
+  });
 });
 
 describe("in the room's list", () => {

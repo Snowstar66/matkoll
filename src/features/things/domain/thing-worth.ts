@@ -53,7 +53,10 @@ export const worthDetailHeadings = { why: "Därför markerades den", couldBe: "V
 /** The longest a kept explanation is (thing_item_worth_detail_check holds the same). */
 export const maxWorthDetailChars = 1500;
 
-export type WorthDetailParts = { why: string; couldBe: string; checks: string[] };
+/** The heading of the last, optional section of a kept explanation: the phrase to search for sold lookalikes with. */
+export const worthSearchHeading = "Sökfras";
+
+export type WorthDetailParts = { why: string; couldBe: string; checks: string[]; search?: string };
 
 /**
  * The explanation as the one text thing_item keeps: three headings, each followed by its text, the checks as "- " lines.
@@ -64,11 +67,13 @@ export function formatWorthDetail(parts: WorthDetailParts): string | null {
   const couldBe = parts.couldBe.trim();
   const checks = parts.checks.map((line) => line.trim()).filter((line) => line !== "");
   if (!why && !couldBe && checks.length === 0) return null;
+  const search = (parts.search ?? "").replace(/\s+/g, " ").trim();
   const build = (lines: string[]) =>
     [
       `${worthDetailHeadings.why}\n${why}`,
       `${worthDetailHeadings.couldBe}\n${couldBe}`,
       `${worthDetailHeadings.check}\n${lines.map((line) => `- ${line}`).join("\n")}`,
+      ...(search ? [`${worthSearchHeading}\n${search}`] : []),
     ].join("\n\n");
   let kept = checks;
   let text = build(kept);
@@ -82,12 +87,20 @@ export function formatWorthDetail(parts: WorthDetailParts): string | null {
 /** The kept text as its parts, or `null` when it is not in the shape formatWorthDetail writes (it is then shown as it is). */
 export function parseWorthDetail(text: string): WorthDetailParts | null {
   const { why, couldBe, check } = worthDetailHeadings;
-  const sections = text.split(/\n\n(?=Vad det kan vara\n|Att undersöka vidare\n)/);
-  if (sections.length !== 3) return null;
+  const sections = text.split(/\n\n(?=Vad det kan vara\n|Att undersöka vidare\n|Sökfras\n)/);
+  // Three sections (an explanation kept before the search phrase existed) or four.
+  if (sections.length !== 3 && sections.length !== 4) return null;
   const body = (section: string, heading: string) => (section.startsWith(`${heading}\n`) ? section.slice(heading.length + 1).trim() : null);
   const first = body(sections[0] ?? "", why);
   const second = body(sections[1] ?? "", couldBe);
   const third = body(sections[2] ?? "", check);
   if (first === null || second === null || third === null) return null;
-  return { why: first, couldBe: second, checks: third.split("\n").map((line) => line.replace(/^- /, "").trim()).filter((line) => line !== "") };
+  const fourth = sections.length === 4 ? body(sections[3] ?? "", worthSearchHeading) : undefined;
+  if (fourth === null) return null;
+  return {
+    why: first,
+    couldBe: second,
+    checks: third.split("\n").map((line) => line.replace(/^- /, "").trim()).filter((line) => line !== ""),
+    ...(fourth ? { search: fourth } : {}),
+  };
 }

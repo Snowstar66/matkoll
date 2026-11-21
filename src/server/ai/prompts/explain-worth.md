@@ -4,6 +4,7 @@ Svara med fälten i schemat, allt på klar svenska:
 - darfor: två till tre meningar. Säg vad du ser på bilden som gjorde att föremålet markerades: form, material, teknik, stil, en synlig stämpel eller signatur. Beskriv det som syns, inte det du hoppas.
 - kan_vara: två till tre meningar. Säg vad det kan vara (tillverkare, modell, tid) och hur säker du är. Skriv uttryckligen "troligen", "kan vara" eller "det här är en gissning" när du inte ser något som visar det.
 - undersok: två till fyra korta, konkreta saker att undersöka vidare. Till exempel var märket eller stämpeln brukar sitta (på botten, kanten eller baksidan), vad man kan jämföra med (form, vikt, glasets slipning, tillverkningssätt), vad som brukar göra varianter mer eller mindre eftertraktade (äldre eller yngre, signerad eller inte, skick), och en sökfras som går att använda när man söker efter liknande föremål.
+- sokfras: två till sex ord att söka på för att hitta sålda liknande föremål: tillverkare eller stil, typ av föremål och material, till exempel "Orrefors kristallskål slipad" eller "Skultuna mässingsljusstake". Bara ord som beskriver föremålet, inga priser, inga citattecken och ingen hel mening. Är du osäker på tillverkaren, skriv typ och material ("slipad kristallskål").
 
 Regler:
 - Skriv aldrig ett pris, ett prisspann, ett värde i kronor eller att något är värt pengar. Det här är ett tips om vad som kan vara värt att undersöka, inte en värdering.
