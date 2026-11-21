@@ -192,6 +192,26 @@ export const KCAL_LIMIT = 500;
 export const kcalChipLabel = "<500 kcal";
 export const kcalLeadText = `Under ${KCAL_LIMIT} kcal per portion`;
 
+/** The words for each filter in the line under the filter row (Erbjudanden has its own line, with its count). */
+export const filterLineTexts: Record<Exclude<RecipeFilter, "all">, string> = {
+  favorites: "Favoriter",
+  cookable: "Kan lagas nu",
+  offers: "Erbjudanden",
+  healthy: "Nyttigt",
+  kcal: kcalLeadText,
+  shared: "Delade recept",
+};
+
+/**
+ * The line under the filter row that says which choices are made, so a chip that has scrolled out of sight still shows:
+ * the filter and the category joined with " · " ("Under 500 kcal per portion · Vegetariskt"). `filter` is the filter that
+ * is in effect (one that cannot apply, like Nyttigt without näring, counts as "all"). `null` when nothing is chosen.
+ */
+export function choiceLineText(filter: RecipeFilter, categoryLabel: string | null): string | null {
+  const parts = [filter === "all" ? null : filterLineTexts[filter], categoryLabel].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" \u00B7 ") : null;
+}
+
 /**
  * The chip "<500 kcal": `kcalById` is the rounded kcal per portion of each recipe, or `null` when the
  * calculation is not reliable (nutrition.isTrustworthy, worked out by the page). `under` keeps the recipes

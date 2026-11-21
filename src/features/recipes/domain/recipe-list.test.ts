@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { roundedKcal } from "@/features/nutrition";
 import { toSnapshot, type StatusLine } from "@/features/pantry";
-import {
+import { choiceLineText,
   favoriteChangeSchema,
   filterByCategory,
   filterRecipes,
@@ -352,5 +352,17 @@ describe("splitByKcal (the chip <500 kcal)", () => {
 
   it("says the limit per portion", () => {
     expect(kcalLeadText).toBe("Under 500 kcal per portion");
+  });
+});
+
+describe("choiceLineText", () => {
+  it("is null with nothing chosen", () => {
+    expect(choiceLineText("all", null)).toBeNull();
+  });
+
+  it("names a filter, a category, or both joined with a middle dot", () => {
+    expect(choiceLineText("favorites", null)).toBe("Favoriter");
+    expect(choiceLineText("all", "Vegetariskt")).toBe("Vegetariskt");
+    expect(choiceLineText("kcal", "Vegetariskt")).toBe("Under 500 kcal per portion · Vegetariskt");
   });
 });

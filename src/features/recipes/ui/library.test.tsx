@@ -777,6 +777,18 @@ describe("Library, view, sort and categories", () => {
     expect(screen.queryByRole("button", { name: "Kött" })).not.toBeInTheDocument();
   });
 
+  it("says which choices are made in a line under the chips, also for a combination, and drops it with Alla", async () => {
+    const user = userEvent.setup();
+    renderLibrary(withCategories);
+    expect(screen.queryByTestId("choice-line")).not.toBeInTheDocument();
+    await user.click(pill("Favoriter"));
+    expect(screen.getByTestId("choice-line")).toHaveTextContent("Favoriter");
+    await user.click(pill("Vegetariskt"));
+    expect(screen.getByTestId("choice-line")).toHaveTextContent("Favoriter · Vegetariskt");
+    await user.click(pill("Alla"));
+    expect(screen.queryByTestId("choice-line")).not.toBeInTheDocument();
+  });
+
   it("keeps a chosen category's chip even with none left, and has no chip row when no recipe has a category", () => {
     window.localStorage.setItem(recipeCategoryStore.key, "meat");
     const first = renderLibrary(withCategories);

@@ -20,7 +20,7 @@ import {
   filterByCategory,
   filterRecipes,
   nearlyCookable,
-  kcalLeadText,
+  choiceLineText,
   rankByOffers,
   sortRecipes,
   splitByKcal,
@@ -308,6 +308,9 @@ export function Library({ recipes, pantryUnavailable, site, offers: offersNow, o
   const cookable = filter === "cookable";
   const onOffers = filter === "offers" && offers !== undefined;
   const onKcal = filter === "kcal" && withKcal;
+  // The filter in effect: the same rules as the list above (a saved choice that cannot apply shows everything).
+  const effectiveFilter = (filter === "cookable" && statusUnavailable) || (filter === "healthy" && !withHealthy) || (filter === "kcal" && !withKcal) || (filter === "shared" && !withShared) || (filter === "offers" && offers === undefined) ? "all" : filter;
+  const choiceLine = choiceLineText(effectiveFilter, category ? recipeCategoryLabels[category] : null);
   const compact = view === "compact";
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
   // Missing one or two items, under "Nästan (N)"; only with a status.
@@ -543,14 +546,15 @@ export function Library({ recipes, pantryUnavailable, site, offers: offersNow, o
           {siteLine}
         </p>
       ) : null}
-      {onKcal ? (
-        <p className="text-meta break-words text-ink-2" data-testid="kcal-line">
-          {kcalLeadText}
+      {choiceLine && !onOffers ? (
+        <p className="text-meta break-words text-ink-2" data-testid={onKcal ? "kcal-line" : "choice-line"}>
+          {choiceLine}
         </p>
       ) : null}
       {onOffers ? (
         <p className="text-meta break-words text-ink-2" data-testid="offers-line">
-          {offers.line} {"\u00B7"}{" "}
+          {offers.line}
+          {category ? ` \u00B7 ${recipeCategoryLabels[category]}` : ""} {"\u00B7"}{" "}
           <button
             type="button"
             aria-label="Visa erbjudanden"
