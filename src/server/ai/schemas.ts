@@ -1222,6 +1222,34 @@ export function parseDishExplanation(answer: z.output<typeof explainDishAnswer>)
     osakert: clip(answer.osakert, dishExplanationChars.uncertain),
   };
 }
+/** explainWorth: the longest each part of the explanation is kept (characters), and how many checks. */
+export const worthExplanationChars = { why: 380, couldBe: 380, check: 150, checks: 4 } as const;
+
+/**
+ * What the model answers to explainWorth: why a föremål was flagged "Värt en titt", what it could be, and what is worth
+ * checking further. Plain Swedish sentences, never a price; a guess says that it is one.
+ */
+export const explainWorthAnswer = z.object({
+  darfor: z.string().describe("Två till tre meningar: vad på bilden (form, material, teknik, stil eller märke) som gjorde att föremålet markerades"),
+  kan_vara: z.string().describe("Två till tre meningar: vad det kan vara (tillverkare, modell, tid) och hur säker du är; säg tydligt vad som är en gissning"),
+  undersok: z.array(z.string()).describe("Två till fyra konkreta saker att undersöka vidare: var märket brukar sitta, vad man kan jämföra med, vad som gör varianter mer eller mindre eftertraktade, en sökfras att använda. Aldrig priser"),
+});
+
+export type WorthExplanation = { darfor: string; kan_vara: string; undersok: string[] };
+
+/** The explanation with every text cleaned and cut to its length, at most four checks; the port's answer for explainWorth. */
+export function parseWorthExplanation(answer: z.output<typeof explainWorthAnswer>): WorthExplanation {
+  const clip = (text: string, max: number) => {
+    const cleaned = cleanModelText(text);
+    return cleaned.length <= max ? cleaned : `${cleaned.slice(0, max - 1).trimEnd()}…`;
+  };
+  return {
+    darfor: clip(answer.darfor, worthExplanationChars.why),
+    kan_vara: clip(answer.kan_vara, worthExplanationChars.couldBe),
+    undersok: answer.undersok.map((line) => clip(line, worthExplanationChars.check)).filter((line) => line !== "").slice(0, worthExplanationChars.checks),
+  };
+}
+
 export type MenuDishAnswer = z.output<typeof menuDishAnswer>;
 
 /** One dish with its texts cleaned. */
