@@ -595,29 +595,62 @@ export const maxThings = 60;
  * JSON schemas take it, and one bad thing never makes the whole answer
  * invalid. Each thing is checked on its own (parseThings).
  */
+/** The words of a "Värt en titt" confidence, as the model says them and as thing_item keeps them. */
+export const worthConfidences = ["sure", "guess", "unsure"] as const;
+export type WorthConfidence = (typeof worthConfidences)[number];
+/** The longest "why" kept, in characters (thing_item.worth_why holds the same). */
+export const maxWorthChars = 200;
+/** At most this many föremål of a card are flagged; the prompt asks for no more. */
+export const maxWorthPerCard = 3;
+
+/** One thing of listThingsAnswer; `worth` is only part of the answer when the household has Värt en titt on (listThingsWorthAnswer). */
+const listedThing = z.object({
+  name: z.string().describe(`${thingNounCap.definite}s namn på svenska, kort, t.ex. hammare eller cirkelsåg`),
+  category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
+  where: z.string().nullable().describe("Var på bilden, t.ex. översta hyllan, vänster; null om det är oklart"),
+  confidence: z.string().describe("high, medium eller low"),
+  // Story 18.7: the box in the same call, so a new card needs no second call to show where a thing is.
+  box: z
+    .array(z.number())
+    .nullable()
+    .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar, heltal 0–1000 av bildens bredd och höjd från övre vänstra hörnet, inte pixlar; uppskatta om du är osäker, null bara om det inte syns`),
+  // Story 18.23: how many alike, for consumables only, and only when they can be counted clearly. Never a guess.
+  count: z
+    .number()
+    .nullable()
+    .describe("Hur många likadana förbrukningsvaror du kan räkna tydligt (1–999); null för en enda sak, verktyg, möbler och när du inte kan räkna säkert"),
+});
+
+const listedThings = <Entry extends z.ZodType>(entry: Entry) =>
+  z
+    .array(entry)
+    .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`);
+
 export const listThingsAnswer = z.object({
-  things: z
-    .array(
-      z.object({
-        name: z.string().describe(`${thingNounCap.definite}s namn på svenska, kort, t.ex. hammare eller cirkelsåg`),
-        category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
-        where: z.string().nullable().describe("Var på bilden, t.ex. översta hyllan, vänster; null om det är oklart"),
-        confidence: z.string().describe("high, medium eller low"),
-        // Story 18.7: the box in the same call, so a new card needs no second call to show where a thing is.
-        box: z
-          .array(z.number())
-          .nullable()
-          .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar, heltal 0–1000 av bildens bredd och höjd från övre vänstra hörnet, inte pixlar; uppskatta om du är osäker, null bara om det inte syns`),
-        // Story 18.23: how many alike, for consumables only, and only when they can be counted clearly. Never a guess.
-        count: z
-          .number()
-          .nullable()
-          .describe("Hur många likadana förbrukningsvaror du kan räkna tydligt (1–999); null för en enda sak, verktyg, möbler och när du inte kan räkna säkert"),
-      }),
-    )
-    .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`),
+  things: listedThings(listedThing),
   hiddenContainers: z.number().describe("Antal lådor, backar, påsar och skåp vars innehåll inte syns, 0 om inga"),
   hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
+});
+
+/**
+ * listThingsAnswer for a household with Värt en titt on: each thing may also carry `worth`, a short Swedish sentence
+ * on why it may be worth a closer look and how sure the model is. Only asked for then, so nothing changes (and no
+ * extra tokens) without the switch.
+ */
+export const listThingsWorthAnswer = z.object({
+  things: listedThings(
+    listedThing.extend({
+      worth: z
+        .object({
+          why: z.string().describe("En kort mening: troligt märke, modell eller tid och vad man kan kontrollera, t.ex. titta på botten efter stämpel"),
+          confidence: z.string().describe("sure, guess eller unsure"),
+        })
+        .nullable()
+        .describe("Bara för högst tre saker med något konkret (känt märke, designklassiker, samlarkategori); annars null. Aldrig priser"),
+    }),
+  ),
+  hiddenContainers: listThingsAnswer.shape.hiddenContainers,
+  hiddenNote: listThingsAnswer.shape.hiddenNote,
 });
 
 /** Inköpslista from a photo: at most this many items are kept; the prompt asks for no more. */
@@ -900,6 +933,17 @@ export function parseSearchTerms(answer: z.output<typeof thingTermsAnswer>): str
 
 const thingText = (max: number) => text().refine((value) => value.length <= max, { message: `At most ${max} characters` });
 
+/** The tip of a raw `worth`: a non-empty sentence of at most maxWorthChars (cleaned) and a known confidence (anything else is a guess), else `null`. */
+function worthOf(value: unknown): { why: string; confidence: string } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { why, confidence } = value as { why?: unknown; confidence?: unknown };
+  if (typeof why !== "string") return null;
+  const cleaned = cleanModelText(why);
+  if (cleaned === "" || cleaned.length > maxWorthChars) return null;
+  const word = typeof confidence === "string" ? confidence.trim().toLowerCase() : "";
+  return { why: cleaned, confidence: (worthConfidences as readonly string[]).includes(word) ? word : "guess" };
+}
+
 /** One thing as the port returns it, checked on its own. Text from the model is untrusted. */
 export const aiThing = z.object({
   name: thingText(80),
@@ -924,6 +968,8 @@ export const aiThing = z.object({
   box: z.preprocess((value) => boxFromThousandths(value), z.custom<ThingBox>().nullable()),
   // Story 18.23: a whole number from 1 to 999, or no count; anything else is no count, never an invalid thing.
   count: z.preprocess((value) => (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= maxThingCount ? value : null), z.number().int().nullable()),
+  // Värt en titt: a short why and how sure; anything that is not that is no tip, never an invalid thing.
+  worth: z.preprocess(worthOf, z.object({ why: z.string(), confidence: z.enum(worthConfidences) }).nullable()),
 });
 export type AiThing = z.output<typeof aiThing>;
 
@@ -962,7 +1008,7 @@ function scaledBox(value: unknown, scale: { x: number; y: number }): unknown {
  * read in the scale the whole answer uses (boxesScale, with the photo's
  * `imageSize` for pixels).
  */
-export function parseThings(answer: z.output<typeof listThingsAnswer>, imageSize?: PointImageSize | null): {
+export function parseThings(answer: z.output<typeof listThingsAnswer> | z.output<typeof listThingsWorthAnswer>, imageSize?: PointImageSize | null): {
   things: AiThing[];
   invalid: number;
   trimmed: number;
@@ -993,7 +1039,10 @@ export function parseThings(answer: z.output<typeof listThingsAnswer>, imageSize
   const note = answer.hiddenNote === null ? "" : cleanModelText(answer.hiddenNote);
   const hidden = Number.isFinite(answer.hiddenContainers) ? Math.min(99, Math.max(0, Math.round(answer.hiddenContainers))) : 0;
   return {
-    things: things.slice(0, maxThings),
+    things: things.slice(0, maxThings).map((thing, index, kept) =>
+      // Värt en titt: only the first maxWorthPerCard tips of the card are kept.
+      thing.worth && kept.slice(0, index).filter((earlier) => earlier.worth).length >= maxWorthPerCard ? { ...thing, worth: null } : thing,
+    ),
     invalid,
     trimmed: Math.max(0, things.length - maxThings),
     hiddenContainers: hidden,
@@ -1031,6 +1080,7 @@ export type AiPantryItem = z.output<typeof aiPantryItem>;
 export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
 export type ListThingsAnswer = z.infer<typeof listThingsAnswer>;
+export type ListThingsWorthAnswer = z.infer<typeof listThingsWorthAnswer>;
 export type LocateThingAnswer = z.infer<typeof locateThingAnswer>;
 export type AskThingsAnswer = z.infer<typeof askThingsAnswer>;
 export type CategorizeThingsAnswer = z.infer<typeof categorizeThingsAnswer>;

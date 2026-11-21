@@ -38,6 +38,7 @@ import {
 } from "../domain/thing-edit";
 import { notedSheetSubtitle } from "../domain/thing-noted";
 import { maxCount } from "../domain/thing-count";
+import { WorthBlock } from "./worth-marker";
 import { CountCard } from "./count-card";
 
 // Föremålets blad (Stories 18.3, 18.15 and 18.23; Pontus 1, 9 and 20 Nov): one sheet
@@ -470,6 +471,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
           />
           {fieldError && step === "main" ? <FieldError id={`${ids}-name-error`}>{fieldError}</FieldError> : null}
         </div>
+        <WorthBlock worth={read?.worth} />
         {/* Story 18.23: the count; not counted is a field to write it in, with the one small Spara beside it, shown when something is changed. */}
         {thing ? (
           <CountCard

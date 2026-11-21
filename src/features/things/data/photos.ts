@@ -156,7 +156,16 @@ export async function reopenCardIn(db: ThingsDb, id: string): Promise<boolean> {
 }
 
 /** A thing the AI read, with its box on the card (Story 18.7) when the reading gave a reasonable one. */
-export type ReadThing = { name: string; category: string; where: string | null; confidence: string; box?: ThingBox | null; count?: number | null };
+export type ReadThing = {
+  name: string;
+  category: string;
+  where: string | null;
+  confidence: string;
+  box?: ThingBox | null;
+  count?: number | null;
+  /** Värt en titt: save_thing_card saves it when it is a sentence and a known confidence, else leaves it out. */
+  worth?: { why: string; confidence: string } | null;
+};
 
 /**
  * The job's end (save_thing_card): the things are saved, the card is `done`
@@ -180,6 +189,8 @@ export async function saveReadingIn(
         ...(thing.box ? { box: { left: thing.box.left, top: thing.box.top, width: thing.box.width, height: thing.box.height } } : {}),
         // Story 18.23: how many the model counted; save_thing_card keeps a whole number from 1 to 999 and the history starts with it.
         ...(typeof thing.count === "number" ? { count: thing.count } : {}),
+        // Värt en titt: only when the reading gave a tip (the switch was on).
+        ...(thing.worth ? { worth: { why: thing.worth.why, confidence: thing.worth.confidence } } : {}),
       })) as Json,
       note: reading.note ?? undefined,
       hidden_count: reading.hidden,

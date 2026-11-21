@@ -3,6 +3,7 @@ import { isValidBox, type ThingBox } from "@/lib/thing-box";
 import { thingCountText, thingNoun } from "./thing-noun";
 import { cardDateText } from "./thing-photo";
 import type { ThingCategory, ThingConfidence } from "./thing";
+import type { ThingWorth } from "./thing-worth";
 
 // Kortet i stort (Story 18.7): a card's whole photo with a box round each
 // föremål that has one, and the föremål listed under it. A search hit or a
@@ -25,6 +26,8 @@ export type CardThing = {
   boxMissed: boolean;
   /** Story 18.23: how many the card shows ("5 st"); null or missing when it is not counted. */
   quantity?: number | null;
+  /** Värt en titt: why it may be worth a closer look; missing or null when it has no tip. */
+  worth?: ThingWorth | null;
 };
 
 /** A card as the big view shows it. Plain data: it crosses from the server to the browser. */

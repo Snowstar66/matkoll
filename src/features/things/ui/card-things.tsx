@@ -7,6 +7,8 @@ import { ListRow } from "@/components/list-row";
 import { groupByCategory, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
 import { CountMeta } from "./hit-rows";
 import { ThingSheet } from "./thing-sheet";
+import { WorthMarker } from "./worth-marker";
+import type { ThingWorth } from "../domain/thing-worth";
 
 // The things of a card under their categories (Stories 18.2 and 18.3), each a
 // row to tap: its sheet (ThingSheet) counts it, renames it, changes its category and
@@ -24,10 +26,13 @@ export function CategoryHeading({ category, count, id }: { category: ThingCatego
  * a counted föremål has its count first there ("3 st · översta hyllan, vänster", or "Slut"); no buttons, the
  * list is for looking: Ta and Fyll på are in the sheet.
  */
-export function AsideTitle({ name, hint, quantity }: { name: string; hint: string; quantity: number | null }) {
+export function AsideTitle({ name, hint, quantity, worth }: { name: string; hint: string; quantity: number | null; worth?: ThingWorth | null }) {
   return (
     <span className="flex items-baseline justify-between gap-3">
-      <span className="min-w-0 font-normal wrap-break-word">{name}</span>
+      <span className="min-w-0 font-normal wrap-break-word">
+        {name}
+        <WorthMarker worth={worth} />
+      </span>
       {hint || quantity !== null ? (
         <span className="max-w-[45%] shrink-0 text-right text-meta font-normal text-ink-3">
           {quantity !== null ? <CountMeta quantity={quantity} rest={hint} /> : hint}
@@ -53,7 +58,18 @@ export function CardThings({ things, headings = true, aside = false }: { things:
             {group.things.map((thing) => (
               <ListRow
                 key={thing.id}
-                title={aside ? <AsideTitle name={thing.name} hint={thingMeta(thing)} quantity={thing.quantity ?? null} /> : thing.name}
+                title={
+                  aside ? (
+                    <AsideTitle name={thing.name} hint={thingMeta(thing)} quantity={thing.quantity ?? null} worth={thing.worth} />
+                  ) : thing.worth ? (
+                    <span>
+                      {thing.name}
+                      <WorthMarker worth={thing.worth} />
+                    </span>
+                  ) : (
+                    thing.name
+                  )
+                }
                 meta={aside ? undefined : thing.quantity != null ? <CountMeta quantity={thing.quantity} rest={thingMeta(thing)} /> : thingMeta(thing)}
                 onPress={() => {
                   setSelected(thing);

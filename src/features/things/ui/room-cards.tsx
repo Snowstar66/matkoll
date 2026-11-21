@@ -5,6 +5,7 @@ import { type ReactNode, useState } from "react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { useAiJobs } from "@/lib/ai-jobs-client";
+import { readOption } from "@/lib/options";
 import { cardFailureText, retryText, shortDateText } from "../domain/thing-photo";
 import { cardMeta, type RoomCard } from "../domain/thing-room";
 import { errorMessages, fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
@@ -40,7 +41,7 @@ function RetryCard({ id }: { id: string }) {
     setProblem(null);
     let answer: Result<{ job: AiJob }>;
     try {
-      answer = await start("/api/things/retry", { card: id }, crypto.randomUUID());
+      answer = await start("/api/things/retry", { card: id, ...(readOption("worthLook") ? { worth: true } : {}) }, crypto.randomUUID());
     } catch {
       answer = fail("ai_unavailable");
     }

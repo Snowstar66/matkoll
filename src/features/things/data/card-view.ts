@@ -3,6 +3,7 @@ import type { ThingBox } from "@/lib/thing-box";
 import { thingCategories, thingConfidences } from "../domain/thing";
 import { shownStatus } from "../domain/thing-photo";
 import { boxOfRow, type CardThing, type CardView } from "../domain/thing-card";
+import { worthOfRow, worthRowShape } from "../domain/thing-worth";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
 // Kortet i stort (Story 18.7): one card with its place and every föremål on it
@@ -37,12 +38,13 @@ const cardViewRowSchema = z.object({
       box_missed: z.boolean(),
       // Story 18.23; a database before its migration has no such column.
       quantity: z.number().int().nullable().optional(),
+      ...worthRowShape,
     }),
   ),
 });
 
 function toCardThing(row: z.output<typeof cardViewRowSchema>["thing_item"][number]): CardThing {
-  return { id: row.id, name: row.name, category: row.category, confidence: row.confidence, whereHint: row.where_hint, box: boxOfRow(row), boxMissed: row.box_missed, quantity: row.quantity ?? null };
+  return { id: row.id, name: row.name, category: row.category, confidence: row.confidence, whereHint: row.where_hint, box: boxOfRow(row), boxMissed: row.box_missed, quantity: row.quantity ?? null, worth: worthOfRow(row) };
 }
 
 /** The card `id` with its place and föremål in the card's order, or `null` when it is gone or not the user's. Throws ThingsDataError. */
@@ -50,7 +52,7 @@ export async function loadCardViewIn(db: ThingsDb, id: string, now: Date = new D
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_photo")
-      .select(`id, place_id, status, created_at, taken_at, width, height, thing_place!inner(site_id, room, room_key, part, kind), thing_item(id, name, category, confidence, where_hint, position, quantity, ${boxColumns})`)
+      .select(`id, place_id, status, created_at, taken_at, width, height, thing_place!inner(site_id, room, room_key, part, kind), thing_item(id, name, category, confidence, where_hint, position, quantity, worth_why, worth_confidence, ${boxColumns})`)
       .eq("id", id)
       .maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);

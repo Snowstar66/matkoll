@@ -7,7 +7,7 @@ import { normalizeTitle } from "@/lib/suggest-input";
 import {
   aiRecipe,
   analyzeImageAnswer,
-  listThingsAnswer,
+  listThingsWorthAnswer,
   parseShoppingList,
   shoppingListAnswer,
   menuAnswer,
@@ -232,7 +232,7 @@ function loadThingsFixtures(dir: string): ThingsFixtures {
   const read = (file: string) => readFileSync(join(dir, file), "utf8");
   const manifest = JSON.parse(read("manifest.json")) as Manifest;
   if (!manifest.things) throw new Error("things missing");
-  const parsed = parseThings(listThingsAnswer.parse(JSON.parse(read(`${manifest.things}.things.json`))));
+  const parsed = parseThings(listThingsWorthAnswer.parse(JSON.parse(read(`${manifest.things}.things.json`))));
   // Every thing must pass on its own: a fixture is a valid answer.
   if (parsed.invalid > 0) throw new Error("invalid things fixture");
   const errors = new Map<string, MockErrorCode>();
@@ -645,7 +645,10 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       // A photo the mock does not know takes the delay, so a reading can be seen in progress.
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
-      return ok({ ...structuredClone(current.answer), invalid: 0, trimmed: 0 });
+      // Värt en titt is only answered when it was asked for.
+      const answer = structuredClone(current.answer);
+      if (!input.worth) answer.things = answer.things.map((thing) => ({ ...thing, worth: null }));
+      return ok({ ...answer, invalid: 0, trimmed: 0 });
     },
     async readShoppingList(input, signal) {
       if (signal.aborted) return fail("ai_unavailable");

@@ -13,7 +13,7 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../..
 
 export const maxDuration = 300;
 
-const bodySchema = z.object({ card: z.uuid(), clientKey: z.uuid() });
+const bodySchema = z.object({ card: z.uuid(), clientKey: z.uuid(), worth: z.boolean().optional() });
 
 export async function POST(request: Request): Promise<Response> {
   const requestStartedAt = Date.now();
@@ -36,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
 
   let result: Result<{ job: AiJob }>;
   try {
-    result = await retryCardReading({ cardId: parsed.data.card, clientKey: parsed.data.clientKey, requestStartedAt });
+    result = await retryCardReading({ cardId: parsed.data.card, clientKey: parsed.data.clientKey, requestStartedAt, worth: parsed.data.worth === true });
   } catch (error) {
     console.error("things_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     result = fail("things_unavailable");
