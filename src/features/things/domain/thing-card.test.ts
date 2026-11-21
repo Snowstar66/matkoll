@@ -58,7 +58,7 @@ describe("the big view of a card (Story 18.7)", () => {
   });
 
   it("says how to mark, or how to look one up when the card has no boxes, and what is marked", () => {
-    expect(cardHintText([{ box: null }, { box: { left: 0, top: 0, width: 0.1, height: 0.1 } }])).toBe("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    expect(cardHintText([{ box: null }, { box: { left: 0, top: 0, width: 0.1, height: 0.1 } }])).toBe("Tryck på ett föremål för att markera det, eller på en siffra på fotot för att zooma in.");
     expect(cardHintText([{ box: null }])).toBe("Tryck på ett föremål för att leta upp det på bilden.");
     expect(markedText({ name: "Hammare", whereHint: "på väggen, mitten" })).toBe("Hammare · på väggen, mitten");
     expect(markedText({ name: "Hammare", whereHint: null })).toBe("Hammare");

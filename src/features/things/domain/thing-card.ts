@@ -94,7 +94,7 @@ export function cardViewMeta(card: Pick<CardView, "room" | "part" | "takenAt"> &
 /** The line under the photo when nothing is marked: how to mark, or how to look one up on a card without boxes. */
 export function cardHintText(things: readonly Pick<CardThing, "box">[]): string {
   return things.some((thing) => thing.box !== null)
-    ? `Tryck på ${thingNoun.indefinite} eller en siffra på fotot för att markera det.`
+    ? `Tryck på ${thingNoun.indefinite} för att markera det, eller på en siffra på fotot för att zooma in.`
     : `Tryck på ${thingNoun.indefinite} för att leta upp det på bilden.`;
 }
 
