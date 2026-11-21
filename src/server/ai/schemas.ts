@@ -601,7 +601,7 @@ export type WorthConfidence = (typeof worthConfidences)[number];
 /** The longest "why" kept, in characters (thing_item.worth_why holds the same). */
 export const maxWorthChars = 200;
 /** At most this many föremål of a card are flagged; the prompt asks for no more. */
-export const maxWorthPerCard = 3;
+export const maxWorthPerCard = 10;
 
 /** One thing of listThingsAnswer; `worth` is only part of the answer when the household has Värt en titt on (listThingsWorthAnswer). */
 const listedThing = z.object({
@@ -646,7 +646,7 @@ export const listThingsWorthAnswer = z.object({
           confidence: z.string().describe("sure, guess eller unsure"),
         })
         .nullable()
-        .describe("Bara för högst tre saker med något konkret (känt märke, designklassiker, samlarkategori); annars null. Aldrig priser"),
+        .describe("Bara för saker med något konkret (känt märke, designklassiker, samlarkategori), högst tio på bilden, och hellre null än en gissning. Aldrig priser"),
     }),
   ),
   hiddenContainers: listThingsAnswer.shape.hiddenContainers,

@@ -58,7 +58,7 @@ export const options = [
     id: "worthLook",
     group: "things",
     label: "Värt en titt",
-    hint: "När ett kort läses in markerar AI:n de få föremål som kan vara samlarvärda eller värda mer än de ser ut. Ett tips, inte en värdering. Gäller kort du läser in efter att du slagit på det",
+    hint: "När ett kort läses in markerar AI:n de föremål som kan vara samlarvärda eller värda mer än de ser ut. Ett tips, inte en värdering. Gäller kort du läser in efter att du slagit på det",
     defaultOn: false,
   },
   {

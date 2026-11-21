@@ -298,7 +298,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Vad är Värt en titt?",
-        answer: `Slå på Värt en titt under Inställningar, Tillval, Förrådet. När du läser in ett nytt kort markerar AI:n med en stjärna de få ${things} som kan vara samlarvärda eller värda mer än de ser ut, till exempel ett känt märke eller en känd formgivare. Tryck på ${things}et så står det i bladet vad AI:n tror, hur säker den är (Säker, Gissning eller Osäker) och vad du kan titta efter. Det är ett tips och inte en värdering: appen säger aldrig något pris, och AI:n kan ha fel. Se efter på föremålet själv, till exempel stämpel eller signatur på undersidan, och sök på sålda annonser för att veta mer. Det gäller kort du läser in efter att du slagit på det, och inget skickas extra när det är avslaget.`,
+        answer: `Slå på Värt en titt under Inställningar, Tillval, Förrådet. När du läser in ett nytt kort markerar AI:n med en stjärna de ${things} som kan vara samlarvärda eller värda mer än de ser ut, till exempel ett känt märke eller en känd formgivare. Tryck på ${things}et så står det i bladet vad AI:n tror, hur säker den är (Säker, Gissning eller Osäker) och vad du kan titta efter. Det är ett tips och inte en värdering: appen säger aldrig något pris, och AI:n kan ha fel. Se efter på föremålet själv, till exempel stämpel eller signatur på undersidan, och sök på sålda annonser för att veta mer. Det gäller kort du läser in efter att du slagit på det, och inget skickas extra när det är avslaget.`,
       },
       {
         question: "Hur ändrar jag eller räknar en sak?",

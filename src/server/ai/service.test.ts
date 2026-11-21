@@ -1049,30 +1049,22 @@ describe("listThings on a model (Story 18.2)", () => {
       ]);
     });
 
-    it("drops a bad worth (empty, too long) and never the thing, and keeps at most three tips", async () => {
-      const model = fakeModel(
-        answer([
-          thing("A", { worth: tip("   ") }),
-          thing("B", { worth: tip("x".repeat(201)) }),
-          thing("C", { worth: null }),
-          thing("D", { worth: tip("Ett.") }),
-          thing("E", { worth: tip("Två.") }),
-          thing("F", { worth: tip("Tre.") }),
-          thing("G", { worth: tip("Fyra.") }),
-        ]),
-      );
+    it("drops a bad worth (empty, too long) and never the thing, and keeps at most ten tips", async () => {
+      const good = Array.from({ length: 11 }, (_, index) => thing(`Bra ${index + 1}`, { worth: tip(`Tips ${index + 1}.`) }));
+      const model = fakeModel(answer([thing("A", { worth: tip("   ") }), thing("B", { worth: tip("x".repeat(201)) }), thing("C", { worth: null }), ...good]));
       const result = await createModelAiService({ model }, limits).listThings({ ...input, worth: true }, signal());
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.invalid).toBe(0);
-      expect(result.data.things.map((entry) => [entry.name, entry.worth?.why ?? null])).toEqual([
+      expect(result.data.things.slice(0, 3).map((entry) => [entry.name, entry.worth])).toEqual([
         ["A", null],
         ["B", null],
         ["C", null],
-        ["D", "Ett."],
-        ["E", "Två."],
-        ["F", "Tre."],
-        ["G", null],
       ]);
+      expect(result.data.things).toHaveLength(14);
+      const tips = result.data.things.filter((entry) => entry.worth);
+      expect(tips).toHaveLength(10);
+      expect(tips.at(-1)?.name).toBe("Bra 10");
+      expect(result.data.things.at(-1)?.worth).toBeNull();
     });
   });
 
