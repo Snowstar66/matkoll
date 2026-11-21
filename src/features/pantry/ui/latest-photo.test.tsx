@@ -147,7 +147,7 @@ describe("LatestPhoto", () => {
     // The overview: every number, a legend for the kinds that occur.
     expect(markers().map((marker) => marker.getAttribute("aria-label"))).toEqual(["Vara 1: Mjölk, finns i kylen", "Vara 3: <b>Ägg</b>, finns inte längre"]);
     expect(within(within(photoSheet()).getByTestId("photo-viewer-legend")).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "1Finns i listan",
+      "Finns i listan",
       "Finns inte längre",
     ]);
     expect(photoSheet()).toHaveAccessibleDescription("Taget idag 15:42. Tryck på en siffra för att se vad det är.");

@@ -52,7 +52,7 @@ function toneFor(status: PhotoMarkerStatus | null): MarkerTone {
 }
 
 /** What is inside a marker: its number, or a cross when its item is gone. */
-function MarkerFace({ marker }: { marker: Pick<PhotoViewMarker, "n" | "status"> }) {
+function MarkerFace({ marker }: { marker: { n: number | null; status: PhotoViewMarker["status"] } }) {
   return marker.status === "gone" ? <CloseIcon size={12} /> : <>{marker.n}</>;
 }
 
@@ -330,7 +330,8 @@ export function PhotoViewer({
                   <li key={entry.status} className="inline-flex items-center gap-1.5">
                     {sample ? (
                       <span aria-hidden="true" className={photoMarkerClasses(toneOf[entry.status])}>
-                        <MarkerFace marker={sample} />
+                        {/* No number in the sample: it says what a colour means, not which item. */}
+                        <MarkerFace marker={{ n: null, status: sample.status }} />
                       </span>
                     ) : null}
                     {entry.text}

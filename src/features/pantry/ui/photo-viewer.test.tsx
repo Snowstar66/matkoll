@@ -85,9 +85,9 @@ describe("PhotoViewer", () => {
     expect(marker(/^Vara 3/)).not.toHaveTextContent("3");
     expect(marker(/^Vara 6/).className).toContain("border-dashed");
     expect(within(within(dialog()).getByTestId("photo-viewer-legend")).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "1Finns i listan",
+      "Finns i listan",
       "Finns inte längre",
-      "6Lades inte till",
+      "Lades inte till",
     ]);
     expect(within(dialog()).getByRole("button", { name: "Ta bort fotot" })).toBeInTheDocument();
   });
