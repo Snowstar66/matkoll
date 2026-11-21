@@ -104,6 +104,9 @@ export function markedText(thing: Pick<CardThing, "name" | "whereHint">): string
 }
 
 export const lookingText = "Letar …";
+
+/** Under the photo while the föremål without a place on it are looked up in the background. */
+export const lookingNumbersText = "Letar efter fler placeringar …";
 export const notFoundOnCardText = "Kunde inte peka ut den på bilden.";
 export const cardReadingText = "Kortet läses fortfarande.";
 export const cardFailedViewText = "Kortet kunde inte läsas. Försök igen från rummet.";

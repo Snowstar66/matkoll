@@ -16,6 +16,7 @@ import {
   cardHintText,
   cardReadingText,
   cardViewTitle,
+  lookingNumbersText,
   lookingText,
   markedText,
   notFoundOnCardText,
@@ -43,6 +44,9 @@ import { openThingText } from "../domain/thing-edit";
 // föremål's sheet (Pontus 1 Nov: count, name, Ta bort föremålet), as in the room
 // and in search. The card's buttons (Ta om, Lägg till föremål, Ta bort kortet
 // last) are here too.
+
+/** The most föremål looked up by themselves on one visit to a card (the marked one is always looked up). */
+const maxAutoLookups = 12;
 
 /** The photo's size as shown, in px, so dots that would overlap are nudged apart and the spotlight is sized; null until it is measured. */
 function useFrameSize(frame: RefObject<HTMLDivElement | null>) {
@@ -206,18 +210,30 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
   const selected = things.find((thing) => thing.id === selectedId) ?? null;
   // The dots' numbers, shown on the rows too.
   const numbers = useMemo(() => new Map(thingDots(things).map((dot) => [dot.id, dot.number])), [things]);
+  // Which föremål's lookup is in flight; they run one at a time.
+  const [lookingId, setLookingId] = useState<string | null>(null);
   const needsLookup = selected !== null && selected.box === null && !selected.boxMissed && !(selected.id in found);
   const missed = selected !== null && selected.box === null && !needsLookup;
+  // The marked föremål's own lookup shades the photo; the ones looked up in the background only say so under it.
+  const lookingSelected = lookingId !== null && lookingId === selectedId;
+  const lookingBackground = lookingId !== null && !lookingSelected;
 
-  // A marked föremål without a box is looked up once per visit; the answer is saved by the server.
+  // Every föremål without a box is looked up when the card opens (at most maxAutoLookups per visit, the marked one
+  // first and always), so all of them have numbers; the answer is saved by the server, so a föremål is only
+  // looked up once ever.
   useEffect(() => {
-    if (!needsLookup || !selected || asked.current.has(selected.id)) return;
-    const id = selected.id;
+    if (card.status !== "done" || lookingId !== null) return;
+    const unboxed = things.filter((thing) => thing.box === null && !thing.boxMissed && !(thing.id in found) && !asked.current.has(thing.id));
+    const next = unboxed.find((thing) => thing.id === selectedId) ?? (asked.current.size < maxAutoLookups ? unboxed[0] : undefined);
+    if (!next) return;
+    const id = next.id;
     asked.current.add(id);
+    setLookingId(id);
     lookUpBox(id)
       .then((result) => setFound((all) => ({ ...all, [id]: result.ok ? result.data.box : null })))
-      .catch(() => setFound((all) => ({ ...all, [id]: null })));
-  }, [needsLookup, selected]);
+      .catch(() => setFound((all) => ({ ...all, [id]: null })))
+      .finally(() => setLookingId(null));
+  }, [card.status, things, found, selectedId, lookingId]);
 
   const pick = useCallback((id: string) => setSelectedId((current) => (current === id ? null : id)), []);
   // The föremål's sheet; kept while it closes, so its text does not blank during the animation.
@@ -252,7 +268,7 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
             </p>
           ) : (
             <p className="px-1 text-meta text-ink-3" data-testid="card-hint">
-              {selected ? markedText(selected) : cardHintText(things)}
+              {lookingBackground && !selected ? lookingNumbersText : selected ? markedText(selected) : cardHintText(things)}
             </p>
           )}
         </div>

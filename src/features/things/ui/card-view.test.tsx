@@ -54,6 +54,8 @@ const row = (name: string) => screen.getByRole("button", { name: new RegExp(`^${
 
 beforeEach(() => {
   locateThingOnCard.mockReset();
+  // A lookup that finds nothing, unless a test says otherwise.
+  locateThingOnCard.mockResolvedValue(ok({ box: null }));
 });
 
 describe("the card big (Story 18.7)", () => {
@@ -72,6 +74,8 @@ describe("the card big (Story 18.7)", () => {
   });
 
   it("shows the whole photo with a numbered dot at the middle of every föremål that has a box, and the list under it, with the same numbers", () => {
+    // The föremål without a box is being looked up by itself.
+    locateThingOnCard.mockReturnValue(new Promise(() => {}));
     renderIt([hammer, saw, drill]);
     const photo = screen.getByTestId("card-photo");
     expect(within(photo).getByRole("img", { name: "Kort: Boden" })).toHaveAttribute("src", "/api/things/photo/0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01");
@@ -84,11 +88,12 @@ describe("the card big (Story 18.7)", () => {
     // The unmarked föremål have no name chip on the photo; the list has the same numbers.
     expect(within(photo).queryByTestId("card-dot-name")).toBeNull();
     expect(screen.getAllByTestId("marker-badge").map((badge) => badge.textContent)).toEqual(["1", "2"]);
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    expect(screen.getByTestId("card-hint")).toHaveTextContent("Letar efter fler placeringar …");
     expect(screen.getAllByTestId("card-thing").map((button) => button.textContent)).toEqual(["1Hammarepå väggen, mitten", "2Cirkelsågöversta hyllan", "Skruvdragare"]);
     // The card's buttons, Ta bort kortet last.
     expect(screen.getAllByRole("button").slice(-3).map((button) => button.textContent)).toEqual(["Ta om", "Lägg till föremål", "Ta bort kortet"]);
-    expect(locateThingOnCard).not.toHaveBeenCalled();
+    expect(locateThingOnCard).toHaveBeenCalledTimes(1);
+    expect(locateThingOnCard).toHaveBeenCalledWith(drill.id);
   });
 
   it("marks a föremål tapped in the list and dims the rest; a second tap clears the mark", async () => {
@@ -160,7 +165,7 @@ describe("the card big (Story 18.7)", () => {
   it("says it could not point it out when the lookup finds nothing or fails, and asks only once", async () => {
     locateThingOnCard.mockResolvedValueOnce(ok({ box: null }));
     renderIt([drill, saw]);
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    await waitFor(() => expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det."));
     await userEvent.click(row("Skruvdragare"));
     expect(await screen.findByTestId("card-missed")).toHaveTextContent("Kunde inte peka ut den på bilden.");
     expect(screen.queryByTestId("card-dot-selected")).toBeNull();
@@ -173,6 +178,38 @@ describe("the card big (Story 18.7)", () => {
     await waitFor(() => expect(screen.getAllByTestId("card-missed")).toHaveLength(2));
   });
 
+  it("looks up every föremål without a box by itself, one at a time, and numbers them as the boxes come", async () => {
+    const second = { ...drill, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a16", name: "Hammarborr" };
+    const answers: ((value: unknown) => void)[] = [];
+    locateThingOnCard.mockImplementation(() => new Promise((resolve) => answers.push(resolve)));
+    renderIt([hammer, drill, second]);
+    expect(await screen.findByTestId("card-hint")).toHaveTextContent("Letar efter fler placeringar …");
+    // The second one waits for the first.
+    expect(locateThingOnCard).toHaveBeenCalledTimes(1);
+    expect(locateThingOnCard).toHaveBeenLastCalledWith(drill.id);
+    await act(async () => answers[0](ok({ box: { left: 0.6, top: 0.15, width: 0.1, height: 0.14 } })));
+    await waitFor(() => expect(locateThingOnCard).toHaveBeenCalledTimes(2));
+    expect(locateThingOnCard).toHaveBeenLastCalledWith(second.id);
+    await act(async () => answers[1](ok({ box: { left: 0.1, top: 0.6, width: 0.1, height: 0.14 } })));
+    await waitFor(() => expect(screen.getAllByTestId("card-dot")).toHaveLength(3));
+    expect(screen.getAllByTestId("marker-badge").map((badge) => badge.textContent)).toEqual(["1", "2", "3"]);
+    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål eller en siffra på fotot för att markera det.");
+    expect(locateThingOnCard).toHaveBeenCalledTimes(2);
+  });
+
+  it("looks the marked föremål up first, and at most twelve by themselves on one visit", async () => {
+    const many = Array.from({ length: 15 }, (_, i) => ({ ...drill, id: `0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f7a${String(i).padStart(2, "0")}`, name: `Sak ${i}` }));
+    renderIt(many, many[14].id);
+    await waitFor(() => expect(locateThingOnCard).toHaveBeenCalledTimes(12));
+    expect(locateThingOnCard.mock.calls[0][0]).toBe(many[14].id);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(locateThingOnCard).toHaveBeenCalledTimes(12);
+    // A föremål marked later is still looked up.
+    await userEvent.click(row("Sak 13"));
+    await waitFor(() => expect(locateThingOnCard).toHaveBeenCalledTimes(13));
+    expect(locateThingOnCard).toHaveBeenLastCalledWith(many[13].id);
+  });
+
   it("never asks again for a föremål an earlier lookup did not find", async () => {
     renderIt([lost], lost.id);
     expect(screen.getByTestId("card-missed")).toHaveTextContent("Kunde inte peka ut den på bilden.");
@@ -180,9 +217,9 @@ describe("the card big (Story 18.7)", () => {
     expect(locateThingOnCard).not.toHaveBeenCalled();
   });
 
-  it("says how to look one up on an older card without boxes", () => {
+  it("says how to look one up on an older card without boxes, once the lookups found none", async () => {
     renderIt([drill]);
-    expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål för att leta upp det på bilden.");
+    await waitFor(() => expect(screen.getByTestId("card-hint")).toHaveTextContent("Tryck på ett föremål för att leta upp det på bilden."));
     expect(screen.queryAllByTestId("card-dot")).toHaveLength(0);
   });
 

@@ -533,6 +533,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
         title={photoViewerTitleText}
         noun="Föremål"
         markers={cardMarkers}
+        quietMarkers
         initialNumber={photoView.zoomed && thing && read ? numberOnCard(read.cardThings ?? [], thing.id) : null}
         alt={photoViewerAltText}
       >
