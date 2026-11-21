@@ -62,7 +62,10 @@ beforeEach(() => {
   style.textContent = ".overflow-y-auto { overflow-y: auto; }";
   document.head.append(style);
 });
-afterEach(() => style.remove());
+afterEach(() => {
+  style.remove();
+  window.localStorage.removeItem("livskoll:photo-numbers-hidden");
+});
 
 describe("PhotoViewer", () => {
   it("shows the whole photo with every number as a button, a legend, and what is passed under it", () => {
@@ -193,6 +196,57 @@ describe("PhotoViewer", () => {
     fireEvent.click(marker(/^Vara 3/));
     expect(nameRow()).toHaveTextContent("Vispgrädde 3 dl");
     expect(within(nameRow()).queryByTestId("photo-viewer-status")).toBeNull();
+  });
+
+  it("hides the numbers, the legend and the hint with Dölj siffror, shows them again with Visa siffror, and remembers the choice", () => {
+    window.localStorage.removeItem("livskoll:photo-numbers-hidden");
+    const first = render(<Viewer />);
+    decode();
+    const toggle = () => within(dialog()).getByTestId("photo-numbers-toggle");
+    expect(toggle()).toHaveTextContent("Dölj siffror");
+    expect(toggle()).toHaveAttribute("aria-pressed", "false");
+    expect(within(dialog()).getAllByTestId("photo-viewer-marker")).toHaveLength(3);
+    fireEvent.click(toggle());
+    expect(toggle()).toHaveTextContent("Visa siffror");
+    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog()).queryAllByTestId("photo-viewer-marker")).toHaveLength(0);
+    expect(within(dialog()).queryByTestId("photo-viewer-legend")).toBeNull();
+    expect(dialog()).toHaveTextContent("Siffrorna är dolda");
+    // The choice is kept for the next opening.
+    first.unmount();
+    render(<Viewer />);
+    decode();
+    expect(within(dialog()).getByTestId("photo-numbers-toggle")).toHaveTextContent("Visa siffror");
+    expect(within(dialog()).queryAllByTestId("photo-viewer-marker")).toHaveLength(0);
+    fireEvent.click(within(dialog()).getByTestId("photo-numbers-toggle"));
+    expect(within(dialog()).getAllByTestId("photo-viewer-marker")).toHaveLength(3);
+    expect(within(dialog()).getByTestId("photo-viewer-legend")).toBeInTheDocument();
+    expect(window.localStorage.getItem("livskoll:photo-numbers-hidden")).toBeNull();
+  });
+
+  it("keeps the number zoomed in on, and no switch, when it opens on a number while the numbers are hidden", () => {
+    window.localStorage.setItem("livskoll:photo-numbers-hidden", "1");
+    render(<Viewer initialNumber={3} />);
+    decode();
+    expect(within(dialog()).queryByTestId("photo-numbers-toggle")).toBeNull();
+    expect(within(dialog()).getAllByTestId("photo-viewer-marker").length).toBeGreaterThan(0);
+    expect(nameRow()).toHaveTextContent("Vispgrädde 3 dl");
+    window.localStorage.removeItem("livskoll:photo-numbers-hidden");
+  });
+
+  it("works when the browser's storage cannot be used", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<Viewer />);
+    decode();
+    fireEvent.click(within(dialog()).getByTestId("photo-numbers-toggle"));
+    expect(within(dialog()).queryAllByTestId("photo-viewer-marker")).toHaveLength(0);
+    get.mockRestore();
+    set.mockRestore();
   });
 
   it("closes with Klar", () => {

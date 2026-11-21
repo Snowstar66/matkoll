@@ -551,6 +551,27 @@ export function LeafIcon(props: IconProps) {
   );
 }
 
+/** An open eye: the photo's numbers are shown. */
+export function EyeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  );
+}
+
+/** An eye with a line through it: the photo's numbers are hidden. */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M4 4l16 16" />
+    </Icon>
+  );
+}
+
 /** An arrow leaving a box: the link opens outside the app (a map app, another site). */
 export function ExternalIcon(props: IconProps) {
   return (

@@ -8,6 +8,7 @@ import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { markerPosition, MarkerBadge, photoMarkerClasses } from "@/components/photo-marker";
+import { numbersHiddenHint, PhotoNumbersToggle, useHiddenNumbers } from "@/components/photo-numbers-toggle";
 import { spreadMarkers } from "@/lib/spread-markers";
 import type { ThingBox } from "@/lib/thing-box";
 import { lookUpBox } from "./locate-client";
@@ -69,12 +70,14 @@ function CardPhoto({
   things,
   selected,
   looking,
+  numbersHidden = false,
   onPick,
 }: {
   card: Card;
   things: readonly CardThing[];
   selected: CardThing | null;
   looking: boolean;
+  numbersHidden?: boolean;
   onPick: (id: string) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -90,7 +93,8 @@ function CardPhoto({
   function onClick(event: MouseEvent<HTMLDivElement>) {
     const rect = frame.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
-    const hit = dotNearPoint(dots, (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height, rect);
+    if (numbersHidden) return;
+    const hit = dotNearPoint(dots,(event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height, rect);
     if (hit) onPick(hit.id);
   }
 
@@ -118,6 +122,8 @@ function CardPhoto({
         />
       ) : null}
       {dots.map((dot) => {
+        // With the numbers hidden only the marked föremål keeps its dot (and its name), so the mark is still seen.
+        if (numbersHidden && dot.id !== selected?.id) return null;
         const thing = things.find((candidate) => candidate.id === dot.id);
         if (!thing) return null;
         const isSelected = selected?.id === dot.id;
@@ -200,6 +206,7 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     setSelectedId(initialId);
   }
   // What this visit's lookups gave: a box, or null when it could not be pointed out (also when the AI did not answer).
+  const [numbersHidden, setNumbersHidden] = useHiddenNumbers();
   const [found, setFound] = useState<Record<string, ThingBox | null>>({});
   const asked = useRef(new Set<string>());
 
@@ -260,17 +267,20 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     <div className="flex flex-col gap-4 desktop:grid desktop:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] desktop:items-start desktop:gap-6" data-testid="card-view">
       {/* On a phone the photo stays at the top while the list scrolls under it, so the mark is always in sight. */}
       <div className="sticky top-0 z-10 -mx-page flex flex-col gap-2 bg-bg px-page pt-[max(8px,env(safe-area-inset-top))] pb-1 desktop:top-6 desktop:mx-0 desktop:px-0 desktop:pt-0">
-        <CardPhoto card={card} things={things} selected={selected} looking={needsLookup} onPick={pick} />
-        <div aria-live="polite" className="min-h-6">
-          {missed ? (
-            <p className="rounded-md bg-surface px-3 py-2.5 text-meta text-ink-2" data-testid="card-missed">
-              {notFoundOnCardText}
-            </p>
-          ) : (
-            <p className="px-1 text-meta text-ink-3" data-testid="card-hint">
-              {lookingBackground && !selected ? lookingNumbersText : selected ? markedText(selected) : cardHintText(things)}
-            </p>
-          )}
+        <CardPhoto card={card} things={things} selected={selected} looking={needsLookup} numbersHidden={numbersHidden} onPick={pick} />
+        <div className="flex items-center justify-between gap-2">
+          <div aria-live="polite" className="min-h-6 min-w-0 flex-1">
+            {missed ? (
+              <p className="rounded-md bg-surface px-3 py-2.5 text-meta text-ink-2" data-testid="card-missed">
+                {notFoundOnCardText}
+              </p>
+            ) : (
+              <p className="px-1 text-meta text-ink-3" data-testid="card-hint">
+                {lookingBackground && !selected ? lookingNumbersText : selected ? markedText(selected) : numbersHidden ? numbersHiddenHint : cardHintText(things)}
+              </p>
+            )}
+          </div>
+          {things.some((thing) => thing.box) ? <PhotoNumbersToggle hidden={numbersHidden} onChange={setNumbersHidden} className="shrink-0" /> : null}
         </div>
       </div>
       <div className="flex flex-col gap-4">
