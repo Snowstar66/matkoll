@@ -1570,7 +1570,7 @@ test("Dölj siffror on a card releases the marked föremål: no dot, no spotligh
   await expect(page.getByTestId("card-dot")).toHaveCount(0);
   await expect(page.getByTestId("card-spotlight")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "false");
-  await page.screenshot({ path: process.env.E2E_SHOTS ? `${process.env.E2E_SHOTS}/pr3-hidden.png` : "/dev/null" });
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/pr3-hidden.png` });
 });
 
 test("a search hit and a chat reference open the card big with the föremål marked; an older card looks it up once, or says it could not point it out", async ({ page }) => {
