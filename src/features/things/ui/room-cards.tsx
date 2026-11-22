@@ -98,7 +98,7 @@ export function RoomCards({
             {card.status === "reading" ? (
               <AiWorking size="sm" steps={cardSteps} />
             ) : (
-              <p className="text-meta text-ink-3" data-testid="card-meta">
+              <p className="text-meta text-ink-3" data-testid="room-card-meta">
                 {card.status === "done" ? (
                   <>
                     {thingsText(card.things)}

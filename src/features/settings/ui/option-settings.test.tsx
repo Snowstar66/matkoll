@@ -12,7 +12,7 @@ describe("OptionSettings", () => {
     render(<OptionSettings />);
     const worth = screen.getByRole("switch", { name: /^Värdetips/ });
     expect(worth).toHaveAttribute("aria-checked", "false");
-    expect(worth).toHaveAccessibleDescription(/Ett tips, inte en värdering/);
+    expect(worth).toHaveAccessibleDescription(/Stjärnmarkerar föremål/);
     await userEvent.click(worth);
     expect(worth).toHaveAttribute("aria-checked", "true");
     expect(window.localStorage.getItem("livskoll-option-worthLook")).toBe("1");

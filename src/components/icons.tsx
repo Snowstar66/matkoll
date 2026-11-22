@@ -419,12 +419,12 @@ export function StarIcon({ size = 24, className, sticker = false }: { size?: num
       aria-hidden="true"
       focusable="false"
       className={className}
-      style={sticker ? { filter: "drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.4))" } : undefined}
+      style={sticker ? { filter: "drop-shadow(0 1px 1.5px var(--photo-shade))" } : undefined}
     >
       <path
         d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.95 5.55L12 16.55 7 19.2l.95-5.55L3.9 9.7l5.6-.8z"
         fill="var(--star)"
-        stroke={sticker ? "#FFFFFF" : "var(--star-edge)"}
+        stroke={sticker ? "var(--photo-mark)" : "var(--star-edge)"}
         strokeWidth={sticker ? 2.6 : 1.5}
         strokeLinejoin="round"
         paintOrder="stroke"
