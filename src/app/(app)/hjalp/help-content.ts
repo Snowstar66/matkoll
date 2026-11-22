@@ -275,7 +275,7 @@ export const helpAreas: readonly HelpArea[] = [
     title: "Förråd",
     steps: [
       { icon: "door", title: "Börja med ett rum", text: "Tryck + i rubriken, till exempel för Förrådet eller Garaget." },
-      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet, välj Var i rummet? (Hela rummet, Hylla, Låda eller en egen plats) och tryck Fota. ${appName} listar ${things}en på bilden.` },
+      { icon: "shelf", title: "Fota en hylla", text: `Öppna rummet och tryck Fota. Vill du veta var i rummet fotot är taget, skriv det i kortets namn. ${appName} listar ${things}en på bilden.` },
       { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck Fråga och fråga: var är passen?" },
     ],
     faq: [
@@ -290,7 +290,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur hittar jag en sak i ett rum med flera foton?",
-        answer: `Överst i rummet väljer du Per foto eller Per kategori. Per foto är förvalt: varje foto är en grupp med en liten bild, datum och ${things}en som syns på det. Tryck på bilden för att se hela kortet. Valet minns telefonen.`,
+        answer: `Under Fota väljer du Per foto eller Per kategori. Per foto är förvalt: varje foto är en grupp med en liten bild, datum och ${things}en som syns på det. Tryck på bilden för att se hela kortet. Valet minns telefonen.`,
       },
       {
         question: "Hur ser jag var på fotot en sak ligger?",
