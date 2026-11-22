@@ -11,7 +11,7 @@ import { downloadCardFile, loadCardIn } from "../data/photos";
 import { loadThingForWorthIn, saveWorthDetailIn } from "../data/worth";
 import { formatWorthDetail } from "../domain/thing-worth";
 
-// Förklara närmare (Värt en titt): a föremål with a tip asks for a fuller explanation, why it was flagged, what it
+// Undersök värdet (Värdetips): a föremål with a tip asks for a fuller explanation, why it was flagged, what it
 // could be and what is worth checking, with one short AI call. The photo goes cropped round the föremål when it has a
 // box, else whole, with its name and the tip. The answer is kept on the föremål (thing_item.worth_detail), so it is
 // asked for once: a second tap, or another device, reads it. A call that does not go (the AI is out of reach, or

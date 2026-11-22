@@ -60,7 +60,7 @@ describe("the form", () => {
     expect(thingPhotoFormSchema.safeParse({ clientKey: uuid, place: uuid, takenAt: null }).success).toBe(false);
   });
 
-  it("asks for Värt en titt only with worth=1; nothing, null or anything else is not asking", () => {
+  it("asks for Värdetips only with worth=1; nothing, null or anything else is not asking", () => {
     const base = { clientKey: uuid, place: uuid, takenAt: "2026-10-31T10:00:00.000Z" };
     expect(thingPhotoFormSchema.parse({ ...base, worth: "1" }).worth).toBe(true);
     expect(thingPhotoFormSchema.parse(base).worth).toBe(false);

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok } from "@/lib/errors";
 import { retryCardReading, startCardReading } from "./start-reading";
 
-// Värt en titt: the reading asks the AI to flag föremål worth a closer look only when the request says so
+// Värdetips: the reading asks the AI to flag föremål worth a closer look only when the request says so
 // (the switch is on the device, so the photo or the retry carries it). Without it, listThings gets no flag.
 
 const mocks = vi.hoisted(() => ({
@@ -61,7 +61,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-describe("Värt en titt in the reading", () => {
+describe("Värdetips in the reading", () => {
   it("asks for it when the photo says so", async () => {
     expect((await startCardReading({ ...input, worth: true })).ok).toBe(true);
     await runWork();

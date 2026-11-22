@@ -1017,7 +1017,7 @@ describe("listThings on a model (Story 18.2)", () => {
     expect(result.data.invalid).toBe(1);
   });
 
-  describe("Värt en titt", () => {
+  describe("Värdetips", () => {
     const tip = (why: string, confidence = "guess") => ({ why, confidence });
 
     it("asks nothing about worth without the switch: the plain prompt and schema, and a worth the model sends anyway is dropped", async () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { type MouseEvent, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { cx } from "@/components/cx";
@@ -30,12 +29,10 @@ import {
 import { thingNoun, thingNounCap } from "../domain/thing-noun";
 import { countText } from "../domain/thing-count";
 import { PhotoViewer } from "@/features/pantry";
-import { AddCardThings } from "./add-card-things";
-import { RemoveCard } from "./remove-card";
-import { RetakeCard } from "./retake-card";
 import { ThingSheet } from "./thing-sheet";
 import { openThingText, photoViewerAltText, photoViewerTitleText } from "../domain/thing-edit";
-import { WorthMarker } from "./worth-marker";
+import { useOption } from "@/lib/use-option";
+import { PhotoStar, WorthMarker } from "./worth-marker";
 import { cardPhotoMarkers, numberOnCard } from "../domain/thing-detail";
 
 // Kortet i stort (Story 18.7): the card's whole photo, never cropped, with a
@@ -46,8 +43,8 @@ import { cardPhotoMarkers, numberOnCard } from "../domain/thing-detail";
 // is looked up with one small AI call the first time it is marked ("Letar …");
 // when that finds nothing it says so. The › at the end of a row opens the
 // föremål's sheet (Pontus 1 Nov: count, name, Ta bort föremålet), as in the room
-// and in search. The card's buttons (Ta om, Lägg till föremål, Ta bort kortet
-// last) are here too.
+// and in search. The card's actions (Ta om, Lägg till föremål, Ta bort kortet) are in the ⋯ of its header
+// (card-menu.tsx), not here. In the zoomed photo the line under it opens the same sheet, and the sheet closes back to the zoom.
 
 /** The most föremål looked up by themselves on one visit to a card (the marked one is always looked up). */
 const maxAutoLookups = 12;
@@ -149,6 +146,7 @@ function CardPhoto({
               )}
             >
               {dot.number}
+              {thing.worth ? <PhotoStar /> : null}
             </span>
             {isSelected ? (
               <span
@@ -187,7 +185,7 @@ function ThingRowTitle({ thing, selected, number }: { thing: CardThing; selected
         {number !== undefined ? <MarkerBadge number={number} tone={selected ? "on" : "off"} /> : null}
         <span className={cx("min-w-0 wrap-break-word hyphens-auto", selected ? "font-semibold text-mint-ink" : "font-normal")}>
           {thing.name}
-          <WorthMarker worth={thing.worth} />
+          <WorthMarker worth={thing.worth} onMint={selected} />
         </span>
       </span>
       {thing.whereHint || thing.quantity != null ? (
@@ -200,8 +198,7 @@ function ThingRowTitle({ thing, selected, number }: { thing: CardThing; selected
   );
 }
 
-export function CardView({ card, initialThingId, roomHref }: { card: Card; initialThingId: string | null; roomHref: string }) {
-  const router = useRouter();
+export function CardView({ card, initialThingId }: { card: Card; initialThingId: string | null }) {
   const initialId = initialThingId && card.things.some((thing) => thing.id === initialThingId) ? initialThingId : null;
   const [selectedId, setSelectedId] = useState<string | null>(initialId);
   // Opening the same card again from another föremål's sheet only changes ?foremal; this component stays mounted,
@@ -256,18 +253,30 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     viewerOpened.current += 1;
     setViewer({ id, opened: viewerOpened.current });
   }, []);
-  const viewerMarkers = useMemo(() => cardPhotoMarkers(things), [things]);
+  const worthOn = useOption("worthLook");
+  const viewerMarkers = useMemo(() => cardPhotoMarkers(things, worthOn), [things, worthOn]);
   const pick = useCallback((id: string) => setSelectedId((current) => (current === id ? null : id)), []);
   // The föremål's sheet; kept while it closes, so its text does not blank during the animation.
   const [sheetThing, setSheetThing] = useState<CardThing | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Opened from the zoomed photo: the zoom is shown again when the sheet closes (a sheet replaces the photo view).
+  const [backToZoom, setBackToZoom] = useState<string | null>(null);
   const openSheet = (thing: CardThing) => {
     setSheetThing(thing);
     setSheetOpen(true);
   };
-  // The card is replaced once the new one is read, so it is not kept in the history.
-  const toRoom = useCallback(() => router.replace(`${roomHref}?vy=cards`), [router, roomHref]);
-  const title = cardViewTitle(card);
+  const editFromZoom = (number: number) => {
+    const thing = things.find((candidate) => numbers.get(candidate.id) === number);
+    if (!thing) return;
+    setViewer(null);
+    setBackToZoom(thing.id);
+    openSheet(thing);
+  };
+  const closeSheet = () => {
+    setSheetOpen(false);
+    if (backToZoom !== null && things.some((thing) => thing.id === backToZoom)) zoomOn(backToZoom);
+    setBackToZoom(null);
+  };
 
   if (card.status !== "done") {
     return (
@@ -341,15 +350,6 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
         ) : (
           <p className="px-1 text-body text-ink-2">{`Inga ${thingNoun.plural} på kortet.`}</p>
         )}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex min-w-0 flex-col gap-1">
-            <RetakeCard cardId={card.id} placeId={card.placeId} name={title} variant="secondary" onSent={toRoom} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <AddCardThings cardId={card.id} name={title} variant="secondary" />
-          </div>
-        </div>
-        <RemoveCard cardId={card.id} takenAt={new Date(card.takenAt)} name={title} onRemoved={() => router.replace(`${roomHref}?vy=cards`)} />
       </div>
       {viewer ? (
         <PhotoViewer
@@ -363,15 +363,22 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
           quietMarkers
           initialNumber={numberOnCard(things, viewer.id)}
           alt={photoViewerAltText}
+          onEditSelected={editFromZoom}
+          editLabel={(marker) => `Ändra ${marker.name}`}
+          nameExtra={(marker) => {
+            const thing = things.find((candidate) => numbers.get(candidate.id) === marker.n);
+            return thing?.worth ? <WorthMarker worth={thing.worth} /> : null;
+          }}
         />
       ) : null}
       <ThingSheet
         thing={sheetThing ? (things.find((thing) => thing.id === sheetThing.id) ?? sheetThing) : null}
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={closeSheet}
         onEvent={(event) => {
-          // A removed föremål is no longer marked; Ångra brings it back unmarked.
+          // A removed föremål is no longer marked and its zoom is gone; Ångra brings it back unmarked.
           if (event.kind === "removed" && event.id === selectedId) setSelectedId(null);
+          if (event.kind === "removed" && event.id === backToZoom) setBackToZoom(null);
         }}
       />
     </div>

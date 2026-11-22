@@ -265,4 +265,38 @@ describe("PhotoViewer", () => {
     expect(within(dialog()).queryByTestId("photo-viewer")).toBeNull();
     expect(within(dialog()).getByRole("button", { name: "Ta bort fotot" })).toBeInTheDocument();
   });
+
+  it("puts a star on the number of a starred föremål and says so in the button's name", () => {
+    render(<Viewer list={[{ n: 1, left: 20, top: 20, name: "Hammare", status: null, location: null, starred: true }, { n: 2, left: 60, top: 30, name: "Såg", status: null, location: null }]} />);
+    decode();
+    const [first, second] = within(dialog()).getAllByTestId("photo-viewer-marker");
+    expect(within(first).getByTestId("photo-star")).toHaveAttribute("aria-hidden", "true");
+    expect(first).toHaveAccessibleName("Vara 1: Hammare, kan ha värde");
+    expect(within(second).queryByTestId("photo-star")).toBeNull();
+  });
+
+  it("makes the line under the zoomed photo a button that opens the föremål, with the hint saying so", () => {
+    const onEdit = vi.fn();
+    render(
+      <PhotoViewer
+        open
+        onClose={() => {}}
+        photo={{ url: "/p", size: { width: 720, height: 900 } }}
+        title="Kortet"
+        noun="Föremål"
+        markers={[{ n: 1, left: 20, top: 20, name: "Hammare", status: null, location: null, starred: true }]}
+        initialNumber={1}
+        alt="Kortet"
+        onEditSelected={onEdit}
+        editLabel={(m) => `Ändra ${m.name}`}
+        nameExtra={() => <span data-testid="extra">Kan ha värde</span>}
+      />,
+    );
+    const view = screen.getByRole("dialog", { name: "Kortet" });
+    expect(view).toHaveAccessibleDescription("Tryck på bilden för att backa. Tryck på raden för att ändra.");
+    const line = within(view).getByRole("button", { name: "Ändra Hammare" });
+    expect(within(line).getByTestId("extra")).toBeInTheDocument();
+    fireEvent.click(line);
+    expect(onEdit).toHaveBeenCalledWith(1);
+  });
 });

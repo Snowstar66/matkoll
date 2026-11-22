@@ -4,7 +4,7 @@ import { boxOfRow } from "../domain/thing-card";
 import { worthOfRow, worthRowShape, type ThingWorth } from "../domain/thing-worth";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
-// Värt en titt, "Förklara närmare": the föremål as the explanation needs it, and the explanation kept on it. Every
+// Värdetips, "Undersök värdet": the föremål as the explanation needs it, and the explanation kept on it. Every
 // call uses the signed-in user's session client, so RLS limits it to the user's own rows (AD-4). Errors carry only a
 // fixed reason and the Postgres code.
 

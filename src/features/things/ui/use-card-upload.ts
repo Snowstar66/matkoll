@@ -63,7 +63,7 @@ export function useCardUpload(onSaved: () => void) {
         form.append("place", target.placeId);
         form.append("takenAt", takenAt.toISOString());
         if (target.replaces) form.append("replaces", target.replaces);
-        // Värt en titt (Tillval, kept on this device): the server cannot see it, so the photo says it.
+        // Värdetips (Tillval, kept on this device): the server cannot see it, so the photo says it.
         if (readOption("worthLook")) form.append("worth", "1");
         let answer: Result<{ job: AiJob }>;
         try {

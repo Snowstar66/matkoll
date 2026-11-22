@@ -8,7 +8,7 @@ import type { Thing } from "../domain/thing";
 import { CardThings } from "./card-things";
 import { WorthBlock, WorthMarker } from "./worth-marker";
 
-// Värt en titt (Tillval): the star on a row and the block in the sheet show only with the switch on and a
+// Värdetips (Tillval): the star on a row and the block in the sheet show only with the switch on and a
 // tip on the föremål; the words are in the sheet, and no price anywhere.
 
 vi.mock("../actions/thing-item", () => ({ updateThing: vi.fn(), removeThing: vi.fn(), restoreThing: vi.fn() }));
@@ -42,12 +42,12 @@ beforeEach(() => {
 });
 
 describe("the pill on a row", () => {
-  it("says Värt en titt in words (and how sure for a screen reader) when the switch is on and the föremål has a tip", () => {
+  it("says Kan ha värde in words (and how sure for a screen reader) when the switch is on and the föremål has a tip", () => {
     saveOption("worthLook", true);
     render(<WorthMarker worth={worth} />);
     const pill = screen.getByTestId("worth-marker");
-    expect(pill).toHaveTextContent("Värt en titt, gissning");
-    expect(pill.className).toContain("bg-warm");
+    expect(pill).toHaveTextContent("Kan ha värde, gissning");
+    expect(pill.className).toContain("bg-star-tint");
     expect(within(pill).getByText(", gissning")).toHaveClass("sr-only");
   });
 
@@ -65,7 +65,7 @@ describe("the block in the sheet", () => {
     saveOption("worthLook", true);
     render(<WorthBlock worth={worth} />);
     const block = screen.getByTestId("worth-block");
-    expect(within(block).getByText("Värt en titt")).toBeInTheDocument();
+    expect(within(block).getByText("Kan ha värde")).toBeInTheDocument();
     expect(block).toHaveTextContent(worth.why);
     expect(screen.getByTestId("worth-confidence")).toHaveTextContent("Gissning");
     expect(block).toHaveTextContent("Ett tips, inte en värdering.");
@@ -160,7 +160,7 @@ const explanationText = [
   "Att undersöka vidare\n- Titta på undersidan efter en signatur.\n- Jämför med sålda annonser.",
 ].join("\n\n");
 
-describe("Förklara närmare", () => {
+describe("Undersök värdet", () => {
   it("has no button without the föremål's id, and none with the switch off", () => {
     saveOption("worthLook", true);
     const { rerender } = render(<WorthBlock worth={worth} />);
@@ -175,10 +175,10 @@ describe("Förklara närmare", () => {
     let finish: (value: unknown) => void = () => undefined;
     explainWorthDetail.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(<WorthBlock worth={worth} thingId={vase.id} />);
-    await userEvent.click(screen.getByRole("button", { name: "Förklara närmare" }));
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(explainWorthDetail).toHaveBeenCalledWith(vase.id);
     expect(await screen.findByTestId("worth-explaining")).toHaveTextContent("Funderar");
-    expect(screen.queryByRole("button", { name: "Förklara närmare" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
     finish(ok({ detail: explanationText }));
     const detailBox = await screen.findByTestId("worth-detail");
     expect(within(detailBox).getByRole("heading", { name: "Därför markerades den" })).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe("Förklara närmare", () => {
     expect(within(detailBox).getByRole("heading", { name: "Att undersöka vidare" })).toBeInTheDocument();
     expect(within(detailBox).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Titta på undersidan efter en signatur.", "Jämför med sålda annonser."]);
     expect(screen.getByTestId("worth-block")).toHaveTextContent("Ett tips, inte en värdering.");
-    expect(screen.queryByRole("button", { name: "Förklara närmare" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
     expect(explainWorthDetail).toHaveBeenCalledTimes(1);
   });
 
@@ -194,7 +194,7 @@ describe("Förklara närmare", () => {
     saveOption("worthLook", true);
     render(<WorthBlock worth={{ ...worth, detail: explanationText }} thingId={vase.id} />);
     expect(screen.getByTestId("worth-detail")).toHaveTextContent("Troligen svensk kristall");
-    expect(screen.queryByRole("button", { name: "Förklara närmare" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
     expect(explainWorthDetail).not.toHaveBeenCalled();
   });
 
@@ -202,9 +202,9 @@ describe("Förklara närmare", () => {
     saveOption("worthLook", true);
     explainWorthDetail.mockResolvedValueOnce(fail("ai_unavailable")).mockResolvedValueOnce(ok({ detail: explanationText }));
     render(<WorthBlock worth={worth} thingId={vase.id} />);
-    await userEvent.click(screen.getByRole("button", { name: "Förklara närmare" }));
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("AI-tjänsten svarar inte just nu");
-    await userEvent.click(screen.getByRole("button", { name: "Förklara närmare" }));
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(await screen.findByTestId("worth-detail")).toHaveTextContent("Troligen svensk kristall");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

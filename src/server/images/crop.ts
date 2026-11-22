@@ -1,7 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 
-// A crop of a stored photo round a box (the föremål's sheet, "Förklara närmare"): the box with a margin on every side,
+// A crop of a stored photo round a box (the föremål's sheet, "Undersök värdet"): the box with a margin on every side,
 // at least a third of the photo each way, so the föremål is large on the picture without losing what it stands on.
 // Written as JPEG without any metadata. Never imports features or Supabase (AD-1); never logs the picture.
 

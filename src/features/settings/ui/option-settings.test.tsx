@@ -7,12 +7,12 @@ import { OptionRow, OptionSettings } from "./option-settings";
 beforeEach(() => localStorage.clear());
 
 describe("OptionSettings", () => {
-  it("has Värt en titt under Förrådet, off by default, and turning it on is remembered on this device", async () => {
+  it("has Värdetips under Förrådet, off by default, and turning it on is remembered on this device", async () => {
     window.localStorage.clear();
     render(<OptionSettings />);
-    const worth = screen.getByRole("switch", { name: /^Värt en titt/ });
+    const worth = screen.getByRole("switch", { name: /^Värdetips/ });
     expect(worth).toHaveAttribute("aria-checked", "false");
-    expect(worth).toHaveAccessibleDescription(/Ett tips, inte en värdering/);
+    expect(worth).toHaveAccessibleDescription(/Stjärnmarkerar föremål/);
     await userEvent.click(worth);
     expect(worth).toHaveAttribute("aria-checked", "true");
     expect(window.localStorage.getItem("livskoll-option-worthLook")).toBe("1");

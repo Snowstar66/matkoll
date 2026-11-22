@@ -1,7 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { ok } from "@/lib/errors";
+import { saveOption } from "@/lib/options";
 import type { Thing } from "../domain/thing";
 import type { RoomCard } from "../domain/thing-room";
 import { RoomPhotos } from "./room-photos";
@@ -33,6 +35,7 @@ const hammer = thing("0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", "Hammare");
 const pump = thing("0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", "Cykelpump", { quantity: 3 });
 
 beforeEach(() => {
+  window.localStorage.clear();
   loadRoomPhotoThings.mockReset();
   loadRoomPhotoThings.mockResolvedValue(ok({ byPhoto: { [newer]: [hammer], [older]: [hammer, pump] }, noted: [] }));
 });
@@ -46,25 +49,55 @@ function view(cards: RoomCard[]) {
 }
 
 describe("the room's things per photo", () => {
-  it("is a group per done card with its photo as the heading, and a thing seen on two cards is under both", async () => {
+  it("is a folded row per done card, newest first, with what it shows, the date and how many; unfolding lists the things, a thing seen on two cards under both", async () => {
     view([card(newer, "2026-11-19T10:00:00Z"), card(older, "2026-11-18T10:00:00Z"), card("0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a23", "2026-11-17T10:00:00Z", { status: "reading" })]);
     const groups = await screen.findAllByTestId("room-photo");
-    // Only the cards that are read are groups, newest first.
+    // Only the cards that are read are groups, newest first, all folded.
     expect(groups).toHaveLength(2);
-    expect(within(groups[0]).getByRole("heading")).toHaveTextContent("Foto 19 nov");
-    expect(within(groups[0]).getByRole("heading")).toHaveTextContent("Hela rummet · 1 sak");
-    expect(within(groups[1]).getByRole("heading")).toHaveTextContent("Foto 18 nov");
-    expect(within(groups[1]).getByRole("heading")).toHaveTextContent("2 saker");
+    expect(screen.queryAllByTestId("thing")).toHaveLength(0);
+    const first = within(groups[0]).getByTestId("room-photo-toggle");
+    expect(first).toHaveTextContent("Hela rummet");
+    expect(first).toHaveTextContent("19 nov · 1 sak");
+    expect(first).toHaveAttribute("aria-expanded", "false");
+    expect(first).toHaveAccessibleName("Hela rummet, 19 nov, 1 sak, fäll ut");
+    expect(within(groups[1]).getByTestId("room-photo-toggle")).toHaveTextContent("18 nov · 2 saker");
+    await userEvent.click(first);
+    await userEvent.click(within(groups[1]).getByTestId("room-photo-toggle"));
+    expect(first).toHaveAttribute("aria-expanded", "true");
     expect(within(groups[0]).getByText("Hammare")).toBeInTheDocument();
     expect(within(groups[1]).getByText("Hammare")).toBeInTheDocument();
-    // The photo is a small link to the whole card.
+    // The photo is a small link to the whole card, and "Öppna kortet" comes last in the unfolded list.
     expect(within(groups[0]).getByTestId("room-photo-thumb")).toHaveAttribute("href", expect.stringContaining(`/prylar/kort/${newer}`));
+    expect(within(groups[0]).getByTestId("room-photo-open")).toHaveAttribute("href", expect.stringContaining(`/prylar/kort/${newer}`));
     expect(loadRoomPhotoThings).toHaveBeenCalledWith({ siteId: site, roomKey: "garaget", photoIds: [newer, older] });
+  });
+
+  it("says how many föremål have a star on the folded row, and shows the pill on them when unfolded, only with Värdetips on", async () => {
+    const vase = thing("0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a15", "Vas", { worth: { why: "Ser ut som Gustavsberg.", confidence: "guess" } });
+    loadRoomPhotoThings.mockResolvedValue(ok({ byPhoto: { [older]: [hammer, vase] }, noted: [] }));
+    const { unmount } = render(
+      <ToastProvider>
+        <RoomPhotos siteId={site} roomKey="garaget" cards={[card(older, "2026-11-18T10:00:00Z")]} />
+      </ToastProvider>,
+    );
+    const toggle = await screen.findByTestId("room-photo-toggle");
+    expect(screen.queryByTestId("star-count")).not.toBeInTheDocument();
+    expect(toggle).toHaveAccessibleName("Hela rummet, 18 nov, 2 saker, fäll ut");
+    unmount();
+    saveOption("worthLook", true);
+    view([card(older, "2026-11-18T10:00:00Z")]);
+    const on = await screen.findByTestId("room-photo-toggle");
+    expect(screen.getByTestId("star-count")).toHaveTextContent("1");
+    expect(on).toHaveAccessibleName("Hela rummet, 18 nov, 2 saker, 1 kan ha värde, fäll ut");
+    await userEvent.click(on);
+    expect(screen.getAllByTestId("worth-marker")).toHaveLength(1);
+    expect(within(screen.getByRole("button", { name: /Vas/ })).getByTestId("worth-marker")).toBeInTheDocument();
   });
 
   it("says the count at the right of a counted thing and no position", async () => {
     loadRoomPhotoThings.mockResolvedValue(ok({ byPhoto: { [older]: [pump, thing("0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a13", "Spade", { whereHint: "nedre mitten" })] }, noted: [] }));
     view([card(older, "2026-11-18T10:00:00Z")]);
+    await userEvent.click(await screen.findByTestId("room-photo-toggle"));
     const rows = await screen.findAllByTestId("thing");
     expect(rows[0]).toHaveTextContent("Cykelpump3 st");
     expect(rows[1]).toHaveTextContent("Spade");

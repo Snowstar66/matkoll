@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { PhotoViewer } from "@/features/pantry";
+import { useOption } from "@/lib/use-option";
 import { Button } from "@/components/button";
 import { ChoiceRows } from "@/components/choice-rows";
 import { FieldError, FieldLabel, Input } from "@/components/field";
@@ -245,7 +246,8 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const read = detail?.key === detailKey ? detail.value : undefined;
   const photoId = noted ? null : read === undefined ? (thing?.photoId ?? null) : read ? read.photoId : (thing?.photoId ?? null);
   const box = read?.box ?? null;
-  const cardMarkers = read ? cardPhotoMarkers(read.cardThings ?? []) : [];
+  const worthOn = useOption("worthLook");
+  const cardMarkers = read ? cardPhotoMarkers(read.cardThings ?? [], worthOn) : [];
   const viewing = photoView !== null && photoId !== null && cardMarkers.length > 0;
   const isCounted = counted !== null;
   const dirty = cleanThingName(nameDraft) !== name || (!isCounted && countDraft !== "");
