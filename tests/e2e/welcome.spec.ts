@@ -28,6 +28,9 @@ async function seenRows(): Promise<number> {
 
 async function toLastPage(page: Page) {
   for (let i = 0; i < 6; i++) await tour(page).getByRole("button", { name: "Fortsätt" }).click();
+  // The question about what to get help with comes before the choices; Hoppa över there writes nothing.
+  await expect(tour(page).getByRole("heading", { name: "Vad vill du ha hjälp med?" })).toBeVisible();
+  await tour(page).getByRole("button", { name: "Hoppa över" }).click();
   await expect(tour(page).getByRole("heading", { name: "Var vill du börja?" })).toBeVisible();
 }
 
@@ -45,7 +48,7 @@ test.describe("on a phone", () => {
 
     await dialog.getByRole("button", { name: "Fortsätt" }).click();
     await expect(dialog).toHaveAccessibleName("Spara recept var du än hittar dem");
-    await expect(dialog.getByText("Sida 2 av 7", { exact: true })).toBeAttached();
+    await expect(dialog.getByText("Sida 2 av 8", { exact: true })).toBeAttached();
     await page.keyboard.press("ArrowRight");
     await expect(dialog).toHaveAccessibleName("Planera veckan. Listan skriver sig själv.");
     await page.keyboard.press("ArrowLeft");

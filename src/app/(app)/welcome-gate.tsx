@@ -7,7 +7,7 @@ import type { MemberColor } from "@/features/household";
 import { NamePrompt } from "@/features/household/ui/name-prompt";
 import { tourSeenCookieText, welcomeRoute } from "@/features/welcome";
 import { WelcomeTour } from "@/features/welcome/ui/welcome-tour";
-import { useWelcomeExit } from "./welcome-exit";
+import { useAreasMessage, useWelcomeExit } from "./welcome-exit";
 
 /** Story 21.2b: the name to ask for, or null when the person has said it (or it is not known). */
 export type NameAsk = { suggested: string; tone: MemberColor } | null;
@@ -43,15 +43,18 @@ export function WelcomeGate({ seen, name = noNameAsk, userId = noUser }: { seen:
   const [named, setNamed] = useState(false);
   const pathname = usePathname();
   const onExit = useWelcomeExit(null);
+  const areasMessage = useAreasMessage();
   useJoinedToast();
   if (pathname === welcomeRoute) return null;
   if (ask && !named) return <NamePrompt suggested={ask.suggested} tone={ask.tone} onDone={() => setNamed(true)} />;
   if (!alreadySeen && !closed) {
     return (
       <WelcomeTour
+        onAreasChosen={areasMessage.choose}
         onExit={(exit, photo) => {
           setClosed(true);
           onExit(exit, photo);
+          areasMessage.announce();
         }}
       />
     );

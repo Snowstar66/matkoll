@@ -6,6 +6,7 @@ const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 vi.mock("@/features/welcome/actions/mark-tour-seen", () => ({ markTourSeen: async () => ({ ok: true, data: null }) }));
+vi.mock("@/components/toast", () => ({ useToast: () => ({ showToast: vi.fn(), dismissToast: vi.fn() }) }));
 vi.mock("@/features/recipes/ui/import-sheet", () => ({ requestImportSheet: () => {} }));
 vi.mock("@/features/pantry/ui/photo-handover", () => ({ handOverPlacePhoto: () => {} }));
 

@@ -15,10 +15,11 @@ import {
 } from "@/components/icons-duo";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import { markTourSeen } from "../actions/mark-tour-seen";
-import { clampTourPage, isLastTourPage, pageAfterSwipe, tourPageCount, tourPageLabel, type TourExit } from "../domain/tour";
+import { type AreaId, areas, areasChosenMessage, turnOnAreas } from "@/lib/option-areas";
+import { clampTourPage, isAreasTourPage, isLastTourPage, pageAfterSwipe, tourPageCount, tourPageLabel, type TourExit } from "../domain/tour";
 import { TourArt, type TourArtName } from "./tour-art";
 
-// Välkomsttur (Story 20.1, hjalp-valkomst.html, "1. Välkomsttur"): seven pages
+// Välkomsttur (Story 20.1, hjalp-valkomst.html, "1. Välkomsttur"): eight pages
 // with a large line drawing, a light title and one sentence. Full screen on a
 // phone (no tab bar); a 560 px dialog over the dimmed app on a desktop. Built on
 // the native modal <dialog>, so focus stays inside and the app behind is inert.
@@ -36,6 +37,8 @@ type Page = {
   title: string;
   text: string;
   extra?: ReactNode;
+  /** The page that asks "Vad vill du ha hjälp med?": the five areas as boxes, Klar and Hoppa över instead of Fortsätt. */
+  areas?: true;
 };
 
 const trio = [
@@ -86,6 +89,12 @@ const pages: Page[] = [
     title: "Äter ni ute?",
     text: `Fota restaurangens meny. ${appName} läser och översätter den och föreslår rätter åt var och en efter allergier och smak. Hitta ett ställe att äta på gör du också här. Slås på under Tillval.`,
   },
+  {
+    art: null,
+    title: "Vad vill du ha hjälp med?",
+    text: "Kryssa i det du vill ha, flera om du vill. Du kan ändra när som helst under Inställningar, Tillval.",
+    areas: true,
+  },
   { art: null, title: "Var vill du börja?", text: "Rundturen finns kvar under Hjälp och tips." },
 ];
 
@@ -96,13 +105,19 @@ export type WelcomeTourProps = {
    * allows only inside the tap); the caller hands it on to Matvaror. Seen is already recorded.
    */
   onExit: (exit: TourExit, photo?: File) => void;
+  /**
+   * Klar on the page with the areas: the switches of the ticked areas are on now, and this is the message for
+   * after the tour ("Planera veckan och Laga mat på. Ändra under Tillval."); the caller shows it when the tour has closed.
+   */
+  onAreasChosen?: (message: string) => void;
 };
 
-export function WelcomeTour({ onExit }: WelcomeTourProps) {
+export function WelcomeTour({ onExit, onAreasChosen }: WelcomeTourProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const firstChoiceRef = useRef<HTMLButtonElement>(null);
+  const [ticked, setTicked] = useState<AreaId[]>([]);
   const swipeStartX = useRef<number | null>(null);
   const [index, setIndex] = useState(0);
   // The first page is shown, but only drawn out after the dialog has opened, so its drawing is seen.
@@ -110,6 +125,7 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
   const titleId = useId();
   const touch = useCoarsePointer();
   const last = isLastTourPage(index);
+  const asking = isAreasTourPage(index);
 
   const latestExit = useRef(onExit);
   useEffect(() => {
@@ -158,8 +174,16 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
   useEffect(() => {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !dialogRef.current?.contains(active) || !active.closest("[inert]")) return;
-    (last ? firstChoiceRef : continueRef).current?.focus();
+    (last ? firstChoiceRef : continueRef).current?.focus({ preventScroll: true });
   }, [index, last]);
+
+  /** Klar: the ticked areas are turned on (the same as a tap on their boxes in Tillval), nothing is turned off. */
+  function done() {
+    if (ticked.length === 0) return;
+    const chosen = turnOnAreas(ticked);
+    onAreasChosen?.(areasChosenMessage(chosen));
+    go(index + 1);
+  }
 
   function onPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -194,7 +218,7 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
       <div className="relative h-full overflow-hidden">
         <Button
           variant="quiet"
-          onClick={() => exit("skip")}
+          onClick={() => (asking ? go(index + 1) : exit("skip"))}
           inert={last}
           className={cx(
             "absolute top-[calc(env(safe-area-inset-top)+6px)] right-2 z-10",
@@ -243,7 +267,7 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
                         "motion-safe:group-data-[state=after]:translate-x-[60px] motion-safe:group-data-[state=after]:scale-[.94] motion-safe:group-data-[state=after]:opacity-20",
                       )}
                     />
-                  ) : (
+                  ) : page.areas ? null : (
                     <span className="flex size-[72px] items-center justify-center rounded-[20px] bg-illus-bg">
                       <DuoHouseIcon size={40} />
                     </span>
@@ -265,6 +289,42 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
                     </h2>
                     <p className="mx-auto mt-3 max-w-[310px] text-tour-text text-pretty text-ink-2">{page.text}</p>
                     {page.extra}
+                    {page.areas ? (
+                      <div className="mt-5 flex w-full flex-col items-center gap-2 text-left">
+                        <ul className="flex w-full flex-col">
+                          {areas.map((area) => {
+                            const on = ticked.includes(area.id);
+                            return (
+                              <li key={area.id}>
+                                <button
+                                  type="button"
+                                  role="checkbox"
+                                  aria-checked={on}
+                                  onClick={() => setTicked((now) => (on ? now.filter((id) => id !== area.id) : [...now, area.id]))}
+                                  className="flex min-h-[3em] w-full items-center gap-3 py-2 text-left"
+                                  data-testid={`tour-area-${area.id}`}
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className={cx("flex size-6 shrink-0 items-center justify-center rounded-md border-2", on ? "border-accent bg-accent text-on-accent" : "border-border bg-surface")}
+                                  >
+                                    {on ? (
+                                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                      </svg>
+                                    ) : null}
+                                  </span>
+                                  <span className="flex min-w-0 flex-1 flex-col">
+                                    <span className="text-body text-ink">{area.name}</span>
+                                    <span className="text-meta text-ink-2">{area.example}</span>
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
                     {isLastTourPage(i) ? (
                       <div className="mt-8 flex w-full flex-col gap-2.5 text-left">
                         <Choice
@@ -332,11 +392,13 @@ export function WelcomeTour({ onExit }: WelcomeTourProps) {
           <Button
             ref={continueRef}
             fullWidth
-            onClick={() => go(index + 1)}
+            onClick={asking ? done : () => go(index + 1)}
+            disabled={asking && ticked.length === 0}
             inert={last}
+            data-testid="tour-continue"
             className={cx("motion-safe:transition-opacity motion-safe:duration-200", last && "pointer-events-none opacity-0")}
           >
-            Fortsätt
+            {asking ? "Klar" : "Fortsätt"}
           </Button>
         </div>
 
