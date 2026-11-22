@@ -21,7 +21,8 @@ test("the card shows on Recept, X hides it, and Visa Dagens turns it off", async
   // Tillval: switch the card off, clear the hiding, and see that it stays away.
   await page.goto("/installningar/tillval");
   await expect(page.getByRole("heading", { name: "Dagens" })).toBeVisible();
-  const show = page.getByRole("switch", { name: "Visa Dagens" });
+  // Anchored: with Visa Dagens off the other rows say "Kräver Visa Dagens".
+  const show = page.getByRole("switch", { name: /^Visa Dagens/ });
   await expect(show).toBeChecked();
   await expect(page.getByRole("switch", { name: "Matdagar" })).toBeChecked();
   await expect(page.getByRole("switch", { name: "Säsongens råvara" })).toBeChecked();
@@ -36,7 +37,7 @@ test("the card shows on Recept, X hides it, and Visa Dagens turns it off", async
 
   // Back on: the card returns (some days have no name day, so Namnsdag is only switched, not read).
   await page.goto("/installningar/tillval");
-  await page.getByRole("switch", { name: "Visa Dagens" }).click();
+  await page.getByRole("switch", { name: /^Visa Dagens/ }).click();
   await page.getByRole("switch", { name: "Namnsdag" }).click();
   await page.goto("/recept");
   await expect(card).toBeVisible();

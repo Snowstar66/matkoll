@@ -56,6 +56,26 @@ describe("SettingsMenu (Story 14.7)", () => {
     expect(within(link).getByTestId("settings-badge")).toHaveTextContent("3 nya");
   });
 
+  it("reads the value of Utseende and Siffra på appikonen on the device, and writes nothing", async () => {
+    localStorage.clear();
+    localStorage.setItem("livskoll-palette", "bla");
+    const device: SettingsGroupData[] = [
+      {
+        label: "Den här telefonen",
+        rows: [
+          { href: "/installningar/utseende", icon: "palette", tile: "mint", title: "Utseende", deviceValue: "palette" },
+          { href: "/installningar/appikon", icon: "badge", tile: "mint", title: "Siffra på appikonen", deviceValue: "badge" },
+        ],
+      },
+    ];
+    const before = JSON.stringify({ ...localStorage });
+    render(<SettingsMenu account={account} groups={device} signOut={null} />);
+    expect(await screen.findByRole("link", { name: /Utseende.*Blå/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Siffra på appikonen.*Av/ })).toBeInTheDocument();
+    expect(JSON.stringify({ ...localStorage })).toBe(before);
+    localStorage.clear();
+  });
+
   it("makes every row at least 44 px high", () => {
     render(<SettingsMenu account={account} groups={groups} signOut={null} />);
     for (const link of screen.getAllByRole("link")) expect(link.className).toMatch(/min-h-\[52px\]|min-h-16/);

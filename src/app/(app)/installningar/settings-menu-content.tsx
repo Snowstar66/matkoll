@@ -6,16 +6,8 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { staplesCountText } from "@/features/pantry";
 import { listPantrySitesWithCounts, listStaples } from "@/features/pantry/server";
-import {
-  aiLevelLabels,
-  aiProviderLabels,
-  claudeModels,
-  costRowTitle,
-  formatMonthCost,
-  type AiSettingsView,
-  settingsPageHref,
-} from "@/features/settings";
-import { getAiMonthUsage, getAiSettingsView, listRecipeSites, listStores } from "@/features/settings/server";
+import { aiLevelLabels, aiProviderLabels, claudeModels, type AiSettingsView, settingsPageHref } from "@/features/settings";
+import { listStores } from "@/features/settings/server";
 import { SettingsMenu, type SettingsGroupData } from "@/features/settings/ui/settings-menu";
 import { appName } from "@/app/app-info";
 import { readBuildInfo, versionLine } from "@/app/build-info";
@@ -52,17 +44,15 @@ export function sitesCountText(count: number): string {
 
 /**
  * The start page of Inställningar (Story 14.7): the groups Konto, Appens ägare (only for the
- * app's owner, Story 20.3; named so in Story 21.2b), Hushåll (Medlemmar first, Story 21.2b), Recept, AI (only for those it is shown to, as in
- * Story 17.5) and Appen, with short values, and "Logga ut" last.
+ * app's owner, Story 20.3; named so in Story 21.2b), Hushållet (Medlemmar first), Den här telefonen,
+ * Funktioner (Tillval) and Om appen (ending in Avancerat, which holds Receptsajter and the AI rows), with
+ * short values, and "Logga ut" last.
  */
 export async function SettingsMenuContent() {
   const user = await requireUserOrRedirect("/installningar");
-  const [housing, stores, recipeSites, ai, aiUsage, inbox, household, me, staples] = await Promise.all([
+  const [housing, stores, inbox, household, me, staples] = await Promise.all([
     valueOf(listPantrySitesWithCounts, "housing"),
     valueOf(listStores, "stores"),
-    valueOf(listRecipeSites, "recipe_sites"),
-    valueOf(getAiSettingsView, "ai"),
-    valueOf(() => getAiMonthUsage(), "ai_usage"),
     // Not there at all for anyone but the owner, not even hidden; a failure leaves it out too.
     valueOf(getOwnerInbox, "owner_inbox"),
     // Story 21.2b: who is in the household, and the person's own name.
@@ -84,14 +74,14 @@ export async function SettingsMenuContent() {
               { href: settingsPageHref("inbjudningar"), icon: "users", tile: "mint", title: "Inbjudningar" },
               // Tak för AI-kostnad: the daily cap per household and what each has cost; to the owner only.
               { href: settingsPageHref("ai-kostnad"), icon: "coin", tile: "sand", title: "AI-kostnad" },
-              // Startrecept: the pack of the owner's own recipes that households may choose from; to the owner only.
-              { href: settingsPageHref("startrecept"), icon: "sparkle", tile: "mint", title: "Startrecept" },
+              // The pack of the owner's own recipes that households may choose from; to the owner only. Named so it is not mixed up with the Tillval Startrecept.
+              { href: settingsPageHref("startrecept"), icon: "sparkle", tile: "mint", title: "Startrecept-paket" },
             ],
           } satisfies SettingsGroupData,
         ]
       : []),
     {
-      label: "Hushåll",
+      label: "Hushållet",
       rows: [
         {
           href: settingsPageHref("medlemmar"),
@@ -122,55 +112,28 @@ export async function SettingsMenuContent() {
           title: "Basvaror",
           value: staples ? staplesCountText(staples.length) : undefined,
         },
-        // The way to the earlier plans now that Matsedel's week row no longer has "Tidigare ›" (with the Tillval "Visa tidigare vecka" on it is in Matsedel's dropdown too).
-        { href: "/matsedel/tidigare", icon: "bookmark", tile: "lilac", title: "Tidigare matsedlar" },
       ],
     },
     {
-      label: "Recept",
+      label: "Den här telefonen",
       rows: [
-        {
-          href: settingsPageHref("receptsajter"),
-          icon: "globe",
-          tile: "sky",
-          title: "Receptsajter",
-          value: recipeSites ? sitesCountText(recipeSites.length) : undefined,
-        },
-      ],
-    },
-    ...(ai
-      ? [
-          {
-            label: "AI",
-            rows: [
-              { href: settingsPageHref("ai"), icon: "sparkle", tile: "sand", title: "Modell", value: aiValueText(ai) },
-              // Story 17.6: the month's cost, a value without a page of its own.
-              ...(aiUsage
-                ? [
-                    {
-                      href: null,
-                      icon: "coin",
-                      tile: "sand",
-                      title: costRowTitle(aiUsage.monthName),
-                      value: formatMonthCost(aiUsage.costSek),
-                    } as const,
-                  ]
-                : []),
-            ],
-          } satisfies SettingsGroupData,
-        ]
-      : []),
-    {
-      label: "Appen",
-      rows: [
+        { href: settingsPageHref("utseende"), icon: "palette", tile: "mint", title: "Utseende", deviceValue: "palette" },
+        { href: settingsPageHref("notiser"), icon: "bell", tile: "sky", title: "Notiser", deviceValue: "push" },
+        { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen", deviceValue: "badge" },
         { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
-        { href: settingsPageHref("utseende"), icon: "palette", tile: "mint", title: "Utseende" },
-        { href: settingsPageHref("tillval"), icon: "sliders", tile: "mint", title: "Tillval" },
-        { href: settingsPageHref("appikon"), icon: "badge", tile: "mint", title: "Siffra på appikonen" },
-        { href: settingsPageHref("notiser"), icon: "bell", tile: "sky", title: "Notiser" },
         { href: settingsPageHref("telefon"), icon: "mic", tile: "lilac", title: "Använd med telefonen" },
+      ],
+    },
+    {
+      label: "Funktioner",
+      rows: [{ href: settingsPageHref("tillval"), icon: "sliders", tile: "mint", title: "Tillval" }],
+    },
+    {
+      label: "Om appen",
+      rows: [
         { href: settingsPageHref("nyheter"), icon: "sparkle", tile: "mint", title: "Nyheter", newsSince: latestReleaseDate },
         { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}`, value: versionLine(readBuildInfo()) },
+        { href: settingsPageHref("avancerat"), icon: "gear", tile: "plain", title: "Avancerat" },
       ],
     },
   ];
