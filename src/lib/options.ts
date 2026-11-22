@@ -4,41 +4,45 @@
 // the settings page lists whatever is here.
 
 /**
- * The groups the settings page shows, in order, each under its small label. Delade recept comes
- * last on its own, after "Gäller bara den här enheten.", since its other rows are the household's
- * (the page puts its option row there).
+ * The sections Tillval shows, in order, each under its small label (the first five are the areas of
+ * "Vad vill du ha hjälp med?"). Dagens and Delade recept are sections of their own, not areas. Delade
+ * recept comes last, after "Gäller bara den här enheten.", since its other rows are the household's (the
+ * page puts its option row there). "debug" is not in Tillval: its switch lives under Avancerat.
  */
 export const optionGroups = [
-  { id: "recipe", label: "I receptet" },
-  { id: "household", label: "Hushållet" },
+  { id: "cook", label: "Laga mat" },
+  { id: "plan", label: "Planera veckan" },
   { id: "nutrition", label: "Näring" },
-  { id: "dagens", label: "Dagens" },
   { id: "menu", label: "Äta ute" },
   { id: "things", label: "Förrådet" },
+  { id: "dagens", label: "Dagens" },
   { id: "shared", label: "Delade recept" },
   { id: "debug", label: "Felsökning" },
 ] as const;
+
+/** The switches that live under Inställningar → Avancerat and not on the Tillval page. */
+export const advancedOptionIds = ["restaurantAgentWeb", "showTimings"] as const;
 
 export type OptionGroupId = (typeof optionGroups)[number]["id"];
 
 export const options = [
   {
     id: "recipeTimer",
-    group: "recipe",
+    group: "cook",
     label: "Timer i receptet",
     hint: "Tryck på en tid i ett steg för att starta en timer",
     defaultOn: true,
   },
   {
     id: "recipeSteps",
-    group: "recipe",
+    group: "cook",
     label: "Bocka av steg",
     hint: "Tryck på stegets nummer. Bockarna försvinner när receptet är lagat eller efter 12 timmar",
     defaultOn: true,
   },
   {
     id: "recipeAwake",
-    group: "recipe",
+    group: "cook",
     label: "Skärmen släcks inte i receptet",
     hint: "Skärmen förblir tänd medan ett recept är öppet",
     defaultOn: true,
@@ -52,7 +56,7 @@ export const options = [
   { id: "dagensNameDay", group: "dagens", label: "Namnsdag", hint: "", defaultOn: false },
   { id: "dagensAlmanac", group: "dagens", label: "Kinesiska almanackan", hint: "宜 vad dagen passar för, 忌 vad du bör undvika", defaultOn: false },
   { id: "menuAdvisor", group: "menu", label: "Menyrådgivare", hint: "För dig som äter ute och vill ha hjälp att välja", defaultOn: false },
-  { id: "restaurantAgent", group: "menu", label: "Äta ute", hint: "Sök restauranger i Google Maps med dina val ifyllda. Gratis. Telefonen frågar om plats när du öppnar sidan, och den sparas inte", defaultOn: false },
+  { id: "restaurantAgent", group: "menu", label: "Sök restauranger", hint: "Sök restauranger i Google Maps med dina val ifyllda. Gratis. Telefonen frågar om plats när du öppnar sidan, och den sparas inte", defaultOn: false },
   { id: "restaurantAgentWeb", group: "menu", label: "Låt agenten söka på webben", hint: "Låt agenten söka restauranger på webben åt dig. Experimentell, kostar Claude-tokens, cirka 1 kr per sökning", defaultOn: false },
   {
     id: "worthLook",
@@ -63,22 +67,22 @@ export const options = [
   },
   {
     id: "starterRecipes",
-    group: "household",
+    group: "cook",
     label: "Startrecept",
     hint: "Välj bland färdiga vardagsrätter med bild och lägg dem i er receptlista. Inget läggs till av sig självt",
     defaultOn: false,
   },
-  { id: "weekAgent", group: "household", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
+  { id: "weekAgent", group: "plan", label: "Veckoagenten", hint: "Ett förslag på veckans middagar som du godkänner. Inget sparas utan att du säger ja", defaultOn: false },
   {
     id: "showHowOften",
-    group: "household",
+    group: "plan",
     label: "Visa hur ofta",
     hint: "I Matsedel: när en rätt senast var på menyn och hur ofta, och chippen Inte på menyn och Aldrig planerad",
     defaultOn: false,
   },
   {
     id: "showPreviousWeek",
-    group: "household",
+    group: "plan",
     label: "Visa tidigare vecka",
     hint: "Förra veckan finns i väljaren på Matsedel, bara för att titta",
     defaultOn: false,
@@ -94,6 +98,16 @@ export const options = [
 ] as const satisfies readonly { id: string; group: OptionGroupId; label: string; hint: string; defaultOn: boolean }[];
 
 export type OptionId = (typeof options)[number]["id"];
+
+/** A switch that does nothing until another one is on: its row is greyed and says "Kräver …" while that one is off. */
+export const optionRequires: Partial<Record<OptionId, OptionId>> = {
+  showKcal: "showNutrition",
+  restaurantAgent: "menuAdvisor",
+  dagensFood: "dagensShow",
+  dagensSeason: "dagensShow",
+  dagensNameDay: "dagensShow",
+  dagensAlmanac: "dagensShow",
+};
 
 export const optionStorageKey = (id: OptionId) => `livskoll-option-${id}`;
 /** Fired on window when an option changes on this page (the `storage` event only reaches other tabs). */
@@ -139,7 +153,7 @@ export function saveOption(id: OptionId, on: boolean): void {
 export const choiceOptions = [
   {
     id: "showFit",
-    group: "household",
+    group: "plan",
     label: "Visa vem rätten passar",
     hint: "Hur hushållets smak och allergier syns på recept och Matsedel",
     defaultValue: "dots",
@@ -151,7 +165,7 @@ export const choiceOptions = [
   },
   {
     id: "oftenAfterWeeks",
-    group: "household",
+    group: "plan",
     label: "Länge sedan efter",
     hint: "Så många veckor utan att rätten legat på menyn tills chipet Inte på menyn visas. Gäller med Visa hur ofta på",
     defaultValue: "4",

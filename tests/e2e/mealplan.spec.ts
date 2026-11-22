@@ -564,8 +564,8 @@ test("Tidigare matsedlar says when there are no earlier plans, and is reached fr
   // Off by default: the dropdown has this week and next week only, and there is no "Tidigare ›" any more.
   await expect(weekDropdown(page).locator("option")).toHaveText(["Denna vecka", "Nästa vecka"]);
   await expect(page.getByRole("link", { name: "Tidigare veckor" })).toHaveCount(0);
-  await page.goto("/installningar");
-  await page.getByRole("link", { name: /Tidigare matsedlar/ }).filter({ visible: true }).click();
+  await page.goto("/installningar/tillval");
+  await page.getByRole("link", { name: "Öppna tidigare matsedlar" }).click();
   await expect(page).toHaveURL(/\/matsedel\/tidigare$/);
   await expect(page.getByRole("heading", { name: "Tidigare matsedlar", level: 1 })).toBeVisible();
   await expect(page.getByText("Inga tidigare matsedlar än.").filter({ visible: true })).toBeVisible();

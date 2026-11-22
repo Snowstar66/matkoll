@@ -94,13 +94,12 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
   // Story 19.7: the account is a card at the top, with no label of its own.
   await expect(page.getByTestId("settings-row").filter({ hasText: "@" }).first()).toBeVisible();
-  for (const group of ["Hushåll", "Recept", "AI", "Appen"]) {
+  for (const group of ["Hushållet", "Den här telefonen", "Funktioner", "Om appen"]) {
     await expect(page.getByRole("heading", { level: 2, name: group, exact: true })).toBeVisible();
   }
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
-  await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Receptsajter", "Modell", "Installera appen", "Siffra på appikonen", "Notiser", "Använd med telefonen", "Om Livskoll"]) {
+  for (const name of ["Konto", "Medlemmar", "Boenden", "Butiker", "Tillval", "Avancerat", "Installera appen", "Siffra på appikonen", "Notiser", "Använd med telefonen", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -113,6 +112,11 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   expect(width[0]).toBeLessThanOrEqual(width[1]);
   expect((await signOut.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
 
+  // Receptsajter and the AI rows moved under Om appen, Avancerat; the old address still opens the page.
+  await row("Avancerat").click();
+  await expect(page).toHaveURL(/\/installningar\/avancerat$/);
+  await expect(row("Receptsajter")).toContainText("3 sajter");
+  await expect(row("Modell")).toBeVisible();
   await row("Receptsajter").click();
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await expect(page.getByRole("heading", { level: 1, name: "Receptsajter" })).toBeVisible();
@@ -137,7 +141,9 @@ test("the side menu leads to Inställningar on desktop, with the start page besi
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Inställningar" }).click();
   await expect(page).toHaveURL(/\/installningar$/);
   await expect(page.getByTestId("settings-menu").getByRole("button", { name: "Logga ut" })).toBeVisible();
-  await page.getByTestId("settings-row").filter({ hasText: "Receptsajter" }).click();
+  await page.getByTestId("settings-row").filter({ hasText: "Avancerat" }).click();
+  await expect(page).toHaveURL(/\/installningar\/avancerat$/);
+  await page.getByTestId("settings-page").getByTestId("settings-row").filter({ hasText: "Receptsajter" }).click();
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await expectSites(page, startSites);
   // Both columns show: the list on the left, the page beside it.
@@ -395,7 +401,7 @@ test("Story 17.6: the start page's AI group and the page AI show this month's ca
   expect(seeded.error).toBeNull();
   const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", month: "long" }).format(new Date());
 
-  await page.goto("/installningar");
+  await page.goto("/installningar/avancerat");
   const aiGroup = page.getByRole("list", { name: "AI", exact: true });
   await expect(aiGroup.getByText(`Kostnad i ${month}`)).toBeVisible();
   await expect(aiGroup.getByTestId("settings-value").filter({ hasText: "ca 2,50 kr" })).toBeVisible();

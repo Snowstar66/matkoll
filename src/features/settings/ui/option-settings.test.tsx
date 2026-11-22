@@ -19,10 +19,10 @@ describe("OptionSettings", () => {
     window.localStorage.clear();
   });
 
-  it("has the groups I receptet, Hushållet, Näring and Dagens, with the Näring switches off by default", () => {
+  it("has the sections Laga mat, Planera veckan, Näring, Äta ute, Förrådet and Dagens, with the Näring switches off by default", () => {
     render(<OptionSettings />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
-    expect(headings).toEqual(["I receptet", "Hushållet", "Näring", "Dagens", "Äta ute", "Förrådet", "Felsökning"]);
+    expect(headings).toEqual(["Laga mat", "Planera veckan", "Näring", "Äta ute", "Förrådet", "Dagens"]);
     const show = screen.getByRole("switch", { name: /^Visa näring/ });
     expect(show).toHaveAttribute("aria-checked", "false");
     expect(show).toHaveAccessibleDescription("Tallriken, märken och veckans rad");
@@ -67,12 +67,45 @@ describe("OptionSettings", () => {
         }
       />,
     );
-    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["I receptet", "Hushållet", "Näring", "Dagens", "Äta ute", "Förrådet", "Felsökning", "Delade recept"]);
+    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["Laga mat", "Planera veckan", "Näring", "Äta ute", "Förrådet", "Dagens", "Delade recept"]);
     const note = screen.getByText("Gäller bara den här enheten.");
     expect(note.compareDocumentPosition(screen.getByTestId("after")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const show = within(screen.getByTestId("after")).getByRole("switch", { name: /^Visa delade recept/ });
     expect(show).toHaveAttribute("aria-checked", "true");
     expect(show).toHaveAccessibleDescription("Recept som andra hushåll delar, under Recept");
+  });
+
+  it("keeps Låt agenten söka på webben and Visa sidtider out of Tillval (they live under Avancerat)", () => {
+    render(<OptionSettings />);
+    expect(screen.queryByRole("switch", { name: /söka på webben/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Visa sidtider/ })).not.toBeInTheDocument();
+  });
+
+  it("orders Planera veckan as Veckoagenten, Visa hur ofta, Länge sedan efter, Visa tidigare vecka, the link, Visa vem rätten passar", () => {
+    render(<OptionSettings />);
+    const section = screen.getByRole("heading", { name: "Planera veckan" }).nextElementSibling as HTMLElement;
+    const order = Array.from(section.children).map((li) => li.textContent ?? "");
+    const at = (text: string) => order.findIndex((entry) => entry.startsWith(text));
+    expect([at("Veckoagenten"), at("Visa hur ofta"), at("Länge sedan efter"), at("Visa tidigare vecka"), at("Öppna tidigare matsedlar"), at("Visa vem rätten passar")]).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(screen.getByRole("link", { name: "Öppna tidigare matsedlar" })).toHaveAttribute("href", "/matsedel/tidigare");
+  });
+
+  it("greys a switch that needs another one and says Kräver, without changing it; an on switch stays free to turn off", async () => {
+    render(<OptionSettings />);
+    const ute = screen.getByRole("switch", { name: /^Sök restauranger/ });
+    expect(ute).toBeDisabled();
+    expect(ute).toHaveAccessibleDescription("Kräver Menyrådgivare");
+    expect(screen.getByRole("switch", { name: /^Namnsdag/ })).toBeEnabled();
+    await userEvent.click(screen.getByRole("switch", { name: /^Visa Dagens/ }));
+    // Namnsdag is off, so it waits; Matdagar is on, so it can still be turned off.
+    expect(screen.getByRole("switch", { name: /^Namnsdag/ })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: /^Namnsdag/ })).toHaveAccessibleDescription("Kräver Visa Dagens");
+    expect(screen.getByRole("switch", { name: /^Matdagar/ })).toBeEnabled();
+    // The greying wrote nothing for them.
+    expect(window.localStorage.getItem("livskoll-option-dagensNameDay")).toBeNull();
+    expect(window.localStorage.getItem("livskoll-option-dagensFood")).toBeNull();
+    await userEvent.click(screen.getByRole("switch", { name: /^Menyrådgivare/ }));
+    expect(screen.getByRole("switch", { name: /^Sök restauranger/ })).toBeEnabled();
   });
 
   it("turns Visa näring on for this device and names the source under the group", async () => {

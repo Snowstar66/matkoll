@@ -1,26 +1,46 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { ChevronRightIcon } from "@/components/icons";
 import { SwitchRow } from "@/components/switch-row";
 import { NUTRITION_LICENSE_URL } from "@/features/nutrition";
 import { cx } from "@/components/cx";
-import { type ChoiceOptionId, type OptionId, choiceOptions, optionGroups, options, saveChoice, saveOption } from "@/lib/options";
+import {
+  type ChoiceOptionId,
+  type OptionId,
+  advancedOptionIds,
+  choiceOptions,
+  optionGroups,
+  optionRequires,
+  options,
+  saveChoice,
+  saveOption,
+} from "@/lib/options";
 import { useChoice, useOption } from "@/lib/use-option";
 
 // Tillval: one switch row per entry in src/lib/options.ts, remembered on this device.
 
-/** One option's switch, remembered on this device; the label and hint of src/lib/options.ts unless given. */
+/**
+ * One option's switch, remembered on this device; the label and hint of src/lib/options.ts unless given.
+ * A switch that needs another one (`optionRequires`) is greyed and says "Kräver …" while that one is off,
+ * unless it is itself on, so it can still be turned off. The greying changes no setting.
+ */
 export function OptionRow({ id, label, hint, disabled = false }: { id: OptionId; label?: string; hint?: string; disabled?: boolean }) {
   const on = useOption(id);
   const option = options.find((entry) => entry.id === id);
+  const requiredId = optionRequires[id];
+  const requiredOn = useOption(requiredId ?? id);
+  const waiting = requiredId !== undefined && !requiredOn && !on;
+  const requiredLabel = requiredId ? options.find((entry) => entry.id === requiredId)?.label : undefined;
   return (
     <SwitchRow
       id={`tillval-${id}`}
       label={label ?? option?.label ?? id}
-      hint={hint ?? option?.hint}
+      hint={waiting ? `Kräver ${requiredLabel}` : (hint ?? option?.hint)}
       on={on}
       onToggle={() => saveOption(id, !on)}
-      disabled={disabled}
+      disabled={disabled || waiting}
     />
   );
 }
@@ -57,36 +77,62 @@ export function ChoiceRow({ id }: { id: ChoiceOptionId }) {
   );
 }
 
+/** The rows of Planera veckan in the order they are shown; "previous" is the link Öppna tidigare matsedlar. */
+const planRows = ["weekAgent", "showHowOften", "oftenAfterWeeks", "showPreviousWeek", "previous", "showFit"] as const;
+
+/** Öppna tidigare matsedlar: always there, so the way to the earlier plans stays even with Visa tidigare vecka off. */
+function PreviousPlansRow() {
+  return (
+    <li>
+      <Link href="/matsedel/tidigare" className="flex min-h-14 items-center gap-3 px-4 py-2 focus-visible:-outline-offset-2" data-testid="open-previous-plans">
+        <span className="min-w-0 flex-1 text-body text-ink">Öppna tidigare matsedlar</span>
+        <ChevronRightIcon size={16} className="-mr-1 shrink-0 text-ink-3" />
+      </Link>
+    </li>
+  );
+}
+
 /**
- * The device's groups, then "Gäller bara den här enheten.", then `after`: the page puts the group
+ * The device's sections, then "Gäller bara den här enheten.", then `after`: the page puts the section
  * Delade recept there, whose other rows are the household's and come from the recipes module.
- * `nutritionNote` is the Näringskoll, a quiet line under the Näring group, shown only with Visa näring on.
+ * `nutritionNote` is the Näringskoll, a quiet line under the Näring section, shown only with Visa näring on.
+ * Låt agenten söka på webben and Visa sidtider are not here: they live under Avancerat.
  */
 export function OptionSettings({ after, nutritionNote }: { after?: ReactNode; nutritionNote?: ReactNode } = {}) {
   const showNutrition = useOption("showNutrition");
+  const hidden: readonly string[] = advancedOptionIds;
   return (
     <section aria-label="Tillval">
       {optionGroups
-        .filter((group) => group.id !== "shared")
+        .filter((group) => group.id !== "shared" && group.id !== "debug")
         .map((group) => (
           <div key={group.id} className="mb-6">
             <h2 className="mx-1 mb-2 text-section-label text-ink-2 uppercase">{group.label}</h2>
             <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg bg-surface">
-              {options
-                .filter((option) => option.group === group.id)
-                .map((option) => (
-                  <OptionRow
-                    key={option.id}
-                    id={option.id}
-                    label={option.label}
-                    // Visa kcal adds to the nutrition card, so it waits for Visa näring.
-                    hint={option.id === "showKcal" && !showNutrition ? "Kräver Visa näring" : option.hint}
-                    disabled={option.id === "showKcal" && !showNutrition}
-                  />
-                ))}
-              {choiceOptions.filter((option) => option.group === group.id).map((option) => (
-                <ChoiceRow key={option.id} id={option.id} />
-              ))}
+              {group.id === "plan" ? (
+                planRows.map((row) =>
+                  row === "previous" ? (
+                    <PreviousPlansRow key={row} />
+                  ) : row === "oftenAfterWeeks" || row === "showFit" ? (
+                    <ChoiceRow key={row} id={row} />
+                  ) : (
+                    <OptionRow key={row} id={row} />
+                  ),
+                )
+              ) : (
+                <>
+                  {options
+                    .filter((option) => option.group === group.id && !hidden.includes(option.id))
+                    .map((option) => (
+                      <OptionRow key={option.id} id={option.id} />
+                    ))}
+                  {choiceOptions
+                    .filter((option) => (option.group as string) === group.id)
+                    .map((option) => (
+                      <ChoiceRow key={option.id} id={option.id} />
+                    ))}
+                </>
+              )}
             </ul>
             {group.id === "nutrition" && showNutrition ? nutritionNote : null}
             {group.id === "nutrition" ? (
