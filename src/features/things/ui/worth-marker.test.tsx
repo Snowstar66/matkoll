@@ -249,32 +249,36 @@ describe("Undersök värdet", () => {
     expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
   });
 
-  it("changes nothing when the user has chosen and the AI thinks otherwise, and offers a button that does it", async () => {
+  it("changes nothing when the user has chosen and the AI thinks otherwise: a plain line, no second button, the switch is the one control", async () => {
     saveOption("worthLook", true);
     const removed = { starred: false, setBy: "removed", tip: aiState.tip, detail: explanationText } as const;
     explainWorthDetail.mockResolvedValueOnce(ok(answer({ suggestion: true, state: removed })));
     setThingWorth.mockResolvedValueOnce(ok({ state: { starred: true, setBy: "user", tip: aiState.tip, detail: null } }));
     render(<WorthBlock state={{ starred: false, setBy: "removed", tip: aiState.tip, detail: null }} thingId={vase.id} />);
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
-    const proposal = await screen.findByTestId("worth-proposal");
-    expect(proposal).toHaveTextContent("AI:n tycker att den kan ha värde. Stjärnmarkera?");
+    const opinion = await screen.findByTestId("worth-opinion");
+    expect(opinion).toHaveTextContent("AI:n tycker att den kan ha värde.");
+    expect(within(opinion).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Stjärnmarkera|Ta bort stjärnan/ })).toBeNull();
+    expect(setThingWorth).not.toHaveBeenCalled();
     expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByTestId("worth-applied")).not.toBeInTheDocument();
-    // The offer is the one statement of what the AI thinks: no recommendation line above it.
+    // The opinion is the one statement of what the AI thinks: no recommendation line beside it.
     expect(screen.queryByTestId("worth-recommendation")).not.toBeInTheDocument();
-    await userEvent.click(within(proposal).getByRole("button", { name: "Stjärnmarkera" }));
+    // The user flips the switch himself.
+    await userEvent.click(screen.getByRole("switch"));
     expect(setThingWorth).toHaveBeenCalledWith({ id: vase.id, starred: true });
     expect(await screen.findByText("Markerad av dig")).toBeInTheDocument();
-    expect(screen.queryByTestId("worth-proposal")).not.toBeInTheDocument();
   });
 
-  it("offers to take the star away when the AI thinks there is no value but the user starred it", async () => {
+  it("says in a line that the AI sees no value when the user starred it, and leaves the star to the switch", async () => {
     saveOption("worthLook", true);
     explainWorthDetail.mockResolvedValueOnce(ok(answer({ recommends: false, suggestion: false, state: { starred: true, setBy: "user", tip: null, detail: explanationText } })));
     render(<WorthBlock state={{ starred: true, setBy: "user", tip: null, detail: null }} thingId={hammer.id} />);
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
-    expect(await screen.findByTestId("worth-proposal")).toHaveTextContent("AI:n tycker inte att den har särskilt värde. Ta bort stjärnan?");
-    expect(screen.getByRole("button", { name: "Ta bort stjärnan" })).toBeInTheDocument();
+    expect(await screen.findByTestId("worth-opinion")).toHaveTextContent("AI:n tycker inte att den har särskilt värde.");
+    expect(screen.queryByRole("button", { name: "Ta bort stjärnan" })).toBeNull();
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "true");
   });
 
   it("says why only once: the tip's sentence gives way to the kept explanation", async () => {

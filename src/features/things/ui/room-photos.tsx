@@ -18,6 +18,7 @@ import { AsideTitle } from "./card-things";
 import { ThingSheet } from "./thing-sheet";
 import { StarCountAfter } from "./worth-marker";
 import { RemovedThingRow, type RemovedThing, useRemovedThings, useRemovedThingsHost } from "./removed-things";
+import { recallUnfolded, rememberUnfolded, roomMemoryKey } from "./room-memory";
 
 // The room's things per photo (Pontus 20 Nov): "i förråd när jag gått in i ett rum kan det finnas flera foton",
 // and a föremål is found by remembering its photo. Each done card is a group with its photo as a small
@@ -163,7 +164,12 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
   }, [cards, idsKey, siteId, roomKey]);
 
   // Every photo starts folded (Värdetips sketches, E); the unfolded ones are this visit's.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  // Back from a card the photos that were unfolded still are (kept in memory only, see room-memory.ts).
+  const memoryKey = roomMemoryKey(siteId, roomKey);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => recallUnfolded(memoryKey));
+  useEffect(() => {
+    rememberUnfolded(memoryKey, expanded);
+  }, [memoryKey, expanded]);
   // UX-B: a föremål removed from a photo leaves its row, struck through, for "Ångra"; the photo is unfolded to show it.
   useRemovedThingsHost();
   const removedThings = useRemovedThings();

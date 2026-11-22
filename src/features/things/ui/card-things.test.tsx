@@ -66,6 +66,13 @@ async function openHammer() {
   return screen.getByRole("dialog", { name: "Föremål" });
 }
 
+
+/** The ⋯ in the sheet's header: Byt kategori and Ta bort föremålet are rows of its menu (Förråd flow sketches, C3). */
+async function menuItem(dialog: HTMLElement, name: string) {
+  await userEvent.click(within(dialog).getByRole("button", { name: "Fler val" }));
+  return within(dialog).getByRole("menuitem", { name });
+}
+
 const photoId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
 const placeId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02";
 const siteId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a03";
@@ -77,7 +84,7 @@ const detail = {
 };
 
 describe("the things of a card", () => {
-  it("opens a sheet with the name, the count field and two quiet lines last, and no Var på bilden", async () => {
+  it("opens a sheet with the name, the count field and a ⋯ menu in the header, and no Var på bilden", async () => {
     const dialog = await openHammer();
     // The name is a free field, titled "Föremål"; there is no Byt namn row or step, and no Spara until something is changed.
     expect(within(dialog).getByRole("textbox", { name: "Vad är det?" })).toHaveValue("Hammare");
@@ -86,14 +93,15 @@ describe("the things of a card", () => {
     expect(within(dialog).queryByRole("listbox")).not.toBeInTheDocument();
     // Not counted: a field to write the count in, straight away.
     expect(await within(dialog).findByRole("textbox", { name: /^Antal/ })).toHaveValue("");
-    expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toBeInTheDocument();
+    // Kategori and Ta bort are not lines at the end of the sheet but rows of the ⋯ menu.
+    expect(within(dialog).queryByRole("button", { name: /^Kategori/ })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Ta bort föremålet" })).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/Var på bilden/)).not.toBeInTheDocument();
     // The AI's hint is not said under the title any more.
     expect(dialog).not.toHaveTextContent("på väggen");
-    const remove = within(dialog).getByRole("button", { name: "Ta bort föremålet" });
-    expect(remove.className).toMatch(/text-meta/);
+    const remove = await menuItem(dialog, "Ta bort föremålet");
     expect(remove.className).toMatch(/text-danger/);
-    expect(remove.className).not.toMatch(/bg-/);
+    expect(await within(dialog).findByRole("menuitem", { name: "Byt kategori" })).toBeInTheDocument();
     // Without a photo read, the mint tile with the category's emoji stands in.
     expect(within(dialog).getByTestId("thing-tile")).toHaveTextContent("\u{1F528}");
     // In the room there is no "Visa på kortet": the room is where it was opened.
@@ -104,7 +112,8 @@ describe("the things of a card", () => {
     loadThingDetail.mockResolvedValue(ok(detail));
     const dialog = await openHammer();
     const photo = await within(dialog).findByTestId("thing-photo");
-    expect(photo).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
+    // The photo is only a picture until the card's numbers are known; "Öppna kortet" is the one way to the card.
+    expect(photo).not.toHaveAttribute("href");
     const crop = within(dialog).getByTestId("thing-photo-crop");
     expect(crop.style.backgroundImage).toContain(`/api/things/photo/${photoId}`);
     // Zoomed in on the box, never less than 125 %.
@@ -113,12 +122,13 @@ describe("the things of a card", () => {
     // No frame and no shading in the sheet.
     expect(within(dialog).queryByTestId("thing-photo-box")).not.toBeInTheDocument();
     expect(dialog.innerHTML).not.toMatch(/100vmax|border-white/);
-    const whole = within(dialog).getByRole("link", { name: "Visa hela kortet" });
+    const whole = within(dialog).getByRole("link", { name: "Öppna kortet" });
     expect(whole).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
     expect(within(dialog).queryByTestId("thing-tile")).not.toBeInTheDocument();
     const crumbs = within(dialog).getByTestId("thing-crumbs");
     expect(within(crumbs).getByRole("link", { name: "Garaget" })).toHaveAttribute("href", `/prylar/rum/${siteId}/garaget`);
     expect(crumbs).toHaveTextContent("Garaget›Hylla 2");
+    expect(within(dialog).getAllByRole("link", { name: "Öppna kortet" })).toHaveLength(1);
     expect(within(crumbs).queryByRole("link", { name: "Hylla 2" })).not.toBeInTheDocument();
   });
 
@@ -134,9 +144,10 @@ describe("the things of a card", () => {
     );
     const dialog = await openHammer();
     await within(dialog).findByTestId("thing-photo");
-    // With the card's numbers known the photo is a button, not a link.
-    expect(within(dialog).queryByRole("link", { name: "Visa hela kortet" })).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByTestId("thing-photo"));
+    // With the card's numbers known the photo and its ⤢ are buttons that enlarge it; "Öppna kortet" stays the one link to the card.
+    expect(within(dialog).getByTestId("thing-photo-expand")).toHaveAccessibleName("Förstora fotot");
+    expect(within(dialog).getByRole("link", { name: "Öppna kortet" })).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
+    await userEvent.click(within(dialog).getByTestId("thing-photo-expand"));
     const viewer = screen.getByRole("dialog", { name: "Kortet" });
     const image = within(viewer).getByRole("img");
     Object.defineProperty(image, "naturalWidth", { configurable: true, value: 800 });
@@ -149,15 +160,14 @@ describe("the things of a card", () => {
     // No status for anything: Förrådet keeps nothing about what became of a föremål.
     expect(within(viewer).queryByTestId("photo-viewer-status")).not.toBeInTheDocument();
     expect(within(viewer).queryByTestId("photo-viewer-legend")).not.toBeInTheDocument();
-    // The way to the card's own page stays.
-    expect(within(viewer).getByRole("link", { name: "Öppna kortet med listan" })).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${hammer.id}`);
+    // The photo view has no way to the card of its own: only "Klar".
+    expect(within(viewer).queryByRole("link")).not.toBeInTheDocument();
     // "Klar" comes back to the sheet.
     await userEvent.click(within(viewer).getByRole("button", { name: "Klar" }));
     expect(screen.queryByRole("dialog", { name: "Kortet" })).not.toBeInTheDocument();
-    // "Visa hela kortet" opens the overview.
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Föremål" })).getByRole("button", { name: "Visa hela kortet" }));
-    const again = screen.getByRole("dialog", { name: "Kortet" });
-    expect(within(again).getByTestId("photo-viewer")).not.toHaveAttribute("data-zoomed");
+    // The photo itself opens the view again.
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Föremål" })).getByTestId("thing-photo"));
+    expect(screen.getByRole("dialog", { name: "Kortet" })).toBeInTheDocument();
   });
 
   it("links a box in the crumbs, and shows the photo without a frame when it has no box", async () => {
@@ -166,7 +176,7 @@ describe("the things of a card", () => {
     const photo = await within(dialog).findByTestId("thing-photo");
     expect(within(dialog).queryByTestId("thing-photo-crop")).not.toBeInTheDocument();
     expect(photo.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
-    expect(within(dialog).getByRole("link", { name: "Visa hela kortet" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Öppna kortet" })).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Låda Jul" })).toHaveAttribute("href", `/prylar/lada/${placeId}`);
   });
 
@@ -195,7 +205,7 @@ describe("the things of a card", () => {
     const dialog = await openHammer();
     // Pontus 2 Nov: one compact row, not nine chips.
     expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
+    await userEvent.click(await menuItem(dialog, "Byt kategori"));
     expect(screen.getByRole("dialog", { name: "Kategori" })).toBe(dialog);
     expect(within(dialog).getByRole("button", { name: "Tillbaka" })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("radio")).toHaveLength(9);
@@ -237,11 +247,11 @@ describe("the things of a card", () => {
   it("moves the check with the arrow keys, picks with Enter, and Tillbaka keeps the category", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Verktyg" }));
+    await userEvent.click(await menuItem(dialog, "Byt kategori"));
     await userEvent.click(within(dialog).getByRole("button", { name: "Tillbaka" }));
-    expect(within(dialog).getByRole("button", { name: "Kategori, Verktyg" })).toHaveFocus();
+    expect(within(dialog).getByLabelText("Vad är det?")).toHaveFocus();
     expect(updateThing).not.toHaveBeenCalled();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(await menuItem(dialog, "Byt kategori"));
     await userEvent.keyboard("{ArrowDown}");
     // The arrow moves the check and stays in the list; Enter picks it.
     expect(within(dialog).getByRole("radio", { name: /Sport/ })).toBeChecked();
@@ -282,7 +292,7 @@ describe("the things of a card", () => {
     removeThing.mockResolvedValue(ok(snapshot));
     restoreThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
+    await userEvent.click(await menuItem(dialog, "Ta bort föremålet"));
     expect((await screen.findAllByText("Tog bort Hammare.")).length).toBeGreaterThan(0);
     expect(removeThing).toHaveBeenCalledWith(hammer.id);
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
@@ -292,7 +302,7 @@ describe("the things of a card", () => {
   it("says so and keeps the thing when it cannot be removed", async () => {
     removeThing.mockResolvedValue(fail("things_item_failed"));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
+    await userEvent.click(await menuItem(dialog, "Ta bort föremålet"));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara föremålet.");
   });
 });
@@ -328,7 +338,7 @@ describe("a thing written in with where it is (Story 18.19)", () => {
   it("changes the name and category without writing its hint as a 'where'", async () => {
     updateThing.mockResolvedValue(ok(null));
     const dialog = await openPass();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Kategori, Övrigt" }));
+    await userEvent.click(await menuItem(dialog, "Byt kategori"));
     await userEvent.click(within(dialog).getByRole("radio", { name: /Kläder/ }));
     await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: pass.id, name: "Pass", category: "Kläder & textil" }));
   });
@@ -338,7 +348,7 @@ describe("a thing written in with where it is (Story 18.19)", () => {
     removeThing.mockResolvedValue(ok(noted));
     restoreThing.mockResolvedValue(ok(null));
     const dialog = await openPass();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremålet" }));
+    await userEvent.click(await menuItem(dialog, "Ta bort föremålet"));
     expect(removeThing).toHaveBeenCalledWith(pass.id);
     expect((await screen.findAllByText("Tog bort Pass.")).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));

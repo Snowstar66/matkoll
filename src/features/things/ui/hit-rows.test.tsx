@@ -91,18 +91,18 @@ function hits(...found: ThingHit[]) {
 }
 
 describe("a search hit's sheet", () => {
-  it("opens from the row with the count card, Visa på kortet › to the card, and Ta bort föremålet last", async () => {
+  it("opens from the row with the count card, Öppna kortet › to the card, and Ta bort föremålet in the ⋯ menu", async () => {
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
     const sheet = screen.getByRole("dialog", { name: "Föremål" });
     expect(sheet).toHaveTextContent("Boden · på väggen");
     expect(await within(sheet).findByRole("textbox", { name: /^Antal/ })).toBeInTheDocument();
-    // The photo at the top is the way to the card (the search hit knows its card at once).
-    const link = within(sheet).getByRole("link", { name: "Öppna hela kortet" });
+    // "Öppna kortet" under the photo is the one way to the card (the search hit knows its card at once).
+    const link = within(sheet).getByRole("link", { name: "Öppna kortet" });
     expect(link).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${id}`);
-    const buttons = within(sheet).getAllByRole("button");
-    expect(buttons[buttons.length - 1]).toHaveTextContent("Ta bort föremålet");
-    expect(buttons[buttons.length - 1].className).toMatch(/text-danger/);
+    await userEvent.click(within(sheet).getByRole("button", { name: "Fler val" }));
+    const remove = within(sheet).getByRole("menuitem", { name: "Ta bort föremålet" });
+    expect(remove.className).toMatch(/text-danger/);
   });
 
   it("is reached with the keyboard, and the thumbnail is a link of its own to the card", async () => {
@@ -121,7 +121,8 @@ describe("a search hit's sheet", () => {
     restoreThing.mockResolvedValue(ok(null));
     hits(hammer);
     await userEvent.click(screen.getByTestId("thing-hit"));
-    await userEvent.click(within(screen.getByRole("dialog", { name: "Föremål" })).getByRole("button", { name: "Ta bort föremålet" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Föremål" })).getByRole("button", { name: "Fler val" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Föremål" })).getByRole("menuitem", { name: "Ta bort föremålet" }));
     expect(removeThing).toHaveBeenCalledWith(id);
     expect((await screen.findAllByText("Tog bort Hammare.")).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.queryByTestId("thing-hit")).not.toBeInTheDocument());

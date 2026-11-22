@@ -8,7 +8,7 @@ import { useOption } from "@/lib/use-option";
 import { Button } from "@/components/button";
 import { ChoiceRows } from "@/components/choice-rows";
 import { FieldError, FieldLabel, Input } from "@/components/field";
-import { ChevronRightIcon } from "@/components/icons";
+import { ChevronRightIcon, ExpandIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -22,23 +22,22 @@ import { thingCategories, thingTiles, type Thing, type ThingCategory } from "../
 import {
   categoryLabelText,
   cleanThingName,
+  enlargePhotoText,
   countInvalidText,
   emptyNameText,
   maxThingNameChars,
   nameFieldText,
-  openWholeCardText,
-  openCardPageText,
   photoViewerAltText,
   photoViewerTitleText,
   showWholeCardText,
   placeCrumbsLabel,
   saveNameText,
   removedThingText,
-  removeThingText,
   thingSheetTitleText,
 } from "../domain/thing-edit";
 import { notedSheetSubtitle } from "../domain/thing-noted";
 import { maxCount } from "../domain/thing-count";
+import { ThingMenu } from "./thing-menu";
 import { WorthBlock } from "./worth-marker";
 import { CountCard } from "./count-card";
 import { addRemovedThing, hasRemovedThingsHost } from "./removed-things";
@@ -100,8 +99,9 @@ function centeredPosition(at: number, zoom: number): number {
 
 /**
  * The top of a föremål's sheet, like Matvaror's "Ändra vara": the photo enlarged around the föremål (no frame, no
- * shading), square, and "Visa hela kortet" under it. Both lead to the whole card. The box is a share of the photo,
- * so the crop is right at any size. Without a box the whole photo shows.
+ * shading), square. The photo and its ⤢ enlarge it (the photo view); "Öppna kortet" under it is the one way to the card's
+ * own page (Förråd flow sketches, C2). The box is a share of the photo, so the crop is right at any size. Without a box
+ * the whole photo shows.
  */
 function ThingPhoto({
   photoId,
@@ -114,7 +114,7 @@ function ThingPhoto({
   photoId: string;
   thingId: string;
   box: ThingDetail["box"];
-  /** The card's numbers are known: the photo and "Visa hela kortet" open the photo view; otherwise they lead to the card's page. */
+  /** The card's numbers are known: the photo and its ⤢ open the photo view; otherwise the photo is only a picture. */
   canView: boolean;
   onView: (zoomed: boolean) => void;
   onOpen: () => void;
@@ -140,28 +140,34 @@ function ThingPhoto({
     <img src={url} alt="" className="mx-auto block max-h-[55svh] w-auto max-w-full" draggable={false} />
   );
   const frameClass = "block w-full overflow-hidden rounded-[14px] bg-border";
-  const wholeClass = "-ml-2 inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent";
   return (
     <div className="flex flex-col gap-1">
       {canView ? (
         // The same photo view as in Matvaror: the photo zoomed in on this föremål, the whole card with every number one tap away.
-        <button type="button" onClick={() => onView(box !== null)} aria-haspopup="dialog" aria-label={openWholeCardText} className={frameClass} data-testid="thing-photo">
-          {picture}
-        </button>
+        <div className="relative">
+          <button type="button" onClick={() => onView(box !== null)} aria-haspopup="dialog" aria-label={enlargePhotoText} className={frameClass} data-testid="thing-photo">
+            {picture}
+          </button>
+          <button
+            type="button"
+            onClick={() => onView(box !== null)}
+            aria-haspopup="dialog"
+            aria-label={enlargePhotoText}
+            data-testid="thing-photo-expand"
+            className="absolute right-2.5 bottom-2.5 flex size-9 items-center justify-center rounded-full bg-marker-off text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <ExpandIcon size={18} />
+          </button>
+        </div>
       ) : (
-        <Link href={href} onClick={onOpen} aria-label={openWholeCardText} className={frameClass} data-testid="thing-photo">
+        <div className={frameClass} data-testid="thing-photo">
           {picture}
-        </Link>
+        </div>
       )}
-      {canView ? (
-        <button type="button" onClick={() => onView(false)} aria-haspopup="dialog" data-testid="thing-photo-whole" className={wholeClass}>
-          {showWholeCardText}
-        </button>
-      ) : (
-        <Link href={href} onClick={onOpen} data-testid="thing-photo-whole" className={wholeClass}>
-          {showWholeCardText}
-        </Link>
-      )}
+      <Link href={href} onClick={onOpen} data-testid="thing-photo-whole" className="-ml-2 inline-flex min-h-tap w-fit items-center gap-1 rounded-md px-2 text-body font-medium text-accent">
+        {showWholeCardText}
+        <ChevronRightIcon size={16} />
+      </Link>
     </div>
   );
 }
@@ -192,17 +198,16 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
   const [photoView, setPhotoView] = useState<{ zoomed: boolean; opened: number } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
-  const categoryRowRef = useRef<HTMLButtonElement>(null);
   const lastStep = useRef<Step>("main");
   const ids = useId();
   const thingId = thing?.id ?? null;
   const sessionAt = session?.at ?? 0;
   const detailKey = `${thingId}-${sessionAt}`;
 
-  // Focus follows the step: the chosen category going deeper, the line that opened the step when coming back.
+  // Focus follows the step: the chosen category going deeper, the name field when coming back.
   useEffect(() => {
     if (step === "category") categoriesRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-    else if (lastStep.current !== "main") categoryRowRef.current?.focus();
+    else if (lastStep.current !== "main") nameRef.current?.focus();
     lastStep.current = step;
   }, [step]);
 
@@ -397,6 +402,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
       onBack={step === "main" ? undefined : () => setStep("main")}
       closeLabel="Avbryt"
       preventClose={saving}
+      headerExtra={step === "main" && thing ? <ThingMenu onCategory={() => go("category")} onRemove={() => void remove()} disabled={saving} /> : undefined}
     >
       {step === "category" ? (
         <div ref={categoriesRef}>
@@ -433,7 +439,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
             {thingTiles[category].icon}
           </div>
         )}
-        {crumbs.length > 0 ? (
+        {crumbs.length > 1 ? (
           <nav aria-label={placeCrumbsLabel} className="-mt-1 flex flex-wrap items-center gap-x-1 px-1 text-body text-ink-2" data-testid="thing-crumbs">
             {crumbs.map((crumb, index) => (
               <Fragment key={crumb.label}>
@@ -512,25 +518,6 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
             <ChevronRightIcon size={16} className="shrink-0 text-ink-3" />
           </Link>
         ) : null}
-        {/* Two quiet lines (Pontus 20 Nov): small, muted text, nothing like buttons. */}
-        <div className="flex items-center justify-between gap-3">
-          <button
-            ref={categoryRowRef}
-            type="button"
-            onClick={() => go("category")}
-            aria-label={`${categoryLabelText}, ${category}`}
-            data-testid="thing-category"
-            className="inline-flex min-h-tap items-center gap-1 rounded-md pr-1 text-meta text-ink-2"
-          >
-            <span aria-hidden="true">
-              {categoryLabelText}: {thingTiles[category].icon} {category}
-            </span>
-            <ChevronRightIcon size={12} className="shrink-0 text-ink-3" />
-          </button>
-          <button type="button" onClick={() => void remove()} data-testid="thing-remove" className="inline-flex min-h-tap items-center rounded-md pl-1 text-meta text-danger">
-            {removeThingText}
-          </button>
-        </div>
       </div>
     </Sheet>
     {viewing && photoId ? (
@@ -545,11 +532,7 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
         quietMarkers
         initialNumber={photoView.zoomed && thing && read ? numberOnCard(read.cardThings ?? [], thing.id) : null}
         alt={photoViewerAltText}
-      >
-        <Link href={cardViewHref(photoId, thing?.id ?? "")} onClick={onClose} data-testid="thing-photo-card-page" className="inline-flex min-h-tap w-fit items-center rounded-md px-2 text-[0.9375rem] font-medium text-accent">
-          {openCardPageText}
-        </Link>
-      </PhotoViewer>
+      />
     ) : null}
     </>
   );
