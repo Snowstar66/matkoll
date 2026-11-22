@@ -66,6 +66,13 @@ export const options = [
     defaultOn: false,
   },
   {
+    id: "phoneCamera",
+    group: "things",
+    label: "Fota med telefonens kamera",
+    hint: "Använder telefonens egen kamera-app, så din blixt och dina kamerainställningar gäller. Du tar en bild i taget i stället för flera i rad. Snabbkameran i appen kan inte använda blixten på iPhone",
+    defaultOn: false,
+  },
+  {
     id: "starterRecipes",
     group: "cook",
     label: "Startrecept",

@@ -37,6 +37,7 @@ import { maxPlaceNameChars, normalizePlaceName } from "../domain/thing-place";
 import { useLastRoom } from "./device-store";
 import { useCardUpload } from "./use-card-upload";
 import { QuickCamera } from "./quick-camera";
+import { useOption } from "@/lib/use-option";
 import { quickCameraText } from "../domain/quick-camera";
 
 // "Ta kort" (Story 18.11): the first row of Förråd, and the two buttons on a
@@ -100,6 +101,8 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   const [quickOpen, setQuickOpen] = useState(false);
   const refresh = useCallback(() => router.refresh(), [router]);
   const upload = useCardUpload(refresh);
+  // Tillval "Fota med telefonens kamera": on a room's page "Fota" opens the phone's own camera app (one photo per tap) instead of Snabbkamera.
+  const phoneCamera = useOption("phoneCamera");
   // UX-27: "Kortet läses i bakgrunden." goes away when the reading is done: the state it was said for is remembered.
   const uploadState = useRef(upload.state);
   useEffect(() => {
@@ -187,6 +190,10 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   /** Snabbkamera on a room's page: the room is the page's own. */
   function openQuick() {
     if (placing || upload.state.kind === "sending") return;
+    if (phoneCamera) {
+      choose(true, true);
+      return;
+    }
     where.current = { siteId, room: defaultRoom ?? "", ...roomSpot() };
     reuse.current = false;
     setQuickOpen(true);
@@ -305,7 +312,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
         </Notice>
       ) : null}
       {problem ? <Notice role="alert">{errorMessages[problem.code]}</Notice> : null}
-      {touch ? (
+      {touch || phoneCamera ? (
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
       ) : null}
       <input ref={pickerRef} type="file" accept={pickerAccept} multiple tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />

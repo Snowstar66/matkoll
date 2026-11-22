@@ -109,4 +109,29 @@ describe("Rummets sida", () => {
     await pick([new File(["a"], "a.jpg", { type: "image/jpeg" })]);
     await waitFor(() => expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Garaget", part: "", box: false }));
   });
+
+  it("with Fota med telefonens kamera on, Fota opens the phone's own camera input (one photo, capture) and not Snabbkamera", async () => {
+    window.localStorage.setItem("livskoll-option-phoneCamera", "1");
+    ensureCapturePlace.mockResolvedValue(ok({ placeId: place }));
+    send.mockResolvedValue(1);
+    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort" });
+    const camera = document.querySelector<HTMLInputElement>("input[type=file][capture=environment]");
+    expect(camera).not.toBeNull();
+    expect(camera).not.toHaveAttribute("multiple");
+    const click = vi.spyOn(camera!, "click");
+    await userEvent.click(screen.getByTestId("quick-camera-open"));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("quick-camera")).toBeNull();
+    const files = [new File(["a"], "a.jpg", { type: "image/jpeg" })];
+    await userEvent.upload(camera!, files);
+    await waitFor(() => expect(send).toHaveBeenCalledWith(files, { placeId: place }));
+    expect(ensureCapturePlace).toHaveBeenCalledWith({ siteId: site, room: "Garaget", part: "", box: false });
+  });
+
+  it("with the switch off (the default) Fota opens Snabbkamera and there is no capture input on a computer", async () => {
+    view({ layout: "room", defaultRoom: "Garaget", variant: "default", title: "Ta fler kort" });
+    expect(document.querySelector("input[capture]")).toBeNull();
+    await userEvent.click(screen.getByTestId("quick-camera-open"));
+    expect(await screen.findByTestId("quick-camera")).toBeInTheDocument();
+  });
 });
