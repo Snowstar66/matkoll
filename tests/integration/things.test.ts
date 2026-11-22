@@ -424,6 +424,27 @@ describe("Förnya och ta bort (Story 18.3)", () => {
     expect(plain).toMatchObject({ worthWhy: null, worthConfidence: null, worthDetail: null, worthSetByUser: null });
   });
 
+  it("Ångra on a removed card brings back its föremål's stars, tips, explanations and the card's own name and line (UX-E)", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Kortstjärn-rummet");
+    const card = await doneCard(c, place, [hammer, { ...hammer, name: "Spade" }]);
+    const [first, second] = await loadThingsIn(c.db, card.id);
+    const star = { worth_why: "Äldre modell, kan vara samlarobjekt.", worth_confidence: "guess", worth_detail: "Rekommendation\nJa", worth_set_by_user: true };
+    expect((await c.db.from("thing_item").update(star).eq("id", first.id)).error).toBeNull();
+    expect((await c.db.from("thing_photo").update({ user_title: "Verktygslådan", ai_title: "Verktyg", summary: "Hammare och spade." }).eq("id", card.id)).error).toBeNull();
+
+    const removed = await removeCardIn(c.db, card.id);
+    expect(removed!.snapshot).toMatchObject({ userTitle: "Verktygslådan", aiTitle: "Verktyg", summary: "Hammare och spade." });
+    expect(removed!.snapshot.things.find((thing) => thing.id === first.id)).toMatchObject({ worthWhy: star.worth_why, worthConfidence: "guess", worthDetail: star.worth_detail, worthSetByUser: true });
+    expect(await restoreCardIn(c.db, removed!.snapshot)).toBe("restored");
+
+    const items = await c.db.from("thing_item").select("id, worth_why, worth_confidence, worth_detail, worth_set_by_user").eq("photo_id", card.id);
+    expect(items.data!.find((row) => row.id === first.id)).toMatchObject(star);
+    expect(items.data!.find((row) => row.id === second.id)).toMatchObject({ worth_why: null, worth_confidence: null, worth_detail: null, worth_set_by_user: null });
+    const photo = await c.db.from("thing_photo").select("user_title, ai_title, summary").eq("id", card.id).single();
+    expect(photo.data).toEqual({ user_title: "Verktygslådan", ai_title: "Verktyg", summary: "Hammare och spade." });
+  });
+
   it("renames just one thing, and removes just one thing with Ångra, leaving the card alone", async () => {
     const site = await siteOf(c);
     const place = await placeOf(c, site, "Pryl-rummet");

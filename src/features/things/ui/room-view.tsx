@@ -25,7 +25,7 @@ import { ClosedBoxes } from "./closed-boxes";
 import { useRoomGroupingStored, useRoomViewStored } from "./device-store";
 import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
-import { useRemovedThings } from "./removed-things";
+import { useRemovedCards, useRemovedThings } from "./removed-things";
 import { roomMemoryKey, useRoomScroll } from "./room-memory";
 import { RoomCards } from "./room-cards";
 import { RemoveRoomButton } from "./remove-room";
@@ -127,8 +127,10 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
   // Per foto is the first choice (Pontus 20 Nov); the choice of this device is kept.
   const [storedGrouping, setStoredGrouping] = useRoomGroupingStored();
   const grouping: RoomGrouping = parseRoomGrouping(storedGrouping);
-  // A föremål just removed keeps its row for "Ångra", even when it was the room's last.
-  const hasRemoved = useRemovedThings().length > 0;
+  // A föremål, or a card (a swipe, UX-E), just removed keeps its row for "Ångra", even when it was the room's last.
+  const removedThings = useRemovedThings().length;
+  const removedCards = useRemovedCards().length;
+  const hasRemoved = removedThings + removedCards > 0;
   const reading = cards.some((card) => card.status === "reading");
 
   // The results of this tab's jobs are on this page, so no confirmation says what is already here.

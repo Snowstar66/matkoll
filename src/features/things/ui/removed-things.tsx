@@ -24,7 +24,28 @@ export type RemovedThing = {
   until: number;
 };
 
+/**
+ * A card removed with a swipe (UX-E): its row stays where it was, struck through, with the same "Ångra" for the same
+ * time. "Ångra" puts back the card, its photo and all its föremål; when the time is out `onExpire` lets go of the photo's file.
+ */
+export type RemovedCard = {
+  id: string;
+  /** The card's name as the row showed it. */
+  label: string;
+  /** "31 okt · 27 saker", as the row showed it. */
+  meta: string;
+  /** Where the card was in the room's list, to put the row back there. */
+  index: number;
+  /** The row's thumbnail as a data URL (the photo is gone from the server while "Ångra" shows); null gives a grey tile. */
+  thumb: string | null;
+  undo: () => void;
+  /** The time ran out without "Ångra". */
+  onExpire: () => void;
+  until: number;
+};
+
 let removed: readonly RemovedThing[] = [];
+let removedCards: readonly RemovedCard[] = [];
 const hosts = new Set<symbol>();
 const listeners = new Set<() => void>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -40,6 +61,30 @@ export function dismissRemovedThing(id: string): void {
   timers.delete(id);
   if (!removed.some((entry) => entry.id === id)) return;
   removed = removed.filter((entry) => entry.id !== id);
+  emit();
+}
+
+/** Drops a removed card's row at once (its time is out, or "Ångra" was tapped); `onExpire` is not called. */
+export function dismissRemovedCard(id: string): void {
+  const timer = timers.get(id);
+  if (timer) clearTimeout(timer);
+  timers.delete(id);
+  if (!removedCards.some((entry) => entry.id === id)) return;
+  removedCards = removedCards.filter((entry) => entry.id !== id);
+  emit();
+}
+
+/** Keeps a removed card's row for `undoWindowMs`; when the time runs out the row goes and `onExpire` runs. */
+export function addRemovedCard(card: Omit<RemovedCard, "until">): void {
+  dismissRemovedCard(card.id);
+  removedCards = [...removedCards, { ...card, until: Date.now() + undoWindowMs }];
+  timers.set(
+    card.id,
+    setTimeout(() => {
+      dismissRemovedCard(card.id);
+      card.onExpire();
+    }, undoWindowMs),
+  );
   emit();
 }
 
@@ -64,6 +109,16 @@ function subscribe(listener: () => void) {
 }
 
 const none: readonly RemovedThing[] = [];
+const noCards: readonly RemovedCard[] = [];
+
+/** The removed cards being kept now. */
+export function useRemovedCards(): readonly RemovedCard[] {
+  return useSyncExternalStore(
+    subscribe,
+    () => removedCards,
+    () => noCards,
+  );
+}
 
 /** The rows being kept now. */
 export function useRemovedThings(): readonly RemovedThing[] {
@@ -85,11 +140,11 @@ export function useRemovedThingsHost(): void {
   }, []);
 }
 
-/** The row: the name struck through and dimmed, "Ångra" with the seconds left, and a bar that shrinks under it. */
-export function RemovedThingRow({ thing }: { thing: RemovedThing }) {
+/** The seconds left of a row's undo time, counted down every quarter second, and whether its bar has started to shrink. */
+function useCountdown(until: number) {
   const [now, setNow] = useState(() => Date.now());
   const [shrink, setShrink] = useState(false);
-  const [totalMs] = useState(() => Math.max(0, thing.until - Date.now()));
+  const [totalMs] = useState(() => Math.max(0, until - Date.now()));
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 250);
     const frame = requestAnimationFrame(() => setShrink(true));
@@ -98,7 +153,37 @@ export function RemovedThingRow({ thing }: { thing: RemovedThing }) {
       cancelAnimationFrame(frame);
     };
   }, []);
-  const seconds = Math.max(1, Math.ceil((thing.until - now) / 1000));
+  return { seconds: Math.max(1, Math.ceil((until - now) / 1000)), shrink, totalMs };
+}
+
+/** "Ångra" with the seconds left, and a bar that shrinks under the row; the row must be `relative`. */
+function UndoTrailing({ until, label, onUndo, testId }: { until: number; label: string; onUndo: () => void; testId: string }) {
+  const { seconds, shrink, totalMs } = useCountdown(until);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onUndo}
+        aria-label={label}
+        className="inline-flex min-h-tap items-center gap-1.5 rounded-full bg-accent px-4 text-meta font-semibold text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        data-testid={testId}
+      >
+        Ångra
+        <small aria-hidden="true" className="text-[0.75rem] font-medium opacity-85">
+          {seconds} s
+        </small>
+      </button>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-left bg-accent opacity-55 ease-linear motion-safe:transition-[width]"
+        style={{ width: shrink ? "0%" : "100%", transitionDuration: `${totalMs}ms` }}
+      />
+    </>
+  );
+}
+
+/** The row: the name struck through and dimmed, "Ångra" with the seconds left, and a bar that shrinks under it. */
+export function RemovedThingRow({ thing }: { thing: RemovedThing }) {
   return (
     <ListRow
       crossedOut
@@ -107,29 +192,45 @@ export function RemovedThingRow({ thing }: { thing: RemovedThing }) {
       className="relative"
       data-testid="thing-removed"
       trailing={
-        <>
-          <button
-            type="button"
-            onClick={() => {
-              dismissRemovedThing(thing.id);
-              thing.undo();
-            }}
-            aria-label={`Ångra: ${thing.name}`}
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-full bg-accent px-4 text-meta font-semibold text-on-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            data-testid="thing-removed-undo"
-          >
-            Ångra
-            <small aria-hidden="true" className="text-[0.75rem] font-medium opacity-85">
-              {seconds} s
-            </small>
-          </button>
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-left bg-accent opacity-55 ease-linear motion-safe:transition-[width]"
-            style={{ width: shrink ? "0%" : "100%", transitionDuration: `${totalMs}ms` }}
-          />
-        </>
+        <UndoTrailing
+          until={thing.until}
+          label={`Ångra: ${thing.name}`}
+          testId="thing-removed-undo"
+          onUndo={() => {
+            dismissRemovedThing(thing.id);
+            thing.undo();
+          }}
+        />
       }
     />
+  );
+}
+
+/** A removed card's row: the card's row as it was (its photo dimmed, its name struck through) with "Ångra" in place of the ⌄. */
+export function RemovedCardRow({ card }: { card: RemovedCard }) {
+  return (
+    <section className="relative overflow-hidden rounded-lg bg-surface" data-testid="card-removed" aria-label={`${card.label}, borttagen`}>
+      <div className="flex items-center gap-3 py-2.5 pr-3 pl-3">
+        <span className="block size-14 shrink-0 overflow-hidden rounded-md bg-border opacity-55" aria-hidden="true">
+          {card.thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={card.thumb} alt="" className="block size-14 object-cover" />
+          ) : null}
+        </span>
+        <span className="flex min-h-tap min-w-0 flex-1 flex-col justify-center">
+          <span className="text-row-title font-semibold wrap-break-word text-ink-3 line-through opacity-65">{card.label}</span>
+          <span className="text-meta text-ink-3 opacity-65">{card.meta}</span>
+        </span>
+        <UndoTrailing
+          until={card.until}
+          label={`Ångra: ${card.label}`}
+          testId="card-removed-undo"
+          onUndo={() => {
+            dismissRemovedCard(card.id);
+            card.undo();
+          }}
+        />
+      </div>
+    </section>
   );
 }

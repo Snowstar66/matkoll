@@ -93,8 +93,13 @@ export const cardSnapshotSchema = z.object({
   errorCode: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).nullable().default(null),
   unseenNote: z.string().min(1).max(300).nullable(),
   unseenCount: z.number().int().min(0).max(99),
-  // A card's föremål come back without their counts (Story 18.23): the next card counts them again.
-  things: z.array(thingSnapshotSchema.omit({ quantity: true, changes: true, worthWhy: true, worthConfidence: true, worthDetail: true, worthSetByUser: true }).extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
+  // The card's own words (its name, the AI's short name and line), so "Ångra" brings them back; none in a snapshot from before.
+  userTitle: z.string().nullable().default(null),
+  aiTitle: z.string().nullable().default(null),
+  summary: z.string().nullable().default(null),
+  // A card's föremål come back without their counts (Story 18.23): the next card counts them again. Their stars and
+  // explanations come back with them (UX-E), as for a föremål removed alone.
+  things: z.array(thingSnapshotSchema.omit({ quantity: true, changes: true }).extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
 });
 export type CardSnapshot = z.output<typeof cardSnapshotSchema>;
 

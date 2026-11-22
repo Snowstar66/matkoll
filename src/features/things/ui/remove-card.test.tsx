@@ -31,6 +31,9 @@ const snapshot: CardSnapshot = {
   status: "done",
   errorCode: null,
   unseenCount: 0,
+  userTitle: null,
+  aiTitle: null,
+  summary: null,
   things: [],
 };
 

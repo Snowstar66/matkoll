@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CategoryHeader } from "@/components/category-header";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
+import { SwipeRow } from "@/components/swipe-row";
 import { groupByCategory, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
 import { CountMeta } from "./hit-rows";
 import { ThingSheet } from "./thing-sheet";
@@ -42,7 +43,18 @@ export function AsideTitle({ name, hint, quantity, worth }: { name: string; hint
   );
 }
 
-export function CardThings({ things, headings = true, aside = false }: { things: readonly Thing[]; headings?: boolean; aside?: boolean }) {
+export function CardThings({
+  things,
+  headings = true,
+  aside = false,
+  onRemove,
+}: {
+  things: readonly Thing[];
+  headings?: boolean;
+  aside?: boolean;
+  /** UX-E: with it each row swipes to the left to reveal "Ta bort", which calls this (a room's list per category). */
+  onRemove?: (thing: Thing, via: "keyboard" | "pointer") => void;
+}) {
   const [open, setOpen] = useState(false);
   // Kept while the sheet closes, so its text does not blank during the animation.
   const [selected, setSelected] = useState<Thing | null>(null);
@@ -55,30 +67,42 @@ export function CardThings({ things, headings = true, aside = false }: { things:
         <section key={group.category} className="flex flex-col gap-2" data-testid="thing-group">
           {headings ? <CategoryHeading category={group.category} count={group.things.length} id={`cat-${group.category}`} /> : null}
           <ListGroup labelledBy={headings ? `cat-${group.category}` : undefined} label={headings ? undefined : group.category}>
-            {group.things.map((thing) => (
-              <ListRow
-                key={thing.id}
-                title={
-                  aside ? (
-                    <AsideTitle name={thing.name} hint={thingMeta(thing)} quantity={thing.quantity ?? null} worth={thing.worth} />
-                  ) : thing.worth ? (
-                    <span>
-                      {thing.name}
-                      <WorthMarker worth={thing.worth} />
-                    </span>
-                  ) : (
-                    thing.name
-                  )
-                }
-                meta={aside ? undefined : thing.quantity != null ? <CountMeta quantity={thing.quantity} rest={thingMeta(thing)} /> : thingMeta(thing)}
-                onPress={() => {
-                  setSelected(thing);
-                  setOpen(true);
-                }}
-                pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
-                data-testid="thing"
-              />
-            ))}
+            {group.things.map((thing) => {
+              const row = (
+                <ListRow
+                  key={thing.id}
+                  as={onRemove ? "div" : undefined}
+                  title={
+                    aside ? (
+                      <AsideTitle name={thing.name} hint={thingMeta(thing)} quantity={thing.quantity ?? null} worth={thing.worth} />
+                    ) : thing.worth ? (
+                      <span>
+                        {thing.name}
+                        <WorthMarker worth={thing.worth} />
+                      </span>
+                    ) : (
+                      thing.name
+                    )
+                  }
+                  meta={aside ? undefined : thing.quantity != null ? <CountMeta quantity={thing.quantity} rest={thingMeta(thing)} /> : thingMeta(thing)}
+                  onPress={() => {
+                    setSelected(thing);
+                    setOpen(true);
+                  }}
+                  pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
+                  data-testid="thing"
+                />
+              );
+              return onRemove ? (
+                <li key={thing.id}>
+                  <SwipeRow actionLabel="Ta bort" actionName={`Svep bort ${thing.name}`} onAction={(via) => onRemove(thing, via)}>
+                    {row}
+                  </SwipeRow>
+                </li>
+              ) : (
+                row
+              );
+            })}
           </ListGroup>
         </section>
       ))}

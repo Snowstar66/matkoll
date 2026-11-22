@@ -10,6 +10,7 @@ import { categoryToggleLabel } from "../domain/thing-room";
 import { CardThings } from "./card-things";
 import { ListGroup } from "@/components/list-group";
 import { RemovedThingRow, useRemovedThings, useRemovedThingsHost } from "./removed-things";
+import { useSwipeRemoval } from "./swipe-removal";
 import { useOpenCategories } from "./device-store";
 
 // The room's things per category (Story 18.12, UX-27): the same category rows as Matvaror
@@ -41,6 +42,9 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
   // UX-B: a föremål just removed stays as a struck-through row in its category for "Ångra".
   useRemovedThingsHost();
   const removedThings = useRemovedThings();
+  const { removeThingRow, dialog } = useSwipeRemoval();
+  // A föremål that has just been removed shows as its struck-through row, not as itself, while the page is read again.
+  const goneIds = new Set(removedThings.map((thing) => thing.id));
   const lastOfCategory = [...new Set(removedThings.filter((thing) => !categories.some((entry) => entry.category === thing.category)).map((thing) => thing.category))];
 
   // Reads the rows of the open categories, and again when the page's counts are new (a refresh).
@@ -106,7 +110,7 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
               <CategoryHeader category={category} icon={icon} count={things} level={3} />
             )}
             <div id={`room-cat-${category}`} hidden={!isOpen}>
-              {isOpen && rows && "things" in rows ? <CardThings things={rows.things} headings={false} aside /> : null}
+              {isOpen && rows && "things" in rows ? <CardThings things={rows.things.filter((thing) => !goneIds.has(thing.id))} headings={false} aside onRemove={removeThingRow} /> : null}
               {isOpen && removedThings.some((thing) => thing.category === category) ? (
                 <div className={rows && "things" in rows && rows.things.length > 0 ? "mt-2" : undefined}>
                   <ListGroup label={`${category}, borttagna`}>
@@ -141,6 +145,7 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
           </ListGroup>
         </section>
       ))}
+      {dialog}
     </div>
   );
 }
