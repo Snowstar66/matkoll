@@ -216,7 +216,9 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await page.getByRole("radio", { name: "Kort" }).click();
   const card = page.getByTestId("room-card");
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText("Hela rummet");
+  // The reading gave the card a short name and a line about what it holds (the mock's fixture); they show instead of "Hela rummet".
+  await expect(card).toContainText("Verktygshyllan");
+  await expect(card.getByTestId("card-summary")).toHaveText("Mest verktyg och redskap");
   await expect(card).toContainText(`12 föremål · ${shortDateText(new Date())}`);
   await expect(card.getByRole("img")).toBeVisible();
   // The actions are in the ⋯ inside the card, not on the square.
