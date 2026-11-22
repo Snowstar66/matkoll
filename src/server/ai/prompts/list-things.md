@@ -1,4 +1,4 @@
-Du ser ett foto från ett förråd i ett svenskt hem. Lista alla saker du kan urskilja, även delvis synliga. Ge ett kort svenskt namn (t.ex. "hammare", "skridskor (par)"), kategori ur listan, var i bilden (t.ex. "översta hyllan, vänster"), en ruta runt föremålet, ett antal för förbrukningsvaror du kan räkna och säkerhet hög/medel/låg. Ta inte med fast inredning som hyllor, konsoler och väggar. Avsluta med en kort mening om lådor/påsar vars innehåll inte syns. Svara bara med JSON enligt schemat: `{ "things": [ … ], "hiddenContainers": 0, "hiddenNote": null }`.
+Du ser ett foto från ett förråd i ett svenskt hem. Lista alla saker du kan urskilja, även delvis synliga. Ge ett kort svenskt namn (t.ex. "hammare", "skridskor (par)"), kategori ur listan, var i bilden (t.ex. "översta hyllan, vänster"), en ruta runt föremålet, ett antal för förbrukningsvaror du kan räkna och säkerhet hög/medel/låg. Ta inte med fast inredning som hyllor, konsoler och väggar. Avsluta med en kort mening om lådor/påsar vars innehåll inte syns. Svara bara med JSON enligt schemat: `{ "things": [ … ], "hiddenContainers": 0, "hiddenNote": null, "summary": null, "title": null }`.
 
 ## Indata
 
@@ -9,7 +9,7 @@ Du ser ett foto från ett förråd i ett svenskt hem. Lista alla saker du kan ur
 - Ta med varje sak du kan urskilja, också de som bara syns delvis, till exempel ett skaft som sticker upp ur en back. Flera likadana saker bredvid varandra är en post i plural ("Skruvmejslar") så länge de ligger på samma ställe.
 - Ta inte med fast inredning: hyllor, konsoler, krokar, fästen, väggar, golv, tak, dörrar och belysning. Ta inte med hyllplanet eller förvaringen själv, men ta med innehållet i den.
 - Hitta aldrig på saker du inte ser, och gissa inte vad som finns i en stängd låda, back, kartong eller påse. Ta bara med själva behållaren (kategori "Förvaring & lådor") när den syns tydligt.
-- Högst 60 saker. Finns det fler, ta de tydligaste först. Syns inga, svara `{ "things": [], "hiddenContainers": 0, "hiddenNote": null }`.
+- Högst 60 saker. Finns det fler, ta de tydligaste först. Syns inga, svara `{ "things": [], "hiddenContainers": 0, "hiddenNote": null, "summary": null, "title": null }`.
 
 ## Fälten
 
@@ -21,3 +21,5 @@ Du ser ett foto från ett förråd i ett svenskt hem. Lista alla saker du kan ur
 - `confidence`: "high" (hög) när du ser vad det är, "medium" (medel) när du är ganska säker, "low" (låg) när det är en gissning, till exempel för en sak som är delvis skymd eller svår att urskilja.
 - `hiddenContainers`: antalet lådor, backar, kartonger, påsar och skåp på bilden vars innehåll inte syns. 0 om inga.
 - `hiddenNote`: en kort mening på svenska om det som inte syns, till exempel "Innehållet i tre lådor och en påse syns inte." `null` om allt syns.
+- `summary`: en kort rad, högst 70 tecken, om vad kortet mest innehåller, till exempel "Mest verktyg och redskap" eller "Julpynt och batterier". Är innehållet blandat utan tydligt tema, skriv "Diverse". Är inget tydligt, eller syns inga saker, skriv `null`. Ingen punkt på slutet.
+- `title`: ett kort namn på kortet, två till fyra ord, till exempel "Batterilådan" eller "Cykelhyllan" när det mesta är batterier eller cyklar. `null` om inget är tydligt.

@@ -941,14 +941,14 @@ isOneToOne: false
                   ]
                 },"thing_item": {
                   Row: {
-                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"household_id": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"quantity": number | null,"same_as": string | null,"source": string,"updated_at": string | null,"updated_by": string | null,"user_id": string | null,"where_hint": string | null,"worth_confidence": string | null,"worth_detail": string | null,"worth_why": string | null
+                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"household_id": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"quantity": number | null,"same_as": string | null,"source": string,"updated_at": string | null,"updated_by": string | null,"user_id": string | null,"where_hint": string | null,"worth_confidence": string | null,"worth_detail": string | null,"worth_set_by_user": boolean | null,"worth_why": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"household_id"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null,"worth_confidence"?: string | null,"worth_detail"?: string | null,"worth_why"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"household_id"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null,"worth_confidence"?: string | null,"worth_detail"?: string | null,"worth_set_by_user"?: boolean | null,"worth_why"?: string | null
                   }
                   Update: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"household_id"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null,"worth_confidence"?: string | null,"worth_detail"?: string | null,"worth_why"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"household_id"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"updated_at"?: string | null,"updated_by"?: string | null,"user_id"?: string | null,"where_hint"?: string | null,"worth_confidence"?: string | null,"worth_detail"?: string | null,"worth_set_by_user"?: boolean | null,"worth_why"?: string | null
                   }
                   Relationships: [
                     {
@@ -979,14 +979,14 @@ isOneToOne: false
                   ]
                 },"thing_photo": {
                   Row: {
-                    "created_at": string,"error_code": string | null,"height": number,"household_id": string,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id": string | null,"status": string,"taken_at": string,"unseen_count": number,"unseen_note": string | null,"user_id": string | null,"width": number
+                    "ai_title": string | null,"created_at": string,"error_code": string | null,"height": number,"household_id": string,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id": string | null,"status": string,"summary": string | null,"taken_at": string,"unseen_count": number,"unseen_note": string | null,"user_id": string | null,"user_title": string | null,"width": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"error_code"?: string | null,"height": number,"household_id"?: string,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id"?: string | null,"status"?: string,"taken_at": string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string | null,"width": number
+                    "ai_title"?: string | null,"created_at"?: string,"error_code"?: string | null,"height": number,"household_id"?: string,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id"?: string | null,"status"?: string,"summary"?: string | null,"taken_at": string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string | null,"user_title"?: string | null,"width": number
                   }
                   Update: {
-                    "created_at"?: string,"error_code"?: string | null,"height"?: number,"household_id"?: string,"id"?: string,"media_type"?: string,"object_path"?: string,"place_id"?: string,"replaces_photo_id"?: string | null,"status"?: string,"taken_at"?: string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string | null,"width"?: number
+                    "ai_title"?: string | null,"created_at"?: string,"error_code"?: string | null,"height"?: number,"household_id"?: string,"id"?: string,"media_type"?: string,"object_path"?: string,"place_id"?: string,"replaces_photo_id"?: string | null,"status"?: string,"summary"?: string | null,"taken_at"?: string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string | null,"user_title"?: string | null,"width"?: number
                   }
                   Relationships: [
                     {

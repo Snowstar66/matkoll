@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { boxOfRow } from "../domain/thing-card";
 import type { ThingDetail } from "../domain/thing-detail";
-import { worthOfRow, worthRowShape } from "../domain/thing-worth";
+import { worthOfRow, worthRowShape, worthStateOfRow } from "../domain/thing-worth";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
 // The detail of one föremål for its sheet: its card, the box on it and where
@@ -33,7 +33,7 @@ const cardThingSchema = z.object({
 
 /** The föremål on card `photoId` in the card's order (the order of its page, so the numbers agree). Throws ThingsDataError. */
 async function loadCardThings(db: ThingsDb, photoId: string): Promise<ThingDetail["cardThings"]> {
-  const { data, error } = await db.from("thing_item").select("id, name, position, box_left, box_top, box_width, box_height, worth_why, worth_confidence").eq("photo_id", photoId);
+  const { data, error } = await db.from("thing_item").select("id, name, position, box_left, box_top, box_width, box_height, worth_why, worth_confidence, worth_set_by_user").eq("photo_id", photoId);
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   const parsed = z.array(cardThingSchema).safeParse(data);
   if (!parsed.success) throw new ThingsDataError("invalid_row");
@@ -45,7 +45,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_item")
-      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, worth_why, worth_confidence, worth_detail, thing_place!inner(site_id, room, room_key, part, kind)")
+      .select("photo_id, source, place_id, box_left, box_top, box_width, box_height, worth_why, worth_confidence, worth_detail, worth_set_by_user, thing_place!inner(site_id, room, room_key, part, kind)")
       .eq("id", id)
       .maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
@@ -59,6 +59,7 @@ export async function loadThingDetailIn(db: ThingsDb, id: string): Promise<Thing
       source: row.source,
       box: boxOfRow(row),
       worth: worthOfRow(row),
+      worthState: worthStateOfRow(row),
       place: {
         id: row.place_id,
         siteId: row.thing_place.site_id,

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 "use client";
 
 import { useId } from "react";
@@ -14,8 +15,11 @@ export function SwitchRow({
   onToggle,
   disabled = false,
   id,
+  icon,
 }: {
   label: string;
+  /** Before the label (the star of Kan ha värde); decoration. */
+  icon?: ReactNode;
   hint?: string;
   on: boolean;
   onToggle: () => void;
@@ -36,7 +40,10 @@ export function SwitchRow({
         className={cx("flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left", disabled && "opacity-50")}
       >
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-body text-ink">{label}</span>
+          <span className="flex items-center gap-1.5 text-body text-ink">
+            {icon}
+            {label}
+          </span>
           {hint ? (
             <span id={hintId} className="text-meta text-ink-2">
               {hint}

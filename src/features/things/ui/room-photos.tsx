@@ -81,9 +81,15 @@ function PhotoFold({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-row-title font-semibold wrap-break-word text-ink">{card.label}</span>
             <span className="text-meta text-ink-2">
+              {card.named && card.placeLabel ? `${card.placeLabel} · ` : ""}
               {date} · {categoryCountText(things.length)}
               <StarCountAfter count={starred} />
             </span>
+            {card.summary ? (
+              <span className="truncate text-meta text-ink-3" data-testid="card-summary">
+                {card.summary}
+              </span>
+            ) : null}
           </span>
           <span aria-hidden="true" className="flex size-tap shrink-0 items-center justify-center text-ink-3">
             <ChevronDownIcon size={20} className={open ? "rotate-180" : undefined} />

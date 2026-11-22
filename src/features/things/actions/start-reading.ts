@@ -92,10 +92,10 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
       return fail("ai_unavailable");
     }
 
-    const { things, hiddenContainers, hiddenNote } = listed.data;
+    const { things, hiddenContainers, hiddenNote, summary, title } = listed.data;
     let removed: string[];
     try {
-      removed = await saveReadingIn(db, { photoId: card.id, things, note: hiddenNote, hidden: hiddenContainers });
+      removed = await saveReadingIn(db, { photoId: card.id, things, note: hiddenNote, hidden: hiddenContainers, summary, title });
     } catch (error) {
       const detail = error instanceof ThingsDataError ? error.detail : "unknown";
       console.error("things_save_failed", { reason: detail });

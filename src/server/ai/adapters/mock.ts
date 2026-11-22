@@ -21,7 +21,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ExplainDishInput, ExplainDishResult, ExplainWorthInput, ExplainWorthResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, ReadShoppingListResult, SuggestDishesInput, SuggestedDish } from "../service";
+import type { AiService, AnalyzeImageResult, SummarizeCardResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ExplainDishInput, ExplainDishResult, ExplainWorthInput, ExplainWorthResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, LocateThingInput, LocateThingResult, MatchOffersInput, MatchOffersResult, MergeThingsInput, MergeThingsResult, NowIdeasInput, NowIdeasResult, ParseRecipeInput, ReadShoppingListResult, SuggestDishesInput, SuggestedDish } from "../service";
 import { labelKey } from "@/lib/label-key";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -406,7 +406,17 @@ function mockWorthExplanation(input: ExplainWorthInput): ExplainWorthResult {
     kan_vara: "Det kan vara en äldre svensk tillverkning, men det här är en gissning utan synlig signatur.",
     undersok: ["Titta på undersidan efter en stämpel eller signatur.", "Jämför formen med kataloger och sålda annonser för samma typ.", `Sök på ”${input.name} vintage” för att se varianter.`],
     sokfras: `${input.name} vintage`,
+    // A föremål that came with a tip is recommended; one without is not, so both answers can be tried. A name that holds "klassiker" or "vintage" is.
+    recommends: input.tip !== null || /klassiker|vintage|antik/i.test(input.name),
+    tip: input.tip ?? `${input.name} kan vara en äldre tillverkning, titta efter stämpel.`,
+    confidence: input.confidence ?? "guess",
   };
+}
+
+/** summarizeCard without a model: a line and a short name made from the first names, so the card's line can be seen. */
+function mockCardSummary(names: readonly string[]): { summary: string | null; title: string | null } {
+  if (names.length === 0) return { summary: null, title: null };
+  return { summary: `Mest ${names[0]!.toLocaleLowerCase("sv")} och annat`.slice(0, 70), title: `Kortet med ${names[0]!.toLocaleLowerCase("sv")}`.slice(0, 40) };
 }
 
 function mockCategories(input: CategorizeThingsInput): CategorizeThingsResult {
@@ -558,6 +568,7 @@ function countingCalls(service: AiService): AiService {
     categorizeThings: counted(service.categorizeThings),
     explainDish: counted(service.explainDish),
     explainWorth: counted(service.explainWorth),
+    summarizeCard: counted(service.summarizeCard),
   };
 }
 
@@ -766,6 +777,14 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const name = normalizeInputText({ text: input.name });
       for (const [text, code] of errors) if (name.includes(text)) return fail(code);
       return ok(mockWorthExplanation(input));
+    },
+    async summarizeCard(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const errors = logged(askErrors());
+      if (!errors) return fail("ai_unavailable");
+      const joined = normalizeInputText({ text: input.names.join(" ") });
+      for (const [text, code] of errors) if (joined.includes(text)) return fail(code);
+      return ok(mockCardSummary(input.names));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

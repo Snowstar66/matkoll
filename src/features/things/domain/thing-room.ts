@@ -161,6 +161,14 @@ export type RoomCard = {
   unseenCount: number;
   /** Värdetips: how many of the card's föremål have a star; missing counts as none. */
   starred?: number;
+  /** What the card shows ("Hela rummet"), also when `label` is a name of the card's own (user_title or the AI's short name). */
+  placeLabel?: string;
+  /** The AI's line about what the card holds; null or missing when none. */
+  summary?: string | null;
+  /** The card's own name: the user's, else the AI's short one; null or missing when it has none. */
+  title?: string | null;
+  /** The card has a name of its own (the user's or the AI's), shown as `label`. */
+  named?: boolean;
 };
 
 /** The room's page titles: the tabs of the segmented control. */

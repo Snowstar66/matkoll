@@ -8,6 +8,8 @@ const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace, refresh: vi.fn() }) }));
 vi.mock("../actions/remove-card", () => ({ removeThingCard: vi.fn(), restoreThingCard: vi.fn(), finishCardRemoval: vi.fn() }));
 vi.mock("../actions/add-card-things", () => ({ addCardThings: vi.fn() }));
+vi.mock("../actions/worth-state", () => ({ renameThingCard: vi.fn() }));
+vi.mock("./worth-client", () => ({ refreshCardSummaryText: vi.fn() }));
 vi.mock("./use-card-upload", () => ({ useCardUpload: () => ({ state: { kind: "idle" }, send: vi.fn() }) }));
 
 const cardId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
@@ -30,7 +32,7 @@ describe("the ⋯ of a card's page", () => {
     expect(screen.queryByTestId("remove-card")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Fler val: Hela rummet" }));
     const sheet = screen.getByRole("dialog", { name: "Kortet" });
-    expect(within(sheet).getAllByRole("button").map((button) => button.textContent)).toEqual(["Klar", "Ta om kortet", "Lägg till föremål", "Ta bort kortet"]);
+    expect(within(sheet).getAllByRole("button").map((button) => button.textContent)).toEqual(["Klar", "Ta om kortet", "Lägg till föremål", "Byt namn", "Uppdatera sammanfattningenEtt AI-anrop", "Ta bort kortet"]);
   });
 
   it("opens the question of each action as before, in place of the menu", async () => {

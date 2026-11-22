@@ -14,5 +14,7 @@
     { "name": "Presenning", "category": "Hushåll", "where": "överst, höger", "confidence": "low", "box": [717, 184, 823, 289], "count": null, "worth": null }
   ],
   "hiddenContainers": 3,
-  "hiddenNote": "Innehållet i tre lådor syns inte."
+  "hiddenNote": "Innehållet i tre lådor syns inte.",
+  "summary": "Mest verktyg och redskap",
+  "title": "Verktygshyllan"
 }

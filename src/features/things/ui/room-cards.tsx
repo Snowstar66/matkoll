@@ -95,6 +95,11 @@ export function RoomCards({
               <p className="py-1 text-meta font-medium wrap-break-word text-ink">{card.label}</p>
               {menuFor?.(card.placeId)}
             </div>
+            {card.status === "done" && card.summary ? (
+              <p className="truncate text-meta text-ink-2" data-testid="card-summary">
+                {card.summary}
+              </p>
+            ) : null}
             {card.status === "reading" ? (
               <AiWorking size="sm" steps={cardSteps} />
             ) : (

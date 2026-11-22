@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
-import { explainThingWorth } from "@/features/things/server";
+import { explainThingWorth, type WorthAssessment } from "@/features/things/server";
 import { fail, type Result } from "@/lib/errors";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../../ai/route-support";
 
@@ -10,7 +10,7 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../..
 
 export const maxDuration = 60;
 
-const bodySchema = z.object({ thing: z.uuid() });
+const bodySchema = z.object({ thing: z.uuid(), refresh: z.boolean().optional() });
 
 export async function POST(request: Request): Promise<Response> {
   if (isCrossSite(request)) return respond(fail("unauthorized"), 403);
@@ -29,9 +29,9 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return respond(fail("validation"));
 
-  let result: Result<{ detail: string }>;
+  let result: Result<WorthAssessment>;
   try {
-    result = await explainThingWorth(parsed.data.thing);
+    result = await explainThingWorth(parsed.data.thing, parsed.data.refresh === true);
   } catch (error) {
     console.error("things_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     result = fail("things_unavailable");
