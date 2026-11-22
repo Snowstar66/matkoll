@@ -1340,12 +1340,17 @@ test("Byt namn på rummet renames, and merges into a room that has the name afte
   expect((await cardsOf()).length).toBe(3);
 });
 
-test("a part or a box can be renamed and removed from its ⋯, and removing asks first and says what goes", async ({ page }) => {
+test("a box can be renamed and removed from its ⋯ and asks first; a part has no list and no ⋯ (UX-F)", async ({ page }) => {
   await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }, { name: "Hammare", category: "Verktyg" }], { part: "Hyllan" });
   const boxId = await seedPlace(hemma, "Garaget", [{ name: "Spade", category: "Trädgård" }], { part: "Blå backen", box: true });
   await page.goto(roomUrl("Garaget"));
 
-  // The list of boxes: rename.
+  // No "Delar" heading and no list of parts with its ⋯; the old part's card is still there, with the part as small text.
+  await expect(page.getByRole("heading", { name: "Delar" })).toHaveCount(0);
+  await expect(page.getByTestId("room-parts")).toHaveCount(0);
+  await expect(page.getByTestId("room-part")).toHaveCount(0);
+
+  // The list of boxes keeps its ⋯: rename.
   await page.getByTestId("room-box").locator("xpath=ancestor::li").getByTestId("place-menu").click();
   await page.getByTestId("place-rename").click();
   const rename = page.getByRole("dialog", { name: "Byt namn på lådan" });
@@ -1355,28 +1360,51 @@ test("a part or a box can be renamed and removed from its ⋯, and removing asks
   await expect(page.getByTestId("room-box")).toContainText("Gröna backen");
   expect((await adminClient().from("thing_place").select("part, part_key").eq("id", boxId).single()).data).toEqual({ part: "Gröna backen", part_key: "box:gröna backen" });
 
-  // The list of parts: remove, with the question first.
-  const part = page.getByTestId("room-part");
-  await part.getByTestId("place-menu").click();
+  // The view Kort: only the box's card label has a ⋯ (the part's card has none); remove the box, with the question first.
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await expect(page.getByTestId("room-card").getByTestId("place-menu")).toHaveCount(1);
+  await page.getByTestId("room-card").getByTestId("place-menu").click();
   await page.getByTestId("place-remove").click();
-  const sheet = page.getByRole("dialog", { name: "Ta bort delen Hyllan" });
-  await expect(sheet.getByTestId("place-remove-counts")).toHaveText("Det här tas bort: 2 föremål, 1 kort.");
-  await shot(page, "9-remove-part");
+  const sheet = page.getByRole("dialog", { name: "Ta bort lådan Gröna backen" });
+  await expect(sheet.getByTestId("place-remove-counts")).toHaveText("Det här tas bort: 1 föremål, 1 kort.");
+  await shot(page, "9-remove-box");
   await sheet.getByRole("button", { name: "Avbryt" }).click();
   expect((await cardsOf()).length).toBe(2);
-  await part.getByTestId("place-menu").click();
-  await page.getByTestId("place-remove").click();
-  await page.getByTestId("place-remove-confirm").click();
-  await expect(page.getByTestId("room-part")).toHaveCount(0);
-  expect((await cardsOf()).length).toBe(1);
-
-  // The view Kort: the box's card label has its ⋯ too; the last place takes the room with it.
-  await page.getByRole("radio", { name: "Kort" }).click();
   await page.getByTestId("room-card").getByTestId("place-menu").click();
   await page.getByTestId("place-remove").click();
   await page.getByTestId("place-remove-confirm").click();
-  await expect(page).toHaveURL(/\/prylar$/);
-  expect((await adminClient().from("thing_place").select("id").eq("user_id", userId)).data).toEqual([]);
+  await expect(page.getByTestId("room-card").getByTestId("place-menu")).toHaveCount(0);
+  expect((await cardsOf()).length).toBe(1);
+});
+
+test("per photo: a card that sits in a part is renamed in its own ⋯, one card at a time, and the part stays as small text under the title (UX-F)", async ({ page }) => {
+  const first = await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }], { part: "Hyllan" });
+  await seedPlace(hemma, "Garaget", [{ name: "Spade", category: "Trädgård" }], { part: "Golvet", takenAt: "2026-11-01T10:00:00Z" });
+  const admin = adminClient();
+  const cards = (await admin.from("thing_photo").select("id, place_id").eq("user_id", userId)).data!;
+  const card = cards.find((entry) => entry.place_id === first)!;
+  await page.goto(roomUrl("Garaget"));
+  // A card without a name of its own is called after the part; both rows say so, and there is no Delar list.
+  await expect(page.getByTestId("room-photo-row")).toHaveCount(2);
+  await expect(page.getByTestId("room-photo-row").filter({ hasText: "Hyllan" })).toHaveCount(1);
+  await expect(page.getByTestId("room-photo-row").filter({ hasText: "Golvet" })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Delar" })).toHaveCount(0);
+
+  await page.goto(`/prylar/kort/${card.id}`);
+  await page.getByTestId("card-menu").click();
+  await page.getByTestId("card-menu-rename").click();
+  const rename = page.getByRole("dialog", { name: "Byt namn" });
+  await rename.getByLabel("Kortets namn").fill("Kryddhyllan");
+  await rename.getByRole("button", { name: "Spara" }).click();
+  await expect(rename).toHaveCount(0);
+  await expect.poll(async () => (await admin.from("thing_photo").select("user_title").eq("id", card.id).single()).data?.user_title).toBe("Kryddhyllan");
+  // Only that card was renamed; the part is small text under its title, the other card is as it was.
+  expect((await admin.from("thing_photo").select("user_title").eq("user_id", userId).not("user_title", "is", null)).data).toHaveLength(1);
+  await page.goto(roomUrl("Garaget"));
+  const rows = page.getByTestId("room-photo-row");
+  await expect(rows.filter({ hasText: "Kryddhyllan" })).toContainText("Hyllan · ");
+  await expect(rows.filter({ hasText: "Kryddhyllan" })).toHaveCount(1);
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/f-renamed.png` });
 });
 
 test("a card that could not be read, or is stuck reading, has Försök igen and Ta bort, and Ta bort works with Ångra", async ({ page }) => {
@@ -1667,7 +1695,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   // In the room: under its category with its part and day; its sheet says so, has no "Var på bilden", and removes it with Ångra.
   await chat.getByTestId("chat-ref").last().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sovrummet");
-  await expect(page.getByTestId("room-part")).toHaveText([/Garderoben/, /Översta byrålådan\s*1 föremål/]);
+  await expect(page.getByTestId("room-part")).toHaveCount(0);
   // A small room's categories are open from the start (UX-27): no toggle to tap.
   const row = page.getByTestId("thing").filter({ hasText: "Passen" });
   await expect(row).toContainText(`Översta byrålådan · skrivet ${today}`);

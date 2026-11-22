@@ -285,6 +285,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Nya kort som andra i hushållet har tagit, och kort som är färdiglästa, sedan du tittade senast. Dina egna nya kort räknas inte. Siffran försvinner när du öppnar Förråd.",
       },
       {
+        question: "Hur byter jag namn på ett kort?",
+        answer: "Öppna kortet och tryck ⋯, sedan Byt namn. Det ändrar ett kort i taget. Ett kort som är taget på en del av rummet visar delen som liten text under namnet.",
+      },
+      {
         question: "Ska maten in här?",
         answer: `Nej, maten bor i Matvaror. Förråd är för ${things} som verktyg och annat som ligger i lådor och på hyllor.`,
       },

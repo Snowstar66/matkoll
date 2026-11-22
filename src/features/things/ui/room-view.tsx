@@ -25,7 +25,6 @@ import { ClosedBoxes } from "./closed-boxes";
 import { useRoomGroupingStored, useRoomViewStored } from "./device-store";
 import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
-import { partsLabelText, partMeta } from "../domain/thing-written";
 import { useRemovedThings } from "./removed-things";
 import { roomMemoryKey, useRoomScroll } from "./room-memory";
 import { RoomCards } from "./room-cards";
@@ -62,8 +61,6 @@ export type RoomViewProps = {
   placeIds: readonly string[];
   /** The room's boxes, each opening its page (Story 18.13). */
   boxes: readonly { id: string; part: string | null }[];
-  /** The room's parts (not the whole room), each with a ⋯ (Story 18.16). */
-  parts: readonly { id: string; part: string }[];
   /** What removing each place takes, by place id. */
   placeCounts: Record<string, PlaceCounts>;
   /** How many places the room has: the last one takes the room with it. */
@@ -118,7 +115,7 @@ function GroupingPill({ grouping, onChange }: { grouping: RoomGrouping; onChange
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function RoomView({ siteId, summary, categories, cards, closedBoxes, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal, empty = false }: RoomViewProps) {
+export function RoomView({ siteId, summary, categories, cards, closedBoxes, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, placeCounts, placeTotal, empty = false }: RoomViewProps) {
   const router = useRouter();
   // Tillbaka from a card keeps the scroll position of the room (C1).
   useRoomScroll(roomMemoryKey(siteId, summary.key));
@@ -167,12 +164,10 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
   const menuFor = (id: string, part: string, box: boolean) => (
     <PlaceMenu placeId={id} part={part} box={box} counts={placeCounts[id] ?? noCounts} roomHasOthers={placeTotal > 1} />
   );
-  // The ⋯ of a card's label: for a part or a box, not for the whole room.
+  // The ⋯ of a card's label: for a box only. A part has none (UX-F): a card is renamed in its own ⋯, one at a time.
   const cardMenu = (placeId: string) => {
     const box = boxes.find((entry) => entry.id === placeId);
-    if (box?.part) return menuFor(box.id, box.part, true);
-    const part = parts.find((entry) => entry.id === placeId);
-    return part ? menuFor(part.id, part.part, false) : null;
+    return box?.part ? menuFor(box.id, box.part, true) : null;
   };
   const roomHref = `/prylar/rum/${siteId}/${encodeURIComponent(summary.key)}`;
 
@@ -231,22 +226,6 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
                     })}
                     pressProps={{ "data-testid": "room-box" }}
                     trailing={box.part ? menuFor(box.id, box.part, true) : undefined}
-                  />
-                ))}
-              </ListGroup>
-            </section>
-          ) : null}
-          {parts.length > 0 ? (
-            <section className="flex flex-col gap-1.5" data-testid="room-parts">
-              <h2 className="px-1 text-section-label text-ink-2">{partsLabelText}</h2>
-              <ListGroup label={partsLabelText}>
-                {parts.map((place) => (
-                  <ListRow
-                    key={place.id}
-                    title={place.part}
-                    meta={partMeta(placeCounts[place.id] ?? noCounts)}
-                    data-testid="room-part"
-                    trailing={menuFor(place.id, place.part, false)}
                   />
                 ))}
               </ListGroup>

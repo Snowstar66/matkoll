@@ -95,7 +95,6 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
         initialView={parseRoomView(typeof vy === "string" ? vy : null)}
         placeIds={places.map((place) => place.id)}
         boxes={places.filter((place) => place.kind === "box").map((place) => ({ id: place.id, part: place.part }))}
-        parts={places.filter((place) => place.kind === "part" && place.part !== null).map((place) => ({ id: place.id, part: place.part ?? "" }))}
         placeCounts={placeCounts}
         placeTotal={places.length}
         empty={empty}
