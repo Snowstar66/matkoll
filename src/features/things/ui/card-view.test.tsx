@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
+import { saveOption } from "@/lib/options";
 import type { CardView as Card } from "../domain/thing-card";
 import { CardView } from "./card-view";
 
@@ -18,9 +19,6 @@ vi.mock("../actions/thing-count", () => ({
   loadThingCount: async (itemId: string) => ({ ok: true, data: { itemId, quantity: 4, changes: [] } }),
 }));
 // The card's buttons have tests of their own; here they only need to be there, in order.
-vi.mock("./retake-card", () => ({ RetakeCard: () => <button type="button">Ta om</button> }));
-vi.mock("./add-card-things", () => ({ AddCardThings: () => <button type="button">Lägg till föremål</button> }));
-vi.mock("./remove-card", () => ({ RemoveCard: () => <button type="button">Ta bort kortet</button> }));
 
 const tool = { category: "Verktyg", confidence: "high" } as const;
 const hammer = { ...tool, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", whereHint: "på väggen, mitten", box: { left: 0.2, top: 0.15, width: 0.14, height: 0.21 }, boxMissed: false };
@@ -47,12 +45,13 @@ const card = (things: Card["things"], extra: Partial<Card> = {}): Card => ({
 const renderIt = (things: Card["things"], initialThingId: string | null = null, extra: Partial<Card> = {}) =>
   render(
     <ToastProvider>
-      <CardView card={card(things, extra)} initialThingId={initialThingId} roomHref="/prylar/rum/s/boden" />
+      <CardView card={card(things, extra)} initialThingId={initialThingId} />
     </ToastProvider>,
   );
 const row = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) });
 
 beforeEach(() => {
+  window.localStorage.clear();
   locateThingOnCard.mockReset();
   // A lookup that finds nothing, unless a test says otherwise.
   locateThingOnCard.mockResolvedValue(ok({ box: null }));
@@ -62,7 +61,7 @@ describe("the card big (Story 18.7)", () => {
   it("moves the mark to the föremål of a new ?foremal when the same card is opened again from another föremål's sheet", () => {
     const view = (initial: string | null) => (
       <ToastProvider>
-        <CardView card={card([hammer, saw, drill])} initialThingId={initial} roomHref="/prylar/rum/s/boden" />
+        <CardView card={card([hammer, saw, drill])} initialThingId={initial} />
       </ToastProvider>
     );
     const { rerender } = render(view(hammer.id));
@@ -104,8 +103,9 @@ describe("the card big (Story 18.7)", () => {
     expect(screen.getAllByTestId("marker-badge").map((badge) => badge.textContent)).toEqual(["1", "2"]);
     expect(screen.getByTestId("card-hint")).toHaveTextContent("Letar efter fler placeringar …");
     expect(screen.getAllByTestId("card-thing").map((button) => button.textContent)).toEqual(["1Hammarepå väggen, mitten", "2Cirkelsågöversta hyllan", "Skruvdragare"]);
-    // The card's buttons, Ta bort kortet last.
-    expect(screen.getAllByRole("button").slice(-3).map((button) => button.textContent)).toEqual(["Ta om", "Lägg till föremål", "Ta bort kortet"]);
+    // The card's actions are in the ⋯ of its header (card-menu.tsx), no buttons under the list.
+    expect(screen.queryByRole("button", { name: "Ta om" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ta bort kortet" })).toBeNull();
     expect(locateThingOnCard).toHaveBeenCalledTimes(1);
     expect(locateThingOnCard).toHaveBeenCalledWith(drill.id);
   });
@@ -246,5 +246,19 @@ describe("the card big (Story 18.7)", () => {
     renderIt([], null, { status: "reading" });
     expect(screen.getAllByText("Kortet läses fortfarande.").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Ta om" })).toBeNull();
+  });
+
+  it("puts a star on the number of a föremål with a tip on the photo and the pill on its row, only with Värdetips on", () => {
+    const starred = { ...hammer, worth: { why: "Ser ut som en gammal Fiskars.", confidence: "guess" as const } };
+    const { unmount } = renderIt([starred, saw]);
+    expect(screen.queryByTestId("photo-star")).toBeNull();
+    expect(screen.queryByTestId("worth-marker")).toBeNull();
+    unmount();
+    saveOption("worthLook", true);
+    renderIt([starred, saw]);
+    const dots = screen.getAllByTestId("card-dot");
+    expect(within(dots[0]).getByTestId("photo-star")).toHaveAttribute("aria-hidden", "true");
+    expect(within(dots[1]).queryByTestId("photo-star")).toBeNull();
+    expect(within(row("Hammare")).getByTestId("worth-marker")).toHaveTextContent("Kan ha värde, gissning");
   });
 });

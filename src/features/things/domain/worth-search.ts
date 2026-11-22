@@ -1,6 +1,6 @@
-// Värt en titt, nivå 1 of a valuation: links that open a search for SOLD lookalikes on other sites, so the user sees
+// Värdetips, nivå 1 of a valuation: links that open a search for SOLD lookalikes on other sites, so the user sees
 // what similar things actually went for. No price is ever given or guessed here; the numbers are on the other site.
-// The phrase comes from "Förklara närmare" (its last section) or, before that, the föremål's name. Pure.
+// The phrase comes from "Undersök värdet" (its last section) or, before that, the föremål's name. Pure.
 //
 // What each link is, and how sure we are that it shows sold items:
 // - Tradera: /search?q=…&itemStatus=Ended (ended listings). Seen only in one third-party script and not confirmed on

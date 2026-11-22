@@ -69,6 +69,16 @@ test.beforeEach(async ({ page }, testInfo) => {
   hemma = added.data.id;
 });
 
+/**
+ * A card's action from the room's Kort view: opens the card, then its ⋯ and the action (Värdetips sketches, D: the buttons
+ * are not on the squares any more). `onCardPage` is for when the card is already open.
+ */
+async function cardAction(page: Page, action: "retake" | "add" | "remove", { onCardPage = false }: { onCardPage?: boolean } = {}) {
+  if (!onCardPage) await page.getByTestId("room-card").first().getByTestId("open-card").click();
+  await page.getByTestId("card-menu").click();
+  await page.getByTestId(`card-menu-${action}`).click();
+}
+
 const nav = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
 const content = (page: Page) => page.locator("main").filter({ visible: true });
 
@@ -209,8 +219,9 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await expect(card).toContainText("Hela rummet");
   await expect(card).toContainText(`12 föremål · ${shortDateText(new Date())}`);
   await expect(card.getByRole("img")).toBeVisible();
-  await expect(card.getByRole("button", { name: /^Ta om/ })).toBeVisible();
-  await expect(card.getByRole("button", { name: /^Ta bort/ })).toBeVisible();
+  // The actions are in the ⋯ inside the card, not on the square.
+  await expect(card.getByRole("button", { name: /^Ta om/ })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: /^Ta bort/ })).toHaveCount(0);
 
   // The photo is private: the route gives it to its owner, with no cache; the file is in the user's own folder.
   const photoId = (await card.getByRole("img").getAttribute("src"))!.split("/").pop()!;
@@ -267,7 +278,7 @@ test("a new card adds to the room and replaces nothing; Ta om replaces only that
   const kept = before.find((card) => card.id !== oldest.id)!;
 
   // A sheet says what is replaced first (Story 18.15), then the picker opens.
-  await page.getByTestId("room-card").first().getByRole("button", { name: /^Ta om/ }).click();
+  await cardAction(page, "retake");
   const retake = page.getByRole("dialog", { name: "Ta om kortet" });
   await expect(retake.getByTestId("retake-detail")).toContainText("Rättelser och tillagda föremål på det gamla kortet ersätts av den nya läsningen.");
   const chooser = page.waitForEvent("filechooser");
@@ -443,14 +454,13 @@ test("Ta bort kortet asks first, removes card, things and file, and Ångra bring
   const fileExists = async () => (await admin.storage.from("thing-photo").download(path)).error === null;
 
   // The question comes first; "Avbryt" leaves everything.
-  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await cardAction(page, "remove");
   const dialog = page.getByRole("dialog", { name: "Ta bort kortet?" });
   await expect(dialog.getByText("Ta bort kortet?")).toBeVisible();
   await dialog.getByRole("button", { name: "Avbryt" }).click();
-  await expect(cards).toHaveCount(1);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(1);
 
-  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await cardAction(page, "remove", { onCardPage: true });
   await dialog.getByRole("button", { name: "Ta bort kortet", exact: true }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");
   await expect(cards).toHaveCount(0);
@@ -465,7 +475,7 @@ test("Ta bort kortet asks first, removes card, things and file, and Ångra bring
   expect(await fileExists()).toBe(true);
 
   // Without Ångra the file goes when the time is out.
-  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await cardAction(page, "remove");
   await dialog.getByRole("button", { name: "Ta bort kortet", exact: true }).click();
   await expect(cards).toHaveCount(0);
   await expect.poll(fileExists, { timeout: 15_000 }).toBe(false);
@@ -822,7 +832,9 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await rooms(page).click();
   await expect(page).toHaveURL(/\/prylar\/rum\//);
   await page.getByRole("radio", { name: "Kort" }).click();
-  await page.getByTestId("room-card").filter({ hasText: "0 föremål" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await page.getByTestId("room-card").filter({ hasText: "0 föremål" }).getByTestId("open-card").click();
+  await page.getByTestId("card-menu").click();
+  await page.getByTestId("card-menu-remove").click();
   await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
   await page.getByRole("radio", { name: "Lista" }).click();
@@ -1015,9 +1027,14 @@ test("the room lists things per photo by default, with the photo as the heading,
   await expect(page.getByRole("radio", { name: "Per foto" })).toBeChecked();
   const group = page.getByTestId("room-photo");
   await expect(group).toHaveCount(1);
-  await expect(group.getByRole("heading")).toContainText("Foto 18 nov");
-  await expect(group.getByRole("heading")).toContainText("2 saker");
+  // Folded: what it shows, the date and how many; the list opens with the row.
+  const fold = group.getByTestId("room-photo-toggle");
+  await expect(fold).toContainText("Hela rummet");
+  await expect(fold).toContainText("18 nov · 2 saker");
+  await expect(group.getByTestId("thing")).toHaveCount(0);
+  await fold.click();
   await expect(group.getByTestId("thing")).toHaveCount(2);
+  await expect(group.getByTestId("room-photo-open")).toBeVisible();
   await expect(group).not.toContainText("på väggen");
   await expect(page.getByTestId("room-category")).toHaveCount(0);
   await page.getByRole("radio", { name: "Per kategori" }).click();
@@ -1034,7 +1051,7 @@ test("Lägg till föremål on a card writes things tied to that card, sorted by 
   const card = (await admin.from("thing_photo").select("id").eq("place_id", place).single()).data!;
   await page.goto(`${roomUrl("Skräpförrådet")}?vy=kort`);
   await page.getByRole("radio", { name: "Kort" }).click();
-  await page.getByTestId("add-card-things").click();
+  await cardAction(page, "add");
   const sheet = page.getByRole("dialog", { name: "Lägg till föremål på kortet" });
   await sheet.getByLabel("Vad saknas?").fill("skiftnyckel\nsladdrulle, 2 st");
   await shot(page, "2-add-thing");
@@ -1046,13 +1063,14 @@ test("Lägg till föremål on a card writes things tied to that card, sorted by 
   ]);
   expect((await admin.from("ai_usage").select("model").eq("user_id", userId)).data).toEqual([{ model: "mock" }]);
   // They show like the others: counted in the room, in the list of the category, and on the card.
+  await page.goto(`${roomUrl("Skräpförrådet")}?vy=cards`);
   await expect(page.getByTestId("room-card")).toContainText("3 föremål");
   await page.getByRole("radio", { name: "Lista" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skiftnyckel" })).toBeVisible();
 
   // Removed with its card.
   await page.getByRole("radio", { name: "Kort" }).click();
-  await page.getByTestId("remove-card").click();
+  await cardAction(page, "remove");
   await page.getByRole("dialog", { name: "Ta bort kortet?" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await admin.from("thing_item").select("id").eq("user_id", userId)).data?.length).toBe(0);
 });
@@ -1061,7 +1079,7 @@ test("Lägg till föremål says Övrigt when the AI does not answer, and asks fo
   const place = await seedPlace(hemma, "Garaget", [{ name: "Hammare", category: "Verktyg" }]);
   await page.goto(roomUrl("Garaget"));
   await page.getByRole("radio", { name: "Kort" }).click();
-  await page.getByTestId("add-card-things").click();
+  await cardAction(page, "add");
   const sheet = page.getByRole("dialog", { name: "Lägg till föremål på kortet" });
   await sheet.getByRole("button", { name: "Lägg till" }).click();
   await expect(sheet.getByText("Skriv minst ett föremål.")).toBeVisible();
@@ -1440,9 +1458,9 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await thingSheet.getByRole("button", { name: "Avbryt" }).first().click();
   await expect(thingSheet).toBeHidden();
 
-  // The card's buttons are here, Ta bort kortet last.
-  await expect(page.getByRole("button", { name: /^Ta om kortet/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Lägg till föremål på kortet/ })).toBeVisible();
+  // The card's actions are behind the ⋯ in the header, no buttons at the end of the page.
+  await expect(page.getByRole("button", { name: /^Ta om kortet/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Lägg till föremål på kortet/ })).toHaveCount(0);
   // On a desktop the list sits beside the large photo.
   await page.setViewportSize({ width: 1280, height: 900 });
   const wide = (await photo.boundingBox())!;
@@ -1452,7 +1470,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await shot(page, "18-7-dator");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.getByRole("button", { name: "Ta bort kortet" }).click();
+  await cardAction(page, "remove", { onCardPage: true });
   await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect(page).toHaveURL(new RegExp(`${roomUrl("Boden").replace(/[.?]/g, "\\$&")}\\?vy=cards$`));
   await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");

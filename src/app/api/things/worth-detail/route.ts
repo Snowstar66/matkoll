@@ -4,7 +4,7 @@ import { explainThingWorth } from "@/features/things/server";
 import { fail, type Result } from "@/lib/errors";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../../ai/route-support";
 
-// Förklara närmare (Värt en titt): JSON with the `thing`; the answer is the fuller explanation of why it was flagged,
+// Undersök värdet (Värdetips): JSON with the `thing`; the answer is the fuller explanation of why it was flagged,
 // kept on the föremål, so the AI is asked once. A Route Handler rather than a Server Action, so the wait (at most
 // 45 s) never queues the page's other actions behind it.
 

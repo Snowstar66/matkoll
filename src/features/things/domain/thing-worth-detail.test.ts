@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatWorthDetail, maxWorthDetailChars, parseWorthDetail, worthOfRow } from "./thing-worth";
 
-// The kept explanation ("Förklara närmare"): written as three headings with the checks as lines, read back to the same
+// The kept explanation ("Undersök värdet"): written as three headings with the checks as lines, read back to the same
 // parts, cut to the column's length, and carried on the föremål's tip as `detail`.
 
 describe("the kept explanation", () => {

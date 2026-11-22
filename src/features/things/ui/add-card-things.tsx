@@ -26,11 +26,24 @@ import {
 // this card, sorted into categories by one cheap AI call (Övrigt when it does not
 // answer), and replaced when the card is retaken.
 
-export function AddCardThings({ cardId, name, variant = "compact" }: { cardId: string; name: string; variant?: "compact" | "secondary" }) {
+export function AddCardThings({
+  cardId,
+  name,
+  variant = "compact",
+  control,
+}: {
+  cardId: string;
+  name: string;
+  variant?: "compact" | "secondary";
+  /** The card's ⋯ sheet opens the form: then there is no button of its own. */
+  control?: { open: boolean; onOpenChange: (open: boolean) => void };
+}) {
   const router = useRouter();
   const { showToast } = useToast();
   const ids = useId();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = control ? control.open : ownOpen;
+  const setOpen = control ? control.onOpenChange : setOwnOpen;
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,15 +81,17 @@ export function AddCardThings({ cardId, name, variant = "compact" }: { cardId: s
 
   return (
     <>
-      <Button
-        variant={variant}
-        fullWidth={variant === "secondary"}
-        aria-label={`${addThingsText} på kortet ${name}`}
-        onClick={() => setOpen(true)}
-        data-testid="add-card-things"
-      >
-        {addThingsText}
-      </Button>
+      {control ? null : (
+        <Button
+          variant={variant}
+          fullWidth={variant === "secondary"}
+          aria-label={`${addThingsText} på kortet ${name}`}
+          onClick={() => setOpen(true)}
+          data-testid="add-card-things"
+        >
+          {addThingsText}
+        </Button>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} title={addThingsTitle} subtitle={name} closeLabel="Avbryt" preventClose={saving}>
         <form onSubmit={submit} className="flex flex-col gap-3" aria-busy={saving || undefined}>
           {notice ? <Notice role="alert">{notice}</Notice> : null}

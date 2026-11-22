@@ -12,7 +12,7 @@ import {
 } from "./service";
 import { fakeModel } from "./test-support";
 
-// explainWorth on a model (Värt en titt, "Förklara närmare"): its prompt and message, the cleaning of the answer, its
+// explainWorth on a model (Värdetips, "Undersök värdet"): its prompt and message, the cleaning of the answer, its
 // own short budget and its limits.
 
 const signal = () => new AbortController().signal;

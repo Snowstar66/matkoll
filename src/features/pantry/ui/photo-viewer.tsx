@@ -2,7 +2,7 @@
 
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/components/cx";
-import { CloseIcon } from "@/components/icons";
+import { ChevronRightIcon, CloseIcon, StarIcon } from "@/components/icons";
 import { markerPosition, photoMarkerClasses, type MarkerTone } from "@/components/photo-marker";
 import { numbersHiddenHint, PhotoNumbersToggle, useHiddenNumbers } from "@/components/photo-numbers-toggle";
 import { Sheet } from "@/components/sheet";
@@ -16,6 +16,7 @@ import {
   overviewHint,
   photoMarkerName,
   photoStatusText,
+  zoomedEditableHint,
   zoomedHint,
   type PhotoMarkerStatus,
   type PhotoViewMarker,
@@ -34,6 +35,57 @@ import { scrollToTap } from "../domain/photo-zoom";
 // tapped while zoomed in. Numbers are buttons ("Vara 3: Grädde, finns inte
 // längre"); a cross or a dashed ring says what became of an item, and the line
 // under the photo says it in words, so nothing rests on colour alone.
+
+/** The fixed line under the zoomed photo: number, name, status. With `onEdit` it is a button with a › that opens the föremål's sheet. */
+function NameLine({
+  marker,
+  noun,
+  extra,
+  onEdit,
+  editLabel,
+}: {
+  marker: PhotoViewMarker;
+  noun: string;
+  extra?: ReactNode;
+  onEdit?: () => void;
+  editLabel?: string;
+}) {
+  const content = (
+    <>
+      <span aria-hidden="true" className={cx(photoMarkerClasses(toneFor(marker.status)), "relative scale-110", marker.status === "skipped" && "opacity-100")}>
+        <MarkerFace marker={marker} />
+        {marker.starred ? (
+          <span className="pointer-events-none absolute -top-2.5 -right-2.25 size-4">
+            <StarIcon size={16} sticker />
+          </span>
+        ) : null}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col text-left">
+        <span className="text-row-title font-semibold wrap-break-word text-ink">
+          <span className="sr-only">{noun} {marker.n}: </span>
+          {marker.name}
+          {extra}
+        </span>
+        {marker.status ? (
+          <span
+            data-testid="photo-viewer-status"
+            className={cx("text-meta font-medium", marker.status === "gone" ? "text-danger" : "text-ink-2", marker.status === "skipped" && "italic")}
+          >
+            {photoStatusText(marker)}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+  const classes = "flex min-h-[60px] w-full items-center gap-3 rounded-[12px] border border-border px-3.5 py-2.5";
+  if (!onEdit) return <div className={classes}>{content}</div>;
+  return (
+    <button type="button" onClick={onEdit} aria-label={editLabel} aria-haspopup="dialog" data-testid="photo-viewer-edit" className={cx(classes, "text-left")}>
+      {content}
+      <ChevronRightIcon size={16} className="shrink-0 text-ink-3" />
+    </button>
+  );
+}
 
 /** The nearest ancestor that scrolls (the sheet's body), or `null`. */
 function scrollParentOf(element: HTMLElement): HTMLElement | null {
@@ -97,6 +149,14 @@ export type PhotoViewerProps = {
   onPhotoError?: () => void;
   /** Under the photo (the overview's legend comes first): "Ta bort fotot". */
   children?: ReactNode;
+  /**
+   * Förrådet's card: the line under the zoomed photo is a button (with a ›) that calls this with the number, so the
+   * föremål can be edited from the zoom. `editLabel` is its name for a screen reader ("Ändra Hammare").
+   */
+  onEditSelected?: (number: number) => void;
+  editLabel?: (marker: PhotoViewMarker) => string;
+  /** After the name on the line under the zoomed photo (the "Kan ha värde" pill). */
+  nameExtra?: (marker: PhotoViewMarker) => ReactNode;
 };
 
 /**
@@ -118,6 +178,9 @@ export function PhotoViewer({
   errorText = analyzedPhotoErrorText,
   onPhotoError,
   children,
+  onEditSelected,
+  editLabel,
+  nameExtra,
 }: PhotoViewerProps) {
   const title = givenTitle ?? (location ? analyzedPhotoTitle(location) : "Fotot");
   const [hidden, setHidden] = useHiddenNumbers();
@@ -211,7 +274,7 @@ export function PhotoViewer({
       open={open}
       onClose={onClose}
       title={title}
-      subtitle={zoomed ? zoomedHint : numbersHidden ? numbersHiddenHint : (subtitle ?? overviewHint)}
+      subtitle={zoomed ? (onEditSelected ? zoomedEditableHint : zoomedHint) : numbersHidden ? numbersHiddenHint : (subtitle ?? overviewHint)}
       closeLabel="Klar"
     >
       {/* Mounted empty, so VoiceOver says the text when the photo fails. */}
@@ -284,6 +347,11 @@ export function PhotoViewer({
                         )}
                       >
                         <MarkerFace marker={marker} />
+                        {marker.starred ? (
+                          <span aria-hidden="true" data-testid="photo-star" className="pointer-events-none absolute -top-2.5 -right-2.25 size-4">
+                            <StarIcon size={16} sticker />
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })
@@ -293,32 +361,13 @@ export function PhotoViewer({
           {/* The fixed line under the photo when zoomed in: number, name and status, so the item itself is never covered. */}
           <div role="status" data-testid="photo-viewer-name">
             {selectedMarker ? (
-              <div className="flex min-h-[60px] items-center gap-3 rounded-[12px] border border-border px-3.5 py-2.5">
-                <span
-                  aria-hidden="true"
-                  className={cx(photoMarkerClasses(toneFor(selectedMarker.status)), "scale-110", selectedMarker.status === "skipped" && "opacity-100")}
-                >
-                  <MarkerFace marker={selectedMarker} />
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="text-row-title font-semibold wrap-break-word text-ink">
-                    <span className="sr-only">{noun} {selectedMarker.n}: </span>
-                    {selectedMarker.name}
-                  </span>
-                  {selectedMarker.status ? (
-                    <span
-                      data-testid="photo-viewer-status"
-                      className={cx(
-                        "text-meta font-medium",
-                        selectedMarker.status === "gone" ? "text-danger" : "text-ink-2",
-                        selectedMarker.status === "skipped" && "italic",
-                      )}
-                    >
-                      {photoStatusText(selectedMarker)}
-                    </span>
-                  ) : null}
-                </span>
-              </div>
+              <NameLine
+                marker={selectedMarker}
+                noun={noun}
+                extra={nameExtra?.(selectedMarker)}
+                onEdit={onEditSelected ? () => onEditSelected(selectedMarker.n) : undefined}
+                editLabel={editLabel?.(selectedMarker)}
+              />
             ) : null}
           </div>
           {legend.length > 0 ? (

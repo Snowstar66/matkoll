@@ -27,12 +27,12 @@ export type ThingDetail = {
   place: ThingDetailPlace;
   /** Every föremål on the same card in the card's order, for the photo view's numbers (the same as on the card's page); empty without a card. */
   cardThings: ThingDetailCardThing[];
-  /** Värt en titt: why it may be worth a closer look; null when it has no tip. */
+  /** Värdetips: why it may be worth a closer look; null when it has no tip. */
   worth: ThingWorth | null;
 };
 
 /** A föremål on the card the sheet's föremål is seen on. */
-export type ThingDetailCardThing = { id: string; name: string; box: ThingBox | null };
+export type ThingDetailCardThing = { id: string; name: string; box: ThingBox | null; /** Värdetips: it has a tip, so its number carries a star on the photo. */ starred?: boolean };
 
 /**
  * The numbers of a card as the photo view shows them: the same numbers as the
@@ -40,9 +40,18 @@ export type ThingDetailCardThing = { id: string; name: string; box: ThingBox | n
  * keeps nothing about what became of a föremål (a removed one is gone from the
  * database), so no marker has a status. Pure.
  */
-export function cardPhotoMarkers(things: readonly ThingDetailCardThing[]): PhotoViewMarker[] {
+export function cardPhotoMarkers(things: readonly ThingDetailCardThing[], withStars = false): PhotoViewMarker[] {
   const names = new Map(things.map((thing) => [thing.id, thing.name]));
-  return thingDots(things).map((dot) => ({ n: dot.number, left: dot.left, top: dot.top, name: names.get(dot.id) ?? "", status: null, location: null }));
+  const starred = new Set(things.filter((thing) => thing.starred).map((thing) => thing.id));
+  return thingDots(things).map((dot) => ({
+    n: dot.number,
+    left: dot.left,
+    top: dot.top,
+    name: names.get(dot.id) ?? "",
+    status: null,
+    location: null,
+    ...(withStars && starred.has(dot.id) ? { starred: true } : {}),
+  }));
 }
 
 /** The number of föremål `id` on its card's photo, or `null` when it has no box. */

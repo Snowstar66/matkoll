@@ -1,6 +1,6 @@
 import { fail, type Result } from "@/lib/errors";
 
-// The browser's side of "Förklara närmare": POST /api/things/worth-detail with the föremål's id. Any answer that is
+// The browser's side of "Undersök värdet": POST /api/things/worth-detail with the föremål's id. Any answer that is
 // not one (no connection, a server error) is `ai_unavailable`.
 
 export async function explainWorthDetail(thingId: string): Promise<Result<{ detail: string }>> {

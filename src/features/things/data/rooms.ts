@@ -23,12 +23,35 @@ const statsSchema = z.array(
   }),
 );
 
+const starRowsSchema = z.array(z.object({ thing_place: z.object({ room_key: z.string() }) }));
+
+/**
+ * Värdetips: how many kept föremål with a star each room of the boende has, by room key (a count over the rows, no
+ * column of its own). A failure is no counts, never no rooms.
+ */
+async function loadRoomStarsIn(db: ThingsDb, siteId: string): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const { data, error } = await db
+    .from("thing_item")
+    .select("thing_place!inner(room_key, site_id)")
+    .not("worth_why", "is", null)
+    .is("same_as", null)
+    .eq("thing_place.site_id", siteId)
+    .limit(5000);
+  if (error) return counts;
+  const parsed = starRowsSchema.safeParse(data);
+  if (!parsed.success) return counts;
+  for (const row of parsed.data) counts.set(row.thing_place.room_key, (counts.get(row.thing_place.room_key) ?? 0) + 1);
+  return counts;
+}
+
 /** The rooms of the boende `siteId` in the order they were made, each counted. Throws ThingsDataError `query_failed <code>` or `invalid_row`. */
 export async function loadRoomsIn(db: ThingsDb, siteId: string): Promise<RoomSummary[]> {
   const { data, error } = await db.rpc("thing_room_stats", { site: siteId });
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   const parsed = statsSchema.safeParse(data);
   if (!parsed.success) throw new ThingsDataError("invalid_row");
+  const stars = await loadRoomStarsIn(db, siteId);
   return parsed.data.map((row) => ({
     room: row.room,
     key: row.room_key,
@@ -36,6 +59,7 @@ export async function loadRoomsIn(db: ThingsDb, siteId: string): Promise<RoomSum
     cards: row.cards,
     reading: row.reading,
     latest: row.latest ? new Date(row.latest) : null,
+    starred: stars.get(row.room_key) ?? 0,
   }));
 }
 
@@ -104,7 +128,7 @@ const tipRowsSchema = z.array(
 );
 
 /**
- * Värt en titt: the tips of a room's föremål by id. thing_room_things does not return them (and is not changed), so
+ * Värdetips: the tips of a room's föremål by id. thing_room_things does not return them (and is not changed), so
  * they are read here, only the rows that have one (a handful), filtered by the room. A failure is no tips, never no list.
  */
 async function loadRoomTipsIn(db: ThingsDb, siteId: string, key: string): Promise<Map<string, ThingWorth>> {
@@ -215,6 +239,20 @@ const cardRowSchema = z.object({
   thing_item: z.array(z.object({ count: z.number().int() })),
 });
 
+const cardStarRowsSchema = z.array(z.object({ photo_id: z.uuid().nullable() }));
+
+/** Värdetips: how many föremål with a star each of the cards `photoIds` has. A failure is no counts. */
+async function loadCardStarsIn(db: ThingsDb, photoIds: readonly string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (photoIds.length === 0) return counts;
+  const { data, error } = await db.from("thing_item").select("photo_id").in("photo_id", [...photoIds]).not("worth_why", "is", null).is("same_as", null).limit(5000);
+  if (error) return counts;
+  const parsed = cardStarRowsSchema.safeParse(data);
+  if (!parsed.success) return counts;
+  for (const row of parsed.data) if (row.photo_id) counts.set(row.photo_id, (counts.get(row.photo_id) ?? 0) + 1);
+  return counts;
+}
+
 /** The cards of a room, newest first, with their place and how many kept things each shows. */
 export async function loadRoomCardsIn(db: ThingsDb, siteId: string, key: string, now: Date = new Date()): Promise<(Omit<RoomCard, "label"> & { part: string | null; kind: "part" | "box" })[]> {
   const { data, error } = await db
@@ -226,6 +264,7 @@ export async function loadRoomCardsIn(db: ThingsDb, siteId: string, key: string,
     .order("taken_at", { ascending: false })
     .order("id", { ascending: false });
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  const stars = await loadCardStarsIn(db, data.map((row) => row.id));
   return data.map((row) => {
     const parsed = cardRowSchema.safeParse(row);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
@@ -240,6 +279,7 @@ export async function loadRoomCardsIn(db: ThingsDb, siteId: string, key: string,
       errorCode: r.error_code,
       unseenNote: r.unseen_note,
       unseenCount: r.unseen_count,
+      starred: stars.get(r.id) ?? 0,
       part: r.thing_place.part,
       kind: r.thing_place.kind,
     };

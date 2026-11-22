@@ -22,6 +22,8 @@ const colorNames = [
   "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "danger", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "seg-track", "seg-on",
   // Epic 20: decoration only (the line art, the stars), never text, so no text pair below.
   "warm", "illus-bg",
+  // Värdetips: the gold star, its darker edge, and the pill (a pale gold with dark text).
+  "star", "star-edge", "star-tint", "star-ink",
 ];
 
 /** [text, background, where it is used] */
@@ -47,6 +49,7 @@ const textPairs: [string, string, string][] = [
   ["hot", "surface", "Toppklipp label text on an offer row (Story 16.6)"],
   ["hot-ink", "hot", "Toppklipp badge on an offer row"],
   ["sky-ink", "bg", "field error on /logga-in"],
+  ["star-ink", "star-tint", "the pill Kan ha värde (Värdetips)"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
   ["accent", "surface", "active tab label, heart, text button in a sheet"],
   ["accent", "bg", "text button on the page"],
@@ -71,7 +74,7 @@ describe("design tokens", () => {
   });
 
   it("has no red except the ICA badge, the warm offer tags (Story 9.15), Ta bort (Story 16.17) and the warm line art (Epic 20)", () => {
-    const warm = new Set(["danger", "store-ica", "deal-ink", "hot", "deal", "warm"].flatMap((name) => [light[name], dark[name]]));
+    const warm = new Set(["danger", "store-ica", "deal-ink", "hot", "deal", "warm", "star", "star-edge"].flatMap((name) => [light[name], dark[name]]));
     for (const hex of [...Object.values(light), ...Object.values(dark)]) {
       if (warm.has(hex)) continue;
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));

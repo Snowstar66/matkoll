@@ -406,12 +406,30 @@ export function SparkleIcon(props: IconProps) {
   );
 }
 
-/** A five-pointed star: Värt en titt in Förråd. */
-export function StarIcon(props: IconProps) {
+/**
+ * A five-pointed star: Värdetips in Förråd, filled gold with a darker edge (the star tokens). `sticker` adds the white
+ * outer edge and a soft shadow for a star lying on a photo.
+ */
+export function StarIcon({ size = 24, className, sticker = false }: { size?: number; className?: string; sticker?: boolean }) {
   return (
-    <Icon {...props}>
-      <path d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.95 5.55L12 16.55 7 19.2l.95-5.55L3.9 9.7l5.6-.8z" />
-    </Icon>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+      style={sticker ? { filter: "drop-shadow(0 1px 1.5px var(--photo-shade))" } : undefined}
+    >
+      <path
+        d="M12 3.8l2.5 5.1 5.6.8-4.05 3.95.95 5.55L12 16.55 7 19.2l.95-5.55L3.9 9.7l5.6-.8z"
+        fill="var(--star)"
+        stroke={sticker ? "var(--photo-mark)" : "var(--star-edge)"}
+        strokeWidth={sticker ? 2.6 : 1.5}
+        strokeLinejoin="round"
+        paintOrder="stroke"
+      />
+    </svg>
   );
 }
 
