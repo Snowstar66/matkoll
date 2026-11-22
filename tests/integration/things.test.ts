@@ -398,6 +398,32 @@ describe("Förnya och ta bort (Story 18.3)", () => {
     expect(await restoreCardIn(c.db, removed!.snapshot)).toBe("place_gone");
   });
 
+  it("Ångra on a removed thing brings back its star, tip, explanation and who set it", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Stjärn-rummet");
+    const card = await doneCard(c, place, [hammer, { ...hammer, name: "Spade" }]);
+    const [first, second] = await loadThingsIn(c.db, card.id);
+    const set = await c.db
+      .from("thing_item")
+      .update({ worth_why: "Äldre modell, kan vara samlarobjekt.", worth_confidence: "guess", worth_detail: "Rekommendation\nJa\nDärför markerades den\nÄldre modell.", worth_set_by_user: true })
+      .eq("id", first.id);
+    expect(set.error).toBeNull();
+    const removed = await removeItemIn(c.db, first.id);
+    expect(removed).toMatchObject({ worthWhy: "Äldre modell, kan vara samlarobjekt.", worthConfidence: "guess", worthSetByUser: true });
+    expect(await restoreItemIn(c.db, removed!)).toBe("restored");
+    const back = await c.db.from("thing_item").select("name, worth_why, worth_confidence, worth_detail, worth_set_by_user").eq("id", first.id).single();
+    expect(back.data).toEqual({
+      name: first.name,
+      worth_why: "Äldre modell, kan vara samlarobjekt.",
+      worth_confidence: "guess",
+      worth_detail: "Rekommendation\nJa\nDärför markerades den\nÄldre modell.",
+      worth_set_by_user: true,
+    });
+    // A thing nobody gave a star comes back with none.
+    const plain = await removeItemIn(c.db, second.id);
+    expect(plain).toMatchObject({ worthWhy: null, worthConfidence: null, worthDetail: null, worthSetByUser: null });
+  });
+
   it("renames just one thing, and removes just one thing with Ångra, leaving the card alone", async () => {
     const site = await siteOf(c);
     const place = await placeOf(c, site, "Pryl-rummet");

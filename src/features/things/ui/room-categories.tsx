@@ -8,6 +8,8 @@ import { loadRoomCategoryThings } from "../actions/room-things";
 import { thingTiles, type Thing, type ThingCategory } from "../domain/thing";
 import { categoryToggleLabel } from "../domain/thing-room";
 import { CardThings } from "./card-things";
+import { ListGroup } from "@/components/list-group";
+import { RemovedThingRow, useRemovedThings, useRemovedThingsHost } from "./removed-things";
 import { useOpenCategories } from "./device-store";
 
 // The room's things per category (Story 18.12, UX-27): the same category rows as Matvaror
@@ -36,6 +38,10 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
   const open = folded ? (stored ?? []) : categories.map((entry) => entry.category);
   const [loaded, setLoaded] = useState<Partial<Record<ThingCategory, Loaded>>>({});
   const latest = useRef(0);
+  // UX-B: a föremål just removed stays as a struck-through row in its category for "Ångra".
+  useRemovedThingsHost();
+  const removedThings = useRemovedThings();
+  const lastOfCategory = [...new Set(removedThings.filter((thing) => !categories.some((entry) => entry.category === thing.category)).map((thing) => thing.category))];
 
   // Reads the rows of the open categories, and again when the page's counts are new (a refresh).
   const openKey = open.join("|");
@@ -63,7 +69,7 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
     setStored(open.includes(category) ? open.filter((name) => name !== category) : [...open, category]);
   }
 
-  if (categories.length === 0) return null;
+  if (categories.length === 0 && removedThings.length === 0) return null;
   return (
     <div className="flex flex-col gap-3" data-testid="room-categories">
       {categories.map(({ category, things }) => {
@@ -101,12 +107,40 @@ export function RoomCategories({ siteId, roomKey, categories }: RoomCategoriesPr
             )}
             <div id={`room-cat-${category}`} hidden={!isOpen}>
               {isOpen && rows && "things" in rows ? <CardThings things={rows.things} headings={false} aside /> : null}
+              {isOpen && removedThings.some((thing) => thing.category === category) ? (
+                <div className={rows && "things" in rows && rows.things.length > 0 ? "mt-2" : undefined}>
+                  <ListGroup label={`${category}, borttagna`}>
+                    {removedThings
+                      .filter((thing) => thing.category === category)
+                      .map((thing) => (
+                        <RemovedThingRow key={thing.id} thing={thing} />
+                      ))}
+                  </ListGroup>
+                </div>
+              ) : null}
               {isOpen && rows && "error" in rows ? <Notice role="alert">{rows.error}</Notice> : null}
               {isOpen && !rows ? <p className="px-1 text-body text-ink-2">Läser …</p> : null}
             </div>
           </section>
         );
       })}
+      {lastOfCategory.map((category) => (
+        <section key={category} className="flex flex-col gap-2" data-testid="room-category">
+          <h3 className="m-0 flex min-h-tap items-center gap-2 px-1 text-section-label text-ink-2">
+            <span aria-hidden="true" className="w-6 shrink-0 text-center text-category-icon leading-none">
+              {thingTiles[category].icon}
+            </span>
+            {category}
+          </h3>
+          <ListGroup label={`${category}, borttagna`}>
+            {removedThings
+              .filter((thing) => thing.category === category)
+              .map((thing) => (
+                <RemovedThingRow key={thing.id} thing={thing} />
+              ))}
+          </ListGroup>
+        </section>
+      ))}
     </div>
   );
 }

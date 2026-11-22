@@ -5,6 +5,7 @@ import { thingCategories, thingConfidences } from "./thing";
 import { thingPhotoMediaTypes } from "./thing-photo";
 import { thingBoxSchema } from "./thing-card";
 import { thingNoun } from "./thing-noun";
+import { maxWorthDetailChars, worthConfidences } from "./thing-worth";
 
 // Förnya och ta bort (Story 18.3): removing a card, a thing, and renaming a
 // thing. A removal gives back a snapshot of what it took, so "Ångra" can put
@@ -68,6 +69,12 @@ export const thingSnapshotSchema = z.object({
   // Story 18.23: its count and history, so "Ångra" brings them back too (none in a snapshot from before).
   quantity: z.number().int().min(0).max(maxCount).nullable().default(null),
   changes: countSnapshotSchema.shape.changes.default([]),
+  // The star and its explanation, so "Ångra" brings them back too: the AI's tip, how sure it was, the kept explanation and
+  // who set the star (null: nobody touched it). None in a snapshot from before.
+  worthWhy: z.string().min(1).max(200).nullable().default(null),
+  worthConfidence: z.enum(worthConfidences).nullable().default(null),
+  worthDetail: z.string().min(1).max(maxWorthDetailChars).nullable().default(null),
+  worthSetByUser: z.boolean().nullable().default(null),
 });
 export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
 
@@ -87,7 +94,7 @@ export const cardSnapshotSchema = z.object({
   unseenNote: z.string().min(1).max(300).nullable(),
   unseenCount: z.number().int().min(0).max(99),
   // A card's föremål come back without their counts (Story 18.23): the next card counts them again.
-  things: z.array(thingSnapshotSchema.omit({ quantity: true, changes: true }).extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
+  things: z.array(thingSnapshotSchema.omit({ quantity: true, changes: true, worthWhy: true, worthConfidence: true, worthDetail: true, worthSetByUser: true }).extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
 });
 export type CardSnapshot = z.output<typeof cardSnapshotSchema>;
 

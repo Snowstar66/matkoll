@@ -507,10 +507,13 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
 
   await page.getByRole("button", { name: /Spade/ }).click();
   await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
-  await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
+  // UX-B: the list keeps the row, struck through, with Ångra, instead of a toast.
+  const gone = page.getByTestId("thing-removed");
+  await expect(gone).toContainText("Spade");
+  await expect(page.getByTestId("toast")).toHaveCount(0);
   await expect(things).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "Trädgård" })).toHaveCount(0);
-  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await gone.getByRole("button", { name: /Ångra/ }).click();
+  await expect(gone).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
   await expect(things).toHaveCount(2);
 
@@ -518,6 +521,38 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   const cardAfter = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
   expect(cardAfter).toEqual(cardBefore);
 
+});
+
+test("per photo: a removed thing stays struck through for about six seconds, Ångra brings back its star and explanation, and the row then goes", async ({ page }) => {
+  const place = await seedPlace(hemma, "Skräpförrådet", [
+    { name: "Hammare", category: "Verktyg" },
+    { name: "Gammal kamera", category: "Elektronik" },
+  ]);
+  const admin = adminClient();
+  const camera = (await admin.from("thing_item").select("id").eq("place_id", place).eq("name", "Gammal kamera").single()).data!;
+  await admin.from("thing_item").update({ worth_why: "Äldre kameror kan vara samlarobjekt.", worth_confidence: "guess", worth_set_by_user: true }).eq("id", camera.id);
+  await page.goto(roomUrl("Skräpförrådet"));
+  await page.getByTestId("room-photo-toggle").click();
+  await page.getByRole("button", { name: /Gammal kamera/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Ta bort föremålet" }).click();
+  const gone = page.getByTestId("thing-removed");
+  await expect(gone).toContainText("Gammal kamera");
+  await expect(page.getByTestId("toast")).toHaveCount(0);
+  await expect(page.getByTestId("room-photo-row")).toContainText("1 sak");
+  expect((await admin.from("thing_item").select("id").eq("id", camera.id)).data).toEqual([]);
+  // Ångra puts back the star and the explanation too.
+  await gone.getByRole("button", { name: /Ångra/ }).click();
+  await expect(gone).toHaveCount(0);
+  await expect.poll(async () => (await admin.from("thing_item").select("worth_why, worth_confidence, worth_set_by_user").eq("id", camera.id).maybeSingle()).data).toEqual({
+    worth_why: "Äldre kameror kan vara samlarobjekt.",
+    worth_confidence: "guess",
+    worth_set_by_user: true,
+  });
+  // Without Ångra the row goes by itself.
+  await page.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Ta bort föremålet" }).click();
+  await expect(gone).toBeVisible();
+  await expect(gone).toHaveCount(0, { timeout: 10_000 });
 });
 
 test("search finds a thing in every room and boende, and the chat answers a question with a card to tap", async ({ page }) => {
@@ -1604,9 +1639,9 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await expect(sheet).toContainText(`Du skrev in det ${today} · Översta byrålådan`);
   await expect(sheet.getByLabel("Var på bilden")).toHaveCount(0);
   await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
-  await expect(page.getByText("Tog bort Passen.").first()).toBeVisible();
+  await expect(page.getByTestId("thing-removed")).toContainText("Passen");
   expect((await noted()).data).toEqual([]);
-  await page.getByRole("button", { name: "Ångra" }).click();
+  await page.getByTestId("thing-removed").getByRole("button", { name: /Ångra/ }).click();
   await expect.poll(async () => (await noted()).data?.map((thing) => thing.id)).toEqual([saved[0].id]);
   expect(problems).toEqual([]);
 });

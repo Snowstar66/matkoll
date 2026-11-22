@@ -46,6 +46,10 @@ const snapshot: ThingSnapshot = {
   pointedBy: [],
   box: null,
   boxMissed: false,
+  worthWhy: null,
+  worthConfidence: null,
+  worthDetail: null,
+  worthSetByUser: null,
 };
 
 beforeEach(() => {

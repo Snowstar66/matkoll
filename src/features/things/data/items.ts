@@ -2,6 +2,7 @@ import { thingRowSchema, toThing, type Thing, type ThingCategory } from "../doma
 import type { ThingSnapshot } from "../domain/thing-edit";
 import { boxColumnsOf, boxOfRow } from "../domain/thing-card";
 import { countSnapshotSchema } from "../domain/thing-count";
+import { worthConfidences, type WorthConfidence } from "../domain/thing-worth";
 import { loadPointersIn, relinkItemsIn } from "./merge";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -49,6 +50,11 @@ export async function updateItemIn(db: ThingsDb, id: string, update: ThingUpdate
   });
 }
 
+/** The AI's confidence as the snapshot has it; a value the schema does not know is left out rather than failing the removal. */
+function worthConfidenceOf(value: string | null): WorthConfidence | null {
+  return (worthConfidences as readonly string[]).includes(value ?? "") ? (value as WorthConfidence) : null;
+}
+
 /**
  * Deletes one thing and gives it back as it was, for "Ångra"; the card is not
  * touched. `null` when it is gone or not the user's. Throws ThingsDataError
@@ -76,7 +82,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
       // A noted thing (Story 18.19) has no card either, and is removed alone like a thing of a card.
       .in("source", ["photo", "added", "noted"])
-      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed, quantity");
+      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed, quantity, worth_why, worth_confidence, worth_detail, worth_set_by_user");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
     if (!row) return null;
@@ -101,6 +107,10 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       boxMissed: row.box_missed && boxOfRow(row) === null,
       quantity: row.quantity,
       changes: row.quantity === null ? [] : changes.data,
+      worthWhy: row.worth_why,
+      worthConfidence: worthConfidenceOf(row.worth_confidence),
+      worthDetail: row.worth_detail,
+      worthSetByUser: row.worth_set_by_user,
     };
   });
 }
@@ -143,6 +153,10 @@ export async function restoreItemIn(db: ThingsDb, thing: ThingSnapshot): Promise
       source: thing.source,
       ...boxColumnsOf(thing),
       quantity: thing.quantity,
+      worth_why: thing.worthWhy,
+      worth_confidence: thing.worthConfidence,
+      worth_detail: thing.worthDetail,
+      worth_set_by_user: thing.worthSetByUser,
     });
     if (!error) {
       await relinkItemsIn(db, [{ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy }]);

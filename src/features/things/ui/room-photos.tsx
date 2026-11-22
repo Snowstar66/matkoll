@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
@@ -17,6 +17,7 @@ import type { RoomCard, RoomPhotoThings } from "../domain/thing-room";
 import { AsideTitle } from "./card-things";
 import { ThingSheet } from "./thing-sheet";
 import { StarCountAfter } from "./worth-marker";
+import { RemovedThingRow, type RemovedThing, useRemovedThings, useRemovedThingsHost } from "./removed-things";
 
 // The room's things per photo (Pontus 20 Nov): "i förråd när jag gått in i ett rum kan det finnas flera foton",
 // and a föremål is found by remembering its photo. Each done card is a group with its photo as a small
@@ -39,6 +40,25 @@ export function photoFoldLabel(parts: { label: string; date: string; count: numb
     .join(", ");
 }
 
+/** Where a föremål is in a list (the end when it is not there). */
+function indexIn(things: readonly Thing[], id: string): number {
+  const index = things.findIndex((entry) => entry.id === id);
+  return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+/** The rows, with each removed föremål's struck-through row where the föremål was. */
+function withRemoved(things: readonly Thing[], removed: readonly { thing: RemovedThing; at: number }[], rows: (things: readonly Thing[]) => ReactNode): ReactNode {
+  const parts: ReactNode[] = [];
+  let from = 0;
+  for (const { thing, at } of [...removed].sort((a, b) => a.at - b.at)) {
+    const to = Math.min(Math.max(at, from), things.length);
+    parts.push(<Fragment key={`rows-${thing.id}`}>{rows(things.slice(from, to))}</Fragment>, <RemovedThingRow key={thing.id} thing={thing} />);
+    from = to;
+  }
+  parts.push(<Fragment key="rows-rest">{rows(things.slice(from))}</Fragment>);
+  return parts;
+}
+
 /**
  * One photo of the room as a folded row: its thumbnail and its text (both open the card), what it shows, the date, how many föremål and how
  * many have a star, and a ⌄ (the only thing that folds) that unfolds the föremål list (the rows as they were, with the "Kan ha värde" pill) and "Öppna kortet" last.
@@ -47,12 +67,15 @@ export function photoFoldLabel(parts: { label: string; date: string; count: numb
 function PhotoFold({
   card,
   things,
+  removed,
   open,
   onToggle,
   rows,
 }: {
   card: RoomCard;
   things: readonly Thing[];
+  /** The föremål just removed from this photo, kept as struck-through rows for "Ångra". */
+  removed: readonly { thing: RemovedThing; at: number }[];
   open: boolean;
   onToggle: () => void;
   rows: (things: readonly Thing[]) => ReactNode;
@@ -97,7 +120,11 @@ function PhotoFold({
       </div>
       {open ? (
         <div id={panelId} className="border-t border-hairline">
-          {things.length > 0 ? <ListGroup label={`${card.label}, ${date}`}>{rows(things)}</ListGroup> : null}
+          {things.length > 0 || removed.length > 0 ? (
+            <ListGroup label={`${card.label}, ${date}`}>
+              {withRemoved(things, removed, rows)}
+            </ListGroup>
+          ) : null}
           <Link
             href={cardViewHref(card.id)}
             className="flex min-h-tap items-center justify-between gap-2 border-t border-hairline px-4 text-meta font-medium text-accent"
@@ -137,6 +164,16 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
 
   // Every photo starts folded (Värdetips sketches, E); the unfolded ones are this visit's.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  // UX-B: a föremål removed from a photo leaves its row, struck through, for "Ångra"; the photo is unfolded to show it.
+  useRemovedThingsHost();
+  const removedThings = useRemovedThings();
+  // Where each one was in its photo's list, read the first time it is seen (the list still has it then).
+  const [anchors, setAnchors] = useState<ReadonlyMap<string, number>>(new Map());
+  const fresh = removedThings.filter((thing) => thing.photoId !== null && !anchors.has(thing.id));
+  if (fresh.length > 0 && loaded && !("error" in loaded)) {
+    setAnchors(new Map([...anchors, ...fresh.map((thing) => [thing.id, indexIn(loaded.byPhoto[thing.photoId ?? ""] ?? [], thing.id)] as const)]));
+    setExpanded(new Set([...expanded, ...fresh.flatMap((thing) => (thing.photoId ? [thing.photoId] : []))]));
+  }
   const toggle = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current);
@@ -169,15 +206,23 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
           key={card.id}
           card={card}
           things={loaded.byPhoto[card.id] ?? []}
+          removed={removedThings.filter((thing) => thing.photoId === card.id).map((thing) => ({ thing, at: anchors.get(thing.id) ?? Number.MAX_SAFE_INTEGER }))}
           open={expanded.has(card.id)}
           onToggle={() => toggle(card.id)}
           rows={rows}
         />
       ))}
-      {loaded.noted.length > 0 ? (
+      {loaded.noted.length > 0 || removedThings.some((thing) => thing.noted) ? (
         <section className="flex flex-col gap-2" data-testid="room-photo-noted">
           <h3 className="m-0 px-1 text-section-label text-ink-2">Skrivna utan foto</h3>
-          <ListGroup label="Skrivna utan foto">{rows(loaded.noted)}</ListGroup>
+          <ListGroup label="Skrivna utan foto">
+            {rows(loaded.noted)}
+            {removedThings
+              .filter((thing) => thing.noted)
+              .map((thing) => (
+                <RemovedThingRow key={thing.id} thing={thing} />
+              ))}
+          </ListGroup>
         </section>
       ) : null}
       <ThingSheet thing={selected} open={open} onClose={() => setOpen(false)} />
