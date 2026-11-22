@@ -84,9 +84,9 @@ const content = (page: Page) => page.locator("main").filter({ visible: true });
 
 /**
  * Takes cards in a room: from the start page it opens the room (or makes it with "Lägg till rum"), then on the room's
- * page (Story 18.16) "Välj från album" is clicked there; with a part or box the "Var i rummet?" chips above Fota are used.
+ * page the album icon is clicked there. Every card goes to the room's whole-room place.
  */
-async function takeCards(page: Page, files: string | string[], { room, part, box = false }: { room?: string; part?: string; box?: boolean } = {}) {
+async function takeCards(page: Page, files: string | string[], { room }: { room?: string } = {}) {
   // Photos are taken in a room (Story 18.21): from the start page first go to the room, or make it.
   if (!page.url().includes("/prylar/rum/")) {
     if (!room) throw new Error("takeCards needs a room on the start page");
@@ -101,12 +101,6 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
     await page.waitForURL(/\/prylar\/rum\//);
   }
   const scope: Locator = page.locator("main").filter({ visible: true });
-  if (part) {
-    // UX-28: "Var i rummet?" is chips above Fota; "+ Annan plats" opens the field for an own name.
-    const where = page.getByRole("radiogroup", { name: "Var i rummet?" });
-    await where.getByRole("radio", { name: box ? "Låda" : "+ Annan plats" }).click();
-    await page.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
-  }
   const chooser = page.waitForEvent("filechooser");
   await scope.getByRole("button", { name: /Välj från album/ }).click();
   await (await chooser).setFiles(files);
@@ -244,21 +238,18 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   expect(errors).toEqual([]);
 });
 
-test("several images at once are each a card, and a part or a box makes a place of its own", async ({ page }) => {
+test("several images at once are each a card, all in the room's whole-room place", async ({ page }) => {
   await page.goto("/prylar");
-  await takeCards(page, [photo, photo], { room: "Garaget", part: "Väggen" });
+  await takeCards(page, [photo, photo], { room: "Garaget" });
   await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(2);
   await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 30_000 }).toBe(2);
   const jobs = await adminClient().from("ai_job").select("kind").eq("user_id", userId);
   expect(jobs.data).toEqual([{ kind: "things" }, { kind: "things" }]);
   expect(new Set((await cardsOf()).map((card) => card.place_id)).size).toBe(1);
 
-  await takeCards(page, photo, { room: "Garaget", part: "Black box", box: true });
-  await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(3);
-  const places = (await adminClient().from("thing_place").select("part, kind").eq("user_id", userId).order("created_at")).data;
-  // "Lägg till rum" made the whole-room place first (Story 18.21).
-  expect(places).toEqual([{ part: null, kind: "part" }, { part: "Väggen", kind: "part" }, { part: "Black box", kind: "box" }]);
-  await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 30_000 }).toBe(3);
+  const places = (await adminClient().from("thing_place").select("part, kind").eq("user_id", userId)).data;
+  // "Lägg till rum" made the whole-room place; no chip makes a part or a box any more.
+  expect(places).toEqual([{ part: null, kind: "part" }]);
 });
 
 test("a new card adds to the room and replaces nothing; Ta om replaces only that card once the new one is read", async ({ page }) => {
@@ -1026,7 +1017,7 @@ test("a thing's sheet changes its category, keeps the AI's hint, and stays on it
 test("the room lists things per photo by default, with the photo as the heading, and remembers per category", async ({ page }) => {
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "på väggen" }, { name: "Spade", category: "Trädgård" }], { takenAt: "2026-11-18T10:00:00Z" });
   await page.goto(roomUrl("Skräpförrådet"));
-  await expect(page.getByRole("radio", { name: "Per foto" })).toBeChecked();
+  await expect(page.getByTestId("room-grouping")).toContainText("Per foto");
   const group = page.getByTestId("room-photo");
   await expect(group).toHaveCount(1);
   // Folded: what it shows, the date and how many; the list opens with the row.
@@ -1039,11 +1030,13 @@ test("the room lists things per photo by default, with the photo as the heading,
   await expect(group.getByTestId("room-photo-open")).toBeVisible();
   await expect(group).not.toContainText("på väggen");
   await expect(page.getByTestId("room-category")).toHaveCount(0);
+  await page.getByTestId("room-grouping").click();
   await page.getByRole("radio", { name: "Per kategori" }).click();
+  await expect(page.getByTestId("room-grouping")).toContainText("Per kategori");
   await expect(page.getByTestId("room-category")).toHaveCount(2);
   // The choice is kept on the device.
   await page.reload();
-  await expect(page.getByRole("radio", { name: "Per kategori" })).toBeChecked();
+  await expect(page.getByTestId("room-grouping")).toContainText("Per kategori");
   await expect(page.getByTestId("room-category")).toHaveCount(2);
 });
 
