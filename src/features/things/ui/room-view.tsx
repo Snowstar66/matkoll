@@ -2,8 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo } from "react";
+import { useState } from "react";
+import { ChoiceRows } from "@/components/choice-rows";
+import { Sheet } from "@/components/sheet";
 import { EmptyState } from "@/components/empty-state";
-import { GridIcon, ListIcon } from "@/components/icons";
+import { ChevronDownIcon, GridIcon, ListIcon } from "@/components/icons";
 import { Segment, type SegmentOption } from "@/components/segment";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
@@ -72,10 +75,43 @@ const views: readonly SegmentOption<View>[] = [
   { value: "cards", icon: <GridIcon size={18} />, iconOnly: true, label: "Kort" },
 ];
 
-const groupings: readonly SegmentOption<RoomGrouping>[] = [
+const groupings: readonly { value: RoomGrouping; label: string }[] = [
   { value: "photo", label: "Per foto" },
   { value: "category", label: "Per kategori" },
 ];
+
+/** "Per foto ▾": a small pill that opens the two ways to group the föremål; the choice is kept on the device as before. */
+function GroupingPill({ grouping, onChange }: { grouping: RoomGrouping; onChange: (value: RoomGrouping) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = groupings.find((entry) => entry.value === grouping)?.label ?? groupings[0].label;
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-label={`Visa föremålen: ${current}`}
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border bg-surface pl-3.5 pr-2.5 text-control font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        data-testid="room-grouping"
+      >
+        {current}
+        <ChevronDownIcon size={16} className="text-ink-3" />
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Visa föremålen" closeLabel="Klar">
+        <ChoiceRows
+          label="Visa föremålen"
+          options={groupings}
+          value={grouping}
+          onChange={onChange}
+          onPick={(value) => {
+            onChange(value);
+            setOpen(false);
+          }}
+        />
+      </Sheet>
+    </>
+  );
+}
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
@@ -150,10 +186,11 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
         defaultRoom={summary.room}
         variant="default"
         layout="room"
-        places={[...boxes.flatMap((box) => (box.part ? [{ name: box.part, box: true }] : [])), ...parts.map((place) => ({ name: place.part, box: false }))]}
         title={moreCardsText}
       />
-      <div className="flex justify-end">
+      {/* One slim row: how the föremål are grouped (Per foto / Per kategori) on the left, Lista / Kort on the right. */}
+      <div className="flex min-h-9 items-center justify-between gap-2" data-testid="room-toolbar">
+        {view === "things" && summary.things > 0 ? <GroupingPill grouping={grouping} onChange={setStoredGrouping} /> : <span />}
         <Segment<View> size="small" label="Visa" value={view} onChange={setStoredView} options={views} />
       </div>
       {view === "things" ? (
@@ -166,7 +203,6 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
             </div>
           ) : (
             <>
-              <Segment<RoomGrouping> label="Visa föremålen" value={grouping} onChange={setStoredGrouping} options={groupings} />
               {grouping === "photo" ? (
                 <RoomPhotos siteId={siteId} roomKey={summary.key} cards={cards} />
               ) : (
