@@ -40,8 +40,8 @@ export function photoFoldLabel(parts: { label: string; date: string; count: numb
 }
 
 /**
- * One photo of the room as a folded row: its thumbnail (opens the card), what it shows, the date, how many föremål and how
- * many have a star, and a ⌄ that unfolds the föremål list (the rows as they were, with the "Kan ha värde" pill) and "Öppna kortet" last.
+ * One photo of the room as a folded row: its thumbnail and its text (both open the card), what it shows, the date, how many föremål and how
+ * many have a star, and a ⌄ (the only thing that folds) that unfolds the föremål list (the rows as they were, with the "Kan ha värde" pill) and "Öppna kortet" last.
  * A line of what the card holds comes under the name once cards have one (Värdetips, summary).
  */
 function PhotoFold({
@@ -69,31 +69,30 @@ function PhotoFold({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/api/things/photo/${card.id}`} alt="" loading="lazy" className="block size-14 object-cover" />
         </Link>
+        {/* The row opens the card, like the photo; only the chevron folds the list out and in. */}
+        <Link href={cardViewHref(card.id)} aria-label={`Visa kortet ${card.label}`} className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left" data-testid="room-photo-row">
+          <span className="text-row-title font-semibold wrap-break-word text-ink">{card.label}</span>
+          <span className="text-meta text-ink-2">
+            {card.named && card.placeLabel ? `${card.placeLabel} · ` : ""}
+            {date} · {categoryCountText(things.length)}
+            <StarCountAfter count={starred} />
+          </span>
+          {card.summary ? (
+            <span className="truncate text-meta text-ink-3" data-testid="card-summary">
+              {card.summary}
+            </span>
+          ) : null}
+        </Link>
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
           aria-label={photoFoldLabel({ label: card.label, date, count: things.length, starred, open })}
-          className="flex min-h-tap min-w-0 flex-1 items-center gap-1 text-left"
+          className="flex size-tap shrink-0 items-center justify-center rounded-md text-ink-3"
           data-testid="room-photo-toggle"
         >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-row-title font-semibold wrap-break-word text-ink">{card.label}</span>
-            <span className="text-meta text-ink-2">
-              {card.named && card.placeLabel ? `${card.placeLabel} · ` : ""}
-              {date} · {categoryCountText(things.length)}
-              <StarCountAfter count={starred} />
-            </span>
-            {card.summary ? (
-              <span className="truncate text-meta text-ink-3" data-testid="card-summary">
-                {card.summary}
-              </span>
-            ) : null}
-          </span>
-          <span aria-hidden="true" className="flex size-tap shrink-0 items-center justify-center text-ink-3">
-            <ChevronDownIcon size={20} className={open ? "rotate-180" : undefined} />
-          </span>
+          <ChevronDownIcon size={20} className={open ? "rotate-180" : undefined} />
         </button>
       </div>
       {open ? (

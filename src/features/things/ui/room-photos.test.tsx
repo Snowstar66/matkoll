@@ -56,11 +56,12 @@ describe("the room's things per photo", () => {
     expect(groups).toHaveLength(2);
     expect(screen.queryAllByTestId("thing")).toHaveLength(0);
     const first = within(groups[0]).getByTestId("room-photo-toggle");
-    expect(first).toHaveTextContent("Hela rummet");
-    expect(first).toHaveTextContent("19 nov · 1 sak");
+    const firstRow = within(groups[0]).getByTestId("room-photo-row");
+    expect(firstRow).toHaveTextContent("Hela rummet");
+    expect(firstRow).toHaveTextContent("19 nov · 1 sak");
     expect(first).toHaveAttribute("aria-expanded", "false");
     expect(first).toHaveAccessibleName("Hela rummet, 19 nov, 1 sak, fäll ut");
-    expect(within(groups[1]).getByTestId("room-photo-toggle")).toHaveTextContent("18 nov · 2 saker");
+    expect(within(groups[1]).getByTestId("room-photo-row")).toHaveTextContent("18 nov · 2 saker");
     await userEvent.click(first);
     await userEvent.click(within(groups[1]).getByTestId("room-photo-toggle"));
     expect(first).toHaveAttribute("aria-expanded", "true");
@@ -70,6 +71,26 @@ describe("the room's things per photo", () => {
     expect(within(groups[0]).getByTestId("room-photo-thumb")).toHaveAttribute("href", expect.stringContaining(`/prylar/kort/${newer}`));
     expect(within(groups[0]).getByTestId("room-photo-open")).toHaveAttribute("href", expect.stringContaining(`/prylar/kort/${newer}`));
     expect(loadRoomPhotoThings).toHaveBeenCalledWith({ siteId: site, roomKey: "garaget", photoIds: [newer, older] });
+  });
+
+  it("the photo and the row both open the card, and only the chevron folds the list out and in", async () => {
+    view([card(older, "2026-11-18T10:00:00Z")]);
+    const group = await screen.findByTestId("room-photo");
+    const href = expect.stringContaining(`/prylar/kort/${older}`);
+    expect(within(group).getByTestId("room-photo-thumb")).toHaveAttribute("href", href);
+    const row = within(group).getByTestId("room-photo-row");
+    expect(row).toHaveAttribute("href", href);
+    // Tapping the row is a link: it does not fold anything.
+    row.addEventListener("click", (event) => event.preventDefault());
+    await userEvent.click(row);
+    const toggle = within(group).getByTestId("room-photo-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle.closest("a")).toBeNull();
+    expect(row.contains(toggle)).toBe(false);
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("says how many föremål have a star on the folded row, and shows the pill on them when unfolded, only with Värdetips on", async () => {

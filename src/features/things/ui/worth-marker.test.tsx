@@ -244,7 +244,8 @@ describe("Undersök värdet", () => {
     render(<WorthBlock worth={worth} thingId={vase.id} />);
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(await screen.findByTestId("worth-applied")).toHaveTextContent("Verkar inte ha särskilt värde. Stjärnan är borttagen.");
-    expect(screen.getByTestId("worth-recommendation")).toHaveTextContent("AI:ns rekommendation: Inte särskilt värde");
+    // Said once: the line about what was done, not also the recommendation line.
+    expect(screen.queryByTestId("worth-recommendation")).not.toBeInTheDocument();
     expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
   });
 
@@ -259,6 +260,8 @@ describe("Undersök värdet", () => {
     expect(proposal).toHaveTextContent("AI:n tycker att den kan ha värde. Stjärnmarkera?");
     expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByTestId("worth-applied")).not.toBeInTheDocument();
+    // The offer is the one statement of what the AI thinks: no recommendation line above it.
+    expect(screen.queryByTestId("worth-recommendation")).not.toBeInTheDocument();
     await userEvent.click(within(proposal).getByRole("button", { name: "Stjärnmarkera" }));
     expect(setThingWorth).toHaveBeenCalledWith({ id: vase.id, starred: true });
     expect(await screen.findByText("Markerad av dig")).toBeInTheDocument();
@@ -272,6 +275,14 @@ describe("Undersök värdet", () => {
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(await screen.findByTestId("worth-proposal")).toHaveTextContent("AI:n tycker inte att den har särskilt värde. Ta bort stjärnan?");
     expect(screen.getByRole("button", { name: "Ta bort stjärnan" })).toBeInTheDocument();
+  });
+
+  it("says why only once: the tip's sentence gives way to the kept explanation", async () => {
+    saveOption("worthLook", true);
+    render(<WorthBlock worth={{ ...worth, detail: explanationText }} thingId={vase.id} />);
+    expect(screen.queryByText(worth.why)).not.toBeInTheDocument();
+    expect(screen.getByTestId("worth-detail")).toHaveTextContent("Formen och den slipade kanten");
+    expect(screen.getAllByTestId("worth-confidence")).toHaveLength(1);
   });
 
   it("shows a kept explanation straight away, without asking, with Uppdatera that asks again and locks while it works", async () => {
