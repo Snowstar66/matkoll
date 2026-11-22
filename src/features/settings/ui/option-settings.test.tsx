@@ -25,6 +25,15 @@ describe("OptionSettings", () => {
     window.localStorage.clear();
   });
 
+  it("has Fota med telefonens kamera under Förrådet, off by default, with a plain hint, remembered on this device", async () => {
+    render(<OptionSettings areasEnabled={false} />);
+    const phone = screen.getByRole("switch", { name: /^Fota med telefonens kamera/ });
+    expect(phone).toHaveAttribute("aria-checked", "false");
+    expect(phone).toHaveAccessibleDescription(/Använder telefonens egen kamera-app, så din blixt och dina kamerainställningar gäller\. Du tar en bild i taget i stället för flera i rad\./);
+    await userEvent.click(phone);
+    expect(window.localStorage.getItem("livskoll-option-phoneCamera")).toBe("1");
+  });
+
   it("has the sections Laga mat, Planera veckan, Näring, Äta ute, Förrådet and Dagens, with the Näring switches off by default", () => {
     render(<OptionSettings areasEnabled={false} />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);

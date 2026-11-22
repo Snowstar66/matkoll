@@ -34,7 +34,7 @@ export const areas: readonly Area[] = [
 /**
  * The switches that belong to no area, so the boxes and the buttons never touch them: Dagens (its own
  * section), Visa delade recept (the household's), and Låt agenten söka på webben and Visa sidtider (under
- * Avancerat). A new Tillval must be in an area or here, which a test checks.
+ * Avancerat), and Fota med telefonens kamera (it trades the quick camera's speed away, so Allt does not turn it on). A new Tillval must be in an area or here, which a test checks.
  */
 export const outsideAreaOptionIds: readonly OptionId[] = [
   "dagensShow",
@@ -45,6 +45,7 @@ export const outsideAreaOptionIds: readonly OptionId[] = [
   "showShared",
   "restaurantAgentWeb",
   "showTimings",
+  "phoneCamera",
 ];
 
 export type AreaStatus = "full" | "half" | "none";

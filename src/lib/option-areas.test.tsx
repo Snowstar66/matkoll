@@ -88,6 +88,16 @@ describe("the areas of Tillval", () => {
     for (const id of outsideAreaOptionIds.filter((id) => id !== "restaurantAgentWeb" && id !== "showTimings")) expect(readOption(id as OptionId)).toBe(before[id]);
   });
 
+  it("keeps Fota med telefonens kamera outside the areas, so Allt never turns it on and Bara grunderna leaves it", () => {
+    expect(outsideAreaOptionIds).toContain("phoneCamera");
+    expect(areaOptionIds).not.toContain("phoneCamera");
+    setAll(true);
+    expect(readOption("phoneCamera")).toBe(false);
+    saveOption("phoneCamera", true);
+    setAll(false);
+    expect(readOption("phoneCamera")).toBe(true);
+  });
+
   it("setAll(true) never turns on the web search or Visa sidtider from off", () => {
     setAll(true);
     expect(readOption("restaurantAgentWeb")).toBe(false);
