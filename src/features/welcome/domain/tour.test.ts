@@ -1,20 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { choicePath, clampTourPage, isLastTourPage, pageAfterSwipe, replayReturnPath, tourPageCount, tourPageLabel } from "./tour";
+import { choicePath, clampTourPage, isAreasTourPage, isLastTourPage, pageAfterSwipe, replayReturnPath, tourPageCount, tourPageLabel } from "./tour";
 
 describe("the welcome tour's pages", () => {
-  it("has seven pages and keeps an index inside them", () => {
-    expect(tourPageCount).toBe(7);
-    expect([-1, 0, 3, 5, 6, 99].map(clampTourPage)).toEqual([0, 0, 3, 5, 6, 6]);
+  it("has eight pages and keeps an index inside them", () => {
+    expect(tourPageCount).toBe(8);
+    expect([-1, 0, 3, 5, 6, 99].map(clampTourPage)).toEqual([0, 0, 3, 5, 6, 7]);
   });
 
   it("names each page for the screen reader", () => {
-    expect(tourPageLabel(0)).toBe("Sida 1 av 7");
-    expect(tourPageLabel(6)).toBe("Sida 7 av 7");
+    expect(tourPageLabel(0)).toBe("Sida 1 av 8");
+    expect(tourPageLabel(7)).toBe("Sida 8 av 8");
   });
 
   it("knows the last page", () => {
-    expect(isLastTourPage(5)).toBe(false);
-    expect(isLastTourPage(6)).toBe(true);
+    expect(isLastTourPage(6)).toBe(false);
+    expect(isLastTourPage(7)).toBe(true);
+    expect(isAreasTourPage(6)).toBe(true);
+    expect(isAreasTourPage(7)).toBe(false);
   });
 
   it("changes page on a swipe longer than 40 px, never before the first or past the last", () => {
@@ -22,7 +24,7 @@ describe("the welcome tour's pages", () => {
     expect(pageAfterSwipe(2, 41)).toBe(1);
     expect(pageAfterSwipe(2, -40)).toBe(2);
     expect(pageAfterSwipe(0, 120)).toBe(0);
-    expect(pageAfterSwipe(6, -120)).toBe(6);
+    expect(pageAfterSwipe(7, -120)).toBe(7);
   });
 });
 

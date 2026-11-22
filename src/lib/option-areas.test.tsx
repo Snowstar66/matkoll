@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   areaOptionIds,
   areaStatus,
+  areasChosenMessage,
+  turnOnAreas,
   areas,
   areasCardEnabled,
   areasValueText,
@@ -109,6 +111,18 @@ describe("the areas of Tillval", () => {
     expect(areasValueText()).toBe("Planera veckan, Laga mat");
     saveOption("showNutrition", true);
     expect(areasValueText()).toBe("Planera veckan, Laga mat +1");
+  });
+
+  it("turnOnAreas (the tour's Klar) turns on only the ticked areas, turns nothing off, and names them", () => {
+    saveOption("recipeTimer", false);
+    const chosen = turnOnAreas(["plan", "cook"]);
+    expect(chosen.map((entry) => entry.name)).toEqual(["Planera veckan", "Laga mat"]);
+    expect(areasChosenMessage(chosen)).toBe("Planera veckan och Laga mat på. Ändra under Tillval.");
+    expect(readOption("weekAgent")).toBe(true);
+    expect(readOption("recipeTimer")).toBe(true);
+    expect(readOption("showNutrition")).toBe(false);
+    expect(localStorage.getItem("livskoll-option-showNutrition")).toBeNull();
+    expect(areasChosenMessage([area("ute")])).toBe("Äta ute på. Ändra under Tillval.");
   });
 
   it("has the off switch on, and is a plain constant", () => {

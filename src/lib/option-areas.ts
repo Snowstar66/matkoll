@@ -104,6 +104,23 @@ export function setAll(on: boolean, read: Read = readOption, save: (id: OptionId
   return { changes, message: on ? `Allt på. Slog på ${changes.length}.` : `Bara grunderna. Stängde ${changes.length}.` };
 }
 
+/**
+ * The welcome tour's question: turns on every switch of the ticked areas that is off (what a tap on an empty
+ * or half box does) and turns nothing off. Returns the areas, in the card's order, for the message.
+ */
+export function turnOnAreas(ids: readonly AreaId[], read: Read = readOption, save: (id: OptionId, on: boolean) => void = saveOption): Area[] {
+  const chosen = areas.filter((area) => ids.includes(area.id));
+  for (const area of chosen) applyChanges(area.options.filter((id) => !read(id)).map((id) => ({ id, before: false })), true, save);
+  return chosen;
+}
+
+/** "Planera veckan och Laga mat på. Ändra under Tillval.", for the toast after the tour. */
+export function areasChosenMessage(chosen: readonly Area[]): string {
+  const names = chosen.map((area) => area.name);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} och ${names.at(-1)}` : (names[0] ?? "");
+  return `${list} på. Ändra under Tillval.`;
+}
+
 /** "Planera veckan, Laga mat +1", at most two names and then +N; "Inget påslaget" when no area is on. */
 export function areasValueText(read: Read = readOption): string {
   const on = areas.filter((area) => areaIsOn(area, read));

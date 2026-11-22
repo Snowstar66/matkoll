@@ -5,6 +5,8 @@ export {
   isLastTourPage,
   pageAfterSwipe,
   replayReturnPath,
+  areasTourPage,
+  isAreasTourPage,
   tourPageCount,
   tourPageLabel,
   tourSwipeDistancePx,

@@ -2,7 +2,15 @@
 // Plain data and rules; the pictures and the dialog are in ui/.
 
 /** The number of pages in the tour. */
-export const tourPageCount = 7;
+export const tourPageCount = 8;
+
+/** The page that asks "Vad vill du ha hjälp med?": the second to last, before the choices. There the bottom button is Klar and Hoppa över skips the question. */
+export const areasTourPage = 6;
+
+/** Whether `index` is the page with the five areas. */
+export function isAreasTourPage(index: number): boolean {
+  return clampTourPage(index) === areasTourPage;
+}
 
 /** The page index `n` kept inside the tour: never before the first page or after the last. */
 export function clampTourPage(n: number): number {
