@@ -17,7 +17,9 @@ import {
   saveChoice,
   saveOption,
 } from "@/lib/options";
+import { areasCardEnabled } from "@/lib/option-areas";
 import { useChoice, useOption } from "@/lib/use-option";
+import { AreasCard } from "./areas-card";
 
 // Tillval: one switch row per entry in src/lib/options.ts, remembered on this device.
 
@@ -98,11 +100,12 @@ function PreviousPlansRow() {
  * `nutritionNote` is the Näringskoll, a quiet line under the Näring section, shown only with Visa näring on.
  * Låt agenten söka på webben and Visa sidtider are not here: they live under Avancerat.
  */
-export function OptionSettings({ after, nutritionNote }: { after?: ReactNode; nutritionNote?: ReactNode } = {}) {
+export function OptionSettings({ after, nutritionNote, areasEnabled = areasCardEnabled }: { after?: ReactNode; nutritionNote?: ReactNode; areasEnabled?: boolean } = {}) {
   const showNutrition = useOption("showNutrition");
   const hidden: readonly string[] = advancedOptionIds;
   return (
     <section aria-label="Tillval">
+      <AreasCard enabled={areasEnabled} />
       {optionGroups
         .filter((group) => group.id !== "shared" && group.id !== "debug")
         .map((group) => (
@@ -146,7 +149,7 @@ export function OptionSettings({ after, nutritionNote }: { after?: ReactNode; nu
             ) : null}
           </div>
         ))}
-      <p className="px-1 text-meta text-ink-3">Gäller bara den här enheten.</p>
+      {areasEnabled ? null : <p className="px-1 text-meta text-ink-3">Gäller bara den här enheten.</p>}
       {after}
     </section>
   );

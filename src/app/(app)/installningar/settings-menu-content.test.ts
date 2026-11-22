@@ -102,6 +102,7 @@ describe("the groups of the start page", () => {
     const groups = await groupLabels();
     const phone = groups.find((group) => group.label === "Den här telefonen");
     expect(phone?.rows.slice(0, 3)).toMatchObject([{ deviceValue: "palette" }, { deviceValue: "push" }, { deviceValue: "badge" }]);
+    expect(groups.find((group) => group.label === "Funktioner")?.rows).toMatchObject([{ title: "Tillval", deviceValue: "areas" }]);
     expect(groups.at(-1)?.rows.at(-1)).toMatchObject({ title: "Avancerat", href: "/installningar/avancerat", icon: "gear" });
   });
 });

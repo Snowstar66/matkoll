@@ -126,7 +126,7 @@ export async function SettingsMenuContent() {
     },
     {
       label: "Funktioner",
-      rows: [{ href: settingsPageHref("tillval"), icon: "sliders", tile: "mint", title: "Tillval" }],
+      rows: [{ href: settingsPageHref("tillval"), icon: "sliders", tile: "mint", title: "Tillval", deviceValue: "areas" }],
     },
     {
       label: "Om appen",
