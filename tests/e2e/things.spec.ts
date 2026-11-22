@@ -1555,6 +1555,24 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   expect(errors).toEqual([]);
 });
 
+test("Dölj siffror on a card releases the marked föremål: no dot, no spotlight, the whole photo", async ({ page }) => {
+  await page.goto("/prylar");
+  await takeCards(page, storeroom, { room: "Boden" });
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("done");
+  await page.goto(`${roomUrl("Boden")}?vy=cards`);
+  await page.getByTestId("open-card").click();
+  await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: /^Förlängningssladd/ }).click();
+  await expect(page.getByTestId("card-dot-selected")).toHaveCount(1);
+  await expect(page.getByTestId("card-spotlight")).toHaveCount(1);
+  await page.getByTestId("photo-numbers-toggle").click();
+  await expect(page.getByTestId("card-dot-selected")).toHaveCount(0);
+  await expect(page.getByTestId("card-dot")).toHaveCount(0);
+  await expect(page.getByTestId("card-spotlight")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "false");
+  await page.screenshot({ path: process.env.E2E_SHOTS ? `${process.env.E2E_SHOTS}/pr3-hidden.png` : "/dev/null" });
+});
+
 test("a search hit and a chat reference open the card big with the föremål marked; an older card looks it up once, or says it could not point it out", async ({ page }) => {
   const { cardId, ids } = await seedOldCard(hemma, "Boden", [
     { name: "Hammare", category: "Verktyg", where: "på väggen, mitten" },

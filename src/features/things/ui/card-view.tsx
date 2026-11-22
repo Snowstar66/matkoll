@@ -304,7 +304,15 @@ export function CardView({ card, initialThingId }: { card: Card; initialThingId:
               </p>
             )}
           </div>
-          {things.some((thing) => thing.box) ? <PhotoNumbersToggle hidden={numbersHidden} onChange={setNumbersHidden} className="shrink-0" /> : null}
+          {things.some((thing) => thing.box) ? <PhotoNumbersToggle
+              hidden={numbersHidden}
+              onChange={(hidden) => {
+                // Hiding the numbers lets go of the mark too (its dot, name and spotlight), so the whole photo is shown.
+                if (hidden) setSelectedId(null);
+                setNumbersHidden(hidden);
+              }}
+              className="shrink-0"
+            /> : null}
         </div>
       </div>
       <div className="flex flex-col gap-4">
