@@ -25,8 +25,8 @@ describe("options", () => {
     expect(readOption("recipeTimer")).toBe(true);
   });
 
-  it("has Visa tidigare vecka, off by default, last of the switches in Hushållet", () => {
-    const household = options.filter((entry) => entry.group === "household");
+  it("has Visa tidigare vecka, off by default, last of the switches in Planera veckan", () => {
+    const household = options.filter((entry) => entry.group === "plan");
     expect(household.at(-1)).toMatchObject({ id: "showPreviousWeek", label: "Visa tidigare vecka", defaultOn: false });
     expect(readOption("showPreviousWeek")).toBe(false);
   });
@@ -41,9 +41,9 @@ describe("options", () => {
     expect(readOption("weekAgent")).toBe(true);
   });
 
-  it("has Äta ute and the parked web search, both off by default, under Äta ute", () => {
+  it("has Sök restauranger and the parked web search, both off by default, under Äta ute", () => {
     const option = options.find((entry) => entry.id === "restaurantAgent");
-    expect(option).toMatchObject({ label: "Äta ute", group: "menu", defaultOn: false });
+    expect(option).toMatchObject({ label: "Sök restauranger", group: "menu", defaultOn: false });
     expect(options.find((entry) => entry.id === "restaurantAgentWeb")).toMatchObject({ label: "Låt agenten söka på webben", group: "menu", defaultOn: false });
     expect(optionGroups.map((group) => group.id)).toContain(option?.group);
     expect(option?.hint).not.toBe("");

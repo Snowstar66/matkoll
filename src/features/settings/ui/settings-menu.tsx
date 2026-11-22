@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useSyncExternalStore } from "react";
 import { Avatar, type AvatarTone } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PaletteIcon, PantryIcon, PinIcon, SlidersIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
+import { AppBadgeIcon, BellIcon, BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PaletteIcon, PantryIcon, PinIcon, SettingsIcon, SlidersIcon, SparkleIcon, StoreIcon, UsersIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import type { OptionId } from "@/lib/options";
 import { useOption } from "@/lib/use-option";
+import { type DeviceValueKind, useDeviceValue } from "./device-values";
 import { NewsDot } from "./news-seen";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
@@ -29,6 +30,7 @@ export const settingsIcons = {
   pantry: PantryIcon,
   palette: PaletteIcon,
   sliders: SlidersIcon,
+  gear: SettingsIcon,
 } as const;
 
 export type SettingsIconName = keyof typeof settingsIcons;
@@ -51,6 +53,8 @@ export type SettingsRowData = {
   title: string;
   /** The short value at the right, e.g. "Hemma, Duved"; left out when there is none. */
   value?: string;
+  /** The value is read on this device when the page has loaded: the colour theme, notifications or the icon's number. */
+  deviceValue?: DeviceValueKind;
   /** A green capsule at the right instead of a value, e.g. "3 nya" on Inkorg (Story 20.3). */
   badge?: string;
   /** The newest Nyheter entry's date: a small accent dot while this device has not seen it. */
@@ -79,6 +83,21 @@ function Tile({ icon, tile }: Pick<SettingsRowData, "icon" | "tile">) {
   );
 }
 
+/** One group of rows under its label in the list card of the start page; `extra` are `li`s of the caller's own after the rows. */
+export function SettingsGroup({ group, current, extra }: { group: SettingsGroupData; current?: string; extra?: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">{group.label}</h2>
+      <ListGroup label={group.label} inset={58}>
+        {group.rows.map((row) => (
+          <Row key={row.title} row={row} current={row.href !== null && current === row.href} />
+        ))}
+        {extra}
+      </ListGroup>
+    </section>
+  );
+}
+
 /** Hides a row whose Tillval switch is off; the switch is per device, so it is read here and not on the server. */
 function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
   const on = useOption(row.onlyWithOption ?? "menuAdvisor");
@@ -90,13 +109,15 @@ function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
 const noopSubscribe = () => () => {};
 
 function RowContent({ row, current }: { row: SettingsRowData; current: boolean }) {
+  const deviceValue = useDeviceValue(row.deviceValue);
+  const value = row.value ?? deviceValue;
   const content = (
     <>
       <Tile icon={row.icon} tile={row.tile} />
       <span className="min-w-0 flex-1 text-row-title font-normal wrap-break-word text-ink">{row.title}</span>
-      {row.value ? (
+      {value ? (
         <span className="max-w-[45%] truncate text-[0.9375rem] leading-5 text-ink-2" data-testid="settings-value">
-          {row.value}
+          {value}
         </span>
       ) : null}
       {row.badge ? (
@@ -157,14 +178,7 @@ export function SettingsMenu({ account, groups, signOut }: { account: SettingsAc
     <div className="flex flex-col gap-3 pb-2">
       <AccountCard account={account} current={pathname === account.href} />
       {groups.map((group) => (
-        <section key={group.label} className="flex flex-col gap-1.5">
-          <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">{group.label}</h2>
-          <ListGroup label={group.label} inset={58}>
-            {group.rows.map((row) => (
-              <Row key={row.title} row={row} current={row.href !== null && pathname === row.href} />
-            ))}
-          </ListGroup>
-        </section>
+        <SettingsGroup key={group.label} group={group} current={pathname} />
       ))}
       {signOut}
     </div>

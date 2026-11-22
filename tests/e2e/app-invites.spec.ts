@@ -102,7 +102,7 @@ test("anyone but the owner gets no Inbjudningar row and no page", async ({ brows
   const context = await browser.newContext({ storageState: appInvitesStorageState, viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   await page.goto("/installningar");
-  await expect(page.getByRole("heading", { name: "Hushåll" }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hushållet" }).filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Appens ägare" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Inbjudningar/ })).toHaveCount(0);
   // The page streams, so the answer is the not-found page rather than a 404 status.

@@ -27,7 +27,7 @@ vi.mock("@/features/household/server", () => ({
 const { SettingsMenuContent, aiValueText, newCountText, sitesCountText } = await import("./settings-menu-content");
 
 async function groupLabels() {
-  const element = (await SettingsMenuContent()) as { props: { groups: { label: string; rows: { title: string; badge?: string }[] }[] } };
+  const element = (await SettingsMenuContent()) as { props: { groups: { label: string; rows: { title: string; badge?: string; deviceValue?: string; href?: string | null; icon?: string }[] }[] } };
   return element.props.groups;
 }
 
@@ -60,7 +60,7 @@ describe("the group Appens ägare (Story 20.3, named so in 21.2b)", () => {
   it("is right under the account, with Inkorg and the count of new, for the owner", async () => {
     getOwnerInbox.mockResolvedValue({ unread: 3 });
     const groups = await groupLabels();
-    expect(groups[0]).toMatchObject({ label: "Appens ägare", rows: [{ title: "Inkorg", badge: "3 nya" }, { title: "Inbjudningar", href: "/installningar/inbjudningar" }, { title: "AI-kostnad", href: "/installningar/ai-kostnad" }, { title: "Startrecept", href: "/installningar/startrecept" }] });
+    expect(groups[0]).toMatchObject({ label: "Appens ägare", rows: [{ title: "Inkorg", badge: "3 nya" }, { title: "Inbjudningar", href: "/installningar/inbjudningar" }, { title: "AI-kostnad", href: "/installningar/ai-kostnad" }, { title: "Startrecept-paket", href: "/installningar/startrecept" }] });
   });
 
   it("is not there at all for anyone else, or when it cannot be read", async () => {
@@ -78,16 +78,30 @@ describe("the group Appens ägare (Story 20.3, named so in 21.2b)", () => {
   });
 });
 
-describe("the group Hushåll (Story 21.2b)", () => {
+describe("the groups of the start page", () => {
+  it("are Hushållet, Den här telefonen, Funktioner and Om appen, in that order, with no Appen, Recept or AI group", async () => {
+    getOwnerInbox.mockResolvedValue(null);
+    const groups = await groupLabels();
+    expect(groups.map((group) => group.label)).toEqual(["Hushållet", "Den här telefonen", "Funktioner", "Om appen"]);
+    expect(groups.map((group) => group.rows.map((row) => row.title))).toEqual([
+      ["Medlemmar", "Boenden", "Butiker", "Basvaror"],
+      ["Utseende", "Notiser", "Siffra på appikonen", "Installera appen", "Använd med telefonen"],
+      ["Tillval"],
+      ["Nyheter", expect.stringMatching(/^Om /), "Avancerat"],
+    ]);
+  });
+
   it("has Medlemmar first, with the members' names", async () => {
     getOwnerInbox.mockResolvedValue(null);
-    const household = (await groupLabels()).find((group) => group.label === "Hushåll");
+    const household = (await groupLabels()).find((group) => group.label === "Hushållet");
     expect(household?.rows[0]).toMatchObject({ title: "Medlemmar", value: "Pontus, Martina" });
   });
 
-  it("keeps Tidigare matsedlar reachable, whatever Tillval says", async () => {
+  it("reads Utseende, Notiser and Siffra på appikonen on the device, and has Avancerat last in Om appen", async () => {
     getOwnerInbox.mockResolvedValue(null);
-    const household = (await groupLabels()).find((group) => group.label === "Hushåll");
-    expect(household?.rows).toContainEqual(expect.objectContaining({ title: "Tidigare matsedlar", href: "/matsedel/tidigare" }));
+    const groups = await groupLabels();
+    const phone = groups.find((group) => group.label === "Den här telefonen");
+    expect(phone?.rows.slice(0, 3)).toMatchObject([{ deviceValue: "palette" }, { deviceValue: "push" }, { deviceValue: "badge" }]);
+    expect(groups.at(-1)?.rows.at(-1)).toMatchObject({ title: "Avancerat", href: "/installningar/avancerat", icon: "gear" });
   });
 });

@@ -26,6 +26,8 @@ export const settingsPages = [
   // What is new in the app, newest first.
   "nyheter",
   "om",
+  // Avancerat: Receptsajter, and for those who see the AI row the AI choice, the web search and Visa sidtider.
+  "avancerat",
   // Story 20.3: the owner's inbox; its row shows only for the owner.
   "inkorg",
   // Story 21.1: the owner invites an address; its row shows only for the owner.
