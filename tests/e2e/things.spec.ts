@@ -1417,7 +1417,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await shot(page, "18-7-kort-fliken");
   await page.getByTestId("open-card").click();
   await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Boden");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Verktygshyllan");
   await expect(page.getByTestId("card-meta")).toHaveText(`Hela rummet · Kort från ${shortDateText(new Date())} · 12 föremål`);
   // The whole photo, never cropped, with a numbered dot on each of the twelve, the same numbers as in the list.
   const photo = page.getByTestId("card-photo");
