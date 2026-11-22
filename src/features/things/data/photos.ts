@@ -5,7 +5,9 @@ import { thingCategories, thingConfidences } from "../domain/thing";
 import type { CardSnapshot } from "../domain/thing-edit";
 import { thingPhotoBucket, thingPhotoMediaTypes, type ThingCard, type ThingPhotoMediaType } from "../domain/thing-photo";
 import { cardGoneCode, guarded, ThingsDataError, type ThingsDb } from "./client";
+import { worthConfidenceOf } from "./items";
 import { loadPointersIn, relinkItemsIn } from "./merge";
+import { worthRowShape } from "../domain/thing-worth";
 import type { ThingBox } from "@/lib/thing-box";
 import { boxColumnsOf, boxOfRow } from "../domain/thing-card";
 
@@ -349,7 +351,7 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
 }
 
 const snapshotSelect =
-  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, error_code, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed)";
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, error_code, unseen_note, unseen_count, user_title, ai_title, summary, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed, worth_why, worth_confidence, worth_detail, worth_set_by_user)";
 
 const snapshotRowSchema = z.object({
   id: z.uuid(),
@@ -364,6 +366,9 @@ const snapshotRowSchema = z.object({
   error_code: z.string().nullable(),
   unseen_note: z.string().nullable(),
   unseen_count: z.number().int(),
+  user_title: z.string().nullable(),
+  ai_title: z.string().nullable(),
+  summary: z.string().nullable(),
   thing_item: z.array(
     z.object({
       id: z.uuid(),
@@ -382,6 +387,7 @@ const snapshotRowSchema = z.object({
       box_width: z.number().nullable(),
       box_height: z.number().nullable(),
       box_missed: z.boolean(),
+      ...worthRowShape,
     }),
   ),
 });
@@ -426,6 +432,9 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
         errorCode: row.status === "done" ? null : (row.status === "failed" ? row.error_code : null),
         unseenNote: row.unseen_note,
         unseenCount: row.unseen_count,
+        userTitle: row.user_title,
+        aiTitle: row.ai_title,
+        summary: row.summary,
         things: [...row.thing_item]
           .sort((a, b) => a.position - b.position)
           .map((item) => ({
@@ -443,6 +452,10 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
             pointedBy: pointers.get(item.id) ?? [],
             box: boxOfRow(item),
             boxMissed: item.box_missed && boxOfRow(item) === null,
+            worthWhy: item.worth_why ?? null,
+            worthConfidence: worthConfidenceOf(item.worth_confidence ?? null),
+            worthDetail: item.worth_detail ?? null,
+            worthSetByUser: item.worth_set_by_user ?? null,
           })),
       },
     };
@@ -481,6 +494,9 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
       error_code: card.status === "failed" ? (card.errorCode ?? "ai_job_lost") : null,
       unseen_note: card.unseenNote,
       unseen_count: card.unseenCount,
+      user_title: card.userTitle,
+      ai_title: card.aiTitle,
+      summary: card.summary,
     });
     if (photo.error) {
       // The card is there already (a second "Ångra", or another tab): fine. The place is gone: the foreign key.
@@ -502,6 +518,10 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
           created_at: thing.createdAt,
           source: thing.source,
           ...boxColumnsOf(thing),
+          worth_why: thing.worthWhy,
+          worth_confidence: thing.worthConfidence,
+          worth_detail: thing.worthDetail,
+          worth_set_by_user: thing.worthSetByUser,
         })),
       );
       if (items.error) {

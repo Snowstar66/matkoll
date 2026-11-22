@@ -112,7 +112,7 @@ describe("the room's things per photo", () => {
     expect(on).toHaveAccessibleName("Hela rummet, 18 nov, 2 saker, 1 kan ha värde, fäll ut");
     await userEvent.click(on);
     expect(screen.getAllByTestId("worth-marker")).toHaveLength(1);
-    expect(within(screen.getByRole("button", { name: /Vas/ })).getByTestId("worth-marker")).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /^Vas/ })).getByTestId("worth-marker")).toBeInTheDocument();
   });
 
   it("says the count at the right of a counted thing and no position", async () => {
@@ -130,5 +130,31 @@ describe("the room's things per photo", () => {
     view([card(older, "2026-11-18T10:00:00Z")]);
     const noted = await screen.findByTestId("room-photo-noted");
     expect(within(noted).getByText("Pass")).toBeInTheDocument();
+  });
+});
+
+describe("Ta bort with a swipe (UX-E)", () => {
+  it("gives a card's row and each föremål's row a Ta bort that is named for a screen reader, and leaves the three controls of the card's row as they were", async () => {
+    view([card(newer, "2026-11-19T10:00:00Z")]);
+    const group = await screen.findByTestId("room-photo");
+    expect(within(group).getByTestId("swipe-row-front")).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Svep bort Hela rummet, 19 nov" })).toBeInTheDocument();
+    // Photo and row still open the card, only the chevron folds.
+    expect(within(group).getByTestId("room-photo-thumb")).toHaveAttribute("href", expect.stringContaining(newer));
+    expect(within(group).getByTestId("room-photo-row")).toHaveAttribute("href", expect.stringContaining(newer));
+    await userEvent.click(within(group).getByTestId("room-photo-toggle"));
+    expect(within(group).getByRole("button", { name: "Svep bort Hammare" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("thing")).toHaveLength(1);
+  });
+
+  it("the swipe's layer lets the page scroll vertically (touch-pan-y)", async () => {
+    view([card(newer, "2026-11-19T10:00:00Z")]);
+    expect((await screen.findByTestId("swipe-row-front")).className).toContain("touch-pan-y");
+  });
+
+  it("asks the question about the card when the revealed Ta bort is pressed", async () => {
+    view([card(newer, "2026-11-19T10:00:00Z")]);
+    await userEvent.click(await screen.findByRole("button", { name: "Svep bort Hela rummet, 19 nov" }));
+    expect(screen.getByRole("dialog", { name: "Ta bort kortet Hela rummet?" })).toHaveTextContent("Kortet och dess 1 sak tas bort.");
   });
 });

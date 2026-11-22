@@ -297,6 +297,10 @@ export const helpAreas: readonly HelpArea[] = [
         answer: `Under Fota väljer du Per foto eller Per kategori. Per foto är förvalt: varje foto är en grupp med en liten bild, datum och ${things}en som syns på det. Tryck på bilden för att se hela kortet. Valet minns telefonen.`,
       },
       {
+        question: "Hur tar jag bort ett kort eller en sak snabbt?",
+        answer: `Svep raden åt vänster i rummet så syns Ta bort. Det gäller kortraden och ${things}raderna Per foto, och ${things}raderna Per kategori. Tryck på Ta bort. Första gången frågar ${appName}, sedan tas allt bort direkt i en minut efter varje borttagning. Raden står kvar överstruken med Ångra en liten stund, och Ångra tar tillbaka kortet med fotot, alla ${things}en och deras stjärnor. Utan svep: öppna kortet eller ${things}ets blad och använd ⋯, Ta bort.`,
+      },
+      {
         question: "Hur ser jag var på fotot en sak ligger?",
         answer: `Öppna ${things}ets blad och tryck på bilden överst (eller på förstora-märket på den). Fotot öppnas inzoomat på ${things}et, med namnet i en rad under fotot så att det inte skymmer. Tryck på en annan siffra för att se vad det är, och tryck på fotot för att backa till hela kortet med alla siffror. Klar tar dig tillbaka till bladet. Öppna kortet under fotot i bladet tar dig till kortets egen sida, där en rad i listan markerar ${things}et och en siffra på fotot zoomar in på det på samma sätt. Siffrorna är de samma som på kortets sida. Ett ${things} som AI:n inte pekade ut när kortet lästes letas upp av sig själv när du öppnar kortets sida, så att alla får en siffra. Dölj siffror ovanför fotot visar hela fotot utan siffror, och Visa siffror tar tillbaka dem; knappen finns också på kortets sida.`,
       },

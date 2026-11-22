@@ -6,6 +6,7 @@ import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { Notice } from "@/components/notice";
+import { SwipeRow } from "@/components/swipe-row";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { useOption } from "@/lib/use-option";
 import { loadRoomPhotoThings } from "../actions/room-things";
@@ -17,14 +18,16 @@ import type { RoomCard, RoomPhotoThings } from "../domain/thing-room";
 import { AsideTitle } from "./card-things";
 import { ThingSheet } from "./thing-sheet";
 import { StarCountAfter } from "./worth-marker";
-import { RemovedThingRow, type RemovedThing, useRemovedThings, useRemovedThingsHost } from "./removed-things";
+import { RemovedCardRow, RemovedThingRow, type RemovedThing, useRemovedCards, useRemovedThings, useRemovedThingsHost } from "./removed-things";
 import { recallUnfolded, rememberUnfolded, roomMemoryKey } from "./room-memory";
+import { useSwipeRemoval } from "./swipe-removal";
 
 // The room's things per photo (Pontus 20 Nov): "i förråd när jag gått in i ett rum kan det finnas flera foton",
 // and a föremål is found by remembering its photo. Each done card is a group with its photo as a small
 // heading (a tap opens the whole card), its date and how many things it shows, then its things as quiet rows
 // (the count at the right when it has one). A föremål seen on two cards is under both. Things written in
 // without a card come last. The rows are read again when the page is (a card added, a thing renamed).
+// UX-E: a card's row and a föremål's row swipe to the left to reveal "Ta bort" (SwipeRow, swipe-removal.tsx).
 
 type Loaded = RoomPhotoThings | { error: string };
 
@@ -71,6 +74,7 @@ function PhotoFold({
   removed,
   open,
   onToggle,
+  onRemove,
   rows,
 }: {
   card: RoomCard;
@@ -79,6 +83,8 @@ function PhotoFold({
   removed: readonly { thing: RemovedThing; at: number }[];
   open: boolean;
   onToggle: () => void;
+  /** The swipe's "Ta bort" was pressed on the card's row. */
+  onRemove: (via: "keyboard" | "pointer") => void;
   rows: (things: readonly Thing[]) => ReactNode;
 }) {
   const worthOn = useOption("worthLook");
@@ -86,39 +92,41 @@ function PhotoFold({
   const date = shortDateText(card.takenAt);
   const panelId = useId();
   return (
-    <section className="overflow-hidden rounded-lg bg-surface" data-testid="room-photo">
-      <div className="flex items-center gap-3 py-2.5 pr-1.5 pl-3">
-        <Link href={cardViewHref(card.id)} aria-label={`Visa kortet ${card.label}`} className="shrink-0 overflow-hidden rounded-md bg-border" data-testid="room-photo-thumb">
-          {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/things/photo/${card.id}`} alt="" loading="lazy" className="block size-14 object-cover" />
-        </Link>
-        {/* The row opens the card, like the photo; only the chevron folds the list out and in. */}
-        <Link href={cardViewHref(card.id)} aria-label={`Visa kortet ${card.label}`} className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left" data-testid="room-photo-row">
-          <span className="text-row-title font-semibold wrap-break-word text-ink">{card.label}</span>
-          <span className="text-meta text-ink-2">
-            {card.named && card.placeLabel ? `${card.placeLabel} · ` : ""}
-            {date} · {categoryCountText(things.length)}
-            <StarCountAfter count={starred} />
-          </span>
-          {card.summary ? (
-            <span className="truncate text-meta text-ink-3" data-testid="card-summary">
-              {card.summary}
+    <section className="overflow-hidden rounded-lg bg-surface" data-testid="room-photo" data-card-id={card.id}>
+      <SwipeRow actionLabel="Ta bort" actionName={`Svep bort ${card.label}, ${date}`} onAction={onRemove}>
+        <div className="flex items-center gap-3 py-2.5 pr-1.5 pl-3">
+          <Link href={cardViewHref(card.id)} aria-label={`Visa kortet ${card.label}`} className="shrink-0 overflow-hidden rounded-md bg-border" data-testid="room-photo-thumb">
+            {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/things/photo/${card.id}`} alt="" loading="lazy" className="block size-14 object-cover" />
+          </Link>
+          {/* The row opens the card, like the photo; only the chevron folds the list out and in. */}
+          <Link href={cardViewHref(card.id)} aria-label={`Visa kortet ${card.label}`} className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left" data-testid="room-photo-row">
+            <span className="text-row-title font-semibold wrap-break-word text-ink">{card.label}</span>
+            <span className="text-meta text-ink-2">
+              {card.named && card.placeLabel ? `${card.placeLabel} · ` : ""}
+              {date} · {categoryCountText(things.length)}
+              <StarCountAfter count={starred} />
             </span>
-          ) : null}
-        </Link>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={open ? panelId : undefined}
-          aria-label={photoFoldLabel({ label: card.label, date, count: things.length, starred, open })}
-          className="flex size-tap shrink-0 items-center justify-center rounded-md text-ink-3"
-          data-testid="room-photo-toggle"
-        >
-          <ChevronDownIcon size={20} className={open ? "rotate-180" : undefined} />
-        </button>
-      </div>
+            {card.summary ? (
+              <span className="truncate text-meta text-ink-3" data-testid="card-summary">
+                {card.summary}
+              </span>
+            ) : null}
+          </Link>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={open ? panelId : undefined}
+            aria-label={photoFoldLabel({ label: card.label, date, count: things.length, starred, open })}
+            className="flex size-tap shrink-0 items-center justify-center rounded-md text-ink-3"
+            data-testid="room-photo-toggle"
+          >
+            <ChevronDownIcon size={20} className={open ? "rotate-180" : undefined} />
+          </button>
+        </div>
+      </SwipeRow>
       {open ? (
         <div id={panelId} className="border-t border-hairline">
           {things.length > 0 || removed.length > 0 ? (
@@ -173,6 +181,8 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
   // UX-B: a föremål removed from a photo leaves its row, struck through, for "Ångra"; the photo is unfolded to show it.
   useRemovedThingsHost();
   const removedThings = useRemovedThings();
+  const removedCards = useRemovedCards();
+  const { removeThingRow, removeCardRow, dialog } = useSwipeRemoval();
   // Where each one was in its photo's list, read the first time it is seen (the list still has it then).
   const [anchors, setAnchors] = useState<ReadonlyMap<string, number>>(new Map());
   const fresh = removedThings.filter((thing) => thing.photoId !== null && !anchors.has(thing.id));
@@ -192,32 +202,63 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
     setOpen(true);
   }
 
+  // A föremål that has just been removed shows as its struck-through row, not as itself, while the page is read again.
+  const goneIds = new Set(removedThings.map((thing) => thing.id));
   const rows = (things: readonly Thing[]) =>
-    things.map((thing) => (
-      <ListRow
-        key={thing.id}
-        title={<AsideTitle name={thing.name} hint={thing.noted ? thingMeta(thing) : isMaybe(thing) ? maybeText : ""} quantity={thing.quantity ?? null} worth={thing.worth} />}
-        onPress={() => press(thing)}
-        pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
-        data-testid="thing"
-      />
-    ));
+    things
+      .filter((thing) => !goneIds.has(thing.id))
+      .map((thing) => (
+        <li key={thing.id}>
+          <SwipeRow actionLabel="Ta bort" actionName={`Svep bort ${thing.name}`} onAction={(via) => removeThingRow(thing, via)}>
+            <ListRow
+              as="div"
+              title={<AsideTitle name={thing.name} hint={thing.noted ? thingMeta(thing) : isMaybe(thing) ? maybeText : ""} quantity={thing.quantity ?? null} worth={thing.worth} />}
+              onPress={() => press(thing)}
+              pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
+              data-testid="thing"
+            />
+          </SwipeRow>
+        </li>
+      ));
 
   if (loaded && "error" in loaded) return <Notice role="alert">{loaded.error}</Notice>;
   if (!loaded) return <p className="px-1 text-body text-ink-2">Läser …</p>;
+  // The cards just removed show as their struck-through rows, each where it was; the card itself is hidden meanwhile.
+  const goneCards = new Set(removedCards.map((card) => card.id));
+  const shown = done.filter((card) => !goneCards.has(card.id));
+  const ghosts = [...removedCards].sort((a, b) => a.index - b.index);
+  const cardRows: ReactNode[] = shown.map((card) => {
+    const index = done.indexOf(card);
+    const things = loaded.byPhoto[card.id] ?? [];
+    return (
+      <PhotoFold
+        key={card.id}
+        card={card}
+        things={things}
+        removed={removedThings.filter((thing) => thing.photoId === card.id).map((thing) => ({ thing, at: anchors.get(thing.id) ?? Number.MAX_SAFE_INTEGER }))}
+        open={expanded.has(card.id)}
+        onToggle={() => toggle(card.id)}
+        onRemove={(via) =>
+          removeCardRow(
+            { id: card.id, label: card.label, meta: `${shortDateText(card.takenAt)} · ${categoryCountText(things.length)}`, things: things.length, index },
+            via,
+            // The card is folded away with its row, so it comes back folded.
+            () =>
+              setExpanded((current) => {
+                const next = new Set(current);
+                next.delete(card.id);
+                return next;
+              }),
+          )
+        }
+        rows={rows}
+      />
+    );
+  });
+  for (const ghost of ghosts) cardRows.splice(Math.min(ghost.index, cardRows.length), 0, <RemovedCardRow key={`removed-${ghost.id}`} card={ghost} />);
   return (
     <div className="flex flex-col gap-2.5" data-testid="room-photos">
-      {done.map((card) => (
-        <PhotoFold
-          key={card.id}
-          card={card}
-          things={loaded.byPhoto[card.id] ?? []}
-          removed={removedThings.filter((thing) => thing.photoId === card.id).map((thing) => ({ thing, at: anchors.get(thing.id) ?? Number.MAX_SAFE_INTEGER }))}
-          open={expanded.has(card.id)}
-          onToggle={() => toggle(card.id)}
-          rows={rows}
-        />
-      ))}
+      {cardRows}
       {loaded.noted.length > 0 || removedThings.some((thing) => thing.noted) ? (
         <section className="flex flex-col gap-2" data-testid="room-photo-noted">
           <h3 className="m-0 px-1 text-section-label text-ink-2">Skrivna utan foto</h3>
@@ -232,6 +273,7 @@ export function RoomPhotos({ siteId, roomKey, cards }: RoomPhotosProps) {
         </section>
       ) : null}
       <ThingSheet thing={selected} open={open} onClose={() => setOpen(false)} />
+      {dialog}
     </div>
   );
 }

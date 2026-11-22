@@ -51,7 +51,7 @@ export async function updateItemIn(db: ThingsDb, id: string, update: ThingUpdate
 }
 
 /** The AI's confidence as the snapshot has it; a value the schema does not know is left out rather than failing the removal. */
-function worthConfidenceOf(value: string | null): WorthConfidence | null {
+export function worthConfidenceOf(value: string | null): WorthConfidence | null {
   return (worthConfidences as readonly string[]).includes(value ?? "") ? (value as WorthConfidence) : null;
 }
 

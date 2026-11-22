@@ -491,7 +491,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   await page.goto(roomUrl("Skräpförrådet"));
   const things = page.getByTestId("thing");
 
-  await page.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("button", { name: /^Hammare/ }).click();
   const sheet = page.getByRole("dialog");
   // The name is a free field at the top of the sheet, titled Föremål; there is no Byt namn row, and Spara saves it at once.
   await expect(sheet).toHaveAccessibleName("Föremål");
@@ -502,7 +502,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   await expect(things.first()).toContainText("Klohammare");
   await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Spade/ }).click();
+  await page.getByRole("button", { name: /^Spade/ }).click();
   await (await menuItem(sheet, "Ta bort föremålet")).click();
   // UX-B: the list keeps the row, struck through, with Ångra, instead of a toast.
   const gone = page.getByTestId("thing-removed");
@@ -530,7 +530,7 @@ test("per photo: a removed thing stays struck through for about six seconds, Ån
   await admin.from("thing_item").update({ worth_why: "Äldre kameror kan vara samlarobjekt.", worth_confidence: "guess", worth_set_by_user: true }).eq("id", camera.id);
   await page.goto(roomUrl("Skräpförrådet"));
   await page.getByTestId("room-photo-toggle").click();
-  await page.getByRole("button", { name: /Gammal kamera/ }).click();
+  await page.getByRole("button", { name: /^Gammal kamera/ }).click();
   await (await menuItem(page.getByRole("dialog"), "Ta bort föremålet")).click();
   const gone = page.getByTestId("thing-removed");
   await expect(gone).toContainText("Gammal kamera");
@@ -546,7 +546,7 @@ test("per photo: a removed thing stays struck through for about six seconds, Ån
     worth_set_by_user: true,
   });
   // Without Ångra the row goes by itself.
-  await page.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("button", { name: /^Hammare/ }).click();
   await (await menuItem(page.getByRole("dialog"), "Ta bort föremålet")).click();
   await expect(gone).toBeVisible();
   await expect(gone).toHaveCount(0, { timeout: 10_000 });
@@ -1052,7 +1052,7 @@ test("a thing's sheet changes its category, keeps the AI's hint, and stays on it
   await page.goto(roomUrl("Skräpförrådet"));
   // Pontus 20 Nov: the list does not say where on the picture it is.
   await expect(page.getByTestId("thing")).not.toContainText("på väggen");
-  await page.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("button", { name: /^Hammare/ }).click();
   const sheet = page.getByRole("dialog");
   // The photo with the box is at the top, then the name; Spara is not there until something is changed.
   await expect(sheet.getByRole("radio")).toHaveCount(0);
@@ -1072,7 +1072,7 @@ test("a thing's sheet changes its category, keeps the AI's hint, and stays on it
   // The föremål moves to another group of the room, so the sheet closes.
   await expect(page.getByRole("heading", { name: "Trädgård" })).toBeVisible();
   await expect(sheet).toHaveCount(0);
-  await page.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("button", { name: /^Hammare/ }).click();
   await (await menuItem(sheet, "Byt kategori")).click();
   await expect(sheet.getByRole("radio", { name: "Trädgård" })).toBeChecked();
   await sheet.getByRole("button", { name: "Tillbaka" }).click();
@@ -1599,6 +1599,140 @@ test("Dölj siffror on a card releases the marked föremål: no dot, no spotligh
   await expect(page.getByTestId("card-spotlight")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Förlängningssladd/ })).toHaveAttribute("aria-pressed", "false");
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/pr3-hidden.png` });
+});
+
+/** A finger or mouse drag to the left over a swipe row's front, as far as the revealed action is wide. */
+async function swipeLeft(page: Page, front: Locator, px = 96) {
+  const box = (await front.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const x = box.x + box.width * 0.7;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 20, y, { steps: 4 });
+  await page.mouse.move(x - px, y, { steps: 6 });
+  await page.mouse.up();
+}
+
+test("per photo: a card's row swipes to Ta bort, asks the first time, then removes at once for a while, and Ångra brings back the card with its stars (UX-E)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto("/prylar");
+  await takeCards(page, storeroom, { room: "Boden" });
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("done");
+  const admin = adminClient();
+  const card = (await cardsOf())[0]!;
+  const hammer = (await admin.from("thing_item").select("id").eq("photo_id", card.id).eq("name", "Hammare").single()).data!;
+  await admin.from("thing_item").update({ worth_why: "Äldre modell, kan vara samlarobjekt.", worth_confidence: "guess", worth_detail: "Rekommendation\nJa", worth_set_by_user: true }).eq("id", hammer.id);
+  await admin.from("thing_photo").update({ user_title: "Verktygshyllan" }).eq("id", card.id);
+  const fileExists = async () => (await admin.storage.from("thing-photo").download(card.object_path)).error === null;
+  const cardsInDb = async () => (await admin.from("thing_photo").select("id").eq("user_id", userId)).data!.length;
+
+  await page.goto(`${roomUrl("Boden")}?vy=photos`);
+  const row = page.getByTestId("room-photo").first();
+  const front = row.getByTestId("swipe-row-front");
+  await expect(row).toContainText("Verktygshyllan");
+
+  // The three controls of the row still work: a tap on the row opens the card, the ⌄ only folds.
+  await row.getByTestId("room-photo-toggle").click();
+  await expect(row.getByTestId("room-photo-open")).toBeVisible();
+  await row.getByTestId("room-photo-toggle").click();
+  await expect(row.getByTestId("room-photo-open")).toHaveCount(0);
+  // A swipe on the row's text does not open the card; a tap on the open row closes it instead of opening the card.
+  await swipeLeft(page, front);
+  await expect(page).toHaveURL(/\/rum\//);
+  await expect(front).toHaveAttribute("style", /translateX\(-96px\)/);
+  await row.getByTestId("room-photo-row").click({ position: { x: 20, y: 20 } });
+  await expect(page).toHaveURL(/\/rum\//);
+  await expect(front).not.toHaveAttribute("style", /translateX/);
+
+  // Reveal, tap Ta bort: the question names the card; Avbryt snaps the row back and changes nothing.
+  await swipeLeft(page, front);
+  await shot(page, "e-revealed");
+  await row.getByRole("button", { name: /^Svep bort Verktygshyllan/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Ta bort kortet Verktygshyllan?" });
+  await expect(dialog).toContainText("Kortet och dess 12 saker tas bort.");
+  await dialog.getByRole("button", { name: "Avbryt" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(front).not.toHaveAttribute("style", /translateX/);
+  expect(await cardsInDb()).toBe(1);
+
+  await swipeLeft(page, front);
+  await row.getByRole("button", { name: /^Svep bort Verktygshyllan/ }).click();
+  await shot(page, "e-question");
+  await dialog.getByRole("button", { name: "Ta bort", exact: true }).click();
+  // The row stays, struck through, with Ångra, and no toast; Ångra (inside the six seconds) brings back the card.
+  const ghost = page.getByTestId("card-removed");
+  await expect(ghost).toContainText("Verktygshyllan");
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/e-ghost.png` });
+  await expect(page.getByTestId("toast")).toHaveCount(0);
+  await ghost.getByRole("button", { name: /Ångra/ }).click();
+  await expect(ghost).toHaveCount(0);
+  await expect(page.getByTestId("room-photo-row")).toContainText("12 saker");
+  // All föremål, the star and explanation, and the card's own name are back.
+  await expect.poll(async () => (await admin.from("thing_item").select("id").eq("photo_id", card.id)).data?.length).toBe(12);
+  expect((await admin.from("thing_item").select("worth_why, worth_detail, worth_set_by_user").eq("id", hammer.id).single()).data).toEqual({
+    worth_why: "Äldre modell, kan vara samlarobjekt.",
+    worth_detail: "Rekommendation\nJa",
+    worth_set_by_user: true,
+  });
+  expect((await admin.from("thing_photo").select("user_title").eq("id", card.id).single()).data).toEqual({ user_title: "Verktygshyllan" });
+
+  // Inside the 60 s window the next removal asks nothing: the card and its föremål are gone at once and the file waits
+  // for Ångra; without it the row goes and the file with it.
+  await swipeLeft(page, front);
+  await row.getByRole("button", { name: /^Svep bort Verktygshyllan/ }).click();
+  await expect(ghost).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await cardsInDb()).toBe(0);
+  expect((await admin.from("thing_item").select("id").eq("user_id", userId)).data).toHaveLength(0);
+  expect(await fileExists()).toBe(true);
+  await expect(ghost).toHaveCount(0, { timeout: 15_000 });
+  await expect.poll(fileExists, { timeout: 15_000 }).toBe(false);
+  expect(await cardsInDb()).toBe(0);
+});
+
+test("per photo: a föremål's row in an unfolded card swipes to Ta bort, with the question first and Ångra after; per category the same (UX-E)", async ({ page }) => {
+  const place = await seedPlace(hemma, "Skräpförrådet", [
+    { name: "Hammare", category: "Verktyg" },
+    { name: "Gammal kamera", category: "Elektronik" },
+  ]);
+  const admin = adminClient();
+  const camera = (await admin.from("thing_item").select("id").eq("place_id", place).eq("name", "Gammal kamera").single()).data!;
+  await admin.from("thing_item").update({ worth_why: "Äldre kameror kan vara samlarobjekt.", worth_confidence: "guess", worth_set_by_user: true }).eq("id", camera.id);
+  await page.goto(roomUrl("Skräpförrådet"));
+  await page.getByTestId("room-photo-toggle").click();
+  await swipeLeft(page, page.getByTestId("swipe-row-front").filter({ hasText: "Gammal kamera" }));
+  await page.getByRole("button", { name: "Svep bort Gammal kamera" }).click();
+  const dialog = page.getByRole("dialog", { name: "Ta bort föremålet Gammal kamera?" });
+  await expect(dialog).toBeVisible();
+  await shot(page, "e-thing-question");
+  await dialog.getByRole("button", { name: "Ta bort", exact: true }).click();
+  const gone = page.getByTestId("thing-removed");
+  await expect(gone).toContainText("Gammal kamera");
+  expect((await admin.from("thing_item").select("id").eq("id", camera.id)).data).toEqual([]);
+  await gone.getByRole("button", { name: /Ångra/ }).click();
+  await expect(gone).toHaveCount(0);
+  await expect.poll(async () => (await admin.from("thing_item").select("worth_why, worth_set_by_user").eq("id", camera.id).maybeSingle()).data).toEqual({ worth_why: "Äldre kameror kan vara samlarobjekt.", worth_set_by_user: true });
+
+  // The 60 s window is open: the next one goes at once (Förråd's own window, not the shopping list's).
+  await page.getByTestId("swipe-row-front").filter({ hasText: "Hammare" }).last().scrollIntoViewIfNeeded();
+  await swipeLeft(page, page.getByTestId("swipe-row-front").filter({ hasText: "Hammare" }).last());
+  await page.getByRole("button", { name: "Svep bort Hammare" }).click();
+  await expect(page.getByTestId("thing-removed")).toContainText("Hammare");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("per category: a föremål's row swipes to Ta bort (UX-E)", async ({ page }) => {
+  await seedPlace(hemma, "Skräpförrådet", [
+    { name: "Hammare", category: "Verktyg" },
+    { name: "Spade", category: "Trädgård" },
+  ]);
+  await page.goto(roomUrl("Skräpförrådet"));
+  await swipeLeft(page, page.getByTestId("swipe-row-front").filter({ hasText: "Spade" }));
+  await page.getByRole("button", { name: "Svep bort Spade" }).click();
+  await page.getByRole("dialog", { name: "Ta bort föremålet Spade?" }).getByRole("button", { name: "Ta bort", exact: true }).click();
+  await expect(page.getByTestId("thing-removed")).toContainText("Spade");
+  await page.getByTestId("thing-removed").getByRole("button", { name: /Ångra/ }).click();
+  await expect(page.getByTestId("thing")).toHaveCount(2);
 });
 
 test("a search hit and a chat reference open the card big with the föremål marked; an older card looks it up once, or says it could not point it out", async ({ page }) => {
