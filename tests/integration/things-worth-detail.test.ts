@@ -111,14 +111,15 @@ describe("Undersök värdet", () => {
     expect(explained).toHaveBeenCalledTimes(1);
     expect((await loadThingDetailIn(a.db, hammer.id))?.worth).toEqual({ ...tip, detail: first.data.detail });
 
-    expect(await explainThingWorth(hammer.id)).toEqual(ok({ detail: first.data.detail }));
+    // Kept: the second tap reads it, with the recommendation it holds.
+    expect(await explainThingWorth(hammer.id)).toMatchObject({ ok: true, data: { detail: first.data.detail, recommends: true, applied: "unchanged" } });
     expect(explained).toHaveBeenCalledTimes(1);
     // Counted once in ai_usage, as the mock (no tokens, no cost).
     const usage = (await adminClient().from("ai_usage").select("id").eq("user_id", a.id)).data?.length ?? 0;
     expect(usage).toBeGreaterThanOrEqual(1);
   });
 
-  it("refuses a föremål without a tip and one that is not the user's", async () => {
+  it("examines a föremål without a tip too (no star: the recommendation is no), and refuses one that is not the household's", async () => {
     const cardId = await readingCard();
     await saveReadingIn(a.db, {
       photoId: cardId,
@@ -132,11 +133,11 @@ describe("Undersök värdet", () => {
     const [spade, rake] = (await loadCardViewIn(a.db, cardId))?.things ?? [];
     as(a);
     explained.mockClear();
-    expect(await explainThingWorth(spade.id)).toMatchObject({ ok: false, error: { code: "things_item_gone" } });
+    expect(await explainThingWorth(spade.id)).toMatchObject({ ok: true, data: { recommends: false, applied: "unchanged", suggestion: null, state: { starred: false } } });
     expect(await explainThingWorth("not-an-id")).toMatchObject({ ok: false, error: { code: "validation" } });
     as(b);
     expect(await explainThingWorth(rake.id)).toMatchObject({ ok: false, error: { code: "things_item_gone" } });
-    expect(explained).not.toHaveBeenCalled();
+    expect(explained).toHaveBeenCalledTimes(1);
   });
 
   it("keeps nothing when the AI is out of reach, so the next tap tries again", async () => {

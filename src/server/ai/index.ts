@@ -124,6 +124,7 @@ function withGate(service: AiService, gate: AiGate): AiService {
     categorizeThings: gated(service.categorizeThings),
     explainDish: gated(service.explainDish),
     explainWorth: gated(service.explainWorth),
+    summarizeCard: gated(service.summarizeCard),
     warmUp: service.warmUp,
     warmUpKey: service.warmUpKey,
   };
@@ -161,6 +162,7 @@ function withSink(service: AiService, sink: AiUsageSink | undefined, reserve: Ai
     categorizeThings: (input, signal, options) => metered(() => service.categorizeThings(input, signal, options)),
     explainDish: (input, signal, options) => metered(() => service.explainDish(input, signal, options)),
     explainWorth: (input, signal, options) => metered(() => service.explainWorth(input, signal, options)),
+    summarizeCard: (input, signal, options) => metered(() => service.summarizeCard(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),
     warmUpKey: (kind) => service.warmUpKey(kind),
   };

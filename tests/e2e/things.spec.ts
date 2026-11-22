@@ -216,7 +216,9 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await page.getByRole("radio", { name: "Kort" }).click();
   const card = page.getByTestId("room-card");
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText("Hela rummet");
+  // The reading gave the card a short name and a line about what it holds (the mock's fixture); they show instead of "Hela rummet".
+  await expect(card).toContainText("Verktygshyllan");
+  await expect(card.getByTestId("card-summary")).toHaveText("Mest verktyg och redskap");
   await expect(card).toContainText(`12 föremål · ${shortDateText(new Date())}`);
   await expect(card.getByRole("img")).toBeVisible();
   // The actions are in the ⋯ inside the card, not on the square.
@@ -1415,11 +1417,11 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await shot(page, "18-7-kort-fliken");
   await page.getByTestId("open-card").click();
   await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Boden");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Verktygshyllan");
   await expect(page.getByTestId("card-meta")).toHaveText(`Hela rummet · Kort från ${shortDateText(new Date())} · 12 föremål`);
   // The whole photo, never cropped, with a numbered dot on each of the twelve, the same numbers as in the list.
   const photo = page.getByTestId("card-photo");
-  await expect(photo.getByRole("img", { name: "Kort: Boden" })).toBeVisible();
+  await expect(photo.getByRole("img", { name: "Kort: Verktygshyllan" })).toBeVisible();
   await expect(page.getByTestId("card-dot")).toHaveCount(12);
   await expect(page.getByTestId("card-dot").first()).toHaveText("1");
   await expect(page.getByTestId("marker-badge").first()).toHaveText("1");

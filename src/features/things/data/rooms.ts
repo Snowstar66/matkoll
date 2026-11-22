@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { thingCategories, thingConfidences, type Thing, type ThingCategory } from "../domain/thing";
 import { shownStatus } from "../domain/thing-photo";
-import { worthOfRow, worthRowShape, type ThingWorth } from "../domain/thing-worth";
+import { starredRowsFilter, worthOfRow, worthRowShape, type ThingWorth } from "../domain/thing-worth";
 import { orderCategories, toRoomThing, type RoomCard, type RoomPhotoThings, type RoomSummary } from "../domain/thing-room";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -34,7 +34,7 @@ async function loadRoomStarsIn(db: ThingsDb, siteId: string): Promise<Map<string
   const { data, error } = await db
     .from("thing_item")
     .select("thing_place!inner(room_key, site_id)")
-    .not("worth_why", "is", null)
+    .or(starredRowsFilter)
     .is("same_as", null)
     .eq("thing_place.site_id", siteId)
     .limit(5000);
@@ -135,8 +135,8 @@ async function loadRoomTipsIn(db: ThingsDb, siteId: string, key: string): Promis
   const tips = new Map<string, ThingWorth>();
   const { data, error } = await db
     .from("thing_item")
-    .select("id, worth_why, worth_confidence, thing_place!inner(site_id, room_key)")
-    .not("worth_why", "is", null)
+    .select("id, worth_why, worth_confidence, worth_set_by_user, thing_place!inner(site_id, room_key)")
+    .or(starredRowsFilter)
     .eq("thing_place.site_id", siteId)
     .eq("thing_place.room_key", key)
     .limit(2000);
@@ -184,7 +184,7 @@ export async function loadRoomPhotoThingsIn(db: ThingsDb, siteId: string, key: s
   if (photoIds.length > 0) {
     const { data, error } = await db
       .from("thing_item")
-      .select("id, name, category, confidence, photo_id, position, quantity, worth_why, worth_confidence")
+      .select("id, name, category, confidence, photo_id, position, quantity, worth_why, worth_confidence, worth_set_by_user")
       .in("photo_id", [...photoIds])
       .order("position")
       .order("id")
@@ -235,6 +235,10 @@ const cardRowSchema = z.object({
   error_code: z.string().nullable(),
   unseen_note: z.string().nullable(),
   unseen_count: z.number().int(),
+  // The AI's line and names of the card, and the user's own name; a database before its migration has none.
+  summary: z.string().nullable().optional(),
+  ai_title: z.string().nullable().optional(),
+  user_title: z.string().nullable().optional(),
   thing_place: z.object({ part: z.string().nullable(), kind: z.enum(["part", "box"]) }),
   thing_item: z.array(z.object({ count: z.number().int() })),
 });
@@ -245,7 +249,7 @@ const cardStarRowsSchema = z.array(z.object({ photo_id: z.uuid().nullable() }));
 async function loadCardStarsIn(db: ThingsDb, photoIds: readonly string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (photoIds.length === 0) return counts;
-  const { data, error } = await db.from("thing_item").select("photo_id").in("photo_id", [...photoIds]).not("worth_why", "is", null).is("same_as", null).limit(5000);
+  const { data, error } = await db.from("thing_item").select("photo_id").in("photo_id", [...photoIds]).or(starredRowsFilter).is("same_as", null).limit(5000);
   if (error) return counts;
   const parsed = cardStarRowsSchema.safeParse(data);
   if (!parsed.success) return counts;
@@ -257,7 +261,7 @@ async function loadCardStarsIn(db: ThingsDb, photoIds: readonly string[]): Promi
 export async function loadRoomCardsIn(db: ThingsDb, siteId: string, key: string, now: Date = new Date()): Promise<(Omit<RoomCard, "label"> & { part: string | null; kind: "part" | "box" })[]> {
   const { data, error } = await db
     .from("thing_photo")
-    .select("id, place_id, status, taken_at, created_at, error_code, unseen_note, unseen_count, thing_place!inner(part, kind, site_id, room_key), thing_item(count)")
+    .select("id, place_id, status, taken_at, created_at, error_code, unseen_note, unseen_count, summary, ai_title, user_title, thing_place!inner(part, kind, site_id, room_key), thing_item(count)")
     .eq("thing_place.site_id", siteId)
     .eq("thing_place.room_key", key)
     .is("thing_item.same_as", null)
@@ -280,6 +284,8 @@ export async function loadRoomCardsIn(db: ThingsDb, siteId: string, key: string,
       unseenNote: r.unseen_note,
       unseenCount: r.unseen_count,
       starred: stars.get(r.id) ?? 0,
+      summary: r.summary ?? null,
+      title: r.user_title ?? r.ai_title ?? null,
       part: r.thing_place.part,
       kind: r.thing_place.kind,
     };

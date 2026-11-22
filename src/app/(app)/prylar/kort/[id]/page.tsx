@@ -79,6 +79,11 @@ async function CardContent({ params, searchParams }: Pick<PageProps<"/prylar/kor
       <p className="-mt-3 mb-3 px-px text-meta text-ink-2" data-testid="card-meta">
         {cardViewMeta(card)}
       </p>
+      {card.summary ? (
+        <p className="-mt-2 mb-3 px-px text-body text-ink" data-testid="card-summary">
+          {card.summary}
+        </p>
+      ) : null}
       <CardView card={card} initialThingId={marked} />
     </>
   );

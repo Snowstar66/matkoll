@@ -1,7 +1,7 @@
 import type { PhotoViewMarker } from "@/features/pantry";
 import type { ThingBox } from "@/lib/thing-box";
 import { thingDots } from "./thing-card";
-import type { ThingWorth } from "./thing-worth";
+import type { ThingWorth, WorthState } from "./thing-worth";
 
 // The detail of one föremål for its sheet (Pontus 9 Nov): its card photo and
 // where on it, and where it is kept, read when the sheet opens. No new data:
@@ -29,6 +29,8 @@ export type ThingDetail = {
   cardThings: ThingDetailCardThing[];
   /** Värdetips: why it may be worth a closer look; null when it has no tip. */
   worth: ThingWorth | null;
+  /** The star's whole state, also when it is off: for the switch in the sheet. */
+  worthState?: WorthState;
 };
 
 /** A föremål on the card the sheet's föremål is seen on. */
