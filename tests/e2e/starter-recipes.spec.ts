@@ -149,7 +149,7 @@ test("a new household meets the offer, opens a recipe, adds both and gets them w
   await off.getByRole("link", { name: "Gå till Recept" }).click();
   await expect(off).toHaveURL(/\/recept$/);
   await off.goto("/installningar/butiker");
-  await expect(off.getByTestId("no-store")).toContainText("Välj butik");
+  await expect(off.getByTestId("no-stores")).toContainText("Lägg till din butik");
   await off.context().close();
 
   const page = await (await contextFor(browser, starterUserStorageState, true)).newPage();

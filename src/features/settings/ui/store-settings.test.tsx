@@ -67,46 +67,83 @@ describe("StoreSettings", () => {
     expect(within(card()).queryByRole("link")).not.toBeInTheDocument();
     expect(card()).not.toHaveTextContent("handlaprivatkund");
     expect(within(card()).getByRole("button", { name: "Ändra" })).toBeEnabled();
-    expect(screen.queryByRole("list", { name: "Andra butiker" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Byt butik" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till butik" })).toBeEnabled();
   });
 
-  it("lists the other stores with Ändra and Välj each", () => {
+  it("says at the top what the page is for, and what the selected store controls", () => {
+    render([maxi]);
+    expect(screen.getByText(/^Här väljer du butiken du handlar i\. Den styr två saker/)).toBeInTheDocument();
+    expect(card()).toHaveTextContent("Din butik");
+    expect(card()).toHaveTextContent("Vald");
+    expect(card()).toHaveTextContent("Varukorgen: listan kopieras med den här butiken");
+  });
+
+  it("lists the other stores as cards with Ändra and Använd den här butiken each", () => {
     render([maxi, willys]);
-    const list = screen.getByRole("list", { name: "Andra butiker" });
+    const list = screen.getByRole("list", { name: "Byt butik" });
     expect(within(list).getAllByTestId("other-store")).toHaveLength(1);
     expect(list).toHaveTextContent("Willys Lindhagen");
     expect(list).toHaveTextContent("Willys");
-    expect(within(list).getByRole("button", { name: "Välj Willys Lindhagen" })).toBeEnabled();
+    const use = within(list).getByRole("button", { name: "Använd Willys Lindhagen" });
+    expect(use).toBeEnabled();
+    expect(use).toHaveTextContent("Använd den här butiken");
     expect(within(list).getByRole("button", { name: "Ändra Willys Lindhagen" })).toBeEnabled();
+    // One Ändra per card, the same in every card.
+    expect(within(card()).getAllByRole("button", { name: "Ändra" })).toHaveLength(1);
   });
 
-  it("says when no store is selected, and still offers Lägg till butik", () => {
+  it("explains when no store is selected, and still offers Lägg till butik", () => {
     render([{ ...willys }]);
-    expect(screen.getByText("Välj butik")).toBeInTheDocument();
+    expect(screen.getByTestId("no-store")).toHaveTextContent("Ingen butik vald");
+    expect(screen.getByTestId("no-store")).toHaveTextContent("Välj en butik nedan så får du erbjudanden och en färdig lista att kopiera.");
     expect(screen.queryByTestId("selected-store")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Välj Willys Lindhagen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Använd Willys Lindhagen" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till butik" })).toBeInTheDocument();
   });
 
-  it("selects a store at once with Välj, and confirms it", async () => {
+  it("explains what a store gives, with a big Lägg till butik, when there are no stores", () => {
+    render([]);
+    const empty = screen.getByTestId("no-stores");
+    expect(empty).toHaveTextContent("Lägg till din butik");
+    expect(empty).toHaveTextContent("Du ser veckans erbjudanden från butiken (just nu för ICA).");
+    expect(empty).toHaveTextContent("Listan kan kopieras med butikens namn");
+    expect(screen.queryByText(/^Här väljer du butiken/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till butik" })).toBeEnabled();
+  });
+
+  it("says Erbjudanden hämtas från ica.se when the store has a link, and warns on an ICA store without one", () => {
+    const { unmount } = render([{ ...maxi, offersUrl: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/" }]);
+    expect(screen.getByTestId("store-offers-link")).toHaveTextContent("Erbjudanden hämtas från ica.se");
+    expect(screen.queryByTestId("no-offers")).not.toBeInTheDocument();
+    unmount();
+    render([maxi]);
+    expect(screen.getByTestId("no-offers")).toHaveTextContent("Inga erbjudanden än.");
+  });
+
+  it("gives no warning about offers for a chain without an offer site", () => {
+    render([{ ...willys, isSelected: true }]);
+    expect(screen.queryByTestId("no-offers")).not.toBeInTheDocument();
+  });
+
+  it("selects a store at once with Använd den här butiken, and confirms it", async () => {
     let answer: (result: Result<{ id: string }>) => void = () => {};
     selectStore.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
     render([maxi, willys, coop]);
-    await userEvent.click(screen.getByRole("button", { name: "Välj Willys Lindhagen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Använd Willys Lindhagen" }));
 
     // Optimistic: the card shows Willys before the server answers.
     await waitFor(() => expect(within(card()).getByRole("heading", { level: 3 })).toHaveTextContent("Willys Lindhagen"));
-    // One selection at a time: every Välj waits while it is saved.
-    expect(screen.getByRole("button", { name: "Välj Maxi ICA Stormarknad Östersund" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Välj Coop Forum" })).toBeDisabled();
+    // One selection at a time: every Använd waits while it is saved.
+    expect(screen.getByRole("button", { name: "Använd Maxi ICA Stormarknad Östersund" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Använd Coop Forum" })).toBeDisabled();
     expect(selectStore).toHaveBeenCalledWith({ id: willys.id });
     answer(ok({ id: willys.id }));
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Willys Lindhagen är vald.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Du handlar nu hos Willys Lindhagen.");
     // The pressed button left the list, so focus goes to the card.
     expect(within(card()).getByRole("heading", { level: 3 })).toHaveFocus();
     expect(refresh).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Välj Coop Forum" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Använd Coop Forum" })).toBeEnabled());
   });
 
   it.each([
@@ -116,7 +153,7 @@ describe("StoreSettings", () => {
   ])("goes back after %s, with the notice, and reads the stores again", async (_, answer, message) => {
     selectStore.mockImplementation(answer);
     render([maxi, willys]);
-    await userEvent.click(screen.getByRole("button", { name: "Välj Willys Lindhagen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Använd Willys Lindhagen" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(message);
     await waitFor(() => expect(within(card()).getByRole("heading", { level: 3 })).toHaveTextContent(maxi.name));

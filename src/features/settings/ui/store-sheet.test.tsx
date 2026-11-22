@@ -108,17 +108,22 @@ describe("StoreSheet: the link to the weekly offers (Story 9.1)", () => {
     expect(within(dialog).getByLabelText("Länk till veckans erbjudanden")).toBeInTheDocument();
   });
 
-  it("shows the stored link in the field, and the card says Erbjudanden: ica.se", async () => {
+  it("shows the stored link in the field, and the card says Erbjudanden hämtas från ica.se", async () => {
     const user = userEvent.setup();
     render([{ ...maxi, offersUrl: link }]);
-    expect(within(card()).getByText("Erbjudanden: ica.se")).toBeInTheDocument();
+    expect(within(card()).getByText("Erbjudanden hämtas från ica.se")).toBeInTheDocument();
     await user.click(within(card()).getByRole("button", { name: "Ändra" }));
     expect(within(sheet("Ändra butik")).getByLabelText("Länk till veckans erbjudanden")).toHaveValue(link);
   });
 
-  it("shows no offers line on the card without a link", () => {
+  it("shows no offers line on the card without a link, but a yellow line that opens Ändra butik", async () => {
+    const user = userEvent.setup();
     render([maxi]);
-    expect(within(card()).queryByText(/^Erbjudanden:/)).not.toBeInTheDocument();
+    expect(within(card()).queryByText(/^Erbjudanden hämtas från/)).not.toBeInTheDocument();
+    const missing = within(card()).getByTestId("no-offers");
+    expect(missing).toHaveTextContent("Inga erbjudanden än. Lägg till länken till butikens erbjudanden på ica.se.");
+    await user.click(within(missing).getByRole("button", { name: "Lägg till länk" }));
+    expect(within(sheet("Ändra butik")).getByLabelText("Länk till veckans erbjudanden")).toBeInTheDocument();
   });
 });
 
@@ -297,7 +302,7 @@ describe("StoreSheet", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("changes a store under Andra butiker with its own Ändra", async () => {
+  it("changes a store under Byt butik with its own Ändra", async () => {
     const user = userEvent.setup();
     render([maxi, willys]);
     await user.click(screen.getByRole("button", { name: "Ändra Willys Lindhagen" }));

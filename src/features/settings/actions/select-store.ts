@@ -11,7 +11,7 @@ import { selectStoreIn } from "../data/stores";
 const selectSchema = z.object({ id: z.guid() });
 
 /**
- * "Välj" under Andra butiker (FR-28): makes the store the selected one at
+ * "Använd den här butiken" under Byt butik (FR-28): makes the store the selected one at
  * once, and deselects the others. Fails with `unauthorized`, `validation`,
  * `settings_store_gone` (not one of the user's stores) or
  * `settings_save_failed` (also when two selections met).
