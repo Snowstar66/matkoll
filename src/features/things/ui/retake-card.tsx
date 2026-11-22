@@ -22,6 +22,7 @@ export function RetakeCard({
   name,
   variant = "compact",
   onSent,
+  control,
 }: {
   cardId: string;
   placeId: string;
@@ -29,6 +30,8 @@ export function RetakeCard({
   variant?: "compact" | "secondary";
   /** Called once the new photo is saved (Story 18.7: the big view goes to the room, where the new card is read); otherwise the page is read again. */
   onSent?: () => void;
+  /** The card's ⋯ sheet opens the question: then there is no button of its own. */
+  control?: { open: boolean; onOpenChange: (open: boolean) => void };
 }) {
   const router = useRouter();
   const touch = useCoarsePointer();
@@ -36,7 +39,9 @@ export function RetakeCard({
   const refresh = useCallback(() => (onSent ? onSent() : router.refresh()), [router, onSent]);
   const upload = useCardUpload(refresh);
   const sending = upload.state.kind === "sending";
-  const [asking, setAsking] = useState(false);
+  const [ownAsking, setOwnAsking] = useState(false);
+  const asking = control ? control.open : ownAsking;
+  const setAsking = control ? control.onOpenChange : setOwnAsking;
 
   function choose(camera: boolean) {
     const field = input.current;
@@ -55,16 +60,18 @@ export function RetakeCard({
 
   return (
     <>
-      <Button
-        variant={variant}
-        fullWidth={variant === "secondary"}
-        disabled={sending}
-        aria-label={`${retakeText} kortet ${name}`}
-        onClick={() => setAsking(true)}
-        data-testid="retake-card"
-      >
-        {sending ? "Skickar …" : retakeText}
-      </Button>
+      {control ? null : (
+        <Button
+          variant={variant}
+          fullWidth={variant === "secondary"}
+          disabled={sending}
+          aria-label={`${retakeText} kortet ${name}`}
+          onClick={() => setAsking(true)}
+          data-testid="retake-card"
+        >
+          {sending ? "Skickar …" : retakeText}
+        </Button>
+      )}
       {upload.state.kind === "error" ? (
         <span role="alert" className="text-meta text-ink-2">
           {errorMessages[upload.state.error.code]}

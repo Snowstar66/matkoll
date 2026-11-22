@@ -11,7 +11,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, createTestUser, deleteTestUsers, type TestUser } from "./support";
 
-// Värt en titt against local Supabase: save_thing_card saves a föremål's tip (a sentence and a known
+// Värdetips against local Supabase: save_thing_card saves a föremål's tip (a sentence and a known
 // confidence) with the reading, leaves out one that is not that (the föremål is saved either way),
 // thing_item_worth_check refuses half a tip, a card read without tips saves as before, and the card's
 // page and the föremål's sheet read the tip. Only a drawn photo.
@@ -49,7 +49,7 @@ async function readingCard(): Promise<string> {
 
 const thing = (name: string, worth?: unknown) => ({ name, category: "Hushåll", where_hint: null, confidence: "high", ...(worth === undefined ? {} : { worth }) });
 
-describe("Värt en titt on a card", () => {
+describe("Värdetips on a card", () => {
   it("saves the tip with the reading and the card's page and the föremål's sheet read it", async () => {
     const cardId = await readingCard();
     await saveReadingIn(a.db, {

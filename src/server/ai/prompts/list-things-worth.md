@@ -1,6 +1,6 @@
-## Värt en titt
+## Värdetips
 
-Användaren har slagit på "Värt en titt". Lägg till fältet `worth` på varje sak i `things`. Det är `null` för nästan alla saker.
+Användaren har slagit på "Värdetips". Lägg till fältet `worth` på varje sak i `things`. Det är `null` för nästan alla saker.
 
 - `worth`: `{ "why": "…", "confidence": "sure" | "guess" | "unsure" }` för de saker på bilden som uppfyller kravet, högst tio, och bara när det finns något konkret: ett känt märke eller en känd formgivare, en designklassiker, eller en kategori som samlare brukar söka (till exempel äldre glas, kristall och keramik, mässing, koppar, tenn och silver, svensk och nordisk design, verktyg av känt märke, leksaker, vintagekameror, mynt, vinyl, retro-elektronik, cyklar och sportutrustning av känt märke). Annars `null`.
 - `why`: en kort mening på svenska, högst 160 tecken, som säger vad det troligen är (märke, modell eller tid) och vad man kan kontrollera för att veta mer, till exempel "Ser ut som Gustavsberg, Stig Lindberg. Titta på botten efter stämpel." Skriv aldrig ett pris, ett prisspann eller att något är värt pengar.

@@ -49,6 +49,11 @@
   --tile-lilac: #E6E1F2;
   /* The warm accent of the two-tone line art and the stars (Epic 20). Decoration only, never text. */
   --warm: #D9963F;
+  /* Kan ha värde (Värdetips): a filled gold star with a darker edge, on a pale gold pill with dark text. */
+  --star: #F5B01C;
+  --star-edge: #B36A00;
+  --star-tint: #FDF0D2;
+  --star-ink: #4A2E00;
   /* The soft round plate behind a line drawing (the welcome tour, the help hub). Decoration. */
   --illus-bg: #EEF4F0;
   /* The welcome tour's background: pure white in light mode (more keynote than the app's grey), the page in dark. */
@@ -233,6 +238,10 @@
     --tile-clay: #3B2C27;
     --tile-lilac: #2C2840;
     --warm: #E9B872;
+    --star: #F7C04A;
+    --star-edge: #C98B14;
+    --star-tint: #3B2E14;
+    --star-ink: #F8E0AE;
     --illus-bg: #16211B;
     --photo-stage: color-mix(in srgb, #1A201C 100%, transparent);
     --marker-edge: color-mix(in srgb, #0F1311 100%, transparent);
@@ -393,6 +402,10 @@
   --color-tile-clay: var(--tile-clay);
   --color-tile-lilac: var(--tile-lilac);
   --color-warm: var(--warm);
+  --color-star: var(--star);
+  --color-star-edge: var(--star-edge);
+  --color-star-tint: var(--star-tint);
+  --color-star-ink: var(--star-ink);
   --color-illus-bg: var(--illus-bg);
   --color-tour-bg: var(--tour-bg);
   --color-overlay: var(--overlay);

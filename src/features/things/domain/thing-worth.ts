@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Värt en titt (Tillval, Förråd): while a card is read the AI may flag the few föremål that may be
+// Värdetips (Tillval, Förråd): while a card is read the AI may flag the few föremål that may be
 // collectible or worth more than they look, with one short sentence and how sure it is. It is a
 // tip, never a valuation: no price anywhere. thing_item keeps the sentence and the confidence in
 // two columns (both or neither). Pure.
@@ -24,11 +24,11 @@ export function worthOfRow(row: { worth_why?: string | null; worth_confidence?: 
 export const worthRowShape = {
   worth_why: z.string().nullable().optional(),
   worth_confidence: z.string().nullable().optional(),
-  // "Förklara närmare"; a database before its migration has no such column.
+  // "Undersök värdet"; a database before its migration has no such column.
   worth_detail: z.string().nullable().optional(),
 };
 
-export const worthTitleText = "Värt en titt";
+export const worthTitleText = "Kan ha värde";
 export const worthDisclaimerText = "Ett tips, inte en värdering.";
 
 const confidenceWords: Record<WorthConfidence, string> = { sure: "Säker", guess: "Gissning", unsure: "Osäker" };
@@ -38,12 +38,12 @@ export function worthConfidenceText(confidence: WorthConfidence): string {
   return confidenceWords[confidence];
 }
 
-/** What a screen reader says for the marker on a row: "Värt en titt, gissning". */
+/** What a screen reader says for the marker on a row: "Kan ha värde, gissning". */
 export function worthMarkerLabel(worth: ThingWorth): string {
   return `${worthTitleText}, ${confidenceWords[worth.confidence].toLowerCase()}`;
 }
 
-export const explainWorthButtonText = "Förklara närmare";
+export const explainWorthButtonText = "Undersök värdet";
 export const explainingWorthText = "Funderar …";
 export const explainWorthFailedText = "Det gick inte att förklara just nu. Försök igen om en stund.";
 

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok } from "@/lib/errors";
+import { saveOption } from "@/lib/options";
 import type { AiJob } from "@/lib/ai-job-shape";
 import { RoomMeta, RoomNews } from "./room-news";
 
@@ -37,10 +38,10 @@ function rooms() {
   render(
     <RoomNews siteId={siteId}>
       <p data-testid="boden">
-        <RoomMeta roomKey="boden" text="12 föremål · 1 kort" />
+        <RoomMeta roomKey="boden" parts={["12 föremål", "1 kort"]} />
       </p>
       <p data-testid="garaget">
-        <RoomMeta roomKey="garaget" text="3 föremål" />
+        <RoomMeta roomKey="garaget" parts={["3 föremål"]} />
       </p>
     </RoomNews>,
   );
@@ -79,5 +80,31 @@ describe("the rooms' news on the Förråd overview", () => {
     await waitFor(() => expect(locateThingCards).toHaveBeenCalled());
     expect(screen.queryByTestId("room-news")).not.toBeInTheDocument();
     expect(markSeen).not.toHaveBeenCalled();
+  });
+
+  it("puts the star count after the number of föremål when Värdetips is on and it is more than none", () => {
+    jobs = [];
+    const { unmount } = render(
+      <RoomNews siteId={siteId}>
+        <p data-testid="line">
+          <RoomMeta roomKey="boden" parts={["12 föremål", "1 kort", "31 okt"]} starred={2} />
+        </p>
+      </RoomNews>,
+    );
+    expect(screen.getByTestId("line")).toHaveTextContent(/^12 föremål · 1 kort · 31 okt$/);
+    unmount();
+    saveOption("worthLook", true);
+    render(
+      <RoomNews siteId={siteId}>
+        <p data-testid="line">
+          <RoomMeta roomKey="boden" parts={["12 föremål", "1 kort", "31 okt"]} starred={2} />
+        </p>
+        <p data-testid="none">
+          <RoomMeta roomKey="garaget" parts={["3 föremål"]} starred={0} />
+        </p>
+      </RoomNews>,
+    );
+    expect(screen.getByTestId("line")).toHaveTextContent("12 föremål · 22 kan ha värde · 1 kort · 31 okt");
+    expect(screen.getByTestId("none")).toHaveTextContent(/^3 föremål$/);
   });
 });

@@ -2,7 +2,7 @@ import { cx } from "@/components/cx";
 import { ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
-import { roomMeta, roomsTotalText, roomTile, type RoomSummary } from "../domain/thing-room";
+import { roomMetaParts, roomsTotalText, roomTile, type RoomSummary } from "../domain/thing-room";
 import { RoomMeta } from "./room-news";
 
 // The rooms of a boende (Story 18.11): "Rum" with the sum at the right
@@ -34,8 +34,7 @@ export function RoomsList({ siteId, rooms }: { siteId: string; rooms: readonly R
               key={room.key}
               href={roomHref(siteId, room.key)}
               title={room.room}
-              oneLine
-              meta={<RoomMeta roomKey={room.key} text={roomMeta(room)} />}
+              meta={<RoomMeta roomKey={room.key} parts={roomMetaParts(room)} starred={room.starred ?? 0} />}
               leading={
                 <span aria-hidden="true" className={cx("flex size-9 shrink-0 items-center justify-center rounded-[10px] text-tile-icon leading-none select-none", tile)}>
                   {icon}

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { cardViewMeta, cardViewTitle } from "@/features/things";
 import { getCardView, ThingsDataError } from "@/features/things/server";
+import { CardMenu } from "@/features/things/ui/card-menu";
 import { CardView } from "@/features/things/ui/card-view";
 import { errorMessages } from "@/lib/errors";
 
@@ -65,11 +66,20 @@ async function CardContent({ params, searchParams }: Pick<PageProps<"/prylar/kor
   const marked = typeof foremal === "string" && z.uuid().safeParse(foremal).success ? foremal : null;
   return (
     <>
-      <PageHeader title={cardViewTitle(card)} backHref={`${roomHref}?vy=cards`} backInHistory />
+      <PageHeader
+        title={cardViewTitle(card)}
+        backHref={`${roomHref}?vy=cards`}
+        backInHistory
+        action={
+          card.status === "done" ? (
+            <CardMenu cardId={card.id} placeId={card.placeId} takenAt={card.takenAt} name={cardViewTitle(card)} roomHref={roomHref} />
+          ) : undefined
+        }
+      />
       <p className="-mt-3 mb-3 px-px text-meta text-ink-2" data-testid="card-meta">
         {cardViewMeta(card)}
       </p>
-      <CardView card={card} initialThingId={marked} roomHref={roomHref} />
+      <CardView card={card} initialThingId={marked} />
     </>
   );
 }
