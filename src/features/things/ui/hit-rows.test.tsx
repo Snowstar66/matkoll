@@ -71,6 +71,10 @@ const snapshot: ThingSnapshot = {
   boxMissed: false,
   quantity: 2,
   changes: [],
+  worthWhy: null,
+  worthConfidence: null,
+  worthDetail: null,
+  worthSetByUser: null,
 };
 
 beforeEach(() => {

@@ -41,6 +41,7 @@ import { notedSheetSubtitle } from "../domain/thing-noted";
 import { maxCount } from "../domain/thing-count";
 import { WorthBlock } from "./worth-marker";
 import { CountCard } from "./count-card";
+import { addRemovedThing, hasRemovedThingsHost } from "./removed-things";
 
 // Föremålets blad (Stories 18.3, 18.15 and 18.23; Pontus 1, 9 and 20 Nov): one sheet
 // for a föremål wherever it is tapped, in a room's list, a search hit or on its
@@ -358,21 +359,25 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
     onEvent?.({ kind: "removed", id: removed.id });
     onClose();
     router.refresh();
-    showToast(removedThingText(removed.name), {
-      onUndo: () => {
-        void (async () => {
-          let restored: Result<null>;
-          try {
-            restored = await restoreThing(snapshot);
-          } catch {
-            restored = fail("things_restore_failed");
-          }
-          if (restored.ok) onEvent?.({ kind: "restored", id: removed.id });
-          else showToast(restored.error.message, { role: "alert" });
-          router.refresh();
-        })();
-      },
-    });
+    const undo = () => {
+      void (async () => {
+        let restored: Result<null>;
+        try {
+          restored = await restoreThing(snapshot);
+        } catch {
+          restored = fail("things_restore_failed");
+        }
+        if (restored.ok) onEvent?.({ kind: "restored", id: removed.id });
+        else showToast(restored.error.message, { role: "alert" });
+        router.refresh();
+      })();
+    };
+    // UX-B: a room's list keeps the row, struck through, with "Ångra"; where no list does, the toast is the one "Ångra".
+    if (hasRemovedThingsHost()) {
+      addRemovedThing({ id: removed.id, name: removed.name, photoId: snapshot.photoId, category: snapshot.category, noted: snapshot.source === "noted", undo });
+    } else {
+      showToast(removedThingText(removed.name), { onUndo: undo });
+    }
   }
 
   const crumbs = read && !noted ? thingCrumbs(read.place) : [];

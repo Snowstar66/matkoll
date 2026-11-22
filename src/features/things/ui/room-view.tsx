@@ -26,6 +26,7 @@ import { useRoomGroupingStored, useRoomViewStored } from "./device-store";
 import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
 import { partsLabelText, partMeta } from "../domain/thing-written";
+import { useRemovedThings } from "./removed-things";
 import { RoomCards } from "./room-cards";
 import { RemoveRoomButton } from "./remove-room";
 import { RoomCategories } from "./room-categories";
@@ -126,6 +127,8 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
   // Per foto is the first choice (Pontus 20 Nov); the choice of this device is kept.
   const [storedGrouping, setStoredGrouping] = useRoomGroupingStored();
   const grouping: RoomGrouping = parseRoomGrouping(storedGrouping);
+  // A föremål just removed keeps its row for "Ångra", even when it was the room's last.
+  const hasRemoved = useRemovedThings().length > 0;
   const reading = cards.some((card) => card.status === "reading");
 
   // The results of this tab's jobs are on this page, so no confirmation says what is already here.
@@ -195,7 +198,7 @@ export function RoomView({ siteId, summary, categories, cards, closedBoxes, writ
       </div>
       {view === "things" ? (
         <>
-          {summary.things === 0 ? (
+          {summary.things === 0 && !hasRemoved ? (
             <div data-testid="room-empty">
               <EmptyState className="py-8">
                 {summary.cards === 0 ? `Inget kort än. Fota en hylla, så listar ${appName} vad som finns.` : `Inga ${thingNoun.plural} hittades på korten.`}
