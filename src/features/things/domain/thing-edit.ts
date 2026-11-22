@@ -127,7 +127,9 @@ export const saveNameText = "Spara";
 /** The photo at the top of a föremål's sheet: a link to the whole card. */
 export const openWholeCardText = "Öppna hela kortet";
 /** The text link under the photo's crop, to the same place. */
-export const showWholeCardText = "Visa hela kortet";
+export const showWholeCardText = "Öppna kortet";
+/** The ⤢ on the sheet's photo: it opens the photo view, not the card. */
+export const enlargePhotoText = "Förstora fotot";
 /** The photo view's title (Förrådet), its photo's alt text, and the link in it to the card's own page with the list. */
 export const photoViewerTitleText = "Kortet";
 export const photoViewerAltText = "Kortet som föremålen lästes från";

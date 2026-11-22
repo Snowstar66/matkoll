@@ -46,6 +46,8 @@ export type SheetProps = {
    * Tillbaka on the left, the heading centred, and no close button. Tillbaka never asks about changes.
    */
   onBack?: () => void;
+  /** A control in the header, left of the close button (Förråd's ⋯ menu). Not shown in a `onBack` header. */
+  headerExtra?: ReactNode;
   /** UX-18: the app's grey page background instead of white, so white list groups lie on it as cards (Veckans erbjudanden). */
   grey?: boolean;
 };
@@ -92,6 +94,7 @@ export function Sheet({
   initialFocus,
   heading,
   onBack,
+  headerExtra,
   grey = false,
 }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -329,15 +332,18 @@ export function Sheet({
                   {heading ?? title}
                 </h2>
                 {confirming ? null : (
-                  <Button
-                    ref={closeButtonRef}
-                    variant="text"
-                    disabled={preventClose}
-                    onClick={requestClose}
-                    className="-mr-3"
-                  >
-                    {closeLabel}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {headerExtra}
+                    <Button
+                      ref={closeButtonRef}
+                      variant="text"
+                      disabled={preventClose}
+                      onClick={requestClose}
+                      className="-mr-3"
+                    >
+                      {closeLabel}
+                    </Button>
+                  </div>
                 )}
               </div>
             )}

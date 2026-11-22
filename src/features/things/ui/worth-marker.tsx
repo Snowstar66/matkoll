@@ -23,7 +23,7 @@ import {
   updateWorthText,
   updatingWorthText,
   worthAppliedText,
-  worthProposal,
+  worthOpinionText,
   worthSwitchHints,
   type WorthState,
   worthConfidenceText,
@@ -184,7 +184,8 @@ type Said = { recommends: boolean | null; appliedText: string | null; suggestion
  * In a föremål's sheet, under its name (Värdetips): the switch "Kan ha värde" (the user's own choice goes before the
  * AI's, both ways, with a line on who set it), the AI's tip when it is starred, and "Undersök värdet" for any föremål:
  * the AI's recommendation with its explanation, kept. The recommendation stars or unstars at once when the user has
- * never touched the star, else it is only offered as a button. "Uppdatera" at the end asks again. Key it on the
+ * never touched the star; else it is only said as a line ("AI:n tycker …") and the switch is the user's to flip, so the
+ * star has one control. "Uppdatera" at the end asks again. Key it on the
  * opening, so each starts fresh. Nothing with the Tillval switch off.
  */
 export function WorthBlock({
@@ -223,7 +224,6 @@ export function WorthBlock({
     setToggling(false);
     if (answer?.ok) {
       setCurrent((before) => ({ ...answer.data.state, detail: answer.data.state.detail ?? before.detail }));
-      setSaid((before) => (before ? { ...before, suggestion: null } : before));
       router.refresh();
     } else {
       setAsking({ error: errorMessages[answer?.error.code ?? "things_item_failed"] ?? explainWorthFailedText });
@@ -251,7 +251,7 @@ export function WorthBlock({
   }
 
   const recommends = said?.recommends ?? (shownDetail ? (parseWorthDetail(shownDetail)?.recommends ?? null) : null);
-  const proposal = said?.suggestion != null ? worthProposal(said.suggestion) : null;
+  const opinion = said?.suggestion != null ? worthOpinionText(said.suggestion) : null;
 
   return (
     <section aria-label={worthTitleText} data-testid="worth-block" className="flex flex-col gap-2.5">
@@ -282,25 +282,22 @@ export function WorthBlock({
       ) : null}
       {shownDetail ? (
         <>
-          {/* One statement of what the AI thinks: the offer (a button) if there is one, else what was done to the star, else the recommendation. */}
-          {recommends !== null && !proposal && !said?.appliedText ? (
+          {/* One statement of what the AI thinks: its opinion when the user's own star differs (a line, no button), else what was done to the star, else the recommendation. */}
+          {recommends !== null && !opinion && !said?.appliedText ? (
             <p data-testid="worth-recommendation" className="text-body text-ink">
               {recommendationLabel} <strong className="font-semibold">{recommends ? recommendsYesText : recommendsNoText}</strong>
             </p>
           ) : null}
-          {said?.appliedText && !proposal ? (
+          {said?.appliedText && !opinion ? (
             <p data-testid="worth-applied" role="status" className="text-meta text-ink-2">
               {said.appliedText}
             </p>
           ) : null}
           <WorthDetail text={shownDetail} />
-          {proposal ? (
-            <div data-testid="worth-proposal" className="flex flex-col items-start gap-2 rounded-lg bg-bg px-3.5 py-3">
-              <p className="text-body text-ink">{proposal.text}</p>
-              <Button variant="secondary" onClick={() => void choose(said!.suggestion === true)} disabled={toggling}>
-                {proposal.button}
-              </Button>
-            </div>
+          {opinion ? (
+            <p data-testid="worth-opinion" className="text-body text-ink">
+              {opinion}
+            </p>
           ) : null}
           {canExamine ? (
             <div className="flex items-center gap-2">

@@ -107,11 +107,12 @@ export function worthAppliedText(recommends: boolean, applied: WorthApplied, was
   return null;
 }
 
-/** The proposal under the answer when the user's own choice differs from the AI's. */
-export function worthProposal(recommends: boolean): { text: string; button: string } {
-  return recommends
-    ? { text: "AI:n tycker att den kan ha värde. Stjärnmarkera?", button: "Stjärnmarkera" }
-    : { text: "AI:n tycker inte att den har särskilt värde. Ta bort stjärnan?", button: "Ta bort stjärnan" };
+/**
+ * What the AI thinks when the user's own choice on the star differs from it: a plain line. There is no button for it
+ * (Pontus 22 Nov): the switch "Kan ha värde" is the one control for the star, and the user flips it himself.
+ */
+export function worthOpinionText(recommends: boolean): string {
+  return recommends ? "AI:n tycker att den kan ha värde." : "AI:n tycker inte att den har särskilt värde.";
 }
 
 export const explainWorthButtonText = "Undersök värdet";

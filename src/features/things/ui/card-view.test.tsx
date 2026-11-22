@@ -136,7 +136,8 @@ describe("the card big (Story 18.7)", () => {
     await userEvent.click(open);
     const dialog = screen.getByRole("dialog", { name: "Föremål" });
     expect(await within(dialog).findByTestId("count-number")).toHaveTextContent("4st");
-    expect(within(dialog).getByRole("button", { name: "Ta bort föremålet" })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fler val" }));
+    expect(within(dialog).getByRole("menuitem", { name: "Ta bort föremålet" })).toBeInTheDocument();
     expect(within(dialog).queryByTestId("thing-sheet-link")).not.toBeInTheDocument();
     // Opening is not marking.
     expect(row("Cirkelsåg")).toHaveAttribute("aria-pressed", "false");

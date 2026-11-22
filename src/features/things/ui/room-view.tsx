@@ -27,6 +27,7 @@ import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
 import { partsLabelText, partMeta } from "../domain/thing-written";
 import { useRemovedThings } from "./removed-things";
+import { roomMemoryKey, useRoomScroll } from "./room-memory";
 import { RoomCards } from "./room-cards";
 import { RemoveRoomButton } from "./remove-room";
 import { RoomCategories } from "./room-categories";
@@ -119,6 +120,8 @@ const refreshMs = 3_000;
 
 export function RoomView({ siteId, summary, categories, cards, closedBoxes, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal, empty = false }: RoomViewProps) {
   const router = useRouter();
+  // Tillbaka from a card keeps the scroll position of the room (C1).
+  useRoomScroll(roomMemoryKey(siteId, summary.key));
   const { jobs, markSeen } = useAiJobs();
   const [stored, setStored] = useRoomViewStored();
   // The choice of this device (like Recept's Kort och Lista); the address's `vy` is the first one.
