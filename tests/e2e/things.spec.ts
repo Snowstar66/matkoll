@@ -1030,11 +1030,11 @@ test("the room lists things per photo by default, with the photo as the heading,
   const group = page.getByTestId("room-photo");
   await expect(group).toHaveCount(1);
   // Folded: what it shows, the date and how many; the list opens with the row.
-  const fold = group.getByTestId("room-photo-toggle");
+  const fold = group.getByTestId("room-photo-row");
   await expect(fold).toContainText("Hela rummet");
   await expect(fold).toContainText("18 nov · 2 saker");
   await expect(group.getByTestId("thing")).toHaveCount(0);
-  await fold.click();
+  await group.getByTestId("room-photo-toggle").click();
   await expect(group.getByTestId("thing")).toHaveCount(2);
   await expect(group.getByTestId("room-photo-open")).toBeVisible();
   await expect(group).not.toContainText("på väggen");

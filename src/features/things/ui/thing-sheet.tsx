@@ -473,11 +473,11 @@ export function ThingSheet({ thing, open, onClose, subtitle, link, onEvent }: Th
           />
           {fieldError && step === "main" ? <FieldError id={`${ids}-name-error`}>{fieldError}</FieldError> : null}
         </div>
-        {read ? <WorthBlock key={`${thing?.id ?? ""}-${sessionAt}`} worth={read.worth} state={read.worthState} thingId={thing?.id} name={thing?.name} canExamine={photoId !== null} /> : null}
+        {read ? <WorthBlock key={`worth-${thing?.id ?? ""}-${sessionAt}`} worth={read.worth} state={read.worthState} thingId={thing?.id} name={thing?.name} canExamine={photoId !== null} /> : null}
         {/* Story 18.23: the count; not counted is a field to write it in, with the one small Spara beside it, shown when something is changed. */}
         {thing ? (
           <CountCard
-            key={`${thing.id}-${sessionAt}`}
+            key={`count-${thing.id}-${sessionAt}`}
             itemId={thing.id}
             name={thing.name}
             initial={thing.quantity ?? null}

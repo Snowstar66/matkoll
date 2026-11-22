@@ -267,7 +267,8 @@ export function WorthBlock({
       </ListGroup>
       {current.starred ? (
         <div data-testid="worth-tip" className="flex flex-col gap-2 rounded-lg bg-bg px-3.5 py-3">
-          {current.tip ? <p className="text-body text-ink">{current.tip.why}</p> : null}
+          {/* The kept explanation below says why in full; the tip's sentence is only here until there is one. */}
+          {current.tip && !shownDetail ? <p className="text-body text-ink">{current.tip.why}</p> : null}
           <SoldSearch phrase={phrase} />
           <p className="text-meta text-ink-2">
             {current.tip ? (
@@ -281,12 +282,13 @@ export function WorthBlock({
       ) : null}
       {shownDetail ? (
         <>
-          {recommends !== null ? (
+          {/* One statement of what the AI thinks: the offer (a button) if there is one, else what was done to the star, else the recommendation. */}
+          {recommends !== null && !proposal && !said?.appliedText ? (
             <p data-testid="worth-recommendation" className="text-body text-ink">
               {recommendationLabel} <strong className="font-semibold">{recommends ? recommendsYesText : recommendsNoText}</strong>
             </p>
           ) : null}
-          {said?.appliedText ? (
+          {said?.appliedText && !proposal ? (
             <p data-testid="worth-applied" role="status" className="text-meta text-ink-2">
               {said.appliedText}
             </p>
