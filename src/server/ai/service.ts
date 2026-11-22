@@ -54,6 +54,9 @@ import {
   explainWorthAnswer,
   parseDishExplanation,
   parseWorthExplanation,
+  parseCardSummary,
+  summarizeCardAnswer,
+  type CardSummary,
   type DishExplanation,
   type WorthExplanation,
   parseCategories,
@@ -261,6 +264,9 @@ export type ListThingsResult = {
   trimmed: number;
   hiddenContainers: number;
   hiddenNote: string | null;
+  /** The AI's line about what the card holds and its short name; each `null` when nothing is clear. */
+  summary: string | null;
+  title: string | null;
 };
 
 export type ReadShoppingListInput = {
@@ -377,11 +383,20 @@ export type ExplainWorthInput = {
   image: ImageInput;
   /** The föremål's name on one line (at most inputLimits.explainWorth.maxNameChars). */
   name: string;
-  /** The short tip the reading gave, on one line (at most inputLimits.explainWorth.maxTipChars). */
-  tip: string;
-  /** How sure the reading was. */
-  confidence: "sure" | "guess" | "unsure";
+  /** The short tip the reading gave, on one line (at most inputLimits.explainWorth.maxTipChars); `null` for a föremål without one. */
+  tip: string | null;
+  /** How sure the reading was; `null` without a tip. */
+  confidence: "sure" | "guess" | "unsure" | null;
 };
+
+/** What summarizeCard gets: the card's whole photo and the names of its föremål (one line each). Data for the model, never instructions. */
+export type SummarizeCardInput = {
+  image: ImageInput;
+  names: readonly string[];
+};
+
+/** The line and the short name of a card; each `null` when nothing is clear. */
+export type SummarizeCardResult = CardSummary;
 
 /** Why the föremål was flagged, what it could be and what to check further, in plain Swedish sentences; never a price. */
 export type ExplainWorthResult = WorthExplanation;
@@ -661,6 +676,11 @@ export interface AiService {
    */
   explainWorth(input: ExplainWorthInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ExplainWorthResult>>;
   /**
+   * "Uppdatera sammanfattningen" on a card: the line about what the card holds and a short name for it, from the
+   * photo and the names of its föremål. One short call. Fails with `validation`, `ai_unavailable`, `ai_rejected` or `ai_invalid`.
+   */
+  summarizeCard(input: SummarizeCardInput, signal: AbortSignal, options?: RunOptions): Promise<Result<SummarizeCardResult>>;
+  /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
    * for `text`), a minimal message without any data of Pontus's (a grey
@@ -773,7 +793,8 @@ export const inputLimits = {
    * explainDish: a dish name, the restaurant, the short explanation and up to 12 ingredients are under 1 500
    * characters (about 500 tokens in); the answer is five short texts of about 350 tokens in all, so 800 leave room.
    */
-  explainWorth: { maxNameChars: 80, maxTipChars: 200, maxOutputTokens: 700, attemptMs: 45_000 },
+  explainWorth: { maxNameChars: 80, maxTipChars: 200, maxOutputTokens: 800, attemptMs: 45_000 },
+  summarizeCard: { maxNames: 60, maxNameChars: 80, maxOutputTokens: 200, attemptMs: 30_000 },
   explain: { maxNameChars: 120, maxRestaurantChars: 80, maxSummaryChars: 400, maxIngredients: 12, maxIngredientChars: 40, maxChars: 1_500, maxOutputTokens: 800 },
   /**
    * mergeThings (Story 18.6): the lists are names, categories and where on
@@ -886,7 +907,20 @@ export function isValidCategorizeThingsInput(input: CategorizeThingsInput): bool
 export function isValidExplainWorthInput(input: ExplainWorthInput): boolean {
   const limits = inputLimits.explainWorth;
   const oneLine = (text: string, max: number) => text !== "" && text === cleanModelText(text) && text.length <= max;
-  return isValidImage(input.image) && oneLine(input.name, limits.maxNameChars) && oneLine(input.tip, limits.maxTipChars) && ["sure", "guess", "unsure"].includes(input.confidence);
+  const tipOk = input.tip === null ? input.confidence === null : oneLine(input.tip, limits.maxTipChars) && ["sure", "guess", "unsure"].includes(input.confidence ?? "");
+  return isValidImage(input.image) && oneLine(input.name, limits.maxNameChars) && tipOk;
+}
+
+/** True for an image within the limits and at most inputLimits.summarizeCard.maxNames names, each on one line. */
+export function isValidSummarizeCardInput(input: SummarizeCardInput): boolean {
+  const limits = inputLimits.summarizeCard;
+  return isValidImage(input.image) && input.names.length <= limits.maxNames && input.names.every((name) => name !== "" && name === cleanModelText(name) && name.length <= limits.maxNameChars);
+}
+
+/** summarizeCard's budget within `limits`: one attempt after the health check. */
+export function summarizeCardLimitsFrom(limits: Limits): Limits {
+  const attemptMs = Math.min(limits.attemptMs, inputLimits.summarizeCard.attemptMs);
+  return { ...limits, attemptMs, totalMs: Math.min(limits.totalMs, limits.healthMs + attemptMs), maxAttempts: 1 };
 }
 
 /**
@@ -1117,6 +1151,10 @@ export function withInputValidation(service: AiService): AiService {
     async explainWorth(input, signal, options) {
       if (!isValidExplainWorthInput(input)) return fail("validation");
       return service.explainWorth(input, signal, options);
+    },
+    async summarizeCard(input, signal, options) {
+      if (!isValidSummarizeCardInput(input)) return fail("validation");
+      return service.summarizeCard(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -1622,6 +1660,28 @@ export function createModelAiService(
       if (!answer.ok) return answer;
       return ok(parseWorthExplanation(answer.data));
     },
+    async summarizeCard(input, signal, options = {}) {
+      const within = limitsWithin(summarizeCardLimitsFrom(limits), options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: summarizeCardAnswer,
+          system: prompts.summarizeCard,
+          messages: [{ role: "user", content: summarizeCardContent(input) }],
+          maxOutputTokens: inputLimits.summarizeCard.maxOutputTokens,
+          sampling: target.imageSampling,
+          onTruncated: () => console.info("summarize_card_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok(parseCardSummary(answer.data));
+    },
     async categorizeThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
       if (!within) {
@@ -1971,7 +2031,7 @@ export function locateThingContent(input: LocateThingInput) {
   ];
 }
 
-const worthConfidenceWords: Record<ExplainWorthInput["confidence"], string> = { sure: "säker", guess: "gissning", unsure: "osäker" };
+const worthConfidenceWords: Record<NonNullable<ExplainWorthInput["confidence"]>, string> = { sure: "säker", guess: "gissning", unsure: "osäker" };
 
 /**
  * The user message for explainWorth: the photo as a `file` part, then "Föremål:" with the name, "Tips:" with the line the
@@ -1981,7 +2041,18 @@ const worthConfidenceWords: Record<ExplainWorthInput["confidence"], string> = { 
 export function explainWorthContent(input: ExplainWorthInput) {
   return [
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
-    { type: "text" as const, text: [`${thingNounCap.singular}: ${input.name}`, `Tips: ${input.tip}`, `Säkerhet: ${worthConfidenceWords[input.confidence]}`].join("\n") },
+    {
+      type: "text" as const,
+      text: [`${thingNounCap.singular}: ${input.name}`, ...(input.tip !== null && input.confidence !== null ? [`Tips: ${input.tip}`, `Säkerhet: ${worthConfidenceWords[input.confidence]}`] : ["Tips: inget (användaren vill att du bedömer föremålet från grunden)"])].join("\n"),
+    },
+  ];
+}
+
+/** The user message for summarizeCard: the photo, then the names, one per line, as data. */
+export function summarizeCardContent(input: SummarizeCardInput) {
+  return [
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+    { type: "text" as const, text: [`${thingNounCap.plural}:`, ...input.names.map((name) => `- ${name}`)].join("\n") },
   ];
 }
 

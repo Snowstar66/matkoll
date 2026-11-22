@@ -17,7 +17,9 @@ vi.mock("../actions/thing-count", () => ({
   setThingCount: vi.fn(),
 }));
 const explainWorthDetail = vi.fn();
-vi.mock("./worth-client", () => ({ explainWorthDetail: (id: string) => explainWorthDetail(id) }));
+vi.mock("./worth-client", () => ({ explainWorthDetail: (id: string, refresh?: boolean) => explainWorthDetail(id, refresh ?? false) }));
+const setThingWorth = vi.fn();
+vi.mock("../actions/worth-state", () => ({ setThingWorth: (input: unknown) => setThingWorth(input) }));
 const loadThingDetail = vi.fn();
 vi.mock("../actions/thing-detail", () => ({ loadThingDetail: (id: string) => loadThingDetail(id) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -32,11 +34,13 @@ const detail = {
   place: { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02", siteId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a03", room: "Garaget", roomKey: "garaget", part: "Hylla 2", kind: "part" },
   cardThings: [],
   worth,
+  worthState: { starred: true, setBy: "ai", tip: { why: worth.why, confidence: worth.confidence }, detail: null },
 };
 
 beforeEach(() => {
   window.localStorage.clear();
   explainWorthDetail.mockReset();
+  setThingWorth.mockReset();
   loadThingDetail.mockReset();
   loadThingDetail.mockResolvedValue(ok(detail));
 });
@@ -60,12 +64,23 @@ describe("the pill on a row", () => {
   });
 });
 
+const unstarred = { starred: false, setBy: null, tip: null, detail: null } as const;
+const aiState = { starred: true, setBy: "ai", tip: { why: worth.why, confidence: worth.confidence }, detail: null } as const;
+const answer = (over: Record<string, unknown> = {}) => {
+  const detail = (over.detail as string | undefined) ?? explanationText;
+  return { recommends: true, applied: "unchanged", suggestion: null, ...over, detail, state: { ...((over.state as object | undefined) ?? aiState), detail } };
+};
+
 describe("the block in the sheet", () => {
-  it("says the sentence, how sure the AI is in words, and that it is a tip, with the switch on", () => {
+  it("has the switch Kan ha värde with who set it, and says the sentence, how sure the AI is in words, and that it is a tip", () => {
     saveOption("worthLook", true);
-    render(<WorthBlock worth={worth} />);
+    render(<WorthBlock worth={worth} thingId={vase.id} />);
     const block = screen.getByTestId("worth-block");
-    expect(within(block).getByText("Kan ha värde")).toBeInTheDocument();
+    const toggle = within(block).getByRole("switch", { name: /Kan ha värde/ });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toHaveAccessibleDescription("Markerad av AI:n");
+    // The pill of the old heading is gone: the switch row carries the star and the name.
+    expect(within(block).queryByTestId("worth-marker")).not.toBeInTheDocument();
     expect(block).toHaveTextContent(worth.why);
     expect(screen.getByTestId("worth-confidence")).toHaveTextContent("Gissning");
     expect(block).toHaveTextContent("Ett tips, inte en värdering.");
@@ -73,13 +88,38 @@ describe("the block in the sheet", () => {
   });
 
   it("shows nothing with the switch off", () => {
-    render(<WorthBlock worth={worth} />);
+    render(<WorthBlock worth={worth} thingId={vase.id} />);
     expect(screen.queryByTestId("worth-block")).not.toBeInTheDocument();
+  });
+
+  it("is there for a föremål without a star too: the switch is off and Undersök värdet is offered", () => {
+    saveOption("worthLook", true);
+    render(<WorthBlock state={unstarred} thingId={hammer.id} />);
+    expect(screen.getByRole("switch", { name: /Kan ha värde/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("switch")).toHaveAccessibleDescription("Inte markerad");
+    expect(screen.queryByTestId("worth-tip")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Undersök värdet" })).toBeInTheDocument();
+  });
+
+  it("puts a star on with a tap (Markerad av dig) and takes the AI's star away (Borttagen av dig)", async () => {
+    saveOption("worthLook", true);
+    setThingWorth.mockResolvedValueOnce(ok({ state: { starred: true, setBy: "user", tip: null, detail: null } })).mockResolvedValueOnce(ok({ state: { starred: false, setBy: "removed", tip: aiState.tip, detail: null } }));
+    const { unmount } = render(<WorthBlock state={unstarred} thingId={hammer.id} />);
+    await userEvent.click(screen.getByRole("switch"));
+    expect(setThingWorth).toHaveBeenCalledWith({ id: hammer.id, starred: true });
+    expect(await screen.findByText("Markerad av dig")).toBeInTheDocument();
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    unmount();
+    render(<WorthBlock worth={worth} thingId={vase.id} />);
+    await userEvent.click(screen.getByRole("switch"));
+    expect(setThingWorth).toHaveBeenLastCalledWith({ id: vase.id, starred: false });
+    expect(await screen.findByText("Borttagen av dig. AI:n ändrar den inte.")).toBeInTheDocument();
+    expect(screen.queryByTestId("worth-tip")).not.toBeInTheDocument();
   });
 
   it("offers searches for sold lookalikes in a new tab, from the föremål's name before there is an explanation", () => {
     saveOption("worthLook", true);
-    render(<WorthBlock worth={worth} name="Vas i glas" />);
+    render(<WorthBlock worth={worth} thingId={vase.id} name="Vas i glas" />);
     const sold = screen.getByTestId("worth-sold");
     const tradera = within(sold).getByTestId("worth-sold-tradera");
     expect(tradera).toHaveAttribute("href", "https://www.tradera.com/search?q=Vas%20i%20glas&itemStatus=Ended");
@@ -97,20 +137,20 @@ describe("the block in the sheet", () => {
     saveOption("worthLook", true);
     const text =
       "Därför markerades den\nSlipad kant.\n\nVad det kan vara\nTroligen Orrefors, en gissning.\n\nAtt undersöka vidare\n- Titta på botten.\n\nSökfras\nOrrefors kristallskål slipad";
-    const { unmount } = render(<WorthBlock worth={{ ...worth, detail: text }} name="Skål" />);
+    const { unmount } = render(<WorthBlock worth={{ ...worth, detail: text }} thingId={vase.id} name="Skål" />);
     expect(screen.getByTestId("worth-sold-tradera")).toHaveAttribute("href", expect.stringContaining("Orrefors%20kristallsk%C3%A5l%20slipad"));
     expect(screen.getByTestId("worth-sold-phrase")).toHaveTextContent("Söker på: Orrefors kristallskål slipad");
     // The phrase is for the links, not another paragraph of the explanation.
     expect(screen.getByTestId("worth-detail")).not.toHaveTextContent("Sökfras");
     unmount();
-    render(<WorthBlock worth={worth} name=" " />);
+    render(<WorthBlock worth={worth} thingId={vase.id} name=" " />);
     expect(screen.queryByTestId("worth-sold")).not.toBeInTheDocument();
   });
 
   it("uses the name for an explanation kept before the search phrase existed", () => {
     saveOption("worthLook", true);
     const old = "Därför markerades den\nSlipad kant.\n\nVad det kan vara\nTroligen Orrefors.\n\nAtt undersöka vidare\n- Titta på botten.";
-    render(<WorthBlock worth={{ ...worth, detail: old }} name="Kristallskål" />);
+    render(<WorthBlock worth={{ ...worth, detail: old }} thingId={vase.id} name="Kristallskål" />);
     expect(screen.getByTestId("worth-sold-phrase")).toHaveTextContent("Söker på: Kristallskål");
   });
 });
@@ -161,46 +201,98 @@ const explanationText = [
 ].join("\n\n");
 
 describe("Undersök värdet", () => {
-  it("has no button without the föremål's id, and none with the switch off", () => {
+  it("has no block without the föremål's id, and none with the switch off", () => {
     saveOption("worthLook", true);
     const { rerender } = render(<WorthBlock worth={worth} />);
-    expect(screen.queryByTestId("worth-explain")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("worth-block")).not.toBeInTheDocument();
     window.localStorage.clear();
     rerender(<WorthBlock worth={worth} thingId={vase.id} />);
     expect(screen.queryByTestId("worth-explain")).not.toBeInTheDocument();
   });
 
-  it("asks once, shows that it is thinking, then the three labelled parts and the tip line, and no button", async () => {
+  it("asks once, shows that it is thinking, then the recommendation first, the three labelled parts and Uppdatera, and no Undersök button", async () => {
     saveOption("worthLook", true);
     let finish: (value: unknown) => void = () => undefined;
     explainWorthDetail.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(<WorthBlock worth={worth} thingId={vase.id} />);
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
-    expect(explainWorthDetail).toHaveBeenCalledWith(vase.id);
+    expect(explainWorthDetail).toHaveBeenCalledWith(vase.id, false);
     expect(await screen.findByTestId("worth-explaining")).toHaveTextContent("Funderar");
     expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
-    finish(ok({ detail: explanationText }));
+    finish(ok(answer()));
     const detailBox = await screen.findByTestId("worth-detail");
+    expect(screen.getByTestId("worth-recommendation")).toHaveTextContent("AI:ns rekommendation: Kan ha värde");
     expect(within(detailBox).getByRole("heading", { name: "Därför markerades den" })).toBeInTheDocument();
     expect(within(detailBox).getByRole("heading", { name: "Vad det kan vara" })).toBeInTheDocument();
     expect(within(detailBox).getByRole("heading", { name: "Att undersöka vidare" })).toBeInTheDocument();
     expect(within(detailBox).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Titta på undersidan efter en signatur.", "Jämför med sålda annonser."]);
     expect(screen.getByTestId("worth-block")).toHaveTextContent("Ett tips, inte en värdering.");
+    expect(screen.getByTestId("worth-update")).toHaveTextContent("UppdateraEtt AI-anrop");
     expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
     expect(explainWorthDetail).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a kept explanation straight away, without asking", () => {
+  it("says what the recommendation did to a star the user never touched: starred, or taken away", async () => {
+    saveOption("worthLook", true);
+    explainWorthDetail.mockResolvedValueOnce(ok(answer({ applied: "starred", state: aiState })));
+    const { unmount } = render(<WorthBlock state={unstarred} thingId={hammer.id} />);
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
+    expect(await screen.findByTestId("worth-applied")).toHaveTextContent("Kan ha värde, stjärnmarkerad.");
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    unmount();
+    explainWorthDetail.mockResolvedValueOnce(ok(answer({ recommends: false, applied: "unstarred", state: { ...unstarred, detail: explanationText } })));
+    render(<WorthBlock worth={worth} thingId={vase.id} />);
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
+    expect(await screen.findByTestId("worth-applied")).toHaveTextContent("Verkar inte ha särskilt värde. Stjärnan är borttagen.");
+    expect(screen.getByTestId("worth-recommendation")).toHaveTextContent("AI:ns rekommendation: Inte särskilt värde");
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("changes nothing when the user has chosen and the AI thinks otherwise, and offers a button that does it", async () => {
+    saveOption("worthLook", true);
+    const removed = { starred: false, setBy: "removed", tip: aiState.tip, detail: explanationText } as const;
+    explainWorthDetail.mockResolvedValueOnce(ok(answer({ suggestion: true, state: removed })));
+    setThingWorth.mockResolvedValueOnce(ok({ state: { starred: true, setBy: "user", tip: aiState.tip, detail: null } }));
+    render(<WorthBlock state={{ starred: false, setBy: "removed", tip: aiState.tip, detail: null }} thingId={vase.id} />);
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
+    const proposal = await screen.findByTestId("worth-proposal");
+    expect(proposal).toHaveTextContent("AI:n tycker att den kan ha värde. Stjärnmarkera?");
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByTestId("worth-applied")).not.toBeInTheDocument();
+    await userEvent.click(within(proposal).getByRole("button", { name: "Stjärnmarkera" }));
+    expect(setThingWorth).toHaveBeenCalledWith({ id: vase.id, starred: true });
+    expect(await screen.findByText("Markerad av dig")).toBeInTheDocument();
+    expect(screen.queryByTestId("worth-proposal")).not.toBeInTheDocument();
+  });
+
+  it("offers to take the star away when the AI thinks there is no value but the user starred it", async () => {
+    saveOption("worthLook", true);
+    explainWorthDetail.mockResolvedValueOnce(ok(answer({ recommends: false, suggestion: false, state: { starred: true, setBy: "user", tip: null, detail: explanationText } })));
+    render(<WorthBlock state={{ starred: true, setBy: "user", tip: null, detail: null }} thingId={hammer.id} />);
+    await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
+    expect(await screen.findByTestId("worth-proposal")).toHaveTextContent("AI:n tycker inte att den har särskilt värde. Ta bort stjärnan?");
+    expect(screen.getByRole("button", { name: "Ta bort stjärnan" })).toBeInTheDocument();
+  });
+
+  it("shows a kept explanation straight away, without asking, with Uppdatera that asks again and locks while it works", async () => {
     saveOption("worthLook", true);
     render(<WorthBlock worth={{ ...worth, detail: explanationText }} thingId={vase.id} />);
     expect(screen.getByTestId("worth-detail")).toHaveTextContent("Troligen svensk kristall");
     expect(screen.queryByRole("button", { name: "Undersök värdet" })).not.toBeInTheDocument();
     expect(explainWorthDetail).not.toHaveBeenCalled();
+    let finish: (value: unknown) => void = () => undefined;
+    explainWorthDetail.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await userEvent.click(screen.getByTestId("worth-update"));
+    expect(explainWorthDetail).toHaveBeenCalledWith(vase.id, true);
+    expect(await screen.findByTestId("worth-updating")).toHaveTextContent("Uppdaterar");
+    expect(screen.queryByTestId("worth-update")).not.toBeInTheDocument();
+    finish(ok(answer({ detail: explanationText.replace("svensk", "dansk") })));
+    expect(await screen.findByText(/Troligen dansk kristall/)).toBeInTheDocument();
   });
 
   it("says it did not work and lets the user try again", async () => {
     saveOption("worthLook", true);
-    explainWorthDetail.mockResolvedValueOnce(fail("ai_unavailable")).mockResolvedValueOnce(ok({ detail: explanationText }));
+    explainWorthDetail.mockResolvedValueOnce(fail("ai_unavailable")).mockResolvedValueOnce(ok(answer()));
     render(<WorthBlock worth={worth} thingId={vase.id} />);
     await userEvent.click(screen.getByRole("button", { name: "Undersök värdet" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("AI-tjänsten svarar inte just nu");

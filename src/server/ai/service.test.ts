@@ -956,7 +956,7 @@ describe("listThings on a model (Story 18.2)", () => {
   const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
 
   it("sends the list-things prompt and the photo as a file part, and returns the things with the note", async () => {
-    const model = fakeModel(answer([thing("Hammare"), thing("Spade", { category: "Trädgård", confidence: "low" })], { hiddenContainers: 3, hiddenNote: "Innehållet i tre lådor syns inte." }));
+    const model = fakeModel(answer([thing("Hammare"), thing("Spade", { category: "Trädgård", confidence: "low" })], { hiddenContainers: 3, hiddenNote: "Innehållet i tre lådor syns inte.", summary: "Mest verktyg och redskap.", title: "Verktygshyllan" }));
     const result = await createModelAiService({ model }, limits).listThings(input, signal());
     expect(result).toEqual({
       ok: true,
@@ -969,6 +969,9 @@ describe("listThings on a model (Story 18.2)", () => {
         trimmed: 0,
         hiddenContainers: 3,
         hiddenNote: "Innehållet i tre lådor syns inte.",
+        // One line, no trailing full stop; the short name as it is.
+        summary: "Mest verktyg och redskap",
+        title: "Verktygshyllan",
       },
     });
     const call = model.doGenerateCalls[0];

@@ -433,6 +433,16 @@ export function StarIcon({ size = 24, className, sticker = false }: { size?: num
   );
 }
 
+/** Two arrows in a circle: "Uppdatera". */
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1" />
+      <path d="M17.5 3.5v3.6h-3.6M6.5 20.5v-3.6h3.6" />
+    </Icon>
+  );
+}
+
 /** A paint palette: Utseende in Inställningar. */
 export function PaletteIcon(props: IconProps) {
   return (

@@ -22,6 +22,9 @@ const cardViewRowSchema = z.object({
   taken_at: z.string(),
   width: z.number().int(),
   height: z.number().int(),
+  summary: z.string().nullable().optional(),
+  ai_title: z.string().nullable().optional(),
+  user_title: z.string().nullable().optional(),
   thing_place: z.object({ site_id: z.uuid(), room: z.string(), room_key: z.string(), part: z.string().nullable(), kind: z.enum(["part", "box"]) }),
   thing_item: z.array(
     z.object({
@@ -52,7 +55,7 @@ export async function loadCardViewIn(db: ThingsDb, id: string, now: Date = new D
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_photo")
-      .select(`id, place_id, status, created_at, taken_at, width, height, thing_place!inner(site_id, room, room_key, part, kind), thing_item(id, name, category, confidence, where_hint, position, quantity, worth_why, worth_confidence, ${boxColumns})`)
+      .select(`id, place_id, status, created_at, taken_at, width, height, summary, ai_title, user_title, thing_place!inner(site_id, room, room_key, part, kind), thing_item(id, name, category, confidence, where_hint, position, quantity, worth_why, worth_confidence, worth_set_by_user, ${boxColumns})`)
       .eq("id", id)
       .maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
@@ -74,6 +77,9 @@ export async function loadCardViewIn(db: ThingsDb, id: string, now: Date = new D
       width: row.width,
       height: row.height,
       things,
+      userTitle: row.user_title ?? null,
+      aiTitle: row.ai_title ?? null,
+      summary: row.summary ?? null,
     };
   });
 }

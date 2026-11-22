@@ -1,18 +1,31 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AiWorking } from "@/components/ai-working";
 import { cx } from "@/components/cx";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
-import { ExternalIcon, StarIcon } from "@/components/icons";
+import { ExternalIcon, RefreshIcon, StarIcon } from "@/components/icons";
+import { ListGroup } from "@/components/list-group";
+import { SwitchRow } from "@/components/switch-row";
 import { errorMessages } from "@/lib/errors";
 import { useOption } from "@/lib/use-option";
 import {
   explainWorthButtonText,
   explainWorthFailedText,
   explainingWorthText,
+  oneAiCallText,
   parseWorthDetail,
+  recommendationLabel,
+  recommendsNoText,
+  recommendsYesText,
+  updateWorthText,
+  updatingWorthText,
+  worthAppliedText,
+  worthProposal,
+  worthSwitchHints,
+  type WorthState,
   worthConfidenceText,
   worthDetailHeadings,
   worthDisclaimerText,
@@ -21,6 +34,7 @@ import {
   type WorthConfidence,
 } from "../domain/thing-worth";
 import { phraseForSearch, soldLinks, soldSearchNoteText, soldSearchTitleText, soldSearchingText } from "../domain/worth-search";
+import { setThingWorth } from "../actions/worth-state";
 import { explainWorthDetail } from "./worth-client";
 
 // Värdetips (Tillval): a small pill on a föremål's row ("★ Kan ha värde": a shape and words, never colour alone),
@@ -47,7 +61,7 @@ export function WorthMarker({ worth, onMint = false }: { worth: ThingWorth | nul
     >
       <StarIcon size={13} className="shrink-0" />
       {worthTitleText}
-      <span className="sr-only">, {confidenceReading[worth.confidence]}</span>
+      {worth.confidence ? <span className="sr-only">, {confidenceReading[worth.confidence]}</span> : null}
     </span>
   );
 }
@@ -161,61 +175,167 @@ function SoldSearch({ phrase }: { phrase: string }) {
   );
 }
 
-type Asking = "idle" | "asking" | { error: string };
+type Asking = "idle" | "asking" | "updating" | { error: string };
+
+/** What the last assessment said, shown under the explanation until the sheet is closed. */
+type Said = { recommends: boolean | null; appliedText: string | null; suggestion: boolean | null };
 
 /**
- * Under a föremål's name in its sheet: "Kan ha värde", the sentence, how sure, and that it is a tip. With the föremål's
- * id there is also "Undersök värdet" (and the explanation once it is there); key it on the opening, so each starts fresh.
+ * In a föremål's sheet, under its name (Värdetips): the switch "Kan ha värde" (the user's own choice goes before the
+ * AI's, both ways, with a line on who set it), the AI's tip when it is starred, and "Undersök värdet" for any föremål:
+ * the AI's recommendation with its explanation, kept. The recommendation stars or unstars at once when the user has
+ * never touched the star, else it is only offered as a button. "Uppdatera" at the end asks again. Key it on the
+ * opening, so each starts fresh. Nothing with the Tillval switch off.
  */
-export function WorthBlock({ worth, thingId, name }: { worth: ThingWorth | null | undefined; thingId?: string; name?: string }) {
+export function WorthBlock({
+  worth,
+  state,
+  thingId,
+  name,
+  canExamine = true,
+}: {
+  /** The star as the rows have it (kept for the tests of the rows); `state` carries the whole picture. */
+  worth?: ThingWorth | null;
+  state?: WorthState;
+  thingId?: string;
+  name?: string;
+  /** A föremål without a photo (written or noted) cannot be examined. */
+  canExamine?: boolean;
+}) {
   const on = useOption("worthLook");
-  const [detail, setDetail] = useState<string | null>(worth?.detail ?? null);
+  const router = useRouter();
+  const initial: WorthState =
+    state ?? (worth ? { starred: true, setBy: worth.byUser ? "user" : "ai", tip: worth.confidence ? { why: worth.why, confidence: worth.confidence } : null, detail: worth.detail ?? null } : { starred: false, setBy: null, tip: null, detail: null });
+  const [current, setCurrent] = useState<WorthState>(initial);
   const [asking, setAsking] = useState<Asking>("idle");
-  if (!on || !worth) return null;
-  const shownDetail = detail ?? worth.detail ?? null;
+  const [said, setSaid] = useState<Said | null>(null);
+  const [toggling, setToggling] = useState(false);
+  if (!on || !thingId) return null;
+  const shownDetail = current.detail;
   // The explanation's own phrase when it has one (older explanations have none), else the föremål's name.
   const phrase = phraseForSearch(shownDetail ? parseWorthDetail(shownDetail)?.search : null, name ?? "");
+  const busy = asking === "asking" || asking === "updating";
 
-  async function explain() {
-    if (!thingId || asking === "asking") return;
-    setAsking("asking");
-    const answer = await explainWorthDetail(thingId);
+  async function choose(starred: boolean) {
+    if (!thingId || toggling) return;
+    setToggling(true);
+    const answer = await setThingWorth({ id: thingId, starred }).catch(() => null);
+    setToggling(false);
+    if (answer?.ok) {
+      setCurrent((before) => ({ ...answer.data.state, detail: answer.data.state.detail ?? before.detail }));
+      setSaid((before) => (before ? { ...before, suggestion: null } : before));
+      router.refresh();
+    } else {
+      setAsking({ error: errorMessages[answer?.error.code ?? "things_item_failed"] ?? explainWorthFailedText });
+    }
+  }
+
+  async function assess(refresh: boolean) {
+    if (!thingId || busy) return;
+    const wasAi = current.setBy === "ai";
+    setAsking(refresh ? "updating" : "asking");
+    const answer = await explainWorthDetail(thingId, refresh);
     if (answer.ok) {
-      setDetail(answer.data.detail);
+      const result = answer.data;
+      setCurrent(result.state);
+      setSaid({
+        recommends: result.recommends,
+        appliedText: result.recommends === null ? null : worthAppliedText(result.recommends, result.applied, wasAi),
+        suggestion: result.suggestion,
+      });
       setAsking("idle");
+      if (result.applied !== "unchanged") router.refresh();
     } else {
       setAsking({ error: errorMessages[answer.error.code] ?? explainWorthFailedText });
     }
   }
 
+  const recommends = said?.recommends ?? (shownDetail ? (parseWorthDetail(shownDetail)?.recommends ?? null) : null);
+  const proposal = said?.suggestion != null ? worthProposal(said.suggestion) : null;
+
   return (
-    <section aria-label={worthTitleText} data-testid="worth-block" className="flex flex-col gap-2 rounded-lg bg-bg px-3.5 py-3">
-      <p>
-        <span className="inline-flex items-center gap-1 rounded-full bg-star-tint py-0.5 pr-2.5 pl-1.5 text-meta font-semibold text-star-ink">
-          <StarIcon size={14} className="shrink-0" />
-          {worthTitleText}
-        </span>
-      </p>
-      <p className="text-body text-ink">{worth.why}</p>
-      {shownDetail ? <WorthDetail text={shownDetail} /> : null}
-      {!shownDetail && thingId ? (
+    <section aria-label={worthTitleText} data-testid="worth-block" className="flex flex-col gap-2.5">
+      <ListGroup label={worthTitleText}>
+        <SwitchRow
+          label={worthTitleText}
+          icon={<StarIcon size={18} className="shrink-0" />}
+          hint={worthSwitchHints[current.setBy ?? "none"]}
+          on={current.starred}
+          onToggle={() => void choose(!current.starred)}
+          disabled={toggling}
+        />
+      </ListGroup>
+      {current.starred ? (
+        <div data-testid="worth-tip" className="flex flex-col gap-2 rounded-lg bg-bg px-3.5 py-3">
+          {current.tip ? <p className="text-body text-ink">{current.tip.why}</p> : null}
+          <SoldSearch phrase={phrase} />
+          <p className="text-meta text-ink-2">
+            {current.tip ? (
+              <>
+                <span data-testid="worth-confidence">{worthConfidenceText(current.tip.confidence)}</span>.{" "}
+              </>
+            ) : null}
+            {worthDisclaimerText}
+          </p>
+        </div>
+      ) : null}
+      {shownDetail ? (
+        <>
+          {recommends !== null ? (
+            <p data-testid="worth-recommendation" className="text-body text-ink">
+              {recommendationLabel} <strong className="font-semibold">{recommends ? recommendsYesText : recommendsNoText}</strong>
+            </p>
+          ) : null}
+          {said?.appliedText ? (
+            <p data-testid="worth-applied" role="status" className="text-meta text-ink-2">
+              {said.appliedText}
+            </p>
+          ) : null}
+          <WorthDetail text={shownDetail} />
+          {proposal ? (
+            <div data-testid="worth-proposal" className="flex flex-col items-start gap-2 rounded-lg bg-bg px-3.5 py-3">
+              <p className="text-body text-ink">{proposal.text}</p>
+              <Button variant="secondary" onClick={() => void choose(said!.suggestion === true)} disabled={toggling}>
+                {proposal.button}
+              </Button>
+            </div>
+          ) : null}
+          {canExamine ? (
+            <div className="flex items-center gap-2">
+              {asking === "updating" ? (
+                <div role="status" data-testid="worth-updating">
+                  <AiWorking size="sm" label={updatingWorthText} />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void assess(true)}
+                  disabled={busy}
+                  className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-1 text-meta font-medium text-accent"
+                  data-testid="worth-update"
+                >
+                  <RefreshIcon size={14} className="shrink-0" />
+                  {updateWorthText}
+                  <span className="font-normal text-ink-3">{oneAiCallText}</span>
+                </button>
+              )}
+            </div>
+          ) : null}
+        </>
+      ) : canExamine ? (
         <div className="flex flex-col items-start gap-2">
           {asking === "asking" ? (
             <div role="status" data-testid="worth-explaining">
               <AiWorking size="sm" label={explainingWorthText} />
             </div>
           ) : (
-            <Button variant="secondary" onClick={() => void explain()} data-testid="worth-explain">
+            <Button variant="secondary" onClick={() => void assess(false)} data-testid="worth-explain">
               {explainWorthButtonText}
             </Button>
           )}
-          {typeof asking === "object" ? <Notice role="alert">{asking.error}</Notice> : null}
         </div>
       ) : null}
-      <SoldSearch phrase={phrase} />
-      <p className="text-meta text-ink-2">
-        <span data-testid="worth-confidence">{worthConfidenceText(worth.confidence)}</span>. {worthDisclaimerText}
-      </p>
+      {typeof asking === "object" ? <Notice role="alert">{asking.error}</Notice> : null}
     </section>
   );
 }

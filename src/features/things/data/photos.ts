@@ -175,9 +175,20 @@ export type ReadThing = {
  */
 export async function saveReadingIn(
   db: ThingsDb,
-  reading: { photoId: string; things: readonly ReadThing[]; note: string | null; hidden: number },
+  reading: { photoId: string; things: readonly ReadThing[]; note: string | null; hidden: number; summary?: string | null; title?: string | null },
 ): Promise<string[]> {
   return guarded("save", async () => {
+    // Ta om: the user's own name for the replaced card goes to the new one (the old card is removed by the save).
+    let inheritedTitle: string | null = null;
+    try {
+      const { data: card } = await db.from("thing_photo").select("replaces_photo_id").eq("id", reading.photoId).maybeSingle();
+      if (card?.replaces_photo_id) {
+        const { data: old } = await db.from("thing_photo").select("user_title").eq("id", card.replaces_photo_id).maybeSingle();
+        inheritedTitle = old?.user_title ?? null;
+      }
+    } catch {
+      // Without it the new card simply has no name of its own.
+    }
     const { data, error } = await db.rpc("save_thing_card", {
       photo: reading.photoId,
       things: reading.things.map((thing) => ({
@@ -196,6 +207,12 @@ export async function saveReadingIn(
       hidden_count: reading.hidden,
     });
     if (error) throw new ThingsDataError(error.code === cardGoneCode ? "card_gone" : `save_failed ${error.code}`);
+    // The card's line and the AI's short name (null when the reading gave none), and the user's own name carried over a Ta om. Never fails the save.
+    try {
+      await db.from("thing_photo").update({ summary: reading.summary ?? null, ai_title: reading.title ?? null, user_title: inheritedTitle }).eq("id", reading.photoId);
+    } catch {
+      console.error("things_summary_save_failed");
+    }
     return Array.isArray(data) ? data.filter((path): path is string => typeof path === "string") : [];
   });
 }

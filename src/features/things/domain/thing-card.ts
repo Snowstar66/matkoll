@@ -45,6 +45,10 @@ export type CardView = {
   width: number;
   height: number;
   things: CardThing[];
+  /** The user's own name for the card (Byt namn), the AI's suggested short name, and the AI's line about what it holds; null or missing when none. */
+  userTitle?: string | null;
+  aiTitle?: string | null;
+  summary?: string | null;
 };
 
 /** The four box columns of a thing_item row as a box, or `null` when it has none or they do not make one. */
@@ -84,7 +88,10 @@ export function cardViewHref(cardId: string, thingId?: string | null): string {
 }
 
 /** The big view's title: the room for a card of the whole room, the part, or "Låda: Black box". */
-export function cardViewTitle(card: Pick<CardView, "room" | "part" | "kind">): string {
+export function cardViewTitle(card: Pick<CardView, "room" | "part" | "kind"> & { userTitle?: string | null; aiTitle?: string | null }): string {
+  // The user's own name first, then the AI's short name, else where the card is.
+  if (card.userTitle) return card.userTitle;
+  if (card.aiTitle) return card.aiTitle;
   if (card.kind === "box" && card.part) return `Låda: ${card.part}`;
   return card.part ?? card.room;
 }

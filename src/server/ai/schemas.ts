@@ -626,11 +626,33 @@ const listedThings = <Entry extends z.ZodType>(entry: Entry) =>
     .array(entry)
     .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`);
 
+/** The longest line about a card (thing_photo.summary holds the same) and the longest short name (ai_title, user_title). */
+export const maxCardSummaryChars = 80;
+export const maxCardTitleChars = 40;
+
+const cardSummaryField = z.string().nullable().optional().describe("En kort rad (högst 70 tecken) om vad kortet mest innehåller, t.ex. Mest verktyg och redskap; Diverse när det är blandat; null om inget är tydligt");
+const cardTitleField = z.string().nullable().optional().describe("Ett kort namn på kortet, två till fyra ord, t.ex. Batterilådan eller Cykelhyllan; null om inget är tydligt");
+
 export const listThingsAnswer = z.object({
   things: listedThings(listedThing),
   hiddenContainers: z.number().describe("Antal lådor, backar, påsar och skåp vars innehåll inte syns, 0 om inga"),
   hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
+  summary: cardSummaryField,
+  title: cardTitleField,
 });
+
+/** An answer to listThings as parseThings takes it; the card's line and name are optional (an answer from before they were asked for has none). */
+type ListedAnswer = (Omit<z.output<typeof listThingsAnswer>, "summary" | "title"> | Omit<z.output<typeof listThingsWorthAnswer>, "summary" | "title">) & {
+  summary?: string | null;
+  title?: string | null;
+};
+
+/** One line about a card or a short name as it is kept: one line, no trailing full stop, cut to `max` characters; `null` when nothing is left. */
+export function cleanCardText(text: string | null | undefined, max: number): string | null {
+  if (typeof text !== "string") return null;
+  const cleaned = cutCodePoints(cleanModelText(text).replace(/[.\s]+$/, ""), max).trimEnd();
+  return cleaned === "" ? null : cleaned;
+}
 
 /**
  * listThingsAnswer for a household with Värdetips on: each thing may also carry `worth`, a short Swedish sentence
@@ -651,7 +673,19 @@ export const listThingsWorthAnswer = z.object({
   ),
   hiddenContainers: listThingsAnswer.shape.hiddenContainers,
   hiddenNote: listThingsAnswer.shape.hiddenNote,
+  summary: cardSummaryField,
+  title: cardTitleField,
 });
+
+/** What the model answers to summarizeCard: the line and the short name of a card, as in a reading. */
+export const summarizeCardAnswer = z.object({ summary: cardSummaryField, title: cardTitleField });
+
+/** The line and the short name of a card as kept; each `null` when there is none. */
+export type CardSummary = { summary: string | null; title: string | null };
+
+export function parseCardSummary(answer: { summary?: string | null; title?: string | null }): CardSummary {
+  return { summary: cleanCardText(answer.summary, maxCardSummaryChars), title: cleanCardText(answer.title, maxCardTitleChars) };
+}
 
 /** Inköpslista from a photo: at most this many items are kept; the prompt asks for no more. */
 export const maxListItems = 60;
@@ -1008,7 +1042,7 @@ function scaledBox(value: unknown, scale: { x: number; y: number }): unknown {
  * read in the scale the whole answer uses (boxesScale, with the photo's
  * `imageSize` for pixels).
  */
-export function parseThings(answer: z.output<typeof listThingsAnswer> | z.output<typeof listThingsWorthAnswer>, imageSize?: PointImageSize | null): {
+export function parseThings(answer: ListedAnswer, imageSize?: PointImageSize | null): CardSummary & {
   things: AiThing[];
   invalid: number;
   trimmed: number;
@@ -1047,6 +1081,7 @@ export function parseThings(answer: z.output<typeof listThingsAnswer> | z.output
     trimmed: Math.max(0, things.length - maxThings),
     hiddenContainers: hidden,
     hiddenNote: note !== "" && note.length <= 300 ? note : null,
+    ...parseCardSummary(answer),
   };
 }
 
@@ -1237,10 +1272,22 @@ export const explainWorthAnswer = z.object({
     .string()
     .optional()
     .describe("Två till sex ord att söka på för att hitta sålda liknande föremål, till exempel tillverkare, typ och material (”Orrefors kristallskål slipad”). Inga priser, inga citattecken, ingen mening"),
+  rekommendation: z.boolean().optional().describe("true om föremålet kan vara värt att undersöka vidare (känt märke, designklassiker, samlarkategori, äldre eller handgjort), annars false. Hellre false än en gissning"),
+  tips: z.string().optional().describe("En kort mening (högst 150 tecken) som sammanfattar varför det kan ha värde och vad man kan kontrollera; tom om rekommendation är false"),
+  sakerhet: z.string().optional().describe("sure, guess eller unsure: hur säker du är på rekommendationen"),
 });
 
 /** `sokfras` is the phrase to search for sold lookalikes with; "" when the model gave none. */
-export type WorthExplanation = { darfor: string; kan_vara: string; undersok: string[]; sokfras: string };
+export type WorthExplanation = {
+  darfor: string;
+  kan_vara: string;
+  undersok: string[];
+  sokfras: string;
+  /** The AI's recommendation about the star, with the short sentence and how sure it is for a star it sets. */
+  recommends: boolean;
+  tip: string;
+  confidence: WorthConfidence;
+};
 
 /** A search phrase as it is kept: one line, no quotation marks, at most six words and 60 characters; "" when nothing is left. */
 export function cleanSearchPhrase(text: string): string {
@@ -1269,6 +1316,10 @@ export function parseWorthExplanation(answer: z.output<typeof explainWorthAnswer
     undersok: answer.undersok.map((line) => clip(line, worthExplanationChars.check)).filter((line) => line !== "").slice(0, worthExplanationChars.checks),
     // One line of at most six words, no quotation marks; a phrase that is not that is no phrase (the sheet falls back to the name).
     sokfras: cleanSearchPhrase(answer.sokfras ?? ""),
+    // An answer without a recommendation (an older model answer) is none.
+    recommends: answer.rekommendation ?? false,
+    tip: clip(answer.tips ?? "", maxWorthChars),
+    confidence: (worthConfidences as readonly string[]).includes((answer.sakerhet ?? "").trim().toLowerCase()) ? ((answer.sakerhet ?? "").trim().toLowerCase() as WorthConfidence) : "guess",
   };
 }
 

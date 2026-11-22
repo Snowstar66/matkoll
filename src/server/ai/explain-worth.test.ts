@@ -38,7 +38,8 @@ describe("explainWorth on a model", () => {
   it("sends the explain-worth prompt, the photo and one labelled line each for name, tip and sureness", async () => {
     const model = fakeModel(JSON.stringify(answer));
     const result = await createModelAiService({ model }, limits).explainWorth(input, signal());
-    expect(result).toEqual({ ok: true, data: answer });
+    // No recommendation in the answer is none (an older answer); the rest is as the model said.
+    expect(result).toEqual({ ok: true, data: { ...answer, recommends: false, tip: "", confidence: "guess" } });
     const call = model.doGenerateCalls[0];
     expect(call.maxOutputTokens).toBe(inputLimits.explainWorth.maxOutputTokens);
     const [system, user] = call.prompt;
