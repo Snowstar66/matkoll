@@ -1,15 +1,21 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readOption } from "@/lib/options";
 import { OptionRow, OptionSettings } from "./option-settings";
 
-beforeEach(() => localStorage.clear());
+const toast = vi.hoisted(() => ({ showToast: vi.fn(), dismissToast: vi.fn() }));
+vi.mock("@/components/toast", () => ({ useToast: () => toast }));
+
+beforeEach(() => {
+  localStorage.clear();
+  toast.showToast.mockClear();
+});
 
 describe("OptionSettings", () => {
   it("has Värt en titt under Förrådet, off by default, and turning it on is remembered on this device", async () => {
     window.localStorage.clear();
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     const worth = screen.getByRole("switch", { name: /^Värt en titt/ });
     expect(worth).toHaveAttribute("aria-checked", "false");
     expect(worth).toHaveAccessibleDescription(/Ett tips, inte en värdering/);
@@ -20,7 +26,7 @@ describe("OptionSettings", () => {
   });
 
   it("has the sections Laga mat, Planera veckan, Näring, Äta ute, Förrådet and Dagens, with the Näring switches off by default", () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
     expect(headings).toEqual(["Laga mat", "Planera veckan", "Näring", "Äta ute", "Förrådet", "Dagens"]);
     const show = screen.getByRole("switch", { name: /^Visa näring/ });
@@ -36,7 +42,7 @@ describe("OptionSettings", () => {
   });
 
   it("chooses Prickar, Text or Inget for Visa vem rätten passar and remembers it", async () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     await userEvent.click(screen.getByRole("radio", { name: "Text" }));
     expect(screen.getByRole("radio", { name: "Text" })).toHaveAttribute("aria-checked", "true");
     expect(window.localStorage.getItem("livskoll-option-showFit")).toBe("text");
@@ -46,7 +52,7 @@ describe("OptionSettings", () => {
   });
 
   it("shows the Näringskoll under Näring only with Visa näring on", async () => {
-    render(<OptionSettings nutritionNote={<p data-testid="check">Näringen kan räknas för 3 av 4 recept.</p>} />);
+    render(<OptionSettings areasEnabled={false} nutritionNote={<p data-testid="check">Näringen kan räknas för 3 av 4 recept.</p>} />);
     expect(screen.queryByTestId("check")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
     expect(screen.getByTestId("check")).toHaveTextContent("Näringen kan räknas för 3 av 4 recept.");
@@ -56,7 +62,7 @@ describe("OptionSettings", () => {
 
   it("puts the page's group Delade recept last, after the device's note, with the option row for Visa delade recept", () => {
     render(
-      <OptionSettings
+      <OptionSettings areasEnabled={false}
         after={
           <div data-testid="after">
             <h2>Delade recept</h2>
@@ -76,13 +82,13 @@ describe("OptionSettings", () => {
   });
 
   it("keeps Låt agenten söka på webben and Visa sidtider out of Tillval (they live under Avancerat)", () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     expect(screen.queryByRole("switch", { name: /söka på webben/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /Visa sidtider/ })).not.toBeInTheDocument();
   });
 
   it("orders Planera veckan as Veckoagenten, Visa hur ofta, Länge sedan efter, Visa tidigare vecka, the link, Visa vem rätten passar", () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     const section = screen.getByRole("heading", { name: "Planera veckan" }).nextElementSibling as HTMLElement;
     const order = Array.from(section.children).map((li) => li.textContent ?? "");
     const at = (text: string) => order.findIndex((entry) => entry.startsWith(text));
@@ -91,7 +97,7 @@ describe("OptionSettings", () => {
   });
 
   it("greys a switch that needs another one and says Kräver, without changing it; an on switch stays free to turn off", async () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     const ute = screen.getByRole("switch", { name: /^Sök restauranger/ });
     expect(ute).toBeDisabled();
     expect(ute).toHaveAccessibleDescription("Kräver Menyrådgivare");
@@ -109,7 +115,7 @@ describe("OptionSettings", () => {
   });
 
   it("turns Visa näring on for this device and names the source under the group", async () => {
-    render(<OptionSettings />);
+    render(<OptionSettings areasEnabled={false} />);
     await userEvent.click(screen.getByRole("switch", { name: /^Visa näring/ }));
     expect(readOption("showNutrition")).toBe(true);
     expect(screen.getByRole("switch", { name: /^Visa kcal/ })).toBeEnabled();

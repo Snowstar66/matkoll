@@ -2,17 +2,23 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { badgeOptedIn } from "@/lib/app-badge";
+import { areasCardEnabled, areasValueText } from "@/lib/option-areas";
+import { optionChangedEvent } from "@/lib/options";
 import { palettes, readPalette } from "@/lib/palette";
 
 // The short values of the rows that are about this phone (Utseende, Notiser, Siffra på appikonen):
 // read on the device when the page has loaded, never on the server. Nothing is written.
 
 /** Which device value a row shows. */
-export type DeviceValueKind = "palette" | "push" | "badge";
+export type DeviceValueKind = "palette" | "push" | "badge" | "areas";
 
 function subscribe(listener: () => void) {
   window.addEventListener("storage", listener);
-  return () => window.removeEventListener("storage", listener);
+  window.addEventListener(optionChangedEvent, listener);
+  return () => {
+    window.removeEventListener("storage", listener);
+    window.removeEventListener(optionChangedEvent, listener);
+  };
 }
 
 function paletteLabel(): string {
@@ -36,7 +42,7 @@ export async function pushOnThisDevice(): Promise<boolean> {
 export function useDeviceValue(kind: DeviceValueKind | undefined): string | undefined {
   const sync = useSyncExternalStore(
     subscribe,
-    () => (kind === "palette" ? paletteLabel() : kind === "badge" ? (badgeOptedIn() ? "På" : "Av") : ""),
+    () => (kind === "palette" ? paletteLabel() : kind === "badge" ? (badgeOptedIn() ? "På" : "Av") : kind === "areas" && areasCardEnabled ? areasValueText() : ""),
     () => "",
   );
   const [push, setPush] = useState<string | undefined>(undefined);
