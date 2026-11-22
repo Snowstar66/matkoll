@@ -245,7 +245,7 @@ export type LocateThingResult = { box: ThingBox | null };
 export type ListThingsInput = {
   /** A photo of a place, already resized in the client (AD-15). Never stored or logged by the port. */
   image: ImageInput;
-  /** Värt en titt (Tillval, on): the model also flags the few föremål that may be worth a closer look. Left out, nothing is asked and nothing is spent. */
+  /** Värdetips (Tillval, on): the model also flags the few föremål that may be worth a closer look. Left out, nothing is asked and nothing is spent. */
   worth?: boolean;
 };
 
@@ -371,7 +371,7 @@ export type ExplainDishInput = {
 /** The dish explained in Swedish, in plain sentences. */
 export type ExplainDishResult = DishExplanation;
 
-/** What explainWorth gets (Värt en titt, "Förklara närmare"): the photo (cropped around the föremål when it has a box), its name and the tip it already has. Data for the model, never instructions. */
+/** What explainWorth gets (Värdetips, "Undersök värdet"): the photo (cropped around the föremål when it has a box), its name and the tip it already has. Data for the model, never instructions. */
 export type ExplainWorthInput = {
   /** The card's photo or a crop of it as it is stored (AD-15). Never stored or logged by the port. */
   image: ImageInput;
@@ -653,7 +653,7 @@ export interface AiService {
    */
   explainDish(input: ExplainDishInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ExplainDishResult>>;
   /**
-   * A föremål flagged "Värt en titt" explained (the föremål's sheet, "Förklara närmare"): why it was flagged, what it
+   * A föremål flagged "Värdetips" explained (the föremål's sheet, "Undersök värdet"): why it was flagged, what it
    * could be and what is worth checking further. One short call with the photo (a crop round the föremål when it has a
    * box), its name and the tip it has; never a price. Asked once per föremål, the answer is kept. Fails with
    * `validation` (an image, name or tip outside the limits), `ai_unavailable` (also when the deadline leaves too

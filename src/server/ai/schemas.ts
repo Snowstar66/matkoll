@@ -595,7 +595,7 @@ export const maxThings = 60;
  * JSON schemas take it, and one bad thing never makes the whole answer
  * invalid. Each thing is checked on its own (parseThings).
  */
-/** The words of a "Värt en titt" confidence, as the model says them and as thing_item keeps them. */
+/** The words of a "Värdetips" confidence, as the model says them and as thing_item keeps them. */
 export const worthConfidences = ["sure", "guess", "unsure"] as const;
 export type WorthConfidence = (typeof worthConfidences)[number];
 /** The longest "why" kept, in characters (thing_item.worth_why holds the same). */
@@ -603,7 +603,7 @@ export const maxWorthChars = 200;
 /** At most this many föremål of a card are flagged; the prompt asks for no more. */
 export const maxWorthPerCard = 10;
 
-/** One thing of listThingsAnswer; `worth` is only part of the answer when the household has Värt en titt on (listThingsWorthAnswer). */
+/** One thing of listThingsAnswer; `worth` is only part of the answer when the household has Värdetips on (listThingsWorthAnswer). */
 const listedThing = z.object({
   name: z.string().describe(`${thingNounCap.definite}s namn på svenska, kort, t.ex. hammare eller cirkelsåg`),
   category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
@@ -633,7 +633,7 @@ export const listThingsAnswer = z.object({
 });
 
 /**
- * listThingsAnswer for a household with Värt en titt on: each thing may also carry `worth`, a short Swedish sentence
+ * listThingsAnswer for a household with Värdetips on: each thing may also carry `worth`, a short Swedish sentence
  * on why it may be worth a closer look and how sure the model is. Only asked for then, so nothing changes (and no
  * extra tokens) without the switch.
  */
@@ -968,7 +968,7 @@ export const aiThing = z.object({
   box: z.preprocess((value) => boxFromThousandths(value), z.custom<ThingBox>().nullable()),
   // Story 18.23: a whole number from 1 to 999, or no count; anything else is no count, never an invalid thing.
   count: z.preprocess((value) => (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= maxThingCount ? value : null), z.number().int().nullable()),
-  // Värt en titt: a short why and how sure; anything that is not that is no tip, never an invalid thing.
+  // Värdetips: a short why and how sure; anything that is not that is no tip, never an invalid thing.
   worth: z.preprocess(worthOf, z.object({ why: z.string(), confidence: z.enum(worthConfidences) }).nullable()),
 });
 export type AiThing = z.output<typeof aiThing>;
@@ -1040,7 +1040,7 @@ export function parseThings(answer: z.output<typeof listThingsAnswer> | z.output
   const hidden = Number.isFinite(answer.hiddenContainers) ? Math.min(99, Math.max(0, Math.round(answer.hiddenContainers))) : 0;
   return {
     things: things.slice(0, maxThings).map((thing, index, kept) =>
-      // Värt en titt: only the first maxWorthPerCard tips of the card are kept.
+      // Värdetips: only the first maxWorthPerCard tips of the card are kept.
       thing.worth && kept.slice(0, index).filter((earlier) => earlier.worth).length >= maxWorthPerCard ? { ...thing, worth: null } : thing,
     ),
     invalid,
@@ -1226,7 +1226,7 @@ export function parseDishExplanation(answer: z.output<typeof explainDishAnswer>)
 export const worthExplanationChars = { why: 380, couldBe: 380, check: 150, checks: 4, search: 60 } as const;
 
 /**
- * What the model answers to explainWorth: why a föremål was flagged "Värt en titt", what it could be, and what is worth
+ * What the model answers to explainWorth: why a föremål was flagged "Värdetips", what it could be, and what is worth
  * checking further. Plain Swedish sentences, never a price; a guess says that it is one.
  */
 export const explainWorthAnswer = z.object({

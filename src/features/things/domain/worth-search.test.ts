@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { phraseForSearch, searchPhrase, soldLinks } from "./worth-search";
 
-// The links that open a search for sold lookalikes (Värt en titt, level 1): the phrase is cleaned, åäö and
+// The links that open a search for sold lookalikes (Värdetips, level 1): the phrase is cleaned, åäö and
 // special characters are encoded, and nothing here is a price.
 
 describe("the search phrase", () => {

@@ -27,6 +27,8 @@ export type RoomSummary = {
   /** Cards being read. */
   reading: number;
   latest: Date | null;
+  /** Värdetips: kept föremål with a star (a count over the room's rows, no column of its own); missing counts as none. */
+  starred?: number;
 };
 
 /** "74 prylar", or "1 pryl". */
@@ -39,12 +41,17 @@ export function cardsText(count: number): string {
   return `${count} kort`;
 }
 
+/** The parts of the line under a room on the start page: ["74 prylar", "9 kort", "31 okt"]. The star count goes after the first (RoomMeta). */
+export function roomMetaParts(room: RoomSummary): string[] {
+  // A room with only written things (Story 18.13) has things and no card.
+  if (room.cards === 0 && room.things > 0) return [thingsText(room.things)];
+  if (room.cards === 0) return [room.reading > 0 ? "Tittar på kortet …" : "Inget kort än"];
+  return [thingsText(room.things), cardsText(room.cards), room.latest ? shortDateText(room.latest) : null].filter((part): part is string => Boolean(part));
+}
+
 /** The line under a room on the start page: "74 prylar · 9 kort · 31 okt". */
 export function roomMeta(room: RoomSummary): string {
-  // A room with only written things (Story 18.13) has things and no card.
-  if (room.cards === 0 && room.things > 0) return thingsText(room.things);
-  if (room.cards === 0) return room.reading > 0 ? "Tittar på kortet …" : "Inget kort än";
-  return [thingsText(room.things), cardsText(room.cards), room.latest ? shortDateText(room.latest) : null].filter(Boolean).join(" · ");
+  return roomMetaParts(room).join(" · ");
 }
 
 /**
@@ -152,6 +159,8 @@ export type RoomCard = {
   errorCode: string | null;
   unseenNote: string | null;
   unseenCount: number;
+  /** Värdetips: how many of the card's föremål have a star; missing counts as none. */
+  starred?: number;
 };
 
 /** The room's page titles: the tabs of the segmented control. */

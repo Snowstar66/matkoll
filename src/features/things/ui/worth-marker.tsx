@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AiWorking } from "@/components/ai-working";
+import { cx } from "@/components/cx";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { ExternalIcon, StarIcon } from "@/components/icons";
@@ -22,26 +23,74 @@ import {
 import { phraseForSearch, soldLinks, soldSearchNoteText, soldSearchTitleText, soldSearchingText } from "../domain/worth-search";
 import { explainWorthDetail } from "./worth-client";
 
-// Värt en titt (Tillval): a small pill on a föremål's row ("★ Värt en titt": a shape and words, never colour alone),
-// and a quiet block in its sheet with the tip, how sure it is, and "Förklara närmare", which asks the AI once for
+// Värdetips (Tillval): a small pill on a föremål's row ("★ Kan ha värde": a shape and words, never colour alone),
+// and a quiet block in its sheet with the tip, how sure it is, and "Undersök värdet", which asks the AI once for
 // why it was flagged, what it could be and what is worth checking, and keeps the answer. Both only show when the
 // switch is on and the föremål has a tip.
 
 const confidenceReading: Record<WorthConfidence, string> = { sure: "säker", guess: "gissning", unsure: "osäker" };
 
-/** The pill after a föremål's name on a row; nothing without a tip or with the switch off. It wraps to the next line with a long name. */
-export function WorthMarker({ worth }: { worth: ThingWorth | null | undefined }) {
+/**
+ * The pill after a föremål's name on a row; nothing without a tip or with the switch off. It wraps to the next line with a long name.
+ * `onMint` is for a row that is marked (mint): the pill is then white so it shows.
+ */
+export function WorthMarker({ worth, onMint = false }: { worth: ThingWorth | null | undefined; onMint?: boolean }) {
   const on = useOption("worthLook");
   if (!on || !worth) return null;
   return (
     <span
       data-testid="worth-marker"
-      className="ml-2 inline-flex items-center gap-1 rounded-full bg-warm px-2 py-0.5 align-middle text-badge font-semibold whitespace-nowrap text-on-warm"
+      className={cx(
+        "ml-2 inline-flex items-center gap-1 rounded-full py-0.5 pr-2.25 pl-1.5 align-middle text-badge font-semibold whitespace-nowrap text-star-ink",
+        onMint ? "bg-surface" : "bg-star-tint",
+      )}
     >
       <StarIcon size={13} className="shrink-0" />
       {worthTitleText}
       <span className="sr-only">, {confidenceReading[worth.confidence]}</span>
     </span>
+  );
+}
+
+/**
+ * The star on a photo, at the top right of a numbered marker (put it inside the marker; it follows its size and fade).
+ * Decoration (aria-hidden): the list row says it in words. Nothing with the switch off.
+ */
+export function PhotoStar() {
+  const on = useOption("worthLook");
+  if (!on) return null;
+  return (
+    <span aria-hidden="true" data-testid="photo-star" className="pointer-events-none absolute -top-2.5 -right-2.25 size-4">
+      <StarIcon size={16} sticker />
+    </span>
+  );
+}
+
+/**
+ * "★ 2": how many föremål with a star a room, a card or a photo has, in a meta line. Nothing with the switch off or at
+ * zero. The star is a decoration; a screen reader says "2 kan ha värde".
+ */
+export function StarCount({ count }: { count: number | null | undefined }) {
+  const on = useOption("worthLook");
+  if (!on || !count || count <= 0) return null;
+  return (
+    <span data-testid="star-count" className="whitespace-nowrap">
+      <StarIcon size={12} className="mr-0.5 inline-block align-[-1px]" />
+      <span aria-hidden="true">{count}</span>
+      <span className="sr-only">{count} {worthTitleText.toLowerCase()}</span>
+    </span>
+  );
+}
+
+/** " · ★ 2" in a meta line: the separator goes with the count, so nothing is left behind when there is none or the switch is off. */
+export function StarCountAfter({ count }: { count: number | null | undefined }) {
+  const on = useOption("worthLook");
+  if (!on || !count || count <= 0) return null;
+  return (
+    <>
+      {" · "}
+      <StarCount count={count} />
+    </>
   );
 }
 
@@ -115,8 +164,8 @@ function SoldSearch({ phrase }: { phrase: string }) {
 type Asking = "idle" | "asking" | { error: string };
 
 /**
- * Under a föremål's name in its sheet: "Värt en titt", the sentence, how sure, and that it is a tip. With the föremål's
- * id there is also "Förklara närmare" (and the explanation once it is there); key it on the opening, so each starts fresh.
+ * Under a föremål's name in its sheet: "Kan ha värde", the sentence, how sure, and that it is a tip. With the föremål's
+ * id there is also "Undersök värdet" (and the explanation once it is there); key it on the opening, so each starts fresh.
  */
 export function WorthBlock({ worth, thingId, name }: { worth: ThingWorth | null | undefined; thingId?: string; name?: string }) {
   const on = useOption("worthLook");
@@ -142,7 +191,7 @@ export function WorthBlock({ worth, thingId, name }: { worth: ThingWorth | null 
   return (
     <section aria-label={worthTitleText} data-testid="worth-block" className="flex flex-col gap-2 rounded-lg bg-bg px-3.5 py-3">
       <p>
-        <span className="inline-flex items-center gap-1 rounded-full bg-warm px-2.5 py-0.5 text-meta font-semibold text-on-warm">
+        <span className="inline-flex items-center gap-1 rounded-full bg-star-tint py-0.5 pr-2.5 pl-1.5 text-meta font-semibold text-star-ink">
           <StarIcon size={14} className="shrink-0" />
           {worthTitleText}
         </span>

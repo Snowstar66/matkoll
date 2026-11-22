@@ -14,7 +14,7 @@ import { withUsageSink } from "@/server/ai/usage";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
 
-// Förklara närmare (Värt en titt) against local Supabase: a föremål with a tip asks for the fuller explanation, the
+// Undersök värdet (Värdetips) against local Supabase: a föremål with a tip asks for the fuller explanation, the
 // mock AI answers (never a paid model) and it is kept on the föremål, so a second ask is read, not asked; one that is
 // not the user's, or has no tip, is refused; the AI out of reach keeps nothing; thing_item_worth_detail_check holds
 // the length; and another household can neither read nor write the explanation. Only a drawn photo.
@@ -86,7 +86,7 @@ async function readingCard(): Promise<string> {
 const hammerBox = { left: 0.197, top: 0.153, width: 0.14, height: 0.211 };
 const tip = { why: "Liknar Orrefors. Titta på botten.", confidence: "guess" as const };
 
-describe("Förklara närmare", () => {
+describe("Undersök värdet", () => {
   it("asks the AI once, keeps the explanation on the föremål, and reads it after that without a second call", async () => {
     const cardId = await readingCard();
     await saveReadingIn(a.db, {

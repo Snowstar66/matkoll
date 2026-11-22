@@ -7,14 +7,13 @@ import { EmptyState } from "@/components/empty-state";
 import { useAiJobs } from "@/lib/ai-jobs-client";
 import { readOption } from "@/lib/options";
 import { cardFailureText, retryText, shortDateText } from "../domain/thing-photo";
-import { cardMeta, type RoomCard } from "../domain/thing-room";
+import { thingsText, type RoomCard } from "../domain/thing-room";
 import { errorMessages, fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
 import type { AiJob } from "@/lib/ai-job-shape";
 import Link from "next/link";
 import { writtenEditText, writtenMeta, type WrittenBox } from "../domain/thing-written";
-import { AddCardThings } from "./add-card-things";
+import { StarCountAfter } from "./worth-marker";
 import { RemoveCard } from "./remove-card";
-import { RetakeCard } from "./retake-card";
 import { AiWorking } from "@/components/ai-working";
 import { thingNoun } from "../domain/thing-noun";
 import { cardViewHref } from "../domain/thing-card";
@@ -99,27 +98,29 @@ export function RoomCards({
             {card.status === "reading" ? (
               <AiWorking size="sm" steps={cardSteps} />
             ) : (
-              <p className="text-meta text-ink-3">{card.status === "done" ? cardMeta(card) : `Kunde inte läsas · ${shortDateText(card.takenAt)}`}</p>
+              <p className="text-meta text-ink-3" data-testid="room-card-meta">
+                {card.status === "done" ? (
+                  <>
+                    {thingsText(card.things)}
+                    <StarCountAfter count={card.starred} />
+                    {` · ${shortDateText(card.takenAt)}`}
+                  </>
+                ) : (
+                  `Kunde inte läsas · ${shortDateText(card.takenAt)}`
+                )}
+              </p>
             )}
             {card.status === "failed" ? (
               <p className="text-meta text-ink-2">{cardFailureText(card.errorCode && isErrorCode(card.errorCode) ? card.errorCode : null)}</p>
             ) : null}
           </div>
-          <div className="mt-auto flex flex-wrap items-center gap-x-1 px-1 pb-1">
-            {card.status === "done" ? (
-              <>
-                <RetakeCard cardId={card.id} placeId={card.placeId} name={card.label} />
-                <AddCardThings cardId={card.id} name={card.label} />
-                <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
-              </>
-            ) : null}
-            {card.status !== "done" ? (
-              <>
-                {card.status === "failed" ? <RetryCard id={card.id} /> : null}
-                <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
-              </>
-            ) : null}
-          </div>
+          {/* A read card has no buttons here (its actions are in the ⋯ inside the card); one that cannot be opened keeps Försök igen and Ta bort. */}
+          {card.status !== "done" ? (
+            <div className="mt-auto flex flex-wrap items-center gap-x-1 px-1 pb-1">
+              {card.status === "failed" ? <RetryCard id={card.id} /> : null}
+              <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
+            </div>
+          ) : null}
         </li>
       ))}
       {/* Things written into a box (Story 18.13) have no photo: the card is the box, with "Ändra". */}

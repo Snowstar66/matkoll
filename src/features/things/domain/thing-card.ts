@@ -26,7 +26,7 @@ export type CardThing = {
   boxMissed: boolean;
   /** Story 18.23: how many the card shows ("5 st"); null or missing when it is not counted. */
   quantity?: number | null;
-  /** Värt en titt: why it may be worth a closer look; missing or null when it has no tip. */
+  /** Värdetips: why it may be worth a closer look; missing or null when it has no tip. */
   worth?: ThingWorth | null;
 };
 

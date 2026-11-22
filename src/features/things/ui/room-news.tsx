@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAiJobs } from "@/lib/ai-jobs-client";
+import { StarCountAfter } from "./worth-marker";
 import { locateThingCards } from "../actions/locate-cards";
 import { isUnseenThingJob, jobCardId, maxLocatedCards, newCardsText, type CardWhere } from "../domain/thing-news";
 
@@ -66,18 +67,27 @@ export function RoomNews({ siteId, children }: { siteId: string; children: React
 /** A room row's line on the overview: "• 1 nytt kort · 74 föremål · 9 kort · 31 okt" while the room has an unseen card, else the line as it is. */
 const noSubscription = () => () => {};
 
-export function RoomMeta({ roomKey, text }: { roomKey: string; text: string }) {
+export function RoomMeta({ roomKey, parts, starred = 0 }: { roomKey: string; parts: readonly string[]; starred?: number }) {
   const count = useContext(RoomNewsContext)[roomKey] ?? 0;
   // The rows are rendered on the server without the news (the jobs are the browser's), so it is added after hydration.
   const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
-  if (count === 0 || !hydrated) return text;
+  // Värdetips: "★ 2" after the number of föremål (the first part), only when it is more than none.
+  const [first, ...rest] = parts;
+  const line = (
+    <>
+      {first}
+      {starred > 0 ? <StarCountAfter count={starred} /> : null}
+      {rest.map((part) => ` · ${part}`).join("")}
+    </>
+  );
+  if (count === 0 || !hydrated) return line;
   return (
     <>
       <span className="font-medium text-accent" data-testid="room-news">
         <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-accent align-[1px]" />
         {newCardsText(count)}
       </span>
-      {text ? ` · ${text}` : null}
+      {parts.length > 0 ? <> · {line}</> : null}
     </>
   );
 }

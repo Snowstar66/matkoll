@@ -656,7 +656,7 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       // A photo the mock does not know takes the delay, so a reading can be seen in progress.
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
-      // Värt en titt is only answered when it was asked for.
+      // Värdetips is only answered when it was asked for.
       const answer = structuredClone(current.answer);
       if (!input.worth) answer.things = answer.things.map((thing) => ({ ...thing, worth: null }));
       return ok({ ...answer, invalid: 0, trimmed: 0 });

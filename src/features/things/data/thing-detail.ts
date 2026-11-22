@@ -28,15 +28,16 @@ const cardThingSchema = z.object({
   box_top: z.number().nullable(),
   box_width: z.number().nullable(),
   box_height: z.number().nullable(),
+  ...worthRowShape,
 });
 
 /** The föremål on card `photoId` in the card's order (the order of its page, so the numbers agree). Throws ThingsDataError. */
 async function loadCardThings(db: ThingsDb, photoId: string): Promise<ThingDetail["cardThings"]> {
-  const { data, error } = await db.from("thing_item").select("id, name, position, box_left, box_top, box_width, box_height").eq("photo_id", photoId);
+  const { data, error } = await db.from("thing_item").select("id, name, position, box_left, box_top, box_width, box_height, worth_why, worth_confidence").eq("photo_id", photoId);
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   const parsed = z.array(cardThingSchema).safeParse(data);
   if (!parsed.success) throw new ThingsDataError("invalid_row");
-  return [...parsed.data].sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1)).map((row) => ({ id: row.id, name: row.name, box: boxOfRow(row) }));
+  return [...parsed.data].sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1)).map((row) => ({ id: row.id, name: row.name, box: boxOfRow(row), ...(worthOfRow(row) ? { starred: true } : {}) }));
 }
 
 /** The detail of föremål `id`, or `null` when it is gone or not the user's. Throws ThingsDataError. */

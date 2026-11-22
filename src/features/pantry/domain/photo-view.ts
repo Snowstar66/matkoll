@@ -26,6 +26,8 @@ export type PhotoViewMarker = {
   status: PhotoMarkerStatus | null;
   /** Where the item is, for "present". */
   location: Location | null;
+  /** Förrådet's Värdetips: the föremål is starred, so its number carries a star on the photo (a decoration; the name says it in words). */
+  starred?: boolean;
 };
 
 /** What the view needs to know of a saved photo. */
@@ -74,7 +76,7 @@ export function photoStatusText(marker: Pick<PhotoViewMarker, "status" | "locati
 /** A marker's name for a screen reader, status included: "Vara 3: Grädde, finns inte längre". */
 export function photoMarkerName(marker: PhotoViewMarker, noun = "Vara"): string {
   const status = photoStatusText(marker);
-  const label = `${noun} ${marker.n}: ${catalogName(marker.name)}`;
+  const label = `${noun} ${marker.n}: ${catalogName(marker.name)}${marker.starred ? ", kan ha värde" : ""}`;
   return status ? `${label}, ${status.charAt(0).toLowerCase()}${status.slice(1)}` : label;
 }
 
@@ -95,6 +97,9 @@ export const overviewHint = "Tryck på en siffra för att se vad det är.";
 
 /** The line under the title when zoomed in. */
 export const zoomedHint = "Tryck på bilden för att backa.";
+
+/** The same when the line under the photo opens the föremål's sheet (Förrådet's card). */
+export const zoomedEditableHint = "Tryck på bilden för att backa. Tryck på raden för att ändra.";
 
 /** The photo's name for a screen reader when zoomed: a tap goes back to the overview. */
 export function backToOverviewLabel(title: string): string {

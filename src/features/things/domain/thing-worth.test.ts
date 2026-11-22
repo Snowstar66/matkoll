@@ -19,6 +19,6 @@ describe("the words", () => {
     expect(worthConfidenceText("sure")).toBe("Säker");
     expect(worthConfidenceText("guess")).toBe("Gissning");
     expect(worthConfidenceText("unsure")).toBe("Osäker");
-    expect(worthMarkerLabel({ why: "x", confidence: "unsure" })).toBe("Värt en titt, osäker");
+    expect(worthMarkerLabel({ why: "x", confidence: "unsure" })).toBe("Kan ha värde, osäker");
   });
 });

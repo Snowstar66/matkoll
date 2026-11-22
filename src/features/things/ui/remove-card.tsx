@@ -26,6 +26,7 @@ export function RemoveCard({
   compact = false,
   name,
   onRemoved,
+  control,
 }: {
   cardId: string;
   takenAt: Date;
@@ -33,10 +34,14 @@ export function RemoveCard({
   name?: string;
   /** Called once the card is gone, instead of reading the page again (Story 18.7: the big view goes back to the room). */
   onRemoved?: () => void;
+  /** The card's ⋯ sheet opens the question: then there is no button of its own. */
+  control?: { open: boolean; onOpenChange: (open: boolean) => void };
 }) {
   const router = useRouter();
   const { showToast } = useToast();
-  const [asking, setAsking] = useState(false);
+  const [ownAsking, setOwnAsking] = useState(false);
+  const asking = control ? control.open : ownAsking;
+  const setAsking = control ? control.onOpenChange : setOwnAsking;
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -90,10 +95,12 @@ export function RemoveCard({
 
   return (
     <>
-      <Button variant={compact ? "compact" : "danger"} onClick={() => setAsking(true)} className={compact ? undefined : "self-center"} aria-label={compact && name ? `Ta bort kortet ${name}` : undefined} data-testid="remove-card">
-        {compact ? null : <TrashIcon size={20} />}
-        {compact ? "Ta bort" : removeCardText}
-      </Button>
+      {control ? null : (
+        <Button variant={compact ? "compact" : "danger"} onClick={() => setAsking(true)} className={compact ? undefined : "self-center"} aria-label={compact && name ? `Ta bort kortet ${name}` : undefined} data-testid="remove-card">
+          {compact ? null : <TrashIcon size={20} />}
+          {compact ? "Ta bort" : removeCardText}
+        </Button>
+      )}
       <Sheet
         open={asking}
         onClose={() => setAsking(false)}

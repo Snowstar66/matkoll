@@ -52,7 +52,7 @@ export type StartReadingInput = {
   takenAt: Date;
   clientKey: string;
   requestStartedAt: number;
-  /** Värt en titt (Tillval, on for this device): the reading also flags the few föremål that may be worth a closer look. */
+  /** Värdetips (Tillval, on for this device): the reading also flags the few föremål that may be worth a closer look. */
   worth?: boolean;
 };
 

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createMockAiService, defaultFixturesDir, mockSuggestErrorCodes } from "./mock";
 
-// explainWorth without a model (Värt en titt, "Förklara närmare"): fixed Swedish sentences around the name, so the
+// explainWorth without a model (Värdetips, "Undersök värdet"): fixed Swedish sentences around the name, so the
 // sheet and its states can be tried; a reserved text in the name gives its error code.
 
 const signal = () => new AbortController().signal;
