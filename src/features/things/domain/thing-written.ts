@@ -110,14 +110,6 @@ export function boxMeta(box: { cards: number; written: number }): string {
 }
 
 export const boxesLabelText = "Lådor";
-export const partsLabelText = "Delar";
-
-/** The line under a part in the room's list of parts: "12 prylar · 2 kort", or "Inget än". */
-export function partMeta(counts: { things: number; cards: number }): string {
-  const parts = [counts.things > 0 ? thingsText(counts.things) : null, counts.cards > 0 ? `${counts.cards} kort` : null].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : "Inget än";
-}
-
 // "Lägg till pryl" on a card (Story 18.15): things typed onto one card.
 export const addThingsText = `Lägg till ${thingNoun.singular}`;
 export const addThingsTitle = `Lägg till ${thingNoun.plural} på kortet`;
