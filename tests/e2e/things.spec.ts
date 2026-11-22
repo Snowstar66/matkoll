@@ -1421,7 +1421,7 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await expect(page.getByTestId("card-meta")).toHaveText(`Hela rummet · Kort från ${shortDateText(new Date())} · 12 föremål`);
   // The whole photo, never cropped, with a numbered dot on each of the twelve, the same numbers as in the list.
   const photo = page.getByTestId("card-photo");
-  await expect(photo.getByRole("img", { name: "Kort: Boden" })).toBeVisible();
+  await expect(photo.getByRole("img", { name: "Kort: Verktygshyllan" })).toBeVisible();
   await expect(page.getByTestId("card-dot")).toHaveCount(12);
   await expect(page.getByTestId("card-dot").first()).toHaveText("1");
   await expect(page.getByTestId("marker-badge").first()).toHaveText("1");
