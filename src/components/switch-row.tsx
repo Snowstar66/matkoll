@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
 "use client";
 
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { cx } from "./cx";
 
 /**
